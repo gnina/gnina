@@ -1,0 +1,88 @@
+smina is a fork of Autodock Vina (http://vina.scripps.edu/) that 
+focuses on improving scoring and minimization.  Changes from the
+standard Vina (version 1.1.2) include:
+ -comprehensive support for ligand molecular formats (via OpenBabel)*
+ -support for multi-ligand files (e.g., an sdf file)*
+ -support for addition term types (e.g., desolvation, electrostatics)
+ -support for custom, user-parameterized scoring functions (see --custom_scoring)
+ -automatic box creation based on a user-specified bound ligand
+ -allow the output of more than 20 docking poses
+
+For workflows where AutoDock Vina is used for minimization (local_only) 
+as opposed to of docking, these changes make Vina much easer to use and 
+10-20x faster. Docking performance is about the same since partial charge 
+calculation and file i/o isn't such a big part of the performance.
+
+*Non-pdbqt ligand files must have partial charges added.  This is done
+using OpenBabel and will get different results than the prepare_ligand4.py
+script that comes with AutoDock Tools.
+
+Input:
+  -r [ --receptor ] arg rigid part of the receptor (PDBQT)
+  --flex arg            flexible side chains, if any (PDBQT)
+  -l [ --ligand ] arg   ligand(s)
+
+Search space (required):
+  --center_x arg        X coordinate of the center
+  --center_y arg        Y coordinate of the center
+  --center_z arg        Z coordinate of the center
+  --size_x arg          size in the X dimension (Angstroms)
+  --size_y arg          size in the Y dimension (Angstroms)
+  --size_z arg          size in the Z dimension (Angstroms)
+  --autobox_ligand arg  Ligand to use for autobox
+  --autobox_add arg     Amount of buffer space to add to auto-generated box
+
+Scoring and minimization options:
+  --custom_scoring arg  custom scoring function file
+  --score_only          score provided ligand pose
+  --local_only          local search only using autobox (energy minimization)
+  --randomize_only      generate random poses, attempting to avoid clashes
+
+Output (optional):
+  -o [ --out ] arg      output models, the default is chosen based on the 
+                        ligand file name
+  --log arg             optionally, write log file
+
+Misc (optional):
+  --cpu arg                 the number of CPUs to use (the default is to try to
+                            detect the number of CPUs or, failing that, use 1)
+  --seed arg                explicit random seed
+  --exhaustiveness arg (=8) exhaustiveness of the global search (roughly 
+                            proportional to time)
+  --num_modes arg (=9)      maximum number of binding modes to generate
+  --energy_range arg (=3)   maximum energy difference between the best binding 
+                            mode and the worst one displayed (kcal/mol)
+  -q [ --quiet ]            Suppress output messages
+
+Configuration file (optional):
+  --config arg          the above options can be put here
+
+Information (optional):
+  --help                display usage summary
+  --help_hidden         display usage summary with hidden options
+  --version             display program version
+
+The custom scoring file consists of a weight, term description, and optional
+comments on each line.  The numeric parameters of the term description 
+can be varied to parameterize the scoring function.  
+Example (all weights 1.0, all term types listed):
+1.0  ad4_solvation(d-sigma=3.6,_s/q=0.01097,_q=1,_c=8)  desolvation, q determines whether value is charge dependent
+1.0  ad4_solvation(d-sigma=3.6,_s/q=0.01097,_q=0,_c=8)  in all terms, c is a distance cutoff
+1.0  electrostatic(i=1,_^=100,_c=8)	i is the exponent of the distance, see everything.h for details
+1.0  electrostatic(i=2,_^=100,_c=8)
+1.0  gauss(o=0,_w=0.5,_c=8)		o is offset, w is width of gaussian
+1.0  gauss(o=3,_w=2,_c=8)
+1.0  repulsion(o=0,_c=8)	o is offset of squared distance repulsion
+1.0  hydrophobic(g=0.5,_b=1.5,_c=8)		g is a good distance, b the bad distance
+1.0  non_hydrophobic(g=0.5,_b=1.5,_c=8)	value is linearly interpolated between g and b
+1.0  vdw(i=4,_j=8,_s=0,_^=100,_c=8)	i and j are LJ exponents
+1.0  vdw(i=6,_j=12,_s=1,_^=100,_c=8) s is the smoothing, ^ is the cap
+1.0  non_dir_h_bond(g=-0.7,_b=0,_c=8)	good and bad
+1.0  num_tors_div	div constant terms are not linearly independent
+1.0  num_heavy_atoms_div	
+1.0  num_heavy_atoms	these terms are just added
+1.0  num_tors_add
+1.0  num_tors_sqr
+1.0  num_tors_sqrt
+1.0  num_hydrophobic_atoms
+1.0  ligand_length
