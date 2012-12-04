@@ -21,6 +21,7 @@
 #include "current_weights.h"
 #include "quasi_newton.h"
 #include "tee.h"
+#include "custom_terms.h"
 #include <openbabel/babelconfig.h>
 #include <openbabel/mol.h>
 #include <openbabel/parsmart.h>
@@ -40,8 +41,14 @@ struct resultInfo
 	fl rmsd;
 	std::string mol;
 
-	resultInfo(): energy(0), rmsd(-1) {}
-	resultInfo(fl e, fl r, const std::string& m): energy(e), rmsd(r), mol(m) {}
+	resultInfo() :
+			energy(0), rmsd(-1)
+	{
+	}
+	resultInfo(fl e, fl r, const std::string& m) :
+			energy(e), rmsd(r), mol(m)
+	{
+	}
 };
 
 path make_path(const std::string& str)
@@ -80,10 +87,11 @@ void write_all_output(model& m, const output_container& out, sz how_many,
 	if (out.size() < how_many)
 		how_many = out.size();
 	VINA_CHECK(how_many <= remarks.size());
-	VINA_FOR(i, how_many){
-	m.set(out[i].c);
-	m.write_model(outstream, i + 1, remarks[i]); // so that model numbers start with 1
-}
+	VINA_FOR(i, how_many)
+	{
+		m.set(out[i].c);
+		m.write_model(outstream, i + 1, remarks[i]); // so that model numbers start with 1
+	}
 }
 
 fl do_randomization(model& m, std::ostream& out, const vec& corner1,
@@ -99,17 +107,18 @@ fl do_randomization(model& m, std::ostream& out, const vec& corner1,
 	const sz attempts = 10000;
 	conf best_conf = init_conf;
 	fl best_clash_penalty = 0;
-	VINA_FOR(i, attempts){
-	conf c = init_conf;
-	c.randomize(corner1, corner2, generator);
-	m.set(c);
-	fl penalty = m.clash_penalty();
-	if (i == 0 || penalty < best_clash_penalty)
+	VINA_FOR(i, attempts)
 	{
-		best_conf = c;
-		best_clash_penalty = penalty;
+		conf c = init_conf;
+		c.randomize(corner1, corner2, generator);
+		m.set(c);
+		fl penalty = m.clash_penalty();
+		if (i == 0 || penalty < best_clash_penalty)
+		{
+			best_conf = c;
+			best_clash_penalty = penalty;
+		}
 	}
-}
 	m.set(best_conf);
 	if (verbosity > 1)
 	{
@@ -127,7 +136,8 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	quasi_newton quasi_newton_par;
 	quasi_newton_par.max_steps = max_steps;
 	const fl slope_orig = nc.slope;
-	VINA_FOR(p, 5) {
+	VINA_FOR(p, 5)
+	{
 		nc.slope = 100 * std::pow(10.0, 2.0 * p);
 		quasi_newton_par(m, prec, nc, out, g, cap);
 		m.set(out.c); // just to be sure
@@ -151,7 +161,8 @@ std::string vina_remark(fl e, fl lb, fl ub)
 	return remark.str();
 }
 
-output_container remove_redundant(const output_container& in, fl min_rmsd) {
+output_container remove_redundant(const output_container& in, fl min_rmsd)
+{
 	output_container tmp;
 	VINA_FOR_IN(i, in)
 		add_to_output_container(tmp, in[i], min_rmsd, in.size());
@@ -178,14 +189,16 @@ void do_search(model& m, const boost::optional<model>& ref,
 		naive_non_cache nnc(&prec); // for out of grid issues
 		e = m.eval_adjusted(sf, prec, nnc, authentic_v, c,
 				intramolecular_energy);
-		log << "Affinity: "  << std::fixed << std::setprecision(5) << e << " (kcal/mol)";
+		log << "Affinity: " << std::fixed << std::setprecision(5) << e
+				<< " (kcal/mol)";
 		log.endl();
 		flv term_values = t->evale_robust(m);
-		log << "Intramolecular energy: " <<  std::fixed << std::setprecision(5) << intramolecular_energy << "\n";
+		log << "Intramolecular energy: " << std::fixed << std::setprecision(5)
+				<< intramolecular_energy << "\n";
 		if (term_values.size() == 5)
 		{
 			log
-					<< "Intermolecular contributions to the terms, before weighting:\n";
+			<< "Intermolecular contributions to the terms, before weighting:\n";
 			log << std::setprecision(5);
 			log << "    gauss 1     : " << term_values[0] << '\n';
 			log << "    gauss 2     : " << term_values[1] << '\n';
@@ -193,10 +206,10 @@ void do_search(model& m, const boost::optional<model>& ref,
 			log << "    hydrophobic : " << term_values[3] << '\n';
 			log << "    Hydrogen    : " << term_values[4] << '\n';
 		}
-		else if(term_values.size() == 3) //dkoes scoring
+		else if (term_values.size() == 3) //dkoes scoring
 		{
 			log
-					<< "Intermolecular contributions to the terms, before weighting:\n";
+			<< "Intermolecular contributions to the terms, before weighting:\n";
 			log << "    desolvation : " << term_values[0] << '\n';
 			log << "    vdw         : " << term_values[1] << '\n';
 			log << "    hbond       : " << term_values[2] << '\n';
@@ -223,12 +236,13 @@ void do_search(model& m, const boost::optional<model>& ref,
 		}
 		rmsd /= newcoords.size();
 		rmsd = sqrt(rmsd);
-		log << "Affinity: "  << std::fixed << std::setprecision(5) << e << " (kcal/mol)\nRMSD: " << rmsd;
+		log << "Affinity: " << std::fixed << std::setprecision(5) << e
+				<< " (kcal/mol)\nRMSD: " << rmsd;
 		;
 		log.endl();
 		if (!nc.within(m))
 			log
-					<< "WARNING: not all movable atoms are within the search space\n";
+			<< "WARNING: not all movable atoms are within the search space\n";
 
 		doing(verbosity, "Writing output", log);
 		output_container out_cont;
@@ -238,7 +252,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		write_all_output(m, out_cont, 1, str, remarks);
 		outstream << str.str();
 		done(verbosity, log);
-		results.push_back(resultInfo(e,rmsd, str.str()));
+		results.push_back(resultInfo(e, rmsd, str.str()));
 	}
 	else
 	{
@@ -247,21 +261,22 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log.endl();
 		output_container out_cont;
 		doing(verbosity, "Performing search", log);
-		par(m, out_cont, prec, ig, corner1, corner2,
-				generator);
+		par(m, out_cont, prec, ig, corner1, corner2, generator);
 		done(verbosity, log);
 		doing(verbosity, "Refining results", log);
-		VINA_FOR_IN(i, out_cont)refine_structure(m, prec, nc, out_cont[i], authentic_v,
-				par.mc.ssd_par.evals);
+		VINA_FOR_IN(i, out_cont)
+			refine_structure(m, prec, nc, out_cont[i], authentic_v,
+					par.mc.ssd_par.evals);
 
 		if (!out_cont.empty())
 		{
 			out_cont.sort();
 			const fl best_mode_intramolecular_energy = m.eval_intramolecular(
 					prec, authentic_v, out_cont[0].c);
-			VINA_FOR_IN(i, out_cont)if (not_max(out_cont[i].e))
-			out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
-					out_cont[i].c, best_mode_intramolecular_energy);
+			VINA_FOR_IN(i, out_cont)
+				if (not_max(out_cont[i].e))
+					out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
+							out_cont[i].c, best_mode_intramolecular_energy);
 			// the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
 			out_cont.sort();
 		}
@@ -284,28 +299,29 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 		sz how_many = 0;
 		std::vector<std::string> remarks;
-		VINA_FOR_IN(i, out_cont){
+		VINA_FOR_IN(i, out_cont)
+		{
 			if (how_many >= num_modes || !not_max(out_cont[i].e)
 					|| out_cont[i].e > out_cont[0].e + energy_range)
-			break; // check energy_range sanity FIXME
+				break; // check energy_range sanity FIXME
 			++how_many;
 			log << std::setw(4) << i + 1 << "    " << std::setw(9)
-			<< std::setprecision(1) << out_cont[i].e;// intermolecular_energies[i];
+					<< std::setprecision(1) << out_cont[i].e; // intermolecular_energies[i];
 			m.set(out_cont[i].c);
 			const model& r = ref ? ref.get() : best_mode_model;
 			const fl lb = m.rmsd_lower_bound(r);
 			const fl ub = m.rmsd_upper_bound(r);
 			log << "  " << std::setw(9) << std::setprecision(3) << lb << "  "
-			<< std::setw(9) << std::setprecision(3) << ub;// FIXME need user-readable error messages in case of failures
+					<< std::setw(9) << std::setprecision(3) << ub; // FIXME need user-readable error messages in case of failures
 
 			remarks.push_back(vina_remark(out_cont[i].e, lb, ub));
 			log.endl();
 
 			//dkoes - setup resultInfo
 			std::stringstream str;
-			m.write_model(str,i+1,"");
+			m.write_model(str, i + 1, "");
 			results.push_back(resultInfo(out_cont[i].e, -1, str.str()));
-	}
+		}
 		doing(verbosity, "Writing output", log);
 		write_all_output(m, out_cont, how_many, outstream, remarks);
 		done(verbosity, log);
@@ -324,14 +340,12 @@ void main_procedure(model& m, precalculate& prec,
 		const boost::optional<model>& ref, // m is non-const (FIXME?)
 		std::ostream& out, bool score_only, bool local_only,
 		bool randomize_only, bool no_cache, const grid_dims& gd,
-		int exhaustiveness, const weighted_terms& wt, int cpu,
-		int seed, int verbosity, sz num_modes, fl energy_range, tee& log,
+		int exhaustiveness, const weighted_terms& wt, int cpu, int seed,
+		int verbosity, sz num_modes, fl energy_range, tee& log,
 		std::vector<resultInfo>& results)
 {
 
 	doing(verbosity, "Setting up the scoring function", log);
-
-
 
 	done(verbosity, log);
 
@@ -354,8 +368,7 @@ void main_procedure(model& m, precalculate& prec,
 	if (randomize_only)
 	{
 		std::stringstream str;
-		fl e = do_randomization(m, str, corner1, corner2, seed, verbosity,
-								log);
+		fl e = do_randomization(m, str, corner1, corner2, seed, verbosity, log);
 		out << str.str();
 		results.push_back(resultInfo(e, 0, str.str()));
 		return;
@@ -365,9 +378,9 @@ void main_procedure(model& m, precalculate& prec,
 		non_cache nc(m, gd, &prec, slope); // if gd has 0 n's, this will not constrain anything
 		if (no_cache)
 		{
-			do_search(m, ref, wt, prec, nc, nc,
-					out, corner1, corner2, par, energy_range, num_modes, seed,
-					verbosity, score_only, local_only, log, wt.unweighted_terms(), results);
+			do_search(m, ref, wt, prec, nc, nc, out, corner1, corner2, par,
+					energy_range, num_modes, seed, verbosity, score_only,
+					local_only, log, wt.unweighted_terms(), results);
 		}
 		else
 		{
@@ -380,9 +393,9 @@ void main_procedure(model& m, precalculate& prec,
 						m.get_movable_atom_types(prec.atom_typing_used()));
 			if (cache_needed)
 				done(verbosity, log);
-			do_search(m, ref, wt, prec, c, nc, out, corner1,
-					corner2, par, energy_range, num_modes, seed, verbosity,
-					score_only, local_only, log, wt.unweighted_terms(), results);
+			do_search(m, ref, wt, prec, c, nc, out, corner1, corner2, par,
+					energy_range, num_modes, seed, verbosity, score_only,
+					local_only, log, wt.unweighted_terms(), results);
 		}
 	}
 }
@@ -415,21 +428,23 @@ options_occurrence get_occurrence(boost::program_options::variables_map& vm,
 		boost::program_options::options_description& d)
 {
 	options_occurrence tmp;
-	VINA_FOR_IN(i, d.options())if (vm.count((*d.options()[i]).long_name()))
-	tmp.some = true;
-	else
-	tmp.all = false;
+	VINA_FOR_IN(i, d.options())
+		if (vm.count((*d.options()[i]).long_name()))
+			tmp.some = true;
+		else
+			tmp.all = false;
 	return tmp;
 }
 
 void check_occurrence(boost::program_options::variables_map& vm,
 		boost::program_options::options_description& d)
 {
-	VINA_FOR_IN(i, d.options()){
-	const std::string& str = (*d.options()[i]).long_name();
-	if (!vm.count(str))
-	std::cerr << "Required parameter --" << str << " is missing!\n";
-}
+	VINA_FOR_IN(i, d.options())
+	{
+		const std::string& str = (*d.options()[i]).long_name();
+		if ((str.substr(0,4) == "size" || str.substr(0,6) == "center") && !vm.count(str))
+			std::cerr << "Required parameter --" << str << " is missing!\n";
+	}
 }
 
 model parse_bundle(const std::string& rigid_name,
@@ -438,9 +453,10 @@ model parse_bundle(const std::string& rigid_name,
 {
 	model tmp =
 			(flex_name_opt) ? parse_receptor_pdbqt(make_path(rigid_name),
-					make_path(flex_name_opt.get())) :
-					parse_receptor_pdbqt(make_path(rigid_name));
-	VINA_FOR_IN(i, ligand_names)tmp.append(parse_ligand_pdbqt(make_path(ligand_names[i])));
+										make_path(flex_name_opt.get())) :
+								parse_receptor_pdbqt(make_path(rigid_name));
+	VINA_FOR_IN(i, ligand_names)
+		tmp.append(parse_ligand_pdbqt(make_path(ligand_names[i])));
 	return tmp;
 }
 
@@ -449,7 +465,8 @@ model parse_bundle(const std::vector<std::string>& ligand_names)
 	VINA_CHECK(!ligand_names.empty());
 	// FIXME check elsewhere
 	model tmp = parse_ligand_pdbqt(make_path(ligand_names[0]));
-	VINA_RANGE(i, 1, ligand_names.size())tmp.append(parse_ligand_pdbqt(make_path(ligand_names[i])));
+	VINA_RANGE(i, 1, ligand_names.size())
+		tmp.append(parse_ligand_pdbqt(make_path(ligand_names[i])));
 	return tmp;
 }
 
@@ -463,16 +480,85 @@ model parse_bundle(const boost::optional<std::string>& rigid_name_opt,
 		return parse_bundle(ligand_names);
 }
 
+void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
+		fl& center_x,
+		fl& center_y, fl& center_z, fl& size_x, fl& size_y, fl& size_z)
+{
+	using namespace OpenBabel;
+
+	//a ligand file can be provided from which to autobox
+	OBConversion conv;
+	OBFormat *format = conv.FormatFromExt(autobox_ligand);
+	if (!format || !conv.SetInFormat(format))
+	{
+		std::cerr << "Cannot read  molecule format! " << autobox_ligand << "\n";
+		exit(-1);
+	}
+
+	//dkoes - annoyingly, although openbabel is smart enough to ignore
+	//the .gz at the end of a file when determining the file format, it
+	//does not actually open the file as a gzip stream
+	std::ifstream uncompressed_inmol(autobox_ligand.c_str());
+	filtering_stream<boost::iostreams::input> inmol;
+
+	std::string::size_type pos = autobox_ligand.rfind(".gz");
+	if (pos != std::string::npos)
+	{
+		inmol.push(gzip_decompressor());
+	}
+	inmol.push(uncompressed_inmol);
+
+	if (!uncompressed_inmol || !inmol)
+	{
+		std::cerr << "Could not open " << autobox_ligand << "\n";
+		exit(-1);
+	}
+	conv.SetInStream(&inmol);
+
+	OBMol mol;
+	if (conv.Read(&mol))
+	{
+		unsigned n;
+		center_x = center_y = center_z = 0;
+		fl min_x = HUGE_VAL, min_y = HUGE_VAL, min_z = HUGE_VAL;
+		fl max_x = -HUGE_VAL, max_y = -HUGE_VAL, max_z = -HUGE_VAL;
+		fl num = 0;
+		FOR_ATOMS_OF_MOL(a, mol)
+		{
+			center_x += a->x();
+			center_y += a->y();
+			center_z += a->z();
+			min_x = std::min(min_x, a->x());
+			min_y = std::min(min_y, a->y());
+			min_z = std::min(min_z, a->z());
+			max_x = std::max(max_x, a->x());
+			max_y = std::max(max_y, a->y());
+			max_z = std::max(max_z, a->z());
+			num++;
+		}
+		center_x /= num;
+		center_y /= num;
+		center_z /= num;
+		size_x = (max_x - min_x) + autobox_add;
+		size_y = (max_y - min_y) + autobox_add;
+		size_z = (max_z - min_z) + autobox_add;
+	}
+	else
+	{
+		std::cerr << "Unable to read  " << autobox_ligand << "\n";
+		exit(-1);
+	}
+}
+
 int main(int argc, char* argv[])
 {
 	using namespace boost::program_options;
-	const std::string version_string = "AutoDock Vina 1.1.1 (Apr 20, 2010). Modifications made by David R. Koes.";
+	const std::string version_string =
+			"Smina "__DATE__".  Based on AutoDock Vina 1.1.2.";
 	const std::string error_message =
 			"\n\n\
-Please contact the author, Dr. Oleg Trott <ot14@columbia.edu>, so\n\
-that this problem can be resolved. The reproducibility of the\n\
-error may be vital, so please remember to include the following in\n\
-your problem report:\n\
+Please report this error at http://smina.sf.net\n"
+					"Please remember to include the following in your problem report:\n\
     * the EXACT error message,\n\
     * your version of the program,\n\
     * the type of computer system you are running it on,\n\
@@ -488,26 +574,22 @@ your problem report:\n\
 Thank you!\n";
 
 	const std::string cite_message =
-			"\
-#################################################################\n\
-# If you used AutoDock Vina in your work, please cite:          #\n\
-#                                                               #\n\
-# O. Trott, A. J. Olson,                                        #\n\
-# AutoDock Vina: improving the speed and accuracy of docking    #\n\
-# with a new scoring function, efficient optimization and       #\n\
-# multithreading, Journal of Computational Chemistry 31 (2010)  #\n\
-# 455-461                                                       #\n\
-#                                                               #\n\
-# DOI 10.1002/jcc.21334                                         #\n\
-#                                                               #\n\
-# Please see http://vina.scripps.edu for more information.      #\n\
-#################################################################\n";
+"   _______  _______ _________ _        _______ \n"
+"  (  ____ \\(       )\\__   __/( (    /|(  ___  )\n"
+"  | (    \\/| () () |   ) (   |  \\  ( || (   ) |\n"
+"  | (_____ | || || |   | |   |   \\ | || (___) |\n"
+"  (_____  )| |(_)| |   | |   | (\\ \\) ||  ___  |\n"
+"        ) || |   | |   | |   | | \\   || (   ) |\n"
+"  /\\____) || )   ( |___) (___| )  \\  || )   ( |\n"
+"  \\_______)|/     \\|\\_______/|/    )_)|/     \\|\n"
+"\n\nSmina is based off AutoDock Vina. Please cite appropriately.\n";
 
 	try
 	{
 		std::string rigid_name, flex_name, config_name, log_name;
 		std::vector<std::string> ligand_names, out_names;
 		std::string ligand_names_file;
+		std::string custom_file_name;
 		fl center_x, center_y, center_z, size_x, size_y, size_z;
 		fl autobox_add = 8;
 		std::string autobox_ligand;
@@ -522,7 +604,7 @@ Thank you!\n";
 		fl weight_hydrogen = -0.587439;
 		fl weight_rot = 0.05846;
 		bool score_only = false, local_only = false, randomize_only = false,
-				help = false, help_advanced = false, version = false; // FIXME
+				help = false, help_hidden = false, version = false;
 		bool dkoes_score = false;
 		bool dkoes_score_old = false;
 		bool dkoes_fast = false;
@@ -530,91 +612,88 @@ Thank you!\n";
 		positional_options_description positional; // remains empty
 
 		options_description inputs("Input");
-		inputs.add_options()("receptor", value<std::string>(&rigid_name),
-				"rigid part of the receptor (PDBQT)")("flex",
-				value<std::string>(&flex_name),
-				"flexible side chains, if any (PDBQT)")("ligand",
-				value<std::vector<std::string> >(&ligand_names),
-				"ligand (PDBQT)");
+		inputs.add_options()
+		("receptor,r", value<std::string>(&rigid_name),
+				"rigid part of the receptor (PDBQT)")
+		("flex", value<std::string>(&flex_name),
+				"flexible side chains, if any (PDBQT)")
+		("ligand,l", value<std::vector<std::string> >(&ligand_names),
+				"ligand(s)");
 		//options_description search_area("Search area (required, except with --score_only)");
 		options_description search_area("Search space (required)");
-		search_area.add_options()("center_x", value<fl>(&center_x),
-				"X coordinate of the center")("center_y", value<fl>(&center_y),
-				"Y coordinate of the center")("center_z", value<fl>(&center_z),
-				"Z coordinate of the center")("size_x", value<fl>(&size_x),
-				"size in the X dimension (Angstroms)")("size_y",
-				value<fl>(&size_y), "size in the Y dimension (Angstroms)")(
-				"size_z", value<fl>(&size_z),
-				"size in the Z dimension (Angstroms)");
+		search_area.add_options()
+		("center_x", value<fl>(&center_x), "X coordinate of the center")
+		("center_y", value<fl>(&center_y), "Y coordinate of the center")
+		("center_z", value<fl>(&center_z), "Z coordinate of the center")
+		("size_x", value<fl>(&size_x), "size in the X dimension (Angstroms)")
+		("size_y", value<fl>(&size_y), "size in the Y dimension (Angstroms)")
+		("size_z", value<fl>(&size_z), "size in the Z dimension (Angstroms)")
+		("autobox_ligand", value<std::string>(&autobox_ligand),
+				"Ligand to use for autobox")
+		("autobox_add", value<fl>(&autobox_add),
+				"Amount of buffer space to add to auto-generated box");
+
 		//options_description outputs("Output prefixes (optional - by default, input names are stripped of .pdbqt\nare used as prefixes. _001.pdbqt, _002.pdbqt, etc. are appended to the prefixes to produce the output names");
 		options_description outputs("Output (optional)");
-		outputs.add_options()("out",
-				value<std::vector<std::string> >(&out_names),
-				"output models (PDBQT), the default is chosen based on the ligand file name")(
-				"log", value<std::string>(&log_name),
-				"optionally, write log file");
-		options_description advanced("Advanced options (see the manual)");
-		advanced.add_options()
-				("autobox_add", value<fl>(&autobox_add),
-				"Amount of buffer space to add to auto-generated box for local minimization")
-				("autobox_ligand", value<std::string>(&autobox_ligand),"Ligand to use for autobox")
-				("score_only", bool_switch(&score_only),
-				"score only - search space can be omitted")("local_only",
-				bool_switch(&local_only), "do local search only")
-				("randomize_only", bool_switch(&randomize_only),
-				"randomize input, attempting to avoid clashes")("weight_gauss1",
-				value<fl>(&weight_gauss1)->default_value(weight_gauss1),
-				"gauss_1 weight")("weight_gauss2",
-				value<fl>(&weight_gauss2)->default_value(weight_gauss2),
-				"gauss_2 weight")("weight_repulsion",
-				value<fl>(&weight_repulsion)->default_value(weight_repulsion),
-				"repulsion weight")("weight_hydrophobic",
-				value<fl>(&weight_hydrophobic)->default_value(
-						weight_hydrophobic), "hydrophobic weight")(
-				"weight_hydrogen",
-				value<fl>(&weight_hydrogen)->default_value(weight_hydrogen),
-				"Hydrogen bond weight")("weight_rot",
-				value<fl>(&weight_rot)->default_value(weight_rot),
-				"N_rot weight")("dkoes_scoring", bool_switch(&dkoes_score),
-				"Use my custom scoring function")("dkoes_scoring_old", bool_switch(&dkoes_score_old),
-						"Use old (vdw+hbond) scoring function")
-						("dkoes_fast", bool_switch(&dkoes_fast),
-												"VDW+nrot only");
+		outputs.add_options()
+		("out", value<std::vector<std::string> >(&out_names),
+				"output models, the default is chosen based on the ligand file name")
+		("log", value<std::string>(&log_name), "optionally, write log file");
+
+		options_description scoremin("Scoring and minimization options");
+		scoremin.add_options()
+		("custom_scoring", value<std::string>(&custom_file_name),"custom scoring function file")
+		("score_only", bool_switch(&score_only), "score provided ligand pose")
+		("local_only", bool_switch(&local_only),
+				"local search only using autobox (energy minimization)")
+		("randomize_only", bool_switch(&randomize_only),
+				"generate random poses, attempting to avoid clashes");
+
+		options_description hidden("Hidden options for internal testing");
+		hidden.add_options()
+		("dkoes_scoring", bool_switch(&dkoes_score),
+				"Use my custom scoring function")
+		("dkoes_scoring_old", bool_switch(&dkoes_score_old),
+				"Use old (vdw+hbond) scoring function")
+		("dkoes_fast", bool_switch(&dkoes_fast), "VDW+nrot only");
+
 		options_description misc("Misc (optional)");
-		misc.add_options()("cpu", value<int>(&cpu),
-				"the number of CPUs to use (the default is to try to detect the number of CPUs or, failing that, use 1)")(
-				"seed", value<int>(&seed), "explicit random seed")(
-				"exhaustiveness", value<int>(&exhaustiveness)->default_value(8),
-				"exhaustiveness of the global search (roughly proportional to time): 1+")(
-				"num_modes", value<int>(&num_modes)->default_value(9),
-				"maximum number of binding modes to generate")("energy_range",
-				value<fl>(&energy_range)->default_value(3.0),
+		misc.add_options()
+		("cpu", value<int>(&cpu),
+				"the number of CPUs to use (the default is to try to detect the number of CPUs or, failing that, use 1)")
+		("seed", value<int>(&seed), "explicit random seed")
+		("exhaustiveness", value<int>(&exhaustiveness)->default_value(8),
+				"exhaustiveness of the global search (roughly proportional to time)")
+		("num_modes", value<int>(&num_modes)->default_value(9),
+				"maximum number of binding modes to generate")
+		("energy_range", value<fl>(&energy_range)->default_value(3.0),
 				"maximum energy difference between the best binding mode and the worst one displayed (kcal/mol)");
+
 		options_description config("Configuration file (optional)");
 		config.add_options()("config", value<std::string>(&config_name),
 				"the above options can be put here");
 		options_description info("Information (optional)");
-		info.add_options()("help", bool_switch(&help), "display usage summary")(
-				"help_advanced", bool_switch(&help_advanced),
-				"display usage summary with advanced options")("version",
-				bool_switch(&version), "display program version");
-		options_description desc, desc_config, desc_simple;
-		desc.add(inputs).add(search_area).add(outputs).add(advanced).add(misc).add(
-				config).add(info);
-		desc_config.add(inputs).add(search_area).add(outputs).add(advanced).add(
-				misc);
-		desc_simple.add(inputs).add(search_area).add(outputs).add(misc).add(
-				config).add(info);
+		info.add_options()
+		("help", bool_switch(&help), "display usage summary")
+		("help_hidden", bool_switch(&help_hidden),
+				"display usage summary with hidden options")
+		("version", bool_switch(&version), "display program version");
+
+		options_description desc, desc_simple;
+		desc.add(inputs).add(search_area).add(outputs).add(scoremin).
+				add(hidden).add(misc).add(config).add(info);
+		desc_simple.add(inputs).add(search_area).add(scoremin).
+				add(outputs).add(misc).add(config).add(info);
 
 		variables_map vm;
 		try
 		{
-			//store(parse_command_line(argc, argv, desc, command_line_style::default_style ^ command_line_style::allow_guessing), vm);
 			store(
-					command_line_parser(argc, argv).options(desc).style(
+					command_line_parser(argc, argv).options(desc)
+							.style(
 							command_line_style::default_style
-									^ command_line_style::allow_guessing).positional(
-							positional).run(), vm);
+									^ command_line_style::allow_guessing)
+							.positional(positional).run(), vm);
 			notify(vm);
 		} catch (boost::program_options::error& e)
 		{
@@ -628,7 +707,7 @@ Thank you!\n";
 			{
 				path name = make_path(config_name);
 				ifile config_stream(name);
-				store(parse_config_file(config_stream, desc_config), vm);
+				store(parse_config_file(config_stream, desc), vm);
 				notify(vm);
 			} catch (boost::program_options::error& e)
 			{
@@ -642,7 +721,7 @@ Thank you!\n";
 			std::cout << desc_simple << '\n';
 			return 0;
 		}
-		if (help_advanced)
+		if (help_hidden)
 		{
 			std::cout << desc << '\n';
 			return 0;
@@ -699,74 +778,11 @@ Thank you!\n";
 		if (vm.count("log") > 0)
 			log.init(log_name);
 
-		if(autobox_ligand.length() > 0)
+		if (autobox_ligand.length() > 0)
 		{
-			using namespace OpenBabel;
-
-			//a ligand file can be provided from which to autobox
-			OBConversion conv;
-			OBFormat *format = conv.FormatFromExt(autobox_ligand);
-			if (!format || !conv.SetInFormat(format))
-			{
-				std::cerr << "Cannot read  molecule format! " << autobox_ligand
-						<< "\n";
-				exit(-1);
-			}
-
-			//dkoes - annoyingly, although openbabel is smart enough to ignore
-			//the .gz at the end of a file when determining the file format, it
-			//does not actually open the file as a gzip stream
-		    std::ifstream uncompressed_inmol(autobox_ligand.c_str());
-		    filtering_stream<boost::iostreams::input> inmol;
-
-		    std::string::size_type pos = autobox_ligand.rfind(".gz");
-		    if(pos!=std::string::npos)
-		    {
-		    	inmol.push(gzip_decompressor());
-		    }
-		    inmol.push(uncompressed_inmol);
-
-
-			if (!uncompressed_inmol || !inmol)
-			{
-				std::cerr << "Could not open " << autobox_ligand << "\n";
-				exit(-1);
-			}
-			conv.SetInStream(&inmol);
-
-			OBMol mol;
-			if (conv.Read(&mol))
-			{
-				unsigned n;
-				center_x = center_y = center_z = 0;
-				fl min_x = HUGE_VAL, min_y = HUGE_VAL, min_z = HUGE_VAL;
-				fl max_x = -HUGE_VAL, max_y = -HUGE_VAL, max_z = -HUGE_VAL;
-				fl num = 0;
-				FOR_ATOMS_OF_MOL(a, mol)
-				{
-					center_x += a->x();
-					center_y += a->y();
-					center_z += a->z();
-					min_x = std::min(min_x,a->x());
-					min_y = std::min(min_y,a->y());
-					min_z = std::min(min_z,a->z());
-					max_x = std::max(max_x,a->x());
-					max_y = std::max(max_y,a->y());
-					max_z = std::max(max_z,a->z());
-					num++;
-				}
-				center_x /= num;
-				center_y /= num;
-				center_z /= num;
-				size_x = (max_x-min_x)+autobox_add;
-				size_y = (max_y-min_y)+autobox_add;
-				size_z = (max_z-min_z)+autobox_add;
-			}
-			else
-			{
-				std::cerr << "Unable to read  " << autobox_ligand << "\n";
-				exit(-1);
-			}
+			setup_autobox(autobox_ligand, autobox_add,
+					center_x, center_y, center_z,
+					size_x, size_y, size_z);
 		}
 		if (search_box_needed && autobox_ligand.length() == 0)
 		{
@@ -793,31 +809,24 @@ Thank you!\n";
 		old_dkoes_terms olddkoesterms;
 		fast_dkoes_terms dkoesfastterms;
 
-		const terms *t = NULL;
 		if (dkoes_score)
 		{
-			if(dkoes_score_old || dkoes_fast) throw usage_error("select only one scoring function please");
-			t = &dkoesterms;
-
 			weights.push_back(0.009900); //vdw
 			weights.push_back(-0.153055); //hbond
 			weights.push_back(0.048934); //desolvation
 			weights.push_back(0.317267); //tors sqr
 			weights.push_back(-2.469020); //constant
 			/* trained with openbabel partial charges
-			weights.push_back(0.010764); //vdw
-			weights.push_back(-0.156861); //hbond
-			weights.push_back(0.062407); //desolvation
-			weights.push_back(0.337036); //tors sqr
-			weights.push_back(-2.231827); //constant
-			*/
-
+			 weights.push_back(0.010764); //vdw
+			 weights.push_back(-0.156861); //hbond
+			 weights.push_back(0.062407); //desolvation
+			 weights.push_back(0.337036); //tors sqr
+			 weights.push_back(-2.231827); //constant
+			 */
 
 		}
-		else if(dkoes_score_old)
+		else if (dkoes_score_old)
 		{
-			if(dkoes_score || dkoes_fast) throw usage_error("select only one scoring function please");
-			t = &olddkoesterms;
 			weights.push_back(0.010607); //vdw
 			weights.push_back(-0.197201); //hbond
 			weights.push_back(0.285035); //tors sqr
@@ -826,25 +835,33 @@ Thank you!\n";
 //			weights.push_back(0.044580); //desolvation
 
 		}
-		else if(dkoes_fast)
+		else if (dkoes_fast)
 		{
-			if(dkoes_score || dkoes_score_old) throw usage_error("select only one scoring function please");
-
-			t = &dkoesfastterms;
 			weights.push_back(0.008962); //vdw
 			weights.push_back(0.387739); //tors sqr
 			weights.push_back(-2.467357); //constant
 		}
+
+		custom_terms t;
+		if(custom_file_name.size() > 0)
+		{
+
+		}
 		else
 		{
-			t = &everything_terms;
+			fl weight_gauss1 = -0.035579;
+			fl weight_gauss2 = -0.005156;
+			fl weight_repulsion = 0.840245;
+			fl weight_hydrophobic = -0.035069;
+			fl weight_hydrogen = -0.587439;
+			fl weight_rot = 0.05846;
 
-			weights.push_back(weight_gauss1);
-			weights.push_back(weight_gauss2);
-			weights.push_back(weight_repulsion);
-			weights.push_back(weight_hydrophobic);
-			weights.push_back(weight_hydrogen);
-			weights.push_back(5 * weight_rot / 0.1 - 1); // linearly maps onto a different range, internally. see everything.cpp
+			t.add("gauss(o=0,_w=0.5,_c=8)",-0.035579);
+			t.add("gauss(o=3,_w=2,_c=8)",-0.005156);
+			t.add("repulsion(o=0,_c=8)",0.840245);
+			t.add("hydrophobic(g=0.5,_b=1.5,_c=8)",-0.035069);
+			t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", -0.587439);
+			t.add("num_tors_div",5*0.05846/0.1 - 1);
 		}
 
 		const fl granularity = 0.375;
@@ -852,13 +869,14 @@ Thank you!\n";
 		{
 			vec span(size_x, size_y, size_z);
 			vec center(center_x, center_y, center_z);
-			VINA_FOR_IN(i, gd){
-			gd[i].n = sz(std::ceil(span[i] / granularity));
-			fl real_span = granularity * gd[i].n;
-			gd[i].begin = center[i] - real_span / 2;
-			gd[i].end = gd[i].begin + real_span;
+			VINA_FOR_IN(i, gd)
+			{
+				gd[i].n = sz(std::ceil(span[i] / granularity));
+				fl real_span = granularity * gd[i].n;
+				gd[i].begin = center[i] - real_span / 2;
+				gd[i].end = gd[i].begin + real_span;
+			}
 		}
-	}
 
 		if (vm.count("cpu") == 0)
 		{
@@ -886,13 +904,14 @@ Thank you!\n";
 		model initm;
 
 		if (rigid_name_opt)
-			initm = (flex_name_opt) ? parse_receptor_pdbqt(
-					make_path(rigid_name_opt.get()),
-					make_path(flex_name_opt.get())) :
+			initm = (flex_name_opt) ?
+					parse_receptor_pdbqt(
+							make_path(rigid_name_opt.get()),
+							make_path(flex_name_opt.get())) :
 					parse_receptor_pdbqt(make_path(rigid_name_opt.get()));
 
 		//dkoes, hoise precalculation outside of loop
-		weighted_terms wt(t, weights);
+		weighted_terms wt(&t, t.weights());
 		precalculate prec(wt);
 
 		//dkoes - loop over input ligands
@@ -949,16 +968,15 @@ Thank you!\n";
 				//dkoes - annoyingly, although openbabel is smart enough to ignore
 				//the .gz at the end of a file when determining the file format, it
 				//does not actually open the file as a gzip stream
-			    std::ifstream uncompressed_inmol(ligand_name.c_str());
-			    filtering_stream<boost::iostreams::input> inmol;
+				std::ifstream uncompressed_inmol(ligand_name.c_str());
+				filtering_stream<boost::iostreams::input> inmol;
 
-			    std::string::size_type pos = ligand_name.rfind(".gz");
-			    if(pos!=std::string::npos)
-			    {
-			    	inmol.push(gzip_decompressor());
-			    }
-			    inmol.push(uncompressed_inmol);
-
+				std::string::size_type pos = ligand_name.rfind(".gz");
+				if (pos != std::string::npos)
+				{
+					inmol.push(gzip_decompressor());
+				}
+				inmol.push(uncompressed_inmol);
 
 				if (!uncompressed_inmol || !inmol)
 				{
@@ -991,12 +1009,12 @@ Thank you!\n";
 				std::ofstream uncompressed_outfile(outname.str().c_str());
 
 				filtering_stream<boost::iostreams::output> outfile;
-			    pos = outname.str().rfind(".gz");
-			    if(pos!=std::string::npos)
-			    {
-			    	outfile.push(gzip_compressor());
-			    }
-			    outfile.push(uncompressed_outfile);
+				pos = outname.str().rfind(".gz");
+				if (pos != std::string::npos)
+				{
+					outfile.push(gzip_compressor());
+				}
+				outfile.push(uncompressed_outfile);
 
 				if (!outfile)
 				{
@@ -1006,6 +1024,7 @@ Thank you!\n";
 				}
 				outconv.SetOutStream(&outfile);
 
+				//process input molecules one at a time
 				OBMol mol;
 				unsigned i = 0;
 				while (conv.Read(&mol))
@@ -1026,8 +1045,8 @@ Thank you!\n";
 					{
 						std::cerr << "\n\nParse error with molecule "
 								<< mol.GetTitle() << " in file \""
-								<< e.file.string() << "\": "
-								<< e.reason << '\n';
+								<< e.file.string() << "\": " << e.reason
+								<< '\n';
 						continue;
 					}
 
@@ -1042,17 +1061,17 @@ Thank you!\n";
 
 					std::stringstream output;
 					std::vector<resultInfo> results;
-					stream< boost::iostreams::null_sink > nullOstream;
+					stream<boost::iostreams::null_sink> nullOstream;
 
 					main_procedure(m, prec, ref, nullOstream, score_only,
 							local_only, randomize_only,
 							false, // no_cache == false
-							gd, exhaustiveness, wt, cpu, seed,
-							verbosity, max_modes_sz, energy_range, log, results);
+							gd, exhaustiveness, wt, cpu, seed, verbosity,
+							max_modes_sz, energy_range, log, results);
 
-					for(unsigned j = 0, m = results.size(); j < m; j++)
+					for (unsigned j = 0, m = results.size(); j < m; j++)
 					{
-						if(results[j].mol.length() > 0)
+						if (results[j].mol.length() > 0)
 							outconv.ReadString(&mol, results[j].mol); //otherwise keep orig mol
 						OBPairData* sddata = new OBPairData();
 						sddata->SetAttribute("minimizedAffinity");
@@ -1080,9 +1099,8 @@ Thank you!\n";
 		}
 	} catch (file_error& e)
 	{
-		std::cerr << "\n\nError: could not open \""
-				<< e.name.string() << "\" for "
-				<< (e.in ? "reading" : "writing") << ".\n";
+		std::cerr << "\n\nError: could not open \"" << e.name.string()
+				<< "\" for " << (e.in ? "reading" : "writing") << ".\n";
 		return 1;
 	} catch (boost::filesystem::filesystem_error& e)
 	{
@@ -1100,6 +1118,11 @@ Thank you!\n";
 	} catch (std::bad_alloc&)
 	{
 		std::cerr << "\n\nError: insufficient memory!\n";
+		return 1;
+	} catch(scoring_function_error e)
+	{
+		std::cerr << "\n\nError with scoring function specification.\n";
+		std::cerr << e.msg << "(" << e.name << ")\n";
 		return 1;
 	}
 

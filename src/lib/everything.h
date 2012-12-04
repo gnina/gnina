@@ -117,7 +117,7 @@ struct gauss : public usable {
 struct repulsion : public usable {
 	fl offset; // added to vdw
 	repulsion(fl offset_, fl cutoff_) : usable(cutoff_), offset(offset_) {
-		name = std::string("repulsion(o=") + to_string(offset) + ")";
+		name = std::string("repulsion(o=") + to_string(offset) + ", c="+to_string(cutoff)+")";
 	}
 	fl eval(sz t1, sz t2, fl r) const {
 		fl d = r - (optimal_distance(t1, t2) + offset);
@@ -204,7 +204,7 @@ struct non_dir_h_bond : public usable {
 	fl good;
 	fl bad;
 	non_dir_h_bond(fl good_, fl bad_, fl cutoff_) : usable(cutoff_), good(good_), bad(bad_) {
-		name = std::string("non_dir_h_bond(g=") + to_string(good) + ", b=" + to_string(bad) + ")";
+		name = std::string("non_dir_h_bond(g=") + to_string(good) + ", b=" + to_string(bad) + ", c="+to_string(cutoff)+")";
 	}
 	fl eval(sz t1, sz t2, fl r) const {
 		if(xs_h_bond_possible(t1, t2))
