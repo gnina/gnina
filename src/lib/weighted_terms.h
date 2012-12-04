@@ -29,15 +29,24 @@ struct weighted_terms : public scoring_function {
 	weighted_terms(const terms* t, const flv& weights); // does not own t
 	atom_type::t atom_typing_used() const { return atom_typing_used_; }
 	fl cutoff() const { return cutoff_; }
-	fl eval(sz t1, sz t2, fl r) const; // intentionally not checking for cutoff
+	fl eval_fast(sz t1, sz t2, fl r) const; // intentionally not checking for cutoff
+	fl eval_slow(const atom_base& a, const atom_base& b, fl r) const; //dkoes - da terms
+
 	fl conf_independent(const model& m, fl e) const;
+
+	//dkoes - return true if has slow terms that can't be precalculated
+	bool has_slow() const { return enabled_distance_additive_terms.size() > 0; }
+
+	const terms* unweighted_terms() const { return t; }
 private:
 	weighted_terms() {}
 	const terms* t;
 	flv weights;
 	atom_type::t atom_typing_used_;
 	fl cutoff_;
+	sz conf_indep_start; //dkoes - where conf independent terms are in weights
 	szv enabled_usable_terms;
+	szv enabled_distance_additive_terms; //dkoes - which da terms are enabled
 };
 
 #endif

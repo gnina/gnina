@@ -229,7 +229,7 @@ const fl xs_vdw_radii[] = {
 inline fl xs_radius(sz t) {
 	const sz n = sizeof(xs_vdw_radii) / sizeof(const fl);
 	assert(n == XS_TYPE_SIZE);
-	assert(t < n);
+	VINA_CHECK(t < n);
 	return xs_vdw_radii[t];
 }
 

@@ -107,10 +107,11 @@ std::vector<std::string> conf_independent_inputs::get_names() const { // FIXME s
 	return tmp;
 }
 
-conf_independent_inputs::conf_independent_inputs() : 
-	num_tors(0), num_rotors(0), num_heavy_atoms(0), 
-	num_hydrophobic_atoms(0), ligand_max_num_h_bonds(0), num_ligands(0), 
+conf_independent_inputs::conf_independent_inputs() :
+    num_tors(0), num_rotors(0), num_heavy_atoms(0),
+	num_hydrophobic_atoms(0), ligand_max_num_h_bonds(0), num_ligands(0),
 	ligand_lengths_sum(0) {}
+
 
 inline fl inner_product_shortest(const flv& a, const flv& b) {
 	sz n = (std::min)(a.size(), b.size());

@@ -25,7 +25,7 @@
 fl rmsd_upper_bound(const vecv& a, const vecv& b) {
 	VINA_CHECK(a.size() == b.size());
 	fl acc = 0;
-	VINA_FOR_IN(i, a) 
+	VINA_FOR_IN(i, a)
 		acc += vec_distance_sqr(a[i], b[i]);
 	return (a.size() > 0) ? std::sqrt(acc / a.size()) : 0;
 }

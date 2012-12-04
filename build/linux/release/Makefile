@@ -1,9 +1,7 @@
-BASE=/usr/local
-BOOST_VERSION=1_41
-BOOST_INCLUDE = $(BASE)/include
-C_PLATFORM=-static -pthread
-GPP=/usr/local/bin/g++
-C_OPTIONS= -O3 -DNDEBUG
+BASE=/usr/local/
+C_PLATFORM= -pthread  
+GPP=g++
+C_OPTIONS= -O3 -DNDEBUG -g
 BOOST_LIB_VERSION=
-
+OPENBABEL_INCLUDE=/usr/include/openbabel-2.0
 include ../../makefile_common

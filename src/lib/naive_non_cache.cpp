@@ -46,6 +46,7 @@ fl naive_non_cache::eval(const model& m, fl v) const { // needs m.coords
 			if(r2 < cutoff_sqr) {
 				sz type_pair_index = get_type_pair_index(p->atom_typing_used(), a, b);
 				this_e +=  p->eval_fast(type_pair_index, r2);
+				this_e += p->eval_slow(a,b,r2);
 			}
 		}
 		curl(this_e, v);

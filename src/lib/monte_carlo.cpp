@@ -25,9 +25,9 @@
 #include "mutate.h"
 #include "quasi_newton.h"
 
-output_type monte_carlo::operator()(model& m, const precalculate& p, const igrid& ig, const precalculate& p_widened, const igrid& ig_widened, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator) const {
+output_type monte_carlo::operator()(model& m, const precalculate& p, const igrid& ig, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator) const {
 	output_container tmp;
-	this->operator()(m, tmp, p, ig, p_widened, ig_widened, corner1, corner2, increment_me, generator); // call the version that produces the whole container
+	this->operator()(m, tmp, p, ig, corner1, corner2, increment_me, generator); // call the version that produces the whole container
 	VINA_CHECK(!tmp.empty());
 	return tmp.front();
 }
@@ -79,7 +79,7 @@ output_type monte_carlo::many_runs(model& m, const precalculate& p, const igrid&
 
 
 // out is sorted
-void monte_carlo::operator()(model& m, output_container& out, const precalculate& p, const igrid& ig, const precalculate& p_widened, const igrid& ig_widened, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator) const {
+void monte_carlo::operator()(model& m, output_container& out, const precalculate& p, const igrid& ig, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator) const {
 	vec authentic_v(1000, 1000, 1000); // FIXME? this is here to avoid max_fl/max_fl
 	conf_size s = m.get_size();
 	change g(s);

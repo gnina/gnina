@@ -45,6 +45,7 @@
 cache::cache(const std::string& scoring_function_version_, const grid_dims& gd_, fl slope_, atom_type::t atom_typing_used_) 
 : scoring_function_version(scoring_function_version_), gd(gd_), slope(slope_), atu(atom_typing_used_), grids(num_atom_types(atom_typing_used_)) {}
 
+
 fl cache::eval      (const model& m, fl v) const { // needs m.coords
 	fl e = 0;
 	sz nat = num_atom_types(atu);
@@ -110,6 +111,7 @@ void cache::load(Archive& ar, const unsigned version) {
 
 void cache::populate(const model& m, const precalculate& p, const szv& atom_types_needed, bool display_progress) {
 	szv needed;
+	assert(! p.has_slow()); //dkoes - can't cache slow terms
 	VINA_FOR_IN(i, atom_types_needed) {
 		sz t = atom_types_needed[i];
 		if(!grids[t].initialized()) {

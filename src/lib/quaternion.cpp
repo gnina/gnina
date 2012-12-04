@@ -22,9 +22,6 @@
 
 #include "quaternion.h"
 
-bool quaternion_is_normalized(const qt& q) { // not in the interface, used in assertions
-	return eq(quaternion_norm_sqr(q), 1) && eq(boost::math::abs(q), 1);
-}
 
 bool eq(const qt& a, const qt& b) { // elementwise approximate equality - may return false for equivalent rotations
 	return eq(a.R_component_1(), b.R_component_1()) && \
@@ -130,7 +127,6 @@ void quaternion_increment(qt& q, const vec& rotation) {
 	assert(quaternion_is_normalized(q));
 	q = angle_to_quaternion(rotation) * q;
 	quaternion_normalize_approx(q); // normalization added in 1.1.2
-	//quaternion_normalize(q); // normalization added in 1.1.2
 }
 
 vec quaternion_difference(const qt& b, const qt& a) { // rotation that needs to be applied to convert a to b

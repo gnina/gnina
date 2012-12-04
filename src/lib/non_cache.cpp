@@ -59,6 +59,7 @@ fl non_cache::eval      (const model& m, fl v) const { // clean up
 			if(r2 < cutoff_sqr) {
 				sz type_pair_index = get_type_pair_index(p->atom_typing_used(), a, b);
 				this_e +=  p->eval_fast(type_pair_index, r2);
+				this_e += p->eval_slow(a,b,r2);
 			}
 		}
 		curl(this_e, v);
@@ -114,8 +115,7 @@ fl non_cache::eval_deriv(      model& m, fl v) const { // clean up
 			vec r_ba; r_ba = adjusted_a_coords - b.coords; // FIXME why b-a and not a-b ?
 			fl r2 = sqr(r_ba);
 			if(r2 < cutoff_sqr) {
-				sz type_pair_index = get_type_pair_index(p->atom_typing_used(), a, b);
-				pr e_dor =  p->eval_deriv(type_pair_index, r2);
+				pr e_dor =  p->eval_deriv(a, b, r2);
 				this_e += e_dor.first;
 				deriv += e_dor.second * r_ba;
 			}

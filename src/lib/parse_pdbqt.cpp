@@ -265,6 +265,7 @@ void parse_pdbqt_rigid(const path& name, rigid& r) {
 		else if(starts_with(str, "TER")) {} // ignore 
 		else if(starts_with(str, "WARNING")) {} // ignore - AutoDockTools bug workaround
 		else if(starts_with(str, "REMARK")) {} // ignore
+		else if(starts_with(str, "USER")) {} // ignore
 		else if(starts_with(str, "ATOM  ") || starts_with(str, "HETATM")) {
 			try {
 				r.atoms.push_back(parse_pdbqt_atom_string(str));
@@ -278,7 +279,7 @@ void parse_pdbqt_rigid(const path& name, rigid& r) {
 		}
 		else if(starts_with(str, "MODEL"))
 			throw stream_parse_error(count, "Unexpected multi-MODEL input. Use \"vina_split\" first?");
-		else throw parse_error(name, count, "Unknown or inappropriate tag");
+		else throw parse_error(name, count, std::string("Unknown or inappropriate tag: ") + str);
 	}
 }
 
@@ -291,6 +292,8 @@ void parse_pdbqt_root_aux(std::istream& in, unsigned& count, parsing_struct& p, 
 		if(str.empty()) {} // ignore ""
 		else if(starts_with(str, "WARNING")) {} // ignore - AutoDockTools bug workaround
 		else if(starts_with(str, "REMARK")) {} // ignore
+		else if(starts_with(str, "USER")) {} // ignore
+		else if(starts_with(str, "TER")) {} //ignore
 		else if(starts_with(str, "ATOM  ") || starts_with(str, "HETATM")) {
 			try {
 				p.add(parse_pdbqt_atom_string(str), c);
@@ -317,6 +320,8 @@ void parse_pdbqt_root(std::istream& in, unsigned& count, parsing_struct& p, cont
 		if(str.empty()) {} // ignore
 		else if(starts_with(str, "WARNING")) {} // ignore - AutoDockTools bug workaround
 		else if(starts_with(str, "REMARK")) {} // ignore
+		else if(starts_with(str, "USER")) {} // ignore
+		else if(starts_with(str,"TER")) {} //ignore
 		else if(starts_with(str, "ROOT")) {
 			parse_pdbqt_root_aux(in, count, p, c);
 			break;
@@ -353,6 +358,8 @@ void parse_pdbqt_aux(std::istream& in, unsigned& count, parsing_struct& p, conte
 		if(str.empty()) {} // ignore ""
 		else if(starts_with(str, "WARNING")) {} // ignore - AutoDockTools bug workaround
 		else if(starts_with(str, "REMARK")) {} // ignore
+		else if(starts_with(str, "USER")) {} // ignore
+		else if(starts_with(str, "TER")) {} //ignore
 		else if(starts_with(str, "BRANCH")) parse_pdbqt_branch_aux(in, count, str, p, c);
 		else if(!residue && starts_with(str, "TORSDOF")) {
 			if(torsdof) throw stream_parse_error(count, "TORSDOF can occur only once");
@@ -468,14 +475,14 @@ void postprocess_residue(non_rigid_parsed& nr, parsing_struct& p, context& c) {
 	VINA_CHECK(nr.atoms_inflex_bonds.dim_2() == nr.inflex.size());
 }
 
-void parse_pdbqt_ligand(const path& name, non_rigid_parsed& nr, context& c) {
-	ifile in(name);
+//dkoes, stream version
+void parse_pdbqt_ligand_stream(const path& name, std::istream& in, non_rigid_parsed& nr, context& c) {
 	unsigned count = 0;
 	parsing_struct p;
 	boost::optional<unsigned> torsdof;
 	try {
 		parse_pdbqt_aux(in, count, p, c, torsdof, false);
-		if(p.atoms.empty()) 
+		if(p.atoms.empty())
 			throw parse_error(name, count, "No atoms in the ligand");
 		if(!torsdof)
 			throw parse_error(name, count, "Missing TORSDOF");
@@ -485,6 +492,11 @@ void parse_pdbqt_ligand(const path& name, non_rigid_parsed& nr, context& c) {
 		throw e.to_parse_error(name);
 	}
 	VINA_CHECK(nr.atoms_atoms_bonds.dim() == nr.atoms.size());
+}
+
+void parse_pdbqt_ligand(const path& name, non_rigid_parsed& nr, context& c) {
+	ifile in(name);
+	parse_pdbqt_ligand_stream(name, in, nr, c);
 }
 
 void parse_pdbqt_residue(std::istream& in, unsigned& count, parsing_struct& p, context& c) { 
@@ -503,6 +515,7 @@ void parse_pdbqt_flex(const path& name, non_rigid_parsed& nr, context& c) {
 		if(str.empty()) {} // ignore ""
 		else if(starts_with(str, "WARNING")) {} // ignore - AutoDockTools bug workaround
 		else if(starts_with(str, "REMARK")) {} // ignore
+		else if(starts_with(str, "USER")) {} // ignore
 		else if(starts_with(str, "BEGIN_RES")) {
 			try {
 				parsing_struct p;
@@ -528,6 +541,7 @@ void parse_pdbqt_branch(std::istream& in, unsigned& count, parsing_struct& p, co
 		if(str.empty()) {} //ignore ""
 		else if(starts_with(str, "WARNING")) {} // ignore - AutoDockTools bug workaround
 		else if(starts_with(str, "REMARK")) {} // ignore
+		else if(starts_with(str, "USER")) {} // ignore
 		else if(starts_with(str, "BRANCH")) parse_pdbqt_branch_aux(in, count, str, p, c);
 		else if(starts_with(str, "ENDBRANCH")) {
 			unsigned first, second;
@@ -614,6 +628,17 @@ struct pdbqt_initializer {
 		m.initialize(mobility);
 	}
 };
+
+model parse_ligand_stream_pdbqt  (const std::string& name, std::istream& in) { // can throw parse_error
+	non_rigid_parsed nrp;
+	context c;
+	parse_pdbqt_ligand_stream(name, in, nrp, c);
+
+	pdbqt_initializer tmp;
+	tmp.initialize_from_nrp(nrp, c, true);
+	tmp.initialize(nrp.mobility_matrix());
+	return tmp.m;
+}
 
 model parse_ligand_pdbqt  (const path& name) { // can throw parse_error
 	non_rigid_parsed nrp;

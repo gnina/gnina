@@ -1,25 +1,3 @@
-/*
-
-   Copyright (c) 2006-2010, The Scripps Research Institute
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-
-   Author: Dr. Oleg Trott <ot14@columbia.edu>, 
-           The Olson Lab, 
-           The Scripps Research Institute
-
-*/
-
 #include <iostream>
 #include <string>
 #include <exception>
@@ -38,7 +16,7 @@
 using boost::filesystem::path;
 
 path make_path(const std::string& str) {
-	return path(str, boost::filesystem::native);
+	return path(str);
 }
 
 std::string default_prefix(const std::string& input_name, const std::string& add) {
@@ -133,18 +111,18 @@ void write_multimodel_pdbqt(const models& m, const std::string& ligand_prefix, c
 int main(int argc, char* argv[]) {
 	using namespace boost::program_options;
 	const bool advanced = false;
-	const std::string version_string = "AutoDock Vina PDBQT Split 1.1.2 (May 11, 2011)";
+	const std::string version_string = "AutoDock Vina PDBQT Split 1.1.1 (Apr 20, 2010)";
 
 	const std::string error_message = "\n\n\
 Please contact the author, Dr. Oleg Trott <ot14@columbia.edu>, so\n\
 that this problem can be resolved. The reproducibility of the\n\
 error may be vital, so please remember to include the following in\n\
 your problem report:\n\
-* the EXACT error message,\n\
-* your version of the program,\n\
-* the computer system you are running it on,\n\
-* command line and configuration file options,\n\
-* input (if possible),\n\
+    * the EXACT error message,\n\
+    * your version of the program,\n\
+    * the computer system you are running it on,\n\
+    * command line and configuration file options,\n\
+    * input (if possible),\n\
 \n\
 Thank you!\n";
 
@@ -208,7 +186,7 @@ Thank you!\n";
 		write_multimodel_pdbqt(tmp, ligand_prefix, flex_prefix);
 	}
 	catch(file_error& e) {
-		std::cerr << "\n\nError: could not open \"" << e.name.native_file_string() << "\" for " << (e.in ? "reading" : "writing") << ".\n";
+		std::cerr << "\n\nError: could not open \"" << e.name.string() << "\" for " << (e.in ? "reading" : "writing") << ".\n";
 		return 1;
 	}
 	catch(boost::filesystem::filesystem_error& e) {
@@ -220,7 +198,7 @@ Thank you!\n";
 		return 1;
 	}
 	catch(parse_error& e) {
-		std::cerr << "\n\nParse error on line " << e.line << " in file \"" << e.file.native_file_string() << "\": " << e.reason << '\n';
+		std::cerr << "\n\nParse error on line " << e.line << " in file \"" << e.file.string() << "\": " << e.reason << '\n';
 		return 1;
 	}
 	catch(std::bad_alloc&) {

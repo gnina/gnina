@@ -70,6 +70,10 @@ inline fl quaternion_norm_sqr(const qt& q) { // equivalent to sqr(boost::math::a
 	return sqr(q.R_component_1()) + sqr(q.R_component_2()) + sqr(q.R_component_3()) + sqr(q.R_component_4());
 }
 
+inline bool quaternion_is_normalized(const qt& q) { // not in the interface, used in assertions
+	return eq(quaternion_norm_sqr(q), 1) && eq(boost::math::abs(q), 1);
+}
+
 inline void quaternion_normalize(qt& q) {
 	const fl s = quaternion_norm_sqr(q);
 	assert(eq(s, sqr(boost::math::abs(q))));

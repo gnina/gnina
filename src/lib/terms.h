@@ -44,7 +44,7 @@ struct usable : public distance_additive {
 	fl eval(const atom_base& a, const atom_base& b, fl r) const { // should not be overriden
 		return eval(a.get(atom_typing_used), b.get(atom_typing_used), r);
 	}
-	virtual fl eval(sz t1, sz t2, fl r) const { return 0; } 
+	virtual fl eval(sz t1, sz t2, fl r) const { VINA_CHECK(false); return 0; }
 	virtual ~usable() {}
 };
 
