@@ -24,7 +24,6 @@
 
 //dkoes - FIX: terms and weights must be in a specific order (usable, da, const)
 weighted_terms::weighted_terms(const terms* t, const flv& weights) : t(t), weights(weights), cutoff_(0),conf_indep_start(0) { // does not own t
-//	VINA_CHECK(t->distance_additive_terms.num_enabled() == 0);  dkoes: I'm going to make these work
 	VINA_CHECK(t->         additive_terms.num_enabled() == 0);
 	VINA_CHECK(t->   intermolecular_terms.num_enabled() == 0);
 	VINA_FOR_IN(i, t->usable_terms)

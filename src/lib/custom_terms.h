@@ -12,6 +12,7 @@
 #include "everything.h"
 #include <string>
 #include <boost/regex.hpp>
+#include "file.h"
 
 //thrown when can't parse name of term
 struct scoring_function_error {
@@ -34,6 +35,7 @@ private:
 
 	//construct regular expressions for matchiner term names once
 	boost::regex ad4_solvation_re;
+	boost::regex constant_re;
 	boost::regex electrostatic_re;
 	boost::regex gauss_re;
 	boost::regex hydrophobic_re;
@@ -48,6 +50,10 @@ public:
 	custom_terms();//creates empty set, inits regexes
 	void add(const std::string& name, fl weight);
 	flv weights() const;
+	void add_terms_from_file(std::istream& in);
+	void print(std::ostream& out) const;
+
+	friend std::ostream& operator<<(std::ostream& out, const custom_terms& t);
 };
 
 #endif

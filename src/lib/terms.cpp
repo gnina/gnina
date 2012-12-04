@@ -134,8 +134,8 @@ fl factors::eval(const flv& weights, bool include_internal) const {
 std::vector<std::string> terms::get_names(bool enabled_only) const { // does not include conf-independent
 	std::vector<std::string> tmp;
 
+	usable_terms.get_names(enabled_only, tmp);
 	distance_additive_terms.get_names(enabled_only, tmp);
-	           usable_terms.get_names(enabled_only, tmp);
 	         additive_terms.get_names(enabled_only, tmp);
 	   intermolecular_terms.get_names(enabled_only, tmp);
 	return tmp;

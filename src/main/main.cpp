@@ -88,10 +88,9 @@ void write_all_output(model& m, const output_container& out, sz how_many,
 		how_many = out.size();
 	VINA_CHECK(how_many <= remarks.size());
 	VINA_FOR(i, how_many)
-	{
-		m.set(out[i].c);
-		m.write_model(outstream, i + 1, remarks[i]); // so that model numbers start with 1
-	}
+	{ m.set(out[i].c);
+	m.write_model(outstream, i + 1, remarks[i]); // so that model numbers start with 1
+}
 }
 
 fl do_randomization(model& m, std::ostream& out, const vec& corner1,
@@ -108,17 +107,16 @@ fl do_randomization(model& m, std::ostream& out, const vec& corner1,
 	conf best_conf = init_conf;
 	fl best_clash_penalty = 0;
 	VINA_FOR(i, attempts)
+	{ conf c = init_conf;
+	c.randomize(corner1, corner2, generator);
+	m.set(c);
+	fl penalty = m.clash_penalty();
+	if (i == 0 || penalty < best_clash_penalty)
 	{
-		conf c = init_conf;
-		c.randomize(corner1, corner2, generator);
-		m.set(c);
-		fl penalty = m.clash_penalty();
-		if (i == 0 || penalty < best_clash_penalty)
-		{
-			best_conf = c;
-			best_clash_penalty = penalty;
-		}
+		best_conf = c;
+		best_clash_penalty = penalty;
 	}
+}
 	m.set(best_conf);
 	if (verbosity > 1)
 	{
@@ -137,13 +135,12 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	quasi_newton_par.max_steps = max_steps;
 	const fl slope_orig = nc.slope;
 	VINA_FOR(p, 5)
-	{
-		nc.slope = 100 * std::pow(10.0, 2.0 * p);
-		quasi_newton_par(m, prec, nc, out, g, cap);
-		m.set(out.c); // just to be sure
-		if (nc.within(m))
-			break;
-	}
+	{ nc.slope = 100 * std::pow(10.0, 2.0 * p);
+	quasi_newton_par(m, prec, nc, out, g, cap);
+	m.set(out.c); // just to be sure
+	if (nc.within(m))
+	break;
+}
 	out.coords = m.get_heavy_atom_movable_coords();
 	if (!nc.within(m))
 		out.e = max_fl;
@@ -165,7 +162,7 @@ output_container remove_redundant(const output_container& in, fl min_rmsd)
 {
 	output_container tmp;
 	VINA_FOR_IN(i, in)
-		add_to_output_container(tmp, in[i], min_rmsd, in.size());
+	add_to_output_container(tmp, in[i], min_rmsd, in.size());
 	return tmp;
 }
 
@@ -195,25 +192,24 @@ void do_search(model& m, const boost::optional<model>& ref,
 		flv term_values = t->evale_robust(m);
 		log << "Intramolecular energy: " << std::fixed << std::setprecision(5)
 				<< intramolecular_energy << "\n";
-		if (term_values.size() == 5)
-		{
-			log
-			<< "Intermolecular contributions to the terms, before weighting:\n";
-			log << std::setprecision(5);
-			log << "    gauss 1     : " << term_values[0] << '\n';
-			log << "    gauss 2     : " << term_values[1] << '\n';
-			log << "    repulsion   : " << term_values[2] << '\n';
-			log << "    hydrophobic : " << term_values[3] << '\n';
-			log << "    Hydrogen    : " << term_values[4] << '\n';
+
+		std::vector<std::string> enabled_names = t->get_names(true);
+		log
+		<< "Intermolecular contributions to the terms, before weighting:\n";
+		log << std::setprecision(5);
+		VINA_FOR_IN(i, enabled_names) {
+			log << "#\t" << enabled_names[i] << '\t' << term_values[i]<<"\n";
 		}
-		else if (term_values.size() == 3) //dkoes scoring
+		log << "Conformation independent terms, before weighting (div terms incorrect):\n";
+		conf_independent_inputs in(m);
+		const flv nonweight(1,1.0);
+		for(unsigned i = 0, n = t->conf_independent_terms.size(); i < n; i++)
 		{
-			log
-			<< "Intermolecular contributions to the terms, before weighting:\n";
-			log << "    desolvation : " << term_values[0] << '\n';
-			log << "    vdw         : " << term_values[1] << '\n';
-			log << "    hbond       : " << term_values[2] << '\n';
+			flv::const_iterator pos = nonweight.begin();
+			log << "#\t" << t->conf_independent_terms[i].name << "\t" <<
+					t->conf_independent_terms[i].eval(in, (fl)0.0,pos) << "\n";
 		}
+
 		results.push_back(resultInfo(e, -1, ""));
 	}
 	else if (local_only)
@@ -265,8 +261,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 		done(verbosity, log);
 		doing(verbosity, "Refining results", log);
 		VINA_FOR_IN(i, out_cont)
-			refine_structure(m, prec, nc, out_cont[i], authentic_v,
-					par.mc.ssd_par.evals);
+		refine_structure(m, prec, nc, out_cont[i], authentic_v,
+				par.mc.ssd_par.evals);
 
 		if (!out_cont.empty())
 		{
@@ -274,9 +270,9 @@ void do_search(model& m, const boost::optional<model>& ref,
 			const fl best_mode_intramolecular_energy = m.eval_intramolecular(
 					prec, authentic_v, out_cont[0].c);
 			VINA_FOR_IN(i, out_cont)
-				if (not_max(out_cont[i].e))
-					out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
-							out_cont[i].c, best_mode_intramolecular_energy);
+			if (not_max(out_cont[i].e))
+			out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
+					out_cont[i].c, best_mode_intramolecular_energy);
 			// the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
 			out_cont.sort();
 		}
@@ -300,28 +296,27 @@ void do_search(model& m, const boost::optional<model>& ref,
 		sz how_many = 0;
 		std::vector<std::string> remarks;
 		VINA_FOR_IN(i, out_cont)
-		{
-			if (how_many >= num_modes || !not_max(out_cont[i].e)
-					|| out_cont[i].e > out_cont[0].e + energy_range)
-				break; // check energy_range sanity FIXME
-			++how_many;
-			log << std::setw(4) << i + 1 << "    " << std::setw(9)
-					<< std::setprecision(1) << out_cont[i].e; // intermolecular_energies[i];
-			m.set(out_cont[i].c);
-			const model& r = ref ? ref.get() : best_mode_model;
-			const fl lb = m.rmsd_lower_bound(r);
-			const fl ub = m.rmsd_upper_bound(r);
-			log << "  " << std::setw(9) << std::setprecision(3) << lb << "  "
-					<< std::setw(9) << std::setprecision(3) << ub; // FIXME need user-readable error messages in case of failures
+		{ if (how_many >= num_modes || !not_max(out_cont[i].e)
+				|| out_cont[i].e > out_cont[0].e + energy_range)
+		break; // check energy_range sanity FIXME
+		++how_many;
+		log << std::setw(4) << i + 1 << "    " << std::setw(9)
+		<< std::setprecision(1) << out_cont[i].e;// intermolecular_energies[i];
+		m.set(out_cont[i].c);
+		const model& r = ref ? ref.get() : best_mode_model;
+		const fl lb = m.rmsd_lower_bound(r);
+		const fl ub = m.rmsd_upper_bound(r);
+		log << "  " << std::setw(9) << std::setprecision(3) << lb << "  "
+		<< std::setw(9) << std::setprecision(3) << ub;// FIXME need user-readable error messages in case of failures
 
-			remarks.push_back(vina_remark(out_cont[i].e, lb, ub));
-			log.endl();
+		remarks.push_back(vina_remark(out_cont[i].e, lb, ub));
+		log.endl();
 
-			//dkoes - setup resultInfo
-			std::stringstream str;
-			m.write_model(str, i + 1, "");
-			results.push_back(resultInfo(out_cont[i].e, -1, str.str()));
-		}
+		//dkoes - setup resultInfo
+		std::stringstream str;
+		m.write_model(str, i + 1, "");
+		results.push_back(resultInfo(out_cont[i].e, -1, str.str()));
+	}
 		doing(verbosity, "Writing output", log);
 		write_all_output(m, out_cont, how_many, outstream, remarks);
 		done(verbosity, log);
@@ -429,10 +424,10 @@ options_occurrence get_occurrence(boost::program_options::variables_map& vm,
 {
 	options_occurrence tmp;
 	VINA_FOR_IN(i, d.options())
-		if (vm.count((*d.options()[i]).long_name()))
-			tmp.some = true;
-		else
-			tmp.all = false;
+	if (vm.count((*d.options()[i]).long_name()))
+	tmp.some = true;
+	else
+	tmp.all = false;
 	return tmp;
 }
 
@@ -440,11 +435,10 @@ void check_occurrence(boost::program_options::variables_map& vm,
 		boost::program_options::options_description& d)
 {
 	VINA_FOR_IN(i, d.options())
-	{
-		const std::string& str = (*d.options()[i]).long_name();
-		if ((str.substr(0,4) == "size" || str.substr(0,6) == "center") && !vm.count(str))
-			std::cerr << "Required parameter --" << str << " is missing!\n";
-	}
+	{ const std::string& str = (*d.options()[i]).long_name();
+	if ((str.substr(0,4) == "size" || str.substr(0,6) == "center") && !vm.count(str))
+	std::cerr << "Required parameter --" << str << " is missing!\n";
+}
 }
 
 model parse_bundle(const std::string& rigid_name,
@@ -456,7 +450,7 @@ model parse_bundle(const std::string& rigid_name,
 										make_path(flex_name_opt.get())) :
 								parse_receptor_pdbqt(make_path(rigid_name));
 	VINA_FOR_IN(i, ligand_names)
-		tmp.append(parse_ligand_pdbqt(make_path(ligand_names[i])));
+	tmp.append(parse_ligand_pdbqt(make_path(ligand_names[i])));
 	return tmp;
 }
 
@@ -466,7 +460,7 @@ model parse_bundle(const std::vector<std::string>& ligand_names)
 	// FIXME check elsewhere
 	model tmp = parse_ligand_pdbqt(make_path(ligand_names[0]));
 	VINA_RANGE(i, 1, ligand_names.size())
-		tmp.append(parse_ligand_pdbqt(make_path(ligand_names[i])));
+	tmp.append(parse_ligand_pdbqt(make_path(ligand_names[i])));
 	return tmp;
 }
 
@@ -524,16 +518,16 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 		fl max_x = -HUGE_VAL, max_y = -HUGE_VAL, max_z = -HUGE_VAL;
 		fl num = 0;
 		FOR_ATOMS_OF_MOL(a, mol)
-		{
+				{
 			center_x += a->x();
 			center_y += a->y();
 			center_z += a->z();
-			min_x = std::min(min_x, (fl)a->x());
-			min_y = std::min(min_y, (fl)a->y());
-			min_z = std::min(min_z, (fl)a->z());
-			max_x = std::max(max_x, (fl)a->x());
-			max_y = std::max(max_y, (fl)a->y());
-			max_z = std::max(max_z, (fl)a->z());
+			min_x = std::min(min_x, (fl) a->x());
+			min_y = std::min(min_y, (fl) a->y());
+			min_z = std::min(min_z, (fl) a->z());
+			max_x = std::max(max_x, (fl) a->x());
+			max_y = std::max(max_y, (fl) a->y());
+			max_z = std::max(max_z, (fl) a->z());
 			num++;
 		}
 		center_x /= num;
@@ -547,6 +541,48 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 	{
 		std::cerr << "Unable to read  " << autobox_ligand << "\n";
 		exit(-1);
+	}
+}
+
+//several built-in functions I've designed
+void setup_dkoes_terms(custom_terms& t, bool dkoes_score, bool dkoes_score_old,
+		bool dkoes_fast)
+{
+	if (dkoes_score + dkoes_score_old + dkoes_fast != 1)
+		throw usage_error("dkoes scoring options are mutually exclusive");
+
+	if (dkoes_score)
+	{
+		t.add("vdw(i=4,_j=8,_s=0,_^=100,_c=8)", 0.009900);
+		t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", -0.153055);
+		t.add("ad4_solvation(d-sigma=3.6,_s/q=0.01097,_q=1,_c=8)", 0.048934);
+		t.add("num_tors_sqr", 0.317267);
+		t.add("constant_term", -2.469020);
+		/* trained with openbabel partial charges
+		 weights.push_back(0.010764); //vdw
+		 weights.push_back(-0.156861); //hbond
+		 weights.push_back(0.062407); //desolvation
+		 weights.push_back(0.337036); //tors sqr
+		 weights.push_back(-2.231827); //constant
+		 */
+	}
+	else if (dkoes_score_old)
+	{
+		t.add("vdw(i=4,_j=8,_s=0,_^=100,_c=8)", 0.010607);
+		t.add("non_dir_h_bond(g=-0.7,_b=0)", 0.197201);
+		t.add("num_tors_sqr", .285035);
+		t.add("constant_term", -2.585651);
+
+		//desolvation wasn't actually getting counted, but this is the constant
+//			weights.push_back(0.044580); //desolvation
+
+	}
+	else if (dkoes_fast)
+	{
+		t.add("vdw(i=4,_j=8,_s=0,_^=100,_c=8)", 0.008962);
+		t.add("non_dir_h_bond(g=-0.7,_b=0)", 0.387739);
+		t.add("num_tors_sqr", .285035);
+		t.add("constant_term", -2.467357);
 	}
 }
 
@@ -574,15 +610,15 @@ Please report this error at http://smina.sf.net\n"
 Thank you!\n";
 
 	const std::string cite_message =
-"   _______  _______ _________ _        _______ \n"
-"  (  ____ \\(       )\\__   __/( (    /|(  ___  )\n"
-"  | (    \\/| () () |   ) (   |  \\  ( || (   ) |\n"
-"  | (_____ | || || |   | |   |   \\ | || (___) |\n"
-"  (_____  )| |(_)| |   | |   | (\\ \\) ||  ___  |\n"
-"        ) || |   | |   | |   | | \\   || (   ) |\n"
-"  /\\____) || )   ( |___) (___| )  \\  || )   ( |\n"
-"  \\_______)|/     \\|\\_______/|/    )_)|/     \\|\n"
-"\n\nSmina is based off AutoDock Vina. Please cite appropriately.\n";
+			"   _______  _______ _________ _        _______ \n"
+					"  (  ____ \\(       )\\__   __/( (    /|(  ___  )\n"
+					"  | (    \\/| () () |   ) (   |  \\  ( || (   ) |\n"
+					"  | (_____ | || || |   | |   |   \\ | || (___) |\n"
+					"  (_____  )| |(_)| |   | |   | (\\ \\) ||  ___  |\n"
+					"        ) || |   | |   | |   | | \\   || (   ) |\n"
+					"  /\\____) || )   ( |___) (___| )  \\  || )   ( |\n"
+					"  \\_______)|/     \\|\\_______/|/    )_)|/     \\|\n"
+					"\n\nsmina is based off AutoDock Vina. Please cite appropriately.\n";
 
 	try
 	{
@@ -608,6 +644,7 @@ Thank you!\n";
 		bool dkoes_score = false;
 		bool dkoes_score_old = false;
 		bool dkoes_fast = false;
+		bool quiet = false;
 
 		positional_options_description positional; // remains empty
 
@@ -636,13 +673,14 @@ Thank you!\n";
 		//options_description outputs("Output prefixes (optional - by default, input names are stripped of .pdbqt\nare used as prefixes. _001.pdbqt, _002.pdbqt, etc. are appended to the prefixes to produce the output names");
 		options_description outputs("Output (optional)");
 		outputs.add_options()
-		("out", value<std::vector<std::string> >(&out_names),
+		("out,o", value<std::vector<std::string> >(&out_names),
 				"output models, the default is chosen based on the ligand file name")
 		("log", value<std::string>(&log_name), "optionally, write log file");
 
 		options_description scoremin("Scoring and minimization options");
 		scoremin.add_options()
-		("custom_scoring", value<std::string>(&custom_file_name),"custom scoring function file")
+		("custom_scoring", value<std::string>(&custom_file_name),
+				"custom scoring function file")
 		("score_only", bool_switch(&score_only), "score provided ligand pose")
 		("local_only", bool_switch(&local_only),
 				"local search only using autobox (energy minimization)")
@@ -667,7 +705,8 @@ Thank you!\n";
 		("num_modes", value<int>(&num_modes)->default_value(9),
 				"maximum number of binding modes to generate")
 		("energy_range", value<fl>(&energy_range)->default_value(3.0),
-				"maximum energy difference between the best binding mode and the worst one displayed (kcal/mol)");
+				"maximum energy difference between the best binding mode and the worst one displayed (kcal/mol)")
+		("quiet,q", bool_switch(&quiet), "Suppress output messages");
 
 		options_description config("Configuration file (optional)");
 		config.add_options()("config", value<std::string>(&config_name),
@@ -774,7 +813,7 @@ Thank you!\n";
 			throw usage_error(
 					"Flexible side chains are not allowed without the rest of the receptor"); // that's the only way parsing works, actually
 
-		tee log;
+		tee log(quiet);
 		if (vm.count("log") > 0)
 			log.init(log_name);
 
@@ -803,66 +842,29 @@ Thank you!\n";
 
 		flv weights;
 
-		//dkoes, set what scoring function to use
-		everything everything_terms;
-		dkoes_terms dkoesterms;
-		old_dkoes_terms olddkoesterms;
-		fast_dkoes_terms dkoesfastterms;
-
-		if (dkoes_score)
-		{
-			weights.push_back(0.009900); //vdw
-			weights.push_back(-0.153055); //hbond
-			weights.push_back(0.048934); //desolvation
-			weights.push_back(0.317267); //tors sqr
-			weights.push_back(-2.469020); //constant
-			/* trained with openbabel partial charges
-			 weights.push_back(0.010764); //vdw
-			 weights.push_back(-0.156861); //hbond
-			 weights.push_back(0.062407); //desolvation
-			 weights.push_back(0.337036); //tors sqr
-			 weights.push_back(-2.231827); //constant
-			 */
-
-		}
-		else if (dkoes_score_old)
-		{
-			weights.push_back(0.010607); //vdw
-			weights.push_back(-0.197201); //hbond
-			weights.push_back(0.285035); //tors sqr
-			weights.push_back(-2.585651); //constant
-			//desolvation wasn't actually getting counted, but this is the constant
-//			weights.push_back(0.044580); //desolvation
-
-		}
-		else if (dkoes_fast)
-		{
-			weights.push_back(0.008962); //vdw
-			weights.push_back(0.387739); //tors sqr
-			weights.push_back(-2.467357); //constant
-		}
-
+		//dkoes, set the scoring function
 		custom_terms t;
-		if(custom_file_name.size() > 0)
+		if (custom_file_name.size() > 0)
 		{
-
+			ifile custom_file(make_path(custom_file_name));
+			t.add_terms_from_file(custom_file);
+		}
+		else if (dkoes_score || dkoes_score_old || dkoes_fast)
+		{
+			//my own built-in scoring functions
+			setup_dkoes_terms(t, dkoes_score, dkoes_score_old, dkoes_fast);
 		}
 		else
 		{
-			fl weight_gauss1 = -0.035579;
-			fl weight_gauss2 = -0.005156;
-			fl weight_repulsion = 0.840245;
-			fl weight_hydrophobic = -0.035069;
-			fl weight_hydrogen = -0.587439;
-			fl weight_rot = 0.05846;
-
-			t.add("gauss(o=0,_w=0.5,_c=8)",-0.035579);
-			t.add("gauss(o=3,_w=2,_c=8)",-0.005156);
-			t.add("repulsion(o=0,_c=8)",0.840245);
-			t.add("hydrophobic(g=0.5,_b=1.5,_c=8)",-0.035069);
+			t.add("gauss(o=0,_w=0.5,_c=8)", -0.035579);
+			t.add("gauss(o=3,_w=2,_c=8)", -0.005156);
+			t.add("repulsion(o=0,_c=8)", 0.840245);
+			t.add("hydrophobic(g=0.5,_b=1.5,_c=8)", -0.035069);
 			t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", -0.587439);
-			t.add("num_tors_div",5*0.05846/0.1 - 1);
+			t.add("num_tors_div", 5 * 0.05846 / 0.1 - 1);
 		}
+
+		log << "Weights\tTerms\n" << t << "\n";
 
 		const fl granularity = 0.375;
 		if (search_box_needed)
@@ -1120,7 +1122,7 @@ Thank you!\n";
 	{
 		std::cerr << "\n\nError: insufficient memory!\n";
 		return 1;
-	} catch(scoring_function_error e)
+	} catch (scoring_function_error e)
 	{
 		std::cerr << "\n\nError with scoring function specification.\n";
 		std::cerr << e.msg << "(" << e.name << ")\n";

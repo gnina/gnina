@@ -26,23 +26,6 @@
 #include "terms.h"
 #include "int_pow.h"
 
-struct everything : public terms {
-	everything();
-};
-
-struct dkoes_terms : public terms {
-	dkoes_terms();
-};
-
-struct old_dkoes_terms : public terms {
-	old_dkoes_terms();
-};
-
-struct fast_dkoes_terms : public terms {
-	fast_dkoes_terms();
-};
-
-
 inline fl gaussian(fl x, fl width) {
 	return std::exp(-sqr(x/width));
 }
@@ -53,7 +36,7 @@ template<unsigned i>
 struct electrostatic : public distance_additive {
 	fl cap;
 	electrostatic(fl cap_, fl cutoff_) : distance_additive(cutoff_), cap(cap_) {
-		name = std::string("electrostatic(i=") + to_string(i) + ", ^=" + to_string(cap) + ", c=" + to_string(cutoff) + ")";
+		name = std::string("electrostatic(i=") + to_string(i) + ",_^=" + to_string(cap) + ",_c=" + to_string(cutoff) + ")";
 	}
 	fl eval(const atom_base& a, const atom_base& b, fl r) const {
 		fl tmp = int_pow<i>(r);
@@ -63,40 +46,15 @@ struct electrostatic : public distance_additive {
 	}
 };
 
-fl solvation_parameter(const atom_type& a);
-fl volume(const atom_type& a);
 
 struct ad4_solvation : public distance_additive {
 	fl desolvation_sigma;
 	fl solvation_q;
 	bool charge_dependent;
 	ad4_solvation(fl desolvation_sigma_, fl solvation_q_, bool charge_dependent_, fl cutoff_) : distance_additive(cutoff_), solvation_q(solvation_q_), charge_dependent(charge_dependent_), desolvation_sigma(desolvation_sigma_) {
-		name = std::string("ad4_solvation(d-sigma=") + to_string(desolvation_sigma) + ", s/q=" + to_string(solvation_q) + ", q=" + to_string(charge_dependent) + ", c=" + to_string(cutoff) + ")";
+		name = std::string("ad4_solvation(d-sigma=") + to_string(desolvation_sigma) + ",_s/q=" + to_string(solvation_q) + ",_q=" + to_string(charge_dependent) + ",_c=" + to_string(cutoff) + ")";
 	}
-	fl eval(const atom_base& a, const atom_base& b, fl r) const {
-		fl q1 = a.charge;
-		fl q2 = b.charge;
-
-		VINA_CHECK(not_max(q1));
-		VINA_CHECK(not_max(q2));
-
-		sz t1 = a.ad;
-		sz t2 = b.ad;
-
-		fl solv1 = solvation_parameter(a);
-		fl solv2 = solvation_parameter(b);
-
-		fl volume1 = volume(a);
-		fl volume2 = volume(b);
-
-		fl my_solv = charge_dependent ? solvation_q : 0;
-
-		fl tmp = ((solv1 + my_solv * std::abs(q1)) * volume2 +
-			    (solv2 + my_solv * std::abs(q2)) * volume1) * std::exp(-sqr(r/(2*desolvation_sigma)));
-
-		VINA_CHECK(not_max(tmp));
-		return tmp;
-	}
+	fl eval(const atom_base& a, const atom_base& b, fl r) const;
 };
 
 inline fl optimal_distance(sz xs_t1, sz xs_t2) {
@@ -107,7 +65,7 @@ struct gauss : public usable {
 	fl offset; // added to optimal distance
 	fl width;
 	gauss(fl offset_, fl width_, fl cutoff_) : usable(cutoff_), offset(offset_), width(width_) {
-		name = std::string("gauss(o=") + to_string(offset) + ", w=" + to_string(width) + ", c=" + to_string(cutoff) + ")";
+		name = std::string("gauss(o=") + to_string(offset) + ",_w=" + to_string(width) + ",_c=" + to_string(cutoff) + ")";
 	}
 	fl eval(sz t1, sz t2, fl r) const {
 		return gaussian(r - (optimal_distance(t1, t2) + offset), width);
@@ -117,7 +75,7 @@ struct gauss : public usable {
 struct repulsion : public usable {
 	fl offset; // added to vdw
 	repulsion(fl offset_, fl cutoff_) : usable(cutoff_), offset(offset_) {
-		name = std::string("repulsion(o=") + to_string(offset) + ", c="+to_string(cutoff)+")";
+		name = std::string("repulsion(o=") + to_string(offset) + ",_c="+to_string(cutoff)+")";
 	}
 	fl eval(sz t1, sz t2, fl r) const {
 		fl d = r - (optimal_distance(t1, t2) + offset);
@@ -143,7 +101,7 @@ struct hydrophobic : public usable {
 	fl good;
 	fl bad;
 	hydrophobic(fl good_, fl bad_, fl cutoff_) : usable(cutoff_), good(good_), bad(bad_) {
-		name = "hydrophobic(g=" + to_string(good) + ", b=" + to_string(bad) + ", c=" + to_string(cutoff) + ")";
+		name = "hydrophobic(g=" + to_string(good) + ",_b=" + to_string(bad) + ",_c=" + to_string(cutoff) + ")";
 	}
 	fl eval(sz t1, sz t2, fl r) const {
 		if(xs_is_hydrophobic(t1) && xs_is_hydrophobic(t2))
@@ -156,7 +114,7 @@ struct non_hydrophobic : public usable {
 	fl good;
 	fl bad;
 	non_hydrophobic(fl good_, fl bad_, fl cutoff_) : usable(cutoff_), good(good_), bad(bad_) {
-		name = "non_hydrophobic(g=" + to_string(good) + ", b=" + to_string(bad) + ", c=" + to_string(cutoff) + ")";
+		name = "non_hydrophobic(g=" + to_string(good) + ",_b=" + to_string(bad) + ",_c=" + to_string(cutoff) + ")";
 	}
 	fl eval(sz t1, sz t2, fl r) const {
 		if(!xs_is_hydrophobic(t1) && !xs_is_hydrophobic(t2))
@@ -179,7 +137,7 @@ struct vdw : public usable {
 	fl cap;
 	vdw(fl smoothing_, fl cap_, fl cutoff_)
 		: usable(cutoff_), smoothing(smoothing_), cap(cap_) {
-		name = "vdw(i=" + to_string(i) + ", j=" + to_string(j) + ", s=" + to_string(smoothing) + ", ^=" + to_string(cap) + ", c=" + to_string(cutoff) + ")";
+		name = "vdw(i=" + to_string(i) + ",_j=" + to_string(j) + ",_s=" + to_string(smoothing) + ",_^=" + to_string(cap) + ",_c=" + to_string(cutoff) + ")";
 	}
 	fl eval(sz t1, sz t2, fl r) const {
 		fl d0 = optimal_distance(t1, t2);
@@ -204,7 +162,7 @@ struct non_dir_h_bond : public usable {
 	fl good;
 	fl bad;
 	non_dir_h_bond(fl good_, fl bad_, fl cutoff_) : usable(cutoff_), good(good_), bad(bad_) {
-		name = std::string("non_dir_h_bond(g=") + to_string(good) + ", b=" + to_string(bad) + ", c="+to_string(cutoff)+")";
+		name = std::string("non_dir_h_bond(g=") + to_string(good) + ",_b=" + to_string(bad) + ",_c="+to_string(cutoff)+")";
 	}
 	fl eval(sz t1, sz t2, fl r) const {
 		if(xs_h_bond_possible(t1, t2))

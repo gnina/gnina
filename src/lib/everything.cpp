@@ -42,130 +42,28 @@ fl smooth_div(fl x, fl y) {
 	return x / y;
 }
 
-everything::everything() { // enabled according to design.out227
-	const unsigned d = 0; // default
-	const fl cutoff = 8; //6;
 
-	// FIXME? enable some?
-	//// distance_additive
-	//add(d, new ad4_solvation(3.6, 0.01097,  true, cutoff)); // desolvation_sigma, solvation_q, charge_dependent, cutoff
-	//add(d, new ad4_solvation(3.6, 0.01097, false, cutoff)); // desolvation_sigma, solvation_q, charge_dependent, cutoff
+fl ad4_solvation::eval(const atom_base& a, const atom_base& b, fl r) const {
+	fl q1 = a.charge;
+	fl q2 = b.charge;
 
-	//add(d, new electrostatic<1>(100, cutoff)); // cap, cutoff
-	//add(d, new electrostatic<2>(100, cutoff)); // cap, cutoff
+	VINA_CHECK(not_max(q1));
+	VINA_CHECK(not_max(q2));
 
-	//add(d, new gauss(0,   0.3, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(0.5, 0.3, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(1,   0.3, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(1.5, 0.3, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(2,   0.3, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(2.5, 0.3, cutoff)); // offset, width, cutoff
+	sz t1 = a.ad;
+	sz t2 = b.ad;
 
-	add(1, new gauss(0, 0.5, cutoff)); // offset, width, cutoff // WEIGHT: -0.035579
-	//add(d, new gauss(1, 0.5, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(2, 0.5, cutoff)); // offset, width, cutoff
+	fl solv1 = solvation_parameter(a);
+	fl solv2 = solvation_parameter(b);
 
-	//add(d, new gauss(0, 0.7, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(1, 0.7, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(2, 0.7, cutoff)); // offset, width, cutoff
+	fl volume1 = volume(a);
+	fl volume2 = volume(b);
 
-	//add(d, new gauss(0, 0.9, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(1, 0.9, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(2, 0.9, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(3, 0.9, cutoff)); // offset, width, cutoff
+	fl my_solv = charge_dependent ? solvation_q : 0;
 
-	//add(d, new gauss(0, 1.5, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(1, 1.5, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(2, 1.5, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(3, 1.5, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(4, 1.5, cutoff)); // offset, width, cutoff
+	fl tmp = ((solv1 + my_solv * std::abs(q1)) * volume2 +
+		    (solv2 + my_solv * std::abs(q2)) * volume1) * std::exp(-sqr(r/(2*desolvation_sigma)));
 
-	//add(d, new gauss(0, 2.0, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(1, 2.0, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(2, 2.0, cutoff)); // offset, width, cutoff
-	add(1, new gauss(3, 2.0, cutoff)); // offset, width, cutoff // WEIGHT: -0.005156
-	//add(d, new gauss(4, 2.0, cutoff)); // offset, width, cutoff
-
-	//add(d, new gauss(0, 3.0, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(1, 3.0, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(2, 3.0, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(3, 3.0, cutoff)); // offset, width, cutoff
-	//add(d, new gauss(4, 3.0, cutoff)); // offset, width, cutoff
-
-	//add(d, new repulsion( 0.4, cutoff)); // offset, cutoff
-	//add(d, new repulsion( 0.2, cutoff)); // offset, cutoff
-	add(1, new repulsion( 0.0, cutoff)); // offset, cutoff // WEIGHT:  0.840245
-	//add(d, new repulsion(-0.2, cutoff)); // offset, cutoff
-	//add(d, new repulsion(-0.4, cutoff)); // offset, cutoff
-	//add(d, new repulsion(-0.6, cutoff)); // offset, cutoff
-	//add(d, new repulsion(-0.8, cutoff)); // offset, cutoff
-	//add(d, new repulsion(-1.0, cutoff)); // offset, cutoff
-
-	//add(d, new hydrophobic(0.5, 1, cutoff)); // good, bad, cutoff
-	add(1, new hydrophobic(0.5, 1.5, cutoff)); // good, bad, cutoff // WEIGHT:  -0.035069
-	//add(d, new hydrophobic(0.5, 2, cutoff)); // good, bad, cutoff
-	//add(d, new hydrophobic(0.5, 3, cutoff)); // good, bad, cutoff
-
-	//add(1, new non_hydrophobic(0.5, 1.5, cutoff));
-
-	//add(d, new vdw<4,  8>(   0, 100, cutoff)); // smoothing, cap, cutoff
-
-	add(1, new non_dir_h_bond(-0.7, 0, cutoff)); // good, bad, cutoff // WEIGHT:  -0.587439
-	//add(d, new non_dir_h_bond(-0.7, 0, cutoff)); // good, bad, cutoff
-	//add(d, new non_dir_h_bond(-0.7, 0.2, cutoff)); // good, bad, cutoff
-	//add(d, new non_dir_h_bond(-0.7, 0.4, cutoff)); // good, bad, cutoff
-	// additive
-
-	// conf-independent
-	//add(d, new num_ligands());
-
-	add(1, new num_tors_div()); // WEIGHT: 1.923 -- FIXME too close to limit?
-	//add(d, new num_heavy_atoms_div());
-	//add(d, new num_heavy_atoms());
-	//add(1, new num_tors_add());
-	//add(d, new num_tors_sqr());
-	//add(d, new num_tors_sqrt());
-	//add(d, new num_hydrophobic_atoms());
-	///add(1, new ligand_length());
-
-	//add(d, new num_tors(100, 100, false)); // cap, past_cap, heavy_only
-	//add(1, new num_tors(100, 100,  true)); // cap, past_cap, heavy_only
-	//add(d, new num_tors(  2,   1,  true)); // cap, past_cap, heavy_only
-	//add(d, new num_heavy_atoms());
-	//add(d, new ligand_max_num_h_bonds());
-	//add(1, new num_ligands());
-}
-
-
-dkoes_terms::dkoes_terms() { // chosen through linear regression and cross validation
-	const unsigned d = 0; // default
-	const fl cutoff = 8; //6;
-
-
-
-	add(1, new vdw<4,  8>(   0, 100, cutoff)); // smoothing, cap, cutoff
-	add(1, new non_dir_h_bond(-0.7, 0, cutoff)); // good, bad, cutoff // WEIGHT:  -0.587439
-
-	add(1, new ad4_solvation(3.6, 0.01097,  true, cutoff)); // desolvation_sigma, solvation_q, charge_dependent, cutoff
-
-	add(1, new num_tors_sqr());
-	add(1, new constant_term());
-}
-
-old_dkoes_terms::old_dkoes_terms() { // chosen through linear regression and cross validation
-	const unsigned d = 0; // default
-	const fl cutoff = 8;
-
-	add(1, new vdw<4,  8>(   0, 100, cutoff)); // smoothing, cap, cutoff
-	add(1, new non_dir_h_bond(-0.7, 0, cutoff)); // good, bad, cutoff
-	add(1, new num_tors_sqr());
-	add(1, new constant_term());
-}
-
-fast_dkoes_terms::fast_dkoes_terms() { // chosen through linear regression and cross validation
-	const unsigned d = 0; // default
-	const fl cutoff = 8;
-	add(1, new vdw<4,  8>(   0, 100, cutoff)); // smoothing, cap, cutoff
-	add(1, new num_tors_sqr());
-	add(1, new constant_term());
+	VINA_CHECK(not_max(tmp));
+	return tmp;
 }

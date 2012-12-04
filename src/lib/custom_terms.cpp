@@ -8,13 +8,15 @@
 #include "custom_terms.h"
 #include "everything.h"
 #include <boost/lexical_cast.hpp>
+#include <algorithm>
 
 using namespace boost;
 
 custom_terms::custom_terms()
 {
 	ad4_solvation_re.assign("ad4_solvation\\(d-sigma=(\\S+),_s/q=(\\S+),_q=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
-	electrostatic_re.assign("electrostatic\\(i=(\\S+),_^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+	constant_re.assign("constant_term",boost::regex::perl);
+	electrostatic_re.assign("electrostatic\\(i=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 	gauss_re.assign("gauss\\(o=(\\S+),_w=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 	hydrophobic_re.assign("hydrophobic\\(g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 	ligand_length_re.assign("ligand_length",boost::regex::perl);
@@ -22,7 +24,7 @@ custom_terms::custom_terms()
 	non_hydrophobic_re.assign("non_hydrophobic\\(g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 	num_re.assign("num_(\\S+)",boost::regex::perl);
 	repulsion_re.assign("repulsion\\(o=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
-	vdw_re.assign("vdw\\(i=(\\S+),_j=(\\S+),_s=(\\S+),_^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+	vdw_re.assign("vdw\\(i=(\\S+),_j=(\\S+),_s=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 }
 
 //parse the name of a term and add it with the proper parameterization
@@ -31,7 +33,6 @@ void custom_terms::add(const std::string& name, fl weight)
 	smatch match;
 	try
 	{
-
 	if(regex_match(name, match, vdw_re))
 	{
 		fl i = lexical_cast<fl>(match[1]);
@@ -136,6 +137,12 @@ void custom_terms::add(const std::string& name, fl weight)
 		distance_additive_weights.push_back(weight);
 		return;
 	}
+	if(regex_match(name, match, constant_re))
+	{
+		terms::add(1, new constant_term());
+		conf_independent_weights.push_back(weight);
+		return;
+	}
 	if(regex_match(name, match, ad4_solvation_re))
 	{
 		fl sigma = lexical_cast<fl>(match[1]);
@@ -152,6 +159,7 @@ void custom_terms::add(const std::string& name, fl weight)
 	{
 		throw scoring_function_error(name,"Could not convert parameters. ");
 	}
+	throw scoring_function_error(name, "Unknown term ");
 }
 
 //return weights in correct order
@@ -166,3 +174,55 @@ flv custom_terms::weights() const
 
 	return ret;
 }
+
+//add weights and terms from file,
+//each line has the weight then the term name, whitespace separated, anything
+//after the term name is ignored
+void custom_terms::add_terms_from_file(std::istream& in)
+{
+	std::string line;
+	while(getline(in, line))
+	{
+		std::stringstream str(line);
+		fl w =0 ;
+		std::string name;
+		if((str >> w >> name) && name.length() > 0)
+		{
+			add(name, w);
+		}
+	}
+}
+
+//print out terms in format that can be read back in
+void custom_terms::print(std::ostream& out) const
+{
+	flv ret;
+	ret.insert(ret.end(), usable_weights.begin(), usable_weights.end());
+	ret.insert(ret.end(), distance_additive_weights.begin(), distance_additive_weights.end());
+	ret.insert(ret.end(), additive_weights.begin(), additive_weights.end());
+	ret.insert(ret.end(), intermolecular_weights.begin(), intermolecular_weights.end());
+
+	std::vector<std::string> names = get_names(true);
+	assert(ret.size() == names.size());
+	for(unsigned i = 0, n = ret.size(); i < n; i++)
+	{
+		out << ret[i] << "\t" << names[i] << "\n";
+	}
+
+	//now conf_indep, which are separate for some reason
+	std::vector<std::string> conf_indep_names;
+	conf_independent_terms.get_names(true, conf_indep_names);
+	assert(conf_indep_names.size() == conf_independent_weights.size());
+	for(unsigned i = 0, n = conf_indep_names.size(); i < n; i++)
+	{
+		out << conf_independent_weights[i] << "\t" << conf_indep_names[i] << "\n";
+	}
+}
+
+
+std::ostream& operator<<(std::ostream& out, const custom_terms& t)
+{
+	t.print(out);
+	return out;
+}
+

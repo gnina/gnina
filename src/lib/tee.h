@@ -27,29 +27,34 @@
 #include "file.h"
 
 struct tee {
+	bool quiet;
 	ofile* of;
-	tee() : of(NULL) {}
+	tee(bool q = false) : of(NULL), quiet(q) {}
 	void init(const path& name) {
 		of = new ofile(name);
 	}
 	virtual ~tee() { delete of; }
 	void flush() {
-		std::cout << std::flush;
+		if(!quiet)
+			std::cout << std::flush;
 		if(of)
 			(*of) << std::flush;
 	}
 	void endl() {
-		std::cout << std::endl;
+		if(!quiet)
+			std::cout << std::endl;
 		if(of)
 			(*of) << std::endl;
 	}
 	void setf(std::ios::fmtflags a) {
-		std::cout.setf(a);
+		if(!quiet)
+			std::cout.setf(a);
 		if(of)
 			of->setf(a);
 	}
 	void setf(std::ios::fmtflags a, std::ios::fmtflags b) {
-		std::cout.setf(a, b);
+		if(!quiet)
+			std::cout.setf(a, b);
 		if(of)
 			of->setf(a, b);
 	}
@@ -57,7 +62,8 @@ struct tee {
 
 template<typename T>
 tee& operator<<(tee& out, const T& x) {
-	std::cout << x;
+	if(!out.quiet)
+		std::cout << x;
 	if(out.of)
 		(*out.of) << x;
 	return out;
