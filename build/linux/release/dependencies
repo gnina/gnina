@@ -45,6 +45,28 @@
 ./current_weights.o: ../../../src/lib/scoring_function.h
 ./current_weights.o: ../../../src/lib/igrid.h
 ./current_weights.o: ../../../src/lib/grid_dim.h
+./custom_terms.o: ../../../src/lib/custom_terms.h
+./custom_terms.o: ../../../src/lib/terms.h
+./custom_terms.o: ../../../src/lib/model.h
+./custom_terms.o: ../../../src/lib/file.h
+./custom_terms.o: ../../../src/lib/common.h
+./custom_terms.o: ../../../src/lib/macros.h
+./custom_terms.o: ../../../src/lib/tree.h
+./custom_terms.o: ../../../src/lib/conf.h
+./custom_terms.o: ../../../src/lib/quaternion.h
+./custom_terms.o: ../../../src/lib/random.h
+./custom_terms.o: ../../../src/lib/atom.h
+./custom_terms.o: ../../../src/lib/atom_base.h
+./custom_terms.o: ../../../src/lib/atom_type.h
+./custom_terms.o: ../../../src/lib/atom_constants.h
+./custom_terms.o: ../../../src/lib/triangular_matrix_index.h
+./custom_terms.o: ../../../src/lib/matrix.h
+./custom_terms.o: ../../../src/lib/precalculate.h
+./custom_terms.o: ../../../src/lib/scoring_function.h
+./custom_terms.o: ../../../src/lib/igrid.h
+./custom_terms.o: ../../../src/lib/grid_dim.h
+./custom_terms.o: ../../../src/lib/int_pow.h
+./custom_terms.o: ../../../src/lib/everything.h
 ./everything.o: ../../../src/lib/everything.h
 ./everything.o: ../../../src/lib/terms.h
 ./everything.o: ../../../src/lib/model.h
@@ -364,7 +386,9 @@
 ./main.o: ../../../src/lib/weighted_terms.h
 ./main.o: ../../../src/lib/current_weights.h
 ./main.o: ../../../src/lib/quasi_newton.h
-./main.o: ../../../src/lib/tee.h ../../../src/lib/coords.h
+./main.o: ../../../src/lib/tee.h
+./main.o: ../../../src/lib/custom_terms.h
+./main.o: ../../../src/lib/coords.h
 ./split.o: ../../../src/lib/file.h ../../../src/lib/common.h
 ./split.o: ../../../src/lib/macros.h
 ./split.o: ../../../src/lib/parse_error.h

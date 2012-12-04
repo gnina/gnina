@@ -46,7 +46,7 @@ private:
 
 public:
 	custom_terms();//creates empty set, inits regexes
-	void add(const std::string& name, double weight);
+	void add(const std::string& name, fl weight);
 	flv weights() const;
 };
 

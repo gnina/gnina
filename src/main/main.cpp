@@ -528,12 +528,12 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 			center_x += a->x();
 			center_y += a->y();
 			center_z += a->z();
-			min_x = std::min(min_x, a->x());
-			min_y = std::min(min_y, a->y());
-			min_z = std::min(min_z, a->z());
-			max_x = std::max(max_x, a->x());
-			max_y = std::max(max_y, a->y());
-			max_z = std::max(max_z, a->z());
+			min_x = std::min(min_x, (fl)a->x());
+			min_y = std::min(min_y, (fl)a->y());
+			min_z = std::min(min_z, (fl)a->z());
+			max_x = std::max(max_x, (fl)a->x());
+			max_y = std::max(max_y, (fl)a->y());
+			max_z = std::max(max_z, (fl)a->z());
 			num++;
 		}
 		center_x /= num;
@@ -910,8 +910,9 @@ Thank you!\n";
 							make_path(flex_name_opt.get())) :
 					parse_receptor_pdbqt(make_path(rigid_name_opt.get()));
 
-		//dkoes, hoise precalculation outside of loop
+		//dkoes, hoist precalculation outside of loop
 		weighted_terms wt(&t, t.weights());
+
 		precalculate prec(wt);
 
 		//dkoes - loop over input ligands
