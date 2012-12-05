@@ -569,7 +569,7 @@ void setup_dkoes_terms(custom_terms& t, bool dkoes_score, bool dkoes_score_old,
 	else if (dkoes_score_old)
 	{
 		t.add("vdw(i=4,_j=8,_s=0,_^=100,_c=8)", 0.010607);
-		t.add("non_dir_h_bond(g=-0.7,_b=0)", 0.197201);
+		t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", 0.197201);
 		t.add("num_tors_sqr", .285035);
 		t.add("constant_term", -2.585651);
 
@@ -580,7 +580,7 @@ void setup_dkoes_terms(custom_terms& t, bool dkoes_score, bool dkoes_score_old,
 	else if (dkoes_fast)
 	{
 		t.add("vdw(i=4,_j=8,_s=0,_^=100,_c=8)", 0.008962);
-		t.add("non_dir_h_bond(g=-0.7,_b=0)", 0.387739);
+		t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", 0.387739);
 		t.add("num_tors_sqr", .285035);
 		t.add("constant_term", -2.467357);
 	}
