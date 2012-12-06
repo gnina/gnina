@@ -864,7 +864,7 @@ Thank you!\n";
 			t.add("num_tors_div", 5 * 0.05846 / 0.1 - 1);
 		}
 
-		log << "Weights\tTerms\n" << t << "\n";
+		log << std::setw(12) << std::left <<"Weights" << " Terms\n" << t << "\n";
 
 		const fl granularity = 0.375;
 		if (search_box_needed)

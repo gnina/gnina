@@ -197,6 +197,7 @@ void custom_terms::add_terms_from_file(std::istream& in)
 void custom_terms::print(std::ostream& out) const
 {
 	flv ret;
+	unsigned pad = 12;
 	ret.insert(ret.end(), usable_weights.begin(), usable_weights.end());
 	ret.insert(ret.end(), distance_additive_weights.begin(), distance_additive_weights.end());
 	ret.insert(ret.end(), additive_weights.begin(), additive_weights.end());
@@ -206,7 +207,7 @@ void custom_terms::print(std::ostream& out) const
 	assert(ret.size() == names.size());
 	for(unsigned i = 0, n = ret.size(); i < n; i++)
 	{
-		out << ret[i] << "\t" << names[i] << "\n";
+		out << std::setw(pad) << ret[i] << " " << names[i] << "\n";
 	}
 
 	//now conf_indep, which are separate for some reason
@@ -215,7 +216,7 @@ void custom_terms::print(std::ostream& out) const
 	assert(conf_indep_names.size() == conf_independent_weights.size());
 	for(unsigned i = 0, n = conf_indep_names.size(); i < n; i++)
 	{
-		out << conf_independent_weights[i] << "\t" << conf_indep_names[i] << "\n";
+		out << std::setw(pad) << conf_independent_weights[i] << " " << conf_indep_names[i] << "\n";
 	}
 }
 
