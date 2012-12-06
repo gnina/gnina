@@ -21,6 +21,8 @@ custom_terms::custom_terms()
 	hydrophobic_re.assign("hydrophobic\\(g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 	ligand_length_re.assign("ligand_length",boost::regex::perl);
 	non_dir_h_bond_re.assign("non_dir_h_bond\\(g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+	non_dir_h_bond_quadratic_re.assign("non_dir_h_bond_quadratic\\(o=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+	non_dir_h_bond_lj_re.assign("non_dir_h_bond_lj\\(o=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 	non_hydrophobic_re.assign("non_hydrophobic\\(g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 	num_re.assign("num_(\\S+)",boost::regex::perl);
 	repulsion_re.assign("repulsion\\(o=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
@@ -86,6 +88,23 @@ void custom_terms::add(const std::string& name, fl weight)
 		fl b = lexical_cast<fl>(match[2]);
 		fl c = lexical_cast<fl>(match[3]);
 		terms::add(1, new non_hydrophobic(g, b, c));
+		usable_weights.push_back(weight);
+		return;
+	}
+	if(regex_match(name, match, non_dir_h_bond_lj_re))
+	{
+		fl o = lexical_cast<fl>(match[1]);
+		fl cap = lexical_cast<fl>(match[2]);
+		fl c = lexical_cast<fl>(match[3]);
+		terms::add(1, new non_dir_h_bond_lj(o, cap, c));
+		usable_weights.push_back(weight);
+		return;
+	}
+	if(regex_match(name, match, non_dir_h_bond_quadratic_re))
+	{
+		fl o = lexical_cast<fl>(match[1]);
+		fl c = lexical_cast<fl>(match[2]);
+		terms::add(1, new non_dir_h_bond_quadratic(o, c));
 		usable_weights.push_back(weight);
 		return;
 	}

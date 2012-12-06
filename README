@@ -78,6 +78,8 @@ Example (all weights 1.0, all term types listed):
 1.0  vdw(i=4,_j=8,_s=0,_^=100,_c=8)	i and j are LJ exponents
 1.0  vdw(i=6,_j=12,_s=1,_^=100,_c=8) s is the smoothing, ^ is the cap
 1.0  non_dir_h_bond(g=-0.7,_b=0,_c=8)	good and bad
+1.0  non_dir_h_bond_quadratic(o=0.4,_c=8) like repulsion, but for hbond, don't use	
+1.0  non_dir_h_bond_lj(o=-0.7,_^=100,_c=8)	LJ 10-12 potential, capped at ^
 1.0  num_tors_div	div constant terms are not linearly independent
 1.0  num_heavy_atoms_div	
 1.0  num_heavy_atoms	these terms are just added

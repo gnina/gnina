@@ -1125,7 +1125,7 @@ Thank you!\n";
 	} catch (scoring_function_error e)
 	{
 		std::cerr << "\n\nError with scoring function specification.\n";
-		std::cerr << e.msg << "(" << e.name << ")\n";
+		std::cerr << e.msg << "[" << e.name << "]\n";
 		return 1;
 	}
 
