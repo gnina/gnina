@@ -41,6 +41,8 @@ private:
 	boost::regex hydrophobic_re;
 	boost::regex ligand_length_re;
 	boost::regex non_dir_h_bond_re;
+	boost::regex non_dir_h_bond_quadratic_re;
+	boost::regex non_dir_h_bond_lj_re;
 	boost::regex non_hydrophobic_re;
 	boost::regex num_re; //counts
 	boost::regex repulsion_re;
