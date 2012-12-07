@@ -172,7 +172,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 		non_cache& nc, // nc.slope is changed
 		std::ostream& outstream, const vec& corner1, const vec& corner2,
 		const parallel_mc& par, fl energy_range, sz num_modes, int seed,
-		int verbosity, bool score_only, bool local_only, tee& log,
+		int verbosity, bool score_only, bool local_only,
+		fl out_min_rmsd, tee& log,
 		const terms *t, std::vector<resultInfo>& results)
 {
 	conf_size s = m.get_size();
@@ -277,7 +278,6 @@ void do_search(model& m, const boost::optional<model>& ref,
 			out_cont.sort();
 		}
 
-		const fl out_min_rmsd = 1;
 		out_cont = remove_redundant(out_cont, out_min_rmsd);
 
 		done(verbosity, log);
@@ -336,7 +336,7 @@ void main_procedure(model& m, precalculate& prec,
 		std::ostream& out, bool score_only, bool local_only,
 		bool randomize_only, bool no_cache, const grid_dims& gd,
 		int exhaustiveness, const weighted_terms& wt, int cpu, int seed,
-		int verbosity, sz num_modes, fl energy_range, tee& log,
+		int verbosity, sz num_modes, fl energy_range, fl out_min_rmsd, tee& log,
 		std::vector<resultInfo>& results)
 {
 
@@ -375,7 +375,7 @@ void main_procedure(model& m, precalculate& prec,
 		{
 			do_search(m, ref, wt, prec, nc, nc, out, corner1, corner2, par,
 					energy_range, num_modes, seed, verbosity, score_only,
-					local_only, log, wt.unweighted_terms(), results);
+					local_only, out_min_rmsd, log, wt.unweighted_terms(), results);
 		}
 		else
 		{
@@ -390,7 +390,7 @@ void main_procedure(model& m, precalculate& prec,
 				done(verbosity, log);
 			do_search(m, ref, wt, prec, c, nc, out, corner1, corner2, par,
 					energy_range, num_modes, seed, verbosity, score_only,
-					local_only, log, wt.unweighted_terms(), results);
+					local_only, out_min_rmsd, log, wt.unweighted_terms(), results);
 		}
 	}
 }
@@ -424,10 +424,16 @@ options_occurrence get_occurrence(boost::program_options::variables_map& vm,
 {
 	options_occurrence tmp;
 	VINA_FOR_IN(i, d.options())
-	if (vm.count((*d.options()[i]).long_name()))
-	tmp.some = true;
-	else
-	tmp.all = false;
+	{
+		 const std::string& str = (*d.options()[i]).long_name();
+		if ((str.substr(0,4) == "size" || str.substr(0,6) == "center"))
+		{
+			if (vm.count(str))
+				tmp.some = true;
+			else
+				tmp.all = false;
+		}
+	}
 	return tmp;
 }
 
@@ -628,6 +634,7 @@ Thank you!\n";
 		std::string custom_file_name;
 		fl center_x, center_y, center_z, size_x, size_y, size_z;
 		fl autobox_add = 8;
+		fl out_min_rmsd = 1;
 		std::string autobox_ligand;
 		int cpu = 0, seed, exhaustiveness, verbosity = 2, num_modes = 9;
 		fl energy_range = 2.0;
@@ -706,6 +713,8 @@ Thank you!\n";
 				"maximum number of binding modes to generate")
 		("energy_range", value<fl>(&energy_range)->default_value(3.0),
 				"maximum energy difference between the best binding mode and the worst one displayed (kcal/mol)")
+		("min_rmsd_filter", value<fl>(&out_min_rmsd)->default_value(1.0),
+				"rmsd value used to filter final poses to remove redundancy")
 		("quiet,q", bool_switch(&quiet), "Suppress output messages");
 
 		options_description config("Configuration file (optional)");
@@ -953,7 +962,7 @@ Thank you!\n";
 						randomize_only,
 						false, // no_cache == false
 						gd, exhaustiveness, wt, cpu, seed, verbosity,
-						max_modes_sz, energy_range, log, results);
+						max_modes_sz, energy_range, out_min_rmsd, log, results);
 			}
 			else //try parsing with openbabel
 			{
@@ -1070,7 +1079,7 @@ Thank you!\n";
 							local_only, randomize_only,
 							false, // no_cache == false
 							gd, exhaustiveness, wt, cpu, seed, verbosity,
-							max_modes_sz, energy_range, log, results);
+							max_modes_sz, energy_range, out_min_rmsd, log, results);
 
 					for (unsigned j = 0, m = results.size(); j < m; j++)
 					{
