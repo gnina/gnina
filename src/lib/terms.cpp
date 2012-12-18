@@ -166,16 +166,17 @@ void terms::eval_additive_aux(const model& m, const atom_index& i, const atom_in
 	const atom& b = m.get_atom(j);
 
 	sz offset = 0;
-	VINA_FOR_IN(k, distance_additive_terms)
-		if(r < distance_additive_terms[k].cutoff)
-			out[k] += distance_additive_terms[k].eval(a, b, r);
 
-	offset += distance_additive_terms.size();
 	VINA_FOR_IN(k, usable_terms)
 		if(r < usable_terms[k].cutoff)
 			out[offset + k] += usable_terms[k].eval(a, b, r);
-
 	offset += usable_terms.size();
+
+	VINA_FOR_IN(k, distance_additive_terms)
+		if(r < distance_additive_terms[k].cutoff)
+			out[offset+k] += distance_additive_terms[k].eval(a, b, r);
+	offset += distance_additive_terms.size();
+
 	VINA_FOR_IN(k, additive_terms)
 		if(r < additive_terms[k].cutoff)
 			out[offset + k] += additive_terms[k].eval(m, i, j);
