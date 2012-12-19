@@ -92,11 +92,11 @@ struct vec {
 		return *this;
 	}
 	const vec& operator+=(fl s) {
-		data += Data::Identity()*s;
+		data += Data::Ones()*s;
 		return *this;
 	}
 	const vec& operator-=(fl s) {
-		data -= Data::Identity()*s;
+		data -= Data::Ones()*s;
 		return *this;
 	}
 	vec operator+(const vec& v) const {
@@ -110,12 +110,12 @@ struct vec {
 		return *this;
 	}
 	void assign(fl s) {
-		data << s,s,s;
+		data = Data(s,s,s);
 	}
 	sz size() const { return 3; }
 private:
 	friend class boost::serialization::access;
-	template<class Archive> 
+	template<class Archive>
 	void serialize(Archive& ar, const unsigned version) {
 		ar & data;
 	}
@@ -132,6 +132,15 @@ inline vec cross_product(const vec& a, const vec& b) {
 inline vec elementwise_product(const vec& a, const vec& b) {
 	return vec(a.data.cwiseProduct(b.data));
 }
+
+inline fl vec_distance_sqr(const vec& a, const vec& b) {
+	return (a.data - b.data).squaredNorm();
+}
+
+inline fl sqr(const vec& v) {
+	return v.data.squaredNorm();
+}
+
 
 struct mat {
 	fl data[9];
@@ -258,6 +267,17 @@ inline vec elementwise_product(const vec& a, const vec& b) {
 			   a[2] * b[2]);
 }
 
+inline fl vec_distance_sqr(const vec& a, const vec& b) {
+	return sqr(a[0] - b[0]) + \
+		   sqr(a[1] - b[1]) + \
+		   sqr(a[2] - b[2]);
+}
+
+inline fl sqr(const vec& v) {
+	return sqr(v[0]) + sqr(v[1]) + sqr(v[2]);
+}
+
+
 struct mat {
 	fl data[9];
 	mat() {
@@ -349,16 +369,6 @@ const vec max_vec(max_fl, max_fl, max_fl);
 
 inline bool not_max(fl x) {
 	return (x < 0.1 * max_fl);
-}
-
-inline fl vec_distance_sqr(const vec& a, const vec& b) {
-	return sqr(a[0] - b[0]) + \
-		   sqr(a[1] - b[1]) + \
-		   sqr(a[2] - b[2]);
-}
-
-inline fl sqr(const vec& v) {
-	return sqr(v[0]) + sqr(v[1]) + sqr(v[2]);
 }
 
 template<typename T>

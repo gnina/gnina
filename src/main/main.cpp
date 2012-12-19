@@ -933,7 +933,7 @@ Thank you!\n";
 			const std::string& ligand_name = ligand_names[l];
 			boost::filesystem::path lpath(ligand_name);
 
-			if (lpath.extension() == ".pdbqt")
+			if (lpath.extension().string() == ".pdbqt")
 			{ //dkoes - traditional vina behavior, one file at a time
 				std::string out_name;
 				if (l < out_names.size())
@@ -1006,7 +1006,7 @@ Thank you!\n";
 				}
 				else
 				{
-					outname << lpath.stem() << "_min" << lpath.extension();
+					outname << lpath.stem().string() << "_min" << lpath.extension().string();
 				}
 
 				OBFormat *outformat = conv.FormatFromExt(outname.str());
