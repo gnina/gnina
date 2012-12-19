@@ -220,6 +220,16 @@ struct change {
 		VINA_FOR_IN(i, flex)
 			flex[i].torsions.resize(s.flex[i], 0);
 	}
+	//dkoes - zeros out all differences
+	void clear()
+	{
+		VINA_FOR_IN(i, ligands) {
+			ligands[i].rigid = rigid_change();
+			ligands[i].torsions.assign(ligands[i].torsions.size(),0);
+		}
+		VINA_FOR_IN(i, flex)
+			flex[i].torsions.assign(flex[i].torsions.size(), 0);
+	}
 	fl operator()(sz index) const { // returns by value
 		VINA_FOR_IN(i, ligands) {
 			const ligand_change& lig = ligands[i];
@@ -346,6 +356,31 @@ struct conf {
 		VINA_FOR_IN(i, flex)
 			flex[i].print();
 	}
+	//dkoes - index into position values; corresponds to change indexing
+	//read only because of quaternions
+	fl operator()(sz index) const { // returns by value
+		VINA_FOR_IN(i, ligands) {
+			const ligand_conf& lig = ligands[i];
+			if(index < 3) return lig.rigid.position[index];
+			index -= 3;
+			if(index < 3)
+			{
+				vec ang = quaternion_to_angle(lig.rigid.orientation);
+				return ang[index];
+			}
+			index -= 3;
+			if(index < lig.torsions.size()) return lig.torsions[index];
+			index -= lig.torsions.size();
+		}
+		VINA_FOR_IN(i, flex) {
+			const residue_conf& res = flex[i];
+			if(index < res.torsions.size()) return res.torsions[index];
+			index -= res.torsions.size();
+		}
+		VINA_CHECK(false);
+		return 0; // shouldn't happen, placating the compiler
+	}
+
 private:
 	friend class boost::serialization::access;
 	template<class Archive>

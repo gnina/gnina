@@ -24,7 +24,7 @@
 #define VINA_BFGS_H
 
 #include "matrix.h"
-
+#include <numeric>
 typedef triangular_matrix<fl> flmat;
 
 template<typename Change>
@@ -62,8 +62,10 @@ inline bool bfgs_update(flmat& h, const Change& p, const Change& y, const fl alp
 	return true;
 }
 
+//dkoes - this is the line search method used by vina,
+//it is simple and fast, but may return an inappropriately large alpha
 template<typename F, typename Conf, typename Change>
-fl line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0, const Change& p, Conf& x_new, Change& g_new, fl& f1) { // returns alpha
+fl fast_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0, const Change& p, Conf& x_new, Change& g_new, fl& f1) { // returns alpha
 	const fl c0 = 0.0001;
 	const unsigned max_trials = 10;
 	const fl multiplier = 0.5;
@@ -79,6 +81,80 @@ fl line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0, const Ch
 		alpha *= multiplier;
 	}
 	return alpha;
+}
+
+//dkoes - this line search is modeled after lnsrch in numerical recipes, it puts
+//a bit of effort into calculating a good scaling factor, and ensures that alpha
+//will actually result in a smaller value
+template<typename F, typename Conf, typename Change>
+fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0, const Change& p, Conf& x_new, Change& g_new, fl& f1) { // returns alpha
+	fl a,alam,alam2=0,alamin,b,disc,f2=0;
+	fl rhs1,rhs2,slope=0,sum=0,temp,test,tmplam;
+	int i;
+	const fl ALF = 1.0e-4;
+	const fl FIRST = 1.0;
+	sum = scalar_product(p,p,n);
+	sum = sqrt(sum);
+
+	slope = scalar_product(g,p,n);
+	assert(slope < 0);
+	test = 0;
+	//compue lambdamin
+	for(i = 0; i < n; i++)
+	{
+		temp = fabs(p(i))/std::max(fabs(x(i)),1.0);
+		if(temp > test) test = temp;
+	}
+
+	alamin=std::numeric_limits<fl>::epsilon()/test;
+	alam=FIRST; //single newton step
+	for (;;) //always try full newton step first
+	{
+		x_new = x;
+		x_new.increment(p,alam);
+		f1 = f(x_new, g_new);
+
+		if(alam < alamin) //convergence
+		{
+			x_new = x;
+			g_new.clear(); //dkoes - set gradient to zero
+			return 0;
+		}
+		else if(f1 <= f0 + ALF * alam * slope)
+		{
+			//sufficient function decrease, stop searching
+			return alam;
+		}
+		else //have to backtrack
+		{
+			if(alam == FIRST)
+			{
+				//first time
+				tmplam = -slope/(2.0*(f1-f0-slope));
+			}
+			else //subsequent backtracks
+			{
+				rhs1 = f1 - f0 - alam*slope;
+				rhs2 = f2 - f0 - alam2*slope;
+				a=(rhs1/(alam*alam)-rhs2/(alam2*alam2))/(alam-alam2);
+				b=(-alam2*rhs1/(alam*alam)+alam*rhs2/(alam2*alam2))/(alam-alam2);
+				if(a == 0.0)
+					tmplam = -slope/(2.0*b);
+				else
+				{
+					disc=b*b-3.0*a*slope;
+					if(disc < 0) tmplam=0.5*alam;
+					else if (b <= 0) tmplam = (-b+sqrt(disc))/(3.0*a);
+					else tmplam=-slope/(b+sqrt(disc));
+				}
+				if(tmplam > .5*alam)
+					tmplam=.5*alam; //always at least cut in half
+			}
+		}
+		alam2 = alam;
+		f2 = f1;
+		alam=std::max(tmplam,0.1*alam); //never smaller than a tenth
+	}
 }
 
 inline void set_diagonal(flmat& m, fl x) {
@@ -110,17 +186,20 @@ fl bfgs(F& f, Conf& x, Change& g, const unsigned max_steps, const fl average_req
 
 	flv f_values; f_values.reserve(max_steps+1);
 	f_values.push_back(f0);
-
 	VINA_U_FOR(step, max_steps) {
 		minus_mat_vec_product(h, g, p);
 		fl f1 = 0;
-		const fl alpha = line_search(f, n, x, g, f0, p, x_new, g_new, f1);
+		const fl alpha = fast_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
 		Change y(g_new); subtract_change(y, g, n);
 
 		f_values.push_back(f1);
+
 		f0 = f1;
 		x = x_new;
-		if(!(std::sqrt(scalar_product(g, g, n)) >= 1e-5)) break; // breaks for nans too // FIXME !!?? 
+
+		if(!(std::sqrt(scalar_product(g, g, n)) >= 1e-5)) {
+			break; // breaks for nans too // FIXME !!??
+		}
 		g = g_new; // ?
 
 		if(step == 0) {

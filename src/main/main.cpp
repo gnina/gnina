@@ -271,8 +271,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 			const fl best_mode_intramolecular_energy = m.eval_intramolecular(
 					prec, authentic_v, out_cont[0].c);
 			VINA_FOR_IN(i, out_cont)
-			if (not_max(out_cont[i].e))
-			out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
+				if (not_max(out_cont[i].e))
+					out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
 					out_cont[i].c, best_mode_intramolecular_energy);
 			// the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
 			out_cont.sort();
@@ -296,27 +296,28 @@ void do_search(model& m, const boost::optional<model>& ref,
 		sz how_many = 0;
 		std::vector<std::string> remarks;
 		VINA_FOR_IN(i, out_cont)
-		{ if (how_many >= num_modes || !not_max(out_cont[i].e)
+		{
+			if (how_many >= num_modes || !not_max(out_cont[i].e)
 				|| out_cont[i].e > out_cont[0].e + energy_range)
-		break; // check energy_range sanity FIXME
-		++how_many;
-		log << std::setw(4) << i + 1 << "    " << std::setw(9)
-		<< std::setprecision(1) << out_cont[i].e;// intermolecular_energies[i];
-		m.set(out_cont[i].c);
-		const model& r = ref ? ref.get() : best_mode_model;
-		const fl lb = m.rmsd_lower_bound(r);
-		const fl ub = m.rmsd_upper_bound(r);
-		log << "  " << std::setw(9) << std::setprecision(3) << lb << "  "
-		<< std::setw(9) << std::setprecision(3) << ub;// FIXME need user-readable error messages in case of failures
+				break; // check energy_range sanity FIXME
+			++how_many;
+			log << std::setw(4) << i + 1 << "    " << std::setw(9)
+			<< std::setprecision(1) << out_cont[i].e;// intermolecular_energies[i];
+			m.set(out_cont[i].c);
+			const model& r = ref ? ref.get() : best_mode_model;
+			const fl lb = m.rmsd_lower_bound(r);
+			const fl ub = m.rmsd_upper_bound(r);
+			log << "  " << std::setw(9) << std::setprecision(3) << lb << "  "
+			<< std::setw(9) << std::setprecision(3) << ub;// FIXME need user-readable error messages in case of failures
 
-		remarks.push_back(vina_remark(out_cont[i].e, lb, ub));
-		log.endl();
+			remarks.push_back(vina_remark(out_cont[i].e, lb, ub));
+			log.endl();
 
-		//dkoes - setup resultInfo
-		std::stringstream str;
-		m.write_model(str, i + 1, "");
-		results.push_back(resultInfo(out_cont[i].e, -1, str.str()));
-	}
+			//dkoes - setup resultInfo
+			std::stringstream str;
+			m.write_model(str, i + 1, "");
+			results.push_back(resultInfo(out_cont[i].e, -1, str.str()));
+		}
 		doing(verbosity, "Writing output", log);
 		write_all_output(m, out_cont, how_many, outstream, remarks);
 		done(verbosity, log);
@@ -335,7 +336,7 @@ void main_procedure(model& m, precalculate& prec,
 		const boost::optional<model>& ref, // m is non-const (FIXME?)
 		std::ostream& out, bool score_only, bool local_only,
 		bool randomize_only, bool no_cache, const grid_dims& gd,
-		int exhaustiveness, const weighted_terms& wt, int cpu, int seed,
+		int exhaustiveness, int minimize_iters, const weighted_terms& wt, int cpu, int seed,
 		int verbosity, sz num_modes, fl energy_range, fl out_min_rmsd, tee& log,
 		std::vector<resultInfo>& results)
 {
@@ -352,6 +353,8 @@ void main_procedure(model& m, precalculate& prec,
 			+ 10 * m.get_size().num_degrees_of_freedom();
 	par.mc.num_steps = unsigned(70 * 3 * (50 + heuristic) / 2); // 2 * 70 -> 8 * 20 // FIXME
 	par.mc.ssd_par.evals = unsigned((25 + m.num_movable_atoms()) / 3);
+	if(minimize_iters > 0) //dkoes, allow setting of number of iterations in steepest descent
+		par.mc.ssd_par.evals = minimize_iters;
 	par.mc.min_rmsd = 1.0;
 	par.mc.num_saved_mins = num_modes > 20 ? num_modes : 20; //dkoes, support more than 20
 	par.mc.hunt_cap = vec(10, 10, 10);
@@ -652,6 +655,7 @@ Thank you!\n";
 		bool dkoes_score_old = false;
 		bool dkoes_fast = false;
 		bool quiet = false;
+		int minimize_iters = 0;
 
 		positional_options_description positional; // remains empty
 
@@ -692,7 +696,9 @@ Thank you!\n";
 		("local_only", bool_switch(&local_only),
 				"local search only using autobox (energy minimization)")
 		("randomize_only", bool_switch(&randomize_only),
-				"generate random poses, attempting to avoid clashes");
+				"generate random poses, attempting to avoid clashes")
+		("minimize_iters",value<int>(&minimize_iters)->default_value(0),
+				"number iterations of steepest descent");
 
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
@@ -961,7 +967,7 @@ Thank you!\n";
 				main_procedure(m, prec, ref, out, score_only, local_only,
 						randomize_only,
 						false, // no_cache == false
-						gd, exhaustiveness, wt, cpu, seed, verbosity,
+						gd, exhaustiveness, minimize_iters, wt, cpu, seed, verbosity,
 						max_modes_sz, energy_range, out_min_rmsd, log, results);
 			}
 			else //try parsing with openbabel
@@ -1010,8 +1016,7 @@ Thank you!\n";
 				}
 
 				OBFormat *outformat = conv.FormatFromExt(outname.str());
-				if (!format || !outconv.SetInFormat(outformat)
-						|| !outconv.SetOutFormat("sdf"))
+				if (!format || !outconv.SetOutFormat(outformat))
 				{
 					std::cerr << "Cannot write  molecule format! " << outname
 							<< "\n";
@@ -1078,7 +1083,7 @@ Thank you!\n";
 					main_procedure(m, prec, ref, nullOstream, score_only,
 							local_only, randomize_only,
 							false, // no_cache == false
-							gd, exhaustiveness, wt, cpu, seed, verbosity,
+							gd, exhaustiveness, minimize_iters, wt, cpu, seed, verbosity,
 							max_modes_sz, energy_range, out_min_rmsd, log, results);
 
 					for (unsigned j = 0, m = results.size(); j < m; j++)

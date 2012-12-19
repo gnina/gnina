@@ -40,14 +40,13 @@
 #include <boost/serialization/base_object.hpp> // movable_atom needs it - (derived from atom)
 #include <boost/filesystem/path.hpp> // typedef'ed
 
-#include "Eigen/Core"
-#include "Eigen/Geometry"
+
 #include "macros.h"
 
 typedef double fl;
 
 template<typename T>
-T sqr(T x) {
+inline T sqr(T x) {
 	return x*x;
 }
 
@@ -56,125 +55,7 @@ const fl not_a_num = std::sqrt(fl(-1)); // FIXME? check
 typedef std::size_t sz;
 typedef std::pair<fl, fl> pr;
 
-#ifdef USE_EIGEN
-struct vec {
-	typedef Eigen::Matrix<fl,3,1> Data;
-	Data data;
-	vec() {
-#ifndef NDEBUG
-		data.setZero();
-#endif
-	}
-	vec(fl x, fl y, fl z): data(x,y,z) {
-	}
 
-	vec(const Data& d): data(d) {
-
-	}
-
-	const fl& operator[](sz i) const { return data.coeffRef(i); }
-	      fl& operator[](sz i)       { return data.coeffRef(i); }
-    fl norm_sqr() const {
-		return data.squaredNorm();
-	}
-	fl norm() const {
-		return data.norm();
-	}
-	fl operator*(const vec& v) const {
-		return data.dot(v.data);
-	}
-	const vec& operator+=(const vec& v) {
-		data += v.data;
-		return *this;
-	}
-	const vec& operator-=(const vec& v) {
-		data -= v.data;
-		return *this;
-	}
-	const vec& operator+=(fl s) {
-		data += Data::Ones()*s;
-		return *this;
-	}
-	const vec& operator-=(fl s) {
-		data -= Data::Ones()*s;
-		return *this;
-	}
-	vec operator+(const vec& v) const {
-		return vec(data+v.data);
-	}
-	vec operator-(const vec& v) const {
-		return vec(data-v.data);
-	}
-	const vec& operator*=(fl s) {
-		data *= s;
-		return *this;
-	}
-	void assign(fl s) {
-		data = Data(s,s,s);
-	}
-	sz size() const { return 3; }
-private:
-	friend class boost::serialization::access;
-	template<class Archive>
-	void serialize(Archive& ar, const unsigned version) {
-		ar & data;
-	}
-};
-
-inline vec operator*(fl s, const vec& v) {
-	return vec(s * v.data);
-}
-
-inline vec cross_product(const vec& a, const vec& b) {
-	return vec(a.data.cross(b.data));
-}
-
-inline vec elementwise_product(const vec& a, const vec& b) {
-	return vec(a.data.cwiseProduct(b.data));
-}
-
-inline fl vec_distance_sqr(const vec& a, const vec& b) {
-	return (a.data - b.data).squaredNorm();
-}
-
-inline fl sqr(const vec& v) {
-	return v.data.squaredNorm();
-}
-
-
-struct mat {
-	fl data[9];
-	mat() {
-#ifndef NDEBUG
-		data[0] = data[1] = data[2] =
-		data[3] = data[4] = data[5] =
-		data[6] = data[7] = data[8] = not_a_num;
-#endif
-	}
-	// column-major
-	const fl& operator()(sz i, sz j) const { assert(i < 3); assert(j < 3); return data[i + 3*j]; }
-	      fl& operator()(sz i, sz j)       { assert(i < 3); assert(j < 3); return data[i + 3*j]; }
-
-	mat(fl xx, fl xy, fl xz,
-		fl yx, fl yy, fl yz,
-		fl zx, fl zy, fl zz) {
-
-		data[0] = xx; data[3] = xy; data[6] = xz;
-		data[1] = yx; data[4] = yy; data[7] = yz;
-		data[2] = zx; data[5] = zy; data[8] = zz;
-	}
-	vec operator*(const vec& v) const {
-		return vec(data[0]*v[0] + data[3]*v[1] + data[6]*v[2], 
-			       data[1]*v[0] + data[4]*v[1] + data[7]*v[2],
-				   data[2]*v[0] + data[5]*v[1] + data[8]*v[2]);
-	}
-	const mat& operator*=(fl s) {
-		VINA_FOR(i, 9)
-			data[i] *= s;
-		return *this;
-	}
-};
-#else
 
 struct vec {
 	fl data[3];
@@ -310,7 +191,6 @@ struct mat {
 		return *this;
 	}
 };
-#endif
 
 typedef std::vector<vec> vecv;
 typedef std::pair<vec, vec> vecp;
