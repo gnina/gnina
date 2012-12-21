@@ -26,6 +26,7 @@
 #include "model.h"
 
 struct ssd {
+	minimization_params minparm;
 	unsigned evals;
 	fl initial_factor;
 	fl min_factor;

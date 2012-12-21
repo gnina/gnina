@@ -215,7 +215,7 @@ private:
 
 	vecv internal_coords;
 	vecv coords;
-	vecv minus_forces;
+	vecv minus_forces; //I believe this contains the accumulated directional deltas for each atom
 
 	atomv grid_atoms;
 	atomv atoms; // movable, inflex

@@ -230,6 +230,21 @@ struct change {
 		VINA_FOR_IN(i, flex)
 			flex[i].torsions.assign(flex[i].torsions.size(), 0);
 	}
+
+	//dkoes - multiply by -1
+	void invert()
+	{
+		VINA_FOR_IN(i, ligands) {
+			ligands[i].rigid.position *= -1;
+			ligands[i].rigid.orientation *= -1;
+			for(unsigned j = 0, n = ligands[i].torsions.size(); j < n; j++)
+				ligands[i].torsions[j] *= -1;
+		}
+		VINA_FOR_IN(i, flex) {
+			for(unsigned j = 0, n = flex[i].torsions.size(); j < n; j++)
+				flex[i].torsions[j] *= -1;
+		}
+	}
 	fl operator()(sz index) const { // returns by value
 		VINA_FOR_IN(i, ligands) {
 			const ligand_change& lig = ligands[i];

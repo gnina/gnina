@@ -36,6 +36,11 @@ weighted_terms::weighted_terms(const terms* t, const flv& weights) : t(t), weigh
 			enabled_usable_terms.push_back(i);
 			cutoff_ = (std::max)(cutoff_, t->usable_terms[i].cutoff);
 		}
+	//dkoes, if there are no usable terms, need to initialize atom type
+	//or bad bad things happen in precalculate
+	if(enabled_usable_terms.size() == 0)
+		atom_typing_used_ = atom_type::XS;
+
 	VINA_FOR_IN(i, t->distance_additive_terms)
 		if(t->distance_additive_terms.enabled[i]) {
 			enabled_distance_additive_terms.push_back(i);

@@ -27,7 +27,7 @@
 #include "triangular_matrix_index.h"
 
 struct atom_type {
-	enum t {EL, AD, XS, SY};
+	enum t {EL, AD, XS, SY,NONE};
 	sz el, ad, xs, sy;
 	atom_type() : el(EL_TYPE_SIZE), ad(AD_TYPE_SIZE), xs(XS_TYPE_SIZE), sy(SY_TYPE_SIZE) {}
 	sz get(t atom_typing_used) const {
@@ -36,6 +36,7 @@ struct atom_type {
 			case AD: return ad;
 			case XS: return xs;
 			case SY: return sy;
+			case NONE: return 0;
 			default: assert(false); return max_sz;
 		}
 	}
@@ -81,6 +82,7 @@ inline sz num_atom_types(atom_type::t atom_typing_used) {
 		case atom_type::AD: return AD_TYPE_SIZE;
 		case atom_type::XS: return XS_TYPE_SIZE;
 		case atom_type::SY: return SY_TYPE_SIZE;
+		case atom_type::NONE: return 0;
 		default: assert(false); return max_sz;
 	}
 }

@@ -45,6 +45,22 @@
 
 typedef double fl;
 
+
+//collection of parameters specifying how minimization should be done
+struct minimization_params
+{
+	enum Type {BFGSFastLineSearch, BFGSAccurateLineSearch, ConjugateGradient};
+
+	Type type;
+	unsigned maxiters; //maximum number of iterations of algorithm
+	bool early_term; //terminate early based on different of function falues
+	bool donorm; //normailize torque forces
+	minimization_params(): type(BFGSFastLineSearch), maxiters(0), early_term(false), donorm(false)
+	{
+
+	}
+};
+
 template<typename T>
 inline T sqr(T x) {
 	return x*x;

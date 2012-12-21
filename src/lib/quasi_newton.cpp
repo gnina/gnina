@@ -37,7 +37,7 @@ struct quasi_newton_aux {
 
 void quasi_newton::operator()(model& m, const precalculate& p, const igrid& ig, output_type& out, change& g, const vec& v) const { // g must have correct size
 	quasi_newton_aux aux(&m, &p, &ig, v);
-	fl res = bfgs(aux, out.c, g, max_steps, average_required_improvement, 10);
+	fl res = bfgs(aux, out.c, g, average_required_improvement, params);
 	out.e = res;
 }
 

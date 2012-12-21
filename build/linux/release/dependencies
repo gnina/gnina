@@ -91,27 +91,6 @@
 ./grid.o: ../../../src/lib/grid.h ../../../src/lib/array3d.h
 ./grid.o: ../../../src/lib/common.h ../../../src/lib/macros.h
 ./grid.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
-./manifold.o: ../../../src/lib/manifold.h
-./manifold.o: ../../../src/lib/ssd.h ../../../src/lib/model.h
-./manifold.o: ../../../src/lib/file.h
-./manifold.o: ../../../src/lib/common.h
-./manifold.o: ../../../src/lib/macros.h
-./manifold.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
-./manifold.o: ../../../src/lib/quaternion.h
-./manifold.o: ../../../src/lib/random.h
-./manifold.o: ../../../src/lib/atom.h
-./manifold.o: ../../../src/lib/atom_base.h
-./manifold.o: ../../../src/lib/atom_type.h
-./manifold.o: ../../../src/lib/atom_constants.h
-./manifold.o: ../../../src/lib/triangular_matrix_index.h
-./manifold.o: ../../../src/lib/matrix.h
-./manifold.o: ../../../src/lib/precalculate.h
-./manifold.o: ../../../src/lib/scoring_function.h
-./manifold.o: ../../../src/lib/igrid.h
-./manifold.o: ../../../src/lib/grid_dim.h
-./manifold.o: ../../../src/lib/recent_history.h
-./manifold.o: ../../../src/lib/coords.h
-./manifold.o: ../../../src/lib/quasi_newton.h
 ./model.o: ../../../src/lib/model.h ../../../src/lib/file.h
 ./model.o: ../../../src/lib/common.h ../../../src/lib/macros.h
 ./model.o: ../../../src/lib/tree.h ../../../src/lib/conf.h

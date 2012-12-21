@@ -44,7 +44,11 @@ void monte_carlo::single_run(model& m, output_type& out, const precalculate& p, 
 	vec authentic_v(1000, 1000, 1000);
 	out.e = max_fl;
 	output_type current(out);
-	quasi_newton quasi_newton_par; quasi_newton_par.max_steps = ssd_par.evals;
+	minimization_params minparms = ssd_par.minparm;
+	if(minparms.maxiters == 0)
+		minparms.maxiters = ssd_par.evals;
+
+	quasi_newton quasi_newton_par(minparms);
 	VINA_U_FOR(step, num_steps) {
 		output_type candidate(current.c, max_fl);
 		mutate_conf(candidate.c, m, mutation_amplitude, generator);
@@ -86,7 +90,10 @@ void monte_carlo::operator()(model& m, output_container& out, const precalculate
 	output_type tmp(s, 0);
 	tmp.c.randomize(corner1, corner2, generator);
 	fl best_e = max_fl;
-	quasi_newton quasi_newton_par; quasi_newton_par.max_steps = ssd_par.evals;
+	minimization_params minparms = ssd_par.minparm;
+	if(minparms.maxiters == 0)
+		minparms.maxiters = ssd_par.evals;
+	quasi_newton quasi_newton_par(minparms);
 	VINA_U_FOR(step, num_steps) {
 		if(increment_me)
 			++(*increment_me);

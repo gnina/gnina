@@ -27,6 +27,7 @@
 #include <numeric>
 typedef triangular_matrix<fl> flmat;
 
+
 template<typename Change>
 void minus_mat_vec_product(const flmat& m, const Change& in, Change& out) {
 	sz n = m.dim();
@@ -88,7 +89,7 @@ fl fast_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0, con
 //will actually result in a smaller value
 template<typename F, typename Conf, typename Change>
 fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0, const Change& p, Conf& x_new, Change& g_new, fl& f1) { // returns alpha
-	fl a,alam,alam2=0,alamin,b,disc,f2=0;
+	fl a,alpha,alpha2=0,alamin,b,disc,f2=0;
 	fl rhs1,rhs2,slope=0,sum=0,temp,test,tmplam;
 	int i;
 	const fl ALF = 1.0e-4;
@@ -97,7 +98,13 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 	sum = sqrt(sum);
 
 	slope = scalar_product(g,p,n);
-	assert(slope < 0);
+	if(slope >= 0)
+	{
+		//gradient isn't actually in a decreasing direction
+		x_new = x;
+		g_new.clear(); //dkoes - set gradient to zero
+		return 0;
+	}
 	test = 0;
 	//compue lambdamin
 	for(i = 0; i < n; i++)
@@ -107,53 +114,53 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 	}
 
 	alamin=std::numeric_limits<fl>::epsilon()/test;
-	alam=FIRST; //single newton step
+	alpha=FIRST; //single newton step
 	for (;;) //always try full newton step first
 	{
 		x_new = x;
-		x_new.increment(p,alam);
+		x_new.increment(p,alpha);
 		f1 = f(x_new, g_new);
 
-		if(alam < alamin) //convergence
+		if(alpha < alamin) //convergence
 		{
 			x_new = x;
 			g_new.clear(); //dkoes - set gradient to zero
 			return 0;
 		}
-		else if(f1 <= f0 + ALF * alam * slope)
+		else if(f1 <= f0 + ALF * alpha * slope)
 		{
 			//sufficient function decrease, stop searching
-			return alam;
+			return alpha;
 		}
 		else //have to backtrack
 		{
-			if(alam == FIRST)
+			if(alpha == FIRST)
 			{
 				//first time
 				tmplam = -slope/(2.0*(f1-f0-slope));
 			}
 			else //subsequent backtracks
 			{
-				rhs1 = f1 - f0 - alam*slope;
-				rhs2 = f2 - f0 - alam2*slope;
-				a=(rhs1/(alam*alam)-rhs2/(alam2*alam2))/(alam-alam2);
-				b=(-alam2*rhs1/(alam*alam)+alam*rhs2/(alam2*alam2))/(alam-alam2);
+				rhs1 = f1 - f0 - alpha*slope;
+				rhs2 = f2 - f0 - alpha2*slope;
+				a=(rhs1/(alpha*alpha)-rhs2/(alpha2*alpha2))/(alpha-alpha2);
+				b=(-alpha2*rhs1/(alpha*alpha)+alpha*rhs2/(alpha2*alpha2))/(alpha-alpha2);
 				if(a == 0.0)
 					tmplam = -slope/(2.0*b);
 				else
 				{
 					disc=b*b-3.0*a*slope;
-					if(disc < 0) tmplam=0.5*alam;
+					if(disc < 0) tmplam=0.5*alpha;
 					else if (b <= 0) tmplam = (-b+sqrt(disc))/(3.0*a);
 					else tmplam=-slope/(b+sqrt(disc));
 				}
-				if(tmplam > .5*alam)
-					tmplam=.5*alam; //always at least cut in half
+				if(tmplam > .5*alpha)
+					tmplam=.5*alpha; //always at least cut in half
 			}
 		}
-		alam2 = alam;
+		alpha2 = alpha;
 		f2 = f1;
-		alam=std::max(tmplam,0.1*alam); //never smaller than a tenth
+		alpha=std::max(tmplam,0.1*alpha); //never smaller than a tenth
 	}
 }
 
@@ -169,7 +176,7 @@ void subtract_change(Change& b, const Change& a, sz n) { // b -= a
 }
 
 template<typename F, typename Conf, typename Change>
-fl bfgs(F& f, Conf& x, Change& g, const unsigned max_steps, const fl average_required_improvement, const sz over) { // x is I/O, final value is returned
+fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement, const minimization_params& params) { // x is I/O, final value is returned
 	sz n = g.num_floats();
 	flmat h(n, 0);
 	set_diagonal(h, 1);
@@ -184,23 +191,43 @@ fl bfgs(F& f, Conf& x, Change& g, const unsigned max_steps, const fl average_req
 
 	Change p(g);
 
-	flv f_values; f_values.reserve(max_steps+1);
-	f_values.push_back(f0);
-	VINA_U_FOR(step, max_steps) {
+	VINA_U_FOR(step, params.maxiters) {
 		minus_mat_vec_product(h, g, p);
 		fl f1 = 0;
-		const fl alpha = fast_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
+		fl alpha;
+
+		if(params.type == minimization_params::BFGSAccurateLineSearch)
+			alpha = accurate_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
+		else
+			alpha = fast_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
+
 		Change y(g_new); subtract_change(y, g, n);
 
-		f_values.push_back(f1);
-
+		fl prevf0 = f0;
 		f0 = f1;
 		x = x_new;
 
-		if(!(std::sqrt(scalar_product(g, g, n)) >= 1e-5)) {
+		if(params.early_term)
+		{
+			//dkoes - since the gradient check doesn't actually work, use the
+			//progress in reducing the function value as an indication of when to stop
+			fl diff = prevf0-f0;
+			if(fabs(diff) < 1e-5) //arbitrary cutoff
+			{
+				break;
+			}
+		}
+
+		g = g_new; // dkoes - check the convergence of the new gradient
+
+		//dkoes - in practice the gradient never seems to converge to zero
+		//(it is set to zero when accurate linesearch fails though)
+		fl gradnormsq = scalar_product(g, g, n);
+
+		if(!(gradnormsq >= 1e-5*1e-5)) {
 			break; // breaks for nans too // FIXME !!??
 		}
-		g = g_new; // ?
+
 
 		if(step == 0) {
 			const fl yy = scalar_product(y, y, n);
@@ -210,6 +237,7 @@ fl bfgs(F& f, Conf& x, Change& g, const unsigned max_steps, const fl average_req
 
 		bool h_updated = bfgs_update(h, p, y, alpha);
 	}
+
 	if(!(f0 <= f_orig)) { // succeeds for nans too
 		f0 = f_orig;
 		x = x_orig;

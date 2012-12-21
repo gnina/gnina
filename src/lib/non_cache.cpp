@@ -23,7 +23,7 @@
 #include "non_cache.h"
 #include "curl.h"
 
-non_cache::non_cache(const model& m, const grid_dims& gd_, const precalculate* p_, fl slope_) : sgrid(m, szv_grid_dims(gd_), p_->cutoff_sqr()), gd(gd_), p(p_), slope(slope_) {}
+non_cache::non_cache(const model& m, const grid_dims& gd_, const precalculate* p_, fl slope_, bool donorm) : sgrid(m, szv_grid_dims(gd_), p_->cutoff_sqr()), gd(gd_), p(p_), slope(slope_), normalize_forces(donorm) {}
 
 fl non_cache::eval      (const model& m, fl v) const { // clean up
 	fl e = 0;
@@ -117,7 +117,12 @@ fl non_cache::eval_deriv(      model& m, fl v) const { // clean up
 			if(r2 < cutoff_sqr) {
 				pr e_dor =  p->eval_deriv(a, b, r2);
 				this_e += e_dor.first;
-				deriv += e_dor.second * r_ba;
+				//dkoes - I think we should normalize r_ba to avoid
+				//scaling by distance.. (1.0/r_ba.norm()) *
+				if(normalize_forces)
+					deriv +=  (1.0/r_ba.norm()) * e_dor.second * r_ba;
+				else
+					deriv += e_dor.second * r_ba;
 			}
 		}
 		curl(this_e, deriv, v);

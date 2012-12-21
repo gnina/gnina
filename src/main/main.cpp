@@ -128,11 +128,10 @@ fl do_randomization(model& m, std::ostream& out, const vec& corner1,
 }
 
 void refine_structure(model& m, const precalculate& prec, non_cache& nc,
-		output_type& out, const vec& cap, sz max_steps = 1000)
+		output_type& out, const vec& cap, const minimization_params& minparm)
 {
 	change g(m.get_size());
-	quasi_newton quasi_newton_par;
-	quasi_newton_par.max_steps = max_steps;
+	quasi_newton quasi_newton_par(minparm);
 	const fl slope_orig = nc.slope;
 	VINA_FOR(p, 5)
 	{ nc.slope = 100 * std::pow(10.0, 2.0 * p);
@@ -218,7 +217,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		vecv origcoords = m.get_heavy_atom_movable_coords();
 		output_type out(c, e);
 		doing(verbosity, "Performing local search", log);
-		refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.evals);
+		refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm);
 		done(verbosity, log);
 		fl intramolecular_energy = m.eval_intramolecular(prec, authentic_v,
 				out.c);
@@ -262,8 +261,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		done(verbosity, log);
 		doing(verbosity, "Refining results", log);
 		VINA_FOR_IN(i, out_cont)
-		refine_structure(m, prec, nc, out_cont[i], authentic_v,
-				par.mc.ssd_par.evals);
+		refine_structure(m, prec, nc, out_cont[i], authentic_v, par.mc.ssd_par.minparm);
 
 		if (!out_cont.empty())
 		{
@@ -336,7 +334,7 @@ void main_procedure(model& m, precalculate& prec,
 		const boost::optional<model>& ref, // m is non-const (FIXME?)
 		std::ostream& out, bool score_only, bool local_only,
 		bool randomize_only, bool no_cache, const grid_dims& gd,
-		int exhaustiveness, int minimize_iters, const weighted_terms& wt, int cpu, int seed,
+		int exhaustiveness, minimization_params minparm, const weighted_terms& wt, int cpu, int seed,
 		int verbosity, sz num_modes, fl energy_range, fl out_min_rmsd, tee& log,
 		std::vector<resultInfo>& results)
 {
@@ -353,8 +351,9 @@ void main_procedure(model& m, precalculate& prec,
 			+ 10 * m.get_size().num_degrees_of_freedom();
 	par.mc.num_steps = unsigned(70 * 3 * (50 + heuristic) / 2); // 2 * 70 -> 8 * 20 // FIXME
 	par.mc.ssd_par.evals = unsigned((25 + m.num_movable_atoms()) / 3);
-	if(minimize_iters > 0) //dkoes, allow setting of number of iterations in steepest descent
-		par.mc.ssd_par.evals = minimize_iters;
+	if(minparm.maxiters == 0)
+		minparm.maxiters = par.mc.ssd_par.evals;
+	par.mc.ssd_par.minparm = minparm;
 	par.mc.min_rmsd = 1.0;
 	par.mc.num_saved_mins = num_modes > 20 ? num_modes : 20; //dkoes, support more than 20
 	par.mc.hunt_cap = vec(10, 10, 10);
@@ -373,7 +372,7 @@ void main_procedure(model& m, precalculate& prec,
 	}
 	else
 	{
-		non_cache nc(m, gd, &prec, slope); // if gd has 0 n's, this will not constrain anything
+		non_cache nc(m, gd, &prec, slope, minparm.donorm); // if gd has 0 n's, this will not constrain anything
 		if (no_cache)
 		{
 			do_search(m, ref, wt, prec, nc, nc, out, corner1, corner2, par,
@@ -651,11 +650,13 @@ Thank you!\n";
 		fl weight_rot = 0.05846;
 		bool score_only = false, local_only = false, randomize_only = false,
 				help = false, help_hidden = false, version = false;
+		bool dominimize = false;
 		bool dkoes_score = false;
 		bool dkoes_score_old = false;
 		bool dkoes_fast = false;
 		bool quiet = false;
-		int minimize_iters = 0;
+		bool accurate_line = false;
+		minimization_params minparms;
 
 		positional_options_description positional; // remains empty
 
@@ -694,11 +695,19 @@ Thank you!\n";
 				"custom scoring function file")
 		("score_only", bool_switch(&score_only), "score provided ligand pose")
 		("local_only", bool_switch(&local_only),
-				"local search only using autobox (energy minimization)")
+				"local search only using autobox (you probably want to use --minimize)")
+		("minimize", bool_switch(&dominimize),
+						"energy minimization")
 		("randomize_only", bool_switch(&randomize_only),
 				"generate random poses, attempting to avoid clashes")
-		("minimize_iters",value<int>(&minimize_iters)->default_value(0),
-				"number iterations of steepest descent");
+		("minimize_iters",value<unsigned>(&minparms.maxiters)->default_value(0),
+				"number iterations of steepest descent; default scales with rotors and usually isn't sufficient for convergence")
+		("accurate_line",bool_switch(&accurate_line),
+				"use accurate line search")
+		("minimize_early_term",bool_switch(&minparms.early_term),
+				"Stop minimization before convergence conditions are fully met.")
+		("normalize_forces",bool_switch(&minparms.donorm),
+				"Do not scale forces by distance");
 
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
@@ -784,6 +793,19 @@ Thank you!\n";
 		{
 			std::cout << version_string << '\n';
 			return 0;
+		}
+
+		if(dominimize) //set default settings for minimization
+		{
+			if(minparms.maxiters == 0)
+				minparms.maxiters = 10000; //will presumably converge
+			local_only = true;
+			minparms.type = minimization_params::BFGSAccurateLineSearch;
+		}
+
+		if(accurate_line)
+		{
+			minparms.type = minimization_params::BFGSAccurateLineSearch;
 		}
 
 		bool search_box_needed = !(score_only || local_only); // randomize_only and local_only still need the search space; dkoes - for local get box from ligand
@@ -967,7 +989,7 @@ Thank you!\n";
 				main_procedure(m, prec, ref, out, score_only, local_only,
 						randomize_only,
 						false, // no_cache == false
-						gd, exhaustiveness, minimize_iters, wt, cpu, seed, verbosity,
+						gd, exhaustiveness, minparms, wt, cpu, seed, verbosity,
 						max_modes_sz, energy_range, out_min_rmsd, log, results);
 			}
 			else //try parsing with openbabel
@@ -1083,7 +1105,7 @@ Thank you!\n";
 					main_procedure(m, prec, ref, nullOstream, score_only,
 							local_only, randomize_only,
 							false, // no_cache == false
-							gd, exhaustiveness, minimize_iters, wt, cpu, seed, verbosity,
+							gd, exhaustiveness, minparms, wt, cpu, seed, verbosity,
 							max_modes_sz, energy_range, out_min_rmsd, log, results);
 
 					for (unsigned j = 0, m = results.size(); j < m; j++)

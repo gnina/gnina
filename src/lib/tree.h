@@ -73,7 +73,7 @@ struct atom_frame : public frame, public atom_range {
 		tmp.first.assign(0);
 		tmp.second.assign(0);
 		VINA_RANGE(i, begin, end) {
-			tmp.first  += forces[i]; 
+			tmp.first  += forces[i];
 			tmp.second += cross_product(coords[i] - origin, forces[i]);
 		}
 		return tmp;
