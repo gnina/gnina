@@ -189,7 +189,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
 		log.endl();
-		flv term_values = t->evale(m);
+		flv term_values = t->evale_robust(m);
 		log << "Intramolecular energy: " << std::fixed << std::setprecision(5)
 				<< intramolecular_energy << "\n";
 
