@@ -120,7 +120,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		x_new = x;
 		x_new.increment(p,alpha);
 		f1 = f(x_new, g_new);
-
+std::cout << "alpha " << alpha << "  f " << f1 << "\n";
 		if(alpha < alamin) //convergence
 		{
 			x_new = x;
@@ -223,7 +223,10 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement, const m
 		//dkoes - in practice the gradient never seems to converge to zero
 		//(it is set to zero when accurate linesearch fails though)
 		fl gradnormsq = scalar_product(g, g, n);
-
+std::cout.precision(10);
+std::cout << "\n" << step << " f " << f0 << " grad " << sqrt(gradnormsq) << " alpha " << alpha << "\n";
+g.print();
+x.print();
 		if(!(gradnormsq >= 1e-5*1e-5)) {
 			break; // breaks for nans too // FIXME !!??
 		}

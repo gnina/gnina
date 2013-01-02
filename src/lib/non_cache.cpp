@@ -112,7 +112,7 @@ fl non_cache::eval_deriv(      model& m, fl v) const { // clean up
 			const atom& b = m.grid_atoms[j];
 			sz t2 = b.get(p->atom_typing_used());
 			if(t2 >= n) continue;
-			vec r_ba; r_ba = adjusted_a_coords - b.coords; // FIXME why b-a and not a-b ?
+			vec r_ba; r_ba = adjusted_a_coords - b.coords;
 			fl r2 = sqr(r_ba);
 			if(r2 < cutoff_sqr) {
 				pr e_dor =  p->eval_deriv(a, b, r2);
@@ -120,7 +120,7 @@ fl non_cache::eval_deriv(      model& m, fl v) const { // clean up
 				//dkoes - I think we should normalize r_ba to avoid
 				//scaling by distance.. (1.0/r_ba.norm()) *
 				if(normalize_forces)
-					deriv +=  (1.0/r_ba.norm()) * e_dor.second * r_ba;
+					deriv +=  ((1.0/sqrt(r2)) * e_dor.second * r_ba);
 				else
 					deriv += e_dor.second * r_ba;
 			}

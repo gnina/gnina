@@ -52,10 +52,11 @@ struct minimization_params
 	enum Type {BFGSFastLineSearch, BFGSAccurateLineSearch, ConjugateGradient};
 
 	Type type;
+	fl cutoff_smoothing;
 	unsigned maxiters; //maximum number of iterations of algorithm
 	bool early_term; //terminate early based on different of function falues
 	bool donorm; //normailize torque forces
-	minimization_params(): type(BFGSFastLineSearch), maxiters(0), early_term(false), donorm(false)
+	minimization_params(): type(BFGSFastLineSearch), cutoff_smoothing(0), maxiters(0), early_term(false), donorm(false)
 	{
 
 	}
@@ -140,6 +141,11 @@ struct vec {
 		data[0] = data[1] = data[2] = s;
 	}
 	sz size() const { return 3; }
+
+	void print(std::ostream& out)
+	{
+		out << "<" << data[0] <<"," <<data[1] << "," << data[2] << ">";
+	}
 private:
 	friend class boost::serialization::access;
 	template<class Archive>

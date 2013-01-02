@@ -189,7 +189,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
 		log.endl();
-		flv term_values = t->evale_robust(m);
+		flv term_values = t->evale(m);
 		log << "Intramolecular energy: " << std::fixed << std::setprecision(5)
 				<< intramolecular_energy << "\n";
 
@@ -707,7 +707,9 @@ Thank you!\n";
 		("minimize_early_term",bool_switch(&minparms.early_term),
 				"Stop minimization before convergence conditions are fully met.")
 		("normalize_forces",bool_switch(&minparms.donorm),
-				"Do not scale forces by distance");
+				"Do not scale forces by distance")
+		("cutoff_smoothing",value<fl>(&minparms.cutoff_smoothing)->default_value(0),
+				"apply a linear smoothing potential to zero energy functions at this distance from cutoff");
 
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
@@ -952,7 +954,7 @@ Thank you!\n";
 		//dkoes, hoist precalculation outside of loop
 		weighted_terms wt(&t, t.weights());
 
-		precalculate prec(wt);
+		precalculate prec(wt, minparms,max_fl,128);
 
 		//dkoes - loop over input ligands
 		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)

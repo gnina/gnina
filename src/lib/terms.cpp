@@ -191,6 +191,7 @@ flv terms::evale(const model& m) const {
 
 	flv tmp(size(), 0);
 	fl max_r_cutoff_sqr = sqr(max_r_cutoff());
+	const sz n  = num_atom_types(m.atom_typing_used());
 
 	grid_dims box = m.movable_atoms_box(0); // add nothing
 	vec box_begin = grid_dims_begin(box);

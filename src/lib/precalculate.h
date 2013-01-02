@@ -77,9 +77,11 @@ struct precalculate_element {
 };
 
 struct precalculate {
-	precalculate(const scoring_function& sf, fl v = max_fl, fl factor_ = 32) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
+	precalculate(const scoring_function& sf, const minimization_params& minparms, fl v = max_fl, fl factor_ = 32) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
+		m_cutoff(sf.cutoff()),
 		m_cutoff_sqr(sqr(sf.cutoff())),
 		n(sz(factor_ * m_cutoff_sqr) + 3),  // sz(factor * r^2) + 1 <= sz(factor * cutoff_sqr) + 2 <= n-1 < n  // see assert below
+		cutoff_smoothing(minparms.cutoff_smoothing),
 		factor(factor_),
 		scoring(sf),
 		data(num_atom_types(sf.atom_typing_used()), precalculate_element(n, factor_)),
@@ -98,6 +100,34 @@ struct precalculate {
 				VINA_FOR_IN(i, p.smooth)
 					p.smooth[i].first = (std::min)(v, sf.eval_fast(t1, t2, rs[i]));
 
+				//dkoes - need to smooth the transition into the cutoff or
+				//artifacts appear in the energy landscape
+				if (cutoff_smoothing > 0)
+				{
+					fl smoothrange = minparms.cutoff_smoothing;
+					fl start = std::max(m_cutoff - smoothrange, 0.0);
+					fl startsq = sqr(start);
+					sz rstart = startsq * factor;
+					smoothrange = rs[rstart]; //adjust to boundary
+					sz end = factor * m_cutoff_sqr;
+					//get the endpoint value at the cutoff
+					if (rstart < end)
+					{
+						fl endval = p.smooth[end].first;
+						//zero the very end
+						for (unsigned i = end; i < p.smooth.size(); i++)
+						{
+							p.smooth[i].first = 0;
+						}
+						//subtract off increments of endval to end up at zero
+						for (unsigned i = rstart; i < end; i++)
+						{
+								p.smooth[i].first -= endval
+									* (rs[i] + smoothrange - m_cutoff)
+									/ smoothrange;
+						}
+					}
+				}
 				// init the rest
 				p.init_from_smooth_fst(rs);
 			}
@@ -140,6 +170,25 @@ struct precalculate {
 				fl Y = scoring.eval_slow(a,b,rs[y]);
 				fl Z = scoring.eval_slow(a,b,rs[z]);
 
+				if(cutoff_smoothing > 0)
+				{
+					sz rstart = factor*(m_cutoff_sqr-sqr(cutoff_smoothing));
+
+					if(z > rstart) //have to smooth at least some values
+					{
+						fl smoothrange = m_cutoff-rs[rstart];
+						fl endval = scoring.eval_slow(a,b,m_cutoff);
+						Z -= endval* (rs[z] + smoothrange - m_cutoff)
+								/ smoothrange;
+						if(y > rstart)
+							Y -= endval* (rs[y] + smoothrange - m_cutoff)/ smoothrange;
+						if(x > rstart)
+							X -= endval* (rs[x] + smoothrange - m_cutoff)/ smoothrange;
+						if(w > rstart)
+							W -= endval* (rs[w] + smoothrange - m_cutoff)/ smoothrange;
+					}
+				}
+
 				fl rem = r2_factored - x; //how much beyond y we are
 
 				fl e   = X  + rem * (Y  - X); //linearly interpolate
@@ -169,13 +218,15 @@ private:
 		VINA_FOR(i, n+2)
 			rs[i] = std::sqrt(i / factor);
 	}
+	fl m_cutoff;
 	fl m_cutoff_sqr;
 	sz n;
 	fl factor;
+	fl cutoff_smoothing;
 	atom_type::t m_atom_typing_used;
 	const scoring_function& scoring;
 	triangular_matrix<precalculate_element> data;
-	flv rs;
+	flv rs; //actual distance of index locations
 };
 
 #endif
