@@ -97,4 +97,5 @@ inline sz get_type_pair_index(atom_type::t atom_typing_used, const atom_type& a,
 	else       return triangular_matrix_index(n, j, i);
 }
 
+
 #endif

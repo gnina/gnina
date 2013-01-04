@@ -184,60 +184,6 @@ void terms::eval_additive_aux(const model& m, const atom_index& i, const atom_in
 	VINA_CHECK(offset + additive_terms.size() == size_internal());
 }
 
-flv terms::evale(const model& m) const {
-	VINA_CHECK(m.ligands.size() == 1);
-	VINA_CHECK(m.flex.size() == 0);
-	VINA_CHECK(m.atoms.size() == m.num_movable_atoms()); // no inflex
-
-	flv tmp(size(), 0);
-	fl max_r_cutoff_sqr = sqr(max_r_cutoff());
-	const sz n  = num_atom_types(m.atom_typing_used());
-
-	grid_dims box = m.movable_atoms_box(0); // add nothing
-	vec box_begin = grid_dims_begin(box);
-	vec box_end   = grid_dims_end  (box);
-
-	szv relevant_atoms;
-	VINA_FOR_IN(j, m.grid_atoms) 
-		if(brick_distance_sqr(box_begin, box_end, m.grid_atoms[j].coords) < max_r_cutoff_sqr)
-			relevant_atoms.push_back(j);
-
-	VINA_FOR(i, m.num_movable_atoms()) {
-		const vec& coords = m.coords[i];
-		VINA_FOR_IN(relevant_j, relevant_atoms) {
-			const sz j = relevant_atoms[relevant_j];
-			const atom& b = m.grid_atoms[j];
-			fl d2 = vec_distance_sqr(coords, b.coords);
-			if(d2 > max_r_cutoff_sqr) continue; // most likely scenario
-			fl d = std::sqrt(d2);
-			eval_additive_aux(m, atom_index(i, false), atom_index(j, true), d, tmp);
-		}
-	}
-	sz offset = size_internal();
-	VINA_FOR_IN(k, intermolecular_terms)
-		tmp[offset + k] += intermolecular_terms[k].eval(m);
-
-	VINA_CHECK(offset + intermolecular_terms.size() == tmp.size()); 
-	return tmp;
-}
-
-flv terms::evali(const model& m) const {
-	VINA_CHECK(m.ligands.size() == 1);
-	VINA_CHECK(m.flex.size() == 0);
-	VINA_CHECK(m.atoms.size() == m.num_movable_atoms());
-
-	flv tmp(size_internal(), 0);
-	fl max_r_cutoff_sqr = sqr(max_r_cutoff());
-	const interacting_pairs& pairs = m.ligands.front().pairs;
-	VINA_FOR_IN(i, pairs) {
-		const interacting_pair& ip = pairs[i];
-		fl d2 = vec_distance_sqr(m.coords[ip.a], m.coords[ip.b]);
-		if(d2 > max_r_cutoff_sqr) continue; // most likely scenario
-		fl d = std::sqrt(d2);
-		eval_additive_aux(m, atom_index(ip.a, false), atom_index(ip.b, false), d, tmp);
-	}
-	return tmp;
-}
 
 flv terms::evale_robust(const model& m) const {
 	VINA_CHECK(m.ligands.size() == 1); // only single-ligand systems are supported by this procedure
@@ -296,12 +242,7 @@ flv terms::evale_robust(const model& m) const {
 	return tmp;
 }
 
-factors terms::eval(const model& m) const {
-	factors tmp;
-	tmp.e = evale(m);
-	tmp.i = evali(m);
-	return tmp;
-}
+
 
 fl terms::eval_conf_independent(const conf_independent_inputs& in, fl x, flv::const_iterator& it) const { // evaluates enabled only
 	VINA_FOR_IN(i, conf_independent_terms) 

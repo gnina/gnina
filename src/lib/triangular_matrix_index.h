@@ -32,6 +32,20 @@ inline sz triangular_matrix_index(sz n, sz i, sz j) {
 	return i + j*(j+1)/2; 
 }
 
+//dkoes - convert the index back to i and j
+inline std::pair<sz,sz> triangular_matrix_index_to_coords(sz n, sz index) {
+	//dkoes, there are much faster ways to do this, but I'm just
+	//calling int within precalculate exact so I'm not going to worry about it
+	for(sz x = 0; x < n; x++)
+	{
+		sz j = x*(x+1)/2;
+		sz i = index-j;
+		if(i <= j)
+			return std::pair<sz,sz>(i,j);
+	}
+	abort();
+}
+
 inline sz triangular_matrix_index_permissive(sz n, sz i, sz j) {
 	return (i <= j) ? triangular_matrix_index(n, i, j)
 		            : triangular_matrix_index(n, j, i);

@@ -29,7 +29,8 @@
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/stream.hpp>
-#include "boost/iostreams/device/null.hpp"
+#include <boost/iostreams/device/null.hpp>
+#include <boost/shared_ptr.hpp>
 #include "coords.h"
 
 using namespace boost::iostreams;
@@ -594,6 +595,27 @@ void setup_dkoes_terms(custom_terms& t, bool dkoes_score, bool dkoes_score_old,
 	}
 }
 
+//enum options and their parsers
+enum ApproxType {LinearApprox, SplineApprox,Exact};
+
+std::istream& operator>>(std::istream& in, ApproxType& type)
+{
+	using namespace boost::program_options;
+
+	std::string token;
+	in >> token;
+    if(token == "spline")
+    	type = SplineApprox;
+    else if(token == "linear")
+    	type = LinearApprox;
+    else if(token == "exact")
+    	type = Exact;
+    else
+    	throw validation_error(validation_error::invalid_option_value);
+    return in;
+}
+
+
 int main(int argc, char* argv[])
 {
 	using namespace boost::program_options;
@@ -657,6 +679,7 @@ Thank you!\n";
 		bool quiet = false;
 		bool accurate_line = false;
 		minimization_params minparms;
+		ApproxType approx = LinearApprox;
 
 		positional_options_description positional; // remains empty
 
@@ -709,7 +732,9 @@ Thank you!\n";
 		("normalize_forces",bool_switch(&minparms.donorm),
 				"Do not scale forces by distance")
 		("cutoff_smoothing",value<fl>(&minparms.cutoff_smoothing)->default_value(0),
-				"apply a linear smoothing potential to zero energy functions at this distance from cutoff");
+				"apply a linear smoothing potential to zero energy functions at this distance from cutoff")
+		("approximation", value<ApproxType>(&approx),
+				"approximation (linear, spline, or exact) to use");
 
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
@@ -954,7 +979,14 @@ Thank you!\n";
 		//dkoes, hoist precalculation outside of loop
 		weighted_terms wt(&t, t.weights());
 
-		precalculate prec(wt, minparms,max_fl,128);
+		boost::shared_ptr<precalculate> prec;
+
+		if(approx == SplineApprox)
+			prec = boost::shared_ptr<precalculate>(new precalculate_splines(wt, minparms));
+		else if(approx == LinearApprox)
+			prec = boost::shared_ptr<precalculate>(new precalculate_linear(wt, minparms));
+		else if(approx == Exact)
+				prec = boost::shared_ptr<precalculate>(new precalculate_exact(wt, minparms));
 
 		//dkoes - loop over input ligands
 		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
@@ -988,7 +1020,7 @@ Thank you!\n";
 
 				ofile out(make_path(out_name));
 				std::vector<resultInfo> results;
-				main_procedure(m, prec, ref, out, score_only, local_only,
+				main_procedure(m, *prec, ref, out, score_only, local_only,
 						randomize_only,
 						false, // no_cache == false
 						gd, exhaustiveness, minparms, wt, cpu, seed, verbosity,
@@ -1104,7 +1136,7 @@ Thank you!\n";
 					std::vector<resultInfo> results;
 					stream<boost::iostreams::null_sink> nullOstream;
 
-					main_procedure(m, prec, ref, nullOstream, score_only,
+					main_procedure(m, *prec, ref, nullOstream, score_only,
 							local_only, randomize_only,
 							false, // no_cache == false
 							gd, exhaustiveness, minparms, wt, cpu, seed, verbosity,

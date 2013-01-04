@@ -3,7 +3,7 @@ BOOST_INCLUDE = $(BASE)/include/boost-${BOOST_VERSION}
 LIBOBJ = cache.o coords.o current_weights.o custom_terms.o everything.o grid.o szv_grid.o model.o monte_carlo.o mutate.o my_pid.o naive_non_cache.o non_cache.o parallel_mc.o parse_pdbqt.o pdb.o quasi_newton.o quaternion.o random.o ssd.o terms.o weighted_terms.o
 MAINOBJ = main.o
 
-INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE)
+INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) 
 
 CC = ${GPP} ${C_PLATFORM} -ansi  ${C_OPTIONS} $(INCFLAGS)
 
@@ -28,7 +28,8 @@ include dependencies
 
 smina: $(MAINOBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
-
+	@echo "Done"
+	
 clean:
 	rm -f *.o
 
