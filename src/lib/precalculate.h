@@ -31,13 +31,17 @@
 class precalculate
 {
 public:
+	//return just the fast evaluation of types, no derivative
 	virtual fl eval_fast(sz type_pair_index, fl r2) const = 0;
 
+	//return value and derivative
+	//IMPORTANT: derivative is scaled by sqrt(r2) so that when
+	//multiplied by the direction vector the result is normalized
 	virtual pr eval_deriv(const atom_base& a, const atom_base& b,
 			fl r2) const = 0;
 
 	precalculate(const scoring_function& sf,
-			const minimization_params& minparms, fl v = max_fl, fl factor_ = 32) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
+			const minimization_params& minparms, fl factor_) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
 			m_cutoff(sf.cutoff()),
 					m_cutoff_sqr(sqr(sf.cutoff())),
 					cutoff_smoothing(minparms.cutoff_smoothing),
@@ -150,8 +154,8 @@ class precalculate_linear: public precalculate
 {
 public:
 	precalculate_linear(const scoring_function& sf,
-			const minimization_params& minparms, fl v = max_fl, fl factor_ = 32) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
-			precalculate(sf, minparms, v, factor_),
+			const minimization_params& minparms, fl factor_, fl v = max_fl) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
+			precalculate(sf, minparms, factor_),
 			n(sz(factor_ * m_cutoff_sqr) + 3), // sz(factor * r^2) + 1 <= sz(factor * cutoff_sqr) + 2 <= n-1 < n  // see assert below
 					data(num_atom_types(sf.atom_typing_used()),
 							precalculate_linear_element(n, factor_))
@@ -292,8 +296,8 @@ class precalculate_splines: public precalculate
 {
 public:
 	precalculate_splines(const scoring_function& sf,
-			const minimization_params& minparms, fl v = max_fl, fl factor_ = 32) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
-			precalculate(sf, minparms, v, factor_),
+			const minimization_params& minparms, fl factor_, fl v = max_fl) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
+			precalculate(sf, minparms, factor_),
 			data(num_atom_types(sf.atom_typing_used()),Spline<evaluator>()),
 			delta(0.000005)
 	{
@@ -341,6 +345,7 @@ public:
 			fl dx = (Y-W)/(rhi-rlo);
 			ret.second += dx;
 		}
+		ret.second /= r;
 		return ret;
 	}
 
@@ -372,8 +377,8 @@ class precalculate_exact: public precalculate
 {
 public:
 	precalculate_exact(const scoring_function& sf,
-			const minimization_params& minparms, fl v = max_fl, fl factor_ = 32) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
-			precalculate(sf, minparms, v, factor_),
+			const minimization_params& minparms, fl factor_, fl v = max_fl) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
+			precalculate(sf, minparms, factor_),
 			delta(0.000005),
 			num_types(num_atom_types(sf.atom_typing_used()))
 	{
@@ -409,7 +414,7 @@ public:
 		}
 
 		fl dx = (Y-W)/(rhi-rlo);
-		return pr(X,dx);
+		return pr(X,dx/r);
 	}
 
 private:

@@ -373,7 +373,7 @@ void main_procedure(model& m, precalculate& prec,
 	}
 	else
 	{
-		non_cache nc(m, gd, &prec, slope, minparm.donorm); // if gd has 0 n's, this will not constrain anything
+		non_cache nc(m, gd, &prec, slope); // if gd has 0 n's, this will not constrain anything
 		if (no_cache)
 		{
 			do_search(m, ref, wt, prec, nc, nc, out, corner1, corner2, par,
@@ -680,6 +680,7 @@ Thank you!\n";
 		bool accurate_line = false;
 		minimization_params minparms;
 		ApproxType approx = LinearApprox;
+		fl approx_factor = 32;
 
 		positional_options_description positional; // remains empty
 
@@ -729,12 +730,12 @@ Thank you!\n";
 				"use accurate line search")
 		("minimize_early_term",bool_switch(&minparms.early_term),
 				"Stop minimization before convergence conditions are fully met.")
-		("normalize_forces",bool_switch(&minparms.donorm),
-				"Do not scale forces by distance")
 		("cutoff_smoothing",value<fl>(&minparms.cutoff_smoothing)->default_value(0),
 				"apply a linear smoothing potential to zero energy functions at this distance from cutoff")
 		("approximation", value<ApproxType>(&approx),
-				"approximation (linear, spline, or exact) to use");
+				"approximation (linear, spline, or exact) to use")
+		("factor", value<fl>(&approx_factor)->default_value(32),
+				"approximation factor: higher results in a finer-grained approximation");
 
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
@@ -982,11 +983,11 @@ Thank you!\n";
 		boost::shared_ptr<precalculate> prec;
 
 		if(approx == SplineApprox)
-			prec = boost::shared_ptr<precalculate>(new precalculate_splines(wt, minparms));
+			prec = boost::shared_ptr<precalculate>(new precalculate_splines(wt, minparms, approx_factor));
 		else if(approx == LinearApprox)
-			prec = boost::shared_ptr<precalculate>(new precalculate_linear(wt, minparms));
+			prec = boost::shared_ptr<precalculate>(new precalculate_linear(wt, minparms, approx_factor));
 		else if(approx == Exact)
-				prec = boost::shared_ptr<precalculate>(new precalculate_exact(wt, minparms));
+				prec = boost::shared_ptr<precalculate>(new precalculate_exact(wt, minparms, approx_factor));
 
 		//dkoes - loop over input ligands
 		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)

@@ -55,8 +55,7 @@ struct minimization_params
 	fl cutoff_smoothing;
 	unsigned maxiters; //maximum number of iterations of algorithm
 	bool early_term; //terminate early based on different of function falues
-	bool donorm; //normailize torque forces
-	minimization_params(): type(BFGSFastLineSearch), cutoff_smoothing(0), maxiters(0), early_term(false), donorm(false)
+	minimization_params(): type(BFGSFastLineSearch), cutoff_smoothing(0), maxiters(0), early_term(false)
 	{
 
 	}
