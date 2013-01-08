@@ -27,19 +27,21 @@
 #include "triangular_matrix_index.h"
 
 struct atom_type {
-	enum t {EL, AD, XS, SY,NONE};
-	sz el, ad, xs, sy;
-	atom_type() : el(EL_TYPE_SIZE), ad(AD_TYPE_SIZE), xs(XS_TYPE_SIZE), sy(SY_TYPE_SIZE) {}
+	enum t {EL, AD, XS, SM, NONE}; //element, autodock, x-scale, smina
+	sz el, ad, xs, sm;
+	atom_type() : el(EL_TYPE_SIZE), ad(AD_TYPE_SIZE), xs(XS_TYPE_SIZE), sm(smina_kinds_size) {}
 	sz get(t atom_typing_used) const {
 		switch(atom_typing_used) {
 			case EL: return el;
 			case AD: return ad;
 			case XS: return xs;
-			case SY: return sy;
+			case SM: return sm;
 			case NONE: return 0;
 			default: assert(false); return max_sz;
 		}
 	}
+
+
 	bool is_hydrogen() const {
 		return ad_is_hydrogen(ad);
 	}
@@ -54,12 +56,25 @@ struct atom_type {
 		if(ad == AD_TYPE_SIZE && xs == XS_TYPE_Met_D)
 			el = EL_TYPE_Met;
 	}
+
+	//assign smina atom type after all other atom types are set
+	void assign_smina() {
+		for(sz i = 0; i < smina_kinds_size; i++)
+		{
+			if(smina_kind_data[i].el == el && smina_kind_data[i].xs == xs &&
+					smina_kind_data[i].ad == ad)
+			{
+				sm = i;
+				return;
+			}
+		}
+		abort();
+	}
 	bool same_element(const atom_type& a) const { // does not distinguish metals or unassigned types
 		return el == a.el;
 	}
 	fl covalent_radius() const {
 		if(ad < AD_TYPE_SIZE)        return ad_type_property(ad).covalent_radius;
-		else if(xs == XS_TYPE_Met_D) return metal_covalent_radius;
 		VINA_CHECK(false);           return 0; // never happens - placating the compiler
 	}
 	fl optimal_covalent_bond_length(const atom_type& x) const {
@@ -72,7 +87,7 @@ private:
 		ar & el;
 		ar & ad;
 		ar & xs;
-		ar & sy;
+		ar & sm;
 	}
 };
 
@@ -81,7 +96,7 @@ inline sz num_atom_types(atom_type::t atom_typing_used) {
 		case atom_type::EL: return EL_TYPE_SIZE;
 		case atom_type::AD: return AD_TYPE_SIZE;
 		case atom_type::XS: return XS_TYPE_SIZE;
-		case atom_type::SY: return SY_TYPE_SIZE;
+		case atom_type::SM: return smina_kinds_size;
 		case atom_type::NONE: return 0;
 		default: assert(false); return max_sz;
 	}

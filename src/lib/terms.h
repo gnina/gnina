@@ -31,6 +31,10 @@ struct term {
 	virtual ~term() {}
 };
 
+enum TermComponent
+{
+	TypeDependentOnly, //not charge dependent, can be caches based on simple atom type
+};
 struct distance_additive : public term {
 	fl cutoff;
 	distance_additive(fl cutoff_) : cutoff(cutoff_) {}

@@ -32,7 +32,7 @@ class precalculate
 {
 public:
 	//return just the fast evaluation of types, no derivative
-	virtual fl eval_fast(sz type_pair_index, fl r2) const = 0;
+	virtual fl eval_fast(sz t1, sz t2, fl r2) const = 0;
 
 	//return value and derivative
 	//IMPORTANT: derivative is scaled by sqrt(r2) so that when
@@ -206,10 +206,11 @@ public:
 			p.init_from_smooth_fst(rs);
 		}
 	}
-	fl eval_fast(sz type_pair_index, fl r2) const
+	fl eval_fast(sz t1, sz t2, fl r2) const
 	{
+		if(t1 > t2) std::swap(t1,t2);
 		assert(r2 <= m_cutoff_sqr);
-		return data(type_pair_index).eval_fast(r2);
+		return data(t1,t2).eval_fast(r2);
 	}
 
 	pr eval_deriv(const atom_base& a, const atom_base& b, fl r2) const
@@ -289,6 +290,53 @@ private:
 };
 
 
+//evaluates spline between two smina atom types as needed
+//will decompose charge dependent terms
+class spline_cache
+{
+	const scoring_function* sf;
+	fl cutoff;
+	sz n;
+	sz numcut;
+	sz t1, t2;
+
+	//the following are only computed when needed
+	mutable Spline<spline_cache> spline;
+	mutable bool valid;
+public:
+
+	spline_cache(): sf(NULL), cutoff(0), n(0), numcut(0), t1(0), t2(0), valid(false) {}
+
+	//intialize values to approprate types etc - do not compute spline
+	void set(const scoring_function& sf_, sz t1_, sz t2_, fl cut, sz n_, sz ncut)
+	{
+		sf = &sf_;
+		cutoff = cut;
+		n = n_;
+		numcut = ncut;
+		t1 = t1_;
+		t2 = t2_;
+		valid = false;
+	}
+
+	//function called by spline
+	fl operator()(fl r) const
+	{
+		return sf->eval_fast(t1,t2,r);
+	}
+
+	pr eval(fl r) const
+	{
+		if(!valid)
+		{
+			//create spline
+			spline.initialize(*this, cutoff, n, numcut);
+			valid = true;
+		}
+
+		return spline(r);
+	}
+};
 
 // dkoes - using cubic spline interpolation instead of linear for nice
 // smooth gradients
@@ -298,7 +346,7 @@ public:
 	precalculate_splines(const scoring_function& sf,
 			const minimization_params& minparms, fl factor_, fl v = max_fl) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
 			precalculate(sf, minparms, factor_),
-			data(num_atom_types(sf.atom_typing_used()),Spline<evaluator>()),
+			data(num_atom_types(sf.atom_typing_used()),spline_cache()),
 			delta(0.000005)
 	{
 		unsigned n = factor * m_cutoff;
@@ -306,17 +354,17 @@ public:
 		VINA_FOR(t1, data.dim())
 		VINA_RANGE(t2, t1, data.dim())
 		{
-			//create spline for pre-calculatable function values between
-			//atom types t1 and t
-			evaluator func(sf, t1,t2);
-			data(t1,t2).initialize(func, m_cutoff,n,numcut);
+			//initialize spline cache - this doesn't create the splines
+			data(t1,t2).set(sf, t1, t2, m_cutoff,n,numcut);
 		}
 	}
-	fl eval_fast(sz type_pair_index, fl r2) const
+
+	fl eval_fast(sz t1, sz t2, fl r2) const
 	{
+		if(t1 > t2) std::swap(t1,t2);
 		assert(r2 <= m_cutoff_sqr);
 		fl r = sqrt(r2);
-		return data(type_pair_index)(r).first;
+		return data(t1,t2).eval(r).first;
 	}
 
 	pr eval_deriv(const atom_base& a, const atom_base& b, fl r2) const
@@ -324,7 +372,8 @@ public:
 		assert(r2 <= m_cutoff_sqr);
 		sz type_pair_index = get_type_pair_index(atom_typing_used(), a, b);
 		fl r = sqrt(r2);
-		pr ret = data(type_pair_index)(r);
+		pr ret = data(type_pair_index).eval(r);
+
 		if(scoring.has_slow())
 		{
 			//compute value and numerical derivative directly from function
@@ -367,7 +416,7 @@ private:
 		}
 	};
 
-	triangular_matrix<Spline<evaluator> > data;
+	triangular_matrix<spline_cache > data;
 	fl delta;
 };
 
@@ -383,12 +432,11 @@ public:
 			num_types(num_atom_types(sf.atom_typing_used()))
 	{
 	}
-	fl eval_fast(sz type_pair_index, fl r2) const
+	fl eval_fast(sz t1, sz t2, fl r2) const
 	{
 		assert(r2 <= m_cutoff_sqr);
 		fl r = sqrt(r2);
-		std::pair<sz,sz> ij = triangular_matrix_index_to_coords(num_types,type_pair_index);
-		return scoring.eval_fast(ij.first, ij.second, r);
+		return scoring.eval_fast(t1, t2, r);
 	}
 
 	//numerical exact derivative - ignore cutoff for now

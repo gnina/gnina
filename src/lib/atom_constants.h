@@ -60,7 +60,8 @@ const sz AD_TYPE_Ca   = 16;
 const sz AD_TYPE_Fe   = 17;
 const sz AD_TYPE_Cl   = 18;
 const sz AD_TYPE_Br   = 19;
-const sz AD_TYPE_SIZE = 20;
+const sz AD_TYPE_METAL = 20; //generic metal, not actually part of autodock
+const sz AD_TYPE_SIZE = 21;
 
 // X-Score
 const sz XS_TYPE_C_H   =  0;
@@ -82,26 +83,6 @@ const sz XS_TYPE_I_H   = 15;
 const sz XS_TYPE_Met_D = 16;
 const sz XS_TYPE_SIZE  = 17;
 
-// DrugScore-CSD
-const sz SY_TYPE_C_3   =  0;
-const sz SY_TYPE_C_2   =  1;
-const sz SY_TYPE_C_ar  =  2;
-const sz SY_TYPE_C_cat =  3;
-const sz SY_TYPE_N_3   =  4;
-const sz SY_TYPE_N_ar  =  5;
-const sz SY_TYPE_N_am  =  6;
-const sz SY_TYPE_N_pl3 =  7;
-const sz SY_TYPE_O_3   =  8;
-const sz SY_TYPE_O_2   =  9;
-const sz SY_TYPE_O_co2 = 10;
-const sz SY_TYPE_S     = 11;
-const sz SY_TYPE_P     = 12;
-const sz SY_TYPE_F     = 13;
-const sz SY_TYPE_Cl    = 14;
-const sz SY_TYPE_Br    = 15;
-const sz SY_TYPE_I     = 16;
-const sz SY_TYPE_Met   = 17;
-const sz SY_TYPE_SIZE  = 18;
 
 struct atom_kind {
     std::string name;
@@ -111,6 +92,7 @@ struct atom_kind {
 	fl volume;
 	fl covalent_radius; // from http://en.wikipedia.org/wiki/Atomic_radii_of_the_elements_(data_page)
 };
+
 
 // generated from edited AD4_parameters.data using a script, 
 // then covalent radius added from en.wikipedia.org/wiki/Atomic_radii_of_the_elements_(data_page)
@@ -134,14 +116,111 @@ const atom_kind atom_kind_data[] = { // name, radius, depth, solvation parameter
 	{"Ca",    0.99000,    0.55000,   -0.00110,    2.77000,   1.74}, // 16
 	{"Fe",    0.65000,    0.01000,   -0.00110,    1.84000,   1.25}, // 17
 	{"Cl",    2.04500,    0.27600,   -0.00110,   35.82350,   0.99}, // 18
-	{"Br",    2.16500,    0.38900,   -0.00110,   42.56610,   1.14}  // 19
+	{"Br",    2.16500,    0.38900,   -0.00110,   42.56610,   1.14},  // 19
+	{"Metal", 1.2,        0,         -0.00110,   22.44930,    1.75} //generic non-autodock metal
+};
+const sz atom_kinds_size =  sizeof(atom_kind_data) / sizeof(const atom_kind);
+
+//SMINA atom types - these must represent all possible combinations of el,xs, and ad atom types
+struct smina_kind
+{
+	sz el;
+	sz ad;
+	sz xs;
 };
 
-const fl metal_solvation_parameter = -0.00110;
+//dkoes - eventually I'd like to switch to a single unified atom typing, but
+//for now stitch everything together with a smina atom type
+const smina_kind smina_kind_data[] = { //el, ad, xs
+		{EL_TYPE_H, AD_TYPE_H, XS_TYPE_SIZE},
+		{EL_TYPE_H, AD_TYPE_HD, XS_TYPE_SIZE},
+		{EL_TYPE_C, AD_TYPE_C, XS_TYPE_C_H},
+		{EL_TYPE_C, AD_TYPE_C, XS_TYPE_C_P},
+		{EL_TYPE_C, AD_TYPE_A, XS_TYPE_C_H},
+		{EL_TYPE_C, AD_TYPE_A, XS_TYPE_C_P},
+		{EL_TYPE_N, AD_TYPE_N, XS_TYPE_N_D},
+		{EL_TYPE_N, AD_TYPE_N, XS_TYPE_N_P},
+		{EL_TYPE_N, AD_TYPE_NA, XS_TYPE_N_DA},
+		{EL_TYPE_N, AD_TYPE_NA, XS_TYPE_N_A},
+		{EL_TYPE_O, AD_TYPE_O, XS_TYPE_O_D},
+		{EL_TYPE_O, AD_TYPE_O, XS_TYPE_O_P},
+		{EL_TYPE_O, AD_TYPE_OA, XS_TYPE_O_DA},
+		{EL_TYPE_O, AD_TYPE_OA, XS_TYPE_O_A},
+		{EL_TYPE_S, AD_TYPE_S, XS_TYPE_S_P},
+		{EL_TYPE_S, AD_TYPE_SA, XS_TYPE_S_P},
+		{EL_TYPE_P, AD_TYPE_P, XS_TYPE_P_P},
+		{EL_TYPE_F, AD_TYPE_F, XS_TYPE_F_H},
+		{EL_TYPE_Cl, AD_TYPE_Cl, XS_TYPE_Cl_H},
+		{EL_TYPE_Br, AD_TYPE_Br, XS_TYPE_Br_H},
+		{EL_TYPE_I, AD_TYPE_I, XS_TYPE_I_H},
+		{EL_TYPE_Met, AD_TYPE_Mg, XS_TYPE_Met_D},
+		{EL_TYPE_Met, AD_TYPE_Mn, XS_TYPE_Met_D},
+		{EL_TYPE_Met, AD_TYPE_Zn, XS_TYPE_Met_D},
+		{EL_TYPE_Met, AD_TYPE_Ca, XS_TYPE_Met_D},
+		{EL_TYPE_Met, AD_TYPE_Fe, XS_TYPE_Met_D},
+		{EL_TYPE_Met, AD_TYPE_METAL, XS_TYPE_Met_D},
+};
 
-const fl metal_covalent_radius = 1.75; // for metals not on the list // FIXME this info should be moved to non_ad_metals
+const sz smina_kinds_size  = sizeof(smina_kind_data)/sizeof(smina_kind);
 
-const sz atom_kinds_size =  sizeof(atom_kind_data) / sizeof(const atom_kind);
+enum smina_types {
+H_H_X,
+H_HD_X,
+C_C_C_H,
+C_C_C_P,
+C_A_C_H,
+C_A_C_P,
+N_N_N_D,
+N_N_N_P,
+N_NA_N_DA,
+N_NA_N_A,
+O_O_O_D,
+O_O_O_P,
+O_OA_O_DA,
+O_OA_O_A,
+S_S_S_P,
+S_SA_S_P,
+P_P_P_P,
+F_F_F_H,
+Cl_Cl_Cl_H,
+Br_Br_Br_H,
+I_I_I_H,
+Met_Mg_Met_D,
+Met_Mn_Met_D,
+Met_Zn_Met_D,
+Met_Ca_Met_D,
+Met_Fe_Met_D,
+Met_METAL_Met_D,
+SMINA_SIZE
+};
+
+//convert xs type to smina type
+sz xs_to_smina(sz x)
+{
+	switch(x)
+	{
+	case XS_TYPE_C_H: return C_C_C_H;
+	case XS_TYPE_C_P: return C_C_C_P;
+	case XS_TYPE_N_P: return N_N_N_P;
+	case XS_TYPE_N_D: return N_N_N_D;
+	case XS_TYPE_N_A: return N_NA_N_A;
+	case XS_TYPE_N_DA: return N_NA_N_DA;
+	case XS_TYPE_O_P: return O_O_O_P;
+	case XS_TYPE_O_D: return O_O_O_D;
+	case XS_TYPE_O_A: return O_OA_O_A;
+	case XS_TYPE_O_DA: return O_OA_O_DA;
+	case XS_TYPE_S_P: return S_S_S_P;
+	case XS_TYPE_P_P: return P_P_P_P;
+	case XS_TYPE_F_H: return F_F_F_H;
+	case XS_TYPE_Cl_H: return Cl_Cl_Cl_H;
+	case XS_TYPE_Br_H: return Br_Br_Br_H;
+	case XS_TYPE_I_H: return I_I_I_H;
+	case XS_TYPE_Met_D: return Met_METAL_Met_D;
+	case XS_TYPE_SIZE: return SMINA_SIZE;
+	}
+	abort();
+	return 0;
+}
 
 struct atom_equivalence {
 	std::string name;
@@ -200,8 +279,9 @@ inline sz ad_type_to_el_type(sz t) {
 		case AD_TYPE_Fe   : return EL_TYPE_Met;
 		case AD_TYPE_Cl   : return EL_TYPE_Cl;
 		case AD_TYPE_Br   : return EL_TYPE_Br;
+		case AD_TYPE_METAL: return EL_TYPE_Met;
 		case AD_TYPE_SIZE : return EL_TYPE_SIZE;
-		default: VINA_CHECK(false);
+		default: VINA_CHECK(false); break;
 	}
 	return EL_TYPE_SIZE; // to placate the compiler in case of warnings - it should never get here though
 }
@@ -289,6 +369,8 @@ inline sz string_to_ad_type(const std::string& name) { // returns AD_TYPE_SIZE i
 	VINA_FOR(i, atom_equivalences_size)
 		if(atom_equivalence_data[i].name == name)
 			return string_to_ad_type(atom_equivalence_data[i].to);
+	if(is_non_ad_metal_name(name))
+		return AD_TYPE_METAL; //generic metal
     return AD_TYPE_SIZE;
 }
 

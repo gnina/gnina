@@ -33,10 +33,11 @@
 #include "grid_dim.h"
 
 struct interacting_pair {
-	sz type_pair_index;
+	sz t1;
+	sz t2;
 	sz a;
 	sz b;
-	interacting_pair(sz type_pair_index_, sz a_, sz b_) : type_pair_index(type_pair_index_), a(a_), b(b_) {}
+	interacting_pair(sz t1_, sz t2_, sz a_, sz b_) : t1(t1_), t2(t2_), a(a_), b(b_) {}
 };
 
 typedef std::vector<interacting_pair> interacting_pairs;
@@ -80,7 +81,6 @@ struct model {
 	sz ligand_degrees_of_freedom(sz ligand_number) const { return ligands[ligand_number].degrees_of_freedom; }
 	sz ligand_longest_branch(sz ligand_number) const;
 	sz ligand_length(sz ligand_number) const;
-
 	szv get_movable_atom_types(atom_type::t atom_typing_used_) const;
 
 	conf_size get_size() const;

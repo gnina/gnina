@@ -111,7 +111,11 @@ void cache::load(Archive& ar, const unsigned version) {
 
 void cache::populate(const model& m, const precalculate& p, const szv& atom_types_needed, bool display_progress) {
 	szv needed;
-	assert(! p.has_slow()); //dkoes - can't cache slow terms
+	if(p.has_slow())
+	{
+		std::cerr << "WARNING: When docking, terms that incorporate partial charges are completely ignored!\n";
+		std::cerr << "Proceed at your own risk.\n";
+	}
 	VINA_FOR_IN(i, atom_types_needed) {
 		sz t = atom_types_needed[i];
 		if(!grids[t].initialized()) {
@@ -148,8 +152,7 @@ void cache::populate(const model& m, const precalculate& p, const szv& atom_type
 						VINA_FOR_IN(j, needed) {
 							const sz t2 = needed[j];
 							assert(t2 < nat);
-							const sz type_pair_index = triangular_matrix_index_permissive(num_atom_types(atu), t1, t2);
-							affinities[j] += p.eval_fast(type_pair_index, r2);
+							affinities[j] += p.eval_fast(t1, t2, r2);
 						}
 					}
 				}

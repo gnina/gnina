@@ -18,7 +18,6 @@
 #include "parse_error.h"
 #include "everything.h"
 #include "weighted_terms.h"
-#include "current_weights.h"
 #include "quasi_newton.h"
 #include "tee.h"
 #include "custom_terms.h"
@@ -734,7 +733,7 @@ Thank you!\n";
 				"apply a linear smoothing potential to zero energy functions at this distance from cutoff")
 		("approximation", value<ApproxType>(&approx),
 				"approximation (linear, spline, or exact) to use")
-		("factor", value<fl>(&approx_factor)->default_value(32),
+		("factor", value<fl>(&approx_factor),
 				"approximation factor: higher results in a finer-grained approximation");
 
 		options_description hidden("Hidden options for internal testing");
@@ -829,6 +828,11 @@ Thank you!\n";
 				minparms.maxiters = 10000; //will presumably converge
 			local_only = true;
 			minparms.type = minimization_params::BFGSAccurateLineSearch;
+
+			if(!vm.count("approximation"))
+				approx = SplineApprox;
+			if(!vm.count("factor"))
+				approx_factor = 10;
 		}
 
 		if(accurate_line)

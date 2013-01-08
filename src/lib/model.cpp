@@ -23,6 +23,7 @@
 #include "model.h"
 #include "file.h"
 #include "curl.h"
+#include <boost/unordered_map.hpp>
 
 template<typename T>
 atom_range get_atom_range(const T& t)
@@ -254,8 +255,7 @@ void model::append(const model& m)
 			sz new_i = t(i);
 			t.is_a = false;
 			sz new_j = t(j);
-			sz type_pair_index = triangular_matrix_index_permissive(n, t1, t2);
-			other_pairs.push_back(interacting_pair(type_pair_index, new_i, new_j));
+			other_pairs.push_back(interacting_pair(t1, t2, new_i, new_j));
 		}
 	}
 
@@ -274,6 +274,7 @@ void model::append(const model& m)
 	t.coords_append(atoms, m.atoms);
 
 	m_num_movable_atoms += m.m_num_movable_atoms;
+
 }
 
 ///////////////////  end  MODEL::APPEND /////////////////////////
@@ -463,31 +464,33 @@ return false;
 void model::assign_types()
 {
 	VINA_FOR(i, grid_atoms.size() + atoms.size()){
-	const atom_index ai = sz_to_atom_index(i);
-	atom& a = get_atom(ai);
-	a.assign_el();
-	sz& x = a.xs;
+		const atom_index ai = sz_to_atom_index(i);
+		atom& a = get_atom(ai);
+		a.assign_el();
+		sz& x = a.xs;
 
-	bool acceptor = (a.ad == AD_TYPE_OA || a.ad == AD_TYPE_NA); // X-Score forumaltion apparently ignores SA
-	bool donor_NorO = (a.el == EL_TYPE_Met || bonded_to_HD(a));
+		bool acceptor = (a.ad == AD_TYPE_OA || a.ad == AD_TYPE_NA); // X-Score forumaltion apparently ignores SA
+		bool donor_NorO = (a.el == EL_TYPE_Met || bonded_to_HD(a));
 
-	switch(a.el)
-	{
-		case EL_TYPE_H : break;
-		case EL_TYPE_C : x = bonded_to_heteroatom(a) ? XS_TYPE_C_P : XS_TYPE_C_H; break;
-		case EL_TYPE_N : x = (acceptor && donor_NorO) ? XS_TYPE_N_DA : (acceptor ? XS_TYPE_N_A : (donor_NorO ? XS_TYPE_N_D : XS_TYPE_N_P)); break;
-		case EL_TYPE_O : x = (acceptor && donor_NorO) ? XS_TYPE_O_DA : (acceptor ? XS_TYPE_O_A : (donor_NorO ? XS_TYPE_O_D : XS_TYPE_O_P)); break;
-		case EL_TYPE_S : x = XS_TYPE_S_P; break;
-		case EL_TYPE_P : x = XS_TYPE_P_P; break;
-		case EL_TYPE_F : x = XS_TYPE_F_H; break;
-		case EL_TYPE_Cl : x = XS_TYPE_Cl_H; break;
-		case EL_TYPE_Br : x = XS_TYPE_Br_H; break;
-		case EL_TYPE_I : x = XS_TYPE_I_H; break;
-		case EL_TYPE_Met : x = XS_TYPE_Met_D; break;
-		case EL_TYPE_SIZE : break;
-		default: VINA_CHECK(false);
+		switch(a.el)
+		{
+			case EL_TYPE_H : break;
+			case EL_TYPE_C : x = bonded_to_heteroatom(a) ? XS_TYPE_C_P : XS_TYPE_C_H; break;
+			case EL_TYPE_N : x = (acceptor && donor_NorO) ? XS_TYPE_N_DA : (acceptor ? XS_TYPE_N_A : (donor_NorO ? XS_TYPE_N_D : XS_TYPE_N_P)); break;
+			case EL_TYPE_O : x = (acceptor && donor_NorO) ? XS_TYPE_O_DA : (acceptor ? XS_TYPE_O_A : (donor_NorO ? XS_TYPE_O_D : XS_TYPE_O_P)); break;
+			case EL_TYPE_S : x = XS_TYPE_S_P; break;
+			case EL_TYPE_P : x = XS_TYPE_P_P; break;
+			case EL_TYPE_F : x = XS_TYPE_F_H; break;
+			case EL_TYPE_Cl : x = XS_TYPE_Cl_H; break;
+			case EL_TYPE_Br : x = XS_TYPE_Br_H; break;
+			case EL_TYPE_I : x = XS_TYPE_I_H; break;
+			case EL_TYPE_Met : x = XS_TYPE_Met_D; break;
+			case EL_TYPE_SIZE : break;
+			default: VINA_CHECK(false);
+		}
+
+		a.assign_smina();
 	}
-}
 }
 
 sz model::find_ligand(sz a) const
@@ -524,6 +527,7 @@ void model::initialize_pairs(const distance_type_matrix& mobility)
 	VINA_FOR_IN(i, atoms){
 	sz i_lig = find_ligand(i);
 	szv bonded_atoms = bonded_to(i, 3);
+	sz n = num_atom_types(atom_typing_used());
 	VINA_RANGE(j, i+1, atoms.size())
 	{
 		if(i >= m_num_movable_atoms && j >= m_num_movable_atoms) continue; // exclude inflex-inflex
@@ -531,15 +535,13 @@ void model::initialize_pairs(const distance_type_matrix& mobility)
 		{
 			sz t1 = atoms[i].get (atom_typing_used());
 			sz t2 = atoms[j].get (atom_typing_used());
-			sz n = num_atom_types(atom_typing_used());
 			if(t1 < n && t2 < n)
 			{ //exclude, say, Hydrogens
-				sz type_pair_index = triangular_matrix_index_permissive(n, t1, t2);
-				interacting_pair ip(type_pair_index, i, j);
+				interacting_pair ip(t1, t2, i, j);
 				if(i_lig < ligands.size() && find_ligand(j) == i_lig)
-				ligands[i_lig].pairs.push_back(ip);
+					ligands[i_lig].pairs.push_back(ip);
 				else
-				other_pairs.push_back(ip);
+					other_pairs.push_back(ip);
 			}
 		}
 	}
@@ -705,7 +707,7 @@ fl model::eval_interacting_pairs(const precalculate& p, fl v,
 	fl r2 = vec_distance_sqr(coords[ip.a], coords[ip.b]);
 	if(r2 < cutoff_sqr)
 	{
-		fl tmp = p.eval_fast(ip.type_pair_index, r2);
+		fl tmp = p.eval_fast(ip.t1, ip.t2, r2);
 		tmp += p.eval_slow(atoms[ip.a],atoms[ip.b], r2);
 		curl(tmp, v);
 		e += tmp;
@@ -770,7 +772,7 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
 			minus_forces); // adds to minus_forces
 	VINA_FOR_IN(i, ligands)
-	e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords, minus_forces); // adds to minus_forces
+		e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords, minus_forces); // adds to minus_forces
 	// calculate derivatives
 	ligands.derivative(coords, minus_forces, g.ligands);
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
@@ -804,8 +806,7 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
 		fl r2 = vec_distance_sqr(coords[i], b.coords);
 		if(r2 < cutoff_sqr)
 		{
-			sz type_pair_index = triangular_matrix_index_permissive(nat, t1, t2);
-			fl this_e = p.eval_fast(type_pair_index, r2);
+			fl this_e = p.eval_fast(t1, t2, r2);
 			this_e += p.eval_slow(a,b,r2);
 			curl(this_e, v[1]);
 			e += this_e;
@@ -820,7 +821,7 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
 	fl r2 = vec_distance_sqr(coords[pair.a], coords[pair.b]);
 	if(r2 < cutoff_sqr)
 	{
-		fl this_e = p.eval_fast(pair.type_pair_index, r2);
+		fl this_e = p.eval_fast(pair.t1, pair.t2, r2);
 		this_e += p.eval_slow(atoms[pair.a],atoms[pair.b], r2);
 		curl(this_e, v[2]);
 		e += this_e;
@@ -974,14 +975,14 @@ void model::print_stuff() const
 	std::cout << "atoms:\n";
 	VINA_FOR_IN(i, atoms){
 	const atom& a = atoms[i];
-	std::cout << a.el << " " << a.ad << " " << a.xs << " " << a.sy << "    " << a.charge << '\n';
+	std::cout << a.el << " " << a.ad << " " << a.xs << "    " << a.charge << '\n';
 	std::cout << a.bonds.size() << "  "; printnl(a.coords);
 }
 
 	std::cout << "grid_atoms:\n";
 	VINA_FOR_IN(i, grid_atoms){
 	const atom& a = grid_atoms[i];
-	std::cout << a.el << " " << a.ad << " " << a.xs << " " << a.sy << "    " << a.charge << '\n';
+	std::cout << a.el << " " << a.ad << " " << a.xs << "    " << a.charge << '\n';
 	std::cout << a.bonds.size() << "  "; printnl(a.coords);
 }
 	about();
@@ -1020,3 +1021,5 @@ fl model::clash_penalty() const
 	e += clash_penalty_aux(other_pairs);
 	return e;
 }
+
+

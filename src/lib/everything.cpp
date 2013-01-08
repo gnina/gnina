@@ -24,7 +24,6 @@
 
 fl solvation_parameter(const atom_type& a) {
 	if(a.ad < AD_TYPE_SIZE) return ad_type_property(a.ad).solvation;
-	else if(a.xs == XS_TYPE_Met_D) return metal_solvation_parameter;
 	VINA_CHECK(false);
 	return 0; // placating the compiler
 }
