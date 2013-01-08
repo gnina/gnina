@@ -164,38 +164,93 @@ const smina_kind smina_kind_data[] = { //el, ad, xs
 const sz smina_kinds_size  = sizeof(smina_kind_data)/sizeof(smina_kind);
 
 enum smina_types {
-H_H_X,
-H_HD_X,
-C_C_C_H,
-C_C_C_P,
-C_A_C_H,
-C_A_C_P,
-N_N_N_D,
-N_N_N_P,
-N_NA_N_DA,
-N_NA_N_A,
-O_O_O_D,
-O_O_O_P,
-O_OA_O_DA,
-O_OA_O_A,
-S_S_S_P,
-S_SA_S_P,
-P_P_P_P,
-F_F_F_H,
-Cl_Cl_Cl_H,
-Br_Br_Br_H,
-I_I_I_H,
-Met_Mg_Met_D,
-Met_Mn_Met_D,
-Met_Zn_Met_D,
-Met_Ca_Met_D,
-Met_Fe_Met_D,
-Met_METAL_Met_D,
-SMINA_SIZE
+	H_H_X,
+	H_HD_X,
+	C_C_C_H, //hydrophobic
+	C_C_C_P, //not hydrophobic (according to xs)
+	C_A_C_H,
+	C_A_C_P,
+	N_N_N_D,
+	N_N_N_P,
+	N_NA_N_DA,
+	N_NA_N_A,
+	O_O_O_D,
+	O_O_O_P,
+	O_OA_O_DA,
+	O_OA_O_A,
+	S_S_S_P,
+	S_SA_S_P,
+	P_P_P_P,
+	F_F_F_H,
+	Cl_Cl_Cl_H,
+	Br_Br_Br_H,
+	I_I_I_H,
+	Met_Mg_Met_D,
+	Met_Mn_Met_D,
+	Met_Zn_Met_D,
+	Met_Ca_Met_D,
+	Met_Fe_Met_D,
+	Met_METAL_Met_D,
+	SMINA_SIZE
 };
 
+inline sz smina_to_xs(sz x)
+{
+	switch(x)
+	{
+		case H_H_X:
+		case H_HD_X:
+			return XS_TYPE_SIZE;
+		case C_C_C_H: //hydrophobic
+		case C_A_C_H:
+			return XS_TYPE_C_H;
+		case C_C_C_P: //not hydrophobic (according to xs)
+		case C_A_C_P:
+			return XS_TYPE_C_P;
+		case N_N_N_D:
+			return XS_TYPE_N_D;
+		case N_N_N_P:
+			return XS_TYPE_N_P;
+		case N_NA_N_DA:
+			return XS_TYPE_N_DA;
+		case N_NA_N_A:
+			return XS_TYPE_N_A;
+		case O_O_O_D:
+			return XS_TYPE_O_D;
+		case O_O_O_P:
+			return XS_TYPE_O_P;
+		case O_OA_O_DA:
+			return XS_TYPE_O_DA;
+		case O_OA_O_A:
+			return XS_TYPE_O_A;
+		case S_S_S_P:
+			return XS_TYPE_S_P;
+		case S_SA_S_P:
+			return XS_TYPE_S_P;
+		case P_P_P_P:
+			return XS_TYPE_P_P;
+		case F_F_F_H:
+			return XS_TYPE_F_H;
+		case Cl_Cl_Cl_H:
+			return XS_TYPE_Cl_H;
+		case Br_Br_Br_H:
+			return XS_TYPE_Br_H;
+		case I_I_I_H:
+			return XS_TYPE_I_H;
+		case Met_Mg_Met_D:
+		case Met_Mn_Met_D:
+		case Met_Zn_Met_D:
+		case Met_Ca_Met_D:
+		case Met_Fe_Met_D:
+		case Met_METAL_Met_D:
+			return XS_TYPE_Met_D;
+		default:
+			return XS_TYPE_SIZE;
+	}
+}
+
 //convert xs type to smina type
-sz xs_to_smina(sz x)
+inline sz xs_to_smina(sz x)
 {
 	switch(x)
 	{
