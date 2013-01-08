@@ -33,11 +33,11 @@
 #include "grid_dim.h"
 
 struct interacting_pair {
-	sz t1;
-	sz t2;
+	smt t1;
+	smt t2;
 	sz a;
 	sz b;
-	interacting_pair(sz t1_, sz t2_, sz a_, sz b_) : t1(t1_), t2(t2_), a(a_), b(b_) {}
+	interacting_pair(smt t1_, smt t2_, sz a_, sz b_) : t1(t1_), t2(t2_), a(a_), b(b_) {}
 };
 
 typedef std::vector<interacting_pair> interacting_pairs;
@@ -71,7 +71,6 @@ struct model_test;
 
 struct model {
 	void append(const model& m);
-	atom_type::t atom_typing_used() const { return m_atom_typing_used; }
 
 	sz num_movable_atoms() const { return m_num_movable_atoms; }
 	sz num_internal_pairs() const;
@@ -81,7 +80,7 @@ struct model {
 	sz ligand_degrees_of_freedom(sz ligand_number) const { return ligands[ligand_number].degrees_of_freedom; }
 	sz ligand_longest_branch(sz ligand_number) const;
 	sz ligand_length(sz ligand_number) const;
-	szv get_movable_atom_types(atom_type::t atom_typing_used_) const;
+	void get_movable_atom_types(std::vector<smt>& movingtypes) const;
 
 	conf_size get_size() const;
 	conf get_initial_conf() const; // torsions = 0, orientations = identity, ligand positions = current
@@ -158,7 +157,7 @@ struct model {
 	vecv get_heavy_atom_movable_coords() const { // FIXME mv
 		vecv tmp;
 		VINA_FOR(i, num_movable_atoms())
-			if(atoms[i].el != EL_TYPE_H)
+			if(!atoms[i].is_hydrogen())
 				tmp.push_back(coords[i]);
 		return tmp;
 	}
@@ -167,7 +166,7 @@ struct model {
 
 	fl clash_penalty() const;
 
-	model() : m_num_movable_atoms(0), m_atom_typing_used(atom_type::XS) {}; //dkoes
+	model() : m_num_movable_atoms(0) {};
 
 private:
 	friend struct non_cache;
@@ -226,7 +225,6 @@ private:
 	interacting_pairs other_pairs;  // all except internal to one ligand: ligand-other ligands; ligand-flex/inflex; flex-flex/inflex
 
 	sz m_num_movable_atoms;
-	atom_type::t m_atom_typing_used;
 };
 
 #endif

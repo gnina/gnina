@@ -31,12 +31,12 @@ szv_grid::szv_grid(const model& m, const grid_dims& gd, fl cutoff_sqr) : m_data(
 	}
 	m_range = end - m_init;
 
-	const sz nat = num_atom_types(m.atom_typing_used());
+	const sz nat = num_atom_types();
 
 	szv relevant_indexes;
 	VINA_FOR_IN(i, m.grid_atoms) {
 		const atom& a = m.grid_atoms[i];
-		if(a.get(m.atom_typing_used()) < nat && brick_distance_sqr(m_init, end, a.coords) < cutoff_sqr)
+		if(a.get() < nat && brick_distance_sqr(m_init, end, a.coords) < cutoff_sqr)
 			relevant_indexes.push_back(i);
 	}
 

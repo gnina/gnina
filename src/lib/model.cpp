@@ -76,12 +76,12 @@ branch_metrics get_branch_metrics(const T& t)
 }
 
 sz model::ligand_longest_branch(sz ligand_number) const
-{
+		{
 	return get_branch_metrics(ligands[ligand_number]).length;
 }
 
 sz model::ligand_length(sz ligand_number) const
-{
+		{
 	return get_branch_metrics(ligands[ligand_number]).corner2corner;
 }
 
@@ -114,7 +114,7 @@ class appender
 	appender_info a_info;
 	appender_info b_info;
 	sz new_grid_index(sz x) const
-	{
+			{
 		return (is_a ? x : (a_info.grid_atoms_size + x)); // a-grid_atoms spliced before b-grid_atoms
 	}
 public:
@@ -126,7 +126,7 @@ public:
 	}
 
 	sz operator()(sz x) const
-	{ // transform coord index
+			{ // transform coord index
 		if (is_a)
 		{
 			if (x < a_info.m_num_movable_atoms)
@@ -143,7 +143,7 @@ public:
 		}
 	}
 	atom_index operator()(const atom_index& x) const
-	{ // transform atom_index
+			{ // transform atom_index
 		atom_index tmp(x);
 		if (tmp.in_grid)
 			tmp.i = new_grid_index(tmp.i);
@@ -154,15 +154,15 @@ public:
 
 	// type-directed old -> new transformations
 	void update(interacting_pair& ip) const
-	{
+			{
 		ip.a = operator()(ip.a);
 		ip.b = operator()(ip.b);
 	}
 	void update(vec& v) const
-	{ // coordinates & forces - do nothing
+			{ // coordinates & forces - do nothing
 	}
 	void update(ligand& lig) const
-	{
+			{
 		lig.transform(*this); // ligand as an atom_range subclass
 		transform_ranges(lig, *this);
 		VINA_FOR_IN(i, lig.pairs)
@@ -231,8 +231,6 @@ public:
 
 void model::append(const model& m)
 {
-	VINA_CHECK(atom_typing_used() == m.atom_typing_used());
-
 	appender t(*this, m);
 
 	t.append(other_pairs, m.other_pairs);
@@ -245,9 +243,9 @@ void model::append(const model& m)
 		const atom& a = atoms[i];
 		const atom& b = m.atoms[j];
 
-		sz t1 = a.get(atom_typing_used());
-		sz t2 = b.get(atom_typing_used());
-		sz n = num_atom_types(atom_typing_used());
+		smt t1 = a.get();
+		smt t2 = b.get();
+		sz n = num_atom_types();
 
 		if(t1 < n && t2 < n)
 		{
@@ -282,7 +280,7 @@ void model::append(const model& m)
 /////////////////// begin MODEL::INITIALIZE /////////////////////////
 
 atom_index model::sz_to_atom_index(sz i) const
-{
+		{
 	if (i < grid_atoms.size())
 		return atom_index(i, true);
 	else
@@ -291,7 +289,7 @@ atom_index model::sz_to_atom_index(sz i) const
 
 distance_type model::distance_type_between(const distance_type_matrix& mobility,
 		const atom_index& i, const atom_index& j) const
-{
+		{
 	if (i.in_grid && j.in_grid)
 		return DISTANCE_FIXED;
 	if (i.in_grid)
@@ -310,19 +308,19 @@ distance_type model::distance_type_between(const distance_type_matrix& mobility,
 }
 
 const vec& model::atom_coords(const atom_index& i) const
-{
+		{
 	return i.in_grid ? grid_atoms[i.i].coords : coords[i.i];
 }
 
 fl model::distance_sqr_between(const atom_index& a, const atom_index& b) const
-{
+		{
 	return vec_distance_sqr(atom_coords(a), atom_coords(b));
 }
 
 struct bond_less
 { // FIXME rm!?
 	bool operator()(const bond& a, const bond& b) const
-	{
+			{
 		return a.connected_atom_index.i < b.connected_atom_index.i;
 	}
 };
@@ -330,7 +328,7 @@ struct bond_less
 bool model::atom_exists_between(const distance_type_matrix& mobility,
 		const atom_index& a, const atom_index& b,
 		const szv& relevant_atoms) const
-{ // there is an atom closer to both a and b then they are to each other and immobile relative to them
+		{ // there is an atom closer to both a and b then they are to each other and immobile relative to them
 	fl r2 = distance_sqr_between(a, b);
 	VINA_FOR_IN(relevant_atoms_i, relevant_atoms){
 	sz i = relevant_atoms[relevant_atoms_i];
@@ -392,9 +390,7 @@ void model::assign_bonds(const distance_type_matrix& mobility)
 	atom& i_atom = get_atom(i_atom_index);
 
 	const fl max_covalent_r = max_covalent_radius(); // FIXME mv to atom_constants
-	fl i_atom_covalent_radius = max_covalent_r;
-	if(i_atom.ad < AD_TYPE_SIZE)
-	i_atom_covalent_radius = ad_type_property(i_atom.ad).covalent_radius;
+	fl i_atom_covalent_radius = covalent_radius(i_atom.sm);
 
 	//find relevant atoms
 	szv relevant_atoms;
@@ -442,17 +438,17 @@ void model::assign_bonds(const distance_type_matrix& mobility)
 }
 
 bool model::bonded_to_HD(const atom& a) const
-{
+		{
 	VINA_FOR_IN(i, a.bonds){
 	const bond& b = a.bonds[i];
-	if(get_atom(b.connected_atom_index).ad == AD_TYPE_HD)
+	if(get_atom(b.connected_atom_index).sm == smina_atom_type::PolarHydrogen)
 	return true;
 }
 return false;
 }
 
 bool model::bonded_to_heteroatom(const atom& a) const
-{
+		{
 	VINA_FOR_IN(i, a.bonds){
 	const bond& b = a.bonds[i];
 	if(get_atom(b.connected_atom_index).is_heteroatom())
@@ -461,40 +457,20 @@ bool model::bonded_to_heteroatom(const atom& a) const
 return false;
 }
 
+//dkoes - modify smina types as necessary to take into account bonding information
 void model::assign_types()
 {
 	VINA_FOR(i, grid_atoms.size() + atoms.size()){
 		const atom_index ai = sz_to_atom_index(i);
 		atom& a = get_atom(ai);
-		a.assign_el();
-		sz& x = a.xs;
 
-		bool acceptor = (a.ad == AD_TYPE_OA || a.ad == AD_TYPE_NA); // X-Score forumaltion apparently ignores SA
-		bool donor_NorO = (a.el == EL_TYPE_Met || bonded_to_HD(a));
-
-		switch(a.el)
-		{
-			case EL_TYPE_H : break;
-			case EL_TYPE_C : x = bonded_to_heteroatom(a) ? XS_TYPE_C_P : XS_TYPE_C_H; break;
-			case EL_TYPE_N : x = (acceptor && donor_NorO) ? XS_TYPE_N_DA : (acceptor ? XS_TYPE_N_A : (donor_NorO ? XS_TYPE_N_D : XS_TYPE_N_P)); break;
-			case EL_TYPE_O : x = (acceptor && donor_NorO) ? XS_TYPE_O_DA : (acceptor ? XS_TYPE_O_A : (donor_NorO ? XS_TYPE_O_D : XS_TYPE_O_P)); break;
-			case EL_TYPE_S : x = XS_TYPE_S_P; break;
-			case EL_TYPE_P : x = XS_TYPE_P_P; break;
-			case EL_TYPE_F : x = XS_TYPE_F_H; break;
-			case EL_TYPE_Cl : x = XS_TYPE_Cl_H; break;
-			case EL_TYPE_Br : x = XS_TYPE_Br_H; break;
-			case EL_TYPE_I : x = XS_TYPE_I_H; break;
-			case EL_TYPE_Met : x = XS_TYPE_Met_D; break;
-			case EL_TYPE_SIZE : break;
-			default: VINA_CHECK(false);
-		}
-
-		a.assign_smina();
+		//this is where the X-scale atom types diverge from autodock
+		a.sm = adjust_smina_type(a.sm, bonded_to_HD(a), bonded_to_heteroatom(a));
 	}
 }
 
 sz model::find_ligand(sz a) const
-{
+		{
 	VINA_FOR_IN(i, ligands)
 	if(a >= ligands[i].begin && a < ligands[i].end)
 	return i;
@@ -502,7 +478,7 @@ sz model::find_ligand(sz a) const
 }
 
 void model::bonded_to(sz a, sz n, szv& out) const
-{
+		{
 	if (!has(out, a))
 	{ // not found
 		out.push_back(a);
@@ -516,7 +492,7 @@ void model::bonded_to(sz a, sz n, szv& out) const
 }
 
 szv model::bonded_to(sz a, sz n) const
-{
+		{
 	szv tmp;
 	bonded_to(a, n, tmp);
 	return tmp;
@@ -527,21 +503,21 @@ void model::initialize_pairs(const distance_type_matrix& mobility)
 	VINA_FOR_IN(i, atoms){
 	sz i_lig = find_ligand(i);
 	szv bonded_atoms = bonded_to(i, 3);
-	sz n = num_atom_types(atom_typing_used());
+	sz n = num_atom_types();
 	VINA_RANGE(j, i+1, atoms.size())
 	{
 		if(i >= m_num_movable_atoms && j >= m_num_movable_atoms) continue; // exclude inflex-inflex
 		if(mobility(i, j) == DISTANCE_VARIABLE && !has(bonded_atoms, j))
 		{
-			sz t1 = atoms[i].get (atom_typing_used());
-			sz t2 = atoms[j].get (atom_typing_used());
-			if(t1 < n && t2 < n)
+			smt t1 = atoms[i].get();
+			smt t2 = atoms[j].get();
+			if(t1 < n && t2 < n && !is_hydrogen(t1) && !is_hydrogen(t2))
 			{ //exclude, say, Hydrogens
 				interacting_pair ip(t1, t2, i, j);
 				if(i_lig < ligands.size() && find_ligand(j) == i_lig)
-					ligands[i_lig].pairs.push_back(ip);
+				ligands[i_lig].pairs.push_back(ip);
 				else
-					other_pairs.push_back(ip);
+				other_pairs.push_back(ip);
 			}
 		}
 	}
@@ -567,18 +543,18 @@ sz model::num_internal_pairs() const
 	return tmp;
 }
 
-szv model::get_movable_atom_types(atom_type::t atom_typing_used_) const
+void model::get_movable_atom_types(std::vector<smt>& movingtypes) const
 {
-	szv tmp;
-	sz n = num_atom_types(atom_typing_used_);
+	sz n = num_atom_types();
+	movingtypes.clear(); movingtypes.reserve(n);
 	VINA_FOR(i, m_num_movable_atoms){
-	const atom& a = atoms[i];
-	sz t = a.get(atom_typing_used_);
-	if(t < n && !has(tmp, t))
-	tmp.push_back(t);
+		const atom& a = atoms[i];
+		smt t = a.get();
+		if(t < n && !has(movingtypes, t))
+			movingtypes.push_back(t);
+	}
 }
-	return tmp;
-}
+
 
 conf_size model::get_size() const
 {
@@ -600,7 +576,7 @@ conf model::get_initial_conf() const
 
 grid_dims model::movable_atoms_box(fl add_to_each_dimension,
 		fl granularity) const
-{
+		{
 	vec corner1(0, 0, 0), corner2(0, 0, 0);
 	VINA_FOR(i, num_movable_atoms()){
 	const vec& v = movable_coords(i);
@@ -650,7 +626,7 @@ std::string coords_to_pdbqt_string(const vec& coords, const std::string& str)
 }
 
 void model::write_context(const context& c, std::ostream& out) const
-{
+		{
 	verify_bond_lengths();
 	VINA_FOR_IN(i, c){
 	const std::string& str = c[i].first;
@@ -682,13 +658,13 @@ void model::set(const conf& c)
 }
 
 fl model::gyration_radius(sz ligand_number) const
-{
+		{
 	VINA_CHECK(ligand_number < ligands.size());
 	const ligand& lig = ligands[ligand_number];
 	fl acc = 0;
 	unsigned counter = 0;
 	VINA_RANGE(i, lig.begin, lig.end){
-	if(atoms[i].el != EL_TYPE_H)
+	if(!atoms[i].is_hydrogen())
 	{ // only heavy atoms are used
 		acc += vec_distance_sqr(coords[i], lig.node.get_origin());// FIXME? check!
 		++counter;
@@ -699,7 +675,7 @@ fl model::gyration_radius(sz ligand_number) const
 
 fl model::eval_interacting_pairs(const precalculate& p, fl v,
 		const interacting_pairs& pairs, const vecv& coords) const
-{ // clean up
+		{ // clean up
 	const fl cutoff_sqr = p.cutoff_sqr();
 	fl e = 0;
 	VINA_FOR_IN(i, pairs){
@@ -718,7 +694,7 @@ fl model::eval_interacting_pairs(const precalculate& p, fl v,
 
 fl model::eval_interacting_pairs_deriv(const precalculate& p, fl v,
 		const interacting_pairs& pairs, const vecv& coords, vecv& forces) const
-{ // adds to forces  // clean up
+		{ // adds to forces  // clean up
 	const fl cutoff_sqr = p.cutoff_sqr();
 	fl e = 0;
 	VINA_FOR_IN(i, pairs){
@@ -740,7 +716,7 @@ fl model::eval_interacting_pairs_deriv(const precalculate& p, fl v,
 }
 
 fl model::evali(const precalculate& p, const vec& v) const
-{ // clean up
+		{ // clean up
 	fl e = 0;
 	VINA_FOR_IN(i, ligands)
 	e += eval_interacting_pairs(p, v[0], ligands[i].pairs, internal_coords); // probably might was well use coords here
@@ -748,7 +724,7 @@ fl model::evali(const precalculate& p, const vec& v) const
 }
 
 fl model::evale(const precalculate& p, const igrid& ig, const vec& v) const
-{ // clean up
+		{ // clean up
 	fl e = ig.eval(*this, v[1]);
 	e += eval_interacting_pairs(p, v[2], other_pairs, coords);
 	return e;
@@ -772,7 +748,7 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
 			minus_forces); // adds to minus_forces
 	VINA_FOR_IN(i, ligands)
-		e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords, minus_forces); // adds to minus_forces
+	e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords, minus_forces); // adds to minus_forces
 	// calculate derivatives
 	ligands.derivative(coords, minus_forces, g.ligands);
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
@@ -789,19 +765,19 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
 	VINA_FOR_IN(i, ligands)
 	e += eval_interacting_pairs(p, v[0], ligands[i].pairs, coords); // coords instead of internal coords
 
-	sz nat = num_atom_types(atom_typing_used());
+	sz nat = num_atom_types();
 	const fl cutoff_sqr = p.cutoff_sqr();
 
 	// flex-rigid
 	VINA_FOR(i, num_movable_atoms()){
 	if(find_ligand(i) < ligands.size()) continue; // we only want flex-rigid interaction
 	const atom& a = atoms[i];
-	sz t1 = a.get(atom_typing_used());
+	smt t1 = a.get();
 	if(t1 >= nat) continue;
 	VINA_FOR_IN(j, grid_atoms)
 	{
 		const atom& b = grid_atoms[j];
-		sz t2 = b.get(atom_typing_used());
+		smt t2 = b.get();
 		if(t2 >= nat) continue;
 		fl r2 = vec_distance_sqr(coords[i], b.coords);
 		if(r2 < cutoff_sqr)
@@ -838,14 +814,14 @@ fl model::eval_adjusted(const scoring_function& sf, const precalculate& p,
 }
 
 fl model::rmsd_lower_bound_asymmetric(const model& x, const model& y) const
-{ // actually static
+		{ // actually static
 	sz n = x.m_num_movable_atoms;
 	VINA_CHECK(n == y.m_num_movable_atoms);
 	fl sum = 0;
 	unsigned counter = 0;
 	VINA_FOR(i, n){
 	const atom& a = x.atoms[i];
-	if(a.el != EL_TYPE_H)
+	if(!a.is_hydrogen())
 	{
 		fl r2 = max_fl;
 		VINA_FOR(j, n)
@@ -868,22 +844,21 @@ fl model::rmsd_lower_bound_asymmetric(const model& x, const model& y) const
 }
 
 fl model::rmsd_lower_bound(const model& m) const
-{
+		{
 	return (std::max)(rmsd_lower_bound_asymmetric(*this, m),
 			rmsd_lower_bound_asymmetric(m, *this));
 }
 
 fl model::rmsd_upper_bound(const model& m) const
-{
+		{
 	VINA_CHECK(m_num_movable_atoms == m.m_num_movable_atoms);
 	fl sum = 0;
 	unsigned counter = 0;
 	VINA_FOR(i, m_num_movable_atoms){
 	const atom& a = atoms[i];
 	const atom& b = m.atoms[i];
-	assert(a.ad == b.ad);
-	assert(a.xs == b.xs);
-	if(a.el != EL_TYPE_H)
+	assert(a.sm == b.sm);
+	if(!a.is_hydrogen())
 	{
 		sum += vec_distance_sqr(coords[i], m.coords[i]);
 		++counter;
@@ -893,7 +868,7 @@ fl model::rmsd_upper_bound(const model& m) const
 }
 
 fl model::rmsd_ligands_upper_bound(const model& m) const
-{
+		{
 	VINA_CHECK(ligands.size() == m.ligands.size());
 	fl sum = 0;
 	unsigned counter = 0;
@@ -906,9 +881,8 @@ fl model::rmsd_ligands_upper_bound(const model& m) const
 	{
 		const atom& a = atoms[i];
 		const atom& b = m.atoms[i];
-		assert(a.ad == b.ad);
-		assert(a.xs == b.xs);
-		if(a.el != EL_TYPE_H)
+		assert(a.sm == b.sm);
+		if(!a.is_hydrogen())
 		{
 			sum += vec_distance_sqr(coords[i], m.coords[i]);
 			++counter;
@@ -954,7 +928,6 @@ void model::check_internal_pairs() const
 
 void model::about() const
 {
-	VINA_SHOW(atom_typing_used());
 	VINA_SHOW(num_movable_atoms());
 	VINA_SHOW(num_internal_pairs());
 	VINA_SHOW(num_other_pairs());
@@ -975,14 +948,14 @@ void model::print_stuff() const
 	std::cout << "atoms:\n";
 	VINA_FOR_IN(i, atoms){
 	const atom& a = atoms[i];
-	std::cout << a.el << " " << a.ad << " " << a.xs << "    " << a.charge << '\n';
+	std::cout << a.sm << "    " << a.charge << '\n';
 	std::cout << a.bonds.size() << "  "; printnl(a.coords);
 }
 
 	std::cout << "grid_atoms:\n";
 	VINA_FOR_IN(i, grid_atoms){
 	const atom& a = grid_atoms[i];
-	std::cout << a.el << " " << a.ad << " " << a.xs << "    " << a.charge << '\n';
+	std::cout << a.sm << "    " << a.charge << '\n';
 	std::cout << a.bonds.size() << "  "; printnl(a.coords);
 }
 	about();
@@ -1002,7 +975,7 @@ fl pairwise_clash_penalty(fl r, fl covalent_r)
 }
 
 fl model::clash_penalty_aux(const interacting_pairs& pairs) const
-{
+		{
 	fl e = 0;
 	VINA_FOR_IN(i, pairs){
 	const interacting_pair& ip = pairs[i];
@@ -1021,5 +994,4 @@ fl model::clash_penalty() const
 	e += clash_penalty_aux(other_pairs);
 	return e;
 }
-
 

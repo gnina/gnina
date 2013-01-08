@@ -32,7 +32,7 @@ class precalculate
 {
 public:
 	//return just the fast evaluation of types, no derivative
-	virtual fl eval_fast(sz t1, sz t2, fl r2) const = 0;
+	virtual fl eval_fast(smt t1, smt t2, fl r2) const = 0;
 
 	//return value and derivative
 	//IMPORTANT: derivative is scaled by sqrt(r2) so that when
@@ -46,8 +46,7 @@ public:
 					m_cutoff_sqr(sqr(sf.cutoff())),
 					cutoff_smoothing(minparms.cutoff_smoothing),
 					factor(factor_),
-					scoring(sf),
-					m_atom_typing_used(sf.atom_typing_used())
+					scoring(sf)
 	{
 
 		VINA_CHECK(factor > epsilon_fl);
@@ -58,10 +57,6 @@ public:
 
 	}
 
-	atom_type::t atom_typing_used() const
-	{
-		return m_atom_typing_used;
-	}
 	fl cutoff_sqr() const
 	{
 		return m_cutoff_sqr;
@@ -86,7 +81,6 @@ protected:
 	fl m_cutoff_sqr;
 	fl factor;
 	fl cutoff_smoothing;
-	atom_type::t m_atom_typing_used;
 	const scoring_function& scoring;
 
 };
@@ -161,7 +155,7 @@ public:
 			const minimization_params& minparms, fl factor_, fl v = max_fl) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
 			precalculate(sf, minparms, factor_),
 					n(sz(factor_ * m_cutoff_sqr) + 3), // sz(factor * r^2) + 1 <= sz(factor * cutoff_sqr) + 2 <= n-1 < n  // see assert below
-					data(num_atom_types(sf.atom_typing_used()),
+					data(num_atom_types(),
 							precalculate_linear_element(n, factor_))
 	{
 		VINA_CHECK(sz(m_cutoff_sqr*factor) + 1 < n);
@@ -177,7 +171,7 @@ public:
 				// init smooth[].first
 				VINA_FOR_IN(i, p.smooth)
 					p.smooth[i].first = (std::min)(v,
-							sf.eval_fast(t1, t2, rs[i]));
+							sf.eval_fast((smt)t1, (smt)t2, rs[i]));
 
 				//dkoes - need to smooth the transition into the cutoff or
 				//artifacts appear in the energy landscape
@@ -211,7 +205,7 @@ public:
 				p.init_from_smooth_fst(rs);
 			}
 	}
-	fl eval_fast(sz t1, sz t2, fl r2) const
+	fl eval_fast(smt t1, smt t2, fl r2) const
 			{
 		if (t1 > t2)
 			std::swap(t1, t2);
@@ -222,7 +216,7 @@ public:
 	pr eval_deriv(const atom_base& a, const atom_base& b, fl r2) const
 			{
 		assert(r2 <= m_cutoff_sqr);
-		sz type_pair_index = get_type_pair_index(atom_typing_used(), a, b);
+		sz type_pair_index = get_type_pair_index(a, b);
 		pr ret = data(type_pair_index).eval_deriv(r2);
 		if (scoring.has_slow())
 		{
@@ -306,20 +300,19 @@ class spline_cache
 	fl cutoff;
 	sz n;
 	sz numcut;
-	sz t1, t2;
-	sz xs1, xs2;
+	smt t1, t2;
 	//the following are only computed when needed
 	mutable Spline<spline_cache> spline;
 	mutable bool valid;
 	public:
 
 	spline_cache() :
-			sf(NULL), cutoff(0), n(0), numcut(0), t1(0), t2(0), valid(false)
+			sf(NULL), cutoff(0), n(0), numcut(0), t1(smina_atom_type::NumTypes), t2(smina_atom_type::NumTypes), valid(false)
 	{
 	}
 
 	//intialize values to approprate types etc - do not compute spline
-	void set(const scoring_function& sf_, sz t1_, sz t2_, fl cut, sz n_,
+	void set(const scoring_function& sf_, smt t1_, smt t2_, fl cut, sz n_,
 			sz ncut)
 	{
 		sf = &sf_;
@@ -330,20 +323,18 @@ class spline_cache
 		t2 = t2_;
 		valid = false;
 
-		xs1 = smina_to_xs(t1);
-		xs2 = smina_to_xs(t2);
-		if (xs1 > xs2)
-			std::swap(xs1, xs2);
+		if (t1 > t2)
+			std::swap(t1, t2);
 	}
 
 	//function called by spline
 	fl operator()(fl r) const
-			{
-		return sf->eval_fast(xs1, xs2, r);
+	{
+		return sf->eval_fast(t1, t2, r);
 	}
 
 	pr eval(fl r) const
-			{
+	{
 		if (!valid)
 		{
 			//create spline
@@ -363,7 +354,7 @@ public:
 	precalculate_splines(const scoring_function& sf,
 			const minimization_params& minparms, fl factor_, fl v = max_fl) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
 			precalculate(sf, minparms, factor_),
-					data(num_atom_types(atom_type::SM), spline_cache()),
+					data(num_atom_types(), spline_cache()),
 					delta(0.000005)
 	{
 		unsigned n = factor * m_cutoff;
@@ -372,16 +363,14 @@ public:
 			VINA_RANGE(t2, t1, data.dim())
 			{
 				//initialize spline cache - this doesn't create the splines
-				data(t1, t2).set(sf, t1, t2, m_cutoff, n, numcut);
+				data(t1, t2).set(sf,(smt)t1,(smt)t2, m_cutoff, n, numcut);
 			}
 	}
 
-	fl eval_fast(sz xs1, sz xs2, fl r2) const
+	fl eval_fast(smt t1, smt t2, fl r2) const
 	{
 		assert(r2 <= m_cutoff_sqr);
 		fl r = sqrt(r2);
-		sz t1 = xs_to_smina(xs1);
-		sz t2 = xs_to_smina(xs2);
 		if (t1 > t2)
 			std::swap(t1, t2);
 		return data(t1, t2).eval(r).first;
@@ -390,8 +379,8 @@ public:
 	pr eval_deriv(const atom_base& a, const atom_base& b, fl r2) const
 	{
 		assert(r2 <= m_cutoff_sqr);
-		sz t1 = a.get(atom_type::SM);
-		sz t2 = b.get(atom_type::SM);
+		smt t1 = a.get();
+		smt t2 = b.get();
 		if (t1 > t2)
 			std::swap(t1, t2);
 		fl r = sqrt(r2);
@@ -436,12 +425,11 @@ public:
 	precalculate_exact(const scoring_function& sf,
 			const minimization_params& minparms, fl factor_, fl v = max_fl) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
 			precalculate(sf, minparms, factor_),
-					delta(0.000005),
-					num_types(num_atom_types(sf.atom_typing_used()))
+					delta(0.000005)
 	{
 	}
-	fl eval_fast(sz t1, sz t2, fl r2) const
-			{
+	fl eval_fast(smt t1, smt t2, fl r2) const
+	{
 		assert(r2 <= m_cutoff_sqr);
 		fl r = sqrt(r2);
 		return scoring.eval_fast(t1, t2, r);
@@ -450,8 +438,8 @@ public:
 	//numerical exact derivative - ignore cutoff for now
 	pr eval_deriv(const atom_base& a, const atom_base& b, fl r2) const
 			{
-		sz ta = a.get(atom_typing_used());
-		sz tb = b.get(atom_typing_used());
+		smt ta = a.get();
+		smt tb = b.get();
 		fl r = sqrt(r2);
 		fl X = scoring.eval_fast(ta, tb, r);
 

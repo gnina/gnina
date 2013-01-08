@@ -75,7 +75,7 @@ conf_independent_inputs::conf_independent_inputs(const model& m) {
 		ligand_lengths_sum += m.ligand_length(ligand_i);
 		VINA_RANGE(i, lig.begin, lig.end) {
 			const atom& a = m.atoms[i];
-			if(a.el != EL_TYPE_H) {
+			if(!a.is_hydrogen()) {
 				unsigned ar = atom_rotors(m, atom_index(i, false));
 
 				num_tors += 0.5 * ar;
@@ -84,10 +84,10 @@ conf_independent_inputs::conf_independent_inputs(const model& m) {
 				else num_rotors += 0.5 * ar;
 
 				++num_heavy_atoms;
-				if(xs_is_hydrophobic(a.xs))
+				if(xs_is_hydrophobic(a.get()))
 					++num_hydrophobic_atoms;
 
-				if(xs_is_acceptor(a.xs) || xs_is_donor(a.xs))
+				if(xs_is_acceptor(a.get()) || xs_is_donor(a.get()))
 					++ligand_max_num_h_bonds;
 			}
 		}
@@ -196,14 +196,14 @@ flv terms::evale_robust(const model& m) const {
 	vec box_begin = grid_dims_begin(box);
 	vec box_end   = grid_dims_end  (box);
 
-	const sz n  = num_atom_types(m.atom_typing_used());
+	const sz n  = num_atom_types();
 
 	std::vector<atom_index> relevant_atoms;
 
 	VINA_FOR_IN(j, m.grid_atoms) {
 		const atom& a = m.grid_atoms[j];
-		const sz t = a.get(m.atom_typing_used());
-		if(brick_distance_sqr(box_begin, box_end, a.coords) < max_r_cutoff_sqr && t < n) // exclude, say, Hydrogens
+		const smt t = a.get();
+		if(brick_distance_sqr(box_begin, box_end, a.coords) < max_r_cutoff_sqr && t < n && !is_hydrogen(t)) // exclude, say, Hydrogens
 			relevant_atoms.push_back(atom_index(j, true));
 	}
 
@@ -211,8 +211,8 @@ flv terms::evale_robust(const model& m) const {
 		const atom& a = m.atoms[j];
 		const vec& a_coords = m.coords[j];
 		if(m.find_ligand(j) < m.ligands.size()) continue; // skip ligand atoms, add only flex/inflex
-		const sz t = a.get(m.atom_typing_used());
-		if(brick_distance_sqr(box_begin, box_end, a_coords) < max_r_cutoff_sqr && t < n) // exclude, say, Hydrogens
+		const smt t = a.get();
+		if(brick_distance_sqr(box_begin, box_end, a_coords) < max_r_cutoff_sqr && t < n && !is_hydrogen(t)) // exclude, say, Hydrogens
 			relevant_atoms.push_back(atom_index(j, false));
 	}
 
@@ -221,9 +221,9 @@ flv terms::evale_robust(const model& m) const {
 		VINA_RANGE(i, lig.begin, lig.end) {
 			const vec& coords = m.coords[i];
 			const atom& a = m.atoms[i];
-			const sz t = a.get(m.atom_typing_used());
+			const smt t = a.get();
 
-			if(t < n) { // exclude, say, Hydrogens
+			if(t < n && !is_hydrogen(t)) { // exclude, say, Hydrogens
 				VINA_FOR_IN(relevant_j, relevant_atoms) {
 					const atom_index& j = relevant_atoms[relevant_j];
 					fl d2 = vec_distance_sqr(coords, m.atom_coords(j));

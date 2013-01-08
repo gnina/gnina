@@ -35,14 +35,14 @@ fl non_cache::eval(const model& m, fl v) const
 	fl e = 0;
 	const fl cutoff_sqr = p->cutoff_sqr();
 
-	sz n = num_atom_types(p->atom_typing_used());
+	sz n = num_atom_types();
 
 	VINA_FOR(i, m.num_movable_atoms()){
 	fl this_e = 0;
 	fl out_of_bounds_penalty = 0;
 	const atom& a = m.atoms[i];
-	sz t1 = a.get(p->atom_typing_used());
-	if(t1 >= n) continue;
+	smt t1 = a.get();
+	if(t1 >= n || is_hydrogen(t1)) continue;
 	const vec& a_coords = m.coords[i];
 	vec adjusted_a_coords; adjusted_a_coords = a_coords;
 	VINA_FOR_IN(j, gd)
@@ -63,8 +63,8 @@ fl non_cache::eval(const model& m, fl v) const
 	{
 		const sz j = possibilities[possibilities_j];
 		const atom& b = m.grid_atoms[j];
-		sz t2 = b.get(p->atom_typing_used());
-		if(t2 >= n) continue;
+		smt t2 = b.get();
+		if(t2 >= n || is_hydrogen(t2)) continue;
 		vec r_ba; r_ba = adjusted_a_coords - b.coords; // FIXME why b-a and not a-b ?
 		fl r2 = sqr(r_ba);
 		if(r2 < cutoff_sqr)
@@ -97,7 +97,7 @@ fl non_cache::eval_deriv(model& m, fl v) const
 	fl e = 0;
 	const fl cutoff_sqr = p->cutoff_sqr();
 
-	sz n = num_atom_types(p->atom_typing_used());
+	sz n = num_atom_types();
 
 	VINA_FOR(i, m.num_movable_atoms()){
 	fl this_e = 0;
@@ -105,8 +105,8 @@ fl non_cache::eval_deriv(model& m, fl v) const
 	vec out_of_bounds_deriv(0, 0, 0);
 	fl out_of_bounds_penalty = 0;
 	const atom& a = m.atoms[i];
-	sz t1 = a.get(p->atom_typing_used());
-	if(t1 >= n)
+	smt t1 = a.get();
+	if(t1 >= n || is_hydrogen(t1))
 	{	m.minus_forces[i].assign(0); continue;}
 	const vec& a_coords = m.coords[i];
 	vec adjusted_a_coords; adjusted_a_coords = a_coords;
@@ -129,8 +129,8 @@ fl non_cache::eval_deriv(model& m, fl v) const
 	{
 		const sz j = possibilities[possibilities_j];
 		const atom& b = m.grid_atoms[j];
-		sz t2 = b.get(p->atom_typing_used());
-		if(t2 >= n) continue;
+		smt t2 = b.get();
+		if(t2 >= n || is_hydrogen(t2)) continue;
 		vec r_ba; r_ba = adjusted_a_coords - b.coords;
 		fl r2 = sqr(r_ba);
 		if(r2 < cutoff_sqr)

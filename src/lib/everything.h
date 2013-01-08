@@ -79,7 +79,7 @@ struct ad4_solvation: public distance_additive
 	fl eval(const atom_base& a, const atom_base& b, fl r) const;
 };
 
-inline fl optimal_distance(sz xs_t1, sz xs_t2)
+inline fl optimal_distance(smt xs_t1, smt xs_t2)
 {
 	return xs_radius(xs_t1) + xs_radius(xs_t2);
 }
@@ -94,7 +94,7 @@ struct gauss: public usable
 		name = std::string("gauss(o=") + to_string(offset) + ",_w="
 				+ to_string(width) + ",_c=" + to_string(cutoff) + ")";
 	}
-	fl eval(sz t1, sz t2, fl r) const
+	fl eval(smt t1, smt t2, fl r) const
 	{
 		return gaussian(r - (optimal_distance(t1, t2) + offset), width);
 	}
@@ -109,7 +109,7 @@ struct repulsion: public usable
 		name = std::string("repulsion(o=") + to_string(offset) + ",_c="
 				+ to_string(cutoff) + ")";
 	}
-	fl eval(sz t1, sz t2, fl r) const
+	fl eval(smt t1, smt t2, fl r) const
 	{
 		fl d = r - (optimal_distance(t1, t2) + offset);
 		if (d > 0)
@@ -147,7 +147,7 @@ struct hydrophobic: public usable
 		name = "hydrophobic(g=" + to_string(good) + ",_b=" + to_string(bad)
 				+ ",_c=" + to_string(cutoff) + ")";
 	}
-	fl eval(sz t1, sz t2, fl r) const
+	fl eval(smt t1, smt t2, fl r) const
 	{
 		if (xs_is_hydrophobic(t1) && xs_is_hydrophobic(t2))
 			return slope_step(bad, good, r - optimal_distance(t1, t2));
@@ -166,7 +166,7 @@ struct non_hydrophobic: public usable
 		name = "non_hydrophobic(g=" + to_string(good) + ",_b=" + to_string(bad)
 				+ ",_c=" + to_string(cutoff) + ")";
 	}
-	fl eval(sz t1, sz t2, fl r) const
+	fl eval(smt t1, smt t2, fl r) const
 	{
 		if (!xs_is_hydrophobic(t1) && !xs_is_hydrophobic(t2))
 			return slope_step(bad, good, r - optimal_distance(t1, t2));
@@ -196,7 +196,7 @@ struct vdw: public usable
 				+ to_string(smoothing) + ",_^=" + to_string(cap) + ",_c="
 				+ to_string(cutoff) + ")";
 	}
-	fl eval(sz t1, sz t2, fl r) const
+	fl eval(smt t1, smt t2, fl r) const
 	{
 		fl d0 = optimal_distance(t1, t2);
 		fl depth = 1;
@@ -231,7 +231,7 @@ struct non_dir_h_bond_lj: public usable
 				+ ",_^=" + to_string(cap)
 				+ ",_c=" + to_string(cutoff) + ")";
 	}
-	fl eval(sz t1, sz t2, fl r) const
+	fl eval(smt t1, smt t2, fl r) const
 	{
 		if (xs_h_bond_possible(t1, t2))
 		{
@@ -262,7 +262,7 @@ struct non_dir_h_bond_quadratic: public usable
 		name = std::string("non_dir_h_bond_quadratic(o=") + to_string(offset)
 				+ ",_c=" + to_string(cutoff) + ")";
 	}
-	fl eval(sz t1, sz t2, fl r) const
+	fl eval(smt t1, smt t2, fl r) const
 	{
 		if (xs_h_bond_possible(t1, t2))
 		{
@@ -286,7 +286,7 @@ struct non_dir_h_bond: public usable
 		name = std::string("non_dir_h_bond(g=") + to_string(good) + ",_b="
 				+ to_string(bad) + ",_c=" + to_string(cutoff) + ")";
 	}
-	fl eval(sz t1, sz t2, fl r) const
+	fl eval(smt t1, smt t2, fl r) const
 	{
 		if (xs_h_bond_possible(t1, t2))
 			return slope_step(bad, good, r - optimal_distance(t1, t2));

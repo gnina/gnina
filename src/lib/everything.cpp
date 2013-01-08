@@ -22,18 +22,6 @@
 
 #include "everything.h"
 
-fl solvation_parameter(const atom_type& a) {
-	if(a.ad < AD_TYPE_SIZE) return ad_type_property(a.ad).solvation;
-	VINA_CHECK(false);
-	return 0; // placating the compiler
-}
-
-fl volume(const atom_type& a) {
-	if(a.ad < AD_TYPE_SIZE) return ad_type_property(a.ad).volume;
-	else if(a.xs < XS_TYPE_SIZE) return 4*pi / 3 * int_pow<3>(xs_radius(a.xs));
-	VINA_CHECK(false);
-	return 0; // placating the compiler
-}
 
 fl smooth_div(fl x, fl y) {
 	if(std::abs(x) < epsilon_fl) return 0;
@@ -49,14 +37,14 @@ fl ad4_solvation::eval(const atom_base& a, const atom_base& b, fl r) const {
 	VINA_CHECK(not_max(q1));
 	VINA_CHECK(not_max(q2));
 
-	sz t1 = a.ad;
-	sz t2 = b.ad;
+	smt t1 = a.get();
+	smt t2 = b.get();
 
-	fl solv1 = solvation_parameter(a);
-	fl solv2 = solvation_parameter(b);
+	fl solv1 = solvation_parameter(t1);
+	fl solv2 = solvation_parameter(t2);
 
-	fl volume1 = volume(a);
-	fl volume2 = volume(b);
+	fl volume1 = ad_volume(t1);
+	fl volume2 = ad_volume(t2);
 
 	fl my_solv = charge_dependent ? solvation_q : 0;
 

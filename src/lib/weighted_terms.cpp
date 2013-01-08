@@ -28,18 +28,9 @@ weighted_terms::weighted_terms(const terms* t, const flv& weights) : t(t), weigh
 	VINA_CHECK(t->   intermolecular_terms.num_enabled() == 0);
 	VINA_FOR_IN(i, t->usable_terms)
 		if(t->usable_terms.enabled[i]) {
-			if(enabled_usable_terms.empty())
-				atom_typing_used_ = t->usable_terms[i].atom_typing_used;
-			else
-				VINA_CHECK(atom_typing_used_ == t->usable_terms[i].atom_typing_used);
-
 			enabled_usable_terms.push_back(i);
 			cutoff_ = (std::max)(cutoff_, t->usable_terms[i].cutoff);
 		}
-	//dkoes, if there are no usable terms, need to initialize atom type
-	//or bad bad things happen in precalculate
-	if(enabled_usable_terms.size() == 0)
-		atom_typing_used_ = atom_type::XS;
 
 	VINA_FOR_IN(i, t->distance_additive_terms)
 		if(t->distance_additive_terms.enabled[i]) {
@@ -51,7 +42,7 @@ weighted_terms::weighted_terms(const terms* t, const flv& weights) : t(t), weigh
 }
 
 //dkoes - evaluate usable (atom type) terms only
-fl weighted_terms::eval_fast(sz t1, sz t2, fl r) const { // intentionally not checking for cutoff
+fl weighted_terms::eval_fast(smt t1, smt t2, fl r) const { // intentionally not checking for cutoff
 	fl acc = 0;
 	VINA_FOR_IN(i, enabled_usable_terms)
 		acc += weights[i] * t->usable_terms[enabled_usable_terms[i]].eval(t1, t2, r);

@@ -27,55 +27,27 @@
 #include "triangular_matrix_index.h"
 
 struct atom_type {
-	enum t {EL, AD, XS, SM, NONE}; //element, autodock, x-scale, smina
-	sz el, ad, xs, sm;
-	atom_type() : el(EL_TYPE_SIZE), ad(AD_TYPE_SIZE), xs(XS_TYPE_SIZE), sm(smina_kinds_size) {}
-	sz get(t atom_typing_used) const {
-		switch(atom_typing_used) {
-			case EL: return el;
-			case AD: return ad;
-			case XS: return xs;
-			case SM: return sm;
-			case NONE: return 0;
-			default: assert(false); return max_sz;
-		}
+	smt sm; //single smina atom type
+	atom_type() : sm(smina_atom_type::NumTypes) {}
+	inline smt get() const {
+		return sm;
 	}
-
 
 	bool is_hydrogen() const {
-		return ad_is_hydrogen(ad);
+		return ::is_hydrogen(sm);
 	}
 	bool is_heteroatom() const {
-		return ad_is_heteroatom(ad) || xs == XS_TYPE_Met_D;
+		return ::is_heteroatom(sm);
 	}
 	bool acceptable_type() const {
-		return ad < AD_TYPE_SIZE || xs == XS_TYPE_Met_D;
-	}
-	void assign_el() {
-		el = ad_type_to_el_type(ad);
-		if(ad == AD_TYPE_SIZE && xs == XS_TYPE_Met_D)
-			el = EL_TYPE_Met;
+		return sm < smina_atom_type::NumTypes;
 	}
 
-	//assign smina atom type after all other atom types are set
-	void assign_smina() {
-		for(sz i = 0; i < smina_kinds_size; i++)
-		{
-			if(smina_kind_data[i].el == el && smina_kind_data[i].xs == xs &&
-					smina_kind_data[i].ad == ad)
-			{
-				sm = i;
-				return;
-			}
-		}
-		abort();
-	}
 	bool same_element(const atom_type& a) const { // does not distinguish metals or unassigned types
-		return el == a.el;
+		return smina_atom_type::data[sm].el == smina_atom_type::data[a.sm].el;
 	}
 	fl covalent_radius() const {
-		if(ad < AD_TYPE_SIZE)        return ad_type_property(ad).covalent_radius;
-		VINA_CHECK(false);           return 0; // never happens - placating the compiler
+		return ::covalent_radius(sm);
 	}
 	fl optimal_covalent_bond_length(const atom_type& x) const {
 		return covalent_radius() + x.covalent_radius();
@@ -84,29 +56,19 @@ private:
 	friend class boost::serialization::access;
 	template<class Archive> 
 	void serialize(Archive& ar, const unsigned version) {
-		ar & el;
-		ar & ad;
-		ar & xs;
 		ar & sm;
 	}
 };
 
-inline sz num_atom_types(atom_type::t atom_typing_used) {
-	switch(atom_typing_used) {
-		case atom_type::EL: return EL_TYPE_SIZE;
-		case atom_type::AD: return AD_TYPE_SIZE;
-		case atom_type::XS: return XS_TYPE_SIZE;
-		case atom_type::SM: return smina_kinds_size;
-		case atom_type::NONE: return 0;
-		default: assert(false); return max_sz;
-	}
+inline sz num_atom_types() {
+	return smina_atom_type::NumTypes;
 }
 
-inline sz get_type_pair_index(atom_type::t atom_typing_used, const atom_type& a, const atom_type& b) { // throws error if any arg is unassigned in the given typing scheme
-	sz n = num_atom_types(atom_typing_used);
+inline sz get_type_pair_index(const atom_type& a, const atom_type& b) { // throws error if any arg is unassigned in the given typing scheme
+	sz n = num_atom_types();
 
-	sz i = a.get(atom_typing_used); VINA_CHECK(i < n);
-	sz j = b.get(atom_typing_used); VINA_CHECK(j < n);
+	smt i = a.get(); VINA_CHECK(i < n);
+	smt j = b.get(); VINA_CHECK(j < n);
 
 	if(i <= j) return triangular_matrix_index(n, i, j);
 	else       return triangular_matrix_index(n, j, i);

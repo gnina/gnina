@@ -28,19 +28,19 @@ fl naive_non_cache::eval(const model& m, fl v) const { // needs m.coords
 	fl e = 0;
 	const fl cutoff_sqr = p->cutoff_sqr();
 
-	sz n = num_atom_types(p->atom_typing_used());
+	sz n = num_atom_types();
 
 	VINA_FOR(i, m.num_movable_atoms()) {
 		fl this_e = 0;
 		const atom& a = m.atoms[i];
-		sz t1 = a.get(p->atom_typing_used());
-		if(t1 >= n) continue;
+		smt t1 = a.get();
+		if(t1 >= n || is_hydrogen(t1)) continue;
 		const vec& a_coords = m.coords[i];
 
 		VINA_FOR_IN(j, m.grid_atoms) {
 			const atom& b = m.grid_atoms[j];
-			sz t2 = b.get(p->atom_typing_used());
-			if(t2 >= n) continue;
+			smt t2 = b.get();
+			if(t2 >= n || is_hydrogen(t2)) continue;
 			vec r_ba; r_ba = a_coords - b.coords;
 			fl r2 = sqr(r_ba);
 			if(r2 < cutoff_sqr) {

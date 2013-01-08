@@ -27,9 +27,9 @@
 
 struct weighted_terms : public scoring_function {
 	weighted_terms(const terms* t, const flv& weights); // does not own t
-	atom_type::t atom_typing_used() const { return atom_typing_used_; }
+	virtual ~weighted_terms() {}
 	fl cutoff() const { return cutoff_; }
-	fl eval_fast(sz t1, sz t2, fl r) const; // intentionally not checking for cutoff
+	fl eval_fast(smt t1, smt t2, fl r) const; // intentionally not checking for cutoff
 	fl eval_slow(const atom_base& a, const atom_base& b, fl r) const; //dkoes - da terms
 
 	fl conf_independent(const model& m, fl e) const;
@@ -39,10 +39,9 @@ struct weighted_terms : public scoring_function {
 
 	const terms* unweighted_terms() const { return t; }
 private:
-	weighted_terms() {}
+	weighted_terms(): t(NULL), cutoff_(0), conf_indep_start(0) {}
 	const terms* t;
 	flv weights;
-	atom_type::t atom_typing_used_;
 	fl cutoff_;
 	sz conf_indep_start; //dkoes - where conf independent terms are in weights
 	szv enabled_usable_terms;

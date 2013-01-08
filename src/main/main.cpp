@@ -384,10 +384,13 @@ void main_procedure(model& m, precalculate& prec,
 			bool cache_needed = !(score_only || randomize_only || local_only);
 			if (cache_needed)
 				doing(verbosity, "Analyzing the binding site", log);
-			cache c("scoring_function_version001", gd, slope, atom_type::XS);
+			cache c("scoring_function_version001", gd, slope);
 			if (cache_needed)
-				c.populate(m, prec,
-						m.get_movable_atom_types(prec.atom_typing_used()));
+			{
+				std::vector<smt> atom_types_needed;
+				m.get_movable_atom_types(atom_types_needed);
+				c.populate(m, prec, atom_types_needed);
+			}
 			if (cache_needed)
 				done(verbosity, log);
 			do_search(m, ref, wt, prec, c, nc, out, corner1, corner2, par,
@@ -515,7 +518,7 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 		std::cerr << "Could not open " << autobox_ligand << "\n";
 		exit(-1);
 	}
-	conv.SetInStream(&inmol);
+	conv.SetInStream((std::istream*)&inmol);
 
 	OBMol mol;
 	if (conv.Read(&mol))
@@ -1063,7 +1066,7 @@ Thank you!\n";
 					exit(-1);
 				}
 
-				conv.SetInStream(&inmol);
+				conv.SetInStream((std::istream*)&inmol);
 
 				//setup output file
 				std::stringstream outname;
@@ -1100,7 +1103,7 @@ Thank you!\n";
 							<< "\n";
 					exit(-1);
 				}
-				outconv.SetOutStream(&outfile);
+				outconv.SetOutStream((std::ostream*)&outfile);
 
 				//process input molecules one at a time
 				OBMol mol;

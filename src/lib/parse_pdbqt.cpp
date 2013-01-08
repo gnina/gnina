@@ -44,8 +44,8 @@ struct stream_parse_error {
 
 struct parsed_atom : public atom {
 	unsigned number; 
-	parsed_atom(sz ad_, fl charge_, const vec& coords_, unsigned number_) : number(number_) {
-		ad = ad_;
+	parsed_atom(smt sm_, fl charge_, const vec& coords_, unsigned number_) : number(number_) {
+		sm = sm_;
 		charge = charge_;
 		coords = coords_;
 	}
@@ -107,10 +107,8 @@ parsed_atom parse_pdbqt_atom_string(const std::string& str) {
 	if(!substring_is_blank(str, 69, 76))
 		charge = checked_convert_substring<fl>(str, 69, 76, "charge");
 	std::string name = omit_whitespace(str, 78, 79);
-	sz ad = string_to_ad_type(name);
-	parsed_atom tmp(ad, charge, coords, number);
-	if(is_non_ad_metal_name(name))
-		tmp.xs = XS_TYPE_Met_D;
+	smt sm = string_to_smina_type(name);
+	parsed_atom tmp(sm, charge, coords, number);
 	if(tmp.acceptable_type()) 
 		return tmp;
 	else 

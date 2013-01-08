@@ -28,9 +28,8 @@
 struct model; // forward declaration
 
 struct scoring_function {
-	virtual atom_type::t atom_typing_used() const = 0;
 	virtual fl cutoff() const = 0;
-	virtual fl eval_fast(sz t1, sz t2, fl r) const = 0;
+	virtual fl eval_fast(smt t1, smt t2, fl r) const = 0;
 	//dkoes - split eval between precalculatable scoring and not
 	virtual bool has_slow() const = 0;
 	virtual fl eval_slow(const atom_base& a, const atom_base& b, fl r) const = 0;
