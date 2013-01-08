@@ -377,7 +377,7 @@ public:
 	}
 
 	fl eval_fast(sz xs1, sz xs2, fl r2) const
-			{
+	{
 		assert(r2 <= m_cutoff_sqr);
 		fl r = sqrt(r2);
 		sz t1 = xs_to_smina(xs1);
@@ -388,7 +388,7 @@ public:
 	}
 
 	pr eval_deriv(const atom_base& a, const atom_base& b, fl r2) const
-			{
+	{
 		assert(r2 <= m_cutoff_sqr);
 		sz t1 = a.get(atom_type::SM);
 		sz t2 = b.get(atom_type::SM);
@@ -424,23 +424,6 @@ public:
 	}
 
 private:
-	//function object to evaluate function between to specified atom types
-	class evaluator
-	{
-		const scoring_function& sf;
-		sz t1, t2;
-		public:
-		evaluator(const scoring_function& sf_, sz t1_, sz t2_) :
-				sf(sf_), t1(t1_), t2(t2_)
-		{
-
-		}
-
-		fl operator()(fl r) const
-				{
-			return sf.eval_fast(t1, t2, r);
-		}
-	};
 
 	triangular_matrix<spline_cache> data;
 	fl delta;
