@@ -38,45 +38,74 @@ inline fl gaussian(fl x, fl width)
 	return std::exp(-sqr(x / width));
 }
 
+
+inline fl smooth_div(fl x, fl y) {
+	if(std::abs(x) < epsilon_fl) return 0;
+	if(std::abs(y) < epsilon_fl) return ((x*y > 0) ? max_fl : -max_fl); // FIXME I hope -max_fl does not become NaN
+	return x / y;
+}
+
+
+
 // distance_additive terms
 
 template<unsigned i>
-struct electrostatic: public distance_additive
+struct electrostatic: public charge_dependent
 {
 	fl cap;
 	electrostatic(fl cap_, fl cutoff_) :
-			distance_additive(cutoff_), cap(cap_)
+			charge_dependent(cutoff_), cap(cap_)
 	{
 		name = std::string("electrostatic(i=") + to_string(i) + ",_^="
 				+ to_string(cap) + ",_c=" + to_string(cutoff) + ")";
 	}
-	fl eval(const atom_base& a, const atom_base& b, fl r) const
+
+	result_components eval_components(smt t1, smt t2, fl r) const
 	{
+		result_components comp;
 		fl tmp = int_pow<i>(r);
-		fl q1q2 = a.charge * b.charge;
-		if (tmp < epsilon_fl)
-			return q1q2 * cap;
+		if (tmp < epsilon_fl) //avoid divide by zero
+			comp.ab_charge_dependent = cap;
 		else
-			return q1q2 * (std::min)(cap, 1 / int_pow<i>(r));
+			comp.ab_charge_dependent = (std::min)(cap, 1 / tmp);
+		return comp;
 	}
 };
 
-struct ad4_solvation: public distance_additive
+struct ad4_solvation: public charge_dependent
 {
 	fl desolvation_sigma;
 	fl solvation_q;
-	bool charge_dependent;
-	ad4_solvation(fl desolvation_sigma_, fl solvation_q_,
-			bool charge_dependent_, fl cutoff_) :
-			distance_additive(cutoff_), solvation_q(solvation_q_), charge_dependent(
-					charge_dependent_), desolvation_sigma(desolvation_sigma_)
+	ad4_solvation(fl desolvation_sigma_, fl solvation_q_, fl cutoff_) :
+				charge_dependent(cutoff_), solvation_q(solvation_q_),
+				desolvation_sigma(desolvation_sigma_)
 	{
 		name = std::string("ad4_solvation(d-sigma=")
 				+ to_string(desolvation_sigma) + ",_s/q="
-				+ to_string(solvation_q) + ",_q=" + to_string(charge_dependent)
+				+ to_string(solvation_q) +
 				+ ",_c=" + to_string(cutoff) + ")";
 	}
-	fl eval(const atom_base& a, const atom_base& b, fl r) const;
+
+	result_components eval_components(smt t1, smt t2, fl r) const
+	{
+		result_components ret;
+		fl solv1 = solvation_parameter(t1);
+		fl solv2 = solvation_parameter(t2);
+
+		fl volume1 = ad_volume(t1);
+		fl volume2 = ad_volume(t2);
+
+		fl mysolv = solvation_q;
+		fl distfactor = std::exp(-sqr(r/(2*desolvation_sigma)));
+
+		ret.type_dependent_only += solv1*volume2*distfactor;
+		ret.abs_a_charge_dependent += mysolv*volume2*distfactor;
+
+		ret.type_dependent_only += solv2*volume1*distfactor;
+		ret.abs_b_charge_dependent += mysolv*volume1*distfactor;
+
+		return ret;
+	}
 };
 
 inline fl optimal_distance(smt xs_t1, smt xs_t2)
@@ -84,12 +113,12 @@ inline fl optimal_distance(smt xs_t1, smt xs_t2)
 	return xs_radius(xs_t1) + xs_radius(xs_t2);
 }
 
-struct gauss: public usable
+struct gauss: public charge_independent
 {
 	fl offset; // added to optimal distance
 	fl width;
 	gauss(fl offset_, fl width_, fl cutoff_) :
-			usable(cutoff_), offset(offset_), width(width_)
+		charge_independent(cutoff_), offset(offset_), width(width_)
 	{
 		name = std::string("gauss(o=") + to_string(offset) + ",_w="
 				+ to_string(width) + ",_c=" + to_string(cutoff) + ")";
@@ -100,11 +129,11 @@ struct gauss: public usable
 	}
 };
 
-struct repulsion: public usable
+struct repulsion: public charge_independent
 {
 	fl offset; // added to vdw
 	repulsion(fl offset_, fl cutoff_) :
-			usable(cutoff_), offset(offset_)
+		charge_independent(cutoff_), offset(offset_)
 	{
 		name = std::string("repulsion(o=") + to_string(offset) + ",_c="
 				+ to_string(cutoff) + ")";
@@ -137,12 +166,12 @@ inline fl slope_step(fl x_bad, fl x_good, fl x)
 	return (x - x_bad) / (x_good - x_bad);
 }
 
-struct hydrophobic: public usable
+struct hydrophobic: public charge_independent
 {
 	fl good;
 	fl bad;
 	hydrophobic(fl good_, fl bad_, fl cutoff_) :
-			usable(cutoff_), good(good_), bad(bad_)
+		charge_independent(cutoff_), good(good_), bad(bad_)
 	{
 		name = "hydrophobic(g=" + to_string(good) + ",_b=" + to_string(bad)
 				+ ",_c=" + to_string(cutoff) + ")";
@@ -156,12 +185,12 @@ struct hydrophobic: public usable
 	}
 };
 
-struct non_hydrophobic: public usable
+struct non_hydrophobic: public charge_independent
 {
 	fl good;
 	fl bad;
 	non_hydrophobic(fl good_, fl bad_, fl cutoff_) :
-			usable(cutoff_), good(good_), bad(bad_)
+		charge_independent(cutoff_), good(good_), bad(bad_)
 	{
 		name = "non_hydrophobic(g=" + to_string(good) + ",_b=" + to_string(bad)
 				+ ",_c=" + to_string(cutoff) + ")";
@@ -184,13 +213,13 @@ void find_vdw_coefficients(fl position, fl depth, fl& c_n, fl& c_m)
 }
 
 template<unsigned i, unsigned j>
-struct vdw: public usable
+struct vdw: public charge_independent
 {
 	fl smoothing;
 	fl cap;
 	vdw(fl smoothing_, fl cap_, fl cutoff_)
 	:
-			usable(cutoff_), smoothing(smoothing_), cap(cap_)
+		charge_independent(cutoff_), smoothing(smoothing_), cap(cap_)
 	{
 		name = "vdw(i=" + to_string(i) + ",_j=" + to_string(j) + ",_s="
 				+ to_string(smoothing) + ",_^=" + to_string(cap) + ",_c="
@@ -220,12 +249,12 @@ struct vdw: public usable
 };
 
 /* A 10-12 LJ potential */
-struct non_dir_h_bond_lj: public usable
+struct non_dir_h_bond_lj: public charge_independent
 {
 	fl offset;
 	fl cap;
 	non_dir_h_bond_lj(fl offset_, fl cap_, fl cutoff_) :
-			usable(cutoff_), offset(offset_), cap(cap_)
+		charge_independent(cutoff_), offset(offset_), cap(cap_)
 	{
 		name = std::string("non_dir_h_bond_lj(o=") + to_string(offset)
 				+ ",_^=" + to_string(cap)
@@ -253,11 +282,11 @@ struct non_dir_h_bond_lj: public usable
 };
 
 /* This mimics repulsion, but only between possible bonders. More for testing */
-struct non_dir_h_bond_quadratic: public usable
+struct non_dir_h_bond_quadratic: public charge_independent
 {
 	fl offset;
 	non_dir_h_bond_quadratic(fl offset_, fl cutoff_) :
-			usable(cutoff_), offset(offset_)
+		charge_independent(cutoff_), offset(offset_)
 	{
 		name = std::string("non_dir_h_bond_quadratic(o=") + to_string(offset)
 				+ ",_c=" + to_string(cutoff) + ")";
@@ -276,12 +305,12 @@ struct non_dir_h_bond_quadratic: public usable
 };
 
 //classic Vina hbond term
-struct non_dir_h_bond: public usable
+struct non_dir_h_bond: public charge_independent
 {
 	fl good;
 	fl bad;
 	non_dir_h_bond(fl good_, fl bad_, fl cutoff_) :
-			usable(cutoff_), good(good_), bad(bad_)
+		charge_independent(cutoff_), good(good_), bad(bad_)
 	{
 		name = std::string("non_dir_h_bond(g=") + to_string(good) + ",_b="
 				+ to_string(bad) + ",_c=" + to_string(cutoff) + ")";

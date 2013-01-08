@@ -26,10 +26,16 @@
 weighted_terms::weighted_terms(const terms* t, const flv& weights) : t(t), weights(weights), cutoff_(0),conf_indep_start(0) { // does not own t
 	VINA_CHECK(t->         additive_terms.num_enabled() == 0);
 	VINA_CHECK(t->   intermolecular_terms.num_enabled() == 0);
-	VINA_FOR_IN(i, t->usable_terms)
-		if(t->usable_terms.enabled[i]) {
-			enabled_usable_terms.push_back(i);
-			cutoff_ = (std::max)(cutoff_, t->usable_terms[i].cutoff);
+
+	VINA_FOR_IN(i, t->charge_independent_terms)
+		if(t->charge_independent_terms.enabled[i]) {
+			enabled_charge_independent_terms.push_back(i);
+			cutoff_ = (std::max)(cutoff_, t->charge_independent_terms[i].cutoff);
+		}
+	VINA_FOR_IN(i, t->charge_dependent_terms)
+		if(t->charge_dependent_terms.enabled[i]) {
+			enabled_charge_dependent_terms.push_back(i);
+			cutoff_ = (std::max)(cutoff_, t->charge_dependent_terms[i].cutoff);
 		}
 
 	VINA_FOR_IN(i, t->distance_additive_terms)
@@ -38,21 +44,28 @@ weighted_terms::weighted_terms(const terms* t, const flv& weights) : t(t), weigh
 			cutoff_ = (std::max)(cutoff_, t->distance_additive_terms[i].cutoff);
 		}
 
-	conf_indep_start = enabled_usable_terms.size() + enabled_distance_additive_terms.size();
+	conf_indep_start = enabled_charge_independent_terms.size() +
+			enabled_charge_dependent_terms.size() + enabled_distance_additive_terms.size();
 }
 
 //dkoes - evaluate usable (atom type) terms only
-fl weighted_terms::eval_fast(smt t1, smt t2, fl r) const { // intentionally not checking for cutoff
-	fl acc = 0;
-	VINA_FOR_IN(i, enabled_usable_terms)
-		acc += weights[i] * t->usable_terms[enabled_usable_terms[i]].eval(t1, t2, r);
+result_components weighted_terms::eval_fast(smt t1, smt t2, fl r) const { // intentionally not checking for cutoff
+	result_components acc;
+	VINA_FOR_IN(i, enabled_charge_independent_terms)
+		acc += weights[i] * t->charge_independent_terms[enabled_charge_independent_terms[i]].eval(t1, t2, r);
+
+	sz offset = enabled_charge_independent_terms.size();
+	VINA_FOR_IN(i, enabled_charge_dependent_terms)
+		acc += weights[offset+i] * t->charge_dependent_terms[enabled_charge_dependent_terms[i]].eval_components(t1, t2, r);
+
 	return acc;
 }
 
 //dkoes - evalute da terms here
 fl weighted_terms::eval_slow(const atom_base& a, const atom_base& b, fl r) const {
 	fl acc = 0;
-	sz offset = enabled_usable_terms.size();
+
+	sz offset = enabled_charge_independent_terms.size() + enabled_charge_dependent_terms.size();
 	VINA_FOR_IN(i, enabled_distance_additive_terms)
 		acc += weights[offset+i] * t->distance_additive_terms[enabled_distance_additive_terms[i]].eval(a, b, r);
 	return acc;

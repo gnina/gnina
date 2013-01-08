@@ -566,7 +566,7 @@ void setup_dkoes_terms(custom_terms& t, bool dkoes_score, bool dkoes_score_old,
 	{
 		t.add("vdw(i=4,_j=8,_s=0,_^=100,_c=8)", 0.009900);
 		t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", -0.153055);
-		t.add("ad4_solvation(d-sigma=3.6,_s/q=0.01097,_q=1,_c=8)", 0.048934);
+		t.add("ad4_solvation(d-sigma=3.6,_s/q=0.01097,_c=8)", 0.048934);
 		t.add("num_tors_sqr", 0.317267);
 		t.add("constant_term", -2.469020);
 		/* trained with openbabel partial charges
@@ -732,7 +732,7 @@ Thank you!\n";
 				"use accurate line search")
 		("minimize_early_term",bool_switch(&minparms.early_term),
 				"Stop minimization before convergence conditions are fully met.")
-		("cutoff_smoothing",value<fl>(&minparms.cutoff_smoothing)->default_value(0),
+		("spline_cutoff_smoothing",value<fl>(&minparms.cutoff_smoothing)->default_value(0),
 				"apply a linear smoothing potential to zero energy functions at this distance from cutoff")
 		("approximation", value<ApproxType>(&approx),
 				"approximation (linear, spline, or exact) to use")

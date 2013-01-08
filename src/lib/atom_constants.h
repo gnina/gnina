@@ -230,35 +230,6 @@ inline fl covalent_radius(const smt t)
 	return smina_atom_type::data[t].covalent_radius;
 }
 
-inline sz ad_type_to_el_type(sz t) {
-	switch(t) {
-		case AD_TYPE_C    : return EL_TYPE_C;
-		case AD_TYPE_A    : return EL_TYPE_C;
-		case AD_TYPE_N    : return EL_TYPE_N;
-		case AD_TYPE_O    : return EL_TYPE_O;
-		case AD_TYPE_P    : return EL_TYPE_P;
-		case AD_TYPE_S    : return EL_TYPE_S;
-		case AD_TYPE_H    : return EL_TYPE_H;
-		case AD_TYPE_F    : return EL_TYPE_F;
-		case AD_TYPE_I    : return EL_TYPE_I;
-		case AD_TYPE_NA   : return EL_TYPE_N;
-		case AD_TYPE_OA   : return EL_TYPE_O;
-		case AD_TYPE_SA   : return EL_TYPE_S;
-		case AD_TYPE_HD   : return EL_TYPE_H;
-		case AD_TYPE_Mg   : return EL_TYPE_Met;
-		case AD_TYPE_Mn   : return EL_TYPE_Met;
-		case AD_TYPE_Zn   : return EL_TYPE_Met;
-		case AD_TYPE_Ca   : return EL_TYPE_Met;
-		case AD_TYPE_Fe   : return EL_TYPE_Met;
-		case AD_TYPE_Cl   : return EL_TYPE_Cl;
-		case AD_TYPE_Br   : return EL_TYPE_Br;
-		case AD_TYPE_METAL: return EL_TYPE_Met;
-		case AD_TYPE_SIZE : return EL_TYPE_SIZE;
-		default: VINA_CHECK(false); break;
-	}
-	return EL_TYPE_SIZE; // to placate the compiler in case of warnings - it should never get here though
-}
-
 
 inline fl xs_radius(smina_atom_type::type t) {
 	assert(t < smina_atom_type::NumTypes);

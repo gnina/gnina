@@ -32,7 +32,7 @@ class precalculate
 {
 public:
 	//return just the fast evaluation of types, no derivative
-	virtual fl eval_fast(smt t1, smt t2, fl r2) const = 0;
+	virtual result_components eval_fast(smt t1, smt t2, fl r2) const = 0;
 
 	//return value and derivative
 	//IMPORTANT: derivative is scaled by sqrt(r2) so that when
@@ -85,15 +85,18 @@ protected:
 
 };
 
+typedef std::vector< std::pair<result_components, result_components> > compvec;
 class precalculate_linear_element
 {
 	friend class precalculate_linear;
 	precalculate_linear_element(sz n, fl factor_) :
-			fast(n, 0), smooth(n, pr(0, 0)), factor(factor_)
+			fast(n, flv(result_components::size(), 0)),
+			smooth(n), //index by control point then by component
+			factor(factor_)
 	{
 	}
 
-	fl eval_fast(fl r2) const
+	result_components eval_fast(fl r2) const
 	{
 		assert(r2 * factor < fast.size());
 		sz i = sz(factor * r2); // r2 is expected < cutoff_sqr, and cutoff_sqr * factor + 1 < n, so no overflow
@@ -101,7 +104,7 @@ class precalculate_linear_element
 		return fast[i];
 	}
 
-	pr eval_deriv(fl r2) const
+	pr eval_deriv(const atom_base& a, const atom_base& b,fl r2) const
 	{
 		fl r2_factored = factor * r2;
 		assert(r2_factored + 1 < smooth.size());
@@ -112,10 +115,13 @@ class precalculate_linear_element
 		fl rem = r2_factored - i1;
 		assert(rem >= -epsilon_fl);
 		assert(rem < 1 + epsilon_fl);
-		const pr& p1 = smooth[i1];
-		const pr& p2 = smooth[i2];
-		fl e = p1.first + rem * (p2.first - p1.first);
-		fl dor = p1.second + rem * (p2.second - p1.second);
+		fl e1 = smooth[i1].first.eval(a,b);
+		fl e2 = smooth[i2].first.eval(a,b);
+		fl d1 = smooth[i1].second.eval(a,b);
+		fl d2 = smooth[i2].second.eval(a,b);
+
+		fl e = e1 + rem * (e2 - e1);
+		fl dor = d1 + rem * (d2 - d1);
 		return pr(e, dor);
 	}
 
@@ -126,25 +132,28 @@ class precalculate_linear_element
 		VINA_CHECK(fast.size() == n);
 		VINA_FOR(i, n)
 		{
-			// calculate dor's
-			fl& dor = smooth[i].second;
-			if (i == 0 || i == n - 1)
-				dor = 0;
-			else
+			for(sz j = 0, m = result_components::size(); j < m; j++)
 			{
-				fl delta = rs[i + 1] - rs[i - 1];
-				fl r = rs[i];
-				dor = (smooth[i + 1].first - smooth[i - 1].first) / (delta * r);
+			// calculate dor's
+				fl& dor = smooth[i].second[j];
+				if (i == 0 || i == n - 1)
+					dor = 0;
+				else
+				{
+					fl delta = rs[i + 1] - rs[i - 1];
+					fl r = rs[i];
+					dor = (smooth[i + 1].first[j] - smooth[i - 1].first[j]) / (delta * r);
+				}
+				// calculate fast's from smooth.first's
+				fl f1 = smooth[i].first[j];
+				fl f2 = (i + 1 >= n) ? 0 : smooth[i + 1].first[j];
+				fast[i][j] = (f2 + f1) / 2;
 			}
-			// calculate fast's from smooth.first's
-			fl f1 = smooth[i].first;
-			fl f2 = (i + 1 >= n) ? 0 : smooth[i + 1].first;
-			fast[i] = (f2 + f1) / 2;
 		}
 	}
 
-	flv fast;
-	prv smooth; // [(e, dor)]
+	std::vector<result_components> fast;
+	compvec smooth; // [(e, dor)] for each component
 	fl factor;
 };
 
@@ -152,7 +161,7 @@ class precalculate_linear: public precalculate
 {
 public:
 	precalculate_linear(const scoring_function& sf,
-			const minimization_params& minparms, fl factor_, fl v = max_fl) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
+			const minimization_params& minparms, fl factor_) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
 			precalculate(sf, minparms, factor_),
 					n(sz(factor_ * m_cutoff_sqr) + 3), // sz(factor * r^2) + 1 <= sz(factor * cutoff_sqr) + 2 <= n-1 < n  // see assert below
 					data(num_atom_types(),
@@ -170,42 +179,14 @@ public:
 				precalculate_linear_element& p = data(t1, t2);
 				// init smooth[].first
 				VINA_FOR_IN(i, p.smooth)
-					p.smooth[i].first = (std::min)(v,
-							sf.eval_fast((smt)t1, (smt)t2, rs[i]));
-
-				//dkoes - need to smooth the transition into the cutoff or
-				//artifacts appear in the energy landscape
-				if (cutoff_smoothing > 0)
 				{
-					fl smoothrange = minparms.cutoff_smoothing;
-					fl start = std::max(m_cutoff - smoothrange, 0.0);
-					fl startsq = sqr(start);
-					sz rstart = startsq * factor;
-					smoothrange = rs[rstart]; //adjust to boundary
-					sz end = factor * m_cutoff_sqr;
-					//get the endpoint value at the cutoff
-					if (rstart < end)
-					{
-						fl endval = p.smooth[end].first;
-						//zero the very end
-						for (unsigned i = end; i < p.smooth.size(); i++)
-						{
-							p.smooth[i].first = 0;
-						}
-						//subtract off increments of endval to end up at zero
-						for (unsigned i = rstart; i < end; i++)
-						{
-							p.smooth[i].first -= endval
-									* (rs[i] + smoothrange - m_cutoff)
-									/ smoothrange;
-						}
-					}
+					p.smooth[i].first = sf.eval_fast((smt)t1, (smt)t2, rs[i]);
 				}
 				// init the rest
 				p.init_from_smooth_fst(rs);
 			}
 	}
-	fl eval_fast(smt t1, smt t2, fl r2) const
+	result_components eval_fast(smt t1, smt t2, fl r2) const
 			{
 		if (t1 > t2)
 			std::swap(t1, t2);
@@ -217,7 +198,7 @@ public:
 			{
 		assert(r2 <= m_cutoff_sqr);
 		sz type_pair_index = get_type_pair_index(a, b);
-		pr ret = data(type_pair_index).eval_deriv(r2);
+		pr ret = data(type_pair_index).eval_deriv(a,b,r2);
 		if (scoring.has_slow())
 		{
 			//dkoes - recompute "derivative" computation on the fly,
@@ -236,28 +217,6 @@ public:
 				fl X = scoring.eval_slow(a, b, rs[x]);
 				fl Y = scoring.eval_slow(a, b, rs[y]);
 				fl Z = scoring.eval_slow(a, b, rs[z]);
-
-				if (cutoff_smoothing > 0)
-				{
-					sz rstart = factor * (m_cutoff_sqr - sqr(cutoff_smoothing));
-
-					if (z > rstart) //have to smooth at least some values
-					{
-						fl smoothrange = m_cutoff - rs[rstart];
-						fl endval = scoring.eval_slow(a, b, m_cutoff);
-						Z -= endval * (rs[z] + smoothrange - m_cutoff)
-								/ smoothrange;
-						if (y > rstart)
-							Y -= endval * (rs[y] + smoothrange - m_cutoff)
-									/ smoothrange;
-						if (x > rstart)
-							X -= endval * (rs[x] + smoothrange - m_cutoff)
-									/ smoothrange;
-						if (w > rstart)
-							W -= endval * (rs[w] + smoothrange - m_cutoff)
-									/ smoothrange;
-					}
-				}
 
 				fl rem = r2_factored - x; //how much beyond y we are
 
@@ -428,7 +387,7 @@ public:
 					delta(0.000005)
 	{
 	}
-	fl eval_fast(smt t1, smt t2, fl r2) const
+	result_components eval_fast(smt t1, smt t2, fl r2) const
 	{
 		assert(r2 <= m_cutoff_sqr);
 		fl r = sqrt(r2);
@@ -441,15 +400,16 @@ public:
 		smt ta = a.get();
 		smt tb = b.get();
 		fl r = sqrt(r2);
-		fl X = scoring.eval_fast(ta, tb, r);
+		result_components res = scoring.eval_fast(ta, tb, r);
 
+		fl X = res.eval(a, b);
 		fl rhi = r + delta;
 		fl rlo = r - delta;
 		if (rlo < 0)
 			rlo = 0;
 
-		fl W = scoring.eval_fast(ta, tb, rlo);
-		fl Y = scoring.eval_fast(ta, tb, rhi);
+		fl W = scoring.eval_fast(ta, tb, rlo).eval(a, b);
+		fl Y = scoring.eval_fast(ta, tb, rhi).eval(a, b);
 		if (scoring.has_slow())
 		{
 			X += scoring.eval_slow(a, b, r);

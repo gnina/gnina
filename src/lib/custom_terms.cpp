@@ -14,7 +14,7 @@ using namespace boost;
 
 custom_terms::custom_terms()
 {
-	ad4_solvation_re.assign("ad4_solvation\\(d-sigma=(\\S+),_s/q=(\\S+),_q=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+	ad4_solvation_re.assign("ad4_solvation\\(d-sigma=(\\S+),_s/q=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 	constant_re.assign("constant_term",boost::regex::perl);
 	electrostatic_re.assign("electrostatic\\(i=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 	gauss_re.assign("gauss\\(o=(\\S+),_w=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
@@ -48,7 +48,7 @@ void custom_terms::add(const std::string& name, fl weight)
 			terms::add(1, new vdw<6,12>(s, cap, c));
 		else
 			throw scoring_function_error(name,"Unsupported LJ exponents: try <4,8> or <6,12>.");
-		usable_weights.push_back(weight);
+		charge_independent_weights.push_back(weight);
 		return;
 	}
 	if(regex_match(name, match, repulsion_re))
@@ -56,7 +56,7 @@ void custom_terms::add(const std::string& name, fl weight)
 		fl o = lexical_cast<fl>(match[1]);
 		fl c = lexical_cast<fl>(match[2]);
 		terms::add(1, new repulsion(o, c));
-		usable_weights.push_back(weight);
+		charge_independent_weights.push_back(weight);
 		return;
 	}
 	if(regex_match(name, match, num_re))
@@ -88,7 +88,7 @@ void custom_terms::add(const std::string& name, fl weight)
 		fl b = lexical_cast<fl>(match[2]);
 		fl c = lexical_cast<fl>(match[3]);
 		terms::add(1, new non_hydrophobic(g, b, c));
-		usable_weights.push_back(weight);
+		charge_independent_weights.push_back(weight);
 		return;
 	}
 	if(regex_match(name, match, non_dir_h_bond_lj_re))
@@ -97,7 +97,7 @@ void custom_terms::add(const std::string& name, fl weight)
 		fl cap = lexical_cast<fl>(match[2]);
 		fl c = lexical_cast<fl>(match[3]);
 		terms::add(1, new non_dir_h_bond_lj(o, cap, c));
-		usable_weights.push_back(weight);
+		charge_independent_weights.push_back(weight);
 		return;
 	}
 	if(regex_match(name, match, non_dir_h_bond_quadratic_re))
@@ -105,7 +105,7 @@ void custom_terms::add(const std::string& name, fl weight)
 		fl o = lexical_cast<fl>(match[1]);
 		fl c = lexical_cast<fl>(match[2]);
 		terms::add(1, new non_dir_h_bond_quadratic(o, c));
-		usable_weights.push_back(weight);
+		charge_independent_weights.push_back(weight);
 		return;
 	}
 	if(regex_match(name, match, non_dir_h_bond_re))
@@ -114,7 +114,7 @@ void custom_terms::add(const std::string& name, fl weight)
 		fl b = lexical_cast<fl>(match[2]);
 		fl c = lexical_cast<fl>(match[3]);
 		terms::add(1, new non_dir_h_bond(g, b, c));
-		usable_weights.push_back(weight);
+		charge_independent_weights.push_back(weight);
 		return;
 	}
 	if(regex_match(name, match, ligand_length_re))
@@ -129,7 +129,7 @@ void custom_terms::add(const std::string& name, fl weight)
 		fl b = lexical_cast<fl>(match[2]);
 		fl c = lexical_cast<fl>(match[3]);
 		terms::add(1, new hydrophobic(g, b, c));
-		usable_weights.push_back(weight);
+		charge_independent_weights.push_back(weight);
 		return;
 	}
 	if(regex_match(name, match, gauss_re))
@@ -138,7 +138,7 @@ void custom_terms::add(const std::string& name, fl weight)
 		fl w = lexical_cast<fl>(match[2]);
 		fl c = lexical_cast<fl>(match[3]);
 		terms::add(1, new gauss(o, w, c));
-		usable_weights.push_back(weight);
+		charge_independent_weights.push_back(weight);
 		return;
 	}
 	if(regex_match(name, match, electrostatic_re))
@@ -153,7 +153,7 @@ void custom_terms::add(const std::string& name, fl weight)
 		else
 			throw scoring_function_error(name,"Invalid exponent: 1 or 2 only");
 
-		distance_additive_weights.push_back(weight);
+		charge_dependent_weights.push_back(weight);
 		return;
 	}
 	if(regex_match(name, match, constant_re))
@@ -166,15 +166,14 @@ void custom_terms::add(const std::string& name, fl weight)
 	{
 		fl sigma = lexical_cast<fl>(match[1]);
 		fl w = lexical_cast<fl>(match[2]);
-		bool q = lexical_cast<bool>(match[3]);
-		fl c = lexical_cast<fl>(match[4]);
-		terms::add(1, new ad4_solvation(sigma, w,  q, c));
-		distance_additive_weights.push_back(weight);
+		fl c = lexical_cast<fl>(match[3]);
+		terms::add(1, new ad4_solvation(sigma, w, c));
+		charge_dependent_weights.push_back(weight);
 		return;
 	}
 
 	}
-	catch(bad_lexical_cast be)
+	catch(bad_lexical_cast& be)
 	{
 		throw scoring_function_error(name,"Could not convert parameters. ");
 	}
@@ -185,7 +184,8 @@ void custom_terms::add(const std::string& name, fl weight)
 flv custom_terms::weights() const
 {
 	flv ret;
-	ret.insert(ret.end(), usable_weights.begin(), usable_weights.end());
+	ret.insert(ret.end(), charge_independent_weights.begin(), charge_independent_weights.end());
+	ret.insert(ret.end(), charge_dependent_weights.begin(), charge_dependent_weights.end());
 	ret.insert(ret.end(), distance_additive_weights.begin(), distance_additive_weights.end());
 	ret.insert(ret.end(), additive_weights.begin(), additive_weights.end());
 	ret.insert(ret.end(), intermolecular_weights.begin(), intermolecular_weights.end());
@@ -217,7 +217,8 @@ void custom_terms::print(std::ostream& out) const
 {
 	flv ret;
 	unsigned pad = 12;
-	ret.insert(ret.end(), usable_weights.begin(), usable_weights.end());
+	ret.insert(ret.end(), charge_independent_weights.begin(), charge_independent_weights.end());
+	ret.insert(ret.end(), charge_dependent_weights.begin(), charge_dependent_weights.end());
 	ret.insert(ret.end(), distance_additive_weights.begin(), distance_additive_weights.end());
 	ret.insert(ret.end(), additive_weights.begin(), additive_weights.end());
 	ret.insert(ret.end(), intermolecular_weights.begin(), intermolecular_weights.end());

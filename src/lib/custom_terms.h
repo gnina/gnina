@@ -27,8 +27,9 @@ struct custom_terms: public terms
 {
 private:
 	//weights must match type-specific ordering of terms
+	flv charge_independent_weights;
+	flv charge_dependent_weights;
 	flv distance_additive_weights;
-	flv usable_weights;
 	flv additive_weights;
 	flv intermolecular_weights;
 	flv conf_independent_weights;

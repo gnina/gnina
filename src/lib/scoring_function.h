@@ -24,16 +24,18 @@
 #define VINA_SCORING_FUNCTION_H
 
 #include "atom_type.h"
+#include "result_components.h"
 
 struct model; // forward declaration
 
 struct scoring_function {
 	virtual fl cutoff() const = 0;
-	virtual fl eval_fast(smt t1, smt t2, fl r) const = 0;
+	virtual result_components eval_fast(smt t1, smt t2, fl r) const = 0;
 	//dkoes - split eval between precalculatable scoring and not
 	virtual bool has_slow() const = 0;
 	virtual fl eval_slow(const atom_base& a, const atom_base& b, fl r) const = 0;
 	virtual fl conf_independent(const model& m, fl e) const = 0;
+	virtual ~scoring_function() {}
 };
 
 #endif

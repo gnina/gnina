@@ -134,7 +134,8 @@ fl factors::eval(const flv& weights, bool include_internal) const {
 std::vector<std::string> terms::get_names(bool enabled_only) const { // does not include conf-independent
 	std::vector<std::string> tmp;
 
-	usable_terms.get_names(enabled_only, tmp);
+	charge_independent_terms.get_names(enabled_only, tmp);
+	charge_dependent_terms.get_names(enabled_only, tmp);
 	distance_additive_terms.get_names(enabled_only, tmp);
 	         additive_terms.get_names(enabled_only, tmp);
 	   intermolecular_terms.get_names(enabled_only, tmp);
@@ -142,7 +143,8 @@ std::vector<std::string> terms::get_names(bool enabled_only) const { // does not
 }
 
 sz terms::size_internal() const {
-	return distance_additive_terms.size() + usable_terms.size() + additive_terms.size();
+	return distance_additive_terms.size() + charge_independent_terms.size() +
+			charge_dependent_terms.size() + additive_terms.size();
 }
 
 sz terms::size_conf_independent(bool enabled_only) const { // number of parameters does not necessarily equal the number of operators
@@ -155,9 +157,10 @@ sz terms::size_conf_independent(bool enabled_only) const { // number of paramete
 
 fl terms::max_r_cutoff() const {
 	fl tmp = 0;
+	tmp = (std::max)(tmp, charge_independent_terms.max_cutoff());
+	tmp = (std::max)(tmp, charge_dependent_terms.max_cutoff());
 	tmp = (std::max)(tmp, distance_additive_terms.max_cutoff());
-	tmp = (std::max)(tmp,            usable_terms.max_cutoff());
-	tmp = (std::max)(tmp,          additive_terms.max_cutoff());
+	tmp = (std::max)(tmp, additive_terms.max_cutoff());
 	return tmp;
 }
 
@@ -167,10 +170,15 @@ void terms::eval_additive_aux(const model& m, const atom_index& i, const atom_in
 
 	sz offset = 0;
 
-	VINA_FOR_IN(k, usable_terms)
-		if(r < usable_terms[k].cutoff)
-			out[offset + k] += usable_terms[k].eval(a, b, r);
-	offset += usable_terms.size();
+	VINA_FOR_IN(k, charge_independent_terms)
+		if(r < charge_independent_terms[k].cutoff)
+			out[offset + k] += charge_independent_terms[k].eval(a, b, r);
+	offset += charge_independent_terms.size();
+
+	VINA_FOR_IN(k, charge_dependent_terms)
+		if(r < charge_dependent_terms[k].cutoff)
+			out[offset + k] += charge_dependent_terms[k].eval(a, b, r);
+	offset += charge_dependent_terms.size();
 
 	VINA_FOR_IN(k, distance_additive_terms)
 		if(r < distance_additive_terms[k].cutoff)
@@ -254,8 +262,9 @@ fl terms::eval_conf_independent(const conf_independent_inputs& in, fl x, flv::co
 flv terms::filter_external(const flv& v) const {
 	flv tmp;
 	flv::const_iterator i = v.begin();
+	charge_independent_terms.filter(i, tmp);
+	charge_dependent_terms.filter(i, tmp);
 	distance_additive_terms.filter(i, tmp);
-	           usable_terms.filter(i, tmp);
 	         additive_terms.filter(i, tmp);
 	   intermolecular_terms.filter(i, tmp);
 	VINA_CHECK(i == v.end());
@@ -265,8 +274,9 @@ flv terms::filter_external(const flv& v) const {
 flv terms::filter_internal(const flv& v) const {
 	flv tmp;
 	flv::const_iterator i = v.begin();
+	charge_independent_terms.filter(i, tmp);
+	charge_dependent_terms.filter(i, tmp);
 	distance_additive_terms.filter(i, tmp);
-	           usable_terms.filter(i, tmp);
 	         additive_terms.filter(i, tmp);
 	VINA_CHECK(i == v.end());
 	return tmp;

@@ -25,6 +25,7 @@
 
 #include <boost/ptr_container/ptr_vector.hpp> 
 #include "model.h"
+#include "result_components.h"
 
 struct term
 {
@@ -51,51 +52,27 @@ struct distance_additive: public term
 	}
 };
 
+
 struct charge_dependent: public distance_additive
 {
-	//a charge dependent term must be separated into components
-	//that are dependent on different charges to enable precalculation
-	struct components
-	{
-		fl type_dependent_only; //no need to adjust by charge
-		fl a_charge_dependent; //multiply by a's charge
-		fl b_charge_dependent; //multiply by b's charge
-		fl ab_charge_dependent; //multiply by a*b
 
-		//add in rhs
-		components& operator+=(const components& rhs)
-		{
-			type_dependent_only += rhs.type_dependent_only;
-			a_charge_dependent += rhs.a_charge_dependent;
-			b_charge_dependent += rhs.b_charge_dependent;
-			ab_charge_dependent += rhs.ab_charge_dependent;
-			return *this;
-		}
-
-		//add in a non-charge dependent term
-		components& operator+=(fl val)
-		{
-			type_dependent_only += val;
-			return *this;
-		}
-	};
+	charge_dependent(fl cut): distance_additive(cut) {}
+	virtual ~charge_dependent() {}
 
 	//unique to charge_dependent, return comonents for given types and distance
-	virtual components eval_components(smt t1, smt t2, fl r) const = 0;
+	virtual result_components eval_components(smt t1, smt t2, fl r) const = 0;
 
 	fl eval(const atom_base& a, const atom_base& b, fl r) const
 	{
-		components c = eval_components(a.sm, b.sm, r);
-		return c.type_dependent_only +
-				a.charge*c.a_charge_dependent +
-				b.charge*c.b_charge_dependent +
-				a.charge*b.charge*c.ab_charge_dependent;
+		result_components c = eval_components(a.sm, b.sm, r);
+		return c.eval(a,b);
 	}
 };
 
-struct usable: public distance_additive
+//these terms can be fully precalculated just from atom types
+struct charge_independent: public distance_additive
 {
-	usable(fl cutoff_) :
+	charge_independent(fl cutoff_) :
 			distance_additive(cutoff_)
 	{
 	}
@@ -108,7 +85,7 @@ struct usable: public distance_additive
 		VINA_CHECK(false);
 		return 0;
 	}
-	virtual ~usable()
+	virtual ~charge_independent()
 	{
 	}
 };
@@ -244,20 +221,25 @@ struct factors
 
 struct terms
 {
+	term_set<charge_independent> charge_independent_terms;
+	term_set<charge_dependent> charge_dependent_terms;
 	term_set<distance_additive> distance_additive_terms;
-	term_set<usable> usable_terms;
 	term_set<additive> additive_terms;
 	term_set<intermolecular> intermolecular_terms;
 	term_set<conf_independent> conf_independent_terms;
 
 	// the class takes ownership of the pointer with 'add'
+	void add(unsigned e, charge_independent* p)
+	{
+		charge_independent_terms.add(e, p);
+	}
+	void add(unsigned e, charge_dependent* p)
+	{
+		charge_dependent_terms.add(e, p);
+	}
 	void add(unsigned e, distance_additive* p)
 	{
 		distance_additive_terms.add(e, p);
-	}
-	void add(unsigned e, usable* p)
-	{
-		usable_terms.add(e, p);
 	}
 	void add(unsigned e, additive* p)
 	{
