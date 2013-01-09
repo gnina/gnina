@@ -177,7 +177,7 @@ public:
 	void update(parsed_line& p) const
 	{
 		if(p.second)
-		p.second = operator()(p.second.get());
+			p.second = (*this)(p.second.get());
 	}
 	void update(atom& a) const
 	{
@@ -683,8 +683,7 @@ fl model::eval_interacting_pairs(const precalculate& p, fl v,
 	fl r2 = vec_distance_sqr(coords[ip.a], coords[ip.b]);
 	if(r2 < cutoff_sqr)
 	{
-		fl tmp = p.eval_fast(ip.t1, ip.t2, r2);
-		tmp += p.eval_slow(atoms[ip.a],atoms[ip.b], r2);
+		fl tmp = p.eval(atoms[ip.a],atoms[ip.b], r2);
 		curl(tmp, v);
 		e += tmp;
 	}
@@ -782,8 +781,7 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
 		fl r2 = vec_distance_sqr(coords[i], b.coords);
 		if(r2 < cutoff_sqr)
 		{
-			fl this_e = p.eval_fast(t1, t2, r2);
-			this_e += p.eval_slow(a,b,r2);
+			fl this_e = p.eval(a,b,r2);
 			curl(this_e, v[1]);
 			e += this_e;
 		}
@@ -797,8 +795,7 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
 	fl r2 = vec_distance_sqr(coords[pair.a], coords[pair.b]);
 	if(r2 < cutoff_sqr)
 	{
-		fl this_e = p.eval_fast(pair.t1, pair.t2, r2);
-		this_e += p.eval_slow(atoms[pair.a],atoms[pair.b], r2);
+		fl this_e = p.eval(atoms[pair.a],atoms[pair.b], r2);
 		curl(this_e, v[2]);
 		e += this_e;
 	}

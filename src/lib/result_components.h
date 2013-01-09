@@ -3,12 +3,17 @@
 //calculation that are not exculsively dependent on atom type
 //to support better precalculation; any instance of result components
 //represents the value at a specific distance and atom type combination
+
+#ifndef SMINA_SCORING_FUNCTION_H
+#define SMINA_SCORING_FUNCTION_H
+
 #include "atom_base.h"
 
 //a charge dependent term must be separated into components
 //that are dependent on different charges to enable precalculation
 class result_components
 {
+public:
 	enum
 	{
 		TypeDependentOnly,//no need to adjust by charge
@@ -17,9 +22,7 @@ class result_components
 		ABChargeDependent,//multiply by a*b
 		Last
 	};
-	fl components[Last];
 
-public:
 	//add in rhs
 	result_components& operator+=(const result_components& rhs)
 	{
@@ -29,16 +32,19 @@ public:
 		return *this;
 	}
 
-	//add in a non-charge dependent term
-	result_components& operator+=(fl val)
+	//scale ALL components
+	result_components& operator*=(fl val)
 	{
-		components[TypeDependentOnly] += val;
+		for(unsigned i = 0; i < Last; i++)
+			components[i] *= val;
+
 		return *this;
 	}
 
 	result_components()
 	{
 		memset(components, 0, sizeof(components));
+		std::cout << sizeof(components) << "\n";
 	}
 
 	result_components(const flv& vals)
@@ -68,4 +74,17 @@ public:
 		assert(i < Last);
 		return components[i];
 	}
+
+	friend result_components operator*(const result_components& lhs, fl rhs);
+private:
+	fl components[Last];
 };
+
+inline result_components operator*(const result_components& lhs, fl rhs)
+{
+	result_components ret(lhs);
+	ret *= rhs;
+	return ret;
+}
+
+#endif

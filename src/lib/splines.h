@@ -14,7 +14,6 @@
 #include "Eigen/Core"
 #include "Eigen/Dense"
 
-template<class F>
 class Spline
 {
 	struct SplineData
@@ -26,7 +25,6 @@ class Spline
 	std::vector<SplineData> data;
 	fl cutoff;
 	fl fraction;
-	unsigned numpoints;
 
 	//Function to calculate the value and derivativeof a given spline at a point xval
 	inline pr splineCalc(const SplineData& i, double xval) const
@@ -39,31 +37,17 @@ class Spline
 
 public:
 
-	Spline(): cutoff(0), fraction(0), numpoints(0) {}
+	Spline(): cutoff(0), fraction(0){}
 
-	//A spline is initialized by specifying a function object to interpolate,
-	//a cutoff, the number of control points to generate, and the number of
-	//end control points to ignore when smoothing to zero
-	void initialize(const F& func, double c, unsigned npoints,
-			unsigned smoothed_endpoints = 0)
+	//A spline is initialized by specifying the points to interpolate,
+	//the cutoff is inferred from the last point, the fraction between the
+	//evenly spaced points is inferred from the first two points
+	void initialize(const std::vector<pr>& points)
 	{
-		cutoff = c;
-		numpoints = npoints;
-		assert(numpoints >= 2);
-		smoothed_endpoints = std::min(smoothed_endpoints, npoints - 2);
-		//first generate points
-		fraction = cutoff / (fl) numpoints;
-		std::vector<pr> points;
-		points.reserve(numpoints);
-		unsigned numinterp = numpoints - smoothed_endpoints;
-		for (unsigned i = 0; i < numpoints - smoothed_endpoints; i++)
-		{
-			fl xval = i * fraction;
-			fl yval = func(xval);
-			points.push_back(pr(xval, yval));
-		}
-		points.push_back(pr(cutoff, 0));
-
+		if(points.size() == 0) return;
+		cutoff = points.back().first;
+		assert(points.size() >= 2);
+		fraction = points[1].first - points[0].first;
 		const unsigned e = points.size() - 1;
 
 		typedef Eigen::Matrix<fl, Eigen::Dynamic, Eigen::Dynamic> flMatrix;
@@ -122,15 +106,6 @@ public:
 					- ddy(i) * hi / 3;
 			data[i].d = points[i].second;
 		}
-
-		//if there were smoothed out points, add them here for easy lookup
-		for (unsigned i = 0; i < smoothed_endpoints; i++)
-		{
-			data.push_back(data[e - 1]);
-		}
-
-		assert(data.size() == numpoints);
-
 	}
 
 	//return both the value and derivative at xval
@@ -142,7 +117,7 @@ public:
 
 		if (xval >= cutoff)
 		{
-			return pr(0, 0);
+			return pr(0, 0); //so an uninitialized spline returns zero
 		}
 
 		unsigned index = xval / fraction; //xval*numpoints/cutoff

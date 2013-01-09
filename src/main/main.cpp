@@ -732,8 +732,6 @@ Thank you!\n";
 				"use accurate line search")
 		("minimize_early_term",bool_switch(&minparms.early_term),
 				"Stop minimization before convergence conditions are fully met.")
-		("spline_cutoff_smoothing",value<fl>(&minparms.cutoff_smoothing)->default_value(0),
-				"apply a linear smoothing potential to zero energy functions at this distance from cutoff")
 		("approximation", value<ApproxType>(&approx),
 				"approximation (linear, spline, or exact) to use")
 		("factor", value<fl>(&approx_factor),

@@ -44,7 +44,6 @@ public:
 			const minimization_params& minparms, fl factor_) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
 			m_cutoff(sf.cutoff()),
 					m_cutoff_sqr(sqr(sf.cutoff())),
-					cutoff_smoothing(minparms.cutoff_smoothing),
 					factor(factor_),
 					scoring(sf)
 	{
@@ -61,13 +60,13 @@ public:
 	{
 		return m_cutoff_sqr;
 	}
-	bool has_slow() const
+	bool has_components() const
 	{
-		return scoring.has_slow();
+		return scoring.num_used_components() > 1;
 	} //dkoes
 
 	fl eval_slow(const atom_base& a, const atom_base& b, fl r2) const
-			{
+	{
 		//dkoes - un-precalculable terms - widening isn't supported here
 		if (scoring.has_slow())
 		{ //dkoes - this check is just to avoid the sqrt..
@@ -76,11 +75,16 @@ public:
 		}
 		return 0;
 	}
+
+	fl eval(const atom_base& a, const atom_base& b, fl r2) const
+	{
+		fl ret = eval_fast(a.get(), b.get(), r2).eval(a,b);
+		return ret + eval_slow(a,b,r2);
+	}
 protected:
 	fl m_cutoff;
 	fl m_cutoff_sqr;
 	fl factor;
-	fl cutoff_smoothing;
 	const scoring_function& scoring;
 
 };
@@ -251,6 +255,7 @@ private:
 	}
 };
 
+typedef std::pair<result_components,result_components> component_pair;
 //evaluates spline between two smina atom types as needed
 //will decompose charge dependent terms
 class spline_cache
@@ -258,50 +263,91 @@ class spline_cache
 	const scoring_function* sf;
 	fl cutoff;
 	sz n;
-	sz numcut;
 	smt t1, t2;
 	//the following are only computed when needed
-	mutable Spline<spline_cache> spline;
+	mutable std::vector<Spline> splines; //one for each component
 	mutable bool valid;
-	public:
+	sz which;
+
+	//create control points for spline
+	//poitns indexed by component first; nonzero indexec by component
+	void setup_points(std::vector<std::vector<pr> >& points, std::vector<bool>& nonzero) const
+	{
+		assert(n >= 2);
+		fl fraction = cutoff / (fl) n;
+		sz numc = sf->num_used_components();
+
+		//clear out arguments
+		nonzero.assign(numc,false);
+		points.resize(numc);
+		for(sz i = 0; i <numc; i++)
+		{
+			points[i].clear();
+			points[i].reserve(numc+1);
+		}
+
+		//compute points
+		for (unsigned i = 0; i < n; i++)
+		{
+			fl xval = i * fraction;
+			result_components res = sf->eval_fast(t1, t2, xval);
+			for(unsigned c = 0; c < numc; c++)
+			{
+				points[c].push_back(pr(xval, res[c]));
+				if(res[c] != 0) nonzero[c] = true;
+			}
+		}
+		//last point at cutoff is zero
+		for(unsigned c = 0; c < numc; c++)
+		{
+			points[c].push_back(pr(cutoff, 0));
+		}
+	}
+public:
 
 	spline_cache() :
-			sf(NULL), cutoff(0), n(0), numcut(0), t1(smina_atom_type::NumTypes), t2(smina_atom_type::NumTypes), valid(false)
+			sf(NULL), cutoff(0), n(0), t1(smina_atom_type::NumTypes), t2(smina_atom_type::NumTypes), valid(false)
 	{
 	}
 
 	//intialize values to approprate types etc - do not compute spline
-	void set(const scoring_function& sf_, smt t1_, smt t2_, fl cut, sz n_,
-			sz ncut)
+	void set(const scoring_function& sf_, smt t1_, smt t2_, fl cut, sz n_)
 	{
 		sf = &sf_;
 		cutoff = cut;
 		n = n_;
-		numcut = ncut;
 		t1 = t1_;
 		t2 = t2_;
-		valid = false;
 
 		if (t1 > t2)
 			std::swap(t1, t2);
 	}
 
-	//function called by spline
-	fl operator()(fl r) const
+	component_pair eval(fl r) const
 	{
-		return sf->eval_fast(t1, t2, r);
-	}
-
-	pr eval(fl r) const
-	{
-		if (!valid)
+		if (splines.size() == 0)
 		{
 			//create spline
-			spline.initialize(*this, cutoff, n, numcut);
-			valid = true;
+			std::vector<std::vector<pr> > points;
+			std::vector<bool> nonzero;
+			setup_points(points, nonzero);
+
+			splines.resize(sf->num_used_components());
+			for(sz i = 0, n = splines.size();  i < n; i++)
+			{
+				if(nonzero[i]) //worth interpolating
+					splines[i].initialize(points[i]);
+			}
 		}
 
-		return spline(r);
+		result_components val, deriv;
+		for(sz i = 0, n = splines.size(); i < n; i++)
+		{
+			pr ret = splines[i](r);
+			val[i] = ret.first;
+			deriv[i] = ret.second;
+		}
+		return component_pair(val,deriv);
 	}
 };
 
@@ -317,16 +363,15 @@ public:
 					delta(0.000005)
 	{
 		unsigned n = factor * m_cutoff;
-		unsigned numcut = cutoff_smoothing * factor;
 		VINA_FOR(t1, data.dim())
 			VINA_RANGE(t2, t1, data.dim())
 			{
 				//initialize spline cache - this doesn't create the splines
-				data(t1, t2).set(sf,(smt)t1,(smt)t2, m_cutoff, n, numcut);
+				data(t1, t2).set(sf,(smt)t1,(smt)t2, m_cutoff, n);
 			}
 	}
 
-	fl eval_fast(smt t1, smt t2, fl r2) const
+	result_components eval_fast(smt t1, smt t2, fl r2) const
 	{
 		assert(r2 <= m_cutoff_sqr);
 		fl r = sqrt(r2);
@@ -343,7 +388,8 @@ public:
 		if (t1 > t2)
 			std::swap(t1, t2);
 		fl r = sqrt(r2);
-		pr ret = data(t1, t2).eval(r);
+		component_pair rets = data(t1, t2).eval(r);
+		pr ret(rets.first.eval(a,b),rets.second.eval(a,b));
 
 		if (scoring.has_slow())
 		{

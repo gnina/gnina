@@ -44,8 +44,7 @@ fl naive_non_cache::eval(const model& m, fl v) const { // needs m.coords
 			vec r_ba; r_ba = a_coords - b.coords;
 			fl r2 = sqr(r_ba);
 			if(r2 < cutoff_sqr) {
-				this_e +=  p->eval_fast(t1,t2, r2);
-				this_e += p->eval_slow(a,b,r2);
+				this_e += p->eval(a,b,r2);
 			}
 		}
 		curl(this_e, v);

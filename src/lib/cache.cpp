@@ -111,11 +111,12 @@ void cache::populate(const model& m, const precalculate& p,
 		const std::vector<smt>& atom_types_needed, bool display_progress)
 {
 	std::vector<smt> needed;
-	if (p.has_slow())
+	if (p.has_components())
 	{
 		std::cerr
-				<< "WARNING: When docking, terms that incorporate partial charges are completely ignored!\n";
-		std::cerr << "Proceed at your own risk.\n";
+				<< "WARNING: When docking, terms that incorporate partial charges are partially ignored!\n";
+		std::cerr << "Do not expect a meaningful or reasonable result.\n";
+		abort();
 	}
 	VINA_FOR_IN(i, atom_types_needed){
 	smt t = atom_types_needed[i];
@@ -159,7 +160,7 @@ void cache::populate(const model& m, const precalculate& p,
 					{
 						const smt t2 = needed[j];
 						assert(t2 < nat);
-						affinities[j] += p.eval_fast(t1, t2, r2);
+						affinities[j] += p.eval_fast(t1, t2, r2)[result_components::TypeDependentOnly];
 					}
 				}
 			}

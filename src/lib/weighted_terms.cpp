@@ -52,11 +52,11 @@ weighted_terms::weighted_terms(const terms* t, const flv& weights) : t(t), weigh
 result_components weighted_terms::eval_fast(smt t1, smt t2, fl r) const { // intentionally not checking for cutoff
 	result_components acc;
 	VINA_FOR_IN(i, enabled_charge_independent_terms)
-		acc += weights[i] * t->charge_independent_terms[enabled_charge_independent_terms[i]].eval(t1, t2, r);
+		acc[result_components::TypeDependentOnly] += weights[i] * t->charge_independent_terms[enabled_charge_independent_terms[i]].eval(t1, t2, r);
 
 	sz offset = enabled_charge_independent_terms.size();
 	VINA_FOR_IN(i, enabled_charge_dependent_terms)
-		acc += weights[offset+i] * t->charge_dependent_terms[enabled_charge_dependent_terms[i]].eval_components(t1, t2, r);
+		acc += t->charge_dependent_terms[enabled_charge_dependent_terms[i]].eval_components(t1, t2, r) * weights[offset+i];
 
 	return acc;
 }

@@ -65,9 +65,9 @@ struct electrostatic: public charge_dependent
 		result_components comp;
 		fl tmp = int_pow<i>(r);
 		if (tmp < epsilon_fl) //avoid divide by zero
-			comp.ab_charge_dependent = cap;
+			comp[result_components::ABChargeDependent] = cap;
 		else
-			comp.ab_charge_dependent = (std::min)(cap, 1 / tmp);
+			comp[result_components::ABChargeDependent] = (std::min)(cap, 1 / tmp);
 		return comp;
 	}
 };
@@ -98,11 +98,11 @@ struct ad4_solvation: public charge_dependent
 		fl mysolv = solvation_q;
 		fl distfactor = std::exp(-sqr(r/(2*desolvation_sigma)));
 
-		ret.type_dependent_only += solv1*volume2*distfactor;
-		ret.abs_a_charge_dependent += mysolv*volume2*distfactor;
+		ret[result_components::TypeDependentOnly] += solv1*volume2*distfactor;
+		ret[result_components::AbsAChargeDependent] += mysolv*volume2*distfactor;
 
-		ret.type_dependent_only += solv2*volume1*distfactor;
-		ret.abs_b_charge_dependent += mysolv*volume1*distfactor;
+		ret[result_components::TypeDependentOnly]  += solv2*volume1*distfactor;
+		ret[result_components::AbsBChargeDependent] += mysolv*volume1*distfactor;
 
 		return ret;
 	}
