@@ -44,7 +44,6 @@ public:
 	result_components()
 	{
 		memset(components, 0, sizeof(components));
-		std::cout << sizeof(components) << "\n";
 	}
 
 	result_components(const flv& vals)
