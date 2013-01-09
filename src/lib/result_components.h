@@ -61,6 +61,13 @@ public:
 					a.charge*b.charge*components[ABChargeDependent];
 	}
 
+	//if you know the scoring function doesn't have charge dependencies
+	//this is faster
+	fl eval_charge_independent() const
+	{
+		return components[TypeDependentOnly];
+	}
+
 	static sz size() { return Last; }
 	fl operator[](sz i) const
 	{
@@ -72,6 +79,14 @@ public:
 	{
 		assert(i < Last);
 		return components[i];
+	}
+
+	//the order components may be sensitive to which atom is a and which is b
+	//swapOrder to change this to represent the result component if they had
+	//been called in the opposite order
+	void swapOrder()
+	{
+		std::swap(components[AbsAChargeDependent],components[AbsBChargeDependent]);
 	}
 
 	friend result_components operator*(const result_components& lhs, fl rhs);

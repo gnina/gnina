@@ -108,7 +108,7 @@ class precalculate_linear_element
 		return fast[i];
 	}
 
-	pr eval_deriv(const atom_base& a, const atom_base& b,fl r2) const
+	pr eval_deriv(sz num_components, const atom_base& a, const atom_base& b,fl r2) const
 	{
 		fl r2_factored = factor * r2;
 		assert(r2_factored + 1 < smooth.size());
@@ -119,10 +119,21 @@ class precalculate_linear_element
 		fl rem = r2_factored - i1;
 		assert(rem >= -epsilon_fl);
 		assert(rem < 1 + epsilon_fl);
-		fl e1 = smooth[i1].first.eval(a,b);
-		fl e2 = smooth[i2].first.eval(a,b);
-		fl d1 = smooth[i1].second.eval(a,b);
-		fl d2 = smooth[i2].second.eval(a,b);
+		fl e1, e2, d1,d2;
+		if( num_components == 1) //very slight speedup here
+		{
+			e1 = smooth[i1].first.eval_charge_independent();
+			e2 = smooth[i2].first.eval_charge_independent();
+			d1 = smooth[i1].second.eval_charge_independent();
+			d2 = smooth[i2].second.eval_charge_independent();
+		}
+		else
+		{
+			e1 = smooth[i1].first.eval(a,b);
+			e2 = smooth[i2].first.eval(a,b);
+			d1 = smooth[i1].second.eval(a,b);
+			d2 = smooth[i2].second.eval(a,b);
+		}
 
 		fl e = e1 + rem * (e2 - e1);
 		fl dor = d1 + rem * (d2 - d1);
@@ -163,13 +174,31 @@ class precalculate_linear_element
 
 class precalculate_linear: public precalculate
 {
+	//evaluate data while properly swapping types
+	result_components eval_fast_data(smt t1, smt t2, fl r2) const
+	{
+		if(t1 <= t2)
+		{
+			return data(t1,t2).eval_fast(r2);
+		}
+		else
+		{
+			result_components ret = data(t2,t1).eval_fast(r2);
+			ret.swapOrder();
+			return ret;
+		}
+	}
+
+
+
 public:
 	precalculate_linear(const scoring_function& sf,
 			const minimization_params& minparms, fl factor_) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
 			precalculate(sf, minparms, factor_),
 					n(sz(factor_ * m_cutoff_sqr) + 3), // sz(factor * r^2) + 1 <= sz(factor * cutoff_sqr) + 2 <= n-1 < n  // see assert below
 					data(num_atom_types(),
-							precalculate_linear_element(n, factor_))
+							precalculate_linear_element(n, factor_)),
+							num_components(sf.num_used_components())
 	{
 		VINA_CHECK(sz(m_cutoff_sqr*factor) + 1 < n);
 		// cutoff_sqr * factor is the largest float we may end up converting into sz, then 1 can be added to the result
@@ -190,19 +219,24 @@ public:
 				p.init_from_smooth_fst(rs);
 			}
 	}
+
 	result_components eval_fast(smt t1, smt t2, fl r2) const
-			{
-		if (t1 > t2)
-			std::swap(t1, t2);
+	{
 		assert(r2 <= m_cutoff_sqr);
-		return data(t1, t2).eval_fast(r2);
+		return eval_fast_data(t1, t2, r2);
 	}
 
 	pr eval_deriv(const atom_base& a, const atom_base& b, fl r2) const
-			{
+	{
 		assert(r2 <= m_cutoff_sqr);
-		sz type_pair_index = get_type_pair_index(a, b);
-		pr ret = data(type_pair_index).eval_deriv(a,b,r2);
+		smt t1 = a.get();
+		smt t2 = b.get();
+		pr ret;
+		if(t1 <= t2)
+			ret = data(t1,t2).eval_deriv(num_components, a,b,r2);
+		else
+			ret = data(t2,t1).eval_deriv(num_components, b,a,r2);
+
 		if (scoring.has_slow())
 		{
 			//dkoes - recompute "derivative" computation on the fly,
@@ -246,6 +280,7 @@ private:
 	sz n;
 	triangular_matrix<precalculate_linear_element> data;
 	flv rs; //actual distance of index locations
+	sz num_components;
 
 	void calculate_rs() //calculate square roots of control points once
 	{
@@ -267,7 +302,6 @@ class spline_cache
 	//the following are only computed when needed
 	mutable std::vector<Spline> splines; //one for each component
 	mutable bool valid;
-	sz which;
 
 	//create control points for spline
 	//poitns indexed by component first; nonzero indexec by component
@@ -355,6 +389,21 @@ public:
 // smooth gradients
 class precalculate_splines: public precalculate
 {
+	//evaluates splines at t1/t2 and r, properly swaping result
+	component_pair evaldata(smt t1, smt t2, fl r) const
+	{
+		if(t1 <= t2)
+		{
+			return data(t1,t2).eval(r);
+		}
+		else
+		{
+			component_pair ret = data(t2,t1).eval(r);
+			ret.first.swapOrder();
+			ret.second.swapOrder();
+			return ret;
+		}
+	}
 public:
 	precalculate_splines(const scoring_function& sf,
 			const minimization_params& minparms, fl factor_, fl v = max_fl) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
@@ -375,9 +424,7 @@ public:
 	{
 		assert(r2 <= m_cutoff_sqr);
 		fl r = sqrt(r2);
-		if (t1 > t2)
-			std::swap(t1, t2);
-		return data(t1, t2).eval(r).first;
+		return evaldata(t1,t2,r).first;
 	}
 
 	pr eval_deriv(const atom_base& a, const atom_base& b, fl r2) const
@@ -385,10 +432,10 @@ public:
 		assert(r2 <= m_cutoff_sqr);
 		smt t1 = a.get();
 		smt t2 = b.get();
-		if (t1 > t2)
-			std::swap(t1, t2);
 		fl r = sqrt(r2);
-		component_pair rets = data(t1, t2).eval(r);
+
+		component_pair rets = evaldata(t1,t2,r);
+
 		pr ret(rets.first.eval(a,b),rets.second.eval(a,b));
 
 		if (scoring.has_slow())
@@ -471,7 +518,6 @@ public:
 private:
 
 	fl delta;
-	sz num_types;
 };
 
 #endif
