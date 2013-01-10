@@ -1141,6 +1141,7 @@ Thank you!\n";
 					std::stringstream output;
 					std::vector<resultInfo> results;
 					stream<boost::iostreams::null_sink> nullOstream;
+					nullOstream.open(boost::iostreams::null_sink());
 
 					main_procedure(m, *prec, ref, nullOstream, score_only,
 							local_only, randomize_only,

@@ -452,7 +452,6 @@ public:
 		if (scoring.has_slow())
 		{
 			//compute value and numerical derivative directly from function
-
 			fl X = scoring.eval_slow(a, b, r);
 			ret.first += X;
 
