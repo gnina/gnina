@@ -89,13 +89,13 @@ protected:
 
 };
 
-typedef std::vector< std::pair<result_components, result_components> > compvec;
+typedef std::vector< prv > prvv; //index by component, then point
 class precalculate_linear_element
 {
 	friend class precalculate_linear;
-	precalculate_linear_element(sz n, fl factor_) :
-			fast(n, flv(result_components::size(), 0)),
-			smooth(n), //index by control point then by component
+	precalculate_linear_element(sz n, sz num_components, fl factor_) :
+			fast(n, flv(num_components, 0)),
+			smooth(num_components, prv(n, pr(0,0))), //index by control point then by component
 			factor(factor_)
 	{
 	}
@@ -122,17 +122,25 @@ class precalculate_linear_element
 		fl e1, e2, d1,d2;
 		if( num_components == 1) //very slight speedup here
 		{
-			e1 = smooth[i1].first.eval_charge_independent();
-			e2 = smooth[i2].first.eval_charge_independent();
-			d1 = smooth[i1].second.eval_charge_independent();
-			d2 = smooth[i2].second.eval_charge_independent();
+			e1 = smooth[0][i1].first;
+			e2 = smooth[0][i2].first;
+			d1 = smooth[0][i1].second;
+			d2 = smooth[0][i2].second;
 		}
 		else
 		{
-			e1 = smooth[i1].first.eval(a,b);
-			e2 = smooth[i2].first.eval(a,b);
-			d1 = smooth[i1].second.eval(a,b);
-			d2 = smooth[i2].second.eval(a,b);
+			result_components e1comp, e2comp, d1comp, d2comp;
+			for(sz c = 0; c < num_components; c++)
+			{
+				e1comp[c] = smooth[c][i1].first;
+				e2comp[c] = smooth[c][i2].first;
+				d1comp[c] = smooth[c][i1].second;
+				d2comp[c] = smooth[c][i2].second;	
+			}
+			e1 = e1comp.eval(a,b);
+			e2 = e2comp.eval(a,b);
+			d1 = d1comp.eval(a,b);
+			d2 = d2comp.eval(a,b);
 		}
 
 		fl e = e1 + rem * (e2 - e1);
@@ -140,35 +148,36 @@ class precalculate_linear_element
 		return pr(e, dor);
 	}
 
-	void init_from_smooth_fst(const flv& rs)
+	void init_from_smooth_fst(sz num_components, const flv& rs)
 	{
-		sz n = smooth.size();
+		sz n = smooth[0].size();
 		VINA_CHECK(rs.size() >= n);
 		VINA_CHECK(fast.size() == n);
+		for(sz c = 0; c < num_components; c++)
+		{
 		VINA_FOR(i, n)
 		{
-			for(sz j = 0, m = result_components::size(); j < m; j++)
-			{
 			// calculate dor's
-				fl& dor = smooth[i].second[j];
-				if (i == 0 || i == n - 1)
-					dor = 0;
-				else
-				{
-					fl delta = rs[i + 1] - rs[i - 1];
-					fl r = rs[i];
-					dor = (smooth[i + 1].first[j] - smooth[i - 1].first[j]) / (delta * r);
-				}
-				// calculate fast's from smooth.first's
-				fl f1 = smooth[i].first[j];
-				fl f2 = (i + 1 >= n) ? 0 : smooth[i + 1].first[j];
-				fast[i][j] = (f2 + f1) / 2;
+			fl& dor = smooth[c][i].second;
+			if (i == 0 || i == n - 1)
+				dor = 0;
+			else
+			{
+				fl delta = rs[i + 1] - rs[i - 1];
+				fl r = rs[i];
+				dor = (smooth[c][i + 1].first - smooth[c][i - 1].first) / (delta * r);
 			}
+			// calculate fast's from smooth.first's
+			fl f1 = smooth[c][i].first;
+			fl f2 = (i + 1 >= n) ? 0 : smooth[c][i + 1].first;
+			fast[i][c] = (f2 + f1) / 2;
+		}	
 		}
+		
 	}
 
 	std::vector<result_components> fast;
-	compvec smooth; // [(e, dor)] for each component
+	prvv smooth; // [(e, dor)] for each component, indexed first by component
 	fl factor;
 };
 
@@ -197,7 +206,7 @@ public:
 			precalculate(sf, minparms, factor_),
 					n(sz(factor_ * m_cutoff_sqr) + 3), // sz(factor * r^2) + 1 <= sz(factor * cutoff_sqr) + 2 <= n-1 < n  // see assert below
 					data(num_atom_types(),
-							precalculate_linear_element(n, factor_)),
+							precalculate_linear_element(n, sf.num_used_components(), factor_)),
 							num_components(sf.num_used_components())
 	{
 		VINA_CHECK(sz(m_cutoff_sqr*factor) + 1 < n);
@@ -211,12 +220,14 @@ public:
 			{
 				precalculate_linear_element& p = data(t1, t2);
 				// init smooth[].first
-				VINA_FOR_IN(i, p.smooth)
-				{
-					p.smooth[i].first = sf.eval_fast((smt)t1, (smt)t2, rs[i]);
+				VINA_FOR(i, n)
+				{	
+					result_components res = sf.eval_fast((smt)t1, (smt)t2, rs[i]);
+					for(sz c = 0; c < num_components; c++)
+						p.smooth[c][i].first = res[c];
 				}
 				// init the rest
-				p.init_from_smooth_fst(rs);
+				p.init_from_smooth_fst(num_components, rs);
 			}
 	}
 
