@@ -25,12 +25,11 @@
 #include <openbabel/mol.h>
 #include <openbabel/parsmart.h>
 #include <openbabel/obconversion.h>
-#include <boost/iostreams/filter/gzip.hpp>
-#include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <boost/iostreams/device/null.hpp>
 #include <boost/shared_ptr.hpp>
 #include "coords.h"
+#include "obmolopener.h"
 
 using namespace boost::iostreams;
 using boost::filesystem::path;
@@ -81,16 +80,15 @@ std::string default_output(const std::string& input_name)
 	return tmp + "_out.pdbqt";
 }
 
-void write_all_output(model& m, const output_container& out, sz how_many,
-		std::ostream& outstream, const std::vector<std::string>& remarks)
+void write_all_output(model& m, const output_container& out, sz how_many, std::ostream& outstream)
 {
 	if (out.size() < how_many)
 		how_many = out.size();
-	VINA_CHECK(how_many <= remarks.size());
 	VINA_FOR(i, how_many)
-	{ m.set(out[i].c);
-	m.write_model(outstream, i + 1, remarks[i]); // so that model numbers start with 1
-}
+	{
+		m.set(out[i].c);
+		m.write_model(outstream, i + 1); // so that model numbers start with 1
+	}
 }
 
 fl do_randomization(model& m, std::ostream& out, const vec& corner1,
@@ -197,17 +195,19 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log
 		<< "Intermolecular contributions to the terms, before weighting:\n";
 		log << std::setprecision(5);
-		VINA_FOR_IN(i, enabled_names) {
-			log << "#\t" << enabled_names[i] << '\t' << term_values[i]<<"\n";
-		}
-		log << "Conformation independent terms, before weighting (div terms incorrect):\n";
+		VINA_FOR_IN(i, enabled_names){
+		log << "#\t" << enabled_names[i] << '\t' << term_values[i]<<"\n";
+	}
+		log
+				<< "Conformation independent terms, before weighting (div terms incorrect):\n";
 		conf_independent_inputs in(m);
-		const flv nonweight(1,1.0);
-		for(unsigned i = 0, n = t->conf_independent_terms.size(); i < n; i++)
+		const flv nonweight(1, 1.0);
+		for (unsigned i = 0, n = t->conf_independent_terms.size(); i < n; i++)
 		{
 			flv::const_iterator pos = nonweight.begin();
 			log << "#\t" << t->conf_independent_terms[i].name << "\t" <<
-					t->conf_independent_terms[i].eval(in, (fl)0.0,pos) << "\n";
+					t->conf_independent_terms[i].eval(in, (fl) 0.0, pos)
+					<< "\n";
 		}
 
 		results.push_back(resultInfo(e, -1, ""));
@@ -240,12 +240,10 @@ void do_search(model& m, const boost::optional<model>& ref,
 			log
 			<< "WARNING: not all movable atoms are within the search space\n";
 
-		doing(verbosity, "Writing output", log);
 		output_container out_cont;
 		out_cont.push_back(new output_type(out));
-		std::vector<std::string> remarks(1, vina_remark(e, 0, 0));
 		std::stringstream str;
-		write_all_output(m, out_cont, 1, str, remarks);
+		write_all_output(m, out_cont, 1, str);
 		outstream << str.str();
 		done(verbosity, log);
 		results.push_back(resultInfo(e, rmsd, str.str()));
@@ -269,8 +267,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 			const fl best_mode_intramolecular_energy = m.eval_intramolecular(
 					prec, authentic_v, out_cont[0].c);
 			VINA_FOR_IN(i, out_cont)
-				if (not_max(out_cont[i].e))
-					out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
+			if (not_max(out_cont[i].e))
+			out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
 					out_cont[i].c, best_mode_intramolecular_energy);
 			// the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
 			out_cont.sort();
@@ -292,32 +290,28 @@ void do_search(model& m, const boost::optional<model>& ref,
 			best_mode_model.set(out_cont.front().c);
 
 		sz how_many = 0;
-		std::vector<std::string> remarks;
 		VINA_FOR_IN(i, out_cont)
-		{
-			if (how_many >= num_modes || !not_max(out_cont[i].e)
+		{		if (how_many >= num_modes || !not_max(out_cont[i].e)
 				|| out_cont[i].e > out_cont[0].e + energy_range)
-				break; // check energy_range sanity FIXME
-			++how_many;
-			log << std::setw(4) << i + 1 << "    " << std::setw(9)
-			<< std::setprecision(1) << out_cont[i].e;// intermolecular_energies[i];
-			m.set(out_cont[i].c);
-			const model& r = ref ? ref.get() : best_mode_model;
-			const fl lb = m.rmsd_lower_bound(r);
-			const fl ub = m.rmsd_upper_bound(r);
-			log << "  " << std::setw(9) << std::setprecision(3) << lb << "  "
-			<< std::setw(9) << std::setprecision(3) << ub;// FIXME need user-readable error messages in case of failures
+		break; // check energy_range sanity FIXME
+		++how_many;
+		log << std::setw(4) << i + 1 << "    " << std::setw(9)
+		<< std::setprecision(1) << out_cont[i].e;// intermolecular_energies[i];
+		m.set(out_cont[i].c);
+		const model& r = ref ? ref.get() : best_mode_model;
+		const fl lb = m.rmsd_lower_bound(r);
+		const fl ub = m.rmsd_upper_bound(r);
+		log << "  " << std::setw(9) << std::setprecision(3) << lb << "  "
+		<< std::setw(9) << std::setprecision(3) << ub;// FIXME need user-readable error messages in case of failures
 
-			remarks.push_back(vina_remark(out_cont[i].e, lb, ub));
-			log.endl();
+		log.endl();
 
-			//dkoes - setup resultInfo
-			std::stringstream str;
-			m.write_model(str, i + 1, "");
-			results.push_back(resultInfo(out_cont[i].e, -1, str.str()));
-		}
-		doing(verbosity, "Writing output", log);
-		write_all_output(m, out_cont, how_many, outstream, remarks);
+		//dkoes - setup resultInfo
+		std::stringstream str;
+		m.write_model(str, i + 1, "");
+		results.push_back(resultInfo(out_cont[i].e, -1, str.str()));
+	}
+		write_all_output(m, out_cont, how_many, outstream);
 		done(verbosity, log);
 
 		if (how_many < 1)
@@ -334,7 +328,8 @@ void main_procedure(model& m, precalculate& prec,
 		const boost::optional<model>& ref, // m is non-const (FIXME?)
 		std::ostream& out, bool score_only, bool local_only,
 		bool randomize_only, bool no_cache, const grid_dims& gd,
-		int exhaustiveness, minimization_params minparm, const weighted_terms& wt, int cpu, int seed,
+		int exhaustiveness, minimization_params minparm,
+		const weighted_terms& wt, int cpu, int seed,
 		int verbosity, sz num_modes, fl energy_range, fl out_min_rmsd, tee& log,
 		std::vector<resultInfo>& results)
 {
@@ -351,7 +346,7 @@ void main_procedure(model& m, precalculate& prec,
 			+ 10 * m.get_size().num_degrees_of_freedom();
 	par.mc.num_steps = unsigned(70 * 3 * (50 + heuristic) / 2); // 2 * 70 -> 8 * 20 // FIXME
 	par.mc.ssd_par.evals = unsigned((25 + m.num_movable_atoms()) / 3);
-	if(minparm.maxiters == 0)
+	if (minparm.maxiters == 0)
 		minparm.maxiters = par.mc.ssd_par.evals;
 	par.mc.ssd_par.minparm = minparm;
 	par.mc.min_rmsd = 1.0;
@@ -377,7 +372,8 @@ void main_procedure(model& m, precalculate& prec,
 		{
 			do_search(m, ref, wt, prec, nc, nc, out, corner1, corner2, par,
 					energy_range, num_modes, seed, verbosity, score_only,
-					local_only, out_min_rmsd, log, wt.unweighted_terms(), results);
+					local_only, out_min_rmsd, log, wt.unweighted_terms(),
+					results);
 		}
 		else
 		{
@@ -395,7 +391,8 @@ void main_procedure(model& m, precalculate& prec,
 				done(verbosity, log);
 			do_search(m, ref, wt, prec, c, nc, out, corner1, corner2, par,
 					energy_range, num_modes, seed, verbosity, score_only,
-					local_only, out_min_rmsd, log, wt.unweighted_terms(), results);
+					local_only, out_min_rmsd, log, wt.unweighted_terms(),
+					results);
 		}
 	}
 }
@@ -429,16 +426,15 @@ options_occurrence get_occurrence(boost::program_options::variables_map& vm,
 {
 	options_occurrence tmp;
 	VINA_FOR_IN(i, d.options())
+	{	const std::string& str = (*d.options()[i]).long_name();
+	if ((str.substr(0,4) == "size" || str.substr(0,6) == "center"))
 	{
-		 const std::string& str = (*d.options()[i]).long_name();
-		if ((str.substr(0,4) == "size" || str.substr(0,6) == "center"))
-		{
-			if (vm.count(str))
-				tmp.some = true;
-			else
-				tmp.all = false;
-		}
+		if (vm.count(str))
+		tmp.some = true;
+		else
+		tmp.all = false;
 	}
+}
 	return tmp;
 }
 
@@ -490,35 +486,11 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 		fl& center_y, fl& center_z, fl& size_x, fl& size_y, fl& size_z)
 {
 	using namespace OpenBabel;
+	obmol_opener opener;
 
 	//a ligand file can be provided from which to autobox
 	OBConversion conv;
-	OBFormat *format = conv.FormatFromExt(autobox_ligand);
-	if (!format || !conv.SetInFormat(format))
-	{
-		std::cerr << "Cannot read  molecule format! " << autobox_ligand << "\n";
-		exit(-1);
-	}
-
-	//dkoes - annoyingly, although openbabel is smart enough to ignore
-	//the .gz at the end of a file when determining the file format, it
-	//does not actually open the file as a gzip stream
-	std::ifstream uncompressed_inmol(autobox_ligand.c_str());
-	filtering_stream<boost::iostreams::input> inmol;
-
-	std::string::size_type pos = autobox_ligand.rfind(".gz");
-	if (pos != std::string::npos)
-	{
-		inmol.push(gzip_decompressor());
-	}
-	inmol.push(uncompressed_inmol);
-
-	if (!uncompressed_inmol || !inmol)
-	{
-		std::cerr << "Could not open " << autobox_ligand << "\n";
-		exit(-1);
-	}
-	conv.SetInStream((std::istream*)&inmol);
+	opener.openForInput(conv, autobox_ligand);
 
 	OBMol mol;
 	if (conv.Read(&mol))
@@ -529,7 +501,7 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 		fl max_x = -HUGE_VAL, max_y = -HUGE_VAL, max_z = -HUGE_VAL;
 		fl num = 0;
 		FOR_ATOMS_OF_MOL(a, mol)
-				{
+		{
 			center_x += a->x();
 			center_y += a->y();
 			center_z += a->z();
@@ -598,7 +570,10 @@ void setup_dkoes_terms(custom_terms& t, bool dkoes_score, bool dkoes_score_old,
 }
 
 //enum options and their parsers
-enum ApproxType {LinearApprox, SplineApprox,Exact};
+enum ApproxType
+{
+	LinearApprox, SplineApprox, Exact
+};
 
 std::istream& operator>>(std::istream& in, ApproxType& type)
 {
@@ -606,17 +581,16 @@ std::istream& operator>>(std::istream& in, ApproxType& type)
 
 	std::string token;
 	in >> token;
-    if(token == "spline")
-    	type = SplineApprox;
-    else if(token == "linear")
-    	type = LinearApprox;
-    else if(token == "exact")
-    	type = Exact;
-    else
-    	throw validation_error(validation_error::invalid_option_value);
-    return in;
+	if (token == "spline")
+		type = SplineApprox;
+	else if (token == "linear")
+		type = LinearApprox;
+	else if (token == "exact")
+		type = Exact;
+	else
+		throw validation_error(validation_error::invalid_option_value);
+	return in;
 }
-
 
 int main(int argc, char* argv[])
 {
@@ -655,14 +629,15 @@ Thank you!\n";
 	try
 	{
 		std::string rigid_name, flex_name, config_name, log_name;
-		std::vector<std::string> ligand_names, out_names;
+		std::vector<std::string> ligand_names;
+		std::string out_name;
 		std::string ligand_names_file;
 		std::string custom_file_name;
 		fl center_x, center_y, center_z, size_x, size_y, size_z;
 		fl autobox_add = 8;
 		fl out_min_rmsd = 1;
 		std::string autobox_ligand;
-		int cpu = 0, seed, exhaustiveness, verbosity = 2, num_modes = 9;
+		int cpu = 0, seed, exhaustiveness, verbosity = 1, num_modes = 9;
 		fl energy_range = 2.0;
 
 		// -0.035579, -0.005156, 0.840245, -0.035069, -0.587439, 0.05846
@@ -711,8 +686,8 @@ Thank you!\n";
 		//options_description outputs("Output prefixes (optional - by default, input names are stripped of .pdbqt\nare used as prefixes. _001.pdbqt, _002.pdbqt, etc. are appended to the prefixes to produce the output names");
 		options_description outputs("Output (optional)");
 		outputs.add_options()
-		("out,o", value<std::vector<std::string> >(&out_names),
-				"output models, the default is chosen based on the ligand file name")
+		("out,o", value<std::string >(&out_name),
+				"output file name, format taken from file extension")
 		("log", value<std::string>(&log_name), "optionally, write log file");
 
 		options_description scoremin("Scoring and minimization options");
@@ -723,14 +698,15 @@ Thank you!\n";
 		("local_only", bool_switch(&local_only),
 				"local search only using autobox (you probably want to use --minimize)")
 		("minimize", bool_switch(&dominimize),
-						"energy minimization")
+				"energy minimization")
 		("randomize_only", bool_switch(&randomize_only),
 				"generate random poses, attempting to avoid clashes")
-		("minimize_iters",value<unsigned>(&minparms.maxiters)->default_value(0),
+		("minimize_iters",
+				value<unsigned>(&minparms.maxiters)->default_value(0),
 				"number iterations of steepest descent; default scales with rotors and usually isn't sufficient for convergence")
-		("accurate_line",bool_switch(&accurate_line),
+		("accurate_line", bool_switch(&accurate_line),
 				"use accurate line search")
-		("minimize_early_term",bool_switch(&minparms.early_term),
+		("minimize_early_term", bool_switch(&minparms.early_term),
 				"Stop minimization before convergence conditions are fully met.")
 		("approximation", value<ApproxType>(&approx),
 				"approximation (linear, spline, or exact) to use")
@@ -823,20 +799,20 @@ Thank you!\n";
 			return 0;
 		}
 
-		if(dominimize) //set default settings for minimization
+		if (dominimize) //set default settings for minimization
 		{
-			if(minparms.maxiters == 0)
+			if (minparms.maxiters == 0)
 				minparms.maxiters = 10000; //will presumably converge
 			local_only = true;
 			minparms.type = minimization_params::BFGSAccurateLineSearch;
 
-			if(!vm.count("approximation"))
+			if (!vm.count("approximation"))
 				approx = SplineApprox;
-			if(!vm.count("factor"))
+			if (!vm.count("factor"))
 				approx_factor = 10;
 		}
 
-		if(accurate_line)
+		if (accurate_line)
 		{
 			minparms.type = minimization_params::BFGSAccurateLineSearch;
 		}
@@ -934,7 +910,8 @@ Thank you!\n";
 			t.add("num_tors_div", 5 * 0.05846 / 0.1 - 1);
 		}
 
-		log << std::setw(12) << std::left <<"Weights" << " Terms\n" << t << "\n";
+		log << std::setw(12) << std::left << "Weights" << " Terms\n" << t
+				<< "\n";
 
 		const fl granularity = 0.375;
 		if (search_box_needed)
@@ -942,13 +919,12 @@ Thank you!\n";
 			vec span(size_x, size_y, size_z);
 			vec center(center_x, center_y, center_z);
 			VINA_FOR_IN(i, gd)
-			{
-				gd[i].n = sz(std::ceil(span[i] / granularity));
-				fl real_span = granularity * gd[i].n;
-				gd[i].begin = center[i] - real_span / 2;
-				gd[i].end = gd[i].begin + real_span;
-			}
+			{			gd[i].n = sz(std::ceil(span[i] / granularity));
+			fl real_span = granularity * gd[i].n;
+			gd[i].begin = center[i] - real_span / 2;
+			gd[i].end = gd[i].begin + real_span;
 		}
+	}
 
 		if (vm.count("cpu") == 0)
 		{
@@ -987,33 +963,64 @@ Thank you!\n";
 
 		boost::shared_ptr<precalculate> prec;
 
-		if(approx == SplineApprox)
-			prec = boost::shared_ptr<precalculate>(new precalculate_splines(wt, minparms, approx_factor));
-		else if(approx == LinearApprox)
-			prec = boost::shared_ptr<precalculate>(new precalculate_linear(wt, minparms, approx_factor));
-		else if(approx == Exact)
-				prec = boost::shared_ptr<precalculate>(new precalculate_exact(wt, minparms, approx_factor));
+		if (approx == SplineApprox)
+			prec = boost::shared_ptr<precalculate>(
+					new precalculate_splines(wt, minparms, approx_factor));
+		else if (approx == LinearApprox)
+			prec = boost::shared_ptr<precalculate>(
+					new precalculate_linear(wt, minparms, approx_factor));
+		else if (approx == Exact)
+			prec = boost::shared_ptr<precalculate>(
+					new precalculate_exact(wt, minparms, approx_factor));
 
-		//dkoes - loop over input ligands
+		//setup single outfile
+		using namespace OpenBabel;
+		obmol_opener outfileopener;
+		OBConversion outconv;
+		if(out_name.length() > 0) {
+			outfileopener.openForOutput(outconv, out_name);
+			VINA_CHECK(outconv.SetInFormat("PDBQT"));
+		}
+
+		//loop over input ligands
 		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
 		{
 			doing(verbosity, "Reading input", log);
 			const std::string& ligand_name = ligand_names[l];
 			boost::filesystem::path lpath(ligand_name);
 
-			if (lpath.extension().string() == ".pdbqt")
-			{ //dkoes - traditional vina behavior, one file at a time
-				std::string out_name;
-				if (l < out_names.size())
-					out_name = out_names[l];
-				else
-				{
-					out_name = default_output(ligand_names[l]);
-					log << "Output will be " << out_name << '\n';
-				}
+			//parse with open babel
+			OBConversion conv;
+			obmol_opener infileopener;
+			infileopener.openForInput(conv, ligand_name);
+			OBFormat *format = conv.FormatFromExt(ligand_name);
+			VINA_CHECK(conv.SetOutFormat("PDBQT"));
+
+			//process input molecules one at a time
+			OBMol mol;
+			unsigned i = 0;
+			while (conv.Read(&mol))
+			{
+				mol.AddHydrogens();
+				std::string name = mol.GetTitle();
+				std::string pdbqt = conv.WriteString(&mol);
+				std::stringstream pdbqtStream(pdbqt);
 
 				model m = initm;
-				m.append(parse_ligand_pdbqt(make_path(ligand_name)));
+
+				try
+				{
+					m.append(
+							parse_ligand_stream_pdbqt(ligand_name,
+									pdbqtStream));
+				} catch (parse_error& e)
+				{
+					std::cerr << "\n\nParse error with molecule "
+							<< mol.GetTitle() << " in file \""
+							<< e.file.string() << "\": " << e.reason
+							<< '\n';
+					continue;
+				}
 
 				if (local_only)
 				{
@@ -1024,135 +1031,25 @@ Thank you!\n";
 				boost::optional<model> ref;
 				done(verbosity, log);
 
-				ofile out(make_path(out_name));
+				std::stringstream output;
 				std::vector<resultInfo> results;
-				main_procedure(m, *prec, ref, out, score_only, local_only,
-						randomize_only,
+				stream<null_sink> nullOstream;
+				nullOstream.open(null_sink());
+
+				main_procedure(m, *prec, ref, nullOstream, score_only,
+						local_only, randomize_only,
 						false, // no_cache == false
 						gd, exhaustiveness, minparms, wt, cpu, seed, verbosity,
 						max_modes_sz, energy_range, out_min_rmsd, log, results);
-			}
-			else //try parsing with openbabel
-			{
-				using namespace OpenBabel;
-				OBConversion conv, outconv;
-				OBFormat *format = conv.FormatFromExt(ligand_name);
-				if (!format || !conv.SetInFormat(format)
-						|| !conv.SetOutFormat("PDBQT"))
+
+				if (outconv.GetOutStream() != NULL)
 				{
-					std::cerr << "Cannot read  molecule format! " << ligand_name
-							<< "\n";
-					exit(-1);
-				}
-
-				//dkoes - annoyingly, although openbabel is smart enough to ignore
-				//the .gz at the end of a file when determining the file format, it
-				//does not actually open the file as a gzip stream
-				std::ifstream uncompressed_inmol(ligand_name.c_str());
-				filtering_stream<boost::iostreams::input> inmol;
-
-				std::string::size_type pos = ligand_name.rfind(".gz");
-				if (pos != std::string::npos)
-				{
-					inmol.push(gzip_decompressor());
-				}
-				inmol.push(uncompressed_inmol);
-
-				if (!uncompressed_inmol || !inmol)
-				{
-					std::cerr << "Could not open " << ligand_name << "\n";
-					exit(-1);
-				}
-
-				conv.SetInStream((std::istream*)&inmol);
-
-				//setup output file
-				std::stringstream outname;
-				if (out_names.size() > 0)
-				{
-					outname << out_names[0];
-				}
-				else
-				{
-					outname << lpath.stem().string() << "_min" << lpath.extension().string();
-				}
-
-				OBFormat *outformat = conv.FormatFromExt(outname.str());
-				if (!format || !outconv.SetOutFormat(outformat))
-				{
-					std::cerr << "Cannot write  molecule format! " << outname
-							<< "\n";
-					exit(-1);
-				}
-				outconv.SetInFormat("PDBQT");
-				std::ofstream uncompressed_outfile(outname.str().c_str());
-
-				filtering_stream<boost::iostreams::output> outfile;
-				pos = outname.str().rfind(".gz");
-				if (pos != std::string::npos)
-				{
-					outfile.push(gzip_compressor());
-				}
-				outfile.push(uncompressed_outfile);
-
-				if (!outfile)
-				{
-					std::cerr << "Cannot create output file " << outname
-							<< "\n";
-					exit(-1);
-				}
-				outconv.SetOutStream((std::ostream*)&outfile);
-
-				//process input molecules one at a time
-				OBMol mol;
-				unsigned i = 0;
-				while (conv.Read(&mol))
-				{
-					mol.AddHydrogens();
-					std::string name = mol.GetTitle();
-					std::string pdbqt = conv.WriteString(&mol);
-					std::stringstream pdbqtStream(pdbqt);
-
-					model m = initm;
-
-					try
-					{
-						m.append(
-								parse_ligand_stream_pdbqt(ligand_name,
-										pdbqtStream));
-					} catch (parse_error& e)
-					{
-						std::cerr << "\n\nParse error with molecule "
-								<< mol.GetTitle() << " in file \""
-								<< e.file.string() << "\": " << e.reason
-								<< '\n';
-						continue;
-					}
-
-					if (local_only)
-					{
-						//dkoes - for convenience get box from model
-						gd = m.movable_atoms_box(autobox_add, granularity);
-					}
-
-					boost::optional<model> ref;
-					done(verbosity, log);
-
-					std::stringstream output;
-					std::vector<resultInfo> results;
-					stream<boost::iostreams::null_sink> nullOstream;
-					nullOstream.open(boost::iostreams::null_sink());
-
-					main_procedure(m, *prec, ref, nullOstream, score_only,
-							local_only, randomize_only,
-							false, // no_cache == false
-							gd, exhaustiveness, minparms, wt, cpu, seed, verbosity,
-							max_modes_sz, energy_range, out_min_rmsd, log, results);
-
+					//write out molecular data
 					for (unsigned j = 0, m = results.size(); j < m; j++)
 					{
 						if (results[j].mol.length() > 0)
 							outconv.ReadString(&mol, results[j].mol); //otherwise keep orig mol
+						mol.DeleteData(OBGenericDataType::PairData); //remove remarks
 						OBPairData* sddata = new OBPairData();
 						sddata->SetAttribute("minimizedAffinity");
 						sddata->SetValue(
@@ -1171,10 +1068,9 @@ Thank you!\n";
 						mol.SetTitle(name); //otherwise lose space separated names
 						outconv.Write(&mol);
 					}
-					mol.Clear();
-					i++;
 				}
-
+				mol.Clear();
+				i++;
 			}
 		}
 	} catch (file_error& e)

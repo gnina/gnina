@@ -626,7 +626,7 @@ std::string coords_to_pdbqt_string(const vec& coords, const std::string& str)
 }
 
 void model::write_context(const context& c, std::ostream& out) const
-		{
+{
 	verify_bond_lengths();
 	VINA_FOR_IN(i, c){
 	const std::string& str = c[i].first;

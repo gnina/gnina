@@ -26,15 +26,6 @@ class Spline
 	fl cutoff;
 	fl fraction;
 
-	//Function to calculate the value and derivativeof a given spline at a point xval
-	inline pr splineCalc(const SplineData& i, double xval) const
-	{
-		const fl lx = xval - i.x;
-		fl val = ((i.a * lx + i.b) * lx + i.c) * lx + i.d;
-		fl dx = (3*i.a*lx + 2*i.b) * lx + i.c;
-		return pr(val,dx);
-	}
-
 public:
 
 	Spline(): cutoff(0), fraction(0){}
@@ -109,7 +100,7 @@ public:
 	}
 
 	//return both the value and derivative at xval
-	pr operator()(fl xval) const
+	pr eval_deriv(fl xval) const
 	{
 		//Special cases when we're outside the range of the spline points
 		//distances should never be less than zero
@@ -121,8 +112,28 @@ public:
 		}
 
 		unsigned index = xval / fraction; //xval*numpoints/cutoff
-		return splineCalc(data[index], xval);
+		const SplineData& i = data[index];
+		const fl lx = xval - i.x;
+		fl val = ((i.a * lx + i.b) * lx + i.c) * lx + i.d;
+		fl dx = (3*i.a*lx + 2*i.b) * lx + i.c;
+		return pr(val,dx);
 	}
 
+	//return only the value
+	fl eval(fl xval) const
+	{
+		assert(xval >= 0);
+
+		if (xval >= cutoff)
+		{
+			return 0; //so an uninitialized spline returns zero
+		}
+
+		unsigned index = xval / fraction; //xval*numpoints/cutoff
+		const SplineData& i = data[index];
+		const fl lx = xval - i.x;
+		fl val = ((i.a * lx + i.b) * lx + i.c) * lx + i.d;
+		return val;
+	}
 };
 

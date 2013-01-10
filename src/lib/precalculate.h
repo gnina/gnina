@@ -388,7 +388,7 @@ public:
 		result_components val, deriv;
 		for(sz i = 0, n = splines.size(); i < n; i++)
 		{
-			pr ret = splines[i](r);
+			pr ret = splines[i].eval_deriv(r);
 			val[i] = ret.first;
 			deriv[i] = ret.second;
 		}
@@ -499,7 +499,7 @@ public:
 
 	//numerical exact derivative - ignore cutoff for now
 	pr eval_deriv(const atom_base& a, const atom_base& b, fl r2) const
-			{
+	{
 		smt ta = a.get();
 		smt tb = b.get();
 		fl r = sqrt(r2);

@@ -1355,6 +1355,10 @@
 ./non_cache.o: ../../../src/lib/grid_dim.h
 ./non_cache.o: ../../../src/lib/array3d.h
 ./non_cache.o: ../../../src/lib/curl.h
+./obmolopener.o: ../../../src/lib/obmolopener.h
+./obmolopener.o: ../../../src/lib/file.h
+./obmolopener.o: ../../../src/lib/common.h
+./obmolopener.o: ../../../src/lib/macros.h
 ./parallel_mc.o: ../../../src/lib/parallel.h
 ./parallel_mc.o: ../../../src/lib/common.h
 ./parallel_mc.o: ../../../src/lib/macros.h
@@ -2719,3 +2723,4 @@
 ./main.o: ../../../src/lib/tee.h
 ./main.o: ../../../src/lib/custom_terms.h
 ./main.o: ../../../src/lib/coords.h
+./main.o: ../../../src/lib/obmolopener.h

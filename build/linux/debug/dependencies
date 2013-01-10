@@ -4,14 +4,15 @@
 ./cache.o: ../../../src/lib/common.h ../../../src/lib/macros.h
 ./cache.o: ../../../src/lib/grid.h ../../../src/lib/array3d.h
 ./cache.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
-./cache.o: ../../../src/lib/model.h ../../../src/lib/file.h
-./cache.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
-./cache.o: ../../../src/lib/quaternion.h
-./cache.o: ../../../src/lib/random.h ../../../src/lib/atom.h
+./cache.o: ../../../src/lib/result_components.h
 ./cache.o: ../../../src/lib/atom_base.h
 ./cache.o: ../../../src/lib/atom_type.h
 ./cache.o: ../../../src/lib/atom_constants.h
 ./cache.o: ../../../src/lib/triangular_matrix_index.h
+./cache.o: ../../../src/lib/model.h ../../../src/lib/file.h
+./cache.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
+./cache.o: ../../../src/lib/quaternion.h
+./cache.o: ../../../src/lib/random.h ../../../src/lib/atom.h
 ./cache.o: ../../../src/lib/matrix.h
 ./cache.o: ../../../src/lib/precalculate.h
 ./cache.o: ../../../src/lib/scoring_function.h
@@ -190,6 +191,7 @@
 ./custom_terms.o: ../../../src/lib/matrix.h
 ./custom_terms.o: ../../../src/lib/precalculate.h
 ./custom_terms.o: ../../../src/lib/scoring_function.h
+./custom_terms.o: ../../../src/lib/result_components.h
 ./custom_terms.o: ../../../src/lib/splines.h
 ./custom_terms.o: ../../../src/lib/Eigen/Core
 ./custom_terms.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -359,6 +361,7 @@
 ./everything.o: ../../../src/lib/matrix.h
 ./everything.o: ../../../src/lib/precalculate.h
 ./everything.o: ../../../src/lib/scoring_function.h
+./everything.o: ../../../src/lib/result_components.h
 ./everything.o: ../../../src/lib/splines.h
 ./everything.o: ../../../src/lib/Eigen/Core
 ./everything.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -512,6 +515,11 @@
 ./grid.o: ../../../src/lib/grid.h ../../../src/lib/array3d.h
 ./grid.o: ../../../src/lib/common.h ../../../src/lib/macros.h
 ./grid.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
+./grid.o: ../../../src/lib/result_components.h
+./grid.o: ../../../src/lib/atom_base.h
+./grid.o: ../../../src/lib/atom_type.h
+./grid.o: ../../../src/lib/atom_constants.h
+./grid.o: ../../../src/lib/triangular_matrix_index.h
 ./model.o: ../../../src/lib/model.h ../../../src/lib/file.h
 ./model.o: ../../../src/lib/common.h ../../../src/lib/macros.h
 ./model.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
@@ -524,6 +532,7 @@
 ./model.o: ../../../src/lib/matrix.h
 ./model.o: ../../../src/lib/precalculate.h
 ./model.o: ../../../src/lib/scoring_function.h
+./model.o: ../../../src/lib/result_components.h
 ./model.o: ../../../src/lib/splines.h
 ./model.o: ../../../src/lib/Eigen/Core
 ./model.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -691,6 +700,7 @@
 ./monte_carlo.o: ../../../src/lib/matrix.h
 ./monte_carlo.o: ../../../src/lib/precalculate.h
 ./monte_carlo.o: ../../../src/lib/scoring_function.h
+./monte_carlo.o: ../../../src/lib/result_components.h
 ./monte_carlo.o: ../../../src/lib/splines.h
 ./monte_carlo.o: ../../../src/lib/Eigen/Core
 ./monte_carlo.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -857,6 +867,7 @@
 ./mutate.o: ../../../src/lib/matrix.h
 ./mutate.o: ../../../src/lib/precalculate.h
 ./mutate.o: ../../../src/lib/scoring_function.h
+./mutate.o: ../../../src/lib/result_components.h
 ./mutate.o: ../../../src/lib/splines.h
 ./mutate.o: ../../../src/lib/Eigen/Core
 ./mutate.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -1025,6 +1036,7 @@
 ./naive_non_cache.o: ../../../src/lib/matrix.h
 ./naive_non_cache.o: ../../../src/lib/precalculate.h
 ./naive_non_cache.o: ../../../src/lib/scoring_function.h
+./naive_non_cache.o: ../../../src/lib/result_components.h
 ./naive_non_cache.o: ../../../src/lib/splines.h
 ./naive_non_cache.o: ../../../src/lib/Eigen/Core
 ./naive_non_cache.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -1192,6 +1204,7 @@
 ./non_cache.o: ../../../src/lib/matrix.h
 ./non_cache.o: ../../../src/lib/precalculate.h
 ./non_cache.o: ../../../src/lib/scoring_function.h
+./non_cache.o: ../../../src/lib/result_components.h
 ./non_cache.o: ../../../src/lib/splines.h
 ./non_cache.o: ../../../src/lib/Eigen/Core
 ./non_cache.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -1342,6 +1355,10 @@
 ./non_cache.o: ../../../src/lib/grid_dim.h
 ./non_cache.o: ../../../src/lib/array3d.h
 ./non_cache.o: ../../../src/lib/curl.h
+./obmolopener.o: ../../../src/lib/obmolopener.h
+./obmolopener.o: ../../../src/lib/file.h
+./obmolopener.o: ../../../src/lib/common.h
+./obmolopener.o: ../../../src/lib/macros.h
 ./parallel_mc.o: ../../../src/lib/parallel.h
 ./parallel_mc.o: ../../../src/lib/common.h
 ./parallel_mc.o: ../../../src/lib/macros.h
@@ -1362,6 +1379,7 @@
 ./parallel_mc.o: ../../../src/lib/matrix.h
 ./parallel_mc.o: ../../../src/lib/precalculate.h
 ./parallel_mc.o: ../../../src/lib/scoring_function.h
+./parallel_mc.o: ../../../src/lib/result_components.h
 ./parallel_mc.o: ../../../src/lib/splines.h
 ./parallel_mc.o: ../../../src/lib/Eigen/Core
 ./parallel_mc.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -1533,6 +1551,7 @@
 ./parse_pdbqt.o: ../../../src/lib/matrix.h
 ./parse_pdbqt.o: ../../../src/lib/precalculate.h
 ./parse_pdbqt.o: ../../../src/lib/scoring_function.h
+./parse_pdbqt.o: ../../../src/lib/result_components.h
 ./parse_pdbqt.o: ../../../src/lib/splines.h
 ./parse_pdbqt.o: ../../../src/lib/Eigen/Core
 ./parse_pdbqt.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -1706,6 +1725,7 @@
 ./quasi_newton.o: ../../../src/lib/matrix.h
 ./quasi_newton.o: ../../../src/lib/precalculate.h
 ./quasi_newton.o: ../../../src/lib/scoring_function.h
+./quasi_newton.o: ../../../src/lib/result_components.h
 ./quasi_newton.o: ../../../src/lib/splines.h
 ./quasi_newton.o: ../../../src/lib/Eigen/Core
 ./quasi_newton.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -1876,6 +1896,7 @@
 ./ssd.o: ../../../src/lib/matrix.h
 ./ssd.o: ../../../src/lib/precalculate.h
 ./ssd.o: ../../../src/lib/scoring_function.h
+./ssd.o: ../../../src/lib/result_components.h
 ./ssd.o: ../../../src/lib/splines.h
 ./ssd.o: ../../../src/lib/Eigen/Core
 ./ssd.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -2038,6 +2059,7 @@
 ./szv_grid.o: ../../../src/lib/matrix.h
 ./szv_grid.o: ../../../src/lib/precalculate.h
 ./szv_grid.o: ../../../src/lib/scoring_function.h
+./szv_grid.o: ../../../src/lib/result_components.h
 ./szv_grid.o: ../../../src/lib/splines.h
 ./szv_grid.o: ../../../src/lib/Eigen/Core
 ./szv_grid.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -2202,6 +2224,7 @@
 ./terms.o: ../../../src/lib/matrix.h
 ./terms.o: ../../../src/lib/precalculate.h
 ./terms.o: ../../../src/lib/scoring_function.h
+./terms.o: ../../../src/lib/result_components.h
 ./terms.o: ../../../src/lib/splines.h
 ./terms.o: ../../../src/lib/Eigen/Core
 ./terms.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -2370,6 +2393,7 @@
 ./weighted_terms.o: ../../../src/lib/matrix.h
 ./weighted_terms.o: ../../../src/lib/precalculate.h
 ./weighted_terms.o: ../../../src/lib/scoring_function.h
+./weighted_terms.o: ../../../src/lib/result_components.h
 ./weighted_terms.o: ../../../src/lib/splines.h
 ./weighted_terms.o: ../../../src/lib/Eigen/Core
 ./weighted_terms.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -2532,6 +2556,7 @@
 ./main.o: ../../../src/lib/matrix.h
 ./main.o: ../../../src/lib/precalculate.h
 ./main.o: ../../../src/lib/scoring_function.h
+./main.o: ../../../src/lib/result_components.h
 ./main.o: ../../../src/lib/splines.h
 ./main.o: ../../../src/lib/Eigen/Core
 ./main.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -2698,3 +2723,4 @@
 ./main.o: ../../../src/lib/tee.h
 ./main.o: ../../../src/lib/custom_terms.h
 ./main.o: ../../../src/lib/coords.h
+./main.o: ../../../src/lib/obmolopener.h

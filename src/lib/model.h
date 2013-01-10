@@ -100,7 +100,7 @@ struct model {
 		write_structure(out);
 	}
 	void write_structure(const path& name) const { ofile out(name); write_structure(out); }
-	void write_model(std::ostream& out, sz model_number, const std::string& remark) const {
+	void write_model(std::ostream& out, sz model_number, const std::string& remark = "") const {
 		out << "MODEL " << model_number << '\n';
 		write_structure(out, remark);
 		out << "ENDMDL\n";
