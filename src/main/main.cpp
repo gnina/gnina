@@ -80,7 +80,8 @@ std::string default_output(const std::string& input_name)
 	return tmp + "_out.pdbqt";
 }
 
-void write_all_output(model& m, const output_container& out, sz how_many, std::ostream& outstream)
+void write_all_output(model& m, const output_container& out, sz how_many,
+		std::ostream& outstream)
 {
 	if (out.size() < how_many)
 		how_many = out.size();
@@ -105,16 +106,17 @@ fl do_randomization(model& m, std::ostream& out, const vec& corner1,
 	conf best_conf = init_conf;
 	fl best_clash_penalty = 0;
 	VINA_FOR(i, attempts)
-	{ conf c = init_conf;
-	c.randomize(corner1, corner2, generator);
-	m.set(c);
-	fl penalty = m.clash_penalty();
-	if (i == 0 || penalty < best_clash_penalty)
 	{
-		best_conf = c;
-		best_clash_penalty = penalty;
+		conf c = init_conf;
+		c.randomize(corner1, corner2, generator);
+		m.set(c);
+		fl penalty = m.clash_penalty();
+		if (i == 0 || penalty < best_clash_penalty)
+		{
+			best_conf = c;
+			best_clash_penalty = penalty;
+		}
 	}
-}
 	m.set(best_conf);
 	if (verbosity > 1)
 	{
@@ -132,12 +134,13 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	quasi_newton quasi_newton_par(minparm);
 	const fl slope_orig = nc.slope;
 	VINA_FOR(p, 5)
-	{ nc.slope = 100 * std::pow(10.0, 2.0 * p);
-	quasi_newton_par(m, prec, nc, out, g, cap);
-	m.set(out.c); // just to be sure
-	if (nc.within(m))
-	break;
-}
+	{
+		nc.slope = 100 * std::pow(10.0, 2.0 * p);
+		quasi_newton_par(m, prec, nc, out, g, cap);
+		m.set(out.c); // just to be sure
+		if (nc.within(m))
+			break;
+	}
 	out.coords = m.get_heavy_atom_movable_coords();
 	if (!nc.within(m))
 		out.e = max_fl;
@@ -159,7 +162,7 @@ output_container remove_redundant(const output_container& in, fl min_rmsd)
 {
 	output_container tmp;
 	VINA_FOR_IN(i, in)
-	add_to_output_container(tmp, in[i], min_rmsd, in.size());
+		add_to_output_container(tmp, in[i], min_rmsd, in.size());
 	return tmp;
 }
 
@@ -167,12 +170,13 @@ output_container remove_redundant(const output_container& in, fl min_rmsd)
 void do_search(model& m, const boost::optional<model>& ref,
 		const scoring_function& sf, const precalculate& prec, const igrid& ig,
 		non_cache& nc, // nc.slope is changed
-		std::ostream& outstream, const vec& corner1, const vec& corner2,
+		const vec& corner1, const vec& corner2,
 		const parallel_mc& par, fl energy_range, sz num_modes, int seed,
 		int verbosity, bool score_only, bool local_only,
 		fl out_min_rmsd, tee& log,
 		const terms *t, std::vector<resultInfo>& results)
 {
+	precalculate_exact exact_prec(sf); //use exact computations for final score
 	conf_size s = m.get_size();
 	conf c = m.get_initial_conf();
 	fl e = max_fl;
@@ -180,10 +184,9 @@ void do_search(model& m, const boost::optional<model>& ref,
 	const vec authentic_v(1000, 1000, 1000);
 	if (score_only)
 	{
-		fl intramolecular_energy = m.eval_intramolecular(prec, authentic_v, c);
-		naive_non_cache nnc(&prec); // for out of grid issues
-		e = m.eval_adjusted(sf, prec, nnc, authentic_v, c,
-				intramolecular_energy);
+		fl intramolecular_energy = m.eval_intramolecular(exact_prec, authentic_v, c);
+		naive_non_cache nnc(&exact_prec); // for out of grid issues
+		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c, intramolecular_energy);
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
 		log.endl();
@@ -195,9 +198,10 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log
 		<< "Intermolecular contributions to the terms, before weighting:\n";
 		log << std::setprecision(5);
-		VINA_FOR_IN(i, enabled_names){
-		log << "#\t" << enabled_names[i] << '\t' << term_values[i]<<"\n";
-	}
+		VINA_FOR_IN(i, enabled_names)
+		{
+			log << "#\t" << enabled_names[i] << '\t' << term_values[i] << "\n";
+		}
 		log
 				<< "Conformation independent terms, before weighting (div terms incorrect):\n";
 		conf_independent_inputs in(m);
@@ -219,10 +223,13 @@ void do_search(model& m, const boost::optional<model>& ref,
 		doing(verbosity, "Performing local search", log);
 		refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm);
 		done(verbosity, log);
-		fl intramolecular_energy = m.eval_intramolecular(prec, authentic_v,
+
+		//be as exact as possible for final score
+		naive_non_cache nnc(&exact_prec); // for out of grid issues
+
+		fl intramolecular_energy = m.eval_intramolecular(exact_prec, authentic_v,
 				out.c);
-		e = m.eval_adjusted(sf, prec, nc, authentic_v, out.c,
-				intramolecular_energy);
+		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, out.c,intramolecular_energy);
 
 		vecv newcoords = m.get_heavy_atom_movable_coords();
 		assert(newcoords.size() == origcoords.size());
@@ -232,7 +239,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		}
 		rmsd /= newcoords.size();
 		rmsd = sqrt(rmsd);
-		log << "Affinity: " << std::fixed << std::setprecision(5) << e
+		log << "Affinity: " << std::fixed << std::setprecision(5) << e << "  " << intramolecular_energy
 				<< " (kcal/mol)\nRMSD: " << rmsd;
 		;
 		log.endl();
@@ -244,7 +251,6 @@ void do_search(model& m, const boost::optional<model>& ref,
 		out_cont.push_back(new output_type(out));
 		std::stringstream str;
 		write_all_output(m, out_cont, 1, str);
-		outstream << str.str();
 		done(verbosity, log);
 		results.push_back(resultInfo(e, rmsd, str.str()));
 	}
@@ -259,7 +265,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 		done(verbosity, log);
 		doing(verbosity, "Refining results", log);
 		VINA_FOR_IN(i, out_cont)
-		refine_structure(m, prec, nc, out_cont[i], authentic_v, par.mc.ssd_par.minparm);
+			refine_structure(m, prec, nc, out_cont[i], authentic_v,
+					par.mc.ssd_par.minparm);
 
 		if (!out_cont.empty())
 		{
@@ -267,9 +274,9 @@ void do_search(model& m, const boost::optional<model>& ref,
 			const fl best_mode_intramolecular_energy = m.eval_intramolecular(
 					prec, authentic_v, out_cont[0].c);
 			VINA_FOR_IN(i, out_cont)
-			if (not_max(out_cont[i].e))
-			out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
-					out_cont[i].c, best_mode_intramolecular_energy);
+				if (not_max(out_cont[i].e))
+					out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
+							out_cont[i].c, best_mode_intramolecular_energy);
 			// the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
 			out_cont.sort();
 		}
@@ -291,27 +298,27 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 		sz how_many = 0;
 		VINA_FOR_IN(i, out_cont)
-		{		if (how_many >= num_modes || !not_max(out_cont[i].e)
-				|| out_cont[i].e > out_cont[0].e + energy_range)
-		break; // check energy_range sanity FIXME
-		++how_many;
-		log << std::setw(4) << i + 1 << "    " << std::setw(9)
-		<< std::setprecision(1) << out_cont[i].e;// intermolecular_energies[i];
-		m.set(out_cont[i].c);
-		const model& r = ref ? ref.get() : best_mode_model;
-		const fl lb = m.rmsd_lower_bound(r);
-		const fl ub = m.rmsd_upper_bound(r);
-		log << "  " << std::setw(9) << std::setprecision(3) << lb << "  "
-		<< std::setw(9) << std::setprecision(3) << ub;// FIXME need user-readable error messages in case of failures
+		{
+			if (how_many >= num_modes || !not_max(out_cont[i].e)
+					|| out_cont[i].e > out_cont[0].e + energy_range)
+				break; // check energy_range sanity FIXME
+			++how_many;
+			log << std::setw(4) << i + 1 << "    " << std::setw(9)
+					<< std::setprecision(1) << out_cont[i].e; // intermolecular_energies[i];
+			m.set(out_cont[i].c);
+			const model& r = ref ? ref.get() : best_mode_model;
+			const fl lb = m.rmsd_lower_bound(r);
+			const fl ub = m.rmsd_upper_bound(r);
+			log << "  " << std::setw(9) << std::setprecision(3) << lb << "  "
+					<< std::setw(9) << std::setprecision(3) << ub; // FIXME need user-readable error messages in case of failures
 
-		log.endl();
+			log.endl();
 
-		//dkoes - setup resultInfo
-		std::stringstream str;
-		m.write_model(str, i + 1, "");
-		results.push_back(resultInfo(out_cont[i].e, -1, str.str()));
-	}
-		write_all_output(m, out_cont, how_many, outstream);
+			//dkoes - setup resultInfo
+			std::stringstream str;
+			m.write_model(str, i + 1, "");
+			results.push_back(resultInfo(out_cont[i].e, -1, str.str()));
+		}
 		done(verbosity, log);
 
 		if (how_many < 1)
@@ -326,7 +333,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 void main_procedure(model& m, precalculate& prec,
 		const boost::optional<model>& ref, // m is non-const (FIXME?)
-		std::ostream& out, bool score_only, bool local_only,
+		bool score_only, bool local_only,
 		bool randomize_only, bool no_cache, const grid_dims& gd,
 		int exhaustiveness, minimization_params minparm,
 		const weighted_terms& wt, int cpu, int seed,
@@ -361,7 +368,6 @@ void main_procedure(model& m, precalculate& prec,
 	{
 		std::stringstream str;
 		fl e = do_randomization(m, str, corner1, corner2, seed, verbosity, log);
-		out << str.str();
 		results.push_back(resultInfo(e, 0, str.str()));
 		return;
 	}
@@ -370,7 +376,7 @@ void main_procedure(model& m, precalculate& prec,
 		non_cache nc(m, gd, &prec, slope); // if gd has 0 n's, this will not constrain anything
 		if (no_cache)
 		{
-			do_search(m, ref, wt, prec, nc, nc, out, corner1, corner2, par,
+			do_search(m, ref, wt, prec, nc, nc, corner1, corner2, par,
 					energy_range, num_modes, seed, verbosity, score_only,
 					local_only, out_min_rmsd, log, wt.unweighted_terms(),
 					results);
@@ -389,7 +395,7 @@ void main_procedure(model& m, precalculate& prec,
 			}
 			if (cache_needed)
 				done(verbosity, log);
-			do_search(m, ref, wt, prec, c, nc, out, corner1, corner2, par,
+			do_search(m, ref, wt, prec, c, nc, corner1, corner2, par,
 					energy_range, num_modes, seed, verbosity, score_only,
 					local_only, out_min_rmsd, log, wt.unweighted_terms(),
 					results);
@@ -426,15 +432,16 @@ options_occurrence get_occurrence(boost::program_options::variables_map& vm,
 {
 	options_occurrence tmp;
 	VINA_FOR_IN(i, d.options())
-	{	const std::string& str = (*d.options()[i]).long_name();
-	if ((str.substr(0,4) == "size" || str.substr(0,6) == "center"))
 	{
-		if (vm.count(str))
-		tmp.some = true;
-		else
-		tmp.all = false;
+		const std::string& str = (*d.options()[i]).long_name();
+		if ((str.substr(0, 4) == "size" || str.substr(0, 6) == "center"))
+		{
+			if (vm.count(str))
+				tmp.some = true;
+			else
+				tmp.all = false;
+		}
 	}
-}
 	return tmp;
 }
 
@@ -442,10 +449,12 @@ void check_occurrence(boost::program_options::variables_map& vm,
 		boost::program_options::options_description& d)
 {
 	VINA_FOR_IN(i, d.options())
-	{ const std::string& str = (*d.options()[i]).long_name();
-	if ((str.substr(0,4) == "size" || str.substr(0,6) == "center") && !vm.count(str))
-	std::cerr << "Required parameter --" << str << " is missing!\n";
-}
+	{
+		const std::string& str = (*d.options()[i]).long_name();
+		if ((str.substr(0, 4) == "size" || str.substr(0, 6) == "center")
+				&& !vm.count(str))
+			std::cerr << "Required parameter --" << str << " is missing!\n";
+	}
 }
 
 model parse_bundle(const std::string& rigid_name,
@@ -457,7 +466,7 @@ model parse_bundle(const std::string& rigid_name,
 										make_path(flex_name_opt.get())) :
 								parse_receptor_pdbqt(make_path(rigid_name));
 	VINA_FOR_IN(i, ligand_names)
-	tmp.append(parse_ligand_pdbqt(make_path(ligand_names[i])));
+		tmp.append(parse_ligand_pdbqt(make_path(ligand_names[i])));
 	return tmp;
 }
 
@@ -467,7 +476,7 @@ model parse_bundle(const std::vector<std::string>& ligand_names)
 	// FIXME check elsewhere
 	model tmp = parse_ligand_pdbqt(make_path(ligand_names[0]));
 	VINA_RANGE(i, 1, ligand_names.size())
-	tmp.append(parse_ligand_pdbqt(make_path(ligand_names[i])));
+		tmp.append(parse_ligand_pdbqt(make_path(ligand_names[i])));
 	return tmp;
 }
 
@@ -501,7 +510,7 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 		fl max_x = -HUGE_VAL, max_y = -HUGE_VAL, max_z = -HUGE_VAL;
 		fl num = 0;
 		FOR_ATOMS_OF_MOL(a, mol)
-		{
+				{
 			center_x += a->x();
 			center_y += a->y();
 			center_z += a->z();
@@ -686,7 +695,7 @@ Thank you!\n";
 		//options_description outputs("Output prefixes (optional - by default, input names are stripped of .pdbqt\nare used as prefixes. _001.pdbqt, _002.pdbqt, etc. are appended to the prefixes to produce the output names");
 		options_description outputs("Output (optional)");
 		outputs.add_options()
-		("out,o", value<std::string >(&out_name),
+		("out,o", value<std::string>(&out_name),
 				"output file name, format taken from file extension")
 		("log", value<std::string>(&log_name), "optionally, write log file");
 
@@ -919,12 +928,13 @@ Thank you!\n";
 			vec span(size_x, size_y, size_z);
 			vec center(center_x, center_y, center_z);
 			VINA_FOR_IN(i, gd)
-			{			gd[i].n = sz(std::ceil(span[i] / granularity));
-			fl real_span = granularity * gd[i].n;
-			gd[i].begin = center[i] - real_span / 2;
-			gd[i].end = gd[i].begin + real_span;
+			{
+				gd[i].n = sz(std::ceil(span[i] / granularity));
+				fl real_span = granularity * gd[i].n;
+				gd[i].begin = center[i] - real_span / 2;
+				gd[i].end = gd[i].begin + real_span;
+			}
 		}
-	}
 
 		if (vm.count("cpu") == 0)
 		{
@@ -965,19 +975,20 @@ Thank you!\n";
 
 		if (approx == SplineApprox)
 			prec = boost::shared_ptr<precalculate>(
-					new precalculate_splines(wt, minparms, approx_factor));
+					new precalculate_splines(wt, approx_factor));
 		else if (approx == LinearApprox)
 			prec = boost::shared_ptr<precalculate>(
-					new precalculate_linear(wt, minparms, approx_factor));
+					new precalculate_linear(wt, approx_factor));
 		else if (approx == Exact)
 			prec = boost::shared_ptr<precalculate>(
-					new precalculate_exact(wt, minparms, approx_factor));
+					new precalculate_exact(wt));
 
 		//setup single outfile
 		using namespace OpenBabel;
 		obmol_opener outfileopener;
 		OBConversion outconv;
-		if(out_name.length() > 0) {
+		if (out_name.length() > 0)
+		{
 			outfileopener.openForOutput(outconv, out_name);
 			VINA_CHECK(outconv.SetInFormat("PDBQT"));
 		}
@@ -1033,10 +1044,8 @@ Thank you!\n";
 
 				std::stringstream output;
 				std::vector<resultInfo> results;
-				stream<null_sink> nullOstream;
-				nullOstream.open(null_sink());
 
-				main_procedure(m, *prec, ref, nullOstream, score_only,
+				main_procedure(m, *prec, ref, score_only,
 						local_only, randomize_only,
 						false, // no_cache == false
 						gd, exhaustiveness, minparms, wt, cpu, seed, verbosity,

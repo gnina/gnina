@@ -34,4 +34,28 @@
 #define VINA_SHOW_FAST(x)  do { std::cout << #x << " = " << (x) <<      '\n'; } while(false)
 #define VINA_ESHOW(x)      do { std::cerr << #x << " = " << (x) <<      '\n'; } while(false)
 
+#ifdef __CDT_PARSER__
+#undef VINA_FOR_IN
+#undef VINA_FOR
+#undef VINA_U_FOR
+#undef VINA_RANGE
+#undef VINA_U_RANGE
+#undef VINA_I_RANGE
+#undef VINA_LOOP_CONST
+#undef VINA_LOOP
+
+//I don't know why the CDT parser chokes on the real versions of these, but it does
+#define VINA_FOR_IN(i, v) for(;;)
+#define VINA_FOR(i, n)    for(;;)
+#define VINA_U_FOR(i, n)  for(;;)
+
+#define VINA_RANGE(i, a, b)   for(;;)
+#define VINA_U_RANGE(i, a, b) for(;;)
+#define VINA_I_RANGE(i, a, b) for(;;)
+
+#define VINA_LOOP_CONST(t, i, v) for(;;)
+#define       VINA_LOOP(t, i, v) for(;;)
+
+#endif
+
 #endif 
