@@ -27,14 +27,20 @@
 #include "grid_dim.h"
 #include "array3d.h"
 
+//dkoes - this keeps track of what receptor atoms are possibly close enough
+//to grid points to matter and caches their indices
 struct szv_grid {
-	szv_grid(const model& m, const grid_dims& gd, fl cutoff_sqr);
+	szv_grid(const model& m_, const grid_dims& gd, fl cutoff_sqr);
 	const szv& possibilities(const vec& coords) const;
-	fl average_num_possibilities() const;
 private:
-	array3d<szv> m_data;
+	const model& m;
+	fl cutoff_sq;
+	szv relevant_indexes; //rec atoms within distance of docking grid
+	mutable array3d<szv> m_data; //this is updated as needed
 	vec m_init;
 	vec m_range;
+	szv empty; //referenced when there are no possiblities
+	const szv& get(sz i, sz j, sz k) const;
 	vec index_to_coord(sz i, sz j, sz k) const;
 };
 

@@ -23,7 +23,7 @@
 #include "szv_grid.h"
 #include "brick.h"
 
-szv_grid::szv_grid(const model& m, const grid_dims& gd, fl cutoff_sqr) : m_data(gd[0].n, gd[1].n, gd[2].n) {
+szv_grid::szv_grid(const model& m_, const grid_dims& gd, fl cutoff_sqr) : m(m_), cutoff_sq(cutoff_sqr), m_data(gd[0].n, gd[1].n, gd[2].n) {
 	vec end;
 	VINA_FOR_IN(i, gd) {
 		m_init[i] = gd[i].begin;
@@ -33,34 +33,39 @@ szv_grid::szv_grid(const model& m, const grid_dims& gd, fl cutoff_sqr) : m_data(
 
 	const sz nat = num_atom_types();
 
-	szv relevant_indexes;
 	VINA_FOR_IN(i, m.grid_atoms) {
 		const atom& a = m.grid_atoms[i];
-		if(a.get() < nat && brick_distance_sqr(m_init, end, a.coords) < cutoff_sqr)
+		if(a.get() < nat && !a.is_hydrogen() && brick_distance_sqr(m_init, end, a.coords) < cutoff_sq)
 			relevant_indexes.push_back(i);
 	}
+	//don't precompute - this is particularly inefficient for minimization
+}
 
-	VINA_FOR(x, m_data.dim0())
-	VINA_FOR(y, m_data.dim1())
-	VINA_FOR(z, m_data.dim2()) {
+//get the receptor atoms that are probably within the cutoff at index i,j,k
+//the result will be computed and memoized on demand
+const szv& szv_grid::get(sz x, sz y, sz z) const
+{
+	szv& possibles = m_data(x,y,z);
+	if(possibles.size() == 0) //not yet computed
+	{
 		VINA_FOR_IN(ri, relevant_indexes) {
 			const sz i = relevant_indexes[ri];
 			const atom& a = m.grid_atoms[i];
-			if(brick_distance_sqr(index_to_coord(x, y, z), index_to_coord(x+1, y+1, z+1), a.coords) < cutoff_sqr)
-				m_data(x, y, z).push_back(i);
+			if(brick_distance_sqr(index_to_coord(x, y, z), index_to_coord(x+1, y+1, z+1), a.coords) < cutoff_sq)
+				possibles.push_back(i);
 		}
+		if(possibles.size() == 0) //mark that it is suppose to be empty
+			possibles.push_back(UINT_MAX);
 	}
+	if(possibles.size() == 1 && possibles[0] == UINT_MAX)
+	{
+		//already computed, but nothing was there
+		return empty;
+	}
+	return possibles;
 }
 
-fl szv_grid::average_num_possibilities() const {
-	sz counter = 0;
-	VINA_FOR(x, m_data.dim0())
-	VINA_FOR(y, m_data.dim1())
-	VINA_FOR(z, m_data.dim2()) {
-		counter += m_data(x, y, z).size();
-	}
-	return fl(counter) / (m_data.dim0() * m_data.dim1() * m_data.dim2());
-}
+
 
 const szv& szv_grid::possibilities(const vec& coords) const {
 	boost::array<sz, 3> index;
@@ -70,7 +75,7 @@ const szv& szv_grid::possibilities(const vec& coords) const {
 		const fl tmp = (coords[i] - m_init[i]) * m_data.dim(i) / m_range[i];
 		index[i] = fl_to_sz(tmp, m_data.dim(i) - 1);
 	}
-	return m_data(index[0], index[1], index[2]);
+	return get(index[0], index[1], index[2]);
 }
 
 vec szv_grid::index_to_coord(sz i, sz j, sz k) const {
