@@ -152,7 +152,6 @@ void cache::populate(const model& m, const precalculate& p,
 				const sz i = possibilities[possibilities_i];
 				const atom& a = m.grid_atoms[i];
 				const smt t1 = a.get();
-				if(t1 >= nat || is_hydrogen(t1)) continue;
 				const fl r2 = vec_distance_sqr(a.coords, probe_coords);
 				if(r2 <= cutoff_sqr)
 				{

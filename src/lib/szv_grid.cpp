@@ -31,11 +31,9 @@ szv_grid::szv_grid(const model& m_, const grid_dims& gd, fl cutoff_sqr) : m(m_),
 	}
 	m_range = end - m_init;
 
-	const sz nat = num_atom_types();
-
 	VINA_FOR_IN(i, m.grid_atoms) {
 		const atom& a = m.grid_atoms[i];
-		if(a.get() < nat && !a.is_hydrogen() && brick_distance_sqr(m_init, end, a.coords) < cutoff_sq)
+		if(a.acceptable_type() && !a.is_hydrogen() && brick_distance_sqr(m_init, end, a.coords) < cutoff_sq)
 			relevant_indexes.push_back(i);
 	}
 	//don't precompute - this is particularly inefficient for minimization
@@ -51,8 +49,11 @@ const szv& szv_grid::get(sz x, sz y, sz z) const
 		VINA_FOR_IN(ri, relevant_indexes) {
 			const sz i = relevant_indexes[ri];
 			const atom& a = m.grid_atoms[i];
-			if(brick_distance_sqr(index_to_coord(x, y, z), index_to_coord(x+1, y+1, z+1), a.coords) < cutoff_sq)
-				possibles.push_back(i);
+			if(!a.is_hydrogen() && a.acceptable_type())
+			{
+				if(brick_distance_sqr(index_to_coord(x, y, z), index_to_coord(x+1, y+1, z+1), a.coords) < cutoff_sq)
+					possibles.push_back(i);
+			}
 		}
 		if(possibles.size() == 0) //mark that it is suppose to be empty
 			possibles.push_back(UINT_MAX);
@@ -67,6 +68,8 @@ const szv& szv_grid::get(sz x, sz y, sz z) const
 
 
 
+//return receptor atoms (heavy atoms only) that may possibly
+//be close enough to coords to matter
 const szv& szv_grid::possibilities(const vec& coords) const {
 	boost::array<sz, 3> index;
 	VINA_FOR_IN(i, index) {

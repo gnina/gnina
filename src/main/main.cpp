@@ -133,6 +133,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	change g(m.get_size());
 	quasi_newton quasi_newton_par(minparm);
 	const fl slope_orig = nc.slope;
+	//try 5 times to get ligand into box
 	VINA_FOR(p, 5)
 	{
 		nc.slope = 100 * std::pow(10.0, 2.0 * p);

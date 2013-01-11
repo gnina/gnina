@@ -31,119 +31,149 @@ non_cache::non_cache(const model& m, const grid_dims& gd_,
 }
 
 fl non_cache::eval(const model& m, fl v) const
-{ // clean up
+		{ // clean up
 	fl e = 0;
 	const fl cutoff_sqr = p->cutoff_sqr();
 
 	sz n = num_atom_types();
 
-	VINA_FOR(i, m.num_movable_atoms()){
-	fl this_e = 0;
-	fl out_of_bounds_penalty = 0;
-	const atom& a = m.atoms[i];
-	smt t1 = a.get();
-	if(t1 >= n || is_hydrogen(t1)) continue;
-	const vec& a_coords = m.coords[i];
-	vec adjusted_a_coords; adjusted_a_coords = a_coords;
-	VINA_FOR_IN(j, gd)
+	VINA_FOR(i, m.num_movable_atoms())
 	{
-		if(gd[j].n > 0)
+		fl this_e = 0;
+		fl out_of_bounds_penalty = 0;
+		const atom& a = m.atoms[i];
+		smt t1 = a.get();
+		if (t1 >= n || is_hydrogen(t1))
+			continue;
+		const vec& a_coords = m.coords[i];
+		vec adjusted_a_coords;
+		adjusted_a_coords = a_coords;
+		VINA_FOR_IN(j, gd)
 		{
-			if (a_coords[j] < gd[j].begin)
-			{	adjusted_a_coords[j] = gd[j].begin; out_of_bounds_penalty += std::abs(a_coords[j] - gd[j].begin);}
-			else if(a_coords[j] > gd[j].end )
-			{	adjusted_a_coords[j] = gd[j] .end; out_of_bounds_penalty += std::abs(a_coords[j] - gd[j] .end);}
+			if (gd[j].n > 0)
+			{
+				if (a_coords[j] < gd[j].begin)
+				{
+					adjusted_a_coords[j] = gd[j].begin;
+					out_of_bounds_penalty += std::abs(
+							a_coords[j] - gd[j].begin);
+				}
+				else if (a_coords[j] > gd[j].end)
+				{
+					adjusted_a_coords[j] = gd[j].end;
+					out_of_bounds_penalty += std::abs(a_coords[j] - gd[j].end);
+				}
+			}
 		}
-	}
-	out_of_bounds_penalty *= slope;
+		out_of_bounds_penalty *= slope;
 
-	const szv& possibilities = sgrid.possibilities(adjusted_a_coords);
+		const szv& possibilities = sgrid.possibilities(adjusted_a_coords);
 
-	VINA_FOR_IN(possibilities_j, possibilities)
-	{
-		const sz j = possibilities[possibilities_j];
-		const atom& b = m.grid_atoms[j];
-		smt t2 = b.get();
-		if(t2 >= n || is_hydrogen(t2)) continue;
-		vec r_ba; r_ba = adjusted_a_coords - b.coords; // FIXME why b-a and not a-b ?
-		fl r2 = sqr(r_ba);
-		if(r2 < cutoff_sqr)
+		VINA_FOR_IN(possibilities_j, possibilities)
 		{
-			this_e += p->eval(a,b,r2);
+			const sz j = possibilities[possibilities_j];
+			const atom& b = m.grid_atoms[j];
+			smt t2 = b.get();
+			vec r_ba;
+			r_ba = adjusted_a_coords - b.coords; // FIXME why b-a and not a-b ?
+			fl r2 = sqr(r_ba);
+			if (r2 < cutoff_sqr)
+			{
+				this_e += p->eval(a, b, r2);
+			}
 		}
+		curl(this_e, v);
+		e += this_e + out_of_bounds_penalty;
 	}
-	curl(this_e, v);
-	e += this_e + out_of_bounds_penalty;
-}
 	return e;
 }
 
 bool non_cache::within(const model& m, fl margin) const
 {
-	VINA_FOR(i, m.num_movable_atoms()){
-	if(m.atoms[i].is_hydrogen()) continue;
-	const vec& a_coords = m.coords[i];
-	VINA_FOR_IN(j, gd)
-	if(gd[j].n > 0)
-	if(a_coords[j] < gd[j].begin - margin || a_coords[j] > gd[j].end + margin)
-	return false;
-}
-return true;
+	VINA_FOR(i, m.num_movable_atoms())
+	{
+		if (m.atoms[i].is_hydrogen())
+			continue;
+		const vec& a_coords = m.coords[i];
+		VINA_FOR_IN(j, gd)
+			if (gd[j].n > 0)
+				if (a_coords[j] < gd[j].begin - margin
+						|| a_coords[j] > gd[j].end + margin)
+					return false;
+	}
+	return true;
 }
 
 fl non_cache::eval_deriv(model& m, fl v) const
-{ // clean up
+		{ // clean up
 	fl e = 0;
 	const fl cutoff_sqr = p->cutoff_sqr();
 
 	sz n = num_atom_types();
 
-	VINA_FOR(i, m.num_movable_atoms()){
-	fl this_e = 0;
-	vec deriv(0, 0, 0);
-	vec out_of_bounds_deriv(0, 0, 0);
-	fl out_of_bounds_penalty = 0;
-	const atom& a = m.atoms[i];
-	smt t1 = a.get();
-	if(t1 >= n || is_hydrogen(t1))
-	{	m.minus_forces[i].assign(0); continue;}
-	const vec& a_coords = m.coords[i];
-	vec adjusted_a_coords; adjusted_a_coords = a_coords;
-	VINA_FOR_IN(j, gd)
+	VINA_FOR(i, m.num_movable_atoms())
 	{
-		if(gd[j].n > 0)
+		fl this_e = 0;
+		vec deriv(0, 0, 0);
+		vec out_of_bounds_deriv(0, 0, 0);
+		fl out_of_bounds_penalty = 0;
+		const atom& a = m.atoms[i];
+		smt t1 = a.get();
+		if (t1 >= n || is_hydrogen(t1))
 		{
-			if (a_coords[j] < gd[j].begin)
-			{	adjusted_a_coords[j] = gd[j].begin; out_of_bounds_deriv[j] = -1; out_of_bounds_penalty += std::abs(a_coords[j] - gd[j].begin);}
-			else if(a_coords[j] > gd[j].end )
-			{	adjusted_a_coords[j] = gd[j] .end; out_of_bounds_deriv[j] = 1; out_of_bounds_penalty += std::abs(a_coords[j] - gd[j] .end);}
+			m.minus_forces[i].assign(0);
+			continue;
 		}
-	}
-	out_of_bounds_penalty *= slope;
-	out_of_bounds_deriv *= slope;
-
-	const szv& possibilities = sgrid.possibilities(adjusted_a_coords);
-
-	VINA_FOR_IN(possibilities_j, possibilities)
-	{
-		const sz j = possibilities[possibilities_j];
-		const atom& b = m.grid_atoms[j];
-		smt t2 = b.get();
-		if(t2 >= n || is_hydrogen(t2)) continue;
-		vec r_ba; r_ba = adjusted_a_coords - b.coords;
-		fl r2 = sqr(r_ba);
-		if(r2 < cutoff_sqr)
+		const vec& a_coords = m.coords[i];
+		vec adjusted_a_coords;
+		adjusted_a_coords = a_coords;
+		VINA_FOR_IN(j, gd)
 		{
-			//dkoes - the "derivative" value returned by eval_deriv
-			//is normalized by r (dor = derivative over r?)
-			pr e_dor = p->eval_deriv(a, b, r2);
-			this_e += e_dor.first;
-			deriv += e_dor.second * r_ba;
+			if (gd[j].n > 0)
+			{
+				if (a_coords[j] < gd[j].begin)
+				{
+					adjusted_a_coords[j] = gd[j].begin;
+					out_of_bounds_deriv[j] = -1;
+					out_of_bounds_penalty += std::abs(
+							a_coords[j] - gd[j].begin);
+				}
+				else if (a_coords[j] > gd[j].end)
+				{
+					adjusted_a_coords[j] = gd[j].end;
+					out_of_bounds_deriv[j] = 1;
+					out_of_bounds_penalty += std::abs(a_coords[j] - gd[j].end);
+				}
+			}
 		}
+		out_of_bounds_penalty *= slope;
+		out_of_bounds_deriv *= slope;
+
+		const szv& possibilities = sgrid.possibilities(adjusted_a_coords);
+sz baddist = 0;
+		VINA_FOR_IN(possibilities_j, possibilities)
+		{
+			const sz j = possibilities[possibilities_j];
+			const atom& b = m.grid_atoms[j];
+			smt t2 = b.get();
+			vec r_ba;
+			r_ba = adjusted_a_coords - b.coords;
+			fl r2 = sqr(r_ba);
+			if (r2 < cutoff_sqr)
+			{
+				//dkoes - the "derivative" value returned by eval_deriv
+				//is normalized by r (dor = derivative over r?)
+				pr e_dor = p->eval_deriv(a, b, r2);
+				this_e += e_dor.first;
+				deriv += e_dor.second * r_ba;
+			}
+			else
+				baddist++;
+		}
+	//	std::cout << "POSS " << possibilities.size() << " " << baddist << "\n";
+		curl(this_e, deriv, v);
+		m.minus_forces[i] = deriv + out_of_bounds_deriv;
+		e += this_e + out_of_bounds_penalty;
 	}
-	curl(this_e, deriv, v);
-	m.minus_forces[i] = deriv + out_of_bounds_deriv;
-	e += this_e + out_of_bounds_penalty;
-}
 	return e;
 }
