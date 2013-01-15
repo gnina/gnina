@@ -178,7 +178,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		}
 		alpha2 = alpha;
 		f2 = f1;
-		alpha = std::max(tmplam, 0.1 * alpha); //never smaller than a tenth
+		alpha = std::max(tmplam, (fl)0.1 * alpha); //never smaller than a tenth
 	}
 }
 

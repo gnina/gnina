@@ -14,17 +14,18 @@
 #include "Eigen/Core"
 #include "Eigen/Dense"
 
+typedef fl fltype;
 class Spline
 {
 	struct SplineData
 	{
-		fl x, a, b, c, d;
+		fltype x, a, b, c, d;
 	};
 
 	//vector of calculated spline data
 	std::vector<SplineData> data;
-	fl cutoff;
-	fl fraction;
+	fltype cutoff;
+	fltype fraction;
 
 public:
 
@@ -41,12 +42,12 @@ public:
 		fraction = points[1].first - points[0].first;
 		const unsigned e = points.size() - 1;
 
-		typedef Eigen::Matrix<fl, Eigen::Dynamic, Eigen::Dynamic> flMatrix;
+		typedef Eigen::Matrix<fltype, Eigen::Dynamic, Eigen::Dynamic> flMatrix;
 		flMatrix A = flMatrix::Zero(points.size(), points.size());
-		fl hlast = points[e].first - points[e - 1].first;
+		fltype hlast = points[e].first - points[e - 1].first;
 		for (unsigned i = 1; i < e; ++i)
 		{
-			fl hi = fraction;
+			fltype hi = fraction;
 			//last point may not have fixed delta due to smoothing
 			if (i == e - 1)
 				hi = hlast;
@@ -55,12 +56,12 @@ public:
 			A(i + 1, i) = hi;
 		}
 
-		typedef Eigen::Matrix<fl, 1, Eigen::Dynamic> flVector;
+		typedef Eigen::Matrix<fltype, 1, Eigen::Dynamic> flVector;
 		flVector C = flVector::Zero(points.size());
 
 		for (unsigned i = 1; i < e; ++i)
 		{
-			fl hi = fraction;
+			fltype hi = fraction;
 			if (i == e - 1)
 				hi = hlast;
 
@@ -87,7 +88,7 @@ public:
 		data.resize(e);
 		for (unsigned i = 0; i < e; ++i)
 		{
-			fl hi = fraction;
+			fltype hi = fraction;
 			if (i == e - 1)
 				hi = hlast;
 			data[i].x = points[i].first;

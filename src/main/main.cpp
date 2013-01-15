@@ -362,8 +362,9 @@ void main_procedure(model& m, precalculate& prec,
 	par.mc.hunt_cap = vec(10, 10, 10);
 	par.num_tasks = exhaustiveness;
 	par.num_threads = cpu;
-	par.display_progress = (verbosity > 1);
+	par.display_progress = true;
 
+	szv_grid_cache gridcache(m, prec.cutoff_sqr());
 	const fl slope = 1e6; // FIXME: too large? used to be 100
 	if (randomize_only)
 	{
@@ -374,7 +375,7 @@ void main_procedure(model& m, precalculate& prec,
 	}
 	else
 	{
-		non_cache nc(m, gd, &prec, slope); // if gd has 0 n's, this will not constrain anything
+		non_cache nc(gridcache, gd, &prec, slope); // if gd has 0 n's, this will not constrain anything
 		if (no_cache)
 		{
 			do_search(m, ref, wt, prec, nc, nc, corner1, corner2, par,

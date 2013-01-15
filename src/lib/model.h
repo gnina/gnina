@@ -173,6 +173,7 @@ private:
 	friend struct naive_non_cache;
 	friend struct cache;
 	friend struct szv_grid;
+	friend class szv_grid_cache;
 	friend struct terms;
 	friend struct conf_independent_inputs;
 	friend struct appender_info;

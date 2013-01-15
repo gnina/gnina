@@ -136,8 +136,8 @@ void cache::populate(const model& m, const precalculate& p,
 
 	const fl cutoff_sqr = p.cutoff_sqr();
 
-	grid_dims gd_reduced = szv_grid_dims(gd);
-	szv_grid ig(m, gd_reduced, cutoff_sqr);
+	szv_grid_cache igcache(m, cutoff_sqr);
+	szv_grid ig(igcache, gd);
 
 	VINA_FOR(x, g.m_data.dim0()){
 	VINA_FOR(y, g.m_data.dim1())

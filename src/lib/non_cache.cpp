@@ -23,9 +23,9 @@
 #include "non_cache.h"
 #include "curl.h"
 
-non_cache::non_cache(const model& m, const grid_dims& gd_,
+non_cache::non_cache(szv_grid_cache& gcache, const grid_dims& gd_,
 		const precalculate* p_, fl slope_) :
-		sgrid(m, szv_grid_dims(gd_), p_->cutoff_sqr()), gd(gd_), p(p_), slope(
+		sgrid(gcache, gd_), gd(gd_), p(p_), slope(
 				slope_)
 {
 }
@@ -150,7 +150,6 @@ fl non_cache::eval_deriv(model& m, fl v) const
 		out_of_bounds_deriv *= slope;
 
 		const szv& possibilities = sgrid.possibilities(adjusted_a_coords);
-sz baddist = 0;
 		VINA_FOR_IN(possibilities_j, possibilities)
 		{
 			const sz j = possibilities[possibilities_j];
@@ -167,10 +166,7 @@ sz baddist = 0;
 				this_e += e_dor.first;
 				deriv += e_dor.second * r_ba;
 			}
-			else
-				baddist++;
 		}
-	//	std::cout << "POSS " << possibilities.size() << " " << baddist << "\n";
 		curl(this_e, deriv, v);
 		m.minus_forces[i] = deriv + out_of_bounds_deriv;
 		e += this_e + out_of_bounds_penalty;
