@@ -224,6 +224,9 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		else
 			alpha = fast_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
 
+		if(alpha == 0)
+			break; //line direction was wrong, give up
+
 		Change y(g_new);
 		subtract_change(y, g, n);
 
@@ -233,8 +236,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 
 		if (params.early_term)
 		{
-			//dkoes - since the gradient check doesn't actually work, use the
-			//progress in reducing the function value as an indication of when to stop
+			//dkoes - use the progress in reducing the function value as an indication of when to stop
 			fl diff = prevf0 - f0;
 			if (fabs(diff) < 1e-5) //arbitrary cutoff
 			{
@@ -244,13 +246,8 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 
 		g = g_new; // dkoes - check the convergence of the new gradient
 
-		//dkoes - in practice the gradient never seems to converge to zero
-		//(it is set to zero when accurate linesearch fails though)
 		fl gradnormsq = scalar_product(g, g, n);
-//std::cout.precision(10);
-//std::cout << "\n" << step << " f " << f0 << " grad " << sqrt(gradnormsq) << " alpha " << alpha << "\n";
-//g.print();
-//x.print();
+
 		if (!(gradnormsq >= 1e-5 * 1e-5))
 		{
 			break; // breaks for nans too // FIXME !!??
@@ -264,6 +261,110 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		}
 
 		bool h_updated = bfgs_update(h, p, y, alpha);
+	}
+
+	if (!(f0 <= f_orig))
+	{ // succeeds for nans too
+		f0 = f_orig;
+		x = x_orig;
+		g = g_orig;
+	}
+	return f0;
+}
+
+//set g = g_new + B*g
+template<typename Change>
+void conjugate_update(Change& s, fl B, const Change& g_new, sz n)
+{
+	VINA_FOR(i, n)
+	{
+		s(i) = -g_new(i) + B*s(i);
+	}
+}
+
+//dkoes - conjugate gradient method, from
+//http://en.wikipedia.org/wiki/Nonlinear_conjugate_gradient_method
+//This does not do nearly as well either in terms of convergence or performance.
+//This may be partly due to an inadequate line search method or a buggy
+//implementation, but I don't feel compelled to invest any more time into it.
+template<typename F, typename Conf, typename Change>
+fl conjgrad(F& f, Conf& x, Change& g, const fl average_required_improvement,
+		const minimization_params& params)
+{ // x is I/O, final value is returned
+	sz n = g.num_floats();
+
+	Change g_new(g);
+	Conf x_new(x);
+	fl f0 = f(x, g);
+
+	fl f_orig = f0;
+	Change g_orig(g);
+	Conf x_orig(x);
+	Change s(g);
+	s.invert();
+
+	VINA_U_FOR(step, params.maxiters)
+	{
+		fl f1 = 0;
+		fl alpha;
+
+		//update position with line search and calculate new gradient
+		//WARNING: NR says this method isn't accurate enought
+		alpha = accurate_line_search(f, n, x, g, f0, s, x_new, g_new, f1);
+
+		//compute B, multiplier of previous gradient
+
+		fl denom = scalar_product(g, g, n);
+
+		if(!(denom >= 1e-5*1e-5))
+		{
+			break; //very small gradient, consider ourselves converged
+		}
+
+		if(alpha == 0) {
+			//line direction wrong, giveup
+			break;
+		}
+
+		//use Polak-Ribiere:
+		/*
+		Change y(g_new);
+		subtract_change(y, g, n);
+		fl numerator = scalar_product(g_new, y, n);
+		fl B = numerator/denom;
+		*/
+		//use Fletcher-REeves
+		fl numerator = scalar_product(g_new, g_new, n);
+		fl B = numerator/denom;
+		B = std::max((fl)0.0, B);
+
+		//update direction
+		//s = -g_new + s*B
+		conjugate_update(s, B, g_new, n);
+
+		fl prevf0 = f0;
+		f0 = f1;
+		x = x_new;
+		g = g_new;
+
+		if (params.early_term)
+		{
+			//dkoes - use the
+			//progress in reducing the function value as an indication of when to stop
+			fl diff = prevf0 - f0;
+			if (fabs(diff) < 1e-5) //arbitrary cutoff
+			{
+				break;
+			}
+		}
+
+		//check convergence of new gradient
+		fl gradnormsq = scalar_product(g, g, n);
+		if (!(gradnormsq >= 1e-5 * 1e-5))
+		{
+			break; // breaks for nans too // FIXME !!??
+		}
+
 	}
 
 	if (!(f0 <= f_orig))
