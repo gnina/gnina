@@ -185,9 +185,11 @@ void do_search(model& m, const boost::optional<model>& ref,
 	const vec authentic_v(1000, 1000, 1000);
 	if (score_only)
 	{
-		fl intramolecular_energy = m.eval_intramolecular(exact_prec, authentic_v, c);
+		fl intramolecular_energy = m.eval_intramolecular(exact_prec,
+				authentic_v, c);
 		naive_non_cache nnc(&exact_prec); // for out of grid issues
-		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c, intramolecular_energy);
+		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
+				intramolecular_energy);
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
 		log.endl();
@@ -228,9 +230,11 @@ void do_search(model& m, const boost::optional<model>& ref,
 		//be as exact as possible for final score
 		naive_non_cache nnc(&exact_prec); // for out of grid issues
 
-		fl intramolecular_energy = m.eval_intramolecular(exact_prec, authentic_v,
+		fl intramolecular_energy = m.eval_intramolecular(exact_prec,
+				authentic_v,
 				out.c);
-		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, out.c,intramolecular_energy);
+		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, out.c,
+				intramolecular_energy);
 
 		vecv newcoords = m.get_heavy_atom_movable_coords();
 		assert(newcoords.size() == origcoords.size());
@@ -240,7 +244,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 		}
 		rmsd /= newcoords.size();
 		rmsd = sqrt(rmsd);
-		log << "Affinity: " << std::fixed << std::setprecision(5) << e << "  " << intramolecular_energy
+		log << "Affinity: " << std::fixed << std::setprecision(5) << e << "  "
+				<< intramolecular_energy
 				<< " (kcal/mol)\nRMSD: " << rmsd;
 		;
 		log.endl();
@@ -601,6 +606,28 @@ std::istream& operator>>(std::istream& in, ApproxType& type)
 	else
 		throw validation_error(validation_error::invalid_option_value);
 	return in;
+}
+
+//helper function for setting molecular data that will wrap data in remark
+//if output format is pdb; copy by value because we might change things
+static void setMolData(OpenBabel::OBFormat *format, OpenBabel::OBMol& mol,
+		std::string attr,  std::string value)
+{
+	using namespace OpenBabel;
+	OBPairData* sddata = new OBPairData();
+	if (strcmp(format->GetID(),"pdb") == 0 ||
+			strcmp(format->GetID(), "ent") == 0 ||
+			strcmp(format->GetID(),"pdbqt") == 0)
+	{
+		//note that pdbqt currently ignores these.. hopefully this will be fixed
+		//put attribute name into value so attr can be REMARK
+		value = " " +attr + " " + value;
+		attr = "REMARK";
+	}
+
+	sddata->SetAttribute(attr);
+	sddata->SetValue(value);
+	mol.SetData(sddata);
 }
 
 int main(int argc, char* argv[])
@@ -1061,20 +1088,18 @@ Thank you!\n";
 						if (results[j].mol.length() > 0)
 							outconv.ReadString(&mol, results[j].mol); //otherwise keep orig mol
 						mol.DeleteData(OBGenericDataType::PairData); //remove remarks
-						OBPairData* sddata = new OBPairData();
-						sddata->SetAttribute("minimizedAffinity");
-						sddata->SetValue(
+
+						setMolData(outconv.GetOutFormat(), mol,
+								"minimizedAffinity",
 								boost::lexical_cast<std::string>(
 										results[j].energy));
-						mol.SetData(sddata);
+
 						if (results[j].rmsd >= 0)
 						{
-							OBPairData* rmsddata = new OBPairData();
-							rmsddata->SetAttribute("minimizedRMSD");
-							rmsddata->SetValue(
+							setMolData(outconv.GetOutFormat(), mol,
+									"minimizedRMSD",
 									boost::lexical_cast<std::string>(
 											results[j].rmsd));
-							mol.SetData(rmsddata);
 						}
 						mol.SetTitle(name); //otherwise lose space separated names
 						outconv.Write(&mol);

@@ -7,7 +7,8 @@ standard Vina (version 1.1.2) include:
  -support for custom, user-parameterized scoring functions (see --custom_scoring)
  -automatic box creation based on a user-specified bound ligand
  -allow the output of more than 20 docking poses
-
+ -vastly improved minimization algorithms (--minimize goes to convergence)
+ 
 For workflows where AutoDock Vina is used for minimization (local_only) 
 as opposed to of docking, these changes make Vina much easer to use and 
 10-20x faster. Docking performance is about the same since partial charge 
@@ -33,26 +34,39 @@ Search space (required):
   --autobox_add arg     Amount of buffer space to add to auto-generated box
 
 Scoring and minimization options:
-  --custom_scoring arg  custom scoring function file
-  --score_only          score provided ligand pose
-  --local_only          local search only using autobox (energy minimization)
-  --randomize_only      generate random poses, attempting to avoid clashes
+  --custom_scoring arg      custom scoring function file
+  --score_only              score provided ligand pose
+  --local_only              local search only using autobox (you probably want 
+                            to use --minimize)
+  --minimize                energy minimization
+  --randomize_only          generate random poses, attempting to avoid clashes
+  --minimize_iters arg (=0) number iterations of steepest descent; default 
+                            scales with rotors and usually isn't sufficient for
+                            convergence
+  --accurate_line           use accurate line search
+  --minimize_early_term     Stop minimization before convergence conditions are
+                            fully met.
+  --approximation arg       approximation (linear, spline, or exact) to use
+  --factor arg              approximation factor: higher results in a 
+                            finer-grained approximation
 
 Output (optional):
-  -o [ --out ] arg      output models, the default is chosen based on the 
-                        ligand file name
+  -o [ --out ] arg      output file name, format taken from file extension
   --log arg             optionally, write log file
 
 Misc (optional):
-  --cpu arg                 the number of CPUs to use (the default is to try to
-                            detect the number of CPUs or, failing that, use 1)
-  --seed arg                explicit random seed
-  --exhaustiveness arg (=8) exhaustiveness of the global search (roughly 
-                            proportional to time)
-  --num_modes arg (=9)      maximum number of binding modes to generate
-  --energy_range arg (=3)   maximum energy difference between the best binding 
-                            mode and the worst one displayed (kcal/mol)
-  -q [ --quiet ]            Suppress output messages
+  --cpu arg                  the number of CPUs to use (the default is to try 
+                             to detect the number of CPUs or, failing that, use
+                             1)
+  --seed arg                 explicit random seed
+  --exhaustiveness arg (=8)  exhaustiveness of the global search (roughly 
+                             proportional to time)
+  --num_modes arg (=9)       maximum number of binding modes to generate
+  --energy_range arg (=3)    maximum energy difference between the best binding
+                             mode and the worst one displayed (kcal/mol)
+  --min_rmsd_filter arg (=1) rmsd value used to filter final poses to remove 
+                             redundancy
+  -q [ --quiet ]             Suppress output messages
 
 Configuration file (optional):
   --config arg          the above options can be put here
