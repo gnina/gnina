@@ -8,6 +8,8 @@
 #define SMINA_SCORING_FUNCTION_H
 
 #include "atom_base.h"
+#include <cstdlib>
+#include <cstring>
 
 //a charge dependent term must be separated into components
 //that are dependent on different charges to enable precalculation
