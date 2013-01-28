@@ -39,7 +39,7 @@ fl grid::evaluate(const atom& a, const vec& location, fl slope, fl c,
 		{
 			vec cderiv(0,0,0);
 			ret += a.charge * evaluate_aux(chargedata, location, slope, c, &cderiv);
-			*deriv += cderiv;
+			*deriv += a.charge*cderiv;
 		}
 	}
 	return ret;
