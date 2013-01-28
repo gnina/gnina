@@ -50,9 +50,13 @@ public:
 
 	result_components(const flv& vals)
 	{
-		assert(vals.size() == Last);
-		for(sz i = 0; i < Last; i++)
-			components[i] = vals[i];
+		sz valn = vals.size();
+		for(sz i = 0; i < Last; i++) {
+			if(i < valn)
+				components[i] = vals[i];
+			else
+				components[i] = 0;
+		}
 	}
 
 	fl eval(const atom_base& a, const atom_base& b) const

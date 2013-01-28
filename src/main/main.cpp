@@ -611,17 +611,17 @@ std::istream& operator>>(std::istream& in, ApproxType& type)
 //helper function for setting molecular data that will wrap data in remark
 //if output format is pdb; copy by value because we might change things
 static void setMolData(OpenBabel::OBFormat *format, OpenBabel::OBMol& mol,
-		std::string attr,  std::string value)
+		std::string attr, std::string value)
 {
 	using namespace OpenBabel;
 	OBPairData* sddata = new OBPairData();
-	if (strcmp(format->GetID(),"pdb") == 0 ||
+	if (strcmp(format->GetID(), "pdb") == 0 ||
 			strcmp(format->GetID(), "ent") == 0 ||
-			strcmp(format->GetID(),"pdbqt") == 0)
+			strcmp(format->GetID(), "pdbqt") == 0)
 	{
 		//note that pdbqt currently ignores these.. hopefully this will be fixed
 		//put attribute name into value so attr can be REMARK
-		value = " " +attr + " " + value;
+		value = " " + attr + " " + value;
 		attr = "REMARK";
 	}
 
@@ -1033,7 +1033,6 @@ Thank you!\n";
 			OBConversion conv;
 			obmol_opener infileopener;
 			infileopener.openForInput(conv, ligand_name);
-			OBFormat *format = conv.FormatFromExt(ligand_name);
 			VINA_CHECK(conv.SetOutFormat("PDBQT"));
 
 			//process input molecules one at a time
@@ -1041,18 +1040,26 @@ Thank you!\n";
 			unsigned i = 0;
 			while (conv.Read(&mol))
 			{
-				mol.AddHydrogens();
-				std::string name = mol.GetTitle();
-				std::string pdbqt = conv.WriteString(&mol);
-				std::stringstream pdbqtStream(pdbqt);
-
 				model m = initm;
-
+				std::string name = mol.GetTitle();
 				try
 				{
-					m.append(
-							parse_ligand_stream_pdbqt(ligand_name,
-									pdbqtStream));
+					//this is suboptimal: do not read/write pdbqt with openbabel
+					//because it will lose information about rigid bonds
+					if (lpath.extension() == ".pdbqt")
+					{
+						m.append(parse_ligand_pdbqt(lpath));
+					}
+					else
+					{
+						mol.AddHydrogens();
+						std::string pdbqt = conv.WriteString(&mol);
+						std::stringstream pdbqtStream(pdbqt);
+
+						m.append(
+								parse_ligand_stream_pdbqt(ligand_name,
+										pdbqtStream));
+					}
 				} catch (parse_error& e)
 				{
 					std::cerr << "\n\nParse error with molecule "
