@@ -42,51 +42,56 @@ typedef boost::archive::text_oarchive oarchive;
 #include "szv_grid.h"
 
 cache::cache(const std::string& scoring_function_version_, const grid_dims& gd_,
-		fl slope_) : scoring_function_version(scoring_function_version_), gd(gd_), slope(
+		fl slope_) :
+		scoring_function_version(scoring_function_version_), gd(gd_), slope(
 				slope_), grids(num_atom_types())
 {
 }
 
 fl cache::eval(const model& m, fl v) const
-{ // needs m.coords
+		{ // needs m.coords
 	fl e = 0;
 	sz nat = num_atom_types();
 
-	VINA_FOR(i, m.num_movable_atoms()){
-	const atom& a = m.atoms[i];
-	smt t = a.get();
-	if(t >= nat || is_hydrogen(t)) continue;
-	const grid& g = grids[t];
-	assert(g.initialized());
-	e += g.evaluate(m.coords[i], slope, v);
-}
+	VINA_FOR(i, m.num_movable_atoms())
+	{
+		const atom& a = m.atoms[i];
+		smt t = a.get();
+		if (t >= nat || is_hydrogen(t))
+			continue;
+		const grid& g = grids[t];
+		assert(g.initialized());
+		e += g.evaluate(a, m.coords[i], slope, v);
+	}
 	return e;
 }
 
 fl cache::eval_deriv(model& m, fl v) const
-{ // needs m.coords, sets m.minus_forces
+		{ // needs m.coords, sets m.minus_forces
 	fl e = 0;
 	sz nat = num_atom_types();
 
-	VINA_FOR(i, m.num_movable_atoms()){
-	const atom& a = m.atoms[i];
-	smt t = a.get();
-	if(t >= nat || is_hydrogen(t))
-	{	m.minus_forces[i].assign(0); continue;}
-	const grid& g = grids[t];
-	assert(g.initialized());
-	vec deriv;
-	e += g.evaluate(m.coords[i], slope, v, deriv);
-	m.minus_forces[i] = deriv;
-}
+	VINA_FOR(i, m.num_movable_atoms())
+	{
+		const atom& a = m.atoms[i];
+		smt t = a.get();
+		if (t >= nat || is_hydrogen(t))
+		{
+			m.minus_forces[i].assign(0);
+			continue;
+		}
+		const grid& g = grids[t];
+		assert(g.initialized());
+		vec deriv;
+		e += g.evaluate(a, m.coords[i], slope, v, &deriv);
+		m.minus_forces[i] = deriv;
+	}
 	return e;
 }
 
-
-
 template<class Archive>
 void cache::save(Archive& ar, const unsigned version) const
-{
+		{
 	ar & scoring_function_version;
 	ar & gd;
 	ar & grids;
@@ -111,24 +116,23 @@ void cache::populate(const model& m, const precalculate& p,
 		const std::vector<smt>& atom_types_needed, bool display_progress)
 {
 	std::vector<smt> needed;
-	if (p.has_components())
+	bool haschargeterms = p.has_components();
+
+	VINA_FOR_IN(i, atom_types_needed)
 	{
-		std::cerr
-				<< "WARNING: When docking, terms that incorporate partial charges are partially ignored!\n";
-		std::cerr << "Do not expect a meaningful or reasonable result.\n";
-		abort();
+		smt t = atom_types_needed[i];
+		if (!grids[t].initialized())
+		{
+			needed.push_back(t);
+			grids[t].init(gd, haschargeterms);
+		}
 	}
-	VINA_FOR_IN(i, atom_types_needed){
-	smt t = atom_types_needed[i];
-	if(!grids[t].initialized())
-	{
-		needed.push_back(t);
-		grids[t].init(gd);
-	}
-}
 	if (needed.empty())
 		return;
 	flv affinities(needed.size());
+	flv chargeaffinities;
+	if(haschargeterms)
+		chargeaffinities.resize(needed.size());
 
 	sz nat = num_atom_types();
 
@@ -139,37 +143,65 @@ void cache::populate(const model& m, const precalculate& p,
 	szv_grid_cache igcache(m, cutoff_sqr);
 	szv_grid ig(igcache, gd);
 
-	VINA_FOR(x, g.m_data.dim0()){
-	VINA_FOR(y, g.m_data.dim1())
+	VINA_FOR(x, g.data.dim0())
 	{
-		VINA_FOR(z, g.m_data.dim2())
+		VINA_FOR(y, g.data.dim1())
 		{
-			std::fill(affinities.begin(), affinities.end(), 0);
-			vec probe_coords; probe_coords = g.index_to_argument(x, y, z);
-			const szv& possibilities = ig.possibilities(probe_coords);
-			VINA_FOR_IN(possibilities_i, possibilities)
+			VINA_FOR(z, g.data.dim2())
 			{
-				const sz i = possibilities[possibilities_i];
-				const atom& a = m.grid_atoms[i];
-				const smt t1 = a.get();
-				const fl r2 = vec_distance_sqr(a.coords, probe_coords);
-				if(r2 <= cutoff_sqr)
+				std::fill(affinities.begin(), affinities.end(), 0);
+				std::fill(chargeaffinities.begin(), chargeaffinities.end(), 0);
+				vec probe_coords;
+				probe_coords = g.index_to_argument(x, y, z);
+				const szv& possibilities = ig.possibilities(probe_coords);
+				VINA_FOR_IN(possibilities_i, possibilities)
 				{
-					VINA_FOR_IN(j, needed)
+					const sz i = possibilities[possibilities_i];
+					const atom& a = m.grid_atoms[i];
+					const smt t1 = a.get();
+					const fl r2 = vec_distance_sqr(a.coords, probe_coords);
+					if (r2 <= cutoff_sqr)
 					{
-						const smt t2 = needed[j];
-						assert(t2 < nat);
-						affinities[j] += p.eval_fast(t1, t2, r2)[result_components::TypeDependentOnly];
+						VINA_FOR_IN(j, needed)
+						{
+							const smt t2 = needed[j];
+							assert(t2 < nat);
+							//t1 is the receptor atom, a
+							//t2 is type from the ligand, not corresponding to any
+							//particular atom
+							result_components val = p.eval_fast(t1, t2, r2);
+							if (haschargeterms)
+							{
+								//affinities contains the terms that are independent of
+								//the ligand atom charge
+
+								affinities[j] +=
+										val[result_components::TypeDependentOnly]
+												+
+												val[result_components::AbsAChargeDependent]
+														* fabs(a.charge);
+								//this component must be multiplied by the ligand atom charge
+								chargeaffinities[j] +=
+										val[result_components::AbsBChargeDependent] +
+										val[result_components::ABChargeDependent]*a.charge; //not abs value
+							}
+							else
+							{
+								affinities[j] +=
+										val[result_components::TypeDependentOnly];
+							}
+						}
 					}
 				}
-			}
-			VINA_FOR_IN(j, needed)
-			{
-				sz t = needed[j];
-				assert(t < nat);
-				grids[t].m_data(x, y, z) = affinities[j];
+				VINA_FOR_IN(j, needed)
+				{
+					sz t = needed[j];
+					assert(t < nat);
+					grids[t].data(x, y, z) = affinities[j];
+					if(haschargeterms)
+						grids[t].chargedata(x, y, z) = chargeaffinities[j];
+				}
 			}
 		}
 	}
-}
 }
