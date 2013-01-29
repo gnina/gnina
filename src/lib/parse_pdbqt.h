@@ -30,4 +30,6 @@ model parse_receptor_pdbqt(const path& rigid); // can throw parse_error
 model parse_ligand_pdbqt  (const path& name); // can throw parse_error
 model parse_ligand_stream_pdbqt  (const std::string& name, std::istream& in);
 
+//if true, rotatable bonds that only rotate hydrogens are made rigid
+void set_fix_rotable_hydrogens(bool set);
 #endif

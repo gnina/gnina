@@ -693,6 +693,7 @@ Thank you!\n";
 		bool dkoes_fast = false;
 		bool quiet = false;
 		bool accurate_line = false;
+		bool flex_hydrogens = false;
 		minimization_params minparms;
 		ApproxType approx = LinearApprox;
 		fl approx_factor = 32;
@@ -772,7 +773,8 @@ Thank you!\n";
 				"maximum energy difference between the best binding mode and the worst one displayed (kcal/mol)")
 		("min_rmsd_filter", value<fl>(&out_min_rmsd)->default_value(1.0),
 				"rmsd value used to filter final poses to remove redundancy")
-		("quiet,q", bool_switch(&quiet), "Suppress output messages");
+		("quiet,q", bool_switch(&quiet), "Suppress output messages")
+		("flex_hydrogens", bool_switch(&flex_hydrogens), "Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.");
 
 		options_description config("Configuration file (optional)");
 		config.add_options()("config", value<std::string>(&config_name),
@@ -836,6 +838,8 @@ Thank you!\n";
 			std::cout << version_string << '\n';
 			return 0;
 		}
+
+		set_fix_rotable_hydrogens(!flex_hydrogens);
 
 		if (dominimize) //set default settings for minimization
 		{
@@ -1052,7 +1056,7 @@ Thank you!\n";
 					}
 					else
 					{
-						mol.AddHydrogens();
+						mol.AddHydrogens(); //needed for atom typing
 						std::string pdbqt = conv.WriteString(&mol);
 						std::stringstream pdbqtStream(pdbqt);
 

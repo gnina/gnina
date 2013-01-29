@@ -33,6 +33,12 @@
 #include "convert_substring.h"
 #include "parse_error.h"
 
+static bool fix_hydrogens = false;  //locally scoped configuration variable
+void set_fix_rotable_hydrogens(bool set)
+{
+	fix_hydrogens = set;
+}
+
 struct stream_parse_error {
 	unsigned line;
 	std::string reason;
@@ -54,6 +60,7 @@ struct parsed_atom : public atom {
 void add_context(context& c, std::string& str) {
 	c.push_back(parsed_line(str, boost::optional<sz>()));
 }
+
 
 std::string omit_whitespace(const std::string& str, sz i, sz j) {
 	if(i < 1) i = 1;
@@ -231,6 +238,32 @@ struct parsing_struct {
 		}
 		return true;
 	}
+
+	//return true if all the mobile atoms in this branch are hydrogens
+	bool mobile_hydrogens_only() const {
+		if(!fix_hydrogens)
+			return false;
+		VINA_FOR_IN(i, atoms) {
+			if(!atoms[i].ps.empty())
+				return false; //must be terminal
+			if(immobile_atom && immobile_atom.get() != i)
+			{
+				//mobile atom
+				if(!atoms[i].a.is_hydrogen())
+					return false;
+			}
+		}
+		return true;
+	}
+
+	//move the atoms of from into this
+	void mergeInto(const parsing_struct& from)
+	{
+		VINA_FOR_IN(i, from.atoms)
+		{
+			atoms.push_back(node(from.atoms[i].a, from.atoms[i].context_index));
+		}
+	}
 };
 
 unsigned parse_one_unsigned(const std::string& str, const std::string& start, unsigned count) {
@@ -336,10 +369,20 @@ void parse_pdbqt_branch_aux(std::istream& in, unsigned& count, const std::string
 	unsigned first, second;
 	parse_two_unsigneds(str, "BRANCH", count, first, second); 
 	sz i = 0;
-	for(; i < p.atoms.size(); ++i)
+	for(sz n = p.atoms.size(); i < n; ++i)
 		if(p.atoms[i].a.number == first) {
-			p.atoms[i].ps.push_back(parsing_struct());
-			parse_pdbqt_branch(in, count, p.atoms[i].ps.back(), c, first, second);
+			parsing_struct branch;
+			parse_pdbqt_branch(in, count, branch, c, first, second);
+			if(branch.mobile_hydrogens_only())
+			{
+				//make branch part of the current branch,
+				//don't rotate the hydrogens
+				p.mergeInto(branch);
+			}
+			else
+			{
+				p.atoms[i].ps.push_back(branch);
+			}
 			break;
 		}
 	if(i == p.atoms.size())
@@ -646,6 +689,7 @@ model parse_ligand_pdbqt  (const path& name) { // can throw parse_error
 	pdbqt_initializer tmp;
 	tmp.initialize_from_nrp(nrp, c, true);
 	tmp.initialize(nrp.mobility_matrix());
+
 	return tmp.m;
 }
 
