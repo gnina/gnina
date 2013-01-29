@@ -256,4 +256,8 @@ void transform_ranges(T& t, const F& f) {
 		transform_ranges(t.children[i], f);
 }
 
+//these implement a way to restore I what I consider erroneous behavior
+//on the part of Vina concerning OH groups
+void set_fixed_rotable_hydrogens(bool set);
+bool get_fixed_rotable_hydrogens();
 #endif

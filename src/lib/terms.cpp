@@ -64,10 +64,14 @@ unsigned conf_independent_inputs::atom_rotors(const model& m,
 		const bond& b = bonds[j];
 		const atom& a = m.get_atom(b.connected_atom_index);
 		if (b.rotatable && !a.is_hydrogen()
-				&& num_bonded_heavy_atoms(m, b.connected_atom_index) > 1
-				&& num_bonded_heavy_atoms(m, i) > 1) {
-			// not counting CH_3, etc
-			++acc;
+				&& num_bonded_heavy_atoms(m, b.connected_atom_index) > 1) {
+
+				if(num_bonded_heavy_atoms(m, i) > 1 || !get_fixed_rotable_hydrogens()) {
+					// not counting CH_3, etc
+					// dkoes - only check one way if hbonds aren't fixed to
+					// be bug-compatible with Vina
+					++acc;
+				}
 		}
 	}
 	return acc;

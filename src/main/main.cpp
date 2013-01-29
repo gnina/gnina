@@ -839,7 +839,7 @@ Thank you!\n";
 			return 0;
 		}
 
-		set_fix_rotable_hydrogens(!flex_hydrogens);
+		set_fixed_rotable_hydrogens(!flex_hydrogens);
 
 		if (dominimize) //set default settings for minimization
 		{

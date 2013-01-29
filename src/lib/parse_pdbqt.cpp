@@ -34,9 +34,13 @@
 #include "parse_error.h"
 
 static bool fix_hydrogens = false;  //locally scoped configuration variable
-void set_fix_rotable_hydrogens(bool set)
+void set_fixed_rotable_hydrogens(bool set)
 {
 	fix_hydrogens = set;
+}
+bool get_fixed_rotable_hydrogens()
+{
+	return fix_hydrogens;
 }
 
 struct stream_parse_error {
