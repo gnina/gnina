@@ -1113,6 +1113,7 @@ Thank you!\n";
 											results[j].rmsd));
 						}
 						mol.SetTitle(name); //otherwise lose space separated names
+						outconv.SetOutputIndex(j+2); //workaround openbabel bug #859
 						outconv.Write(&mol);
 					}
 				}
