@@ -39,6 +39,7 @@ struct resultInfo
 	fl energy;
 	fl rmsd;
 	std::string mol;
+	std::string atominfo;
 
 	resultInfo() :
 			energy(0), rmsd(-1)
@@ -47,6 +48,25 @@ struct resultInfo
 	resultInfo(fl e, fl r, const std::string& m) :
 			energy(e), rmsd(r), mol(m)
 	{
+	}
+
+	//computes per-atom term values and formats them into the atominfo string
+	void setAtomValues(const model& m, const terms *t)
+	{
+		std::vector<flv> values;
+		t->evale_robust(m, values);
+		std::stringstream str;
+		for (unsigned i = 0, n = values.size(); i < n; i++)
+		{
+			str << m.ligand_atom_str(i);
+			for (unsigned j = 0, m = values[i].size(); j < m; j++)
+			{
+				str << " " << values[i][j];
+			}
+			str << "\n";
+		}
+		str << "END\n";
+		atominfo = str.str();
 	}
 };
 
@@ -173,7 +193,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		non_cache& nc, // nc.slope is changed
 		const vec& corner1, const vec& corner2,
 		const parallel_mc& par, fl energy_range, sz num_modes, int seed,
-		int verbosity, bool score_only, bool local_only,
+		int verbosity, bool score_only, bool local_only, bool compute_atominfo,
 		fl out_min_rmsd, tee& log,
 		const terms *t, std::vector<resultInfo>& results)
 {
@@ -193,6 +213,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
 		log.endl();
+		std::vector<flv> atominfo;
 		flv term_values = t->evale_robust(m);
 		log << "Intramolecular energy: " << std::fixed << std::setprecision(5)
 				<< intramolecular_energy << "\n";
@@ -218,6 +239,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 		}
 
 		results.push_back(resultInfo(e, -1, ""));
+		if (compute_atominfo)
+			results.back().setAtomValues(m, t);
 	}
 	else if (local_only)
 	{
@@ -259,6 +282,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 		write_all_output(m, out_cont, 1, str);
 		done(verbosity, log);
 		results.push_back(resultInfo(e, rmsd, str.str()));
+		if (compute_atominfo)
+			results.back().setAtomValues(m, t);
 	}
 	else
 	{
@@ -324,6 +349,9 @@ void do_search(model& m, const boost::optional<model>& ref,
 			std::stringstream str;
 			m.write_model(str, i + 1, "");
 			results.push_back(resultInfo(out_cont[i].e, -1, str.str()));
+			if (compute_atominfo)
+				results.back().setAtomValues(m, t);
+
 		}
 		done(verbosity, log);
 
@@ -340,7 +368,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 void main_procedure(model& m, precalculate& prec,
 		const boost::optional<model>& ref, // m is non-const (FIXME?)
 		bool score_only, bool local_only,
-		bool randomize_only, bool no_cache, const grid_dims& gd,
+		bool randomize_only, bool no_cache, bool compute_atominfo,
+		const grid_dims& gd,
 		int exhaustiveness, minimization_params minparm,
 		const weighted_terms& wt, int cpu, int seed,
 		int verbosity, sz num_modes, fl energy_range, fl out_min_rmsd, tee& log,
@@ -385,7 +414,8 @@ void main_procedure(model& m, precalculate& prec,
 		{
 			do_search(m, ref, wt, prec, nc, nc, corner1, corner2, par,
 					energy_range, num_modes, seed, verbosity, score_only,
-					local_only, out_min_rmsd, log, wt.unweighted_terms(),
+					local_only, compute_atominfo, out_min_rmsd, log,
+					wt.unweighted_terms(),
 					results);
 		}
 		else
@@ -404,8 +434,8 @@ void main_procedure(model& m, precalculate& prec,
 				done(verbosity, log);
 			do_search(m, ref, wt, prec, c, nc, corner1, corner2, par,
 					energy_range, num_modes, seed, verbosity, score_only,
-					local_only, out_min_rmsd, log, wt.unweighted_terms(),
-					results);
+					local_only, compute_atominfo, out_min_rmsd, log,
+					wt.unweighted_terms(), results);
 		}
 	}
 }
@@ -666,7 +696,7 @@ Thank you!\n";
 
 	try
 	{
-		std::string rigid_name, flex_name, config_name, log_name;
+		std::string rigid_name, flex_name, config_name, log_name, atom_name;
 		std::vector<std::string> ligand_names;
 		std::string out_name;
 		std::string ligand_names_file;
@@ -727,7 +757,9 @@ Thank you!\n";
 		outputs.add_options()
 		("out,o", value<std::string>(&out_name),
 				"output file name, format taken from file extension")
-		("log", value<std::string>(&log_name), "optionally, write log file");
+		("log", value<std::string>(&log_name), "optionally, write log file")
+		("atom_terms", value<std::string>(&atom_name),
+				"optionally write per-atom interaction term values");
 
 		options_description scoremin("Scoring and minimization options");
 		scoremin.add_options()
@@ -774,7 +806,8 @@ Thank you!\n";
 		("min_rmsd_filter", value<fl>(&out_min_rmsd)->default_value(1.0),
 				"rmsd value used to filter final poses to remove redundancy")
 		("quiet,q", bool_switch(&quiet), "Suppress output messages")
-		("flex_hydrogens", bool_switch(&flex_hydrogens), "Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.");
+		("flex_hydrogens", bool_switch(&flex_hydrogens),
+				"Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.");
 
 		options_description config("Configuration file (optional)");
 		config.add_options()("config", value<std::string>(&config_name),
@@ -904,6 +937,10 @@ Thank you!\n";
 		tee log(quiet);
 		if (vm.count("log") > 0)
 			log.init(log_name);
+
+		std::ofstream atomoutfile;
+		if (vm.count("atom_terms") > 0)
+			atomoutfile.open(atom_name.c_str());
 
 		if (autobox_ligand.length() > 0)
 		{
@@ -1088,6 +1125,7 @@ Thank you!\n";
 				main_procedure(m, *prec, ref, score_only,
 						local_only, randomize_only,
 						false, // no_cache == false
+						atomoutfile.is_open(),
 						gd, exhaustiveness, minparms, wt, cpu, seed, verbosity,
 						max_modes_sz, energy_range, out_min_rmsd, log, results);
 
@@ -1113,8 +1151,24 @@ Thank you!\n";
 											results[j].rmsd));
 						}
 						mol.SetTitle(name); //otherwise lose space separated names
-						outconv.SetOutputIndex(j+2); //workaround openbabel bug #859
+						outconv.SetOutputIndex(j + 2); //workaround openbabel bug #859
 						outconv.Write(&mol);
+					}
+				}
+				if (atomoutfile)
+				{
+					//header with term names
+					atomoutfile << "atomid el";
+					std::vector<std::string> names = t.get_names(true);
+					for(unsigned j = 0, m = names.size(); j < m; j++)
+					{
+						atomoutfile << " " << names[j];
+					}
+					atomoutfile << "\n";
+					//write out atom interaction data
+					for (unsigned j = 0, m = results.size(); j < m; j++)
+					{
+						atomoutfile << results[i].atominfo;
 					}
 				}
 				mol.Clear();

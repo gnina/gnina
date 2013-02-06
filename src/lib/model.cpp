@@ -698,6 +698,27 @@ void model::set(const conf& c)
 	flex.set_conf(atoms, coords, c.flex);
 }
 
+//dkoes - return the string corresponding to i'th ligand atoms pdb information
+//which is serial+name
+std::string model::ligand_atom_str(sz i, sz lig) const
+{
+	if(atoms.size() != coords.size())
+		abort();
+	assert(i < atoms.size());
+	std::string pdbline;
+	const context& cont = ligands[lig].cont;
+	for(sz c = 0, nc = cont.size(); c < nc; c++)
+	{
+		if(cont[c].second.get_value_or(-1) == i)
+		{
+			pdbline = ligands[lig].cont[c].first;
+			break;
+		}
+	}
+	return pdbline.substr(6,9);
+}
+
+
 fl model::gyration_radius(sz ligand_number) const
 		{
 	VINA_CHECK(ligand_number < ligands.size());

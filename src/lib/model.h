@@ -24,7 +24,7 @@
 #define VINA_MODEL_H
 
 #include <boost/optional.hpp> // for context
-
+#include <string>
 #include "file.h"
 #include "tree.h"
 #include "matrix.h"
@@ -109,6 +109,7 @@ struct model {
 	void sete(const conf& c);
 	void set (const conf& c);
 
+	std::string ligand_atom_str(sz i, sz lig=0) const;
 	fl gyration_radius(sz ligand_number) const; // uses coords
 
 	const atom_base& movable_atom  (sz i) const { assert(i < m_num_movable_atoms); return  atoms[i]; }

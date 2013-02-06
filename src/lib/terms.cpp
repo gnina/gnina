@@ -64,14 +64,17 @@ unsigned conf_independent_inputs::atom_rotors(const model& m,
 		const bond& b = bonds[j];
 		const atom& a = m.get_atom(b.connected_atom_index);
 		if (b.rotatable && !a.is_hydrogen()
-				&& num_bonded_heavy_atoms(m, b.connected_atom_index) > 1) {
+				&& num_bonded_heavy_atoms(m, b.connected_atom_index) > 1)
+		{
 
-				if(num_bonded_heavy_atoms(m, i) > 1 || !get_fixed_rotable_hydrogens()) {
-					// not counting CH_3, etc
-					// dkoes - only check one way if hbonds aren't fixed to
-					// be bug-compatible with Vina
-					++acc;
-				}
+			if (num_bonded_heavy_atoms(m, i) > 1
+					|| !get_fixed_rotable_hydrogens())
+			{
+				// not counting CH_3, etc
+				// dkoes - only check one way if hbonds aren't fixed to
+				// be bug-compatible with Vina
+				++acc;
+			}
 		}
 	}
 	return acc;
@@ -226,8 +229,11 @@ void terms::eval_additive_aux(const model& m, const atom_index& i,
 	VINA_CHECK(offset + additive_terms.size() == size_internal());
 }
 
-flv terms::evale_robust(const model& m) const
-		{
+//dkoes - evaluate from terms directly with no precomputation
+//also, fill out each atom's contribution
+//this routine is not intended to be efficient (see precalc)
+flv terms::evale_robust(const model& m, std::vector<flv>& per_atom) const
+{
 	VINA_CHECK(m.ligands.size() == 1);
 	// only single-ligand systems are supported by this procedure
 
@@ -252,6 +258,8 @@ flv terms::evale_robust(const model& m) const
 			relevant_atoms.push_back(atom_index(j, true));
 	}
 
+	per_atom.clear();
+	per_atom.resize(m.atoms.size(), flv(size(), 0));
 	VINA_FOR_IN(j, m.atoms)
 	{
 		const atom& a = m.atoms[j];
@@ -282,8 +290,11 @@ flv terms::evale_robust(const model& m) const
 					if (d2 > max_r_cutoff_sqr)
 						continue; // most likely scenario
 					fl d = std::sqrt(d2);
-					eval_additive_aux(m, atom_index(i, false), j, d, tmp);
+					eval_additive_aux(m, atom_index(i, false), j, d, per_atom[i]);
 				}
+
+				for(sz j = 0, m = tmp.size(); j < m; j++)
+					tmp[j] += per_atom[i][j];
 			}
 		}
 	}
@@ -294,6 +305,7 @@ flv terms::evale_robust(const model& m) const
 
 	return tmp;
 }
+
 
 fl terms::eval_conf_independent(const conf_independent_inputs& in, fl x,
 		flv::const_iterator& it) const

@@ -258,7 +258,8 @@ struct terms
 	}
 	sz size_conf_independent(bool enabled_only) const; // number of parameters does not necessarily equal the number of operators
 	fl max_r_cutoff() const;
-	flv evale_robust(const model& m) const;
+	flv evale_robust(const model& m, std::vector<flv>& per_atom) const;
+	flv evale_robust(const model& m) const { std::vector<flv> pa; return evale_robust(m, pa); }
 	fl eval_conf_independent(const conf_independent_inputs& in, fl x,
 			flv::const_iterator& it) const;
 	flv filter_external(const flv& v) const;

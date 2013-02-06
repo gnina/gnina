@@ -29,7 +29,8 @@
 struct naive_non_cache : public igrid {
 	naive_non_cache(const precalculate* p_);
 	virtual fl eval      (const model& m, fl v) const; // needs m.coords
-	virtual fl eval_deriv(      model& m, fl v) const { VINA_CHECK(false); return 0; } // unused
+	virtual fl eval_deriv(      model& m, fl v) const { VINA_CHECK(false); return 0; } // unused'
+	void eval_atoms(const model& m, std::vector<flv>& per_atom_values) const;
 private:
 	const precalculate* p;
 };
