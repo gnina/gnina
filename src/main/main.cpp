@@ -56,9 +56,12 @@ struct resultInfo
 		std::vector<flv> values;
 		t->evale_robust(m, values);
 		std::stringstream str;
+		vecv coords = m.get_ligand_coords();
+		assert(values.size() == coords.size());
 		for (unsigned i = 0, n = values.size(); i < n; i++)
 		{
-			str << m.ligand_atom_str(i);
+			str << m.ligand_atom_str(i) << " ";
+			coords[i].print(str);
 			for (unsigned j = 0, m = values[i].size(); j < m; j++)
 			{
 				str << " " << values[i][j];
@@ -1158,7 +1161,7 @@ Thank you!\n";
 				if (atomoutfile)
 				{
 					//header with term names
-					atomoutfile << "atomid el";
+					atomoutfile << "atomid el pos";
 					std::vector<std::string> names = t.get_names(true);
 					for(unsigned j = 0, m = names.size(); j < m; j++)
 					{
