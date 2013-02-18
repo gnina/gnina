@@ -51,20 +51,22 @@ struct resultInfo
 	}
 
 	//computes per-atom term values and formats them into the atominfo string
-	void setAtomValues(const model& m, const terms *t)
+	void setAtomValues(const model& m, const weighted_terms *wt)
 	{
 		std::vector<flv> values;
+		const terms *t = wt->unweighted_terms();
 		t->evale_robust(m, values);
 		std::stringstream str;
 		vecv coords = m.get_ligand_coords();
 		assert(values.size() == coords.size());
 		for (unsigned i = 0, n = values.size(); i < n; i++)
 		{
+			assert(values[i].size() == wt->size());
 			str << m.ligand_atom_str(i) << " ";
 			coords[i].print(str);
 			for (unsigned j = 0, m = values[i].size(); j < m; j++)
 			{
-				str << " " << values[i][j];
+				str << " " << values[i][j]*wt->weight(j);
 			}
 			str << "\n";
 		}
@@ -192,7 +194,7 @@ output_container remove_redundant(const output_container& in, fl min_rmsd)
 
 //dkoes - return all energies and rmsds to original conf with result
 void do_search(model& m, const boost::optional<model>& ref,
-		const scoring_function& sf, const precalculate& prec, const igrid& ig,
+		const weighted_terms& sf, const precalculate& prec, const igrid& ig,
 		non_cache& nc, // nc.slope is changed
 		const vec& corner1, const vec& corner2,
 		const parallel_mc& par, fl energy_range, sz num_modes, int seed,
@@ -243,7 +245,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 		results.push_back(resultInfo(e, -1, ""));
 		if (compute_atominfo)
-			results.back().setAtomValues(m, t);
+			results.back().setAtomValues(m, &sf);
 	}
 	else if (local_only)
 	{
@@ -286,7 +288,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		done(verbosity, log);
 		results.push_back(resultInfo(e, rmsd, str.str()));
 		if (compute_atominfo)
-			results.back().setAtomValues(m, t);
+			results.back().setAtomValues(m, &sf);
 	}
 	else
 	{
@@ -353,7 +355,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 			m.write_model(str, i + 1, "");
 			results.push_back(resultInfo(out_cont[i].e, -1, str.str()));
 			if (compute_atominfo)
-				results.back().setAtomValues(m, t);
+				results.back().setAtomValues(m, &sf);
 
 		}
 		done(verbosity, log);

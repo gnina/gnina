@@ -60,6 +60,14 @@ struct weighted_terms: public scoring_function
 	{
 		return t;
 	}
+
+	fl weight(unsigned i) const {
+		return weights[i];
+	}
+
+	sz size() const {
+		return weights.size();
+	}
 private:
 	weighted_terms() :
 			t(NULL), cutoff_(0), conf_indep_start(0)
