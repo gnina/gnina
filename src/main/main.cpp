@@ -61,11 +61,12 @@ struct resultInfo
 		assert(values.size() == coords.size());
 		for (unsigned i = 0, n = values.size(); i < n; i++)
 		{
-			assert(values[i].size() == wt->size());
+			assert(values[i].size() == t->size());
 			str << m.ligand_atom_str(i) << " ";
 			coords[i].print(str);
 			for (unsigned j = 0, m = values[i].size(); j < m; j++)
 			{
+				//conf dependent terms better be first
 				str << " " << values[i][j]*wt->weight(j);
 			}
 			str << "\n";
@@ -1173,7 +1174,7 @@ Thank you!\n";
 					//write out atom interaction data
 					for (unsigned j = 0, m = results.size(); j < m; j++)
 					{
-						atomoutfile << results[i].atominfo;
+						atomoutfile << results[j].atominfo;
 					}
 				}
 				mol.Clear();
