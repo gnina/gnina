@@ -50,6 +50,19 @@ struct resultInfo
 	{
 	}
 
+	//write a table (w/header) of per atom values to out
+	void writeAtomValues(std::ostream& out, const weighted_terms *wt) const {
+		const terms *t = wt->unweighted_terms();
+		out << "atomid el pos";
+		std::vector<std::string> names = t->get_names(true);
+		for(unsigned j = 0, m = names.size(); j < m; j++)
+		{
+			out << " " << names[j];
+		}
+		out << "\n";
+		out << atominfo;
+	}
+
 	//computes per-atom term values and formats them into the atominfo string
 	void setAtomValues(const model& m, const weighted_terms *wt)
 	{
@@ -729,6 +742,7 @@ Thank you!\n";
 		bool quiet = false;
 		bool accurate_line = false;
 		bool flex_hydrogens = false;
+		bool include_atom_terms = false;
 		minimization_params minparms;
 		ApproxType approx = LinearApprox;
 		fl approx_factor = 32;
@@ -764,8 +778,8 @@ Thank you!\n";
 				"output file name, format taken from file extension")
 		("log", value<std::string>(&log_name), "optionally, write log file")
 		("atom_terms", value<std::string>(&atom_name),
-				"optionally write per-atom interaction term values");
-
+				"optionally write per-atom interaction term values")
+		("atom_term_data", bool_switch(&include_atom_terms), "embedded per-atom interaction terms in output sd data");
 		options_description scoremin("Scoring and minimization options");
 		scoremin.add_options()
 		("custom_scoring", value<std::string>(&custom_file_name),
@@ -1102,8 +1116,7 @@ Thank you!\n";
 						std::string pdbqt = conv.WriteString(&mol);
 						std::stringstream pdbqtStream(pdbqt);
 
-						m.append(
-								parse_ligand_stream_pdbqt(ligand_name,
+						m.append(parse_ligand_stream_pdbqt(ligand_name,
 										pdbqtStream));
 					}
 				} catch (parse_error& e)
@@ -1130,7 +1143,7 @@ Thank you!\n";
 				main_procedure(m, *prec, ref, score_only,
 						local_only, randomize_only,
 						false, // no_cache == false
-						atomoutfile.is_open(),
+						atomoutfile.is_open() || include_atom_terms,
 						gd, exhaustiveness, minparms, wt, cpu, seed, verbosity,
 						max_modes_sz, energy_range, out_min_rmsd, log, results);
 
@@ -1155,6 +1168,13 @@ Thank you!\n";
 									boost::lexical_cast<std::string>(
 											results[j].rmsd));
 						}
+						if(include_atom_terms)
+						{
+							std::stringstream astr;
+							results[j].writeAtomValues(astr, &wt);
+							setMolData(outconv.GetOutFormat(), mol,
+									"atomic_interaction_terms", astr.str());
+						}
 						mol.SetTitle(name); //otherwise lose space separated names
 						outconv.SetOutputIndex(j + 2); //workaround openbabel bug #859
 						outconv.Write(&mol);
@@ -1162,18 +1182,9 @@ Thank you!\n";
 				}
 				if (atomoutfile)
 				{
-					//header with term names
-					atomoutfile << "atomid el pos";
-					std::vector<std::string> names = t.get_names(true);
-					for(unsigned j = 0, m = names.size(); j < m; j++)
-					{
-						atomoutfile << " " << names[j];
-					}
-					atomoutfile << "\n";
-					//write out atom interaction data
 					for (unsigned j = 0, m = results.size(); j < m; j++)
 					{
-						atomoutfile << results[i].atominfo;
+						results[i].writeAtomValues(atomoutfile, &wt);
 					}
 				}
 				mol.Clear();
