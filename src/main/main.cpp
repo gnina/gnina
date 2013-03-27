@@ -15,6 +15,7 @@
 #include "cache.h"
 #include "non_cache.h"
 #include "naive_non_cache.h"
+#include "non_cache_gpu.h"
 #include "parse_error.h"
 #include "everything.h"
 #include "weighted_terms.h"
@@ -30,6 +31,8 @@
 #include <boost/shared_ptr.hpp>
 #include "coords.h"
 #include "obmolopener.h"
+#include "gpucode.h"
+#include "precalculate_gpu.h"
 
 using namespace boost::iostreams;
 using boost::filesystem::path;
@@ -170,11 +173,11 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 {
 	change g(m.get_size());
 	quasi_newton quasi_newton_par(minparm);
-	const fl slope_orig = nc.slope;
+	const fl slope_orig = nc.getSlope();
 	//try 5 times to get ligand into box
 	VINA_FOR(p, 5)
 	{
-		nc.slope = 100 * std::pow(10.0, 2.0 * p);
+		nc.setSlope(100 * std::pow(10.0, 2.0 * p));
 		quasi_newton_par(m, prec, nc, out, g, cap);
 		m.set(out.c); // just to be sure
 		if (nc.within(m))
@@ -183,7 +186,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	out.coords = m.get_heavy_atom_movable_coords();
 	if (!nc.within(m))
 		out.e = max_fl;
-	nc.slope = slope_orig;
+	nc.setSlope(slope_orig);
 }
 
 std::string vina_remark(fl e, fl lb, fl ub)
@@ -386,7 +389,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 void main_procedure(model& m, precalculate& prec,
 		const boost::optional<model>& ref, // m is non-const (FIXME?)
 		bool score_only, bool local_only,
-		bool randomize_only, bool no_cache, bool compute_atominfo,
+		bool randomize_only, bool no_cache, bool compute_atominfo, bool gpu_on,
 		const grid_dims& gd,
 		int exhaustiveness, minimization_params minparm,
 		const weighted_terms& wt, int cpu, int seed,
@@ -427,10 +430,23 @@ void main_procedure(model& m, precalculate& prec,
 	}
 	else
 	{
-		non_cache nc(gridcache, gd, &prec, slope); // if gd has 0 n's, this will not constrain anything
+
+		non_cache *nc = NULL;
+#ifdef SMINA_GPU
+		if(gpu_on)
+		{
+			precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
+			if(!gprec) abort();
+			nc = new non_cache_gpu(gridcache, gd, gprec, slope);
+		}
+		else
+#endif
+		{
+			nc = new non_cache(gridcache, gd, &prec, slope);
+		}
 		if (no_cache)
 		{
-			do_search(m, ref, wt, prec, nc, nc, corner1, corner2, par,
+			do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
 					energy_range, num_modes, seed, verbosity, score_only,
 					local_only, compute_atominfo, out_min_rmsd, log,
 					wt.unweighted_terms(),
@@ -450,11 +466,12 @@ void main_procedure(model& m, precalculate& prec,
 			}
 			if (cache_needed)
 				done(verbosity, log);
-			do_search(m, ref, wt, prec, c, nc, corner1, corner2, par,
+			do_search(m, ref, wt, prec, c, *nc, corner1, corner2, par,
 					energy_range, num_modes, seed, verbosity, score_only,
 					local_only, compute_atominfo, out_min_rmsd, log,
 					wt.unweighted_terms(), results);
 		}
+		delete nc;
 	}
 }
 
@@ -636,7 +653,7 @@ void setup_dkoes_terms(custom_terms& t, bool dkoes_score, bool dkoes_score_old,
 //enum options and their parsers
 enum ApproxType
 {
-	LinearApprox, SplineApprox, Exact
+	LinearApprox, SplineApprox, Exact, GPU
 };
 
 std::istream& operator>>(std::istream& in, ApproxType& type)
@@ -651,6 +668,10 @@ std::istream& operator>>(std::istream& in, ApproxType& type)
 		type = LinearApprox;
 	else if (token == "exact")
 		type = Exact;
+#ifdef SMINA_GPU
+	else if (token == "gpu")
+		type = GPU;
+#endif
 	else
 		throw validation_error(validation_error::invalid_option_value);
 	return in;
@@ -677,6 +698,38 @@ static void setMolData(OpenBabel::OBFormat *format, OpenBabel::OBMol& mol,
 	sddata->SetValue(value);
 	mol.SetData(sddata);
 }
+
+#ifdef SMINA_GPU
+
+//set the default device to device and exit with error if there are any problems
+static void initializeCUDA(int device)
+{
+    cudaSetDevice(device);
+    cudaError_t error;
+    cudaDeviceProp deviceProp;
+    error = cudaGetDevice(&device);
+
+    if (error != cudaSuccess)
+    {
+        std::cerr << "cudaGetDevice returned error code " << error << "\n";
+        exit(-1);
+    }
+
+    error = cudaGetDeviceProperties(&deviceProp, device);
+
+    if (deviceProp.computeMode == cudaComputeModeProhibited)
+    {
+        std::cerr << "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n";
+        exit(-1);
+    }
+
+    if (error != cudaSuccess)
+    {
+        std::cerr << "cudaGetDeviceProperties returned error code " << error << "\n";
+        exit(-1);
+    }
+}
+#endif
 
 int main(int argc, char* argv[])
 {
@@ -723,7 +776,7 @@ Thank you!\n";
 		fl autobox_add = 8;
 		fl out_min_rmsd = 1;
 		std::string autobox_ligand;
-		int cpu = 0, seed, exhaustiveness, verbosity = 1, num_modes = 9;
+		int cpu = 0, seed, exhaustiveness, verbosity = 1, num_modes = 9, device = 0;
 		fl energy_range = 2.0;
 
 		// -0.035579, -0.005156, 0.840245, -0.035069, -0.587439, 0.05846
@@ -743,6 +796,7 @@ Thank you!\n";
 		bool accurate_line = false;
 		bool flex_hydrogens = false;
 		bool include_atom_terms = false;
+		bool gpu_on = false;
 		minimization_params minparms;
 		ApproxType approx = LinearApprox;
 		fl approx_factor = 32;
@@ -769,7 +823,7 @@ Thank you!\n";
 		("autobox_ligand", value<std::string>(&autobox_ligand),
 				"Ligand to use for autobox")
 		("autobox_add", value<fl>(&autobox_add),
-				"Amount of buffer space to add to auto-generated box");
+				"Amount of buffer space to add to auto-generated box (default 8)");
 
 		//options_description outputs("Output prefixes (optional - by default, input names are stripped of .pdbqt\nare used as prefixes. _001.pdbqt, _002.pdbqt, etc. are appended to the prefixes to produce the output names");
 		options_description outputs("Output (optional)");
@@ -826,7 +880,12 @@ Thank you!\n";
 				"rmsd value used to filter final poses to remove redundancy")
 		("quiet,q", bool_switch(&quiet), "Suppress output messages")
 		("flex_hydrogens", bool_switch(&flex_hydrogens),
-				"Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.");
+				"Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
+#ifdef SMINA_GPU
+		("device", value<int>(&device)->default_value(0), "GPU device to use")
+		("gpu", bool_switch(&gpu_on), "Turn on GPU acceleration")
+#endif
+				;
 
 		options_description config("Configuration file (optional)");
 		config.add_options()("config", value<std::string>(&config_name),
@@ -890,6 +949,10 @@ Thank you!\n";
 			std::cout << version_string << '\n';
 			return 0;
 		}
+
+#ifdef SMINA_GPU
+		initializeCUDA(device);
+#endif
 
 		set_fixed_rotable_hydrogens(!flex_hydrogens);
 
@@ -1062,7 +1125,13 @@ Thank you!\n";
 
 		boost::shared_ptr<precalculate> prec;
 
-		if (approx == SplineApprox)
+		if(gpu_on || approx == GPU)
+		{ //don't get a choice
+#ifdef SMINA_GPU
+			prec = boost::shared_ptr<precalculate>(new precalculate_gpu(wt, approx_factor));
+#endif
+		}
+		else if (approx == SplineApprox)
 			prec = boost::shared_ptr<precalculate>(
 					new precalculate_splines(wt, approx_factor));
 		else if (approx == LinearApprox)
@@ -1071,6 +1140,7 @@ Thank you!\n";
 		else if (approx == Exact)
 			prec = boost::shared_ptr<precalculate>(
 					new precalculate_exact(wt));
+
 
 		//setup single outfile
 		using namespace OpenBabel;
@@ -1143,7 +1213,7 @@ Thank you!\n";
 				main_procedure(m, *prec, ref, score_only,
 						local_only, randomize_only,
 						false, // no_cache == false
-						atomoutfile.is_open() || include_atom_terms,
+						atomoutfile.is_open() || include_atom_terms, gpu_on,
 						gd, exhaustiveness, minparms, wt, cpu, seed, verbosity,
 						max_modes_sz, energy_range, out_min_rmsd, log, results);
 

@@ -63,7 +63,7 @@ public:
 	} //dkoes
 
 	fl eval_slow(const atom_base& a, const atom_base& b, fl r2) const
-			{
+	{
 		//dkoes - un-precalculable terms - widening isn't supported here
 		if (scoring.has_slow())
 		{ //dkoes - this check is just to avoid the sqrt..
@@ -74,7 +74,7 @@ public:
 	}
 
 	fl eval(const atom_base& a, const atom_base& b, fl r2) const
-			{
+	{
 		fl ret = eval_fast(a.get(), b.get(), r2).eval(a, b);
 		return ret + eval_slow(a, b, r2);
 	}

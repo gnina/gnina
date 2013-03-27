@@ -29,11 +29,14 @@
 struct non_cache : public igrid {
 	non_cache(szv_grid_cache& gcache, const grid_dims& gd_,
 			const precalculate* p_, fl slope_);
+	virtual ~non_cache() {}
 	virtual fl eval      (const model& m, fl v) const; // needs m.coords // clean up
 	virtual fl eval_deriv(      model& m, fl v) const; // needs m.coords, sets m.minus_forces // clean up
 	bool within(const model& m, fl margin = 0.0001) const;
+	void setSlope(fl sl) { slope = sl; }
+	fl getSlope() { return slope; }
+protected:
 	fl slope;
-private:
 	szv_grid sgrid;
 	grid_dims gd;
 	const precalculate* p;

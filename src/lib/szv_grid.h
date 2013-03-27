@@ -82,6 +82,8 @@ public:
 		}
 	}
 
+	const model& getModel() const { return m; }
+
 	//compute all the receptor atoms that may be reachable by passed grid dims
 	void compute_relevant(const grid_dims& gd, szv& relevant_indices) const
 	{

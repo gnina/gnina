@@ -170,7 +170,9 @@ struct model {
 	model() : m_num_movable_atoms(0) {};
 
 private:
+	//my, aren't we friendly!
 	friend struct non_cache;
+	friend struct non_cache_gpu;
 	friend struct naive_non_cache;
 	friend struct cache;
 	friend struct szv_grid;

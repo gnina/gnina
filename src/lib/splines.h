@@ -15,13 +15,13 @@
 #include "Eigen/Dense"
 
 typedef fl fltype;
+struct SplineData
+{
+	fltype x, a, b, c, d;
+};
+
 class Spline
 {
-	struct SplineData
-	{
-		fltype x, a, b, c, d;
-	};
-
 	//vector of calculated spline data
 	std::vector<SplineData> data;
 	fltype cutoff;
@@ -135,6 +135,18 @@ public:
 		const fl lx = xval - i.x;
 		fl val = ((i.a * lx + i.b) * lx + i.c) * lx + i.d;
 		return val;
+	}
+
+	const std::vector<SplineData>& getData() const {
+		return data;
+	}
+
+	fltype getFraction() const {
+		return fraction;
+	}
+
+	fltype getCutoff() const {
+		return cutoff;
 	}
 };
 

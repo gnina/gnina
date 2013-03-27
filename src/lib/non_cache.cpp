@@ -31,7 +31,7 @@ non_cache::non_cache(szv_grid_cache& gcache, const grid_dims& gd_,
 }
 
 fl non_cache::eval(const model& m, fl v) const
-		{ // clean up
+{ // clean up
 	fl e = 0;
 	const fl cutoff_sqr = p->cutoff_sqr();
 
@@ -171,5 +171,6 @@ fl non_cache::eval_deriv(model& m, fl v) const
 		m.minus_forces[i] = deriv + out_of_bounds_deriv;
 		e += this_e + out_of_bounds_penalty;
 	}
+
 	return e;
 }

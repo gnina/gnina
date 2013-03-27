@@ -59,6 +59,17 @@ public:
 		}
 	}
 
+	result_components(const std::vector<float>& vals)
+	{
+		sz valn = vals.size();
+		for(sz i = 0; i < Last; i++) {
+			if(i < valn)
+				components[i] = vals[i];
+			else
+				components[i] = 0;
+		}
+	}
+
 	fl eval(const atom_base& a, const atom_base& b) const
 	{
 		return components[TypeDependentOnly] +

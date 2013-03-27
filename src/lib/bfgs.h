@@ -247,8 +247,8 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		g = g_new; // dkoes - check the convergence of the new gradient
 
 		fl gradnormsq = scalar_product(g, g, n);
-
-		if (!(gradnormsq >= 1e-5 * 1e-5))
+std::cout << "step " << step << " " << f0 << " " << gradnormsq << "\n";
+		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
 		{
 			break; // breaks for nans too // FIXME !!??
 		}
