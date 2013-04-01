@@ -20,6 +20,7 @@ struct GPUSplineInfo
 	GPUSplineInfo(): n(0), splines(NULL), fraction(0), cutoff(0) {}
 };
 
+
 struct GPUNonCacheInfo
 {
 	unsigned natoms, nrecatoms;

@@ -33,6 +33,7 @@
 #include "obmolopener.h"
 #include "gpucode.h"
 #include "precalculate_gpu.h"
+#include <boost/timer.hpp>
 
 using namespace boost::iostreams;
 using boost::filesystem::path;
@@ -218,6 +219,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 		fl out_min_rmsd, tee& log,
 		const terms *t, std::vector<resultInfo>& results)
 {
+	boost::timer time;
+
 	precalculate_exact exact_prec(sf); //use exact computations for final score
 	conf_size s = m.get_size();
 	conf c = m.get_initial_conf();
@@ -384,6 +387,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 			log.endl();
 		}
 	}
+	std::cout << "Refine time " << time.elapsed() << "\n";
 }
 
 void main_procedure(model& m, precalculate& prec,
@@ -396,7 +400,6 @@ void main_procedure(model& m, precalculate& prec,
 		int verbosity, sz num_modes, fl energy_range, fl out_min_rmsd, tee& log,
 		std::vector<resultInfo>& results)
 {
-
 	doing(verbosity, "Setting up the scoring function", log);
 
 	done(verbosity, log);

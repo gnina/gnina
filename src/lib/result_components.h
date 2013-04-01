@@ -48,7 +48,7 @@ public:
 		memset(components, 0, sizeof(components));
 	}
 
-	result_components(const flv& vals)
+	result_components(const std::vector<double>& vals)
 	{
 		sz valn = vals.size();
 		for(sz i = 0; i < Last; i++) {

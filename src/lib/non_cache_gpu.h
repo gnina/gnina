@@ -170,6 +170,8 @@ public:
 		}
 		cudaMemcpy(info.coords, hcoords, sizeof(float) * natoms * 3,
 				cudaMemcpyHostToDevice);
+		cudaMemset(info.minus_forces, 0, natoms*3*sizeof(float));
+		cudaMemset(info.energies, 0, natoms*sizeof(float));
 
 		//this will calculate the per-atom energies and forces; curl ignored
 		double e = single_point_calc(dinfo, info.energies, slope, info.natoms, info.nrecatoms, v);
