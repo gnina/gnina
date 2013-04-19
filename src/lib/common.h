@@ -43,7 +43,7 @@
 
 #include "macros.h"
 
-typedef float fl;
+typedef double fl;
 
 
 //collection of parameters specifying how minimization should be done

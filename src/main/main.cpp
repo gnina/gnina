@@ -565,6 +565,8 @@ model parse_bundle(const boost::optional<std::string>& rigid_name_opt,
 		return parse_bundle(ligand_names);
 }
 
+//generate a box around the provided ligand padded by autobox_add
+//if centers are always overwritten, but if sizes are non zero they are preserved
 void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 		fl& center_x,
 		fl& center_y, fl& center_z, fl& size_x, fl& size_y, fl& size_z)
@@ -600,9 +602,12 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 		center_x /= num;
 		center_y /= num;
 		center_z /= num;
-		size_x = (max_x - min_x) + autobox_add;
-		size_y = (max_y - min_y) + autobox_add;
-		size_z = (max_z - min_z) + autobox_add;
+		if(size_x == 0)
+			size_x = (max_x - min_x) + autobox_add;
+		if(size_y == 0)
+			size_y = (max_y - min_y) + autobox_add;
+		if(size_z == 0)
+			size_z = (max_z - min_z) + autobox_add;
 	}
 	else
 	{
@@ -775,7 +780,7 @@ Thank you!\n";
 		std::string out_name;
 		std::string ligand_names_file;
 		std::string custom_file_name;
-		fl center_x, center_y, center_z, size_x, size_y, size_z;
+		fl center_x = 0, center_y = 0, center_z = 0, size_x = 0, size_y = 0, size_z = 0;
 		fl autobox_add = 8;
 		fl out_min_rmsd = 1;
 		std::string autobox_ligand;
