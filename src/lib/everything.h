@@ -22,8 +22,18 @@
 
 /*
  * SMINA NOTICE
- * dkoes - if you add a term here, in order to use it with --custom_scoring
- * you must add a parser to custom_terms.{h,cpp}
+ * dkoes - if you add a term here, it must also define a unique regular expression
+ * that matches a string description for use in custom scoring
+ * createFrom should take a string description and return a newly created and
+ * allocated term that matches the string (or null if no match, or throw an error
+ * if match but poorly parameterized).
+ * As a convenience, provide reasonable default initializers.
+ *
+ * I'm not a big fan of having objects being their own factories, but want to keep
+ * as much implementation as possible contained within the new term's class definition.
+ * Suggestions for a better design are welcome.
+ *
+ * You must also register your term with the term_creators constructor
  *
  */
 
@@ -32,6 +42,8 @@
 
 #include "terms.h"
 #include "int_pow.h"
+#include <boost/lexical_cast.hpp>
+
 
 inline fl gaussian(fl x, fl width)
 {
@@ -46,37 +58,56 @@ inline fl smooth_div(fl x, fl y) {
 }
 
 
-
 // distance_additive terms
 
-template<unsigned i>
+template<unsigned power>
 struct electrostatic: public charge_dependent
 {
 	fl cap;
-	electrostatic(fl cap_, fl cutoff_) :
+
+	electrostatic(fl cap_=100, fl cutoff_=8) :
 			charge_dependent(cutoff_), cap(cap_)
 	{
-		name = std::string("electrostatic(i=") + to_string(i) + ",_^="
+		name = std::string("electrostatic(i=") + to_string(power) + ",_^="
 				+ to_string(cap) + ",_c=" + to_string(cutoff) + ")";
+		rexpr.assign("electrostatic\\(i=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+
 	}
 
 	result_components eval_components(smt t1, smt t2, fl r) const
 	{
 		result_components comp;
-		fl tmp = int_pow<i>(r);
+		fl tmp = int_pow<power>(r);
 		if (tmp < epsilon_fl) //avoid divide by zero
 			comp[result_components::ABChargeDependent] = cap;
 		else
 			comp[result_components::ABChargeDependent] = (std::min)(cap, 1 / tmp);
 		return comp;
 	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+
+		fl i = boost::lexical_cast<fl>(match[1]);
+		fl cap = boost::lexical_cast<fl>(match[2]);
+		fl c = boost::lexical_cast<fl>(match[3]);
+		if(i == 1)
+			return new electrostatic<1>(cap,c);
+		else if(i == 2)
+			return new electrostatic<2>(cap,c);
+		else
+			throw scoring_function_error(desc,"Invalid exponent: 1 or 2 only");
+	}
+
 };
 
 struct ad4_solvation: public charge_dependent
 {
 	fl desolvation_sigma;
 	fl solvation_q;
-	ad4_solvation(fl desolvation_sigma_, fl solvation_q_, fl cutoff_) :
+	ad4_solvation(fl desolvation_sigma_=3.6, fl solvation_q_=0.01097, fl cutoff_=8) :
 				charge_dependent(cutoff_), solvation_q(solvation_q_),
 				desolvation_sigma(desolvation_sigma_)
 	{
@@ -84,6 +115,8 @@ struct ad4_solvation: public charge_dependent
 				+ to_string(desolvation_sigma) + ",_s/q="
 				+ to_string(solvation_q) +
 				+ ",_c=" + to_string(cutoff) + ")";
+		rexpr.assign("ad4_solvation\\(d-sigma=(\\S+),_s/q=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+
 	}
 
 	result_components eval_components(smt t1, smt t2, fl r) const
@@ -106,6 +139,17 @@ struct ad4_solvation: public charge_dependent
 
 		return ret;
 	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+
+		fl sigma = boost::lexical_cast<fl>(match[1]);
+		fl w = boost::lexical_cast<fl>(match[2]);
+		fl c = boost::lexical_cast<fl>(match[3]);
+		return new ad4_solvation(sigma, w, c);
+	}
 };
 
 inline fl optimal_distance(smt xs_t1, smt xs_t2)
@@ -117,26 +161,41 @@ struct gauss: public charge_independent
 {
 	fl offset; // added to optimal distance
 	fl width;
-	gauss(fl offset_, fl width_, fl cutoff_) :
+	gauss(fl offset_=0, fl width_=0.5, fl cutoff_=8) :
 		charge_independent(cutoff_), offset(offset_), width(width_)
 	{
 		name = std::string("gauss(o=") + to_string(offset) + ",_w="
 				+ to_string(width) + ",_c=" + to_string(cutoff) + ")";
+		rexpr.assign("gauss\\(o=(\\S+),_w=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+
 	}
 	fl eval(smt t1, smt t2, fl r) const
 	{
 		return gaussian(r - (optimal_distance(t1, t2) + offset), width);
+	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+
+		fl o = boost::lexical_cast<fl>(match[1]);
+		fl w = boost::lexical_cast<fl>(match[2]);
+		fl c = boost::lexical_cast<fl>(match[3]);
+		return new gauss(o, w, c);
 	}
 };
 
 struct repulsion: public charge_independent
 {
 	fl offset; // added to vdw
-	repulsion(fl offset_, fl cutoff_) :
+	repulsion(fl offset_=0, fl cutoff_=8) :
 		charge_independent(cutoff_), offset(offset_)
 	{
 		name = std::string("repulsion(o=") + to_string(offset) + ",_c="
 				+ to_string(cutoff) + ")";
+		rexpr.assign("repulsion\\(o=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+
 	}
 	fl eval(smt t1, smt t2, fl r) const
 	{
@@ -144,6 +203,16 @@ struct repulsion: public charge_independent
 		if (d > 0)
 			return 0;
 		return d * d;
+	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+
+		fl o = boost::lexical_cast<fl>(match[1]);
+		fl c = boost::lexical_cast<fl>(match[2]);
+		return new repulsion(o, c);
 	}
 };
 
@@ -170,11 +239,12 @@ struct hydrophobic: public charge_independent
 {
 	fl good;
 	fl bad;
-	hydrophobic(fl good_, fl bad_, fl cutoff_) :
+	hydrophobic(fl good_=0.5, fl bad_=1.5, fl cutoff_=8) :
 		charge_independent(cutoff_), good(good_), bad(bad_)
 	{
 		name = "hydrophobic(g=" + to_string(good) + ",_b=" + to_string(bad)
 				+ ",_c=" + to_string(cutoff) + ")";
+		rexpr.assign("hydrophobic\\(g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 	}
 	fl eval(smt t1, smt t2, fl r) const
 	{
@@ -183,17 +253,30 @@ struct hydrophobic: public charge_independent
 		else
 			return 0;
 	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+
+		fl g = boost::lexical_cast<fl>(match[1]);
+		fl b = boost::lexical_cast<fl>(match[2]);
+		fl c = boost::lexical_cast<fl>(match[3]);
+		return new hydrophobic(g, b, c);
+	}
 };
 
 struct non_hydrophobic: public charge_independent
 {
 	fl good;
 	fl bad;
-	non_hydrophobic(fl good_, fl bad_, fl cutoff_) :
+	non_hydrophobic(fl good_=0.5, fl bad_=1.5, fl cutoff_=8) :
 		charge_independent(cutoff_), good(good_), bad(bad_)
 	{
 		name = "non_hydrophobic(g=" + to_string(good) + ",_b=" + to_string(bad)
 				+ ",_c=" + to_string(cutoff) + ")";
+		rexpr.assign("non_hydrophobic\\(g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+
 	}
 	fl eval(smt t1, smt t2, fl r) const
 	{
@@ -201,6 +284,17 @@ struct non_hydrophobic: public charge_independent
 			return slope_step(bad, good, r - optimal_distance(t1, t2));
 		else
 			return 0;
+	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+
+		fl g = boost::lexical_cast<fl>(match[1]);
+		fl b = boost::lexical_cast<fl>(match[2]);
+		fl c = boost::lexical_cast<fl>(match[3]);
+		return new non_hydrophobic(g, b, c);
 	}
 };
 
@@ -217,13 +311,15 @@ struct vdw: public charge_independent
 {
 	fl smoothing;
 	fl cap;
-	vdw(fl smoothing_, fl cap_, fl cutoff_)
+	vdw(fl smoothing_=1, fl cap_=100, fl cutoff_=8)
 	:
 		charge_independent(cutoff_), smoothing(smoothing_), cap(cap_)
 	{
 		name = "vdw(i=" + to_string(i) + ",_j=" + to_string(j) + ",_s="
 				+ to_string(smoothing) + ",_^=" + to_string(cap) + ",_c="
 				+ to_string(cutoff) + ")";
+		rexpr.assign("vdw\\(i=(\\S+),_j=(\\S+),_s=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+
 	}
 	fl eval(smt t1, smt t2, fl r) const
 	{
@@ -246,6 +342,24 @@ struct vdw: public charge_independent
 		else
 			return cap;
 	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+
+		fl vi = boost::lexical_cast<fl>(match[1]);
+		fl vj = boost::lexical_cast<fl>(match[2]);
+		fl s = boost::lexical_cast<fl>(match[3]);
+		fl cap = boost::lexical_cast<fl>(match[4]);
+		fl c = boost::lexical_cast<fl>(match[5]);
+		if(vi == 4.0 && vj == 8)
+			return new vdw<4,8>(s, cap, c);
+		else if(vi == 6 && vj == 12)
+			return new vdw<6,12>(s, cap, c);
+		else
+			throw scoring_function_error(desc,"Unsupported LJ exponents: try <4,8> or <6,12>.");
+	}
 };
 
 /* A 10-12 LJ potential */
@@ -253,12 +367,13 @@ struct non_dir_h_bond_lj: public charge_independent
 {
 	fl offset;
 	fl cap;
-	non_dir_h_bond_lj(fl offset_, fl cap_, fl cutoff_) :
+	non_dir_h_bond_lj(fl offset_=-0.7, fl cap_=100, fl cutoff_=8) :
 		charge_independent(cutoff_), offset(offset_), cap(cap_)
 	{
 		name = std::string("non_dir_h_bond_lj(o=") + to_string(offset)
 				+ ",_^=" + to_string(cap)
 				+ ",_c=" + to_string(cutoff) + ")";
+		rexpr.assign("non_dir_h_bond_lj\\(o=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 	}
 	fl eval(smt t1, smt t2, fl r) const
 	{
@@ -279,17 +394,29 @@ struct non_dir_h_bond_lj: public charge_independent
 		}
 		return 0;
 	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+
+		fl o = boost::lexical_cast<fl>(match[1]);
+		fl cap = boost::lexical_cast<fl>(match[2]);
+		fl c = boost::lexical_cast<fl>(match[3]);
+		return new non_dir_h_bond_lj(o, cap, c);
+	}
 };
 
 /* This mimics repulsion, but only between possible bonders. More for testing */
 struct non_dir_h_bond_quadratic: public charge_independent
 {
 	fl offset;
-	non_dir_h_bond_quadratic(fl offset_, fl cutoff_) :
+	non_dir_h_bond_quadratic(fl offset_=0, fl cutoff_=8) :
 		charge_independent(cutoff_), offset(offset_)
 	{
 		name = std::string("non_dir_h_bond_quadratic(o=") + to_string(offset)
 				+ ",_c=" + to_string(cutoff) + ")";
+		rexpr.assign("non_dir_h_bond_quadratic\\(o=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 	}
 	fl eval(smt t1, smt t2, fl r) const
 	{
@@ -302,6 +429,83 @@ struct non_dir_h_bond_quadratic: public charge_independent
 		}
 		return 0;
 	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+
+		fl o = boost::lexical_cast<fl>(match[1]);
+		fl c = boost::lexical_cast<fl>(match[2]);
+		return new non_dir_h_bond_quadratic(o, c);
+	}
+};
+
+/* Quadratic potential (see repulsion) between donor atoms */
+struct donor_donor_quadratic: public charge_independent
+{
+	fl offset;
+	donor_donor_quadratic(fl offset_=0, fl cutoff_=8) :
+		charge_independent(cutoff_), offset(offset_)
+	{
+		name = std::string("donor_donor_quadratic(o=") + to_string(offset)
+				+ ",_c=" + to_string(cutoff) + ")";
+		rexpr.assign("donor_donor_quadratic\\(o=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+	}
+	fl eval(smt t1, smt t2, fl r) const
+	{
+		if (xs_is_donor(t1) && xs_is_donor(t2))
+		{
+			fl d = r - (optimal_distance(t1, t2) + offset);
+			if (d > 0)
+				return 0;
+			return d * d;
+		}
+		return 0;
+	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+
+		fl o = boost::lexical_cast<fl>(match[1]);
+		fl c = boost::lexical_cast<fl>(match[2]);
+		return new donor_donor_quadratic(o, c);
+	}
+};
+
+/* Quadratic potential (see repulsion) between acceptor atoms */
+struct acceptor_acceptor_quadratic: public charge_independent
+{
+	fl offset;
+	acceptor_acceptor_quadratic(fl offset_=0, fl cutoff_=8) :
+		charge_independent(cutoff_), offset(offset_)
+	{
+		name = std::string("acceptor_acceptor_quadratic(o=") + to_string(offset)
+				+ ",_c=" + to_string(cutoff) + ")";
+		rexpr.assign("acceptor_acceptor_quadratic\\(o=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+	}
+	fl eval(smt t1, smt t2, fl r) const
+	{
+		if (xs_is_acceptor(t1) && xs_is_acceptor(t2))
+		{
+			fl d = r - (optimal_distance(t1, t2) + offset);
+			if (d > 0)
+				return 0;
+			return d * d;
+		}
+		return 0;
+	}
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+
+		fl o = boost::lexical_cast<fl>(match[1]);
+		fl c = boost::lexical_cast<fl>(match[2]);
+		return new acceptor_acceptor_quadratic(o, c);
+	}
 };
 
 //classic Vina hbond term
@@ -309,17 +513,29 @@ struct non_dir_h_bond: public charge_independent
 {
 	fl good;
 	fl bad;
-	non_dir_h_bond(fl good_, fl bad_, fl cutoff_) :
+	non_dir_h_bond(fl good_=-0.7, fl bad_=0, fl cutoff_=8) :
 		charge_independent(cutoff_), good(good_), bad(bad_)
 	{
 		name = std::string("non_dir_h_bond(g=") + to_string(good) + ",_b="
 				+ to_string(bad) + ",_c=" + to_string(cutoff) + ")";
+		rexpr.assign("non_dir_h_bond\\(g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 	}
 	fl eval(smt t1, smt t2, fl r) const
 	{
 		if (xs_h_bond_possible(t1, t2))
 			return slope_step(bad, good, r - optimal_distance(t1, t2));
 		return 0;
+	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+
+		fl g = boost::lexical_cast<fl>(match[1]);
+		fl b = boost::lexical_cast<fl>(match[2]);
+		fl c = boost::lexical_cast<fl>(match[3]);
+		return new non_dir_h_bond(g, b, c);
 	}
 };
 
@@ -337,6 +553,7 @@ struct num_tors_add: public conf_independent
 	num_tors_add()
 	{
 		name = "num_tors_add";
+		rexpr.assign(name);
 	}
 	sz size() const
 	{
@@ -349,6 +566,13 @@ struct num_tors_add: public conf_independent
 		fl w = read_iterator(i); // FIXME?
 		return x + w * in.num_tors;
 	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		if(!regex_match(desc, rexpr))
+			return NULL;
+
+		return new num_tors_add();
+	}
 };
 
 struct num_tors_sqr: public conf_independent
@@ -356,6 +580,7 @@ struct num_tors_sqr: public conf_independent
 	num_tors_sqr()
 	{
 		name = "num_tors_sqr";
+		rexpr.assign(name);
 	}
 	sz size() const
 	{
@@ -369,6 +594,12 @@ struct num_tors_sqr: public conf_independent
 		fl ret = x + add;
 		return ret;
 	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		if(!regex_match(desc, rexpr))
+			return NULL;
+		return new num_tors_sqr();
+	}
 };
 
 struct num_tors_sqrt: public conf_independent
@@ -376,6 +607,7 @@ struct num_tors_sqrt: public conf_independent
 	num_tors_sqrt()
 	{
 		name = "num_tors_sqrt";
+		rexpr.assign(name);
 	}
 	sz size() const
 	{
@@ -387,6 +619,11 @@ struct num_tors_sqrt: public conf_independent
 		fl w = 0.1 * read_iterator(i); // [-1 .. 1]
 		return x + w * std::sqrt(fl(in.num_tors)) / sqrt(5.0);
 	}
+	virtual term* createFrom(const std::string& desc) const {
+		if(!regex_match(desc, rexpr))
+			return NULL;
+		return new num_tors_sqrt();
+	}
 };
 
 struct num_tors_div: public conf_independent
@@ -394,6 +631,7 @@ struct num_tors_div: public conf_independent
 	num_tors_div()
 	{
 		name = "num_tors_div";
+		rexpr.assign(name);
 	}
 	sz size() const
 	{
@@ -405,6 +643,11 @@ struct num_tors_div: public conf_independent
 		fl w = 0.1 * (read_iterator(i) + 1); // w is in [0..0.2]
 		return smooth_div(x, 1 + w * in.num_tors / 5.0);
 	}
+	virtual term* createFrom(const std::string& desc) const {
+		if(!regex_match(desc, rexpr))
+			return NULL;
+		return new num_tors_div();
+	}
 };
 
 struct ligand_length: public conf_independent
@@ -412,6 +655,7 @@ struct ligand_length: public conf_independent
 	ligand_length()
 	{
 		name = "ligand_length";
+		rexpr.assign(name);
 	}
 	sz size() const
 	{
@@ -423,6 +667,11 @@ struct ligand_length: public conf_independent
 		fl w = read_iterator(i);
 		return x + w * in.ligand_lengths_sum;
 	}
+	virtual term* createFrom(const std::string& desc) const {
+		if(!regex_match(desc, rexpr))
+			return NULL;
+		return new ligand_length();
+	}
 };
 
 struct num_ligands: public conf_independent
@@ -430,6 +679,7 @@ struct num_ligands: public conf_independent
 	num_ligands()
 	{
 		name = "num_ligands";
+		rexpr.assign(name);
 	}
 	sz size() const
 	{
@@ -441,6 +691,11 @@ struct num_ligands: public conf_independent
 		fl w = 1 * read_iterator(i); // w is in [-1.. 1]
 		return x + w * in.num_ligands;
 	}
+	virtual term* createFrom(const std::string& desc) const {
+		if(!regex_match(desc, rexpr))
+			return NULL;
+		return new num_ligands();
+	}
 };
 
 struct num_heavy_atoms_div: public conf_independent
@@ -448,6 +703,7 @@ struct num_heavy_atoms_div: public conf_independent
 	num_heavy_atoms_div()
 	{
 		name = "num_heavy_atoms_div";
+		rexpr.assign(name);
 	}
 	sz size() const
 	{
@@ -459,6 +715,11 @@ struct num_heavy_atoms_div: public conf_independent
 		fl w = 0.05 * read_iterator(i);
 		return smooth_div(x, 1 + w * in.num_heavy_atoms);
 	}
+	virtual term* createFrom(const std::string& desc) const {
+		if(!regex_match(desc, rexpr))
+			return NULL;
+		return new num_heavy_atoms_div();
+	}
 };
 
 struct num_heavy_atoms: public conf_independent
@@ -466,6 +727,7 @@ struct num_heavy_atoms: public conf_independent
 	num_heavy_atoms()
 	{
 		name = "num_heavy_atoms";
+		rexpr.assign(name);
 	}
 	sz size() const
 	{
@@ -477,6 +739,11 @@ struct num_heavy_atoms: public conf_independent
 		fl w = 0.05 * read_iterator(i);
 		return x + w * in.num_heavy_atoms;
 	}
+	virtual term* createFrom(const std::string& desc) const {
+		if(!regex_match(desc, rexpr))
+			return NULL;
+		return new num_heavy_atoms();
+	}
 };
 
 struct num_hydrophobic_atoms: public conf_independent
@@ -484,6 +751,7 @@ struct num_hydrophobic_atoms: public conf_independent
 	num_hydrophobic_atoms()
 	{
 		name = "num_hydrophobic_atoms";
+		rexpr.assign(name);
 	}
 	sz size() const
 	{
@@ -495,6 +763,11 @@ struct num_hydrophobic_atoms: public conf_independent
 		fl w = 0.05 * read_iterator(i);
 		return x + w * in.num_hydrophobic_atoms;
 	}
+	virtual term* createFrom(const std::string& desc) const {
+		if(!regex_match(desc, rexpr))
+			return NULL;
+		return new num_hydrophobic_atoms();
+	}
 };
 
 struct constant_term: public conf_independent
@@ -502,6 +775,7 @@ struct constant_term: public conf_independent
 	constant_term()
 	{
 		name = "constant_term";
+		rexpr.assign(name);
 	}
 	sz size() const
 	{
@@ -513,6 +787,48 @@ struct constant_term: public conf_independent
 		fl w = read_iterator(i);
 		return x + w;
 	}
+	virtual term* createFrom(const std::string& desc) const {
+		if(!regex_match(desc, rexpr))
+			return NULL;
+		return new constant_term();
+	}
 };
+
+//vector of terms
+//ADD ALL TERMS HERE
+struct term_creators : public std::vector<term*> {
+	term_creators() {
+		push_back(new electrostatic<0>());
+		push_back(new ad4_solvation());
+		push_back(new gauss());
+		push_back(new repulsion());
+		push_back(new hydrophobic());
+		push_back(new non_hydrophobic());
+		push_back(new vdw<6,12>());
+		push_back(new non_dir_h_bond_lj());
+		push_back(new non_dir_h_bond_quadratic());
+		push_back(new non_dir_h_bond());
+		push_back(new acceptor_acceptor_quadratic());
+		push_back(new donor_donor_quadratic());
+		push_back(new num_tors_add());
+		push_back(new num_tors_sqr());
+		push_back(new num_tors_sqrt());
+		push_back(new num_tors_div());
+		push_back(new ligand_length());
+		push_back(new num_ligands());
+		push_back(new num_heavy_atoms_div());
+		push_back(new num_heavy_atoms());
+		push_back(new num_hydrophobic_atoms());
+		push_back(new constant_term());
+	}
+
+	virtual ~term_creators() {
+		for(unsigned i = 0, n = size(); i < n; i++) {
+			delete (*this)[i];
+		}
+		clear();
+	}
+};
+
 
 #endif

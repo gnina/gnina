@@ -80,8 +80,8 @@ The custom scoring file consists of a weight, term description, and optional
 comments on each line.  The numeric parameters of the term description 
 can be varied to parameterize the scoring function.  
 Example (all weights 1.0, all term types listed):
-1.0  ad4_solvation(d-sigma=3.6,_s/q=0.01097,_q=1,_c=8)  desolvation, q determines whether value is charge dependent
-1.0  ad4_solvation(d-sigma=3.6,_s/q=0.01097,_q=0,_c=8)  in all terms, c is a distance cutoff
+1.0  ad4_solvation(d-sigma=3.6,_s/q=0.01097,_c=8)  desolvation, q determines whether value is charge dependent
+1.0  ad4_solvation(d-sigma=3.6,_s/q=0.01097,_c=8)  in all terms, c is a distance cutoff
 1.0  electrostatic(i=1,_^=100,_c=8)	i is the exponent of the distance, see everything.h for details
 1.0  electrostatic(i=2,_^=100,_c=8)
 1.0  gauss(o=0,_w=0.5,_c=8)		o is offset, w is width of gaussian

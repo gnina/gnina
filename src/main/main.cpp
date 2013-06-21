@@ -234,6 +234,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 		naive_non_cache nnc(&exact_prec); // for out of grid issues
 		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
 				intramolecular_energy);
+
+		log << "##Name " << m.get_name() << "\n";
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
 		log.endl();
@@ -387,7 +389,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 			log.endl();
 		}
 	}
-	std::cout << "Refine time " << time.elapsed() << "\n";
+	//std::cout << "Refine time " << time.elapsed() << "\n";
 }
 
 void main_procedure(model& m, precalculate& prec,
@@ -805,6 +807,7 @@ Thank you!\n";
 		bool flex_hydrogens = false;
 		bool include_atom_terms = false;
 		bool gpu_on = false;
+		bool print_terms = false;
 		minimization_params minparms;
 		ApproxType approx = LinearApprox;
 		fl approx_factor = 32;
@@ -842,6 +845,7 @@ Thank you!\n";
 		("atom_terms", value<std::string>(&atom_name),
 				"optionally write per-atom interaction term values")
 		("atom_term_data", bool_switch(&include_atom_terms), "embedded per-atom interaction terms in output sd data");
+
 		options_description scoremin("Scoring and minimization options");
 		scoremin.add_options()
 		("custom_scoring", value<std::string>(&custom_file_name),
@@ -863,7 +867,8 @@ Thank you!\n";
 		("approximation", value<ApproxType>(&approx),
 				"approximation (linear, spline, or exact) to use")
 		("factor", value<fl>(&approx_factor),
-				"approximation factor: higher results in a finer-grained approximation");
+				"approximation factor: higher results in a finer-grained approximation")
+		("print_terms",bool_switch(&print_terms),"Print all available terms with default parameterizations");
 
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
@@ -957,7 +962,12 @@ Thank you!\n";
 			std::cout << version_string << '\n';
 			return 0;
 		}
-
+		if (print_terms)
+		{
+			custom_terms t;
+			t.print_available_terms(std::cout);
+			return 0;
+		}
 #ifdef SMINA_GPU
 		initializeCUDA(device);
 #endif
@@ -1180,6 +1190,7 @@ Thank you!\n";
 			{
 				model m = initm;
 				std::string name = mol.GetTitle();
+				m.set_name(name);
 				try
 				{
 					//this is suboptimal: do not read/write pdbqt with openbabel

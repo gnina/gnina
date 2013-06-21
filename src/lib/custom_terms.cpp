@@ -12,166 +12,23 @@
 
 using namespace boost;
 
-custom_terms::custom_terms()
-{
-	ad4_solvation_re.assign("ad4_solvation\\(d-sigma=(\\S+),_s/q=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
-	constant_re.assign("constant_term",boost::regex::perl);
-	electrostatic_re.assign("electrostatic\\(i=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
-	gauss_re.assign("gauss\\(o=(\\S+),_w=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
-	hydrophobic_re.assign("hydrophobic\\(g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
-	ligand_length_re.assign("ligand_length",boost::regex::perl);
-	non_dir_h_bond_re.assign("non_dir_h_bond\\(g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
-	non_dir_h_bond_quadratic_re.assign("non_dir_h_bond_quadratic\\(o=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
-	non_dir_h_bond_lj_re.assign("non_dir_h_bond_lj\\(o=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
-	non_hydrophobic_re.assign("non_hydrophobic\\(g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
-	num_re.assign("num_(\\S+)",boost::regex::perl);
-	repulsion_re.assign("repulsion\\(o=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
-	vdw_re.assign("vdw\\(i=(\\S+),_j=(\\S+),_s=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
-}
 
 //parse the name of a term and add it with the proper parameterization
 void custom_terms::add(const std::string& name, fl weight)
 {
-	smatch match;
 	try
 	{
-	if(regex_match(name, match, vdw_re))
-	{
-		fl i = lexical_cast<fl>(match[1]);
-		fl j = lexical_cast<fl>(match[2]);
-		fl s = lexical_cast<fl>(match[3]);
-		fl cap = lexical_cast<fl>(match[4]);
-		fl c = lexical_cast<fl>(match[5]);
-		if(i == 4.0 && j == 8)
-			terms::add(1, new vdw<4,8>(s, cap, c));
-		else if(i == 6 && j == 12)
-			terms::add(1, new vdw<6,12>(s, cap, c));
-		else
-			throw scoring_function_error(name,"Unsupported LJ exponents: try <4,8> or <6,12>.");
-		charge_independent_weights.push_back(weight);
-		return;
-	}
-	if(regex_match(name, match, repulsion_re))
-	{
-		fl o = lexical_cast<fl>(match[1]);
-		fl c = lexical_cast<fl>(match[2]);
-		terms::add(1, new repulsion(o, c));
-		charge_independent_weights.push_back(weight);
-		return;
-	}
-	if(regex_match(name, match, num_re))
-	{
-		std::string counter = match[1];
-		if(counter == "tors_div")
-			terms::add(1, new num_tors_div());
-		else if(counter == "heavy_atoms_div")
-			terms::add(1,new num_heavy_atoms_div());
-		else if(counter == "heavy_atoms")
-			terms::add(1,new num_heavy_atoms());
-		else if(counter == "tors_add")
-			terms::add(1,new num_tors_add());
-		else if(counter == "tors_sqr")
-			terms::add(1,new num_tors_sqr());
-		else if(counter == "tors_sqrt")
-			terms::add(1,new num_tors_sqrt());
-		else if(counter == "hydrophobic_atoms")
-			terms::add(1,new num_hydrophobic_atoms());
-		else
-			throw scoring_function_error(name, "Unknown counter");
-
-		conf_independent_weights.push_back(weight);
-		return;
-	}
-	if(regex_match(name, match, non_hydrophobic_re))
-	{
-		fl g = lexical_cast<fl>(match[1]);
-		fl b = lexical_cast<fl>(match[2]);
-		fl c = lexical_cast<fl>(match[3]);
-		terms::add(1, new non_hydrophobic(g, b, c));
-		charge_independent_weights.push_back(weight);
-		return;
-	}
-	if(regex_match(name, match, non_dir_h_bond_lj_re))
-	{
-		fl o = lexical_cast<fl>(match[1]);
-		fl cap = lexical_cast<fl>(match[2]);
-		fl c = lexical_cast<fl>(match[3]);
-		terms::add(1, new non_dir_h_bond_lj(o, cap, c));
-		charge_independent_weights.push_back(weight);
-		return;
-	}
-	if(regex_match(name, match, non_dir_h_bond_quadratic_re))
-	{
-		fl o = lexical_cast<fl>(match[1]);
-		fl c = lexical_cast<fl>(match[2]);
-		terms::add(1, new non_dir_h_bond_quadratic(o, c));
-		charge_independent_weights.push_back(weight);
-		return;
-	}
-	if(regex_match(name, match, non_dir_h_bond_re))
-	{
-		fl g = lexical_cast<fl>(match[1]);
-		fl b = lexical_cast<fl>(match[2]);
-		fl c = lexical_cast<fl>(match[3]);
-		terms::add(1, new non_dir_h_bond(g, b, c));
-		charge_independent_weights.push_back(weight);
-		return;
-	}
-	if(regex_match(name, match, ligand_length_re))
-	{
-		terms::add(1, new ligand_length());
-		conf_independent_weights.push_back(weight);
-		return;
-	}
-	if(regex_match(name, match, hydrophobic_re))
-	{
-		fl g = lexical_cast<fl>(match[1]);
-		fl b = lexical_cast<fl>(match[2]);
-		fl c = lexical_cast<fl>(match[3]);
-		terms::add(1, new hydrophobic(g, b, c));
-		charge_independent_weights.push_back(weight);
-		return;
-	}
-	if(regex_match(name, match, gauss_re))
-	{
-		fl o = lexical_cast<fl>(match[1]);
-		fl w = lexical_cast<fl>(match[2]);
-		fl c = lexical_cast<fl>(match[3]);
-		terms::add(1, new gauss(o, w, c));
-		charge_independent_weights.push_back(weight);
-		return;
-	}
-	if(regex_match(name, match, electrostatic_re))
-	{
-		fl i = lexical_cast<fl>(match[1]);
-		fl cap = lexical_cast<fl>(match[2]);
-		fl c = lexical_cast<fl>(match[3]);
-		if(i == 1)
-			terms::add(1, new electrostatic<1>(cap,c));
-		else if(i == 2)
-			terms::add(1, new electrostatic<2>(cap,c));
-		else
-			throw scoring_function_error(name,"Invalid exponent: 1 or 2 only");
-
-		charge_dependent_weights.push_back(weight);
-		return;
-	}
-	if(regex_match(name, match, constant_re))
-	{
-		terms::add(1, new constant_term());
-		conf_independent_weights.push_back(weight);
-		return;
-	}
-	if(regex_match(name, match, ad4_solvation_re))
-	{
-		fl sigma = lexical_cast<fl>(match[1]);
-		fl w = lexical_cast<fl>(match[2]);
-		fl c = lexical_cast<fl>(match[3]);
-		terms::add(1, new ad4_solvation(sigma, w, c));
-		charge_dependent_weights.push_back(weight);
-		return;
-	}
-
+		for(unsigned i = 0, n = creators.size(); i < n; i++)
+		{
+			term *t = creators[i]->createFrom(name);
+			if(t != NULL)
+			{
+				TermKind kind = t->kind();
+				term_weights[(unsigned)kind].push_back(weight);
+				terms::add(1, t);
+				return;
+			}
+		}
 	}
 	catch(bad_lexical_cast& be)
 	{
@@ -184,12 +41,11 @@ void custom_terms::add(const std::string& name, fl weight)
 flv custom_terms::weights() const
 {
 	flv ret;
-	ret.insert(ret.end(), charge_independent_weights.begin(), charge_independent_weights.end());
-	ret.insert(ret.end(), charge_dependent_weights.begin(), charge_dependent_weights.end());
-	ret.insert(ret.end(), distance_additive_weights.begin(), distance_additive_weights.end());
-	ret.insert(ret.end(), additive_weights.begin(), additive_weights.end());
-	ret.insert(ret.end(), intermolecular_weights.begin(), intermolecular_weights.end());
-	ret.insert(ret.end(), conf_independent_weights.begin(), conf_independent_weights.end());
+	for(int index = LastTermKind-1; index > BaseTerm; index--)
+	{
+		//revers order is what is expected
+		ret.insert(ret.end(), term_weights[index].begin(), term_weights[index].end());
+	}
 
 	return ret;
 }
@@ -217,11 +73,12 @@ void custom_terms::print(std::ostream& out) const
 {
 	flv ret;
 	unsigned pad = 12;
-	ret.insert(ret.end(), charge_independent_weights.begin(), charge_independent_weights.end());
-	ret.insert(ret.end(), charge_dependent_weights.begin(), charge_dependent_weights.end());
-	ret.insert(ret.end(), distance_additive_weights.begin(), distance_additive_weights.end());
-	ret.insert(ret.end(), additive_weights.begin(), additive_weights.end());
-	ret.insert(ret.end(), intermolecular_weights.begin(), intermolecular_weights.end());
+
+	for(int index = LastTermKind-1; index > ConfIndependent; index--)
+	{
+		//revers order is what is expected
+		ret.insert(ret.end(), term_weights[index].begin(), term_weights[index].end());
+	}
 
 	std::vector<std::string> names = get_names(true);
 	assert(ret.size() == names.size());
@@ -233,12 +90,22 @@ void custom_terms::print(std::ostream& out) const
 	//now conf_indep, which are separate for some reason
 	std::vector<std::string> conf_indep_names;
 	conf_independent_terms.get_names(true, conf_indep_names);
-	assert(conf_indep_names.size() == conf_independent_weights.size());
+	assert(conf_indep_names.size() == term_weights[ConfIndependent].size());
 	for(unsigned i = 0, n = conf_indep_names.size(); i < n; i++)
 	{
-		out << std::setw(pad) << conf_independent_weights[i] << " " << conf_indep_names[i] << "\n";
+		out << std::setw(pad) << term_weights[ConfIndependent][i] << " " << conf_indep_names[i] << "\n";
 	}
 }
+
+//print all the term creators, not those created
+void custom_terms::print_available_terms(std::ostream& out) const
+{
+	for(unsigned i = 0, n = creators.size(); i < n; i++)
+	{
+		out << creators[i]->name << "\n";
+	}
+}
+
 
 
 std::ostream& operator<<(std::ostream& out, const custom_terms& t)

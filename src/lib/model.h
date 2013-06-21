@@ -82,6 +82,9 @@ struct model {
 	sz ligand_length(sz ligand_number) const;
 	void get_movable_atom_types(std::vector<smt>& movingtypes) const;
 
+	void set_name(const std::string& n) { name = n; }
+	const std::string& get_name() { return name; }
+
 	conf_size get_size() const;
 	conf get_initial_conf() const; // torsions = 0, orientations = identity, ligand positions = current
 
@@ -229,6 +232,8 @@ private:
 	interacting_pairs other_pairs;  // all except internal to one ligand: ligand-other ligands; ligand-flex/inflex; flex-flex/inflex
 
 	sz m_num_movable_atoms;
+
+	std::string name;
 };
 
 #endif
