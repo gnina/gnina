@@ -800,6 +800,7 @@ Thank you!\n";
 				help = false, help_hidden = false, version = false;
 		bool dominimize = false;
 		bool dkoes_score = false;
+		bool ad4_score = false;
 		bool dkoes_score_old = false;
 		bool dkoes_fast = false;
 		bool quiet = false;
@@ -876,7 +877,8 @@ Thank you!\n";
 				"Use my custom scoring function")
 		("dkoes_scoring_old", bool_switch(&dkoes_score_old),
 				"Use old (vdw+hbond) scoring function")
-		("dkoes_fast", bool_switch(&dkoes_fast), "VDW+nrot only");
+		("dkoes_fast", bool_switch(&dkoes_fast), "VDW+nrot only")
+		("ad4_scoring", bool_switch(&ad4_score), "Approximation of Autodock 4 scoring");
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
@@ -1078,6 +1080,14 @@ Thank you!\n";
 		{
 			//my own built-in scoring functions
 			setup_dkoes_terms(t, dkoes_score, dkoes_score_old, dkoes_fast);
+		}
+		else if(ad4_score)
+		{
+			t.add("vdw(i=6,_j=12,_s=0,_^=100,_c=8)", 0.1560);
+			t.add("non_dir_h_bond_lj(o=-0.7,_^=100,_c=8)", -0.0974);
+			t.add("ad4_solvation(d-sigma=3.5,_s/q=0.01097,_c=8)", 0.1159);
+			t.add("electrostatic(i=1,_^=100,_c=8)", 0.1465);
+			t.add("num_tors_add", 0.2744);
 		}
 		else
 		{
