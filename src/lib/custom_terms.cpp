@@ -58,6 +58,8 @@ void custom_terms::add_terms_from_file(std::istream& in)
 	std::string line;
 	while(getline(in, line))
 	{
+		if(line.size() < 1 || line[0] == '#')
+			continue; //support comments and blank lines
 		std::stringstream str(line);
 		fl w =0 ;
 		std::string name;

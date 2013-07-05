@@ -407,20 +407,20 @@ struct non_dir_h_bond_lj: public charge_independent
 	}
 };
 
-/* This mimics repulsion, but only between possible bonders. More for testing */
-struct non_dir_h_bond_quadratic: public charge_independent
+/* This mimics repulsion, but only between polar atoms that can't possibly hydrogen bond */
+struct non_dir_anti_h_bond_quadratic: public charge_independent
 {
 	fl offset;
-	non_dir_h_bond_quadratic(fl offset_=0, fl cutoff_=8) :
+	non_dir_anti_h_bond_quadratic(fl offset_=0, fl cutoff_=8) :
 		charge_independent(cutoff_), offset(offset_)
 	{
-		name = std::string("non_dir_h_bond_quadratic(o=") + to_string(offset)
+		name = std::string("non_dir_anti_h_bond_quadratic(o=") + to_string(offset)
 				+ ",_c=" + to_string(cutoff) + ")";
-		rexpr.assign("non_dir_h_bond_quadratic\\(o=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+		rexpr.assign("non_dir_anti_h_bond_quadratic\\(o=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
 	}
 	fl eval(smt t1, smt t2, fl r) const
 	{
-		if (xs_h_bond_possible(t1, t2))
+		if (xs_anti_h_bond(t1, t2))
 		{
 			fl d = r - (optimal_distance(t1, t2) + offset);
 			if (d > 0)
@@ -437,7 +437,7 @@ struct non_dir_h_bond_quadratic: public charge_independent
 
 		fl o = boost::lexical_cast<fl>(match[1]);
 		fl c = boost::lexical_cast<fl>(match[2]);
-		return new non_dir_h_bond_quadratic(o, c);
+		return new non_dir_anti_h_bond_quadratic(o, c);
 	}
 };
 
@@ -806,7 +806,7 @@ struct term_creators : public std::vector<term*> {
 		push_back(new non_hydrophobic());
 		push_back(new vdw<6,12>());
 		push_back(new non_dir_h_bond_lj());
-		push_back(new non_dir_h_bond_quadratic());
+		push_back(new non_dir_anti_h_bond_quadratic());
 		push_back(new non_dir_h_bond());
 		push_back(new acceptor_acceptor_quadratic());
 		push_back(new donor_donor_quadratic());

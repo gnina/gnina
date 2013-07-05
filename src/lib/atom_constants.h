@@ -273,6 +273,18 @@ inline bool xs_h_bond_possible(smt t1, smt t2) {
 	return xs_donor_acceptor(t1, t2) || xs_donor_acceptor(t2, t1);
 }
 
+//return true if both types are strictly donors or both strictly acceptors
+inline bool xs_anti_h_bond(smt t1, smt t2) {
+	if(xs_is_donor(t1) && !xs_is_acceptor(t1)) {
+		return xs_is_donor(t2) && !xs_is_acceptor(t2);
+	}
+	if(!xs_is_donor(t1) && xs_is_acceptor(t1)) {
+		return !xs_is_donor(t2) && xs_is_acceptor(t2);
+	}
+	return false;
+}
+
+
 inline smt string_to_smina_type(const std::string& name) { // returns AD_TYPE_SIZE if not found (no exceptions thrown, because metals unknown to AD4 are not exceptional)
     VINA_FOR(i, smina_atom_type::NumTypes)
 		if(smina_atom_type::data[i].adname == name)
