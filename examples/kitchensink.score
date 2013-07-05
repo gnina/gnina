@@ -1,0 +1,51 @@
+#This is an example of an input that can be used to create and calibrate
+#a new scoring function.  The output of scoring can be used to train
+#a regression function to determine good weights and the most desireable terms.
+1.0  ad4_solvation(d-sigma=3.6,_s/q=0.01097,_c=8)  desolvation, q determines whether value is charge dependent
+1.0  ad4_solvation(d-sigma=3.6,_s/q=0.01097,_c=8)  in all terms, c is a distance cutoff
+1.0  electrostatic(i=1,_^=100,_c=8)	i is the exponent of the distance, see everything.h for details
+1.0  electrostatic(i=2,_^=100,_c=8)
+#instead of the full sampling from the csar paper, just choose the
+#most significant guassians when fitting data in addition to the vina defaults
+1.0  gauss(o=0,_w=0.5,_c=8)		o is offset, w is width of gaussian
+1.0  gauss(o=3,_w=2,_c=8)
+1.0  gauss(o=1.5,_w=0.3,_c=8)
+1.0  gauss(o=2,_w=0.9,_c=8)
+1.0  gauss(o=1,_w=0.9,_c=8)
+1.0  gauss(o=1,_w=0.5,_c=8)
+1.0  gauss(o=1,_w=0.3,_c=8)
+1.0  gauss(o=1,_w=0.7,_c=8)
+1.0  gauss(o=2,_w=0.5,_c=8)
+1.0  gauss(o=2,_w=0.7,_c=8)
+1.0  gauss(o=3,_w=0.9,_c=8)
+1.0  repulsion(o=0,_c=8)	o is offset of squared distance repulsion
+1.0  hydrophobic(g=0.5,_b=1.5,_c=8)		g is a good distance, b the bad distance
+1.0  hydrophobic(g=0.5,_b=1,_c=8)		g is a good distance, b the bad distance
+1.0  hydrophobic(g=0.5,_b=2,_c=8)		g is a good distance, b the bad distance
+1.0  hydrophobic(g=0.5,_b=3,_c=8)		g is a good distance, b the bad distance
+1.0  non_hydrophobic(g=0.5,_b=1.5,_c=8)	value is linearly interpolated between g and b
+1.0  vdw(i=4,_j=8,_s=0,_^=100,_c=8)	i and j are LJ exponents
+1.0  vdw(i=6,_j=12,_s=1,_^=100,_c=8) s is the smoothing, ^ is the cap
+1.0  non_dir_h_bond(g=-0.7,_b=0,_c=8)	good and bad
+1.0  non_dir_h_bond(g=-0.7,_b=0.2,_c=8)	good and bad
+1.0  non_dir_h_bond(g=-0.7,_b=0.5,_c=8)	good and bad
+1.0  non_dir_h_bond(g=-1,_b=0,_c=8)	good and bad
+1.0  non_dir_h_bond(g=-1,_b=0.2,_c=8)	good and bad
+1.0  non_dir_h_bond(g=-1,_b=0.5,_c=8)	good and bad
+1.0  non_dir_h_bond(g=-1.3,_b=0,_c=8)	good and bad
+1.0  non_dir_h_bond(g=-1.3,_b=0.2,_c=8)	good and bad
+1.0  non_dir_h_bond(g=-1.3,_b=0.5,_c=8)	good and bad
+1.0  non_dir_anti_h_bond_quadratic(o=0.0,_c=8) 
+1.0  non_dir_anti_h_bond_quadratic(o=0.5,_c=8) 
+1.0  non_dir_anti_h_bond_quadratic(o=1.0,_c=8) 	
+1.0  non_dir_h_bond_lj(o=-0.7,_^=100,_c=8)	LJ 10-12 potential, capped at ^
+1.0  non_dir_h_bond_lj(o=-1,_^=100,_c=8)	LJ 10-12 potential, capped at ^
+1.0  non_dir_h_bond_lj(o=-1.3,_^=100,_c=8)	LJ 10-12 potential, capped at ^
+1.0  num_tors_div	div constant terms are not linearly independent
+1.0  num_heavy_atoms_div	
+1.0  num_heavy_atoms	these terms are just added
+1.0  num_tors_add
+1.0  num_tors_sqr
+1.0  num_tors_sqrt
+1.0  num_hydrophobic_atoms
+1.0  ligand_length
