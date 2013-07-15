@@ -809,6 +809,7 @@ Thank you!\n";
 		bool include_atom_terms = false;
 		bool gpu_on = false;
 		bool print_terms = false;
+		bool add_hydrogens = true;
 		minimization_params minparms;
 		ApproxType approx = LinearApprox;
 		fl approx_factor = 32;
@@ -894,6 +895,7 @@ Thank you!\n";
 		("min_rmsd_filter", value<fl>(&out_min_rmsd)->default_value(1.0),
 				"rmsd value used to filter final poses to remove redundancy")
 		("quiet,q", bool_switch(&quiet), "Suppress output messages")
+		("addH", value<bool>(&add_hydrogens), "automatically add hydrogens in ligands (on by default)")
 		("flex_hydrogens", bool_switch(&flex_hydrogens),
 				"Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
 #ifdef SMINA_GPU
@@ -1211,7 +1213,8 @@ Thank you!\n";
 					}
 					else
 					{
-						mol.AddHydrogens(); //needed for atom typing
+						if(add_hydrogens)
+							mol.AddHydrogens(); //needed for atom typing
 						std::string pdbqt = conv.WriteString(&mol);
 						std::stringstream pdbqtStream(pdbqt);
 
