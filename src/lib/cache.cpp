@@ -89,6 +89,7 @@ fl cache::eval_deriv(model& m, fl v) const
 	return e;
 }
 
+
 template<class Archive>
 void cache::save(Archive& ar, const unsigned version) const
 		{
@@ -113,7 +114,7 @@ void cache::load(Archive& ar, const unsigned version)
 }
 
 void cache::populate(const model& m, const precalculate& p,
-		const std::vector<smt>& atom_types_needed, bool display_progress)
+		const std::vector<smt>& atom_types_needed, grid& user_grid, bool display_progress)
 {
 	std::vector<smt> needed;
 	bool haschargeterms = p.has_components();
@@ -133,7 +134,7 @@ void cache::populate(const model& m, const precalculate& p,
 	flv chargeaffinities;
 	if(haschargeterms)
 		chargeaffinities.resize(needed.size());
-
+           
 	sz nat = num_atom_types();
 
 	grid& g = grids[needed.front()];
@@ -197,9 +198,11 @@ void cache::populate(const model& m, const precalculate& p,
 				{
 					sz t = needed[j];
 					assert(t < nat);
-					grids[t].data(x, y, z) = affinities[j];
+					grids[t].data(x, y, z) = affinities[j]; //+ user_grid.evaluate_user(vec(x, y, z));
 					if(haschargeterms)
 						grids[t].chargedata(x, y, z) = chargeaffinities[j];
+                    if(user_grid.initialized())
+                        grids[t].data(x, y, z) += -user_grid.evaluate_user(vec(x, y ,z));
 				}
 			}
 		}

@@ -19,8 +19,10 @@
  The Scripps Research Institute
 
  */
-
+#include <string>
 #include "grid.h"
+#include "grid_dim.h"
+#include "common.h"
 
 //evaluate using grid, if deriv is null, do not calc deriviative
 fl grid::evaluate(const atom& a, const vec& location, fl slope, fl c,
@@ -45,6 +47,11 @@ fl grid::evaluate(const atom& a, const vec& location, fl slope, fl c,
 	return ret;
 }
 
+fl grid::evaluate_user(const vec& location, vec *deriv)
+{
+    return evaluate_aux(data, location, (fl) 1.0, (fl) 1.0, deriv);
+}
+
 //allocate memory for grid (but don't fill in values)
 //only initialize charge dependent values if hashcharged is true
 void grid::init(const grid_dims& gd, bool hascharged)
@@ -66,6 +73,37 @@ void grid::init(const grid_dims& gd, bool hascharged)
 		m_factor_inv[i] = 1 / m_factor[i];
 	}
 }
+
+void grid::init(const grid_dims& gd, std::istream& user_in)
+{
+    data.resize(gd[0].n+1, gd[1].n+1, gd[2].n+1);
+    m_init = vec(gd[0].begin, gd[1].begin, gd[2].begin);
+	m_range = vec(gd[0].span(), gd[1].span(), gd[2].span());
+	assert(m_range[0] > 0);
+	assert(m_range[1] > 0);
+	assert(m_range[2] > 0);
+	m_dim_fl_minus_1 = vec(data.dim0()-1,
+			data.dim1()-1,
+			data.dim2()-1);
+    
+    std::string line;
+    std::cout << "I'm not in the loop" << std::endl;
+    std::cout << gd[2].n << std::endl;
+    print(gd);
+    VINA_FOR(z, gd[2].n+1)
+    {
+        VINA_FOR(y, gd[1].n+1)
+        {
+            VINA_FOR(x, gd[0].n+1)
+            {
+                std::getline(user_in,line);
+                data(x, y, z) = ::atof(line.c_str());                
+            }
+        }        
+    } 
+    std::cout << data(4,0,0) << "\n";
+}
+
 
 fl grid::evaluate_aux(const array3d<fl>& m_data, const vec& location, fl slope,
 		fl v, vec* deriv) const
