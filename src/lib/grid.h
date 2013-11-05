@@ -51,6 +51,7 @@ class grid
 		init(gd, hascharged);
 	}
 	void init(const grid_dims& gd, bool hascharged);
+    void init(const grid_dims& gd, std::istream& user_in);
 	vec index_to_argument(sz x, sz y, sz z) const
 	{
 		return vec(m_init[0] + m_factor_inv[0] * x,
@@ -62,6 +63,7 @@ class grid
 		return data.dim0() > 0 && data.dim1() > 0 && data.dim2() > 0;
 	}
 	fl evaluate(const atom& a, const vec& location, fl slope, fl c, vec* deriv = NULL) const;
+    fl evaluate_user(const vec& location, vec* deriv = NULL);
 private:
 	fl evaluate_aux(const array3d<fl>& m_data, const vec& location, fl slope,
 			fl v, vec* deriv) const; // sets *deriv if not NULL

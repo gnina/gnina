@@ -27,6 +27,7 @@
 #include "igrid.h"
 #include "grid.h"
 #include "model.h"
+#include "array3d.h"
 
 struct cache_mismatch {};
 struct rigid_mismatch : public cache_mismatch {};
@@ -38,14 +39,13 @@ struct cache : public igrid {
 	fl eval      (const model& m, fl v) const; // needs m.coords // clean up
 	fl eval_deriv(      model& m, fl v) const; // needs m.coords, sets m.minus_forces // clean up
 
-	void populate(const model& m, const precalculate& p, const std::vector<smt>& atom_types_needed, bool display_progress = true);
+	void populate(const model& m, const precalculate& p, const std::vector<smt>& atom_types_needed, grid& user_grid, bool display_progress = true);
 private:
 	std::string scoring_function_version;
 	atomv atoms; // for verification
 	grid_dims gd;
 	fl slope; // does not get (de-)serialized
 	std::vector<grid> grids;
-
 	friend class boost::serialization::access;
 	template<class Archive>
 	void save(Archive& ar, const unsigned version) const;
