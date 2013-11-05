@@ -34,6 +34,9 @@
 #include "gpucode.h"
 #include "precalculate_gpu.h"
 #include <boost/timer.hpp>
+#include <boost/algorithm/string.hpp>
+#include "array3d.h"
+#include "grid.h"
 
 using namespace boost::iostreams;
 using boost::filesystem::path;
@@ -217,7 +220,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		const parallel_mc& par, fl energy_range, sz num_modes, int seed,
 		int verbosity, bool score_only, bool local_only, bool compute_atominfo,
 		fl out_min_rmsd, tee& log,
-		const terms *t, std::vector<resultInfo>& results)
+		const terms *t, grid& user_grid, std::vector<resultInfo>& results)
 {
 	boost::timer time;
 
@@ -234,7 +237,21 @@ void do_search(model& m, const boost::optional<model>& ref,
 		naive_non_cache nnc(&exact_prec); // for out of grid issues
 		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
 				intramolecular_energy);
-
+        
+        if(user_grid.initialized())
+        {
+            fl z;
+            vecv l_coords = m.get_ligand_coords();
+            VINA_FOR_IN(i, l_coords)
+            {
+                
+                std::cout << l_coords[i][0] << std::endl;
+                z = -user_grid.evaluate_user(l_coords[i], NULL);
+            }
+            std::cout << "User_grid score: " << z << " kcal/mol" << std::endl;
+        }
+        
+        
 		log << "##Name " << m.get_name() << "\n";
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
@@ -392,6 +409,26 @@ void do_search(model& m, const boost::optional<model>& ref,
 	//std::cout << "Refine time " << time.elapsed() << "\n";
 }
 
+void load_ent_values(const grid_dims& gd, std::istream& user_in,
+                        array3d<fl>& user_data)
+{
+    std::string line;
+    user_data = array3d<fl>(gd[0].n+1,gd[1].n+1,gd[2].n+1);
+    
+    for(sz z = 0; z < gd[2].n+1; z++)
+    {
+        for(sz y = 0; y < gd[1].n+1; y++)
+        {
+            for(sz x = 0; x < gd[0].n+1; x++)
+            {
+                std::getline(user_in,line);
+                user_data(x, y, z) = ::atof(line.c_str());                                
+            }
+        }        
+    } 
+    std::cout << user_data(gd[0].n-3,gd[1].n,gd[2].n) << "\n";    
+}
+
 void main_procedure(model& m, precalculate& prec,
 		const boost::optional<model>& ref, // m is non-const (FIXME?)
 		bool score_only, bool local_only,
@@ -400,10 +437,10 @@ void main_procedure(model& m, precalculate& prec,
 		int exhaustiveness, minimization_params minparm,
 		const weighted_terms& wt, int cpu, int seed,
 		int verbosity, sz num_modes, fl energy_range, fl out_min_rmsd, tee& log,
-		std::vector<resultInfo>& results)
+		std::vector<resultInfo>& results, grid& user_grid)
 {
 	doing(verbosity, "Setting up the scoring function", log);
-
+    
 	done(verbosity, log);
 
 	vec corner1(gd[0].begin, gd[1].begin, gd[2].begin);
@@ -423,7 +460,7 @@ void main_procedure(model& m, precalculate& prec,
 	par.num_tasks = exhaustiveness;
 	par.num_threads = cpu;
 	par.display_progress = true;
-
+    
 	szv_grid_cache gridcache(m, prec.cutoff_sqr());
 	const fl slope = 1e6; // FIXME: too large? used to be 100
 	if (randomize_only)
@@ -451,10 +488,10 @@ void main_procedure(model& m, precalculate& prec,
 		}
 		if (no_cache)
 		{
-			do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
+            do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
 					energy_range, num_modes, seed, verbosity, score_only,
 					local_only, compute_atominfo, out_min_rmsd, log,
-					wt.unweighted_terms(),
+					wt.unweighted_terms(), user_grid,
 					results);
 		}
 		else
@@ -467,14 +504,14 @@ void main_procedure(model& m, precalculate& prec,
 			{
 				std::vector<smt> atom_types_needed;
 				m.get_movable_atom_types(atom_types_needed);
-				c.populate(m, prec, atom_types_needed);
+				c.populate(m, prec, atom_types_needed, user_grid);
 			}
 			if (cache_needed)
 				done(verbosity, log);
 			do_search(m, ref, wt, prec, c, *nc, corner1, corner2, par,
 					energy_range, num_modes, seed, verbosity, score_only,
 					local_only, compute_atominfo, out_min_rmsd, log,
-					wt.unweighted_terms(), results);
+					wt.unweighted_terms(), user_grid, results);
 		}
 		delete nc;
 	}
@@ -660,6 +697,49 @@ void setup_dkoes_terms(custom_terms& t, bool dkoes_score, bool dkoes_score_old,
 	}
 }
 
+void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
+{
+    std::string line;
+    size_t pLines = 3;
+    std::vector<std::string> temp;
+    fl center_x = 0, center_y = 0, center_z = 0, size_x = 0, size_y = 0, size_z = 0;
+    
+    for (; pLines > 0; --pLines) //Eat first 3 lines 
+        std::getline(user_in, line);
+    pLines = 3;
+    
+    //Read in SPACING
+    std::getline(user_in, line);
+    boost::algorithm::split(temp, line, boost::algorithm::is_space());
+    const fl granularity = ::atof(temp[1].c_str());
+    //Read in NELEMENTS
+    std::getline(user_in, line);
+    boost::algorithm::split(temp, line, boost::algorithm::is_space());
+    size_z = ::atof(temp[1].c_str()) * granularity;
+    size_y = ::atof(temp[2].c_str()) * granularity;
+    size_x = ::atof(temp[3].c_str()) * granularity;
+    //Read in CENTER
+    std::getline(user_in, line);
+    boost::algorithm::split(temp, line, boost::algorithm::is_space());
+    center_z = ::atof(temp[1].c_str());
+    center_y = ::atof(temp[2].c_str());
+    center_x = ::atof(temp[3].c_str());
+    
+    vec span(size_x, size_y, size_z);
+    vec center(center_x, center_y, center_z);
+    VINA_FOR_IN(i, gd)
+    {
+        gd[i].n = sz(std::ceil(span[i] / granularity));
+        fl real_span = granularity * gd[i].n;
+        gd[i].begin = center[i] - real_span / 2;
+        gd[i].end = gd[i].begin + real_span;
+    }
+    std::cout << "User grid dims \n";
+    print(gd);
+    std::cout << gd[0].begin << " " << gd[0].end << " " << gd[0].n << "\n";
+    
+}
+
 //enum options and their parsers
 enum ApproxType
 {
@@ -782,6 +862,7 @@ Thank you!\n";
 		std::string out_name;
 		std::string ligand_names_file;
 		std::string custom_file_name;
+        std::string usergrid_file_name;
 		fl center_x = 0, center_y = 0, center_z = 0, size_x = 0, size_y = 0, size_z = 0;
 		fl autobox_add = 8;
 		fl out_min_rmsd = 1;
@@ -870,7 +951,8 @@ Thank you!\n";
 				"approximation (linear, spline, or exact) to use")
 		("factor", value<fl>(&approx_factor),
 				"approximation factor: higher results in a finer-grained approximation")
-		("print_terms",bool_switch(&print_terms),"Print all available terms with default parameterizations");
+		("print_terms",bool_switch(&print_terms),
+                "Print all available terms with default parameterizations");
 
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
@@ -879,7 +961,9 @@ Thank you!\n";
 		("dkoes_scoring_old", bool_switch(&dkoes_score_old),
 				"Use old (vdw+hbond) scoring function")
 		("dkoes_fast", bool_switch(&dkoes_fast), "VDW+nrot only")
-		("ad4_scoring", bool_switch(&ad4_score), "Approximation of Autodock 4 scoring");
+		("ad4_scoring", bool_switch(&ad4_score), "Approximation of Autodock 4 scoring")
+        ("user_grid", value<std::string>(&usergrid_file_name),
+				"Autodock map file for user grid data based calculations, not implemented yet");
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
@@ -999,7 +1083,7 @@ Thank you!\n";
 		bool search_box_needed = !(score_only || local_only); // randomize_only and local_only still need the search space; dkoes - for local get box from ligand
 		bool output_produced = !score_only;
 		bool receptor_needed = !randomize_only;
-
+                
 		if (receptor_needed)
 		{
 			if (vm.count("receptor") <= 0)
@@ -1068,7 +1152,9 @@ Thank you!\n";
 		log << cite_message << '\n';
 
 		grid_dims gd; // n's = 0 via default c'tor
-
+        grid_dims user_gd;
+        grid user_grid;
+        
 		flv weights;
 
 		//dkoes, set the scoring function
@@ -1103,11 +1189,20 @@ Thank you!\n";
 
 		log << std::setw(12) << std::left << "Weights" << " Terms\n" << t
 				<< "\n";
-
-		const fl granularity = 0.375;
-		if (search_box_needed)
+        
+        
+        
+		if (usergrid_file_name.size() > 0)
+        {
+            ifile user_in(make_path(usergrid_file_name));
+            setup_user_gd(user_gd, user_in);
+            user_grid.init(user_gd, user_in); //initialize user 
+        }
+		
+        const fl granularity = 0.375;
+        if (search_box_needed)
 		{
-			vec span(size_x, size_y, size_z);
+            vec span(size_x, size_y, size_z);
 			vec center(center_x, center_y, center_z);
 			VINA_FOR_IN(i, gd)
 			{
@@ -1117,6 +1212,7 @@ Thank you!\n";
 				gd[i].end = gd[i].begin + real_span;
 			}
 		}
+        
 
 		if (vm.count("cpu") == 0)
 		{
@@ -1247,7 +1343,8 @@ Thank you!\n";
 						false, // no_cache == false
 						atomoutfile.is_open() || include_atom_terms, gpu_on,
 						gd, exhaustiveness, minparms, wt, cpu, seed, verbosity,
-						max_modes_sz, energy_range, out_min_rmsd, log, results);
+						max_modes_sz, energy_range, out_min_rmsd, log, results,
+                        user_grid);
 
 				if (outconv.GetOutStream() != NULL)
 				{
