@@ -79,7 +79,9 @@ fl non_cache::eval(const model& m, fl v) const
 			fl r2 = sqr(r_ba);
 			if (r2 < cutoff_sqr)
 			{
-				this_e += p->eval(a, b, r2);
+				//jac241 - Use adjusted_a_coords or just a_coords?
+				//also how to verify they're ligand coordinates (table lookup?)
+				this_e += p->eval(a, b, r2); // + user_grid.evaluate_user(adjusted_a_coords, slope, NULL);
 			}
 		}
 		curl(this_e, v);

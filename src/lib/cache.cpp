@@ -202,7 +202,7 @@ void cache::populate(const model& m, const precalculate& p,
 					if(haschargeterms)
 						grids[t].chargedata(x, y, z) = chargeaffinities[j];
                     if(user_grid.initialized())
-                        grids[t].data(x, y, z) += -user_grid.evaluate_user(vec(x, y ,z));
+                        grids[t].data(x, y, z) += -user_grid.evaluate_user(vec(x, y ,z), slope);
 				}
 			}
 		}

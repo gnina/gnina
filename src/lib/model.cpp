@@ -797,12 +797,22 @@ fl model::evale(const precalculate& p, const igrid& ig, const vec& v) const
 }
 
 fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
-		const conf& c)
+		const conf& c, grid& user_grid)
 { // clean up
 	set(c);
 	fl e = evale(p, ig, v);
 	VINA_FOR_IN(i, ligands)
 		e += eval_interacting_pairs(p, v[0], ligands[i].pairs, coords); // coords instead of internal coords
+
+	if(user_grid.initialized())
+	{
+		vecv l_coords = this->get_ligand_coords();
+		VINA_FOR_IN(i, l_coords)
+		{
+			e += user_grid.evaluate_user(l_coords[i], (fl) 1.0);
+		}
+	}
+
 	return e;
 }
 
@@ -879,9 +889,10 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
 }
 
 fl model::eval_adjusted(const scoring_function& sf, const precalculate& p,
-		const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy)
+		const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy,
+		grid& user_grid)
 {
-	fl e = eval(p, ig, v, c); // sets c
+	fl e = eval(p, ig, v, c, user_grid); // sets c
 	return sf.conf_independent(*this, e - intramolecular_energy);
 }
 

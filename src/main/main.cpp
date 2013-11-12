@@ -236,21 +236,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 				authentic_v, c);
 		naive_non_cache nnc(&exact_prec); // for out of grid issues
 		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
-				intramolecular_energy);
-        
-        if(user_grid.initialized())
-        {
-            fl z;
-            vecv l_coords = m.get_ligand_coords();
-            VINA_FOR_IN(i, l_coords)
-            {
-                
-                std::cout << l_coords[i][0] << std::endl;
-                z = -user_grid.evaluate_user(l_coords[i], NULL);
-            }
-            std::cout << "User_grid score: " << z << " kcal/mol" << std::endl;
-        }
-        
+				intramolecular_energy, user_grid);
+
         
 		log << "##Name " << m.get_name() << "\n";
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
@@ -300,7 +287,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 				authentic_v,
 				out.c);
 		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, out.c,
-				intramolecular_energy);
+				intramolecular_energy, user_grid);
 
 		vecv newcoords = m.get_heavy_atom_movable_coords();
 		assert(newcoords.size() == origcoords.size());
@@ -350,7 +337,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 			VINA_FOR_IN(i, out_cont)
 				if (not_max(out_cont[i].e))
 					out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
-							out_cont[i].c, best_mode_intramolecular_energy);
+							out_cont[i].c, best_mode_intramolecular_energy,
+							user_grid);
 			// the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
 			out_cont.sort();
 		}
@@ -734,10 +722,7 @@ void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
         gd[i].begin = center[i] - real_span / 2;
         gd[i].end = gd[i].begin + real_span;
     }
-    std::cout << "User grid dims \n";
-    print(gd);
-    std::cout << gd[0].begin << " " << gd[0].end << " " << gd[0].n << "\n";
-    
+
 }
 
 //enum options and their parsers
