@@ -49,7 +49,7 @@ fl grid::evaluate(const atom& a, const vec& location, fl slope, fl c,
 
 fl grid::evaluate_user(const vec& location, fl slope, vec *deriv)
 {
-    return evaluate_aux(data, location, slope, (fl) 1.0, deriv);
+    return evaluate_aux(data, location, slope, (fl) 1000, deriv);
 }
 
 //allocate memory for grid (but don't fill in values)
@@ -87,11 +87,11 @@ void grid::init(const grid_dims& gd, std::istream& user_in)
 			data.dim2()-1);
     
     std::string line;
-    VINA_FOR(z, gd[2].n+1)
+    VINA_FOR(x, gd[2].n+1)
     {
         VINA_FOR(y, gd[1].n+1)
         {
-            VINA_FOR(x, gd[0].n+1)
+            VINA_FOR(z, gd[0].n+1)
             {
                 std::getline(user_in,line);
                 data(x, y, z) = ::atof(line.c_str());                

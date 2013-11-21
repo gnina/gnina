@@ -119,6 +119,7 @@ fl non_cache::eval_deriv(model& m, fl v, grid& user_grid) const
 	{
 		fl this_e = 0;
 		vec deriv(0, 0, 0);
+		vec ug_deriv(0, 0, 0);
 		vec out_of_bounds_deriv(0, 0, 0);
 		fl out_of_bounds_penalty = 0;
 		const atom& a = m.atoms[i];
@@ -162,7 +163,7 @@ fl non_cache::eval_deriv(model& m, fl v, grid& user_grid) const
 			vec r_ba;
 			r_ba = adjusted_a_coords - b.coords;
 			fl r2 = sqr(r_ba);
-			//vec ug_deriv;
+
 			if (r2 < cutoff_sqr)
 			{
 				//dkoes - the "derivative" value returned by eval_deriv
@@ -170,16 +171,18 @@ fl non_cache::eval_deriv(model& m, fl v, grid& user_grid) const
 
 				pr e_dor = p->eval_deriv(a, b, r2);
 
-				/*fl test_e;
+
 				//jac241 slamming user_grid in here...
-				if(user_grid.initialized())
-				{
-					test_e += user_grid.evaluate_user(a.coords, slope);
-				}*/
+
 					this_e += e_dor.first;
 					deriv += e_dor.second * r_ba;
 			}
 		}
+		if(user_grid.initialized())
+		{
+			this_e += user_grid.evaluate_user(a.coords, slope, &ug_deriv);
+		}
+		deriv += ug_deriv;
 		curl(this_e, deriv, v);
 		m.minus_forces[i] = deriv + out_of_bounds_deriv;
 		e += this_e + out_of_bounds_penalty;
