@@ -53,10 +53,4 @@ fl naive_non_cache::eval(const model& m, fl v) const { // needs m.coords
 	return e;
 }
 
-/*
-fl eval_usergrid(const model& m, grid& user_grid)
-{
-    fl e = 0;
-    const vec& a_coords = m.coords[0];
-}*/
 

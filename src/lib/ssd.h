@@ -35,7 +35,7 @@ struct ssd {
 	void print() const { std::cout << "evals=" << evals << ", initial_factor=" << initial_factor << ", min_factor=" << min_factor << ", up=" << up << ", down=" << down; }
 	ssd() : evals(300), initial_factor(1e-4), min_factor(1e-6), up(1.6), down(0.5) {}
 	// clean up
-	void operator()(model& m, const precalculate& p, const igrid& ig, output_type& out, change& g, const vec& v) const; // g must have correct size
+	void operator()(model& m, const precalculate& p, const igrid& ig, output_type& out, change& g, const vec& v, grid& user_grid) const; // g must have correct size
 };
 
 #endif

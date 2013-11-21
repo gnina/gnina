@@ -66,7 +66,7 @@ fl cache::eval(const model& m, fl v) const
 	return e;
 }
 
-fl cache::eval_deriv(model& m, fl v) const
+fl cache::eval_deriv(model& m, fl v, grid& user_grid) const
 		{ // needs m.coords, sets m.minus_forces
 	fl e = 0;
 	sz nat = num_atom_types();
@@ -202,7 +202,7 @@ void cache::populate(const model& m, const precalculate& p,
 					if(haschargeterms)
 						grids[t].chargedata(x, y, z) = chargeaffinities[j];
                     if(user_grid.initialized())
-                        grids[t].data(x, y, z) += -user_grid.evaluate_user(vec(x, y ,z), slope);
+                        grids[t].data(x, y, z) += user_grid.evaluate_user(vec(x, y ,z), slope);
 				}
 			}
 		}

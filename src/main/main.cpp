@@ -173,7 +173,8 @@ fl do_randomization(model& m, std::ostream& out, const vec& corner1,
 }
 
 void refine_structure(model& m, const precalculate& prec, non_cache& nc,
-		output_type& out, const vec& cap, const minimization_params& minparm)
+		output_type& out, const vec& cap, const minimization_params& minparm,
+		grid& user_grid)
 {
 	change g(m.get_size());
 	quasi_newton quasi_newton_par(minparm);
@@ -182,7 +183,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	VINA_FOR(p, 5)
 	{
 		nc.setSlope(100 * std::pow(10.0, 2.0 * p));
-		quasi_newton_par(m, prec, nc, out, g, cap);
+		quasi_newton_par(m, prec, nc, out, g, cap, user_grid); //quasi_newton operator
 		m.set(out.c); // just to be sure
 		if (nc.within(m))
 			break;
@@ -277,7 +278,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		vecv origcoords = m.get_heavy_atom_movable_coords();
 		output_type out(c, e);
 		doing(verbosity, "Performing local search", log);
-		refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm);
+		refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm, user_grid);
 		done(verbosity, log);
 
 		//be as exact as possible for final score
@@ -322,12 +323,12 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log.endl();
 		output_container out_cont;
 		doing(verbosity, "Performing search", log);
-		par(m, out_cont, prec, ig, corner1, corner2, generator);
+		par(m, out_cont, prec, ig, corner1, corner2, generator, user_grid);
 		done(verbosity, log);
 		doing(verbosity, "Refining results", log);
 		VINA_FOR_IN(i, out_cont)
 			refine_structure(m, prec, nc, out_cont[i], authentic_v,
-					par.mc.ssd_par.minparm);
+					par.mc.ssd_par.minparm, user_grid);
 
 		if (!out_cont.empty())
 		{
@@ -448,7 +449,13 @@ void main_procedure(model& m, precalculate& prec,
 	par.num_tasks = exhaustiveness;
 	par.num_threads = cpu;
 	par.display_progress = true;
-    
+
+    /*
+	std::cout << score_only << "\n";
+	std::cout << local_only << "\n";
+	std::cout << no_cache << "\n";
+	*/
+
 	szv_grid_cache gridcache(m, prec.cutoff_sqr());
 	const fl slope = 1e6; // FIXME: too large? used to be 100
 	if (randomize_only)

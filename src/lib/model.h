@@ -129,7 +129,7 @@ struct model {
 	fl evali     (const precalculate& p,                  const vec& v                          		) const;
 	fl evale     (const precalculate& p, const igrid& ig, const vec& v                          		) const;
 	fl eval      (const precalculate& p, const igrid& ig, const vec& v, const conf& c, grid& user_grid	);
-	fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v, const conf& c, change& g		);
+	fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v, const conf& c, change& g, grid& user_grid);
 
 	fl eval_intramolecular(                            const precalculate& p,                  const vec& v, const conf& c);
 	fl eval_adjusted      (const scoring_function& sf, const precalculate& p, const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy, grid& user_grid);

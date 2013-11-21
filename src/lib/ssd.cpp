@@ -23,15 +23,15 @@
 #include "ssd.h"
 
 // clean up
-void ssd::operator()(model& m, const precalculate& p, const igrid& ig, output_type& out, change& g, const vec& v) const { // g must have correct size
-	out.e = m.eval_deriv(p, ig, v, out.c, g);
+void ssd::operator()(model& m, const precalculate& p, const igrid& ig, output_type& out, change& g, const vec& v, grid& user_grid) const { // g must have correct size
+	out.e = m.eval_deriv(p, ig, v, out.c, g, user_grid);
 	fl factor = initial_factor;
 	VINA_U_FOR(i, evals) {
 		if(factor < min_factor) break;
 		output_type candidate(out);
 		candidate.c.increment(g, -factor);
 		change candidate_g(g); 
-		candidate.e = m.eval_deriv(p, ig, v, candidate.c, candidate_g);
+		candidate.e = m.eval_deriv(p, ig, v, candidate.c, candidate_g, user_grid);
 		if(candidate.e <= out.e) {
 			out = candidate;
 			g = candidate_g;
