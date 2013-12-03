@@ -108,11 +108,12 @@ class precalculate_linear_element
 			fl r2) const
 			{
 		fl r2_factored = factor * r2;
-		assert(r2_factored + 1 < smooth.size());
+		assert(smooth.size() == num_components);
+		assert(r2_factored + 1 < smooth[0].size());
 		sz i1 = sz(r2_factored);
 		sz i2 = i1 + 1; // r2 is expected < cutoff_sqr, and cutoff_sqr * factor + 1 < n, so no overflow
-		assert(i1 < smooth.size());
-		assert(i2 < smooth.size());
+		assert(i1 < smooth[0].size());
+		assert(i2 < smooth[0].size());
 		fl rem = r2_factored - i1;
 		assert(rem >= -epsilon_fl);
 		assert(rem < 1 + epsilon_fl);
