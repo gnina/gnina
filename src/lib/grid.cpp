@@ -87,14 +87,14 @@ void grid::init(const grid_dims& gd, std::istream& user_in)
 			data.dim2()-1);
     
     std::string line;
-    VINA_FOR(x, gd[2].n+1)
+    VINA_FOR(z, gd[2].n+1)
     {
         VINA_FOR(y, gd[1].n+1)
         {
-            VINA_FOR(z, gd[0].n+1)
+            VINA_FOR(x, gd[0].n+1)
             {
                 std::getline(user_in,line);
-                data(x, y, z) = ::atof(line.c_str());                
+                data(x, y, z) =  ::atof(line.c_str()); //0.01889 *
             }
         }        
     } 

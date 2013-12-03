@@ -170,12 +170,8 @@ fl non_cache::eval_deriv(model& m, fl v, grid& user_grid) const
 				//is normalized by r (dor = derivative over r?)
 
 				pr e_dor = p->eval_deriv(a, b, r2);
-
-
-				//jac241 slamming user_grid in here...
-
-					this_e += e_dor.first;
-					deriv += e_dor.second * r_ba;
+				this_e += e_dor.first;
+				deriv += e_dor.second * r_ba;
 			}
 		}
 		if(user_grid.initialized())
@@ -187,7 +183,6 @@ fl non_cache::eval_deriv(model& m, fl v, grid& user_grid) const
 		m.minus_forces[i] = deriv + out_of_bounds_deriv;
 		e += this_e + out_of_bounds_penalty;
 	}
-
 	return e;
 }
 
