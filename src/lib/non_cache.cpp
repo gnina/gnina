@@ -79,7 +79,9 @@ fl non_cache::eval(const model& m, fl v) const
 			fl r2 = sqr(r_ba);
 			if (r2 < cutoff_sqr)
 			{
-				this_e += p->eval(a, b, r2);
+				//jac241 - Use adjusted_a_coords or just a_coords?
+				//also how to verify they're ligand coordinates (table lookup?)
+				this_e += p->eval(a, b, r2); // + user_grid.evaluate_user(adjusted_a_coords, slope, NULL);
 			}
 		}
 		curl(this_e, v);
@@ -104,17 +106,20 @@ bool non_cache::within(const model& m, fl margin) const
 	return true;
 }
 
-fl non_cache::eval_deriv(model& m, fl v) const
+fl non_cache::eval_deriv(model& m, fl v, grid& user_grid) const
 		{ // clean up
 	fl e = 0;
 	const fl cutoff_sqr = p->cutoff_sqr();
 
 	sz n = num_atom_types();
 
+
+
 	VINA_FOR(i, m.num_movable_atoms())
 	{
 		fl this_e = 0;
 		vec deriv(0, 0, 0);
+		vec ug_deriv(0, 0, 0);
 		vec out_of_bounds_deriv(0, 0, 0);
 		fl out_of_bounds_penalty = 0;
 		const atom& a = m.atoms[i];
@@ -158,15 +163,26 @@ fl non_cache::eval_deriv(model& m, fl v) const
 			vec r_ba;
 			r_ba = adjusted_a_coords - b.coords;
 			fl r2 = sqr(r_ba);
+
 			if (r2 < cutoff_sqr)
 			{
 				//dkoes - the "derivative" value returned by eval_deriv
 				//is normalized by r (dor = derivative over r?)
+
 				pr e_dor = p->eval_deriv(a, b, r2);
-				this_e += e_dor.first;
-				deriv += e_dor.second * r_ba;
+
+
+				//jac241 slamming user_grid in here...
+
+					this_e += e_dor.first;
+					deriv += e_dor.second * r_ba;
 			}
 		}
+		if(user_grid.initialized())
+		{
+			this_e += user_grid.evaluate_user(a.coords, slope, &ug_deriv);
+		}
+		deriv += ug_deriv;
 		curl(this_e, deriv, v);
 		m.minus_forces[i] = deriv + out_of_bounds_deriv;
 		e += this_e + out_of_bounds_penalty;

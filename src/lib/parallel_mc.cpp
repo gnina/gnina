@@ -46,17 +46,18 @@ struct parallel_mc_aux
 	const vec* corner1;
 	const vec* corner2;
 	parallel_progress* pg;
+	grid* user_grid;
 	parallel_mc_aux(const monte_carlo* mc_, const precalculate* p_,
 			const igrid* ig_, const vec* corner1_, const vec* corner2_,
-			parallel_progress* pg_)
+			parallel_progress* pg_, grid* user_grid_)
 	:
 			mc(mc_), p(p_), ig(ig_), corner1(corner1_), corner2(corner2_), pg(
-					pg_)
+					pg_), user_grid(user_grid_)
 	{
 	}
 	void operator()(parallel_mc_task& t) const
 	{
-		(*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator);
+		(*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
 	}
 };
 
@@ -78,11 +79,11 @@ void merge_output_containers(const parallel_mc_task_container& many,
 
 void parallel_mc::operator()(const model& m, output_container& out,
 		const precalculate& p, const igrid& ig, const vec& corner1,
-		const vec& corner2, rng& generator) const
+		const vec& corner2, rng& generator, grid& user_grid) const
 {
 	parallel_progress pp;
 	parallel_mc_aux parallel_mc_aux_instance(&mc, &p, &ig, &corner1, &corner2,
-			(display_progress ? (&pp) : NULL));
+			(display_progress ? (&pp) : NULL), &user_grid);
 	parallel_mc_task_container task_container;
 	VINA_FOR(i, num_tasks)
 		task_container.push_back(new parallel_mc_task(m, random_int(0, 1000000, generator)));

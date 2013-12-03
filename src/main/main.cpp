@@ -173,7 +173,8 @@ fl do_randomization(model& m, std::ostream& out, const vec& corner1,
 }
 
 void refine_structure(model& m, const precalculate& prec, non_cache& nc,
-		output_type& out, const vec& cap, const minimization_params& minparm)
+		output_type& out, const vec& cap, const minimization_params& minparm,
+		grid& user_grid)
 {
 	change g(m.get_size());
 	quasi_newton quasi_newton_par(minparm);
@@ -182,7 +183,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	VINA_FOR(p, 5)
 	{
 		nc.setSlope(100 * std::pow(10.0, 2.0 * p));
-		quasi_newton_par(m, prec, nc, out, g, cap);
+		quasi_newton_par(m, prec, nc, out, g, cap, user_grid); //quasi_newton operator
 		m.set(out.c); // just to be sure
 		if (nc.within(m))
 			break;
@@ -236,21 +237,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 				authentic_v, c);
 		naive_non_cache nnc(&exact_prec); // for out of grid issues
 		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
-				intramolecular_energy);
-        
-        if(user_grid.initialized())
-        {
-            fl z;
-            vecv l_coords = m.get_ligand_coords();
-            VINA_FOR_IN(i, l_coords)
-            {
-                
-                std::cout << l_coords[i][0] << std::endl;
-                z = -user_grid.evaluate_user(l_coords[i], NULL);
-            }
-            std::cout << "User_grid score: " << z << " kcal/mol" << std::endl;
-        }
-        
+				intramolecular_energy, user_grid);
+
         
 		log << "##Name " << m.get_name() << "\n";
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
@@ -290,7 +278,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		vecv origcoords = m.get_heavy_atom_movable_coords();
 		output_type out(c, e);
 		doing(verbosity, "Performing local search", log);
-		refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm);
+		refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm, user_grid);
 		done(verbosity, log);
 
 		//be as exact as possible for final score
@@ -300,7 +288,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 				authentic_v,
 				out.c);
 		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, out.c,
-				intramolecular_energy);
+				intramolecular_energy, user_grid);
 
 		vecv newcoords = m.get_heavy_atom_movable_coords();
 		assert(newcoords.size() == origcoords.size());
@@ -335,12 +323,12 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log.endl();
 		output_container out_cont;
 		doing(verbosity, "Performing search", log);
-		par(m, out_cont, prec, ig, corner1, corner2, generator);
+		par(m, out_cont, prec, ig, corner1, corner2, generator, user_grid);
 		done(verbosity, log);
 		doing(verbosity, "Refining results", log);
 		VINA_FOR_IN(i, out_cont)
 			refine_structure(m, prec, nc, out_cont[i], authentic_v,
-					par.mc.ssd_par.minparm);
+					par.mc.ssd_par.minparm, user_grid);
 
 		if (!out_cont.empty())
 		{
@@ -350,7 +338,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 			VINA_FOR_IN(i, out_cont)
 				if (not_max(out_cont[i].e))
 					out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
-							out_cont[i].c, best_mode_intramolecular_energy);
+							out_cont[i].c, best_mode_intramolecular_energy,
+							user_grid);
 			// the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
 			out_cont.sort();
 		}
@@ -460,7 +449,13 @@ void main_procedure(model& m, precalculate& prec,
 	par.num_tasks = exhaustiveness;
 	par.num_threads = cpu;
 	par.display_progress = true;
-    
+
+    /*
+	std::cout << score_only << "\n";
+	std::cout << local_only << "\n";
+	std::cout << no_cache << "\n";
+	*/
+
 	szv_grid_cache gridcache(m, prec.cutoff_sqr());
 	const fl slope = 1e6; // FIXME: too large? used to be 100
 	if (randomize_only)
@@ -715,15 +710,15 @@ void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
     //Read in NELEMENTS
     std::getline(user_in, line);
     boost::algorithm::split(temp, line, boost::algorithm::is_space());
-    size_z = ::atof(temp[1].c_str()) * granularity;
+    size_x = ::atof(temp[1].c_str()) * granularity;
     size_y = ::atof(temp[2].c_str()) * granularity;
-    size_x = ::atof(temp[3].c_str()) * granularity;
+    size_z = ::atof(temp[3].c_str()) * granularity;
     //Read in CENTER
     std::getline(user_in, line);
     boost::algorithm::split(temp, line, boost::algorithm::is_space());
-    center_z = ::atof(temp[1].c_str());
+    center_x = ::atof(temp[1].c_str());
     center_y = ::atof(temp[2].c_str());
-    center_x = ::atof(temp[3].c_str());
+    center_z = ::atof(temp[3].c_str());
     
     vec span(size_x, size_y, size_z);
     vec center(center_x, center_y, center_z);
@@ -734,10 +729,7 @@ void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
         gd[i].begin = center[i] - real_span / 2;
         gd[i].end = gd[i].begin + real_span;
     }
-    std::cout << "User grid dims \n";
-    print(gd);
-    std::cout << gd[0].begin << " " << gd[0].end << " " << gd[0].n << "\n";
-    
+
 }
 
 //enum options and their parsers

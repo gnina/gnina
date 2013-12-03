@@ -63,7 +63,7 @@ class grid
 		return data.dim0() > 0 && data.dim1() > 0 && data.dim2() > 0;
 	}
 	fl evaluate(const atom& a, const vec& location, fl slope, fl c, vec* deriv = NULL) const;
-    fl evaluate_user(const vec& location, vec* deriv = NULL);
+    fl evaluate_user(const vec& location, fl slope, vec* deriv = NULL);
 private:
 	fl evaluate_aux(const array3d<fl>& m_data, const vec& location, fl slope,
 			fl v, vec* deriv) const; // sets *deriv if not NULL

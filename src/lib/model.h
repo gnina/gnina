@@ -31,6 +31,7 @@
 #include "precalculate.h"
 #include "igrid.h"
 #include "grid_dim.h"
+#include "grid.h"
 
 struct interacting_pair {
 	smt t1;
@@ -125,13 +126,13 @@ struct model {
 	distance_type distance_type_between(const distance_type_matrix& mobility, const atom_index& i, const atom_index& j) const;
 
 	// clean up
-	fl evali     (const precalculate& p,                  const vec& v                          ) const;
-	fl evale     (const precalculate& p, const igrid& ig, const vec& v                          ) const;
-	fl eval      (const precalculate& p, const igrid& ig, const vec& v, const conf& c           );
-	fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v, const conf& c, change& g);
+	fl evali     (const precalculate& p,                  const vec& v                          		) const;
+	fl evale     (const precalculate& p, const igrid& ig, const vec& v                          		) const;
+	fl eval      (const precalculate& p, const igrid& ig, const vec& v, const conf& c, grid& user_grid	);
+	fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v, const conf& c, change& g, grid& user_grid);
 
 	fl eval_intramolecular(                            const precalculate& p,                  const vec& v, const conf& c);
-	fl eval_adjusted      (const scoring_function& sf, const precalculate& p, const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy);
+	fl eval_adjusted      (const scoring_function& sf, const precalculate& p, const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy, grid& user_grid);
 
 
 	fl rmsd_lower_bound(const model& m) const; // uses coords
