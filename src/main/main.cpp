@@ -1232,11 +1232,17 @@ Thank you!\n";
 		model initm;
 
 		if (rigid_name_opt)
+		{
+			if(boost::filesystem::extension(rigid_name_opt.get()) != ".pdbqt")
+				log << "WARNING: receptor does not appear to be in PDBQT format. You are probably about to encounter a parse error.\n";
+			if(flex_name_opt && boost::filesystem::extension(flex_name_opt.get()) != ".pdbqt")
+				log << "WARNING: flexible receptor does not appear to be in PDBQT format\n";
 			initm = (flex_name_opt) ?
 					parse_receptor_pdbqt(
 							make_path(rigid_name_opt.get()),
 							make_path(flex_name_opt.get())) :
 					parse_receptor_pdbqt(make_path(rigid_name_opt.get()));
+		}
 
 		//dkoes, hoist precalculation outside of loop
 		weighted_terms wt(&t, t.weights());
