@@ -107,7 +107,7 @@ enum type {
 	Sulfur, //S_S_S_P,
 	SulfurAcceptor, //S_SA_S_P, XS doesn't do sulfur acceptors
 	Phosphorus, //P_P_P_P,
-	Flourine, //F_F_F_H,
+	Fluorine, //F_F_F_H,
 	Chlorine, //Cl_Cl_Cl_H,
 	Bromine, //Br_Br_Br_H,
 	Iodine, //I_I_I_H,
@@ -178,7 +178,7 @@ const info data[] = { //el, ad, xs
 				"SA",	2.000000,	0.200000,	-0.002140,	33.510300,	1.020000,	2.000000,	false,	false,	false,	true},
 		{Phosphorus, EL_TYPE_P, AD_TYPE_P, XS_TYPE_P_P,"Phosphorus",
 				"P",	2.100000,	0.200000,	-0.001100,	38.792400,	1.060000,	2.100000,	false,	false,	false,	true},
-		{Flourine, EL_TYPE_F, AD_TYPE_F, XS_TYPE_F_H,"Flourine",
+		{Fluorine, EL_TYPE_F, AD_TYPE_F, XS_TYPE_F_H,"Fluorine",
 				"F",	1.545000,	0.080000,	-0.001100,	15.448000,	0.710000,	1.500000,	true,	false,	false,	true},
 		{Chlorine, EL_TYPE_Cl, AD_TYPE_Cl, XS_TYPE_Cl_H,"Chlorine",
 				"Cl",	2.045000,	0.276000,	-0.001100,	35.823500,	0.990000,	1.800000,	true,	false,	false,	true},

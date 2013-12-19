@@ -553,6 +553,10 @@ struct atom_type_base: public charge_independent
 		charge_independent(cutoff_), name1(n1), name2(n2),
 		t1(string_to_smina_type(n1)), t2(string_to_smina_type(n2))
 	{
+		if(name1.length() > 0 && t1 == smina_atom_type::NumTypes) //ignore default empty
+			throw scoring_function_error(name1,"Invalid atom type: ");
+		if(name2.length() > 0 && t2 == smina_atom_type::NumTypes)
+			throw scoring_function_error(name2,"Invalid atom type: ");
 	}
 
 protected:
@@ -569,7 +573,7 @@ template<unsigned power>
 struct atom_type_inverse_power: public atom_type_base
 {
 	fl cap;
-	atom_type_inverse_power(const std::string& n1, const std::string& n2, fl cap_=100, fl cutoff_=8) :
+	atom_type_inverse_power(const std::string& n1="", const std::string& n2="", fl cap_=100, fl cutoff_=8) :
 		atom_type_base(n1, n2, cutoff_), cap(cap_)
 	{
 		name = std::string("atom_type_inverse_power(t1=")+name1+",t2="+name2+",i="
@@ -601,9 +605,9 @@ struct atom_type_inverse_power: public atom_type_base
 		fl cap = boost::lexical_cast<fl>(match[4]);
 		fl c = boost::lexical_cast<fl>(match[5]);
 		if(i == 1)
-			return new electrostatic<1>(cap,c);
+			return new atom_type_inverse_power<1>(n1,n2,cap,c);
 		else if(i == 2)
-			return new electrostatic<2>(cap,c);
+			return new atom_type_inverse_power<2>(n1,n2,cap,c);
 		else
 			throw scoring_function_error(desc,"Invalid exponent: 1 or 2 only");
 
@@ -615,7 +619,7 @@ struct atom_type_inverse_power: public atom_type_base
 struct atom_type_gaussian: public atom_type_base
 {
 	fl width, offset;
-	atom_type_gaussian(const std::string& n1, const std::string& n2, fl o, fl w, fl cutoff_=8) :
+	atom_type_gaussian(const std::string& n1="", const std::string& n2="", fl o=0, fl w=0, fl cutoff_=8) :
 		atom_type_base(n1, n2, cutoff_), width(w), offset(o)
 	{
 		name = std::string("atom_type_gaussian(t1="+name1+",t2="+name2+",o=")
@@ -649,7 +653,7 @@ struct atom_type_gaussian: public atom_type_base
 struct atom_type_linear: public atom_type_base
 {
 	fl good, bad;
-	atom_type_linear(const std::string& n1, const std::string& n2, fl good_, fl bad_, fl cutoff_=8) :
+	atom_type_linear(const std::string& n1="", const std::string& n2="", fl good_=0, fl bad_=0, fl cutoff_=8) :
 		atom_type_base(n1, n2, cutoff_), good(good_), bad(bad_)
 	{
 		name = std::string("atom_type_linear(t1="+name1+",t2="+name2+",g=")
@@ -683,7 +687,7 @@ struct atom_type_linear: public atom_type_base
 struct atom_type_quadratic: public atom_type_base
 {
 	fl offset;
-	atom_type_quadratic(const std::string& n1, const std::string& n2, fl offset_=0, fl cutoff_=8) :
+	atom_type_quadratic(const std::string& n1="", const std::string& n2="", fl offset_=0, fl cutoff_=8) :
 		atom_type_base(n1,n2, cutoff_),	offset(offset_)
 	{
 		name = std::string("atom_type_quadratic(t1="+name1+",t2="+name2+",o=") + to_string(offset)
@@ -984,6 +988,12 @@ struct term_creators : public std::vector<term*> {
 		push_back(new non_dir_h_bond());
 		push_back(new acceptor_acceptor_quadratic());
 		push_back(new donor_donor_quadratic());
+
+		push_back(new atom_type_gaussian());
+		push_back(new atom_type_linear());
+		push_back(new atom_type_quadratic());
+		push_back(new atom_type_inverse_power<0>());
+
 		push_back(new num_tors_add());
 		push_back(new num_tors_sqr());
 		push_back(new num_tors_sqrt());
