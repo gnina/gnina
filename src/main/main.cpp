@@ -1,14 +1,10 @@
 #include <iostream>
 #include <string>
 #include <exception>
-#include <vector> // ligand paths
-#include <cmath> // for ceila
-#include <boost/program_options.hpp>
+#include <vector> // ligand paths#include <cmath> // for ceila#include <boost/program_options.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/filesystem/exception.hpp>
-#include <boost/filesystem/convenience.hpp> // filesystem::basename
-#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?
-#include <boost/lexical_cast.hpp>
+#include <boost/filesystem/convenience.hpp> // filesystem::basename#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?#include <boost/lexical_cast.hpp>
 #include "parse_pdbqt.h"
 #include "parallel_mc.h"
 #include "file.h"
@@ -58,11 +54,12 @@ struct resultInfo
 	}
 
 	//write a table (w/header) of per atom values to out
-	void writeAtomValues(std::ostream& out, const weighted_terms *wt) const {
+	void writeAtomValues(std::ostream& out, const weighted_terms *wt) const
+	{
 		const terms *t = wt->unweighted_terms();
 		out << "atomid el pos";
 		std::vector<std::string> names = t->get_names(true);
-		for(unsigned j = 0, m = names.size(); j < m; j++)
+		for (unsigned j = 0, m = names.size(); j < m; j++)
 		{
 			out << " " << names[j];
 		}
@@ -86,7 +83,7 @@ struct resultInfo
 			coords[i].print(str);
 			for (unsigned j = 0, m = values[i].size(); j < m; j++)
 			{
-				str << " " << values[i][j]*wt->weight(j);
+				str << " " << values[i][j] * wt->weight(j);
 			}
 			str << "\n";
 		}
@@ -239,7 +236,6 @@ void do_search(model& m, const boost::optional<model>& ref,
 		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
 				intramolecular_energy, user_grid);
 
-        
 		log << "##Name " << m.get_name() << "\n";
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
@@ -278,7 +274,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 		vecv origcoords = m.get_heavy_atom_movable_coords();
 		output_type out(c, e);
 		doing(verbosity, "Performing local search", log);
-		refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm, user_grid);
+		refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm,
+				user_grid);
 		done(verbosity, log);
 
 		//be as exact as possible for final score
@@ -399,23 +396,23 @@ void do_search(model& m, const boost::optional<model>& ref,
 }
 
 void load_ent_values(const grid_dims& gd, std::istream& user_in,
-                        array3d<fl>& user_data)
+		array3d<fl>& user_data)
 {
-    std::string line;
-    user_data = array3d<fl>(gd[0].n+1,gd[1].n+1,gd[2].n+1);
-    
-    for(sz z = 0; z < gd[2].n+1; z++)
-    {
-        for(sz y = 0; y < gd[1].n+1; y++)
-        {
-            for(sz x = 0; x < gd[0].n+1; x++)
-            {
-                std::getline(user_in,line);
-                user_data(x, y, z) = ::atof(line.c_str());                                
-            }
-        }        
-    } 
-    std::cout << user_data(gd[0].n-3,gd[1].n,gd[2].n) << "\n";    
+	std::string line;
+	user_data = array3d<fl>(gd[0].n + 1, gd[1].n + 1, gd[2].n + 1);
+
+	for (sz z = 0; z < gd[2].n + 1; z++)
+	{
+		for (sz y = 0; y < gd[1].n + 1; y++)
+		{
+			for (sz x = 0; x < gd[0].n + 1; x++)
+			{
+				std::getline(user_in, line);
+				user_data(x, y, z) = ::atof(line.c_str());
+			}
+		}
+	}
+	std::cout << user_data(gd[0].n - 3, gd[1].n, gd[2].n) << "\n";
 }
 
 void main_procedure(model& m, precalculate& prec,
@@ -429,7 +426,7 @@ void main_procedure(model& m, precalculate& prec,
 		std::vector<resultInfo>& results, grid& user_grid)
 {
 	doing(verbosity, "Setting up the scoring function", log);
-    
+
 	done(verbosity, log);
 
 	vec corner1(gd[0].begin, gd[1].begin, gd[2].begin);
@@ -450,11 +447,11 @@ void main_procedure(model& m, precalculate& prec,
 	par.num_threads = cpu;
 	par.display_progress = true;
 
-    /*
-	std::cout << score_only << "\n";
-	std::cout << local_only << "\n";
-	std::cout << no_cache << "\n";
-	*/
+	/*
+	 std::cout << score_only << "\n";
+	 std::cout << local_only << "\n";
+	 std::cout << no_cache << "\n";
+	 */
 
 	szv_grid_cache gridcache(m, prec.cutoff_sqr());
 	const fl slope = 1e6; // FIXME: too large? used to be 100
@@ -483,7 +480,7 @@ void main_procedure(model& m, precalculate& prec,
 		}
 		if (no_cache)
 		{
-            do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
+			do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
 					energy_range, num_modes, seed, verbosity, score_only,
 					local_only, compute_atominfo, out_min_rmsd, log,
 					wt.unweighted_terms(), user_grid,
@@ -566,38 +563,6 @@ void check_occurrence(boost::program_options::variables_map& vm,
 	}
 }
 
-model parse_bundle(const std::string& rigid_name,
-		const boost::optional<std::string>& flex_name_opt,
-		const std::vector<std::string>& ligand_names)
-{
-	model tmp =
-			(flex_name_opt) ? parse_receptor_pdbqt(make_path(rigid_name),
-										make_path(flex_name_opt.get())) :
-								parse_receptor_pdbqt(make_path(rigid_name));
-	VINA_FOR_IN(i, ligand_names)
-		tmp.append(parse_ligand_pdbqt(make_path(ligand_names[i])));
-	return tmp;
-}
-
-model parse_bundle(const std::vector<std::string>& ligand_names)
-{
-	VINA_CHECK(!ligand_names.empty());
-	// FIXME check elsewhere
-	model tmp = parse_ligand_pdbqt(make_path(ligand_names[0]));
-	VINA_RANGE(i, 1, ligand_names.size())
-		tmp.append(parse_ligand_pdbqt(make_path(ligand_names[i])));
-	return tmp;
-}
-
-model parse_bundle(const boost::optional<std::string>& rigid_name_opt,
-		const boost::optional<std::string>& flex_name_opt,
-		const std::vector<std::string>& ligand_names)
-{
-	if (rigid_name_opt)
-		return parse_bundle(rigid_name_opt.get(), flex_name_opt, ligand_names);
-	else
-		return parse_bundle(ligand_names);
-}
 
 //generate a box around the provided ligand padded by autobox_add
 //if centers are always overwritten, but if sizes are non zero they are preserved
@@ -636,11 +601,11 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 		center_x /= num;
 		center_y /= num;
 		center_z /= num;
-		if(size_x == 0)
+		if (size_x == 0)
 			size_x = (max_x - min_x) + autobox_add;
-		if(size_y == 0)
+		if (size_y == 0)
 			size_y = (max_y - min_y) + autobox_add;
-		if(size_z == 0)
+		if (size_z == 0)
 			size_z = (max_z - min_z) + autobox_add;
 	}
 	else
@@ -694,41 +659,42 @@ void setup_dkoes_terms(custom_terms& t, bool dkoes_score, bool dkoes_score_old,
 
 void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
 {
-    std::string line;
-    size_t pLines = 3;
-    std::vector<std::string> temp;
-    fl center_x = 0, center_y = 0, center_z = 0, size_x = 0, size_y = 0, size_z = 0;
-    
-    for (; pLines > 0; --pLines) //Eat first 3 lines 
-        std::getline(user_in, line);
-    pLines = 3;
-    
-    //Read in SPACING
-    std::getline(user_in, line);
-    boost::algorithm::split(temp, line, boost::algorithm::is_space());
-    const fl granularity = ::atof(temp[1].c_str());
-    //Read in NELEMENTS
-    std::getline(user_in, line);
-    boost::algorithm::split(temp, line, boost::algorithm::is_space());
-    size_x = ::atof(temp[1].c_str()) * granularity;
-    size_y = ::atof(temp[2].c_str()) * granularity;
-    size_z = ::atof(temp[3].c_str()) * granularity;
-    //Read in CENTER
-    std::getline(user_in, line);
-    boost::algorithm::split(temp, line, boost::algorithm::is_space());
-    center_x = ::atof(temp[1].c_str());
-    center_y = ::atof(temp[2].c_str());
-    center_z = ::atof(temp[3].c_str());
-    
-    vec span(size_x, size_y, size_z);
-    vec center(center_x, center_y, center_z);
-    VINA_FOR_IN(i, gd)
-    {
-        gd[i].n = sz(std::ceil(span[i] / granularity));
-        fl real_span = granularity * gd[i].n;
-        gd[i].begin = center[i] - real_span / 2;
-        gd[i].end = gd[i].begin + real_span;
-    }
+	std::string line;
+	size_t pLines = 3;
+	std::vector<std::string> temp;
+	fl center_x = 0, center_y = 0, center_z = 0, size_x = 0, size_y = 0,
+			size_z = 0;
+
+	for (; pLines > 0; --pLines) //Eat first 3 lines
+		std::getline(user_in, line);
+	pLines = 3;
+
+	//Read in SPACING
+	std::getline(user_in, line);
+	boost::algorithm::split(temp, line, boost::algorithm::is_space());
+	const fl granularity = ::atof(temp[1].c_str());
+	//Read in NELEMENTS
+	std::getline(user_in, line);
+	boost::algorithm::split(temp, line, boost::algorithm::is_space());
+	size_x = ::atof(temp[1].c_str()) * granularity;
+	size_y = ::atof(temp[2].c_str()) * granularity;
+	size_z = ::atof(temp[3].c_str()) * granularity;
+	//Read in CENTER
+	std::getline(user_in, line);
+	boost::algorithm::split(temp, line, boost::algorithm::is_space());
+	center_x = ::atof(temp[1].c_str());
+	center_y = ::atof(temp[2].c_str());
+	center_z = ::atof(temp[3].c_str());
+
+	vec span(size_x, size_y, size_z);
+	vec center(center_x, center_y, center_z);
+	VINA_FOR_IN(i, gd)
+	{
+		gd[i].n = sz(std::ceil(span[i] / granularity));
+		fl real_span = granularity * gd[i].n;
+		gd[i].begin = center[i] - real_span / 2;
+		gd[i].end = gd[i].begin + real_span;
+	}
 
 }
 
@@ -752,7 +718,7 @@ std::istream& operator>>(std::istream& in, ApproxType& type)
 		type = Exact;
 #ifdef SMINA_GPU
 	else if (token == "gpu")
-		type = GPU;
+	type = GPU;
 #endif
 	else
 		throw validation_error(validation_error::invalid_option_value);
@@ -786,32 +752,81 @@ static void setMolData(OpenBabel::OBFormat *format, OpenBabel::OBMol& mol,
 //set the default device to device and exit with error if there are any problems
 static void initializeCUDA(int device)
 {
-    cudaSetDevice(device);
-    cudaError_t error;
-    cudaDeviceProp deviceProp;
-    error = cudaGetDevice(&device);
+	cudaSetDevice(device);
+	cudaError_t error;
+	cudaDeviceProp deviceProp;
+	error = cudaGetDevice(&device);
 
-    if (error != cudaSuccess)
-    {
-        std::cerr << "cudaGetDevice returned error code " << error << "\n";
-        exit(-1);
-    }
+	if (error != cudaSuccess)
+	{
+		std::cerr << "cudaGetDevice returned error code " << error << "\n";
+		exit(-1);
+	}
 
-    error = cudaGetDeviceProperties(&deviceProp, device);
+	error = cudaGetDeviceProperties(&deviceProp, device);
 
-    if (deviceProp.computeMode == cudaComputeModeProhibited)
-    {
-        std::cerr << "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n";
-        exit(-1);
-    }
+	if (deviceProp.computeMode == cudaComputeModeProhibited)
+	{
+		std::cerr << "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n";
+		exit(-1);
+	}
 
-    if (error != cudaSuccess)
-    {
-        std::cerr << "cudaGetDeviceProperties returned error code " << error << "\n";
-        exit(-1);
-    }
+	if (error != cudaSuccess)
+	{
+		std::cerr << "cudaGetDeviceProperties returned error code " << error << "\n";
+		exit(-1);
+	}
 }
 #endif
+
+//create the initial model from the specified receptor files
+//mostly because Matt kept complaining about it, this will automatically create
+//pdbqts if necessary using open babel
+static void create_init_model(const std::string& rigid_name, const std::string& flex_name, model& initm, tee& log)
+{
+	if (rigid_name.size() > 0)
+	{
+		std::istream *rigidin_ptr = NULL; //either file or string from openbabel conversion
+		ifile rigidin(rigid_name);
+		std::stringstream str_rigid;
+		rigidin_ptr = &rigidin;
+		if (boost::filesystem::extension(rigid_name) != ".pdbqt")
+		{
+			using namespace OpenBabel;
+			obmol_opener fileopener;
+			OBConversion conv;
+			conv.SetOutFormat("PDBQT");
+			conv.AddOption("r", OBConversion::OUTOPTIONS); //rigid molecule, otherwise really slow and useless analysis is triggered
+			fileopener.openForInput(conv, rigid_name);
+			OBMol rec;
+			if(!conv.Read(&rec))
+				throw file_error(rigid_name, true);
+
+			rec.AddHydrogens();
+			std::string recstr = conv.WriteString(&rec);
+			str_rigid.str(recstr);
+			rigidin_ptr = &str_rigid;
+		}
+
+
+		if (flex_name.size() > 1
+				&& boost::filesystem::extension(flex_name)
+						!= ".pdbqt")
+			log
+					<< "WARNING: flexible receptor does not appear to be in PDBQT format\n";
+
+		if(flex_name.size() > 0) //have flexible residues
+		{
+			ifile flexin(make_path(flex_name));
+			initm = parse_receptor_pdbqt(rigid_name, *rigidin_ptr,
+					flex_name, flexin);
+		}
+		else //just rigid
+		{
+			initm = parse_receptor_pdbqt(rigid_name, *rigidin_ptr);
+		}
+	}
+}
 
 int main(int argc, char* argv[])
 {
@@ -854,12 +869,14 @@ Thank you!\n";
 		std::string out_name;
 		std::string ligand_names_file;
 		std::string custom_file_name;
-        std::string usergrid_file_name;
-		fl center_x = 0, center_y = 0, center_z = 0, size_x = 0, size_y = 0, size_z = 0;
+		std::string usergrid_file_name;
+		fl center_x = 0, center_y = 0, center_z = 0, size_x = 0, size_y = 0,
+				size_z = 0;
 		fl autobox_add = 8;
 		fl out_min_rmsd = 1;
 		std::string autobox_ligand;
-		int cpu = 0, seed, exhaustiveness, verbosity = 1, num_modes = 9, device = 0;
+		int cpu = 0, seed, exhaustiveness, verbosity = 1, num_modes = 9,
+				device = 0;
 		fl energy_range = 2.0;
 
 		// -0.035579, -0.005156, 0.840245, -0.035069, -0.587439, 0.05846
@@ -919,7 +936,8 @@ Thank you!\n";
 		("log", value<std::string>(&log_name), "optionally, write log file")
 		("atom_terms", value<std::string>(&atom_name),
 				"optionally write per-atom interaction term values")
-		("atom_term_data", bool_switch(&include_atom_terms), "embedded per-atom interaction terms in output sd data");
+		("atom_term_data", bool_switch(&include_atom_terms),
+				"embedded per-atom interaction terms in output sd data");
 
 		options_description scoremin("Scoring and minimization options");
 		scoremin.add_options()
@@ -943,8 +961,8 @@ Thank you!\n";
 				"approximation (linear, spline, or exact) to use")
 		("factor", value<fl>(&approx_factor),
 				"approximation factor: higher results in a finer-grained approximation")
-		("print_terms",bool_switch(&print_terms),
-                "Print all available terms with default parameterizations");
+		("print_terms", bool_switch(&print_terms),
+				"Print all available terms with default parameterizations");
 
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
@@ -953,8 +971,9 @@ Thank you!\n";
 		("dkoes_scoring_old", bool_switch(&dkoes_score_old),
 				"Use old (vdw+hbond) scoring function")
 		("dkoes_fast", bool_switch(&dkoes_fast), "VDW+nrot only")
-		("ad4_scoring", bool_switch(&ad4_score), "Approximation of Autodock 4 scoring")
-        ("user_grid", value<std::string>(&usergrid_file_name),
+		("ad4_scoring", bool_switch(&ad4_score),
+				"Approximation of Autodock 4 scoring")
+		("user_grid", value<std::string>(&usergrid_file_name),
 				"Autodock map file for user grid data based calculations, not implemented yet");
 
 		options_description misc("Misc (optional)");
@@ -971,12 +990,13 @@ Thank you!\n";
 		("min_rmsd_filter", value<fl>(&out_min_rmsd)->default_value(1.0),
 				"rmsd value used to filter final poses to remove redundancy")
 		("quiet,q", bool_switch(&quiet), "Suppress output messages")
-		("addH", value<bool>(&add_hydrogens), "automatically add hydrogens in ligands (on by default)")
+		("addH", value<bool>(&add_hydrogens),
+				"automatically add hydrogens in ligands (on by default)")
 		("flex_hydrogens", bool_switch(&flex_hydrogens),
 				"Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
-#ifdef SMINA_GPU
-		("device", value<int>(&device)->default_value(0), "GPU device to use")
-		("gpu", bool_switch(&gpu_on), "Turn on GPU acceleration")
+				#ifdef SMINA_GPU
+				("device", value<int>(&device)->default_value(0), "GPU device to use")
+				("gpu", bool_switch(&gpu_on), "Turn on GPU acceleration")
 #endif
 				;
 
@@ -1075,7 +1095,7 @@ Thank you!\n";
 		bool search_box_needed = !(score_only || local_only); // randomize_only and local_only still need the search space; dkoes - for local get box from ligand
 		bool output_produced = !score_only;
 		bool receptor_needed = !randomize_only;
-                
+
 		if (receptor_needed)
 		{
 			if (vm.count("receptor") <= 0)
@@ -1101,10 +1121,6 @@ Thank you!\n";
 		if (num_modes < 1)
 			throw usage_error("num_modes must be 1 or greater");
 		sz max_modes_sz = static_cast<sz>(num_modes);
-
-		boost::optional<std::string> rigid_name_opt;
-		if (vm.count("receptor"))
-			rigid_name_opt = rigid_name;
 
 		boost::optional<std::string> flex_name_opt;
 		if (vm.count("flex"))
@@ -1144,9 +1160,9 @@ Thank you!\n";
 		log << cite_message << '\n';
 
 		grid_dims gd; // n's = 0 via default c'tor
-        grid_dims user_gd;
-        grid user_grid;
-        
+		grid_dims user_gd;
+		grid user_grid;
+
 		flv weights;
 
 		//dkoes, set the scoring function
@@ -1161,7 +1177,7 @@ Thank you!\n";
 			//my own built-in scoring functions
 			setup_dkoes_terms(t, dkoes_score, dkoes_score_old, dkoes_fast);
 		}
-		else if(ad4_score)
+		else if (ad4_score)
 		{
 			t.add("vdw(i=6,_j=12,_s=0,_^=100,_c=8)", 0.1560);
 			t.add("non_dir_h_bond_lj(o=-0.7,_^=100,_c=8)", -0.0974);
@@ -1181,20 +1197,18 @@ Thank you!\n";
 
 		log << std::setw(12) << std::left << "Weights" << " Terms\n" << t
 				<< "\n";
-        
-        
-        
+
 		if (usergrid_file_name.size() > 0)
-        {
-            ifile user_in(make_path(usergrid_file_name));
-            setup_user_gd(user_gd, user_in);
-            user_grid.init(user_gd, user_in); //initialize user 
-        }
-		
-        const fl granularity = 0.375;
-        if (search_box_needed)
 		{
-            vec span(size_x, size_y, size_z);
+			ifile user_in(make_path(usergrid_file_name));
+			setup_user_gd(user_gd, user_in);
+			user_grid.init(user_gd, user_in); //initialize user
+		}
+
+		const fl granularity = 0.375;
+		if (search_box_needed)
+		{
+			vec span(size_x, size_y, size_z);
 			vec center(center_x, center_y, center_z);
 			VINA_FOR_IN(i, gd)
 			{
@@ -1204,7 +1218,6 @@ Thank you!\n";
 				gd[i].end = gd[i].begin + real_span;
 			}
 		}
-        
 
 		if (vm.count("cpu") == 0)
 		{
@@ -1231,28 +1244,17 @@ Thank you!\n";
 		//dkoes - parse in receptor once
 		model initm;
 
-		if (rigid_name_opt)
-		{
-			if(boost::filesystem::extension(rigid_name_opt.get()) != ".pdbqt")
-				log << "WARNING: receptor does not appear to be in PDBQT format. You are probably about to encounter a parse error.\n";
-			if(flex_name_opt && boost::filesystem::extension(flex_name_opt.get()) != ".pdbqt")
-				log << "WARNING: flexible receptor does not appear to be in PDBQT format\n";
-			initm = (flex_name_opt) ?
-					parse_receptor_pdbqt(
-							make_path(rigid_name_opt.get()),
-							make_path(flex_name_opt.get())) :
-					parse_receptor_pdbqt(make_path(rigid_name_opt.get()));
-		}
+		create_init_model(rigid_name, flex_name, initm, log);
 
 		//dkoes, hoist precalculation outside of loop
 		weighted_terms wt(&t, t.weights());
 
 		boost::shared_ptr<precalculate> prec;
 
-		if(gpu_on || approx == GPU)
+		if (gpu_on || approx == GPU)
 		{ //don't get a choice
 #ifdef SMINA_GPU
-			prec = boost::shared_ptr<precalculate>(new precalculate_gpu(wt, approx_factor));
+		prec = boost::shared_ptr<precalculate>(new precalculate_gpu(wt, approx_factor));
 #endif
 		}
 		else if (approx == SplineApprox)
@@ -1264,7 +1266,6 @@ Thank you!\n";
 		else if (approx == Exact)
 			prec = boost::shared_ptr<precalculate>(
 					new precalculate_exact(wt));
-
 
 		//setup single outfile
 		using namespace OpenBabel;
@@ -1307,13 +1308,13 @@ Thank you!\n";
 					}
 					else
 					{
-						if(add_hydrogens)
+						if (add_hydrogens)
 							mol.AddHydrogens(); //needed for atom typing
 						std::string pdbqt = conv.WriteString(&mol);
 						std::stringstream pdbqtStream(pdbqt);
 
 						m.append(parse_ligand_stream_pdbqt(ligand_name,
-										pdbqtStream));
+								pdbqtStream));
 					}
 				} catch (parse_error& e)
 				{
@@ -1342,7 +1343,7 @@ Thank you!\n";
 						atomoutfile.is_open() || include_atom_terms, gpu_on,
 						gd, exhaustiveness, minparms, wt, cpu, seed, verbosity,
 						max_modes_sz, energy_range, out_min_rmsd, log, results,
-                        user_grid);
+						user_grid);
 
 				if (outconv.GetOutStream() != NULL)
 				{
@@ -1365,7 +1366,7 @@ Thank you!\n";
 									boost::lexical_cast<std::string>(
 											results[j].rmsd));
 						}
-						if(include_atom_terms)
+						if (include_atom_terms)
 						{
 							std::stringstream astr;
 							results[j].writeAtomValues(astr, &wt);
