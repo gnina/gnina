@@ -900,6 +900,7 @@ Thank you!\n";
 		bool gpu_on = false;
 		bool print_terms = false;
 		bool add_hydrogens = true;
+		bool no_lig = false;
 		minimization_params minparms;
 		ApproxType approx = LinearApprox;
 		fl approx_factor = 32;
@@ -926,7 +927,8 @@ Thank you!\n";
 		("autobox_ligand", value<std::string>(&autobox_ligand),
 				"Ligand to use for autobox")
 		("autobox_add", value<fl>(&autobox_add),
-				"Amount of buffer space to add to auto-generated box (default 8)");
+				"Amount of buffer space to add to auto-generated box (default 8)")
+		("no_lig", bool_switch(&no_lig), "no ligand; for sampling/minimizing flexible residues");
 
 		//options_description outputs("Output prefixes (optional - by default, input names are stripped of .pdbqt\nare used as prefixes. _001.pdbqt, _002.pdbqt, etc. are appended to the prefixes to produce the output names");
 		options_description outputs("Output (optional)");
@@ -1108,8 +1110,21 @@ Thank you!\n";
 
 		if (ligand_names.size() == 0)
 		{
-			std::cerr << "Missing ligand.\n" << "\nCorrect usage:\n"
+			if(!no_lig)
+			{
+				std::cerr << "Missing ligand.\n" << "\nCorrect usage:\n"
 					<< desc_simple << '\n';
+				return 1;
+			}
+			else //put in "fake" ligand
+			{
+				ligand_names.push_back("");
+			}
+		}
+		else if(no_lig) //ligand specified with no_lig
+		{
+			std::cerr << "Ligand specified with --no_lig.\n" << "\nCorrect usage:\n"
+				<< desc_simple << '\n';
 			return 1;
 		}
 		if (cpu < 1)
@@ -1287,13 +1302,17 @@ Thank you!\n";
 			//parse with open babel
 			OBConversion conv;
 			obmol_opener infileopener;
-			infileopener.openForInput(conv, ligand_name);
-			VINA_CHECK(conv.SetOutFormat("PDBQT"));
+
+			if(ligand_name.size() > 0) //is zero if no_lig
+			{
+				infileopener.openForInput(conv, ligand_name);
+				VINA_CHECK(conv.SetOutFormat("PDBQT"));
+			}
 
 			//process input molecules one at a time
 			OBMol mol;
 			unsigned i = 0;
-			while (conv.Read(&mol))
+			while (no_lig || conv.Read(&mol) )
 			{
 				model m = initm;
 				std::string name = mol.GetTitle();
@@ -1302,7 +1321,11 @@ Thank you!\n";
 				{
 					//this is suboptimal: do not read/write pdbqt with openbabel
 					//because it will lose information about rigid bonds
-					if (lpath.extension() == ".pdbqt")
+					if(no_lig)
+					{
+						no_lig = false; //only enter loop once
+					}
+					else if (lpath.extension() == ".pdbqt")
 					{
 						m.append(parse_ligand_pdbqt(lpath));
 					}
