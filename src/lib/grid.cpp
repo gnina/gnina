@@ -76,6 +76,9 @@ void grid::init(const grid_dims& gd, bool hascharged)
 
 void grid::init(const grid_dims& gd, std::istream& user_in)
 {
+    const int GRID_SCALING_COEFF = 0.013730063; //empirically determined constant
+
+    //set up the grid with the passed grid_dims
     data.resize(gd[0].n+1, gd[1].n+1, gd[2].n+1);
     m_init = vec(gd[0].begin, gd[1].begin, gd[2].begin);
 	m_range = vec(gd[0].span(), gd[1].span(), gd[2].span());
@@ -86,6 +89,7 @@ void grid::init(const grid_dims& gd, std::istream& user_in)
 			data.dim1()-1,
 			data.dim2()-1);
     
+	//load data from user_in grid file
     std::string line;
     VINA_FOR(z, gd[2].n+1)
     {
@@ -94,11 +98,10 @@ void grid::init(const grid_dims& gd, std::istream& user_in)
             VINA_FOR(x, gd[0].n+1)
             {
                 std::getline(user_in,line);
-                data(x, y, z) =  ::atof(line.c_str()); //0.01889 *
+                data(x, y, z) =  ::atof(line.c_str()) * GRID_SCALING_COEFF;
             }
         }        
-    } 
-
+    }
 }
 
 

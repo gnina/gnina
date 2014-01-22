@@ -803,7 +803,7 @@ fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
 	fl e = evale(p, ig, v);
 	VINA_FOR_IN(i, ligands)
 		e += eval_interacting_pairs(p, v[0], ligands[i].pairs, coords); // coords instead of internal coords
-	std::cout << "Not user_grid contribution: " << e << "\n";
+	std::cout << "smina_contribution: " << e << "\n";
 	if(user_grid.initialized())
 	{
 		fl uge = 0;
@@ -814,7 +814,7 @@ fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
 			uge += tmp;
 			e += tmp;
 		}
-		std::cout << "User_grid contribution: " << uge << "\n";
+		std::cout << "User_grid_contribution: " << uge << "\n";
 	}
 
 	return e;
