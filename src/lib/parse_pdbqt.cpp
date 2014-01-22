@@ -29,7 +29,6 @@
 #include <boost/lexical_cast.hpp>
 #include "parse_pdbqt.h"
 #include "atom_constants.h"
-#include "file.h"
 #include "convert_substring.h"
 #include "parse_error.h"
 
@@ -290,8 +289,7 @@ void parse_two_unsigneds(const std::string& str, const std::string& start, unsig
 	second = unsigned(tmp2);
 }
 
-void parse_pdbqt_rigid(const path& name, rigid& r) {
-	ifile in(name);
+void parse_pdbqt_rigid(const std::string& name, std::istream& in, rigid& r) {
 	unsigned count = 0;
 	std::string str;
 	while(std::getline(in, str)) {
@@ -552,8 +550,7 @@ void parse_pdbqt_residue(std::istream& in, unsigned& count, parsing_struct& p, c
 	parse_pdbqt_aux(in, count, p, c, dummy, true);
 }
 
-void parse_pdbqt_flex(const path& name, non_rigid_parsed& nr, context& c) {
-	ifile in(name);
+void parse_pdbqt_flex(const std::string& name, std::istream& in, non_rigid_parsed& nr, context& c) {
 	unsigned count = 0;
 	std::string str;
 
@@ -700,12 +697,14 @@ model parse_ligand_pdbqt  (const path& name) { // can throw parse_error
 	return tmp.m;
 }
 
-model parse_receptor_pdbqt(const path& rigid_name, const path& flex_name) { // can throw parse_error
+model parse_receptor_pdbqt(const std::string& rigid_name, std::istream& rigidin,
+		const std::string& flex_name, std::istream& flexin) { // can throw parse_error
 	rigid r;
 	non_rigid_parsed nrp;
 	context c;
-	parse_pdbqt_rigid(rigid_name, r);
-	parse_pdbqt_flex(flex_name, nrp, c);
+
+	parse_pdbqt_rigid(rigid_name, rigidin, r);
+	parse_pdbqt_flex(flex_name, flexin, nrp, c);
 
 	pdbqt_initializer tmp;
 	tmp.initialize_from_rigid(r);
@@ -714,9 +713,9 @@ model parse_receptor_pdbqt(const path& rigid_name, const path& flex_name) { // c
 	return tmp.m;
 }
 
-model parse_receptor_pdbqt(const path& rigid_name) { // can throw parse_error
+model parse_receptor_pdbqt(const std::string& rigid_name, std::istream& in) { // can throw parse_error
 	rigid r;
-	parse_pdbqt_rigid(rigid_name, r);
+	parse_pdbqt_rigid(rigid_name, in, r);
 
 	pdbqt_initializer tmp;
 	tmp.initialize_from_rigid(r);

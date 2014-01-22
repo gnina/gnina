@@ -540,6 +540,184 @@ struct non_dir_h_bond: public charge_independent
 	}
 };
 
+/* dkoes - atom type functions.  These are generic functions that only apply to
+ * the specified atom type pair.  A variety of distance dependent functions are
+ * provided. Atom types are specifed by strings so we can pretty print them.
+ */
+struct atom_type_base: public charge_independent
+{
+	//base type for atom type functions
+	std::string name1, name2;
+	smt t1, t2; //atom type pair
+
+	atom_type_base(const std::string& n1, const std::string& n2,  fl cutoff_=8) :
+		charge_independent(cutoff_), name1(n1), name2(n2),
+		t1(string_to_smina_type(n1)), t2(string_to_smina_type(n2))
+	{
+		if(name1.length() > 0 && t1 == smina_atom_type::NumTypes) //ignore default empty
+			throw scoring_function_error(name1,"Invalid atom type: ");
+		if(name2.length() > 0 && t2 == smina_atom_type::NumTypes)
+			throw scoring_function_error(name2,"Invalid atom type: ");
+	}
+
+protected:
+
+	bool types_match(smt t1_, smt t2_) const
+	{
+		//match any order
+		return (t1_ == t1 && t2_ == t2) || (t1_ == t2 && t2_ == t1);
+	}
+};
+
+/* inverse power potential (see electrostatic) between atom types */
+template<unsigned power>
+struct atom_type_inverse_power: public atom_type_base
+{
+	fl cap;
+	atom_type_inverse_power(const std::string& n1="", const std::string& n2="", fl cap_=100, fl cutoff_=8) :
+		atom_type_base(n1, n2, cutoff_), cap(cap_)
+	{
+		name = std::string("atom_type_inverse_power(t1=")+name1+",t2="+name2+",i="
+				+ to_string(power) +",_^="+to_string(cap)
+				+ ",_c=" + to_string(cutoff) + ")";
+		rexpr.assign("atom_type_inverse_power\\(t1=(\\S+),t2=(\\S+),i=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+	}
+	fl eval(smt T1, smt T2, fl r) const
+	{
+		if (types_match(T1,T2))
+		{
+			fl tmp = int_pow<power>(r);
+			if (tmp < epsilon_fl) //avoid divide by zero
+				return cap;
+			else
+				return (std::min)(cap, 1 / tmp);
+		}
+		return 0;
+	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+		std::string n1 = match[1];
+		std::string n2 = match[2];
+
+		fl i = boost::lexical_cast<fl>(match[3]);
+		fl cap = boost::lexical_cast<fl>(match[4]);
+		fl c = boost::lexical_cast<fl>(match[5]);
+		if(i == 1)
+			return new atom_type_inverse_power<1>(n1,n2,cap,c);
+		else if(i == 2)
+			return new atom_type_inverse_power<2>(n1,n2,cap,c);
+		else
+			throw scoring_function_error(desc,"Invalid exponent: 1 or 2 only");
+
+		return NULL;
+	}
+};
+
+/* Gaussian potential (see gauss) between atom types */
+struct atom_type_gaussian: public atom_type_base
+{
+	fl width, offset;
+	atom_type_gaussian(const std::string& n1="", const std::string& n2="", fl o=0, fl w=0, fl cutoff_=8) :
+		atom_type_base(n1, n2, cutoff_), width(w), offset(o)
+	{
+		name = std::string("atom_type_gaussian(t1="+name1+",t2="+name2+",o=")
+				+ to_string(offset) +",_w="+to_string(width)
+				+ ",_c=" + to_string(cutoff) + ")";
+		rexpr.assign("atom_type_gaussian\\(t1=(\\S+),t2=(\\S+),o=(\\S+),_w=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+	}
+	fl eval(smt T1, smt T2, fl r) const
+	{
+		if (types_match(T1,T2))
+		{
+			return gaussian(r - (optimal_distance(t1, t2) + offset), width);
+		}
+		return 0;
+	}
+
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+		std::string n1 = match[1];
+		std::string n2 = match[2];
+		fl o = boost::lexical_cast<fl>(match[3]);
+		fl w = boost::lexical_cast<fl>(match[4]);
+		fl c = boost::lexical_cast<fl>(match[5]);
+		return new atom_type_gaussian(n1,n2,o, w, c);
+	}
+};
+
+/* Linear potential (see hbond) between atom types */
+struct atom_type_linear: public atom_type_base
+{
+	fl good, bad;
+	atom_type_linear(const std::string& n1="", const std::string& n2="", fl good_=0, fl bad_=0, fl cutoff_=8) :
+		atom_type_base(n1, n2, cutoff_), good(good_), bad(bad_)
+	{
+		name = std::string("atom_type_linear(t1="+name1+",t2="+name2+",g=")
+				+ to_string(good) +",_b="+to_string(bad)
+				+ ",_c=" + to_string(cutoff) + ")";
+		rexpr.assign("atom_type_linear\\(t1=(\\S+),t2=(\\S+),g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+	}
+	fl eval(smt T1, smt T2, fl r) const
+	{
+		if (types_match(T1,T2))
+		{
+			return slope_step(bad, good, r - optimal_distance(t1, t2));
+		}
+		return 0;
+	}
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+		std::string n1 = match[1];
+		std::string n2 = match[2];
+		fl g = boost::lexical_cast<fl>(match[3]);
+		fl b = boost::lexical_cast<fl>(match[4]);
+		fl c = boost::lexical_cast<fl>(match[5]);
+		return new atom_type_linear(n1,n2,g,b,c);
+	}
+};
+
+
+/* Quadratic potential (see repulsion) between atom types */
+struct atom_type_quadratic: public atom_type_base
+{
+	fl offset;
+	atom_type_quadratic(const std::string& n1="", const std::string& n2="", fl offset_=0, fl cutoff_=8) :
+		atom_type_base(n1,n2, cutoff_),	offset(offset_)
+	{
+		name = std::string("atom_type_quadratic(t1="+name1+",t2="+name2+",o=") + to_string(offset)
+				+ ",_c=" + to_string(cutoff) + ")";
+		rexpr.assign("atom_type_quadratic\\(t1=(\\S+),t2=(\\S+),o=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+	}
+	fl eval(smt T1, smt T2, fl r) const
+	{
+		if ( types_match(T1,T2) )
+		{
+			fl d = r - (optimal_distance(t1, t2) + offset);
+			if (d > 0)
+				return 0;
+			return d * d;
+		}
+		return 0;
+	}
+	virtual term* createFrom(const std::string& desc) const {
+		boost::smatch match;
+		if(!regex_match(desc, match, rexpr))
+			return NULL;
+		std::string n1 = match[1];
+		std::string n2 = match[2];
+		fl o = boost::lexical_cast<fl>(match[3]);
+		fl c = boost::lexical_cast<fl>(match[4]);
+		return new atom_type_quadratic(n1,n2,o, c);
+	}
+};
+
 inline fl read_iterator(flv::const_iterator& i)
 {
 	fl x = *i;
@@ -814,6 +992,12 @@ struct term_creators : public std::vector<term*> {
 		push_back(new non_dir_h_bond());
 		push_back(new acceptor_acceptor_quadratic());
 		push_back(new donor_donor_quadratic());
+
+		push_back(new atom_type_gaussian());
+		push_back(new atom_type_linear());
+		push_back(new atom_type_quadratic());
+		push_back(new atom_type_inverse_power<0>());
+
 		push_back(new num_tors_add());
 		push_back(new num_tors_sqr());
 		push_back(new num_tors_sqrt());

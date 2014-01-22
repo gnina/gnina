@@ -24,6 +24,7 @@
 #include "file.h"
 #include "curl.h"
 #include <boost/unordered_map.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 template<typename T>
 atom_range get_atom_range(const T& t)
@@ -673,6 +674,12 @@ void model::write_context(const context& c, std::ostream& out) const
 		{
 			out << coords_to_pdbqt_string(coords[c[i].second.get()], str)
 					<< '\n';
+		}
+		else if(boost::starts_with(str,"BEGIN_RES") ||
+				boost::starts_with(str,"END_RES"))
+		{
+			//dkoes - openbabel thinks these denote separate molecules
+			//so we lose all but the first residue if we leave them in
 		}
 		else
 			out << str << '\n';
