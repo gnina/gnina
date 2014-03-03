@@ -673,17 +673,10 @@ void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
 //Read in NELEMENTS
 	std::getline(user_in, line);
 	boost::algorithm::split(temp, line, boost::algorithm::is_space());
-<<<<<<< HEAD
 	size_x = (::atof(temp[1].c_str()) + 1) * granularity;
 	size_y = (::atof(temp[2].c_str()) + 1) * granularity;
 	size_z = (::atof(temp[3].c_str()) + 1) * granularity;
-	//Read in CENTER
-=======
-	size_x = ::atof(temp[1].c_str()) * granularity;
-	size_y = ::atof(temp[2].c_str()) * granularity;
-	size_z = ::atof(temp[3].c_str()) * granularity;
 //Read in CENTER
->>>>>>> 02c7b5fa6d76470f8c1448522c38224c0833022b
 	std::getline(user_in, line);
 	boost::algorithm::split(temp, line, boost::algorithm::is_space());
 	center_x = ::atof(temp[1].c_str());
