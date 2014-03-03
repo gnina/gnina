@@ -14,6 +14,9 @@ as opposed to of docking, these changes make Vina much easer to use and
 10-20x faster. Docking performance is about the same since partial charge 
 calculation and file i/o isn't such a big part of the performance.
 
+If you find smina useful, please cite our paper: 
+http://pubs.acs.org/doi/abs/10.1021/ci300604z
+
 *Non-pdbqt ligand files must have partial charges added.  This is done
 using OpenBabel and will get different results than the prepare_ligand4.py
 script that comes with AutoDock Tools.

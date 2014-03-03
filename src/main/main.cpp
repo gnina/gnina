@@ -1,12 +1,8 @@
 #include <iostream>
 #include <string>
 #include <exception>
-#include <vector> // ligand paths#include <cmath> // for ceila#include <boost/program_options.hpp>
-#include <boost/filesystem/fstream.hpp>
-#include <boost/filesystem/exception.hpp>
-#include <boost/filesystem/convenience.hpp> // filesystem::basename#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?#include <boost/lexical_cast.hpp>
-#include "parse_pdbqt.h"
-#include "parallel_mc.h"
+#include <vector> // ligand paths#include <cmath> // for ceila#include <boost/program_options.hpp>#include <boost/filesystem/fstream.hpp>#include <boost/filesystem/exception.hpp>
+#include <boost/filesystem/convenience.hpp> // filesystem::basename#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?#include <boost/lexical_cast.hpp>#include "parse_pdbqt.h"#include "parallel_mc.h"
 #include "file.h"
 #include "cache.h"
 #include "non_cache.h"
@@ -55,7 +51,7 @@ struct resultInfo
 
 	//write a table (w/header) of per atom values to out
 	void writeAtomValues(std::ostream& out, const weighted_terms *wt) const
-	{
+			{
 		const terms *t = wt->unweighted_terms();
 		out << "atomid el pos";
 		std::vector<std::string> names = t->get_names(true);
@@ -332,6 +328,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 			out_cont.sort();
 			const fl best_mode_intramolecular_energy = m.eval_intramolecular(
 					prec, authentic_v, out_cont[0].c);
+
 			VINA_FOR_IN(i, out_cont)
 				if (not_max(out_cont[i].e))
 					out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
@@ -340,7 +337,6 @@ void do_search(model& m, const boost::optional<model>& ref,
 			// the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
 			out_cont.sort();
 		}
-
 		out_cont = remove_redundant(out_cont, out_min_rmsd);
 
 		done(verbosity, log);
@@ -563,7 +559,6 @@ void check_occurrence(boost::program_options::variables_map& vm,
 	}
 }
 
-
 //generate a box around the provided ligand padded by autobox_add
 //if centers are always overwritten, but if sizes are non zero they are preserved
 void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
@@ -578,13 +573,14 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 	opener.openForInput(conv, autobox_ligand);
 
 	OBMol mol;
-	if (conv.Read(&mol))
+	center_x = center_y = center_z = 0;
+	fl min_x = HUGE_VAL, min_y = HUGE_VAL, min_z = HUGE_VAL;
+	fl max_x = -HUGE_VAL, max_y = -HUGE_VAL, max_z = -HUGE_VAL;
+	fl num = 0;
+	while (conv.Read(&mol)) //openbabel divides separate residues into multiple molecules
 	{
 		unsigned n;
-		center_x = center_y = center_z = 0;
-		fl min_x = HUGE_VAL, min_y = HUGE_VAL, min_z = HUGE_VAL;
-		fl max_x = -HUGE_VAL, max_y = -HUGE_VAL, max_z = -HUGE_VAL;
-		fl num = 0;
+
 		FOR_ATOMS_OF_MOL(a, mol)
 				{
 			center_x += a->x();
@@ -598,16 +594,17 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 			max_z = std::max(max_z, (fl) a->z());
 			num++;
 		}
-		center_x /= num;
-		center_y /= num;
-		center_z /= num;
-		if (size_x == 0)
-			size_x = (max_x - min_x) + autobox_add;
-		if (size_y == 0)
-			size_y = (max_y - min_y) + autobox_add;
-		if (size_z == 0)
-			size_z = (max_z - min_z) + autobox_add;
 	}
+	center_x /= num;
+	center_y /= num;
+	center_z /= num;
+	if (size_x == 0)
+		size_x = (max_x - min_x) + autobox_add;
+	if (size_y == 0)
+		size_y = (max_y - min_y) + autobox_add;
+	if (size_z == 0)
+		size_z = (max_z - min_z) + autobox_add;
+
 	else
 	{
 		std::cerr << "Unable to read  " << autobox_ligand << "\n";
@@ -669,17 +666,24 @@ void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
 		std::getline(user_in, line);
 	pLines = 3;
 
-	//Read in SPACING
+//Read in SPACING
 	std::getline(user_in, line);
 	boost::algorithm::split(temp, line, boost::algorithm::is_space());
 	const fl granularity = ::atof(temp[1].c_str());
-	//Read in NELEMENTS
+//Read in NELEMENTS
 	std::getline(user_in, line);
 	boost::algorithm::split(temp, line, boost::algorithm::is_space());
+<<<<<<< HEAD
 	size_x = (::atof(temp[1].c_str()) + 1) * granularity;
 	size_y = (::atof(temp[2].c_str()) + 1) * granularity;
 	size_z = (::atof(temp[3].c_str()) + 1) * granularity;
 	//Read in CENTER
+=======
+	size_x = ::atof(temp[1].c_str()) * granularity;
+	size_y = ::atof(temp[2].c_str()) * granularity;
+	size_z = ::atof(temp[3].c_str()) * granularity;
+//Read in CENTER
+>>>>>>> 02c7b5fa6d76470f8c1448522c38224c0833022b
 	std::getline(user_in, line);
 	boost::algorithm::split(temp, line, boost::algorithm::is_space());
 	center_x = ::atof(temp[1].c_str());
@@ -782,7 +786,8 @@ static void initializeCUDA(int device)
 //create the initial model from the specified receptor files
 //mostly because Matt kept complaining about it, this will automatically create
 //pdbqts if necessary using open babel
-static void create_init_model(const std::string& rigid_name, const std::string& flex_name, model& initm, tee& log)
+static void create_init_model(const std::string& rigid_name,
+		const std::string& flex_name, model& initm, tee& log)
 {
 	if (rigid_name.size() > 0)
 	{
@@ -799,7 +804,7 @@ static void create_init_model(const std::string& rigid_name, const std::string& 
 			conv.AddOption("r", OBConversion::OUTOPTIONS); //rigid molecule, otherwise really slow and useless analysis is triggered
 			fileopener.openForInput(conv, rigid_name);
 			OBMol rec;
-			if(!conv.Read(&rec))
+			if (!conv.Read(&rec))
 				throw file_error(rigid_name, true);
 
 			rec.AddHydrogens();
@@ -808,14 +813,13 @@ static void create_init_model(const std::string& rigid_name, const std::string& 
 			rigidin_ptr = &str_rigid;
 		}
 
-
 		if (flex_name.size() > 1
 				&& boost::filesystem::extension(flex_name)
 						!= ".pdbqt")
 			log
 					<< "WARNING: flexible receptor does not appear to be in PDBQT format\n";
 
-		if(flex_name.size() > 0) //have flexible residues
+		if (flex_name.size() > 0) //have flexible residues
 		{
 			ifile flexin(make_path(flex_name));
 			initm = parse_receptor_pdbqt(rigid_name, *rigidin_ptr,
@@ -928,7 +932,8 @@ Thank you!\n";
 				"Ligand to use for autobox")
 		("autobox_add", value<fl>(&autobox_add),
 				"Amount of buffer space to add to auto-generated box (default 8)")
-		("no_lig", bool_switch(&no_lig), "no ligand; for sampling/minimizing flexible residues");
+		("no_lig", bool_switch(&no_lig),
+				"no ligand; for sampling/minimizing flexible residues");
 
 		//options_description outputs("Output prefixes (optional - by default, input names are stripped of .pdbqt\nare used as prefixes. _001.pdbqt, _002.pdbqt, etc. are appended to the prefixes to produce the output names");
 		options_description outputs("Output (optional)");
@@ -1110,10 +1115,10 @@ Thank you!\n";
 
 		if (ligand_names.size() == 0)
 		{
-			if(!no_lig)
+			if (!no_lig)
 			{
 				std::cerr << "Missing ligand.\n" << "\nCorrect usage:\n"
-					<< desc_simple << '\n';
+						<< desc_simple << '\n';
 				return 1;
 			}
 			else //put in "fake" ligand
@@ -1121,10 +1126,11 @@ Thank you!\n";
 				ligand_names.push_back("");
 			}
 		}
-		else if(no_lig) //ligand specified with no_lig
+		else if (no_lig) //ligand specified with no_lig
 		{
-			std::cerr << "Ligand specified with --no_lig.\n" << "\nCorrect usage:\n"
-				<< desc_simple << '\n';
+			std::cerr << "Ligand specified with --no_lig.\n"
+					<< "\nCorrect usage:\n"
+					<< desc_simple << '\n';
 			return 1;
 		}
 		if (cpu < 1)
@@ -1303,7 +1309,7 @@ Thank you!\n";
 			OBConversion conv;
 			obmol_opener infileopener;
 
-			if(ligand_name.size() > 0) //is zero if no_lig
+			if (ligand_name.size() > 0) //is zero if no_lig
 			{
 				infileopener.openForInput(conv, ligand_name);
 				VINA_CHECK(conv.SetOutFormat("PDBQT"));
@@ -1312,7 +1318,7 @@ Thank you!\n";
 			//process input molecules one at a time
 			OBMol mol;
 			unsigned i = 0;
-			while (no_lig || conv.Read(&mol) )
+			while (no_lig || conv.Read(&mol))
 			{
 				model m = initm;
 				std::string name = mol.GetTitle();
@@ -1321,7 +1327,7 @@ Thank you!\n";
 				{
 					//this is suboptimal: do not read/write pdbqt with openbabel
 					//because it will lose information about rigid bonds
-					if(no_lig)
+					if (no_lig)
 					{
 						no_lig = false; //only enter loop once
 					}
@@ -1441,7 +1447,7 @@ Thank you!\n";
 		return 1;
 	}
 
-	// Errors that shouldn't happen:
+// Errors that shouldn't happen:
 
 	catch (std::exception& e)
 	{
