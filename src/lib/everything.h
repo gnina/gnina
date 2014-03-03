@@ -822,7 +822,7 @@ struct num_tors_div: public conf_independent
 		fl w = 0.1 * (read_iterator(i) + 1); // w is in [0..0.2]
 
 		fl test = 1.0 + w * in.num_tors / 5.0;
-		std::cout << "Num_tors_factor: " << test << std::endl;
+		//std::cout << "Num_tors_factor: " << test << std::endl;
 		return smooth_div(x, 1 + w * in.num_tors / 5.0);
 	}
 	virtual term* createFrom(const std::string& desc) const {

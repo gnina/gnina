@@ -872,7 +872,7 @@ Thank you!\n";
 		fl autobox_add = 8;
 		fl out_min_rmsd = 1;
 		std::string autobox_ligand;
-		int cpu = 0, seed, exhaustiveness, verbosity = 1, num_modes = 9,
+		int cpu = 0, seed, exhaustiveness, verbosity, num_modes = 9,
 				device = 0;
 		fl energy_range = 2.0;
 
@@ -974,7 +974,9 @@ Thank you!\n";
 		("ad4_scoring", bool_switch(&ad4_score),
 				"Approximation of Autodock 4 scoring")
 		("user_grid", value<std::string>(&usergrid_file_name),
-				"Autodock map file for user grid data based calculations, not implemented yet");
+				"Autodock map file for user grid data based calculations, not implemented yet"),
+		("verbosity", value<int>(&verbosity)->default_value(1),
+				"Adjust the verbosity of the output, default: 1");
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
