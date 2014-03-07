@@ -232,7 +232,6 @@ void do_search(model& m, const boost::optional<model>& ref,
 		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
 				intramolecular_energy, user_grid);
 
-		log << "##Name " << m.get_name() << "\n";
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
 		log.endl();
@@ -241,25 +240,25 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log << "Intramolecular energy: " << std::fixed << std::setprecision(5)
 				<< intramolecular_energy << "\n";
 
-		std::vector<std::string> enabled_names = t->get_names(true);
 		log
-		<< "Intermolecular contributions to the terms, before weighting:\n";
+		<< "Term values, before weighting:\n";
 		log << std::setprecision(5);
-		VINA_FOR_IN(i, enabled_names)
+		log << "## " << boost::replace_all_copy(m.get_name()," ","_");
+
+		VINA_FOR_IN(i, term_values)
 		{
-			log << "#\t" << enabled_names[i] << '\t' << term_values[i] << "\n";
+			log << ' ' << term_values[i];
 		}
-		log
-				<< "Conformation independent terms, before weighting (div terms incorrect):\n";
+
 		conf_independent_inputs in(m);
 		const flv nonweight(1, 1.0);
 		for (unsigned i = 0, n = t->conf_independent_terms.size(); i < n; i++)
 		{
 			flv::const_iterator pos = nonweight.begin();
-			log << "#\t" << t->conf_independent_terms[i].name << "\t" <<
-					t->conf_independent_terms[i].eval(in, (fl) 0.0, pos)
-					<< "\n";
+			log << " " <<
+					t->conf_independent_terms[i].eval(in, (fl) 0.0, pos);
 		}
+		log << '\n';
 
 		results.push_back(resultInfo(e, -1, ""));
 		if (compute_atominfo)
@@ -1293,6 +1292,20 @@ Thank you!\n";
 			VINA_CHECK(outconv.SetInFormat("PDBQT"));
 		}
 
+		if(score_only) //output header
+		{
+			std::vector<std::string> enabled_names = t.get_names(true);
+			log << "## Name";
+			VINA_FOR_IN(i, enabled_names)
+			{
+				log << " " << enabled_names[i];
+			}
+			for (unsigned i = 0, n = t.conf_independent_terms.size(); i < n; i++)
+			{
+				log << " " << t.conf_independent_terms[i].name;
+			}
+			log << "\n";
+		}
 		//loop over input ligands
 		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
 		{

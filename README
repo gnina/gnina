@@ -34,7 +34,9 @@ Search space (required):
   --size_y arg          size in the Y dimension (Angstroms)
   --size_z arg          size in the Z dimension (Angstroms)
   --autobox_ligand arg  Ligand to use for autobox
-  --autobox_add arg     Amount of buffer space to add to auto-generated box
+  --autobox_add arg     Amount of buffer space to add to auto-generated box 
+                        (default 8)
+  --no_lig              no ligand; for sampling/minimizing flexible residues
 
 Scoring and minimization options:
   --custom_scoring arg      custom scoring function file
@@ -52,10 +54,14 @@ Scoring and minimization options:
   --approximation arg       approximation (linear, spline, or exact) to use
   --factor arg              approximation factor: higher results in a 
                             finer-grained approximation
+  --print_terms             Print all available terms with default 
+                            parameterizations
 
 Output (optional):
   -o [ --out ] arg      output file name, format taken from file extension
   --log arg             optionally, write log file
+  --atom_terms arg      optionally write per-atom interaction term values
+  --atom_term_data      embedded per-atom interaction terms in output sd data
 
 Misc (optional):
   --cpu arg                  the number of CPUs to use (the default is to try 
@@ -70,6 +76,11 @@ Misc (optional):
   --min_rmsd_filter arg (=1) rmsd value used to filter final poses to remove 
                              redundancy
   -q [ --quiet ]             Suppress output messages
+  --addH arg                 automatically add hydrogens in ligands (on by 
+                             default)
+  --flex_hydrogens           Enable torsions effecting only hydrogens (e.g. OH 
+                             groups). This is stupid but provides compatibility
+                             with Vina.
 
 Configuration file (optional):
   --config arg          the above options can be put here
@@ -79,9 +90,11 @@ Information (optional):
   --help_hidden         display usage summary with hidden options
   --version             display program version
 
+
+
 The custom scoring file consists of a weight, term description, and optional
 comments on each line.  The numeric parameters of the term description 
-can be varied to parameterize the scoring function.  
+can be varied to parameterize the scoring function.  Use --print_terms to see all available terms.
 Example (all weights 1.0, all term types listed):
 1.0  ad4_solvation(d-sigma=3.6,_s/q=0.01097,_c=8)  desolvation, q determines whether value is charge dependent
 1.0  ad4_solvation(d-sigma=3.6,_s/q=0.01097,_c=8)  in all terms, c is a distance cutoff
