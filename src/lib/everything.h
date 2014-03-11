@@ -980,7 +980,7 @@ struct constant_term: public conf_independent
 //ADD ALL TERMS HERE
 struct term_creators : public std::vector<term*> {
 	term_creators() {
-		push_back(new electrostatic<0>());
+		push_back(new electrostatic<2>());
 		push_back(new ad4_solvation());
 		push_back(new gauss());
 		push_back(new repulsion());
