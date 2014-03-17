@@ -118,6 +118,7 @@ fl non_cache::eval_deriv(model& m, fl v, grid& user_grid) const
 	VINA_FOR(i, m.num_movable_atoms())
 	{
 		fl this_e = 0;
+		fl uge = 0;
 		vec deriv(0, 0, 0);
 		vec ug_deriv(0, 0, 0);
 		vec out_of_bounds_deriv(0, 0, 0);
@@ -176,7 +177,8 @@ fl non_cache::eval_deriv(model& m, fl v, grid& user_grid) const
 		}
 		if(user_grid.initialized())
 		{
-			this_e += user_grid.evaluate_user(a.coords, slope, &ug_deriv);
+			uge = user_grid.evaluate_user(a_coords, slope, &ug_deriv);
+			this_e += uge;
 		}
 		deriv += ug_deriv;
 		curl(this_e, deriv, v);
