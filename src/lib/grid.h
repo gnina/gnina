@@ -52,7 +52,7 @@ class grid
 		init(gd, hascharged);
 	}
 	void init(const grid_dims& gd, bool hascharged);
-    void init(const grid_dims& gd, std::istream& user_in);
+    void init(const grid_dims& gd, std::istream& user_in, fl ug_scaling_factor);
 	vec index_to_argument(sz x, sz y, sz z) const
 	{
 		return vec(m_init[0] + m_factor_inv[0] * x,

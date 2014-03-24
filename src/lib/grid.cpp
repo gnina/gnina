@@ -74,12 +74,10 @@ void grid::init(const grid_dims& gd, bool hascharged)
 	}
 }
 
-void grid::init(const grid_dims& gd, std::istream& user_in)
+void grid::init(const grid_dims& gd, std::istream& user_in, fl ug_scaling_factor)
 {
-    const int GRID_SCALING_COEFF = 1;//0.013730063; //empirically determined constant
-
     //set up the grid with the passed grid_dims
-    data.resize(gd[0].n+1, gd[1].n+1, gd[2].n+1);
+    data.resize(gd[0].n+1, gd[1].n+1, gd[2].n+1); //was + 1
     m_init = vec(gd[0].begin, gd[1].begin, gd[2].begin);
 	m_range = vec(gd[0].span(), gd[1].span(), gd[2].span());
 	assert(m_range[0] > 0);
@@ -91,14 +89,14 @@ void grid::init(const grid_dims& gd, std::istream& user_in)
     
 	//load data from user_in grid file
     std::string line;
-    VINA_FOR(z, gd[2].n+1)
+    VINA_FOR(z, gd[2].n)
     {
-        VINA_FOR(y, gd[1].n+1)
+        VINA_FOR(y, gd[1].n)
         {
-            VINA_FOR(x, gd[0].n+1)
+            VINA_FOR(x, gd[0].n)
             {
                 std::getline(user_in,line);
-                data(x, y, z) =  -(::atof(line.c_str()) * GRID_SCALING_COEFF);
+                data(x, y, z) =  -(::atof(line.c_str()) * ug_scaling_factor);
             }
         }        
     }
@@ -114,7 +112,7 @@ fl grid::evaluate_aux(const array3d<fl>& m_data, const vec& location, fl slope,
 		fl v, vec* deriv) const
 		{ // sets *deriv if not NULL
 	vec s = elementwise_product(location - m_init, m_factor);
-
+	
 	vec miss(0, 0, 0);
 	boost::array<int, 3> region;
 	boost::array<sz, 3> a;
@@ -149,6 +147,9 @@ fl grid::evaluate_aux(const array3d<fl>& m_data, const vec& location, fl slope,
 	}
 	const fl penalty = slope * (miss * m_factor_inv); // FIXME check that inv_factor is correctly initialized and serialized
 	assert(penalty > -epsilon_fl);
+	VINA_FOR(i, 3){
+		std::cout << a[i] << "\n";
+	}
 
 	const sz x0 = a[0];
 	const sz y0 = a[1];
