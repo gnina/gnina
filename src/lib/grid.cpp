@@ -147,9 +147,6 @@ fl grid::evaluate_aux(const array3d<fl>& m_data, const vec& location, fl slope,
 	}
 	const fl penalty = slope * (miss * m_factor_inv); // FIXME check that inv_factor is correctly initialized and serialized
 	assert(penalty > -epsilon_fl);
-	VINA_FOR(i, 3){
-		std::cout << a[i] << "\n";
-	}
 
 	const sz x0 = a[0];
 	const sz y0 = a[1];
