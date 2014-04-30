@@ -1394,14 +1394,14 @@ Thank you!\n";
 						setMolData(outconv.GetOutFormat(), mol,
 								"minimizedAffinity",
 								boost::lexical_cast<std::string>(
-										results[j].energy));
+										(float)results[j].energy));
 
 						if (results[j].rmsd >= 0)
 						{
 							setMolData(outconv.GetOutFormat(), mol,
 									"minimizedRMSD",
 									boost::lexical_cast<std::string>(
-											results[j].rmsd));
+											(float)results[j].rmsd));
 						}
 						if (include_atom_terms)
 						{
