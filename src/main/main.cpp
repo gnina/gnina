@@ -672,15 +672,15 @@ void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
 //Read in NELEMENTS
 	std::getline(user_in, line);
 	boost::algorithm::split(temp, line, boost::algorithm::is_space());
-	size_x = (::atof(temp[1].c_str()) + 1) * granularity;
+	size_x = (::atof(temp[1].c_str()) + 1) * granularity; // + 1 here?
 	size_y = (::atof(temp[2].c_str()) + 1) * granularity;
 	size_z = (::atof(temp[3].c_str()) + 1) * granularity;
 //Read in CENTER
 	std::getline(user_in, line);
 	boost::algorithm::split(temp, line, boost::algorithm::is_space());
-	center_x = ::atof(temp[1].c_str());
-	center_y = ::atof(temp[2].c_str());
-	center_z = ::atof(temp[3].c_str());
+	center_x = ::atof(temp[1].c_str()) + 0.5 * granularity;
+	center_y = ::atof(temp[2].c_str()) + 0.5 * granularity;
+	center_z = ::atof(temp[3].c_str()) + 0.5 * granularity;
 
 	vec span(size_x, size_y, size_z);
 	vec center(center_x, center_y, center_z);
@@ -882,6 +882,7 @@ Thank you!\n";
 		fl weight_hydrophobic = -0.035069;
 		fl weight_hydrogen = -0.587439;
 		fl weight_rot = 0.05846;
+		fl user_grid_lambda;
 		bool score_only = false, local_only = false, randomize_only = false,
 				help = false, help_hidden = false, version = false;
 		bool dominimize = false;
@@ -973,9 +974,11 @@ Thank you!\n";
 		("ad4_scoring", bool_switch(&ad4_score),
 				"Approximation of Autodock 4 scoring")
 		("user_grid", value<std::string>(&usergrid_file_name),
-				"Autodock map file for user grid data based calculations, not implemented yet"),
+				"Autodock map file for user grid data based calculations, not implemented yet")
 		("verbosity", value<int>(&verbosity)->default_value(1),
-				"Adjust the verbosity of the output, default: 1");
+				"Adjust the verbosity of the output, default: 1")
+		("user_grid_lambda", value<fl>(&user_grid_lambda)->default_value(-1.0),
+						"Scales user_grid and functional scoring");
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
@@ -1182,6 +1185,9 @@ Thank you!\n";
 
 		//dkoes, set the scoring function
 		custom_terms t;
+		if(user_grid_lambda != -1.0){
+			t.set_scaling_factor(user_grid_lambda);
+		}
 		if (custom_file_name.size() > 0)
 		{
 			ifile custom_file(make_path(custom_file_name));
@@ -1209,15 +1215,19 @@ Thank you!\n";
 			t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", -0.587439);
 			t.add("num_tors_div", 5 * 0.05846 / 0.1 - 1);
 		}
-
+				
 		log << std::setw(12) << std::left << "Weights" << " Terms\n" << t
 				<< "\n";
 
 		if (usergrid_file_name.size() > 0)
 		{
 			ifile user_in(make_path(usergrid_file_name));
+			fl ug_scaling_factor = 1.0;
+			if(user_grid_lambda != -1.0){
+				ug_scaling_factor = 1 - user_grid_lambda;
+			}
 			setup_user_gd(user_gd, user_in);
-			user_grid.init(user_gd, user_in); //initialize user
+			user_grid.init(user_gd, user_in, ug_scaling_factor); //initialize user grid
 		}
 
 		const fl granularity = 0.375;

@@ -24,7 +24,7 @@ void custom_terms::add(const std::string& name, fl weight)
 			if(t != NULL)
 			{
 				TermKind kind = t->kind();
-				term_weights[(unsigned)kind].push_back(weight);
+				term_weights[(unsigned)kind].push_back(weight * custom_terms::scaling_factor);
 				terms::add(1, t);
 				return;
 			}
@@ -109,10 +109,12 @@ void custom_terms::print_available_terms(std::ostream& out) const
 }
 
 
-
 std::ostream& operator<<(std::ostream& out, const custom_terms& t)
 {
 	t.print(out);
 	return out;
 }
 
+void custom_terms::set_scaling_factor(fl sf){
+	scaling_factor = sf;
+}
