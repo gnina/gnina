@@ -46,8 +46,17 @@ protected:
 		orientation_q = q;
 		orientation_m = quaternion_to_r3(orientation_q);
 	}
-	mat orientation_m;
 	qt  orientation_q;
+	mat orientation_m;
+
+	frame() {}
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & origin;
+		ar & orientation_m;
+		ar & orientation_q;
+	}
 };
 
 struct atom_range {
@@ -59,6 +68,14 @@ struct atom_range {
 		sz diff = end - begin;
 		begin = f(begin);
 		end   = begin + diff;
+	}
+
+	atom_range(): begin(0), end(0) {}
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & begin;
+		ar & end;
 	}
 };
 
@@ -78,9 +95,18 @@ struct atom_frame : public frame, public atom_range {
 		}
 		return tmp;
 	}
+
+	atom_frame() {}
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & boost::serialization::base_object<frame>(*this);
+		ar & boost::serialization::base_object<atom_range>(*this);
+	}
 };
 
 struct rigid_body : public atom_frame {
+	rigid_body() {}
 	rigid_body(const vec& origin_, sz begin_, sz end_) : atom_frame(origin_, begin_, end_) {}
 	void set_conf(const atomv& atoms, vecv& coords, const rigid_conf& c) {
 		origin = c.position;
@@ -91,6 +117,12 @@ struct rigid_body : public atom_frame {
 	void set_derivative(const vecp& force_torque, rigid_change& c) const {
 		c.position     = force_torque.first;
 		c.orientation  = force_torque.second;
+	}
+
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & boost::serialization::base_object<atom_frame>(*this);
 	}
 };
 
@@ -106,9 +138,18 @@ struct axis_frame : public atom_frame {
 	}
 protected:
 	vec axis;
+
+	axis_frame() {}
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & axis;
+		ar & boost::serialization::base_object<atom_frame>(*this);;
+	}
 };
 
 struct segment : public axis_frame {
+	segment() {} //for serialization
 	segment(const vec& origin_, sz begin_, sz end_, const vec& axis_root, const frame& parent) : axis_frame(origin_, begin_, end_, axis_root) {
 		VINA_CHECK(eq(parent.orientation(), qt_identity)); // the only initial parent orientation this c'tor supports
 		relative_axis = axis;
@@ -131,9 +172,18 @@ struct segment : public axis_frame {
 private:
 	vec relative_axis;
 	vec relative_origin;
+
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & relative_axis;
+		ar & relative_origin;
+		ar & boost::serialization::base_object<axis_frame>(*this);;
+	}
 };
 
 struct first_segment : public axis_frame {
+	first_segment() {}
 	first_segment(const segment& s) : axis_frame(s) {}
 	first_segment(const vec& origin_, sz begin_, sz end_, const vec& axis_root) : axis_frame(origin_, begin_, end_, axis_root) {}
 	void set_conf(const atomv& atoms, vecv& coords, fl torsion) {
@@ -142,6 +192,12 @@ struct first_segment : public axis_frame {
 	}
 	void count_torsions(sz& s) const {
 		++s;
+	}
+
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & boost::serialization::base_object<axis_frame>(*this);;
 	}
 };
 
@@ -165,6 +221,8 @@ template<typename T> // T == segment
 struct tree {
 	T node;
 	std::vector< tree<T> > children;
+
+	tree() {} //for serialization
 	tree(const T& node_) : node(node_) {}
 	void set_conf(const frame& parent, const atomv& atoms, vecv& coords, flv::const_iterator& c) {
 		node.set_conf(parent, atoms, coords, c);
@@ -178,6 +236,13 @@ struct tree {
 		node.set_derivative(force_torque, d);
 		return force_torque;
 	}
+
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & node;
+		ar & children;
+	}
 };
 
 typedef tree<segment> branch;
@@ -187,6 +252,8 @@ template<typename Node> // Node == first_segment || rigid_body
 struct heterotree {
 	Node node;
 	branches children;
+
+	heterotree() {} //for serialization
 	heterotree(const Node& node_) : node(node_) {}
 	void set_conf(const atomv& atoms, vecv& coords, const ligand_conf& c) {
 		node.set_conf(atoms, coords, c.rigid);
@@ -217,6 +284,13 @@ struct heterotree {
 		node.set_derivative(force_torque, d);
 		assert(p == c.torsions.end());
 	}
+
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & node;
+		ar & children;
+	}
 };
 
 template<typename T> // T = main_branch, branch, flexible_body
@@ -246,6 +320,12 @@ struct vector_mutable : public std::vector<T> {
 	void derivative(const vecv& coords, const vecv& forces, std::vector<C>& c) const { // C == ligand_change || residue_change
 		VINA_FOR_IN(i, (*this))
 			(*this)[i].derivative(coords, forces, c[i]);
+	}
+
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & boost::serialization::base_object<std::vector<T> >(*this);
 	}
 };
 

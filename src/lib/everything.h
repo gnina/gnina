@@ -106,8 +106,8 @@ struct electrostatic: public charge_dependent
 
 struct ad4_solvation: public charge_dependent
 {
-	fl desolvation_sigma;
 	fl solvation_q;
+	fl desolvation_sigma;
 	ad4_solvation(fl desolvation_sigma_=3.6, fl solvation_q_=0.01097, fl cutoff_=8) :
 				charge_dependent(cutoff_), solvation_q(solvation_q_),
 				desolvation_sigma(desolvation_sigma_)
@@ -820,8 +820,6 @@ struct num_tors_div: public conf_independent
 			flv::const_iterator& i) const
 	{
 		fl w = 0.1 * (read_iterator(i) + 1); // w is in [0..0.2]
-
-		fl test = 1.0 + w * in.num_tors / 5.0;
 		//std::cout << "Num_tors_factor: " << test << std::endl;
 		return smooth_div(x, 1 + w * in.num_tors / 5.0);
 	}

@@ -210,6 +210,11 @@ struct mat {
 			data[i] *= s;
 		return *this;
 	}
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & data;
+	}
 };
 
 typedef std::vector<vec> vecv;

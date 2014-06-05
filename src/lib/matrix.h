@@ -37,6 +37,14 @@ template<typename T>
 class matrix {
 	std::vector<T> m_data;
 	sz m_i, m_j;
+
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & m_data;
+		ar & m_i;
+		ar & m_j;
+	}
 public:
 	sz index(sz i, sz j) const {
 		assert(j < m_j);
@@ -87,6 +95,13 @@ template<typename T>
 class strictly_triangular_matrix {
 	std::vector<T> m_data;
 	sz m_dim;
+
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & m_data;
+		ar & m_dim;
+	}
 public:
 	sz index(sz i, sz j) const {
 		assert(j < m_dim);

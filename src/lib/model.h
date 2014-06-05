@@ -24,6 +24,8 @@
 #define VINA_MODEL_H
 
 #include <boost/optional.hpp> // for context
+#include <boost/serialization/optional.hpp>
+#include <boost/serialization/utility.hpp>
 #include <string>
 #include "file.h"
 #include "tree.h"
@@ -38,7 +40,17 @@ struct interacting_pair {
 	smt t2;
 	sz a;
 	sz b;
+	interacting_pair(): t1(smina_atom_type::Hydrogen), t2(smina_atom_type::Hydrogen), a(0), b(0) {}
 	interacting_pair(smt t1_, smt t2_, sz a_, sz b_) : t1(t1_), t2(t2_), a(a_), b(b_) {}
+
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & t1;
+		ar & t2;
+		ar & a;
+		ar & b;
+	}
 };
 
 typedef std::vector<interacting_pair> interacting_pairs;
@@ -46,15 +58,31 @@ typedef std::vector<interacting_pair> interacting_pairs;
 typedef std::pair<std::string, boost::optional<sz> > parsed_line;
 typedef std::vector<parsed_line> context;
 
+BOOST_CLASS_IMPLEMENTATION(parsed_line, boost::serialization::object_serializable);
+BOOST_CLASS_IMPLEMENTATION(context, boost::serialization::object_serializable);
+
+
 struct ligand : public flexible_body, atom_range {
 	unsigned degrees_of_freedom; // can be different from the apparent number of rotatable bonds, because of the disabled torsions
 	interacting_pairs pairs;
 	context cont;
+	ligand() {}
 	ligand(const flexible_body& f, unsigned degrees_of_freedom_) : flexible_body(f), atom_range(0, 0), degrees_of_freedom(degrees_of_freedom_) {}
 	void set_range();
+
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & degrees_of_freedom;
+		ar & pairs;
+		ar & cont;
+        ar & boost::serialization::base_object<flexible_body>(*this);
+        ar & boost::serialization::base_object<atom_range>(*this);
+	}
 };
 
 struct residue : public main_branch {
+	residue() {} //serialization
 	residue(const main_branch& m) : main_branch(m) {}
 };
 

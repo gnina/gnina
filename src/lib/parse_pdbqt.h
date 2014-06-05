@@ -31,4 +31,5 @@ model parse_receptor_pdbqt(const std::string& rigid_name, std::istream& in); // 
 model parse_ligand_pdbqt(const path& name); // can throw parse_error
 model parse_ligand_stream_pdbqt(const std::string& name, std::istream& in);
 
+
 #endif

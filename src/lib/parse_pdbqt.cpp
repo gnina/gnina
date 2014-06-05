@@ -27,10 +27,16 @@
 #include <boost/optional.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/serialization/utility.hpp>
 #include "parse_pdbqt.h"
 #include "atom_constants.h"
 #include "convert_substring.h"
 #include "parse_error.h"
+#include "parsing.h"
 
 static bool fix_hydrogens = false;  //locally scoped configuration variable
 void set_fixed_rotable_hydrogens(bool set)
@@ -51,16 +57,7 @@ struct stream_parse_error {
 	}
 };
 
-struct parsed_atom : public atom {
-	unsigned number; 
-	parsed_atom(smt sm_, fl charge_, const vec& coords_, unsigned number_) : number(number_) {
-		sm = sm_;
-		charge = charge_;
-		coords = coords_;
-	}
-};
-
-void add_context(context& c, std::string& str) {
+void add_context(context& c, const std::string& str) {
 	c.push_back(parsed_line(str, boost::optional<sz>()));
 }
 
@@ -125,149 +122,9 @@ parsed_atom parse_pdbqt_atom_string(const std::string& str) {
 		throw atom_syntax_error(std::string("\"") + name + "\" is not a valid AutoDock type. Note that AutoDock atom types are case-sensitive.");
 }
 
-struct atom_reference {
-	sz index;
-	bool inflex;
-	atom_reference(sz index_, bool inflex_) : index(index_), inflex(inflex_) {}
-};
 
-struct movable_atom : public atom {
-	vec relative_coords;
-	movable_atom(const atom& a, const vec& relative_coords_) : atom(a) {
-		relative_coords = relative_coords_;
-	}
-};
 
-struct rigid {
-	atomv atoms;
-};
 
-typedef std::vector<movable_atom> mav;
-
-struct non_rigid_parsed {
-	vector_mutable<ligand> ligands;
-	vector_mutable<residue> flex;
-
-	mav atoms;
-	atomv inflex;
-
-	distance_type_matrix atoms_atoms_bonds;
-	matrix<distance_type> atoms_inflex_bonds;
-	distance_type_matrix inflex_inflex_bonds;
-
-	distance_type_matrix mobility_matrix() const {
-		distance_type_matrix tmp(atoms_atoms_bonds);
-		tmp.append(atoms_inflex_bonds, inflex_inflex_bonds);
-		return tmp;
-	}
-};
-
-struct parsing_struct {
-	// start reading after this class
-	template<typename T> // T == parsing_struct
-	struct node_t {
-		sz context_index;
-		parsed_atom a;
-		std::vector<T> ps;
-		node_t(const parsed_atom& a_, sz context_index_) : context_index(context_index_), a(a_) {}
-
-		// inflex atom insertion
-		void insert_inflex(non_rigid_parsed& nr) {
-			VINA_FOR_IN(i, ps)
-				ps[i].axis_begin = atom_reference(nr.inflex.size(), true);
-			nr.inflex.push_back(a);
-		}
-		void insert_immobiles_inflex(non_rigid_parsed& nr) {
-			VINA_FOR_IN(i, ps)
-				ps[i].insert_immobile_inflex(nr);
-		}
-
-		// insertion into non_rigid_parsed
-		void insert(non_rigid_parsed& nr, context& c, const vec& frame_origin) {
-			VINA_FOR_IN(i, ps)
-				ps[i].axis_begin = atom_reference(nr.atoms.size(), false);
-			vec relative_coords; relative_coords = a.coords - frame_origin;
-			c[context_index].second = nr.atoms.size();
-			nr.atoms.push_back(movable_atom(a, relative_coords));
-		}
-		void insert_immobiles(non_rigid_parsed& nr, context& c, const vec& frame_origin) {
-			VINA_FOR_IN(i, ps)
-				ps[i].insert_immobile(nr, c, frame_origin);
-		}
-	};
-
-	typedef node_t<parsing_struct> node;
-	boost::optional<sz> immobile_atom; // which of `atoms' is immobile, if any
-	boost::optional<atom_reference> axis_begin; // the index (in non_rigid_parsed::atoms) of the parent bound to immobile atom (if already known)
-	boost::optional<atom_reference> axis_end; // if immobile atom has been pushed into non_rigid_parsed::atoms, this is its index there
-	std::vector<node> atoms;
-
-	void add(const parsed_atom& a, const context& c) { 
-		VINA_CHECK(c.size() > 0);
-		atoms.push_back(node(a, c.size()-1)); 
-	}
-	const vec& immobile_atom_coords() const {
-		VINA_CHECK(immobile_atom);
-		VINA_CHECK(immobile_atom.get() < atoms.size());
-		return atoms[immobile_atom.get()].a.coords;
-	}
-	// inflex insertion
-	void insert_immobile_inflex(non_rigid_parsed& nr) {
-		if(!atoms.empty()) {
-			VINA_CHECK(immobile_atom);
-			VINA_CHECK(immobile_atom.get() < atoms.size());
-			axis_end = atom_reference(nr.inflex.size(), true);
-			atoms[immobile_atom.get()].insert_inflex(nr);
-		}
-	}
-
-	// insertion into non_rigid_parsed
-	void insert_immobile(non_rigid_parsed& nr, context& c, const vec& frame_origin) {
-		if(!atoms.empty()) {
-			VINA_CHECK(immobile_atom);
-			VINA_CHECK(immobile_atom.get() < atoms.size());
-			axis_end = atom_reference(nr.atoms.size(), false);
-			atoms[immobile_atom.get()].insert(nr, c, frame_origin);
-		}
-	}
-
-	bool essentially_empty() const { // no sub-branches besides immobile atom, including sub-sub-branches, etc
-		VINA_FOR_IN(i, atoms) {
-			if(immobile_atom && immobile_atom.get() != i)
-				return false;
-			const node& nd = atoms[i];
-			if(!nd.ps.empty())
-				return false; // FIXME : iffy
-		}
-		return true;
-	}
-
-	//return true if all the mobile atoms in this branch are hydrogens
-	bool mobile_hydrogens_only() const {
-		if(!fix_hydrogens)
-			return false;
-		VINA_FOR_IN(i, atoms) {
-			if(!atoms[i].ps.empty())
-				return false; //must be terminal
-			if(immobile_atom && immobile_atom.get() != i)
-			{
-				//mobile atom
-				if(!atoms[i].a.is_hydrogen())
-					return false;
-			}
-		}
-		return true;
-	}
-
-	//move the atoms of from into this
-	void mergeInto(const parsing_struct& from)
-	{
-		VINA_FOR_IN(i, from.atoms)
-		{
-			atoms.push_back(node(from.atoms[i].a, from.atoms[i].context_index));
-		}
-	}
-};
 
 unsigned parse_one_unsigned(const std::string& str, const std::string& start, unsigned count) {
 	std::istringstream in_str(str.substr(start.size()));
@@ -685,14 +542,76 @@ model parse_ligand_stream_pdbqt  (const std::string& name, std::istream& in) { /
 	return tmp.m;
 }
 
+namespace boost {
+namespace serialization {
+//default all our classes to not have version info
+template <class T>
+struct implementation_level_impl< const T >
+{
+    template<class U>
+    struct traits_class_level {
+        typedef BOOST_DEDUCED_TYPENAME U::level type;
+    };
+
+    typedef mpl::integral_c_tag tag;
+
+    typedef
+        BOOST_DEDUCED_TYPENAME mpl::eval_if<
+            is_base_and_derived<boost::serialization::basic_traits, T>,
+            traits_class_level< T >,
+        //else
+        BOOST_DEDUCED_TYPENAME mpl::eval_if<
+            is_fundamental< T >,
+            mpl::int_<primitive_type>,
+        //else
+        BOOST_DEDUCED_TYPENAME mpl::eval_if<
+            mpl::or_<is_class< T >, is_array< T> >,
+            mpl::int_<object_serializable>,
+        //else
+        BOOST_DEDUCED_TYPENAME mpl::eval_if<
+            is_enum< T >,
+                mpl::int_<primitive_type>,
+        //else
+            mpl::int_<not_serializable>
+        >
+        >
+        >
+        >::type type;
+    BOOST_STATIC_CONSTANT(int, value = type::value);
+};
+
+//STL containers ignore above (seems like a bug)
+template<class Archive, class T>
+void serialize(Archive & ar, std::vector<T>  & v, const unsigned int version)
+{
+	size_t sz = v.size();
+    ar & sz;
+    //depending on whether we are storing or loading, sz may change
+    v.resize(sz);
+    for(unsigned i = 0, n = v.size(); i < n; i++)
+    	ar & v[i];
+}
+
+}
+}
+
 model parse_ligand_pdbqt  (const path& name) { // can throw parse_error
 	non_rigid_parsed nrp;
 	context c;
 	parse_pdbqt_ligand(name, nrp, c);
 
+	std::ofstream out("foo");
+	boost::archive::text_oarchive serialout(out,boost::archive::no_header|boost::archive::no_tracking);
+	serialout << nrp;
+	out.close();
+	std::ifstream in("foo");
+	boost::archive::text_iarchive serialin(in,boost::archive::no_header|boost::archive::no_tracking);
+	non_rigid_parsed nrp2;
+	serialin >> nrp2;
+
 	pdbqt_initializer tmp;
-	tmp.initialize_from_nrp(nrp, c, true);
-	tmp.initialize(nrp.mobility_matrix());
+	tmp.initialize_from_nrp(nrp2, c, true);
+	tmp.initialize(nrp2.mobility_matrix());
 
 	return tmp.m;
 }

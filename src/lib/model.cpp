@@ -97,6 +97,7 @@ void ligand::set_range()
 	end = tmp.end;
 }
 
+
 /////////////////// begin MODEL::APPEND /////////////////////////
 
 // FIXME hairy code - needs to be extensively commented, asserted, reviewed and tested
