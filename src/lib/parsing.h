@@ -80,11 +80,19 @@ struct non_rigid_parsed {
 };
 
 struct parsed_atom : public atom {
-	unsigned number;
+	unsigned  number;
+	parsed_atom(): number(0) {}
 	parsed_atom(smt sm_, fl charge_, const vec& coords_, unsigned number_) : number(number_) {
 		sm = sm_;
 		charge = charge_;
 		coords = coords_;
+	}
+
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & number;
+        ar & boost::serialization::base_object<atom>(*this);
 	}
 };
 
@@ -92,6 +100,14 @@ struct atom_reference {
 	sz index;
 	bool inflex;
 	atom_reference(sz index_, bool inflex_) : index(index_), inflex(inflex_) {}
+
+
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & index;
+		ar & inflex;
+	}
 };
 
 struct parsing_struct {
@@ -101,6 +117,7 @@ struct parsing_struct {
 			sz context_index;
 			parsed_atom a;
 			std::vector<T> ps;
+			node_t() {} //for serialization
 			node_t(const parsed_atom& a_, sz context_index_) : context_index(context_index_), a(a_) {}
 
 			// inflex atom insertion
@@ -199,8 +216,28 @@ struct parsing_struct {
 			atoms.push_back(node(from.atoms[i].a, from.atoms[i].context_index));
 		}
 	}
+
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & immobile_atom;
+		ar & axis_begin;
+		ar & axis_end;
+		ar & atoms;
+	}
+
 };
 
+//STL containers ignore above (seems like a bug)
+template<class Archive>
+void serialize(Archive & ar, parsing_struct::node_t<parsing_struct>& node, const unsigned int version)
+{
+	ar & node.context_index;
+	ar & node.a;
+	ar & node.ps;
+}
+
 extern void add_context(context& c, const std::string& str);
+extern void postprocess_ligand(non_rigid_parsed& nr, parsing_struct& p, context& c, unsigned torsdof);
 
 #endif /* PARSING_H_ */

@@ -389,6 +389,8 @@ void parse_pdbqt_ligand_stream(const path& name, std::istream& in, non_rigid_par
 			throw parse_error(name, count, "No atoms in the ligand");
 		if(!torsdof)
 			throw parse_error(name, count, "Missing TORSDOF");
+			std::ofstream out("foo");
+
 		postprocess_ligand(nr, p, c, unsigned(torsdof.get())); // bizarre size_t -> unsigned compiler complaint
 	}
 	catch(stream_parse_error& e) {
@@ -584,8 +586,9 @@ struct implementation_level_impl< const T >
 template<class Archive, class T>
 void serialize(Archive & ar, std::vector<T>  & v, const unsigned int version)
 {
-	size_t sz = v.size();
+	unsigned sz = v.size(); //try to save some space
     ar & sz;
+
     //depending on whether we are storing or loading, sz may change
     v.resize(sz);
     for(unsigned i = 0, n = v.size(); i < n; i++)
@@ -599,6 +602,7 @@ model parse_ligand_pdbqt  (const path& name) { // can throw parse_error
 	non_rigid_parsed nrp;
 	context c;
 	parse_pdbqt_ligand(name, nrp, c);
+
 	pdbqt_initializer tmp;
 	tmp.initialize_from_nrp(nrp, c, true);
 	tmp.initialize(nrp.mobility_matrix());

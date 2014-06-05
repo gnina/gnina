@@ -341,7 +341,10 @@
 ./custom_terms.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./custom_terms.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
 ./custom_terms.o: ../../../src/lib/igrid.h
+./custom_terms.o: ../../../src/lib/grid.h
+./custom_terms.o: ../../../src/lib/array3d.h
 ./custom_terms.o: ../../../src/lib/grid_dim.h
+./custom_terms.o: ../../../src/lib/curl.h
 ./custom_terms.o: ../../../src/lib/int_pow.h
 ./custom_terms.o: ../../../src/lib/everything.h
 ./everything.o: ../../../src/lib/everything.h
@@ -511,7 +514,10 @@
 ./everything.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./everything.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
 ./everything.o: ../../../src/lib/igrid.h
+./everything.o: ../../../src/lib/grid.h
+./everything.o: ../../../src/lib/array3d.h
 ./everything.o: ../../../src/lib/grid_dim.h
+./everything.o: ../../../src/lib/curl.h
 ./everything.o: ../../../src/lib/int_pow.h
 ./grid.o: ../../../src/lib/grid.h ../../../src/lib/array3d.h
 ./grid.o: ../../../src/lib/common.h ../../../src/lib/macros.h
@@ -682,7 +688,8 @@
 ./model.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
 ./model.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./model.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
-./model.o: ../../../src/lib/igrid.h
+./model.o: ../../../src/lib/igrid.h ../../../src/lib/grid.h
+./model.o: ../../../src/lib/array3d.h
 ./model.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
 ./monte_carlo.o: ../../../src/lib/monte_carlo.h
 ./monte_carlo.o: ../../../src/lib/ssd.h
@@ -851,7 +858,10 @@
 ./monte_carlo.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./monte_carlo.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
 ./monte_carlo.o: ../../../src/lib/igrid.h
+./monte_carlo.o: ../../../src/lib/grid.h
+./monte_carlo.o: ../../../src/lib/array3d.h
 ./monte_carlo.o: ../../../src/lib/grid_dim.h
+./monte_carlo.o: ../../../src/lib/curl.h
 ./monte_carlo.o: ../../../src/lib/incrementable.h
 ./monte_carlo.o: ../../../src/lib/coords.h
 ./monte_carlo.o: ../../../src/lib/mutate.h
@@ -1017,28 +1027,34 @@
 ./mutate.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
 ./mutate.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./mutate.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
-./mutate.o: ../../../src/lib/igrid.h
+./mutate.o: ../../../src/lib/igrid.h ../../../src/lib/grid.h
+./mutate.o: ../../../src/lib/array3d.h
 ./mutate.o: ../../../src/lib/grid_dim.h
+./mutate.o: ../../../src/lib/curl.h
 ./my_pid.o: ../../../src/lib/my_pid.h
 ./naive_non_cache.o: ../../../src/lib/naive_non_cache.h
 ./naive_non_cache.o: ../../../src/lib/igrid.h
 ./naive_non_cache.o: ../../../src/lib/common.h
 ./naive_non_cache.o: ../../../src/lib/macros.h
+./naive_non_cache.o: ../../../src/lib/grid.h
+./naive_non_cache.o: ../../../src/lib/array3d.h
+./naive_non_cache.o: ../../../src/lib/grid_dim.h
+./naive_non_cache.o: ../../../src/lib/curl.h
+./naive_non_cache.o: ../../../src/lib/result_components.h
+./naive_non_cache.o: ../../../src/lib/atom_base.h
+./naive_non_cache.o: ../../../src/lib/atom_type.h
+./naive_non_cache.o: ../../../src/lib/atom_constants.h
+./naive_non_cache.o: ../../../src/lib/triangular_matrix_index.h
+./naive_non_cache.o: ../../../src/lib/atom.h
 ./naive_non_cache.o: ../../../src/lib/model.h
 ./naive_non_cache.o: ../../../src/lib/file.h
 ./naive_non_cache.o: ../../../src/lib/tree.h
 ./naive_non_cache.o: ../../../src/lib/conf.h
 ./naive_non_cache.o: ../../../src/lib/quaternion.h
 ./naive_non_cache.o: ../../../src/lib/random.h
-./naive_non_cache.o: ../../../src/lib/atom.h
-./naive_non_cache.o: ../../../src/lib/atom_base.h
-./naive_non_cache.o: ../../../src/lib/atom_type.h
-./naive_non_cache.o: ../../../src/lib/atom_constants.h
-./naive_non_cache.o: ../../../src/lib/triangular_matrix_index.h
 ./naive_non_cache.o: ../../../src/lib/matrix.h
 ./naive_non_cache.o: ../../../src/lib/precalculate.h
 ./naive_non_cache.o: ../../../src/lib/scoring_function.h
-./naive_non_cache.o: ../../../src/lib/result_components.h
 ./naive_non_cache.o: ../../../src/lib/splines.h
 ./naive_non_cache.o: ../../../src/lib/Eigen/Core
 ./naive_non_cache.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -1186,27 +1202,29 @@
 ./naive_non_cache.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
 ./naive_non_cache.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./naive_non_cache.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
-./naive_non_cache.o: ../../../src/lib/grid_dim.h
-./naive_non_cache.o: ../../../src/lib/curl.h
 ./non_cache.o: ../../../src/lib/non_cache.h
 ./non_cache.o: ../../../src/lib/igrid.h
 ./non_cache.o: ../../../src/lib/common.h
 ./non_cache.o: ../../../src/lib/macros.h
+./non_cache.o: ../../../src/lib/grid.h
+./non_cache.o: ../../../src/lib/array3d.h
+./non_cache.o: ../../../src/lib/grid_dim.h
+./non_cache.o: ../../../src/lib/curl.h
+./non_cache.o: ../../../src/lib/result_components.h
+./non_cache.o: ../../../src/lib/atom_base.h
+./non_cache.o: ../../../src/lib/atom_type.h
+./non_cache.o: ../../../src/lib/atom_constants.h
+./non_cache.o: ../../../src/lib/triangular_matrix_index.h
+./non_cache.o: ../../../src/lib/atom.h
 ./non_cache.o: ../../../src/lib/szv_grid.h
 ./non_cache.o: ../../../src/lib/model.h
 ./non_cache.o: ../../../src/lib/file.h ../../../src/lib/tree.h
 ./non_cache.o: ../../../src/lib/conf.h
 ./non_cache.o: ../../../src/lib/quaternion.h
 ./non_cache.o: ../../../src/lib/random.h
-./non_cache.o: ../../../src/lib/atom.h
-./non_cache.o: ../../../src/lib/atom_base.h
-./non_cache.o: ../../../src/lib/atom_type.h
-./non_cache.o: ../../../src/lib/atom_constants.h
-./non_cache.o: ../../../src/lib/triangular_matrix_index.h
 ./non_cache.o: ../../../src/lib/matrix.h
 ./non_cache.o: ../../../src/lib/precalculate.h
 ./non_cache.o: ../../../src/lib/scoring_function.h
-./non_cache.o: ../../../src/lib/result_components.h
 ./non_cache.o: ../../../src/lib/splines.h
 ./non_cache.o: ../../../src/lib/Eigen/Core
 ./non_cache.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -1354,10 +1372,7 @@
 ./non_cache.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
 ./non_cache.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./non_cache.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
-./non_cache.o: ../../../src/lib/grid_dim.h
-./non_cache.o: ../../../src/lib/array3d.h
 ./non_cache.o: ../../../src/lib/brick.h
-./non_cache.o: ../../../src/lib/curl.h
 ./obmolopener.o: ../../../src/lib/obmolopener.h
 ./obmolopener.o: ../../../src/lib/file.h
 ./obmolopener.o: ../../../src/lib/common.h
@@ -1531,7 +1546,10 @@
 ./parallel_mc.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./parallel_mc.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
 ./parallel_mc.o: ../../../src/lib/igrid.h
+./parallel_mc.o: ../../../src/lib/grid.h
+./parallel_mc.o: ../../../src/lib/array3d.h
 ./parallel_mc.o: ../../../src/lib/grid_dim.h
+./parallel_mc.o: ../../../src/lib/curl.h
 ./parallel_mc.o: ../../../src/lib/incrementable.h
 ./parallel_mc.o: ../../../src/lib/coords.h
 ./parallel_mc.o: ../../../src/lib/parallel_progress.h
@@ -1703,9 +1721,13 @@
 ./parse_pdbqt.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./parse_pdbqt.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
 ./parse_pdbqt.o: ../../../src/lib/igrid.h
+./parse_pdbqt.o: ../../../src/lib/grid.h
+./parse_pdbqt.o: ../../../src/lib/array3d.h
 ./parse_pdbqt.o: ../../../src/lib/grid_dim.h
+./parse_pdbqt.o: ../../../src/lib/curl.h
 ./parse_pdbqt.o: ../../../src/lib/convert_substring.h
 ./parse_pdbqt.o: ../../../src/lib/parse_error.h
+./parse_pdbqt.o: ../../../src/lib/parsing.h
 ./pdb.o: ../../../src/lib/pdb.h ../../../src/lib/common.h
 ./pdb.o: ../../../src/lib/macros.h
 ./pdb.o: ../../../src/lib/parse_error.h
@@ -1877,7 +1899,10 @@
 ./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
 ./quasi_newton.o: ../../../src/lib/igrid.h
+./quasi_newton.o: ../../../src/lib/grid.h
+./quasi_newton.o: ../../../src/lib/array3d.h
 ./quasi_newton.o: ../../../src/lib/grid_dim.h
+./quasi_newton.o: ../../../src/lib/curl.h
 ./quasi_newton.o: ../../../src/lib/bfgs.h
 ./quaternion.o: ../../../src/lib/quaternion.h
 ./quaternion.o: ../../../src/lib/common.h
@@ -2046,7 +2071,9 @@
 ./ssd.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
 ./ssd.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./ssd.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
-./ssd.o: ../../../src/lib/igrid.h ../../../src/lib/grid_dim.h
+./ssd.o: ../../../src/lib/igrid.h ../../../src/lib/grid.h
+./ssd.o: ../../../src/lib/array3d.h
+./ssd.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
 ./szv_grid.o: ../../../src/lib/szv_grid.h
 ./szv_grid.o: ../../../src/lib/model.h ../../../src/lib/file.h
 ./szv_grid.o: ../../../src/lib/common.h
@@ -2210,10 +2237,10 @@
 ./szv_grid.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
 ./szv_grid.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./szv_grid.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
-./szv_grid.o: ../../../src/lib/igrid.h
-./szv_grid.o: ../../../src/lib/grid_dim.h
+./szv_grid.o: ../../../src/lib/igrid.h ../../../src/lib/grid.h
 ./szv_grid.o: ../../../src/lib/array3d.h
-./szv_grid.o: ../../../src/lib/brick.h
+./szv_grid.o: ../../../src/lib/grid_dim.h
+./szv_grid.o: ../../../src/lib/curl.h ../../../src/lib/brick.h
 ./terms.o: ../../../src/lib/terms.h ../../../src/lib/model.h
 ./terms.o: ../../../src/lib/file.h ../../../src/lib/common.h
 ./terms.o: ../../../src/lib/macros.h ../../../src/lib/tree.h
@@ -2375,8 +2402,9 @@
 ./terms.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
 ./terms.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./terms.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
-./terms.o: ../../../src/lib/igrid.h
-./terms.o: ../../../src/lib/grid_dim.h
+./terms.o: ../../../src/lib/igrid.h ../../../src/lib/grid.h
+./terms.o: ../../../src/lib/array3d.h
+./terms.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
 ./terms.o: ../../../src/lib/brick.h
 ./weighted_terms.o: ../../../src/lib/weighted_terms.h
 ./weighted_terms.o: ../../../src/lib/terms.h
@@ -2545,21 +2573,26 @@
 ./weighted_terms.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./weighted_terms.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
 ./weighted_terms.o: ../../../src/lib/igrid.h
+./weighted_terms.o: ../../../src/lib/grid.h
+./weighted_terms.o: ../../../src/lib/array3d.h
 ./weighted_terms.o: ../../../src/lib/grid_dim.h
-./main.o: ../../../src/lib/parse_pdbqt.h
-./main.o: ../../../src/lib/model.h ../../../src/lib/file.h
-./main.o: ../../../src/lib/common.h ../../../src/lib/macros.h
-./main.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
-./main.o: ../../../src/lib/quaternion.h
-./main.o: ../../../src/lib/random.h ../../../src/lib/atom.h
+./weighted_terms.o: ../../../src/lib/curl.h
+./main.o: ../../../src/lib/file.h ../../../src/lib/common.h
+./main.o: ../../../src/lib/macros.h ../../../src/lib/cache.h
+./main.o: ../../../src/lib/igrid.h ../../../src/lib/grid.h
+./main.o: ../../../src/lib/array3d.h
+./main.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
+./main.o: ../../../src/lib/result_components.h
 ./main.o: ../../../src/lib/atom_base.h
 ./main.o: ../../../src/lib/atom_type.h
 ./main.o: ../../../src/lib/atom_constants.h
 ./main.o: ../../../src/lib/triangular_matrix_index.h
-./main.o: ../../../src/lib/matrix.h
+./main.o: ../../../src/lib/atom.h ../../../src/lib/model.h
+./main.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
+./main.o: ../../../src/lib/quaternion.h
+./main.o: ../../../src/lib/random.h ../../../src/lib/matrix.h
 ./main.o: ../../../src/lib/precalculate.h
 ./main.o: ../../../src/lib/scoring_function.h
-./main.o: ../../../src/lib/result_components.h
 ./main.o: ../../../src/lib/splines.h
 ./main.o: ../../../src/lib/Eigen/Core
 ./main.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -2707,14 +2740,6 @@
 ./main.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
 ./main.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./main.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
-./main.o: ../../../src/lib/igrid.h
-./main.o: ../../../src/lib/grid_dim.h
-./main.o: ../../../src/lib/parallel_mc.h
-./main.o: ../../../src/lib/monte_carlo.h
-./main.o: ../../../src/lib/ssd.h
-./main.o: ../../../src/lib/incrementable.h
-./main.o: ../../../src/lib/cache.h ../../../src/lib/grid.h
-./main.o: ../../../src/lib/array3d.h ../../../src/lib/curl.h
 ./main.o: ../../../src/lib/non_cache.h
 ./main.o: ../../../src/lib/szv_grid.h
 ./main.o: ../../../src/lib/brick.h

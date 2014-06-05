@@ -36,7 +36,9 @@ private:
 	template<class Archive> 
 	void serialize(Archive& ar, const unsigned version) {
 		ar & boost::serialization::base_object<atom_type>(*this);
-		ar & charge;
+		float c  = charge;
+		ar & c;
+		charge = c; //store as floats, has side effect of rounding, don't care
 	}
 };
 

@@ -148,7 +148,12 @@ private:
 	friend class boost::serialization::access;
 	template<class Archive>
 	void serialize(Archive& ar, const unsigned version) {
-		ar & data;
+		for(unsigned i = 0; i < 3; i++) //store as floats
+		{
+			float x = data[i];
+			ar & x;
+			data[i] = x;
+		}
 	}
 };
 
