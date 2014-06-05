@@ -56,17 +56,108 @@ struct interacting_pair {
 typedef std::vector<interacting_pair> interacting_pairs;
 
 typedef std::pair<std::string, boost::optional<sz> > parsed_line;
-typedef std::vector<parsed_line> context;
+typedef std::vector<parsed_line> pdbqtcontext;
 
-BOOST_CLASS_IMPLEMENTATION(parsed_line, boost::serialization::object_serializable);
-BOOST_CLASS_IMPLEMENTATION(context, boost::serialization::object_serializable);
+// dkoes - as an alternative to pdbqt, this stores information
+//in an sdf friendly format
+struct sdfcontext {
 
+	struct sdfatom { //atom info
+		unsigned short index; //this is set after parsing and coresponds to the model's atom index
+		//the sdf index is just the index into the atoms array plus one
+		char elem[2]; //element symbol, note not necessarily null terminated
+
+		sdfatom():index(0) { elem[0] = elem[1] = 0;}
+		sdfatom(const char* nm): index(0)
+		{
+			elem[0] = elem[1] = 0;
+			if(nm) {
+				elem[0] = nm[0];
+				if(nm[0]) elem[1] = nm[1];
+			}
+		}
+
+		template<class Archive>
+		void serialize(Archive& ar, const unsigned version) {
+			ar & elem;
+			//do NOT export index since this is not set until model creation
+		}
+	};
+	struct sdfbond { //bond connectivity and type
+		unsigned short a;
+		unsigned short b;
+		unsigned short type;
+
+		sdfbond(): a(0), b(0), type(0) {}
+		sdfbond(unsigned a_, unsigned b_, unsigned t): a(a_), b(b_), type(t) {}
+		template<class Archive>
+		void serialize(Archive& ar, const unsigned version) {
+			ar & a;
+			ar & b;
+			ar & type;
+		}
+	};
+
+	struct sdfprop { //property (CHG or ISO) info
+		unsigned short atom;
+		char type; // 'c' or 'i'
+		char value;
+
+		sdfprop(): atom(0), type(0), value(0) {}
+		sdfprop(unsigned short atm, char t, char v): atom(atm), type(t), value(v) {}
+
+		template<class Archive>
+		void serialize(Archive& ar, const unsigned version) {
+			ar & atom;
+			ar & type;
+			ar & value;
+		}
+	};
+	std::string name; //molecule name
+	std::vector<sdfatom> atoms; //index should match index into coords
+	std::vector<sdfbond> bonds;
+	std::vector<sdfprop> properties; //CHG and ISO go here
+
+
+	void write(const vecv& coords, std::ostream& out); //output sdf with provided coords
+	bool valid() const {return atoms.size() > 0; }
+
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & name;
+		ar & atoms;
+		ar & bonds;
+		ar & properties;
+	}
+};
+
+class appender; //in model.cpp
+//dkoes - the context consists of the original molecular data with references
+//(eventually) to atom indices so we can re-insert atom coordinates
+//typically, molecules are converted to pdbqt, however this isn't the friendliest
+//or most efficient data format, so we also support an sdf context
+struct context {
+	pdbqtcontext pdbqttext;
+	sdfcontext sdftext;
+
+	void write(const vecv& coords, std::ostream& out) const;
+	void update(const appender& transform);
+	void set(sz pdbqtindex, sz sdfindex, sz atomindex);
+
+	sz pdbqtsize() const { return pdbqttext.size(); }
+
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & pdbqttext;
+		ar & sdftext;
+	}
+};
 
 struct ligand : public flexible_body, atom_range {
 	unsigned degrees_of_freedom; // can be different from the apparent number of rotatable bonds, because of the disabled torsions
 	interacting_pairs pairs;
 	context cont;
-	ligand() {}
+	ligand(): degrees_of_freedom(0) {}
 	ligand(const flexible_body& f, unsigned degrees_of_freedom_) : flexible_body(f), atom_range(0, 0), degrees_of_freedom(degrees_of_freedom_) {}
 	void set_range();
 
@@ -120,7 +211,6 @@ struct model {
 	grid_dims movable_atoms_box(fl add_to_each_dimension, fl granularity = 0.375) const;
 
 	void write_flex  (                  const path& name, const std::string& remark) const { write_context(flex_context, name, remark); }
-	void write_ligand(sz ligand_number, const path& name, const std::string& remark) const { VINA_CHECK(ligand_number < ligands.size()); write_context(ligands[ligand_number].cont, name, remark); }
 	void write_structure(std::ostream& out) const {
 		VINA_FOR_IN(i, ligands)
 			write_context(ligands[i].cont, out);

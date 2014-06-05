@@ -23,10 +23,15 @@ public:
 	obmol_opener() {}
 	virtual ~obmol_opener();
 
+
 	void openForInput(OpenBabel::OBConversion& conv, const std::string& name);
 	void openForOutput(OpenBabel::OBConversion& conv, const std::string& name);
 
+	void clear();
+
 private:
+
+	obmol_opener& operator=(const obmol_opener& rhs); //you don't want to do this
 	std::vector<std::ios*> streams;
 };
 

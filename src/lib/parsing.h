@@ -17,10 +17,6 @@
 #include <boost/optional.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/archive/binary_iarchive.hpp>
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/text_oarchive.hpp>
 #include <boost/serialization/utility.hpp>
 #include "parse_pdbqt.h"
 #include "atom_constants.h"
@@ -99,6 +95,8 @@ struct parsed_atom : public atom {
 struct atom_reference {
 	sz index;
 	bool inflex;
+
+	atom_reference(): index(0), inflex(0) {}
 	atom_reference(sz index_, bool inflex_) : index(index_), inflex(inflex_) {}
 
 
@@ -114,11 +112,13 @@ struct parsing_struct {
 	// start reading after this class
 	template<typename T> // T == parsing_struct
 		struct node_t {
-			sz context_index;
+			sz pdbqt_context_index; //index into pdbqt context (lines of pdbqt file for reinsertion of coordinates)
+			sz sdf_context_index; //index into sdf file (what atom index is represented)
 			parsed_atom a;
 			std::vector<T> ps;
-			node_t() {} //for serialization
-			node_t(const parsed_atom& a_, sz context_index_) : context_index(context_index_), a(a_) {}
+			node_t(): pdbqt_context_index(0), sdf_context_index(0) {} //for serialization
+			node_t(const parsed_atom& a_, sz context_index_, sz sdf_index) : pdbqt_context_index(context_index_), sdf_context_index(sdf_index), a(a_) {}
+
 
 			// inflex atom insertion
 			void insert_inflex(non_rigid_parsed& nr) {
@@ -136,7 +136,7 @@ struct parsing_struct {
 				VINA_FOR_IN(i, ps)
 					ps[i].axis_begin = atom_reference(nr.atoms.size(), false);
 				vec relative_coords; relative_coords = a.coords - frame_origin;
-				c[context_index].second = nr.atoms.size();
+				c.set(pdbqt_context_index, sdf_context_index, nr.atoms.size());
 				nr.atoms.push_back(movable_atom(a, relative_coords));
 			}
 			void insert_immobiles(non_rigid_parsed& nr, context& c, const vec& frame_origin) {
@@ -151,9 +151,12 @@ struct parsing_struct {
 	boost::optional<atom_reference> axis_end; // if immobile atom has been pushed into non_rigid_parsed::atoms, this is its index there
 	std::vector<node> atoms;
 
+	void add(const parsed_atom& a, const context& c, int sdfcontextpos) {
+		VINA_CHECK(c.pdbqtsize() > 0);
+		atoms.push_back(node(a, c.pdbqtsize()-1, sdfcontextpos));
+	}
 	void add(const parsed_atom& a, const context& c) {
-		VINA_CHECK(c.size() > 0);
-		atoms.push_back(node(a, c.size()-1));
+		add(a, c, 0);
 	}
 	const vec& immobile_atom_coords() const {
 		VINA_CHECK(immobile_atom);
@@ -213,7 +216,7 @@ struct parsing_struct {
 	{
 		VINA_FOR_IN(i, from.atoms)
 		{
-			atoms.push_back(node(from.atoms[i].a, from.atoms[i].context_index));
+			atoms.push_back(node(from.atoms[i].a, from.atoms[i].pdbqt_context_index, from.atoms[i].sdf_context_index));
 		}
 	}
 
@@ -232,12 +235,66 @@ struct parsing_struct {
 template<class Archive>
 void serialize(Archive & ar, parsing_struct::node_t<parsing_struct>& node, const unsigned int version)
 {
-	ar & node.context_index;
+	ar & node.pdbqt_context_index;
+	ar & node.sdf_context_index;
 	ar & node.a;
 	ar & node.ps;
 }
 
-extern void add_context(context& c, const std::string& str);
+extern void add_pdbqt_context(context& c, const std::string& str);
 extern void postprocess_ligand(non_rigid_parsed& nr, parsing_struct& p, context& c, unsigned torsdof);
+
+struct pdbqt_initializer {
+	model m;
+	void initialize_from_rigid(const rigid& r) { // static really
+		VINA_CHECK(m.grid_atoms.empty());
+		m.grid_atoms = r.atoms;
+	}
+	void initialize_from_nrp(const non_rigid_parsed& nrp, const context& c, bool is_ligand) { // static really
+		VINA_CHECK(m.ligands.empty());
+		VINA_CHECK(m.flex   .empty());
+
+		m.ligands = nrp.ligands;
+		m.flex    = nrp.flex;
+
+		VINA_CHECK(m.atoms.empty());
+
+		sz n = nrp.atoms.size() + nrp.inflex.size();
+		m.atoms.reserve(n);
+		m.coords.reserve(n);
+
+		VINA_FOR_IN(i, nrp.atoms) {
+			const movable_atom& a = nrp.atoms[i];
+			atom b = static_cast<atom>(a);
+			b.coords = a.relative_coords;
+			m.atoms.push_back(b);
+			m.coords.push_back(a.coords);
+		}
+		VINA_FOR_IN(i, nrp.inflex) {
+			const atom& a = nrp.inflex[i];
+			atom b = a;
+			b.coords = zero_vec; // to avoid any confusion; presumably these will never be looked at
+			m.atoms.push_back(b);
+			m.coords.push_back(a.coords);
+		}
+		VINA_CHECK(m.coords.size() == n);
+
+		m.internal_coords.resize(m.coords.size(), zero_vec); // FIXME
+
+		m.minus_forces = m.coords;
+		m.m_num_movable_atoms = nrp.atoms.size();
+
+		if(is_ligand) {
+			VINA_CHECK(m.ligands.size() == 1);
+			m.ligands.front().cont = c;
+		}
+		else
+			m.flex_context = c;
+
+	}
+	void initialize(const distance_type_matrix& mobility) {
+		m.initialize(mobility);
+	}
+};
 
 #endif /* PARSING_H_ */

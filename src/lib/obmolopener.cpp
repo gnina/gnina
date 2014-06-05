@@ -16,7 +16,8 @@
 using namespace OpenBabel;
 using namespace boost;
 using namespace boost::iostreams;
-obmol_opener::~obmol_opener()
+
+void obmol_opener::clear()
 {
 	for (unsigned i = 0, n = streams.size(); i < n; i++)
 	{
@@ -24,6 +25,12 @@ obmol_opener::~obmol_opener()
 	}
 	streams.clear();
 }
+
+obmol_opener::~obmol_opener()
+{
+	clear();
+}
+
 
 void obmol_opener::openForInput(OBConversion& conv, const std::string& name)
 {

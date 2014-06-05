@@ -29,6 +29,8 @@
 #include <boost/algorithm/string.hpp>
 #include "array3d.h"
 #include "grid.h"
+#include "molgetter.h"
+
 
 using namespace boost::iostreams;
 using boost::filesystem::path;
@@ -824,6 +826,7 @@ static void create_init_model(const std::string& rigid_name,
 	}
 }
 
+
 int main(int argc, char* argv[])
 {
 	using namespace boost::program_options;
@@ -1316,62 +1319,20 @@ Thank you!\n";
 			}
 			log << "\n";
 		}
+
+		MolGetter mols(initm, add_hydrogens);
 		//loop over input ligands
 		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
 		{
 			doing(verbosity, "Reading input", log);
 			const std::string& ligand_name = ligand_names[l];
-			boost::filesystem::path lpath(ligand_name);
-
-			//parse with open babel
-			OBConversion conv;
-			obmol_opener infileopener;
-
-			if (ligand_name.size() > 0) //is zero if no_lig
-			{
-				infileopener.openForInput(conv, ligand_name);
-				VINA_CHECK(conv.SetOutFormat("PDBQT"));
-			}
+			mols.setInputFile(ligand_name);
 
 			//process input molecules one at a time
-			OBMol mol;
 			unsigned i = 0;
-			while (no_lig || conv.Read(&mol))
+			model m;
+			while (no_lig || mols.readMoleculeIntoModel(m))
 			{
-				model m = initm;
-				std::string name = mol.GetTitle();
-				m.set_name(name);
-				try
-				{
-					//this is suboptimal: do not read/write pdbqt with openbabel
-					//because it will lose information about rigid bonds
-					if (no_lig)
-					{
-						no_lig = false; //only enter loop once
-					}
-					else if (lpath.extension() == ".pdbqt")
-					{
-						m.append(parse_ligand_pdbqt(lpath));
-					}
-					else
-					{
-						if (add_hydrogens)
-							mol.AddHydrogens(); //needed for atom typing
-						std::string pdbqt = conv.WriteString(&mol);
-						std::stringstream pdbqtStream(pdbqt);
-
-						m.append(parse_ligand_stream_pdbqt(ligand_name,
-								pdbqtStream));
-					}
-				} catch (parse_error& e)
-				{
-					std::cerr << "\n\nParse error with molecule "
-							<< mol.GetTitle() << " in file \""
-							<< e.file.string() << "\": " << e.reason
-							<< '\n';
-					continue;
-				}
-
 				if (local_only)
 				{
 					//dkoes - for convenience get box from model
@@ -1395,8 +1356,9 @@ Thank you!\n";
 				if (outconv.GetOutStream() != NULL)
 				{
 					//write out molecular data
-					for (unsigned j = 0, m = results.size(); j < m; j++)
+					for (unsigned j = 0, nr = results.size(); j < nr; j++)
 					{
+						OBMol mol;
 						if (results[j].mol.length() > 0)
 							outconv.ReadString(&mol, results[j].mol); //otherwise keep orig mol
 						mol.DeleteData(OBGenericDataType::PairData); //remove remarks
@@ -1420,7 +1382,7 @@ Thank you!\n";
 							setMolData(outconv.GetOutFormat(), mol,
 									"atomic_interaction_terms", astr.str());
 						}
-						mol.SetTitle(name); //otherwise lose space separated names
+						mol.SetTitle(m.get_name().c_str()); //otherwise lose space separated names
 						outconv.SetOutputIndex(j + 2); //workaround openbabel bug #859
 						outconv.Write(&mol);
 					}
@@ -1432,7 +1394,6 @@ Thank you!\n";
 						results[j].writeAtomValues(atomoutfile, &wt);
 					}
 				}
-				mol.Clear();
 				i++;
 			}
 		}

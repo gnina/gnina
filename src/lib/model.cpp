@@ -173,8 +173,8 @@ public:
 		transform_ranges(lig, *this);
 		VINA_FOR_IN(i, lig.pairs)
 			this->update(lig.pairs[i]);
-		VINA_FOR_IN(i, lig.cont)
-			this->update(lig.cont[i]); // parsed_line update, below
+
+		lig.cont.update(*this);
 	}
 	void update(residue& r) const
 			{
@@ -210,6 +210,18 @@ public:
 			update(a[i]);
 	}
 
+	//add b to a
+	void append(context& a, const context& b)
+	{
+		append(a.pdbqttext,b.pdbqttext);
+
+		if(a.sdftext.valid() && b.sdftext.valid())
+		{
+			//dkoes - I don't think I will need to do this, so not bothering to implement it for now
+			abort();
+		}
+	}
+
 	// internal_coords, coords, minus_forces, atoms
 	template<typename T>
 	void coords_append(std::vector<T>& a, const std::vector<T>& b)
@@ -234,6 +246,30 @@ public:
 		a.insert(a.end(), b2, b3);
 	}
 };
+
+//dkoes - modify atom indices according to transform in this context
+//I'm not sure this is actually needed/relevant - merging ligands will generally
+//just break things
+void context::update(const appender& transform)
+{
+	VINA_FOR_IN(i, pdbqttext)
+		transform.update(pdbqttext[i]); // parsed_line update
+
+	for(unsigned i = 0, n = sdftext.atoms.size(); i < n; i++)
+	{
+		sdftext.atoms[i].index = transform(sdftext.atoms[i].index);
+	}
+}
+
+//associate pdfbt/sdf data with appropriate atom index from model
+void context::set(sz pdbqtindex, sz sdfindex, sz atomindex)
+{
+	if(pdbqtindex < pdbqttext.size())
+		pdbqttext[pdbqtindex].second = atomindex;
+	if(sdfindex < sdftext.atoms.size())
+		sdftext.atoms[sdfindex].index = atomindex;
+}
+
 
 void model::append(const model& m)
 {
@@ -665,15 +701,16 @@ std::string coords_to_pdbqt_string(const vec& coords, const std::string& str)
 	return tmp;
 }
 
-void model::write_context(const context& c, std::ostream& out) const
+void context::write(const vecv& coords, std::ostream& out) const
+{
+	if(!sdftext.valid())
+	{ //pdbqt
+		VINA_FOR_IN(i, pdbqttext)
 		{
-	verify_bond_lengths();
-	VINA_FOR_IN(i, c)
-	{
-		const std::string& str = c[i].first;
-		if (c[i].second)
-		{
-			out << coords_to_pdbqt_string(coords[c[i].second.get()], str)
+			const std::string& str = pdbqttext[i].first;
+			if (pdbqttext[i].second)
+			{
+				out << coords_to_pdbqt_string(coords[pdbqttext[i].second.get()], str)
 					<< '\n';
 		}
 		else if(boost::starts_with(str,"BEGIN_RES") ||
@@ -685,6 +722,17 @@ void model::write_context(const context& c, std::ostream& out) const
 		else
 			out << str << '\n';
 	}
+	}
+	else
+	{
+		assert(0); //TODO
+	}
+}
+
+void model::write_context(const context& c, std::ostream& out) const
+		{
+	verify_bond_lengths();
+	c.write(coords, out);
 }
 
 void model::seti(const conf& c)
@@ -715,11 +763,11 @@ std::string model::ligand_atom_str(sz i, sz lig) const
 	assert(i < atoms.size());
 	std::string pdbline;
 	const context& cont = ligands[lig].cont;
-	for(sz c = 0, nc = cont.size(); c < nc; c++)
+	for(sz c = 0, nc = cont.pdbqtsize(); c < nc; c++)
 	{
-		if(cont[c].second.get_value_or(-1) == i)
+		if(cont.pdbqttext[c].second.get_value_or(-1) == i)
 		{
-			pdbline = ligands[lig].cont[c].first;
+			pdbline = ligands[lig].cont.pdbqttext[c].first;
 			break;
 		}
 	}

@@ -57,8 +57,8 @@ struct stream_parse_error {
 	}
 };
 
-void add_context(context& c, const std::string& str) {
-	c.push_back(parsed_line(str, boost::optional<sz>()));
+void add_pdbqt_context(context& c, const std::string& str) {
+	c.pdbqttext.push_back(parsed_line(str, boost::optional<sz>()));
 }
 
 
@@ -180,7 +180,7 @@ void parse_pdbqt_rigid(const std::string& name, std::istream& in, rigid& r) {
 void parse_pdbqt_root_aux(std::istream& in, unsigned& count, parsing_struct& p, context& c) {
 	std::string str;
 	while(std::getline(in, str)) {
-		add_context(c, str);
+		add_pdbqt_context(c, str);
 		++count;
 		if(str.empty()) {} // ignore ""
 		else if(starts_with(str, "WARNING")) {} // ignore - AutoDockTools bug workaround
@@ -208,7 +208,7 @@ void parse_pdbqt_root_aux(std::istream& in, unsigned& count, parsing_struct& p, 
 void parse_pdbqt_root(std::istream& in, unsigned& count, parsing_struct& p, context& c) {
 	std::string str;
 	while(std::getline(in, str)) {
-		add_context(c, str);
+		add_pdbqt_context(c, str);
 		++count;
 		if(str.empty()) {} // ignore
 		else if(starts_with(str, "WARNING")) {} // ignore - AutoDockTools bug workaround
@@ -256,7 +256,7 @@ void parse_pdbqt_aux(std::istream& in, unsigned& count, parsing_struct& p, conte
 
 	std::string str;
 	while(std::getline(in, str)) {
-		add_context(c, str);
+		add_pdbqt_context(c, str);
 		++count;
 		if(str.empty()) {} // ignore ""
 		else if(starts_with(str, "WARNING")) {} // ignore - AutoDockTools bug workaround
@@ -389,8 +389,14 @@ void parse_pdbqt_ligand_stream(const path& name, std::istream& in, non_rigid_par
 			throw parse_error(name, count, "No atoms in the ligand");
 		if(!torsdof)
 			throw parse_error(name, count, "Missing TORSDOF");
-			std::ofstream out("foo");
 
+		/* debug for smina format
+		std::ofstream out("foo");
+		boost::archive::text_oarchive serialout(out,boost::archive::no_header|boost::archive::no_tracking);
+		serialout << torsdof.get();
+		serialout << p;
+		serialout << c;
+*/
 		postprocess_ligand(nr, p, c, unsigned(torsdof.get())); // bizarre size_t -> unsigned compiler complaint
 	}
 	catch(stream_parse_error& e) {
@@ -414,7 +420,7 @@ void parse_pdbqt_flex(const std::string& name, std::istream& in, non_rigid_parse
 	std::string str;
 
 	while(std::getline(in, str)) {
-		add_context(c, str);
+		add_pdbqt_context(c, str);
 		++count;
 		if(str.empty()) {} // ignore ""
 		else if(starts_with(str, "WARNING")) {} // ignore - AutoDockTools bug workaround
@@ -440,7 +446,7 @@ void parse_pdbqt_flex(const std::string& name, std::istream& in, non_rigid_parse
 void parse_pdbqt_branch(std::istream& in, unsigned& count, parsing_struct& p, context& c, unsigned from, unsigned to) {
 	std::string str;
 	while(std::getline(in, str)) {
-		add_context(c, str);
+		add_pdbqt_context(c, str);
 		++count;
 		if(str.empty()) {} //ignore ""
 		else if(starts_with(str, "WARNING")) {} // ignore - AutoDockTools bug workaround
@@ -480,58 +486,7 @@ void parse_pdbqt_branch(std::istream& in, unsigned& count, parsing_struct& p, co
 //////////// new stuff //////////////////
 
 
-struct pdbqt_initializer {
-	model m;
-	void initialize_from_rigid(const rigid& r) { // static really
-		VINA_CHECK(m.grid_atoms.empty());
-		m.grid_atoms = r.atoms;
-	}
-	void initialize_from_nrp(const non_rigid_parsed& nrp, const context& c, bool is_ligand) { // static really
-		VINA_CHECK(m.ligands.empty());
-		VINA_CHECK(m.flex   .empty());
 
-		m.ligands = nrp.ligands;
-		m.flex    = nrp.flex;
-
-		VINA_CHECK(m.atoms.empty());
-
-		sz n = nrp.atoms.size() + nrp.inflex.size();
-		m.atoms.reserve(n);
-		m.coords.reserve(n);
-
-		VINA_FOR_IN(i, nrp.atoms) {
-			const movable_atom& a = nrp.atoms[i];
-			atom b = static_cast<atom>(a);
-			b.coords = a.relative_coords;
-			m.atoms.push_back(b);
-			m.coords.push_back(a.coords);
-		}
-		VINA_FOR_IN(i, nrp.inflex) {
-			const atom& a = nrp.inflex[i];
-			atom b = a;
-			b.coords = zero_vec; // to avoid any confusion; presumably these will never be looked at
-			m.atoms.push_back(b);
-			m.coords.push_back(a.coords);
-		}
-		VINA_CHECK(m.coords.size() == n);
-
-		m.internal_coords.resize(m.coords.size(), zero_vec); // FIXME
-
-		m.minus_forces = m.coords;
-		m.m_num_movable_atoms = nrp.atoms.size();
-
-		if(is_ligand) {
-			VINA_CHECK(m.ligands.size() == 1);
-			m.ligands.front().cont = c;
-		}
-		else
-			m.flex_context = c;
-
-	}
-	void initialize(const distance_type_matrix& mobility) {
-		m.initialize(mobility);
-	}
-};
 
 model parse_ligand_stream_pdbqt  (const std::string& name, std::istream& in) { // can throw parse_error
 	non_rigid_parsed nrp;
