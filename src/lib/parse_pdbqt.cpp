@@ -599,19 +599,9 @@ model parse_ligand_pdbqt  (const path& name) { // can throw parse_error
 	non_rigid_parsed nrp;
 	context c;
 	parse_pdbqt_ligand(name, nrp, c);
-
-	std::ofstream out("foo");
-	boost::archive::text_oarchive serialout(out,boost::archive::no_header|boost::archive::no_tracking);
-	serialout << nrp;
-	out.close();
-	std::ifstream in("foo");
-	boost::archive::text_iarchive serialin(in,boost::archive::no_header|boost::archive::no_tracking);
-	non_rigid_parsed nrp2;
-	serialin >> nrp2;
-
 	pdbqt_initializer tmp;
-	tmp.initialize_from_nrp(nrp2, c, true);
-	tmp.initialize(nrp2.mobility_matrix());
+	tmp.initialize_from_nrp(nrp, c, true);
+	tmp.initialize(nrp.mobility_matrix());
 
 	return tmp.m;
 }
