@@ -30,65 +30,10 @@
 #include "array3d.h"
 #include "grid.h"
 #include "molgetter.h"
-
+#include "result_info.h"
 
 using namespace boost::iostreams;
 using boost::filesystem::path;
-
-struct resultInfo
-{
-	fl energy;
-	fl rmsd;
-	std::string mol;
-	std::string atominfo;
-
-	resultInfo() :
-			energy(0), rmsd(-1)
-	{
-	}
-	resultInfo(fl e, fl r, const std::string& m) :
-			energy(e), rmsd(r), mol(m)
-	{
-	}
-
-	//write a table (w/header) of per atom values to out
-	void writeAtomValues(std::ostream& out, const weighted_terms *wt) const
-			{
-		const terms *t = wt->unweighted_terms();
-		out << "atomid el pos";
-		std::vector<std::string> names = t->get_names(true);
-		for (unsigned j = 0, m = names.size(); j < m; j++)
-		{
-			out << " " << names[j];
-		}
-		out << "\n";
-		out << atominfo;
-	}
-
-	//computes per-atom term values and formats them into the atominfo string
-	void setAtomValues(const model& m, const weighted_terms *wt)
-	{
-		std::vector<flv> values;
-		const terms *t = wt->unweighted_terms();
-		t->evale_robust(m, values);
-		std::stringstream str;
-		vecv coords = m.get_ligand_coords();
-		assert(values.size() == coords.size());
-		for (unsigned i = 0, n = values.size(); i < n; i++)
-		{
-			assert(values[i].size() == t->size());
-			str << m.ligand_atom_str(i) << " ";
-			coords[i].print(str);
-			for (unsigned j = 0, m = values[i].size(); j < m; j++)
-			{
-				str << " " << values[i][j] * wt->weight(j);
-			}
-			str << "\n";
-		}
-		str << "END\n";
-		atominfo = str.str();
-	}
-};
 
 path make_path(const std::string& str)
 {
@@ -132,7 +77,8 @@ void write_all_output(model& m, const output_container& out, sz how_many,
 	}
 }
 
-fl do_randomization(model& m, std::ostream& out, const vec& corner1,
+//set m to a random conformer
+fl do_randomization(model& m, const vec& corner1,
 		const vec& corner2, int seed, int verbosity, tee& log)
 {
 	conf init_conf = m.get_initial_conf();
@@ -163,7 +109,6 @@ fl do_randomization(model& m, std::ostream& out, const vec& corner1,
 		log << "Clash penalty: " << best_clash_penalty; // FIXME rm?
 		log.endl();
 	}
-	m.write_structure(out);
 	return best_clash_penalty;
 }
 
@@ -216,7 +161,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		const parallel_mc& par, fl energy_range, sz num_modes, int seed,
 		int verbosity, bool score_only, bool local_only, bool compute_atominfo,
 		fl out_min_rmsd, tee& log,
-		const terms *t, grid& user_grid, std::vector<resultInfo>& results)
+		const terms *t, grid& user_grid, std::vector<result_info>& results)
 {
 	boost::timer time;
 
@@ -262,7 +207,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		}
 		log << '\n';
 
-		results.push_back(resultInfo(e, -1, ""));
+		results.push_back(result_info(e, -1, m));
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
 	}
@@ -301,12 +246,9 @@ void do_search(model& m, const boost::optional<model>& ref,
 			log
 			<< "WARNING: not all movable atoms are within the search space\n";
 
-		output_container out_cont;
-		out_cont.push_back(new output_type(out));
-		std::stringstream str;
-		write_all_output(m, out_cont, 1, str);
+		m.set(out.c);
 		done(verbosity, log);
-		results.push_back(resultInfo(e, rmsd, str.str()));
+		results.push_back(result_info(e, rmsd, m));
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
 	}
@@ -371,10 +313,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 			log.endl();
 
-			//dkoes - setup resultInfo
-			std::stringstream str;
-			m.write_model(str, i + 1, "");
-			results.push_back(resultInfo(out_cont[i].e, -1, str.str()));
+			//dkoes - setup result_info
+			results.push_back(result_info(out_cont[i].e, -1, m));
 			if (compute_atominfo)
 				results.back().setAtomValues(m, &sf);
 
@@ -420,7 +360,7 @@ void main_procedure(model& m, precalculate& prec,
 		int exhaustiveness, minimization_params minparm,
 		const weighted_terms& wt, int cpu, int seed,
 		int verbosity, sz num_modes, fl energy_range, fl out_min_rmsd, tee& log,
-		std::vector<resultInfo>& results, grid& user_grid)
+		std::vector<result_info>& results, grid& user_grid)
 {
 	doing(verbosity, "Setting up the scoring function", log);
 
@@ -454,9 +394,8 @@ void main_procedure(model& m, precalculate& prec,
 	const fl slope = 1e6; // FIXME: too large? used to be 100
 	if (randomize_only)
 	{
-		std::stringstream str;
-		fl e = do_randomization(m, str, corner1, corner2, seed, verbosity, log);
-		results.push_back(resultInfo(e, 0, str.str()));
+		fl e = do_randomization(m, corner1, corner2, seed, verbosity, log);
+		results.push_back(result_info(e, -1, m));
 		return;
 	}
 	else
@@ -721,28 +660,6 @@ std::istream& operator>>(std::istream& in, ApproxType& type)
 	else
 		throw validation_error(validation_error::invalid_option_value);
 	return in;
-}
-
-//helper function for setting molecular data that will wrap data in remark
-//if output format is pdb; copy by value because we might change things
-static void setMolData(OpenBabel::OBFormat *format, OpenBabel::OBMol& mol,
-		std::string attr, std::string value)
-{
-	using namespace OpenBabel;
-	OBPairData* sddata = new OBPairData();
-	if (strcmp(format->GetID(), "pdb") == 0 ||
-			strcmp(format->GetID(), "ent") == 0 ||
-			strcmp(format->GetID(), "pdbqt") == 0)
-	{
-		//note that pdbqt currently ignores these.. hopefully this will be fixed
-		//put attribute name into value so attr can be REMARK
-		value = " " + attr + " " + value;
-		attr = "REMARK";
-	}
-
-	sddata->SetAttribute(attr);
-	sddata->SetValue(value);
-	mol.SetData(sddata);
 }
 
 #ifdef SMINA_GPU
@@ -1297,12 +1214,11 @@ Thank you!\n";
 
 		//setup single outfile
 		using namespace OpenBabel;
-		obmol_opener outfileopener;
-		OBConversion outconv;
+		ozfile outfile;
+		std::string outext;
 		if (out_name.length() > 0)
 		{
-			outfileopener.openForOutput(outconv, out_name);
-			VINA_CHECK(outconv.SetInFormat("PDBQT"));
+			outext = outfile.open(out_name);
 		}
 
 		if(score_only) //output header
@@ -1343,7 +1259,7 @@ Thank you!\n";
 				done(verbosity, log);
 
 				std::stringstream output;
-				std::vector<resultInfo> results;
+				std::vector<result_info> results;
 
 				main_procedure(m, *prec, ref, score_only,
 						local_only, randomize_only,
@@ -1353,38 +1269,12 @@ Thank you!\n";
 						max_modes_sz, energy_range, out_min_rmsd, log, results,
 						user_grid);
 
-				if (outconv.GetOutStream() != NULL)
+				if (outfile)
 				{
 					//write out molecular data
 					for (unsigned j = 0, nr = results.size(); j < nr; j++)
 					{
-						OBMol mol;
-						if (results[j].mol.length() > 0)
-							outconv.ReadString(&mol, results[j].mol); //otherwise keep orig mol
-						mol.DeleteData(OBGenericDataType::PairData); //remove remarks
-
-						setMolData(outconv.GetOutFormat(), mol,
-								"minimizedAffinity",
-								boost::lexical_cast<std::string>(
-										(float)results[j].energy));
-
-						if (results[j].rmsd >= 0)
-						{
-							setMolData(outconv.GetOutFormat(), mol,
-									"minimizedRMSD",
-									boost::lexical_cast<std::string>(
-											(float)results[j].rmsd));
-						}
-						if (include_atom_terms)
-						{
-							std::stringstream astr;
-							results[j].writeAtomValues(astr, &wt);
-							setMolData(outconv.GetOutFormat(), mol,
-									"atomic_interaction_terms", astr.str());
-						}
-						mol.SetTitle(m.get_name().c_str()); //otherwise lose space separated names
-						outconv.SetOutputIndex(j + 2); //workaround openbabel bug #859
-						outconv.Write(&mol);
+						results[j].write(outfile, outext, include_atom_terms, &wt);
 					}
 				}
 				if (atomoutfile)

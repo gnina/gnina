@@ -76,7 +76,7 @@ struct non_rigid_parsed {
 };
 
 struct parsed_atom : public atom {
-	unsigned  number;
+	atmidx  number;
 	parsed_atom(): number(0) {}
 	parsed_atom(smt sm_, fl charge_, const vec& coords_, unsigned number_) : number(number_) {
 		sm = sm_;
@@ -87,19 +87,19 @@ struct parsed_atom : public atom {
 	friend class boost::serialization::access;
 	template<class Archive>
 	void serialize(Archive& ar, const unsigned version) {
-		ar & number;
+		//ar & number; //not needed after parsing
         ar & boost::serialization::base_object<atom>(*this);
 	}
 };
 
 struct atom_reference {
-	sz index;
+	atmidx index;
 	bool inflex;
 
-	atom_reference(): index(0), inflex(0) {}
+	atom_reference(): index(USHRT_MAX), inflex(0) {}
 	atom_reference(sz index_, bool inflex_) : index(index_), inflex(inflex_) {}
 
-
+	bool valid() { return index != USHRT_MAX; } //so we can avoid optionals
 	friend class boost::serialization::access;
 	template<class Archive>
 	void serialize(Archive& ar, const unsigned version) {
@@ -112,8 +112,8 @@ struct parsing_struct {
 	// start reading after this class
 	template<typename T> // T == parsing_struct
 		struct node_t {
-			sz pdbqt_context_index; //index into pdbqt context (lines of pdbqt file for reinsertion of coordinates)
-			sz sdf_context_index; //index into sdf file (what atom index is represented)
+			atmidx pdbqt_context_index; //index into pdbqt context (lines of pdbqt file for reinsertion of coordinates)
+			atmidx sdf_context_index; //index into sdf file (what atom index is represented)
 			parsed_atom a;
 			std::vector<T> ps;
 			node_t(): pdbqt_context_index(0), sdf_context_index(0) {} //for serialization
@@ -146,13 +146,12 @@ struct parsing_struct {
 		};
 
 	typedef node_t<parsing_struct> node;
-	boost::optional<sz> immobile_atom; // which of `atoms' is immobile, if any
-	boost::optional<atom_reference> axis_begin; // the index (in non_rigid_parsed::atoms) of the parent bound to immobile atom (if already known)
-	boost::optional<atom_reference> axis_end; // if immobile atom has been pushed into non_rigid_parsed::atoms, this is its index there
+	boost::optional<atmidx> immobile_atom; // which of `atoms' is immobile, if any
+	atom_reference axis_begin; // the index (in non_rigid_parsed::atoms) of the parent bound to immobile atom (if already known)
+	atom_reference axis_end; // if immobile atom has been pushed into non_rigid_parsed::atoms, this is its index there
 	std::vector<node> atoms;
 
 	void add(const parsed_atom& a, const context& c, int sdfcontextpos) {
-		VINA_CHECK(c.pdbqtsize() > 0);
 		atoms.push_back(node(a, c.pdbqtsize()-1, sdfcontextpos));
 	}
 	void add(const parsed_atom& a, const context& c) {
@@ -235,7 +234,7 @@ struct parsing_struct {
 template<class Archive>
 void serialize(Archive & ar, parsing_struct::node_t<parsing_struct>& node, const unsigned int version)
 {
-	ar & node.pdbqt_context_index;
+//	ar & node.pdbqt_context_index; //not part of smina format
 	ar & node.sdf_context_index;
 	ar & node.a;
 	ar & node.ps;
@@ -296,5 +295,60 @@ struct pdbqt_initializer {
 		m.initialize(mobility);
 	}
 };
+
+namespace boost {
+namespace serialization {
+//default all our classes to not have version info
+template <class T>
+struct implementation_level_impl< const T >
+{
+    template<class U>
+    struct traits_class_level {
+        typedef BOOST_DEDUCED_TYPENAME U::level type;
+    };
+
+    typedef mpl::integral_c_tag tag;
+
+    typedef
+        BOOST_DEDUCED_TYPENAME mpl::eval_if<
+            is_base_and_derived<boost::serialization::basic_traits, T>,
+            traits_class_level< T >,
+        //else
+        BOOST_DEDUCED_TYPENAME mpl::eval_if<
+            is_fundamental< T >,
+            mpl::int_<primitive_type>,
+        //else
+        BOOST_DEDUCED_TYPENAME mpl::eval_if<
+            mpl::or_<is_class< T >, is_array< T> >,
+            mpl::int_<object_serializable>,
+        //else
+        BOOST_DEDUCED_TYPENAME mpl::eval_if<
+            is_enum< T >,
+                mpl::int_<primitive_type>,
+        //else
+            mpl::int_<not_serializable>
+        >
+        >
+        >
+        >::type type;
+    BOOST_STATIC_CONSTANT(int, value = type::value);
+};
+
+//STL containers ignore above (seems like a bug)
+template<class Archive, class T>
+void serialize(Archive & ar, std::vector<T>  & v, const unsigned int version)
+{
+	atmidx sz = v.size(); //try to save some space
+	assert(v.size() < USHRT_MAX);
+    ar & sz;
+
+    //depending on whether we are storing or loading, sz may change
+    v.resize(sz);
+    for(unsigned i = 0, n = v.size(); i < n; i++)
+    	ar & v[i];
+}
+
+}
+}
 
 #endif /* PARSING_H_ */

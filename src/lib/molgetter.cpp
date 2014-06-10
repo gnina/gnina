@@ -10,6 +10,7 @@
 #include <openbabel/mol.h>
 #include <openbabel/obconversion.h>
 #include <boost/archive/binary_iarchive.hpp>
+#include "SminaConverter.h"
 
 //setup for reading from fname
 void MolGetter::setInputFile(const std::string& fname)
@@ -23,12 +24,9 @@ void MolGetter::setInputFile(const std::string& fname)
 			type = PDBQT;
 			pdbqtdone = false;
 		}
-		else if (lpath.extension() == ".smina")
+		else if (infile.open(lpath, ".smina"))
 		{
 			type = SMINA;
-			infile.close();
-			infile.clear();
-			infile.open(lpath.string().c_str());
 		}
 		else //openbabel
 		{
@@ -72,6 +70,12 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 			tmp.initialize_from_nrp(nr, c, true);
 			tmp.initialize(nr.mobility_matrix());
 
+			if(c.sdftext.valid())
+			{
+				//set name
+				m.set_name(c.sdftext.name);
+			}
+
 			m.append(tmp.m);
 			return true;
 		}
@@ -99,13 +103,18 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 			m.set_name(name);
 			try
 			{
-				if (add_hydrogens)
-					mol.AddHydrogens(); //needed for atom typing
-				std::string pdbqt = conv.WriteString(&mol);
-				std::stringstream pdbqtStream(pdbqt);
+				parsing_struct p;
+				context c;
+				unsigned torsdof = SminaConverter::convertParsing(mol, p, c);
+				non_rigid_parsed nr;
+				postprocess_ligand(nr, p, c, torsdof);
+				VINA_CHECK(nr.atoms_atoms_bonds.dim() == nr.atoms.size());
 
-				m.append(
-						parse_ligand_stream_pdbqt(lpath.string(), pdbqtStream));
+				pdbqt_initializer tmp;
+				tmp.initialize_from_nrp(nr, c, true);
+				tmp.initialize(nr.mobility_matrix());
+
+				m.append(tmp.m);
 				return true;
 			}
 			catch (parse_error& e)

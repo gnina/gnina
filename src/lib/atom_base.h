@@ -30,7 +30,6 @@ struct atom_base : public atom_type {
 	atom_base() : charge(0) {}
 
 private:
-	sz uniqueIndex;
 
 	friend class boost::serialization::access;
 	template<class Archive> 

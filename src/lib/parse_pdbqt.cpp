@@ -275,10 +275,10 @@ void parse_pdbqt_aux(std::istream& in, unsigned& count, parsing_struct& p, conte
 	}
 }
 
-void add_bonds(non_rigid_parsed& nr, boost::optional<atom_reference> atm, const atom_range& r) {
-	if(atm)
+void add_bonds(non_rigid_parsed& nr, atom_reference atm, const atom_range& r) {
+	if(atm.valid())
 		VINA_RANGE(i, r.begin, r.end) {
-			atom_reference& ar = atm.get();
+			atom_reference& ar = atm;
 			if(ar.inflex) 
 				nr.atoms_inflex_bonds(i, ar.index) = DISTANCE_FIXED; //(max_unsigned); // first index - atoms, second index - inflex
 			else
@@ -286,10 +286,10 @@ void add_bonds(non_rigid_parsed& nr, boost::optional<atom_reference> atm, const 
 		}
 }
 
-void set_rotor(non_rigid_parsed& nr, boost::optional<atom_reference> axis_begin, boost::optional<atom_reference> axis_end) {
-	if(axis_begin && axis_end) {
-		atom_reference& r1 = axis_begin.get();
-		atom_reference& r2 = axis_end  .get();
+void set_rotor(non_rigid_parsed& nr, atom_reference axis_begin, atom_reference axis_end) {
+	if(axis_begin.valid() && axis_end.valid()) {
+		atom_reference& r1 = axis_begin;
+		atom_reference& r2 = axis_end;
 		if(r2.inflex) {
 			VINA_CHECK(r1.inflex); // no atom-inflex rotors
 			nr.inflex_inflex_bonds(r1.index, r2.index) = DISTANCE_ROTOR;
@@ -390,13 +390,6 @@ void parse_pdbqt_ligand_stream(const path& name, std::istream& in, non_rigid_par
 		if(!torsdof)
 			throw parse_error(name, count, "Missing TORSDOF");
 
-		/* debug for smina format
-		std::ofstream out("foo");
-		boost::archive::text_oarchive serialout(out,boost::archive::no_header|boost::archive::no_tracking);
-		serialout << torsdof.get();
-		serialout << p;
-		serialout << c;
-*/
 		postprocess_ligand(nr, p, c, unsigned(torsdof.get())); // bizarre size_t -> unsigned compiler complaint
 	}
 	catch(stream_parse_error& e) {
@@ -497,60 +490,6 @@ model parse_ligand_stream_pdbqt  (const std::string& name, std::istream& in) { /
 	tmp.initialize_from_nrp(nrp, c, true);
 	tmp.initialize(nrp.mobility_matrix());
 	return tmp.m;
-}
-
-namespace boost {
-namespace serialization {
-//default all our classes to not have version info
-template <class T>
-struct implementation_level_impl< const T >
-{
-    template<class U>
-    struct traits_class_level {
-        typedef BOOST_DEDUCED_TYPENAME U::level type;
-    };
-
-    typedef mpl::integral_c_tag tag;
-
-    typedef
-        BOOST_DEDUCED_TYPENAME mpl::eval_if<
-            is_base_and_derived<boost::serialization::basic_traits, T>,
-            traits_class_level< T >,
-        //else
-        BOOST_DEDUCED_TYPENAME mpl::eval_if<
-            is_fundamental< T >,
-            mpl::int_<primitive_type>,
-        //else
-        BOOST_DEDUCED_TYPENAME mpl::eval_if<
-            mpl::or_<is_class< T >, is_array< T> >,
-            mpl::int_<object_serializable>,
-        //else
-        BOOST_DEDUCED_TYPENAME mpl::eval_if<
-            is_enum< T >,
-                mpl::int_<primitive_type>,
-        //else
-            mpl::int_<not_serializable>
-        >
-        >
-        >
-        >::type type;
-    BOOST_STATIC_CONSTANT(int, value = type::value);
-};
-
-//STL containers ignore above (seems like a bug)
-template<class Archive, class T>
-void serialize(Archive & ar, std::vector<T>  & v, const unsigned int version)
-{
-	unsigned sz = v.size(); //try to save some space
-    ar & sz;
-
-    //depending on whether we are storing or loading, sz may change
-    v.resize(sz);
-    for(unsigned i = 0, n = v.size(); i < n; i++)
-    	ar & v[i];
-}
-
-}
 }
 
 model parse_ligand_pdbqt  (const path& name) { // can throw parse_error

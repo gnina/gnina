@@ -24,6 +24,11 @@
 #define VINA_FILE_H
 
 #include <boost/filesystem/fstream.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/stream.hpp>
+#include <boost/iostreams/device/null.hpp>
 #include "common.h"
 
 struct file_error {
@@ -53,5 +58,106 @@ struct ofile : public boost::filesystem::ofstream { // never use ofstream pointe
 			throw file_error(name, false);
 	}
 };
+
+
+//dkoes - wrapper for an input file that is optionally gzipped
+//name ends in .gz
+class izfile : public boost::iostreams::filtering_stream<boost::iostreams::input> {
+
+	std::ifstream uncompressed_infile;
+public:
+
+	izfile() {}
+
+	izfile(const path& name, const std::string& ext)  {
+		open(name, ext);
+	}
+
+	//opens file name, but only if it has the appropriate ext
+	//otherwise returns false
+	bool open(const path& name, const std::string& ext) {
+		using namespace boost::filesystem;
+
+		//clean up if we are already open
+		while(!empty()) pop();
+		uncompressed_infile.close();
+
+		bool iszipped = false;
+		std::string fileext = extension(name);
+		if(fileext == ".gz")
+		{
+			fileext = extension(basename(name));
+			iszipped = true;
+		}
+
+		if(fileext != ext)
+			return false; //wrong type of file
+
+		uncompressed_infile.open(name.c_str());
+
+		if (iszipped)
+		{
+			push(boost::iostreams::gzip_decompressor());
+		}
+		push(uncompressed_infile);
+
+		if (!uncompressed_infile || !*this)
+		{
+			throw file_error(path(name), true);
+		}
+
+		return true;
+	}
+
+	virtual ~izfile() {
+		//must remove streams before deallocating
+		while(!empty())
+			pop();
+	}
+};
+
+
+//dkoes - wrapper for an output file that will be gzipped if the file
+//name ends in .gz
+class ozfile : public boost::iostreams::filtering_stream<boost::iostreams::output> {
+
+	std::ofstream uncompressed_outfile;
+public:
+
+	ozfile() {}
+
+	ozfile(const path& name)  {
+		open(name);
+	}
+
+	//opens file name, with gzip filter if name ends with .gz
+	//return non-gz extension
+	std::string open(const path& name) {
+		using namespace boost::filesystem;
+		uncompressed_outfile.open(name.c_str());
+		if(!uncompressed_outfile)
+			throw file_error(name,false);
+
+		std::string ext = boost::filesystem::extension(name);
+		//should we gzip?
+		if (ext == ".gz")
+		{
+			ext = extension(basename(name));
+			push(boost::iostreams::gzip_compressor());
+		}
+		push(uncompressed_outfile);
+		if(!(*this))
+			throw file_error(name, false);
+		return ext;
+	}
+
+	virtual ~ozfile() {
+		//must remove streams before deallocating
+		while(!empty())
+			pop();
+	}
+};
+
+
 
 #endif

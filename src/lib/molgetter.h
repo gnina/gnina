@@ -30,7 +30,7 @@ class MolGetter
 	obmol_opener infileopener;
 
 	//smina data structs
-	std::ifstream infile;
+	izfile infile;
 
 	//pdbqt data
 	bool pdbqtdone;

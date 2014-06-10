@@ -68,6 +68,7 @@ inline T sqr(T x) {
 const fl not_a_num = std::sqrt(fl(-1)); // FIXME? check 
 
 typedef std::size_t sz;
+typedef unsigned short atmidx; //dkoes - to reduce size of smina format
 typedef std::pair<fl, fl> pr;
 
 

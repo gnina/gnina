@@ -56,7 +56,10 @@ private:
 	friend class boost::serialization::access;
 	template<class Archive> 
 	void serialize(Archive& ar, const unsigned version) {
-		ar & sm;
+		unsigned char c = (int)sm;
+		assert((int)sm < UCHAR_MAX);
+		ar & c;
+		sm = (smt)c;
 	}
 };
 

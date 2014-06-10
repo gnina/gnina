@@ -69,7 +69,7 @@ private:
 	void serialize(Archive& ar, const unsigned version) {
 		ar & boost::serialization::base_object<atom_base>(*this);
 		ar & coords;
-		ar & bonds;
+		//ar & bonds; //not set until after parsing
 	}
 };
 

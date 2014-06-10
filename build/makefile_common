@@ -1,7 +1,8 @@
 BOOST_INCLUDE = $(BASE)/include/boost-${BOOST_VERSION}
 
-LIBOBJ = cache.o coords.o  custom_terms.o everything.o grid.o szv_grid.o model.o monte_carlo.o mutate.o my_pid.o naive_non_cache.o non_cache.o obmolopener.o parallel_mc.o parse_pdbqt.o pdb.o quasi_newton.o quaternion.o random.o ssd.o terms.o weighted_terms.o molgetter.o
+LIBOBJ = cache.o coords.o  custom_terms.o everything.o grid.o szv_grid.o model.o monte_carlo.o mutate.o my_pid.o naive_non_cache.o non_cache.o obmolopener.o parallel_mc.o parse_pdbqt.o pdb.o quasi_newton.o quaternion.o random.o ssd.o terms.o weighted_terms.o molgetter.o result_info.o PDBQTUtilities.o SminaConverter.o
 MAINOBJ = main.o
+TOSMINAOBJ = tosmina.o CommandLine.o 
 
 INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) 
 
@@ -19,17 +20,27 @@ LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -lz -l boost_system${
 %.o : ../../../src/main/%.cpp 
 	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
 
+%.o : ../../../src/tosmina/%.cpp 
+	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
+
+%.o : ../../../src/tosmina/CommandLine2/%.cpp 
+	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
+		
 %.o : ../../../src/split/%.cpp 
 	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
 	
-all: smina  
+all: smina  tosmina
 
 include dependencies
 
 smina: $(MAINOBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"
-	
+
+tosmina: $(TOSMINAOBJ) $(LIBOBJ)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+	@echo "Done"
+    	
 clean:
 	rm -f *.o
 

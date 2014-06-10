@@ -63,7 +63,7 @@ typedef std::vector<parsed_line> pdbqtcontext;
 struct sdfcontext {
 
 	struct sdfatom { //atom info
-		unsigned short index; //this is set after parsing and coresponds to the model's atom index
+		atmidx index; //this is set after parsing and corresponds to the model's atom index
 		//the sdf index is just the index into the atoms array plus one
 		char elem[2]; //element symbol, note not necessarily null terminated
 
@@ -84,9 +84,9 @@ struct sdfcontext {
 		}
 	};
 	struct sdfbond { //bond connectivity and type
-		unsigned short a;
-		unsigned short b;
-		unsigned short type;
+		atmidx a;
+		atmidx b;
+		unsigned char type;
 
 		sdfbond(): a(0), b(0), type(0) {}
 		sdfbond(unsigned a_, unsigned b_, unsigned t): a(a_), b(b_), type(t) {}
@@ -99,7 +99,7 @@ struct sdfcontext {
 	};
 
 	struct sdfprop { //property (CHG or ISO) info
-		unsigned short atom;
+		atmidx atom;
 		char type; // 'c' or 'i'
 		char value;
 
@@ -119,7 +119,7 @@ struct sdfcontext {
 	std::vector<sdfprop> properties; //CHG and ISO go here
 
 
-	void write(const vecv& coords, std::ostream& out); //output sdf with provided coords
+	void write(const vecv& coords, std::ostream& out) const; //output sdf with provided coords
 	bool valid() const {return atoms.size() > 0; }
 
 	template<class Archive>
@@ -140,7 +140,8 @@ struct context {
 	pdbqtcontext pdbqttext;
 	sdfcontext sdftext;
 
-	void write(const vecv& coords, std::ostream& out) const;
+	void writePDBQT(const vecv& coords, std::ostream& out) const;
+	void writeSDF(const vecv& coords, std::ostream& out) const { sdftext.write(coords, out); }
 	void update(const appender& transform);
 	void set(sz pdbqtindex, sz sdfindex, sz atomindex);
 
@@ -203,7 +204,7 @@ struct model {
 	void get_movable_atom_types(std::vector<smt>& movingtypes) const;
 
 	void set_name(const std::string& n) { name = n; }
-	const std::string& get_name() { return name; }
+	const std::string& get_name() const { return name; }
 
 	conf_size get_size() const;
 	conf get_initial_conf() const; // torsions = 0, orientations = identity, ligand positions = current
@@ -216,6 +217,15 @@ struct model {
 			write_context(ligands[i].cont, out);
 		if(num_flex() > 0) // otherwise remark is written in vain
 			write_context(flex_context, out);
+	}
+
+	//write ligand data as sdf (no flex); return true if successful
+	bool write_sdf(std::ostream& out) const {
+		if(ligands.size() > 0 && ligands[0].cont.sdftext.valid()) {
+			ligands[0].cont.writeSDF(coords,out);
+			return true;
+		}
+		return false;
 	}
 	void write_structure(std::ostream& out, const std::string& remark) const {
 		out << remark;

@@ -701,20 +701,20 @@ std::string coords_to_pdbqt_string(const vec& coords, const std::string& str)
 	return tmp;
 }
 
-void context::write(const vecv& coords, std::ostream& out) const
+void context::writePDBQT(const vecv& coords, std::ostream& out) const
 {
-	if(!sdftext.valid())
-	{ //pdbqt
-		VINA_FOR_IN(i, pdbqttext)
+	VINA_FOR_IN(i, pdbqttext)
+	{
+		const std::string& str = pdbqttext[i].first;
+		if (pdbqttext[i].second)
 		{
-			const std::string& str = pdbqttext[i].first;
-			if (pdbqttext[i].second)
-			{
-				out << coords_to_pdbqt_string(coords[pdbqttext[i].second.get()], str)
+			out
+					<< coords_to_pdbqt_string(coords[pdbqttext[i].second.get()],
+							str)
 					<< '\n';
 		}
-		else if(boost::starts_with(str,"BEGIN_RES") ||
-				boost::starts_with(str,"END_RES"))
+		else if (boost::starts_with(str, "BEGIN_RES") ||
+				boost::starts_with(str, "END_RES"))
 		{
 			//dkoes - openbabel thinks these denote separate molecules
 			//so we lose all but the first residue if we leave them in
@@ -722,17 +722,64 @@ void context::write(const vecv& coords, std::ostream& out) const
 		else
 			out << str << '\n';
 	}
-	}
-	else
-	{
-		assert(0); //TODO
-	}
+}
+
+//output sdf format to out
+void sdfcontext::write(const vecv& coords, std::ostream& out) const
+{
+	const unsigned bsize = 1024;
+	char buff[bsize]; //since sprintf is just so much easier to use
+	//name followed by two blank lines
+	out << name << "\n\n\n";
+
+	//cnts and version line
+    snprintf(buff, bsize, "%3d%3d  0  0  0  0  0  0  0  0999 V2000\n",
+             (int)atoms.size(), (int)bonds.size());
+    out << buff;
+
+    //atom block
+    for(unsigned i = 0, n = atoms.size(); i < n; i++)
+    {
+    	const sdfatom& atom = atoms[i];
+    	const vec& c = coords[atom.index];
+    	assert(atom.index < coords.size());
+        snprintf(buff, bsize, "%10.4f%10.4f%10.4f %-3.2s 0  0  0  0  0  0  0  0  0  0  0  0\n",
+             c[0], c[1], c[2], atom.elem);
+        out << buff;
+    }
+
+    //bond block
+    for(unsigned i = 0, n = bonds.size(); i < n; i++)
+    {
+    	const sdfbond& bond = bonds[i];
+    	out << std::setw(3) << bond.a+1; //indexed from one
+    	out << std::setw(3) << bond.b+1;
+    	out << std::setw(3) << (int)bond.type;
+    	out << "  0  0  0\n";
+    }
+
+    //properties
+    for(unsigned i = 0, n = properties.size(); i < n; i++)
+    {
+    	const sdfprop& prop = properties[i];
+    	if(prop.type == 'c') //M CHG
+    	{
+    		out << "M  CHG 1 " << std::setw(3) << prop.atom << std::setw(4) << (int)prop.value << "\n";
+    	}
+    	else if(prop.type == 'i') //M  ISO
+    	{
+    		out << "M  ISO 1 " << std::setw(3) << prop.atom << std::setw(4) << (int)prop.value << "\n";
+    	}
+    }
+
+    //end, but leave room for sddata
+    out << "M  END\n";
 }
 
 void model::write_context(const context& c, std::ostream& out) const
 		{
 	verify_bond_lengths();
-	c.write(coords, out);
+	c.writePDBQT(coords, out);
 }
 
 void model::seti(const conf& c)
