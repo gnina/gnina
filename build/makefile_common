@@ -3,7 +3,7 @@ BOOST_INCLUDE = $(BASE)/include/boost-${BOOST_VERSION}
 LIBOBJ = cache.o coords.o  custom_terms.o everything.o grid.o szv_grid.o model.o monte_carlo.o mutate.o my_pid.o naive_non_cache.o non_cache.o obmolopener.o parallel_mc.o parse_pdbqt.o pdb.o quasi_newton.o quaternion.o random.o ssd.o terms.o weighted_terms.o molgetter.o result_info.o PDBQTUtilities.o SminaConverter.o
 MAINOBJ = main.o
 TOSMINAOBJ = tosmina.o CommandLine.o 
-
+SERVEROBJ = server.o CommandLine.o MinimizationQuery.o QueryManager.o
 INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) 
 
 CC = ${GPP} ${C_PLATFORM} -ansi  ${C_OPTIONS} $(INCFLAGS)
@@ -14,22 +14,14 @@ LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -lz -l boost_system${
 
 .SUFFIXES: .cpp .o
 
-%.o : ../../../src/lib/%.cpp 
-	$(CC) $(CFLAGS) -o $@ -c $< 
-
-%.o : ../../../src/main/%.cpp 
-	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
-
-%.o : ../../../src/tosmina/%.cpp 
-	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
-
-%.o : ../../../src/tosmina/CommandLine2/%.cpp 
-	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
-		
-%.o : ../../../src/split/%.cpp 
+%.o : ../../../src/*/%.cpp 
 	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
 	
-all: smina  tosmina
+%.o : ../../../src/lib/CommandLine2/%.cpp 
+	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
+		
+	
+all: smina  tosmina server
 
 include dependencies
 
@@ -40,6 +32,10 @@ smina: $(MAINOBJ) $(LIBOBJ)
 tosmina: $(TOSMINAOBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"
+	
+server: $(SERVEROBJ) $(LIBOBJ)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+	@echo "Done"	
     	
 clean:
 	rm -f *.o
