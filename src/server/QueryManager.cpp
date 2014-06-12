@@ -10,49 +10,92 @@
 #include "MinimizationQuery.h"
 #include <boost/algorithm/string.hpp>
 
+using namespace boost;
 
 //add a query, return zero if unsuccessful
 unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
 {
-
-	lock_guard<boost::mutex> lock(mu); //protect the query map
-
+	mu.lock();
 	//explicitly remove old query
 	if (oldqid > 0 && queries.count(oldqid) > 0)
 	{
 		QueryPtr oldq = queries[oldqid];
 		oldq->cancel();
-		queries.erase(oldqid); //removates shared ptr reference from map
+		if (oldq->finished())
+			queries.erase(oldqid); //removates shared ptr reference from map if not still minimizing
+		//otherwise need to wait to purge
 	}
+	mu.unlock();
 
 	//read receptor info and rotation/translation info, but leave ligand for minimizer to stream
 	string str;
 	*io >> str;
-	if(str != "receptor")
+	if (str != "receptor")
 	{
 		*io << "ERROR\nNo receptor\n";
 		return 0;
 	}
 	unsigned rsize = 0; //size of receptor string, must be in pdbqt
 	*io >> rsize;
-	if(rsize == 0)
+	if (rsize == 0)
 	{
 		*io << "ERROR\nInvalid receptor size\n";
 		return 0;
 	}
 
-	string recstr(rsize+1, '\0');
+	string recstr(rsize + 1, '\0');
 	io->read(&recstr[0], rsize);
 
-	//now rotation and translation matrix
-	Reorienter reorient;
-	reorient.read(*io);
+	//does the ligand data have to be reoriented?
+	bool hasR = false;
+	*io >> hasR;
 
 	//absorb newline before ligand data
-	getline(*io,str);
+	getline(*io, str);
 
+	QueryPtr q;
+	//protect access to nextID and queries
+	mu.lock();
 	unsigned id = nextID++;
-	queries[id] = QueryPtr(new MinimizationQuery(recstr, reorient,io));
-	queries[id]->execute(); //don't wait for result
+	q = QueryPtr(new MinimizationQuery(minparm, recstr, io, hasR));
+	queries[id] = q;
+	mu.unlock();
+
+	q->execute(); //don't wait for result
+
 	return id;
+}
+
+//count types of queries
+void QueryManager::getCounts(unsigned& active, unsigned& inactive,
+		unsigned& defunct)
+{
+	active = inactive = defunct = 0;
+	lock_guard<mutex> L(mu);
+
+	for (QueryMap::iterator itr = queries.begin(), end = queries.end(); itr
+			!= end; itr++)
+	{
+		QueryPtr q = itr->second;
+		if (!q->finished())
+			active++;
+		else if (q->idle() > timeout)
+			defunct++;
+		else
+			inactive++;
+	}
+}
+
+QueryPtr QueryManager::get(unsigned qid)
+{
+	unique_lock<mutex>(mu);
+
+	if (queries.count(qid) == 0)
+		return QueryPtr();
+	QueryPtr q = queries[qid];
+	if (q == NULL)
+		return QueryPtr();
+
+	q->access();
+	return q;
 }

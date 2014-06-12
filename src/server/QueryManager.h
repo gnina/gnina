@@ -20,6 +20,8 @@ using namespace std;
 
 typedef shared_ptr<MinimizationQuery> QueryPtr;
 
+
+
 //an instance of this classes manages all the extant minimization queries
 //each query is assigned a unique id for later reference
 class QueryManager
@@ -32,10 +34,14 @@ private:
 
 	mutex mu;
 
+	unsigned timeout; //seconds until purgeable
+
+	MinimizationParameters minparm;
 public:
 
-	QueryManager(): nextID(1)
+	QueryManager(unsigned numt, unsigned tout=60*30): nextID(1), timeout(tout)
 	{
+		minparm.nthreads = numt;
 	}
 
 	//add a query

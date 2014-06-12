@@ -13,41 +13,100 @@
 #include "Reorienter.h"
 #include "server_common.h"
 #include "model.h"
+#include <boost/lockfree/queue.hpp>
+#include "parse_pdbqt.h"
+#include "parsing.h"
+#include "custom_terms.h"
+#include "weighted_terms.h"
+#include "precalculate.h"
+
+//store various things that only have to be initialized once for any minimization
+struct MinimizationParameters
+{
+	minimization_params minparms;
+	custom_terms t;
+	weighted_terms *wt;
+	precalculate *prec;
+	unsigned nthreads;
+
+	MinimizationParameters();
+	~MinimizationParameters();
+};
 
 class MinimizationQuery
 {
+	const MinimizationParameters& minparm;
 	bool valid;
-	bool stopQuery;
-	time_t lastAccessed;
+	bool stopQuery; //cancelled
+	time_t lastAccessed; //last time accessed
 
-	Reorienter reorient;
+	unsigned chunk_size; //how many ligands to process at a time
+	bool readAllData; //try after we have consumed all the ligands
+	bool hasReorient; //try if ligand data is prefaced by rotation/translation
 	stream_ptr io;
-
 	model initm;
 
+	boost::mutex io_mutex; //protects io
+
 	//holds the result of minimization
-	struct Result {
+	struct Result
+	{
 		double score;
 		double rmsd;
 		string name;
 		string sdf;
 	};
 
-	vector<Result*> processedResults; //after sorting and filtering, what the user sees
+	Result* minimize(model& m); //return new result
+
 	vector<Result*> allResults; //order doesn't change, minimizers add to this
+
+	boost::shared_mutex results_mutex; //protects allResults
+
+	boost::thread *minimizationSpawner; //manages thread_group of minimization threads
+
+	static void thread_startMinimization(MinimizationQuery* q);
+	static void thread_minimize(MinimizationQuery* q);
+
+	void checkThread();
+
+	//this is what is read from the user
+	struct LigandData
+	{
+		Reorienter reorient;
+		unsigned numtors;
+		parsing_struct p;
+		context c;
+	};
+
+	//reads into ligands
+	//returns false iff there is no more data to read
+	bool thread_safe_read(vector<LigandData>& ligands);
+
 public:
 
 	//criteria for filtering and (maybe eventually) sorting the data
-	struct Filters {
+	struct Filters
+	{
 		double maxScore;
 		double maxRMSD;
 
-		Filters(): maxScore(HUGE_VAL), maxRMSD(HUGE_VAL) {}
+		Filters() :
+				maxScore(HUGE_VAL), maxRMSD(HUGE_VAL)
+		{
+		}
 	};
 
-
-
-	MinimizationQuery(const string& recstr, const Reorienter& re, stream_ptr data);
+	MinimizationQuery(const MinimizationParameters& minp, const string& recstr, stream_ptr data,
+			bool hasR, unsigned chunks = 10) : minparm(minp),
+			valid(true), stopQuery(false), lastAccessed(time(NULL)),
+					chunk_size(chunks), readAllData(false), hasReorient(hasR),
+					io(data), minimizationSpawner(NULL)
+	{
+		//create the initial model
+		stringstream rec(recstr);
+		initm = parse_receptor_pdbqt("rigid.pdbqt", rec);
+	}
 
 	~MinimizationQuery();
 
@@ -56,7 +115,7 @@ public:
 		return valid;
 	}
 
-	void execute(bool block = true);
+	void execute(bool block = false);
 
 	//all of the result/output functions can be called while an asynchronous
 	//query is running
@@ -70,9 +129,12 @@ public:
 	void outputMol(unsigned index, ostream& out);
 
 	//attempt to cancel,
-	void cancel();
-	bool finished(); //okay to deallocate, user may still care though
-	bool cancelled() { return stopQuery; } //user no longer cares
+	void cancel() { stopQuery = true; }
+	bool finished(); //done minimizing
+	bool cancelled()
+	{
+		return stopQuery;
+	} //user no longer cares
 	void access()
 	{
 		lastAccessed = time(NULL);
@@ -82,7 +144,6 @@ public:
 	{
 		return time(NULL) - lastAccessed;
 	} //time since last access
-
 
 };
 

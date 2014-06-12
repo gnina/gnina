@@ -22,9 +22,8 @@
 
 #include <fstream>
 using namespace std;
-using namespace boost;
 
-typedef shared_ptr<boost::asio::ip::tcp::iostream> stream_ptr;
+typedef boost::shared_ptr<boost::asio::ip::tcp::iostream> stream_ptr;
 
 
 #endif /* SERVER_COMMON_H_ */
