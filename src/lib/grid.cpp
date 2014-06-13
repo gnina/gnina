@@ -47,7 +47,7 @@ fl grid::evaluate(const atom& a, const vec& location, fl slope, fl c,
 	return ret;
 }
 
-fl grid::evaluate_user(const vec& location, fl slope, vec *deriv)
+fl grid::evaluate_user(const vec& location, fl slope, vec *deriv) const
 {
     return evaluate_aux(data, location, slope, (fl) 1000, deriv);
 }

@@ -5,8 +5,13 @@
  *      Author: dkoes
  */
 
-#include "MinimizationQuery.h"
 #include <sstream>
+
+#include "MinimizationQuery.h"
+#include "conf.h"
+#include "non_cache.h"
+#include "quasi_newton.h"
+#include <boost/archive/binary_iarchive.hpp>
 
 using namespace boost;
 
@@ -27,14 +32,21 @@ MinimizationParameters::MinimizationParameters() :
 
 	wt = new weighted_terms(&t, t.weights());
 	prec = new precalculate_splines(*wt, 10.0);
+	exact_prec = new precalculate_exact(*wt);
+	nnc = new naive_non_cache(exact_prec);
 }
 
 MinimizationParameters::~MinimizationParameters()
 {
-	if(wt) delete wt;
-	if(prec) delete prec;
+	if (wt)
+		delete wt;
+	if (prec)
+		delete prec;
+	if (exact_prec)
+		delete exact_prec;
+	if (nnc)
+		delete nnc;
 }
-
 
 MinimizationQuery::~MinimizationQuery()
 {
@@ -92,12 +104,99 @@ void MinimizationQuery::thread_startMinimization(MinimizationQuery *query)
 }
 
 //thread safe minimization of m
-//allocates and returns a result structure
+//allocates and returns a result structure, caller takes responsibility for memory
 MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 {
+	static const vec authentic_v(10, 10, 10);
+	static const grid empty_grid;
+	static const fl autobox_add = 8;
+	static const fl granularity = 0.375;
 
+	vecv origcoords = m.get_heavy_atom_movable_coords();
+	fl e = max_fl;
+	conf c = m.get_initial_conf();
+	output_type out(c, e);
+
+	//do minimization
+	grid_dims gd = m.movable_atoms_box(autobox_add, granularity);
+	change g(m.get_size());
+	quasi_newton quasi_newton_par(minparm.minparms);
+	szv_grid_cache gridcache(m, minparm.prec->cutoff_sqr());
+
+	non_cache nc(gridcache, gd, minparm.prec);
+	//it rarely takes more than one try
+	fl slope = 10;
+	unsigned i;
+	for (i = 0; i < 3; i++)
+	{
+		nc.setSlope(slope);
+		quasi_newton_par(m, *minparm.prec, nc, out, g, authentic_v, empty_grid);
+		m.set(out.c); // just to be sure
+		if (nc.within(m))
+			break;
+		slope *= 10;
+	}
+
+	if (i == 3) //couldn't stay in box
+		out.e = max_fl;
+
+	fl intramolecular_energy = m.eval_intramolecular(*minparm.exact_prec,
+			authentic_v, out.c);
+	e = m.eval_adjusted(*minparm.wt, *minparm.exact_prec, *minparm.nnc,
+			authentic_v, out.c,
+			intramolecular_energy, empty_grid);
+
+	vecv newcoords = m.get_heavy_atom_movable_coords();
+	assert(newcoords.size() == origcoords.size());
+
+	fl rmsd = 0;
+	for (unsigned i = 0, n = newcoords.size(); i < n; i++)
+	{
+		rmsd += (newcoords[i] - origcoords[i]).norm_sqr();
+	}
+	rmsd /= newcoords.size();
+	rmsd = sqrt(rmsd);
+
+	//construct result
+	Result *result = new Result();
+	result->score = e;
+	result->rmsd = rmsd;
+	result->name = m.get_name();
+	stringstream str;
+	m.write_sdf(str);
+	result->sdf = str.str();
+
+	return result;
 }
 
+//read a chunk of ligands at a time
+//return false if there's definitely nothing else to read
+bool MinimizationQuery::thread_safe_read(vector<LigandData>& ligands)
+{
+	ligands.clear();
+	unique_lock<mutex> lock(io_mutex);
+
+	if (!*io)
+		return false;
+
+	for (unsigned i = 0; i < chunk_size; i++)
+	{
+		try
+		{
+			LigandData data;
+
+			boost::archive::binary_iarchive serialin(*io,
+					boost::archive::no_header | boost::archive::no_tracking);
+			serialin >> data.numtors;
+			serialin >> data.p;
+			serialin >> data.c;
+		}
+		catch (boost::archive::archive_exception& e)
+		{
+			return ligands.size() > 0; //need to minimize last set of ligands
+		}
+	}
+}
 
 //read chunks of ligands, minimize them, and store the result
 void MinimizationQuery::thread_minimize(MinimizationQuery* q)
@@ -124,16 +223,20 @@ void MinimizationQuery::thread_minimize(MinimizationQuery* q)
 				tmp.initialize_from_nrp(nr, l.c, true);
 				tmp.initialize(nr.mobility_matrix());
 				m.set_name(l.c.sdftext.name);
+
+				if (q->hasReorient)
+					l.reorient.reorient(tmp.m.coordinates());
+
 				m.append(tmp.m);
 
 				Result *result = q->minimize(m);
-				if(result != NULL)
+				if (result != NULL)
 					results.push_back(result);
 			}
 
 			//add computed results
 			lock_guard<shared_mutex> lock(q->results_mutex);
-			for(unsigned i = 0, n = results.size(); i < n; i++)
+			for (unsigned i = 0, n = results.size(); i < n; i++)
 			{
 				q->allResults.push_back(results[i]);
 			}

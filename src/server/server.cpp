@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 
 	//setup log
 	Logger log(logfile);
-	QueryManager queries; //initialize query manager
+	QueryManager queries(minimizationThreads); //initialize query manager
 
 	//command map
 	cmd_map commands = assign::map_list_of

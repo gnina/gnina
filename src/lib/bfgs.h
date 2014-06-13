@@ -133,7 +133,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		x_new = x;
 		x_new.increment(p, alpha);
 		f1 = f(x_new, g_new);
-//std::cout << "alpha " << alpha << "  f " << f1 << "\n";
+		//std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << "\n";
 		if (alpha < alamin) //convergence
 		{
 			x_new = x;
@@ -178,6 +178,8 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		}
 		alpha2 = alpha;
 		f2 = f1;
+		//std::cout << "TMPLAM " << tmplam << "\n";
+		//considered slowing things down with f1 > 0, but it was slow without actually improving scores
 		alpha = std::max(tmplam, (fl)0.1 * alpha); //never smaller than a tenth
 	}
 }
@@ -213,11 +215,16 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 
 	Change p(g);
 
+//	std::ofstream fout("minout.sdf");
 	VINA_U_FOR(step, params.maxiters)
 	{
 		minus_mat_vec_product(h, g, p);
 		fl f1 = 0;
 		fl alpha;
+
+//		f.m->set(x);
+//		f.m->write_sdf(fout);
+//		fout << "$$$$\n";
 
 		if (params.type == minimization_params::BFGSAccurateLineSearch)
 			alpha = accurate_line_search(f, n, x, g, f0, p, x_new, g_new, f1);

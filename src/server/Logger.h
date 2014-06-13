@@ -16,13 +16,11 @@
 #include <string>
 #include <boost/thread.hpp>
 #include <boost/filesystem.hpp>
-using namespace std;
-using namespace boost;
 
 class Logger
 {
 	FILE *LOG;
-	mutex locker;
+	boost::mutex locker;
 public:
 	Logger(const string& logname): LOG(NULL)
 	{

@@ -25,7 +25,7 @@
 
 #include "common.h"
 
-#if 1 // prefer this to "hard curl"? 
+#if 1 // prefer this to "hard curl"?
 template<typename T> // T = fl or vec
 void curl(fl& e, T& deriv, fl v) {
 	if(e > 0 && not_max(v)) { // FIXME authentic_v can be gotten rid of everywhere now
@@ -48,7 +48,7 @@ template<typename T> // T = fl or vec
 void curl(fl& e, T& deriv, fl v) {
 	if(e > v) {
 		e = v;
-		deriv = 0;
+		deriv *= 0;
 	}
 }
 

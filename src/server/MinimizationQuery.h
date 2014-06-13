@@ -19,6 +19,7 @@
 #include "custom_terms.h"
 #include "weighted_terms.h"
 #include "precalculate.h"
+#include "naive_non_cache.h"
 
 //store various things that only have to be initialized once for any minimization
 struct MinimizationParameters
@@ -27,6 +28,8 @@ struct MinimizationParameters
 	custom_terms t;
 	weighted_terms *wt;
 	precalculate *prec;
+	precalculate_exact *exact_prec;
+	naive_non_cache *nnc; //for scoring
 	unsigned nthreads;
 
 	MinimizationParameters();
@@ -35,6 +38,24 @@ struct MinimizationParameters
 
 class MinimizationQuery
 {
+public:
+
+	//criteria for filtering and (maybe eventually) sorting the data
+	struct Filters
+	{
+		double maxScore;
+		double maxRMSD;
+
+		enum SortType { Score, RMSD };
+		SortType sort;
+		bool reverseSort;
+		Filters() :
+				maxScore(HUGE_VAL), maxRMSD(HUGE_VAL), sort(Score), reverseSort(false)
+		{
+		}
+	};
+
+private:
 	const MinimizationParameters& minparm;
 	bool valid;
 	bool stopQuery; //cancelled
@@ -83,19 +104,8 @@ class MinimizationQuery
 	//returns false iff there is no more data to read
 	bool thread_safe_read(vector<LigandData>& ligands);
 
+	void loadResults(const Filters& filter, vector<Result*>& results);
 public:
-
-	//criteria for filtering and (maybe eventually) sorting the data
-	struct Filters
-	{
-		double maxScore;
-		double maxRMSD;
-
-		Filters() :
-				maxScore(HUGE_VAL), maxRMSD(HUGE_VAL)
-		{
-		}
-	};
 
 	MinimizationQuery(const MinimizationParameters& minp, const string& recstr, stream_ptr data,
 			bool hasR, unsigned chunks = 10) : minparm(minp),

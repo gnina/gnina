@@ -66,7 +66,7 @@ fl cache::eval(const model& m, fl v) const
 	return e;
 }
 
-fl cache::eval_deriv(model& m, fl v, grid& user_grid) const
+fl cache::eval_deriv(model& m, fl v, const grid& user_grid) const
 		{ // needs m.coords, sets m.minus_forces
 	fl e = 0;
 	sz nat = num_atom_types();

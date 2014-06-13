@@ -1,7 +1,9 @@
+#include <boost/program_options.hpp>
+
 #include <iostream>
 #include <string>
 #include <exception>
-#include <vector> // ligand paths#include <cmath> // for ceila#include <boost/program_options.hpp>#include <boost/filesystem/fstream.hpp>#include <boost/filesystem/exception.hpp>
+#include <vector> // ligand paths#include <cmath> // for ceila#include <boost/filesystem/fstream.hpp>#include <boost/filesystem/exception.hpp>
 #include <boost/filesystem/convenience.hpp> // filesystem::basename#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?#include <boost/lexical_cast.hpp>#include "parse_pdbqt.h"#include "parallel_mc.h"
 #include "file.h"
 #include "cache.h"
@@ -35,10 +37,33 @@
 using namespace boost::iostreams;
 using boost::filesystem::path;
 
-path make_path(const std::string& str)
+
+//just a collection of user-specified configurations
+struct user_settings
 {
-	return path(str);
-}
+	fl energy_range;
+	sz num_modes;
+	fl out_min_rmsd;
+	fl forcecap;
+	int seed;
+	int verbosity;
+	int cpu;
+	int exhaustiveness;
+	bool score_only;
+	bool randomize_only;
+	bool local_only;
+	bool dominimize;
+	bool include_atom_info;
+
+	//reasonable defaults
+	user_settings(): energy_range(2.0), num_modes(9), out_min_rmsd(1),
+			forcecap(1000),seed(auto_seed()),verbosity(1), cpu(1), exhaustiveness(10),
+			score_only(false), randomize_only(false), local_only(false),
+			dominimize(false), include_atom_info(false)
+	{
+
+	}
+};
 
 void doing(int verbosity, const std::string& str, tee& log)
 {
@@ -120,13 +145,18 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	quasi_newton quasi_newton_par(minparm);
 	const fl slope_orig = nc.getSlope();
 	//try 5 times to get ligand into box
+	//dkoes - you don't need a very strong constraint to keep ligands in the box,
+	//but this factor can really bias the energy landscape
+	fl slope = 10;
 	VINA_FOR(p, 5)
 	{
-		nc.setSlope(100 * std::pow(10.0, 2.0 * p));
+		nc.setSlope(slope);
 		quasi_newton_par(m, prec, nc, out, g, cap, user_grid); //quasi_newton operator
 		m.set(out.c); // just to be sure
-		if (nc.within(m))
+		if (nc.within(m)) {
 			break;
+		}
+		slope *= 10;
 	}
 	out.coords = m.get_heavy_atom_movable_coords();
 	if (!nc.within(m))
@@ -158,9 +188,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 		const weighted_terms& sf, const precalculate& prec, const igrid& ig,
 		non_cache& nc, // nc.slope is changed
 		const vec& corner1, const vec& corner2,
-		const parallel_mc& par, fl energy_range, sz num_modes, int seed,
-		int verbosity, bool score_only, bool local_only, bool compute_atominfo,
-		fl out_min_rmsd, tee& log,
+		const parallel_mc& par, const user_settings& settings,
+		bool compute_atominfo, tee& log,
 		const terms *t, grid& user_grid, std::vector<result_info>& results)
 {
 	boost::timer time;
@@ -170,8 +199,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 	conf c = m.get_initial_conf();
 	fl e = max_fl;
 	fl rmsd = 0;
-	const vec authentic_v(1000, 1000, 1000);
-	if (score_only)
+	const vec authentic_v(settings.forcecap, settings.forcecap, settings.forcecap); //small cap restricts initial movement from clash
+	if (settings.score_only)
 	{
 		fl intramolecular_energy = m.eval_intramolecular(exact_prec,
 				authentic_v, c);
@@ -211,14 +240,14 @@ void do_search(model& m, const boost::optional<model>& ref,
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
 	}
-	else if (local_only)
+	else if (settings.local_only)
 	{
 		vecv origcoords = m.get_heavy_atom_movable_coords();
 		output_type out(c, e);
-		doing(verbosity, "Performing local search", log);
+		doing(settings.verbosity, "Performing local search", log);
 		refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm,
 				user_grid);
-		done(verbosity, log);
+		done(settings.verbosity, log);
 
 		//be as exact as possible for final score
 		naive_non_cache nnc(&exact_prec); // for out of grid issues
@@ -247,21 +276,21 @@ void do_search(model& m, const boost::optional<model>& ref,
 			<< "WARNING: not all movable atoms are within the search space\n";
 
 		m.set(out.c);
-		done(verbosity, log);
+		done(settings.verbosity, log);
 		results.push_back(result_info(e, rmsd, m));
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
 	}
 	else
 	{
-		rng generator(static_cast<rng::result_type>(seed));
-		log << "Using random seed: " << seed;
+		rng generator(static_cast<rng::result_type>(settings.seed));
+		log << "Using random seed: " << settings.seed;
 		log.endl();
 		output_container out_cont;
-		doing(verbosity, "Performing search", log);
+		doing(settings.verbosity, "Performing search", log);
 		par(m, out_cont, prec, ig, corner1, corner2, generator, user_grid);
-		done(verbosity, log);
-		doing(verbosity, "Refining results", log);
+		done(settings.verbosity, log);
+		doing(settings.verbosity, "Refining results", log);
 		VINA_FOR_IN(i, out_cont)
 			refine_structure(m, prec, nc, out_cont[i], authentic_v,
 					par.mc.ssd_par.minparm, user_grid);
@@ -280,9 +309,9 @@ void do_search(model& m, const boost::optional<model>& ref,
 			// the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
 			out_cont.sort();
 		}
-		out_cont = remove_redundant(out_cont, out_min_rmsd);
+		out_cont = remove_redundant(out_cont, settings.out_min_rmsd);
 
-		done(verbosity, log);
+		done(settings.verbosity, log);
 
 		log.setf(std::ios::fixed, std::ios::floatfield);
 		log.setf(std::ios::showpoint);
@@ -298,8 +327,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 		sz how_many = 0;
 		VINA_FOR_IN(i, out_cont)
 		{
-			if (how_many >= num_modes || !not_max(out_cont[i].e)
-					|| out_cont[i].e > out_cont[0].e + energy_range)
+			if (how_many >= settings.num_modes || !not_max(out_cont[i].e)
+					|| out_cont[i].e > out_cont[0].e + settings.energy_range)
 				break; // check energy_range sanity FIXME
 			++how_many;
 			log << std::setw(4) << i + 1 << "    " << std::setw(9)
@@ -319,7 +348,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 				results.back().setAtomValues(m, &sf);
 
 		}
-		done(verbosity, log);
+		done(settings.verbosity, log);
 
 		if (how_many < 1)
 		{
@@ -354,17 +383,15 @@ void load_ent_values(const grid_dims& gd, std::istream& user_in,
 
 void main_procedure(model& m, precalculate& prec,
 		const boost::optional<model>& ref, // m is non-const (FIXME?)
-		bool score_only, bool local_only,
-		bool randomize_only, bool no_cache, bool compute_atominfo, bool gpu_on,
-		const grid_dims& gd,
-		int exhaustiveness, minimization_params minparm,
-		const weighted_terms& wt, int cpu, int seed,
-		int verbosity, sz num_modes, fl energy_range, fl out_min_rmsd, tee& log,
+		const user_settings& settings,
+		bool no_cache, bool compute_atominfo, bool gpu_on,
+		const grid_dims& gd, minimization_params minparm,
+		const weighted_terms& wt, tee& log,
 		std::vector<result_info>& results, grid& user_grid)
 {
-	doing(verbosity, "Setting up the scoring function", log);
+	doing(settings.verbosity, "Setting up the scoring function", log);
 
-	done(verbosity, log);
+	done(settings.verbosity, log);
 
 	vec corner1(gd[0].begin, gd[1].begin, gd[2].begin);
 	vec corner2(gd[0].end, gd[1].end, gd[2].end);
@@ -378,23 +405,17 @@ void main_procedure(model& m, precalculate& prec,
 		minparm.maxiters = par.mc.ssd_par.evals;
 	par.mc.ssd_par.minparm = minparm;
 	par.mc.min_rmsd = 1.0;
-	par.mc.num_saved_mins = num_modes > 20 ? num_modes : 20; //dkoes, support more than 20
+	par.mc.num_saved_mins = settings.num_modes > 20 ? settings.num_modes : 20; //dkoes, support more than 20
 	par.mc.hunt_cap = vec(10, 10, 10);
-	par.num_tasks = exhaustiveness;
-	par.num_threads = cpu;
+	par.num_tasks = settings.exhaustiveness;
+	par.num_threads = settings.cpu;
 	par.display_progress = true;
-
-	/*
-	 std::cout << score_only << "\n";
-	 std::cout << local_only << "\n";
-	 std::cout << no_cache << "\n";
-	 */
 
 	szv_grid_cache gridcache(m, prec.cutoff_sqr());
 	const fl slope = 1e6; // FIXME: too large? used to be 100
-	if (randomize_only)
+	if (settings.randomize_only)
 	{
-		fl e = do_randomization(m, corner1, corner2, seed, verbosity, log);
+		fl e = do_randomization(m, corner1, corner2, settings.seed, settings.verbosity, log);
 		results.push_back(result_info(e, -1, m));
 		return;
 	}
@@ -417,16 +438,15 @@ void main_procedure(model& m, precalculate& prec,
 		if (no_cache)
 		{
 			do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
-					energy_range, num_modes, seed, verbosity, score_only,
-					local_only, compute_atominfo, out_min_rmsd, log,
+					settings, compute_atominfo, log,
 					wt.unweighted_terms(), user_grid,
 					results);
 		}
 		else
 		{
-			bool cache_needed = !(score_only || randomize_only || local_only);
+			bool cache_needed = !(settings.score_only || settings.randomize_only || settings.local_only);
 			if (cache_needed)
-				doing(verbosity, "Analyzing the binding site", log);
+				doing(settings.verbosity, "Analyzing the binding site", log);
 			cache c("scoring_function_version001", gd, slope);
 			if (cache_needed)
 			{
@@ -435,10 +455,9 @@ void main_procedure(model& m, precalculate& prec,
 				c.populate(m, prec, atom_types_needed, user_grid);
 			}
 			if (cache_needed)
-				done(verbosity, log);
+				done(settings.verbosity, log);
 			do_search(m, ref, wt, prec, c, *nc, corner1, corner2, par,
-					energy_range, num_modes, seed, verbosity, score_only,
-					local_only, compute_atominfo, out_min_rmsd, log,
+					settings, compute_atominfo, log,
 					wt.unweighted_terms(), user_grid, results);
 		}
 		delete nc;
@@ -732,7 +751,7 @@ static void create_init_model(const std::string& rigid_name,
 
 		if (flex_name.size() > 0) //have flexible residues
 		{
-			ifile flexin(make_path(flex_name));
+			ifile flexin(flex_name);
 			initm = parse_receptor_pdbqt(rigid_name, *rigidin_ptr,
 					flex_name, flexin);
 		}
@@ -791,9 +810,7 @@ Thank you!\n";
 		fl autobox_add = 8;
 		fl out_min_rmsd = 1;
 		std::string autobox_ligand;
-		int cpu = 0, seed, exhaustiveness, verbosity, num_modes = 9,
-				device = 0;
-		fl energy_range = 2.0;
+		int device = 0;
 
 		// -0.035579, -0.005156, 0.840245, -0.035069, -0.587439, 0.05846
 		fl weight_gauss1 = -0.035579;
@@ -803,9 +820,7 @@ Thank you!\n";
 		fl weight_hydrogen = -0.587439;
 		fl weight_rot = 0.05846;
 		fl user_grid_lambda;
-		bool score_only = false, local_only = false, randomize_only = false,
-				help = false, help_hidden = false, version = false;
-		bool dominimize = false;
+		bool help = false, help_hidden = false, version = false;
 		bool dkoes_score = false;
 		bool ad4_score = false;
 		bool dkoes_score_old = false;
@@ -813,11 +828,12 @@ Thank you!\n";
 		bool quiet = false;
 		bool accurate_line = false;
 		bool flex_hydrogens = false;
-		bool include_atom_terms = false;
 		bool gpu_on = false;
 		bool print_terms = false;
 		bool add_hydrogens = true;
 		bool no_lig = false;
+
+		user_settings settings;
 		minimization_params minparms;
 		ApproxType approx = LinearApprox;
 		fl approx_factor = 32;
@@ -845,7 +861,7 @@ Thank you!\n";
 				"Ligand to use for autobox")
 		("autobox_add", value<fl>(&autobox_add),
 				"Amount of buffer space to add to auto-generated box (default 8)")
-		("no_lig", bool_switch(&no_lig),
+		("no_lig", bool_switch(&no_lig)->default_value(false),
 				"no ligand; for sampling/minimizing flexible residues");
 
 		//options_description outputs("Output prefixes (optional - by default, input names are stripped of .pdbqt\nare used as prefixes. _001.pdbqt, _002.pdbqt, etc. are appended to the prefixes to produce the output names");
@@ -856,19 +872,19 @@ Thank you!\n";
 		("log", value<std::string>(&log_name), "optionally, write log file")
 		("atom_terms", value<std::string>(&atom_name),
 				"optionally write per-atom interaction term values")
-		("atom_term_data", bool_switch(&include_atom_terms),
+		("atom_term_data", bool_switch(&settings.include_atom_info)->default_value(false),
 				"embedded per-atom interaction terms in output sd data");
 
 		options_description scoremin("Scoring and minimization options");
 		scoremin.add_options()
 		("custom_scoring", value<std::string>(&custom_file_name),
 				"custom scoring function file")
-		("score_only", bool_switch(&score_only), "score provided ligand pose")
-		("local_only", bool_switch(&local_only),
+		("score_only", bool_switch(&settings.score_only)->default_value(false), "score provided ligand pose")
+		("local_only", bool_switch(&settings.local_only)->default_value(false),
 				"local search only using autobox (you probably want to use --minimize)")
-		("minimize", bool_switch(&dominimize),
+		("minimize", bool_switch(&settings.dominimize)->default_value(false),
 				"energy minimization")
-		("randomize_only", bool_switch(&randomize_only),
+		("randomize_only", bool_switch(&settings.randomize_only),
 				"generate random poses, attempting to avoid clashes")
 		("minimize_iters",
 				value<unsigned>(&minparms.maxiters)->default_value(0),
@@ -881,6 +897,7 @@ Thank you!\n";
 				"approximation (linear, spline, or exact) to use")
 		("factor", value<fl>(&approx_factor),
 				"approximation factor: higher results in a finer-grained approximation")
+		("force_cap",value<fl>(&settings.forcecap),"max allowed force; lower values more gently minimize clashing structures")
 		("print_terms", bool_switch(&print_terms),
 				"Print all available terms with default parameterizations");
 
@@ -895,21 +912,21 @@ Thank you!\n";
 				"Approximation of Autodock 4 scoring")
 		("user_grid", value<std::string>(&usergrid_file_name),
 				"Autodock map file for user grid data based calculations, not implemented yet")
-		("verbosity", value<int>(&verbosity)->default_value(1),
+		("verbosity", value<int>(&settings.verbosity)->default_value(1),
 				"Adjust the verbosity of the output, default: 1")
 		("user_grid_lambda", value<fl>(&user_grid_lambda)->default_value(-1.0),
 						"Scales user_grid and functional scoring");
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
-		("cpu", value<int>(&cpu),
+		("cpu", value<int>(&settings.cpu),
 				"the number of CPUs to use (the default is to try to detect the number of CPUs or, failing that, use 1)")
-		("seed", value<int>(&seed), "explicit random seed")
-		("exhaustiveness", value<int>(&exhaustiveness)->default_value(8),
+		("seed", value<int>(&settings.seed), "explicit random seed")
+		("exhaustiveness", value<int>(&settings.exhaustiveness)->default_value(8),
 				"exhaustiveness of the global search (roughly proportional to time)")
-		("num_modes", value<int>(&num_modes)->default_value(9),
+		("num_modes", value<sz>(&settings.num_modes)->default_value(9),
 				"maximum number of binding modes to generate")
-		("energy_range", value<fl>(&energy_range)->default_value(3.0),
+		("energy_range", value<fl>(&settings.energy_range)->default_value(3.0),
 				"maximum energy difference between the best binding mode and the worst one displayed (kcal/mol)")
 		("min_rmsd_filter", value<fl>(&out_min_rmsd)->default_value(1.0),
 				"rmsd value used to filter final poses to remove redundancy")
@@ -960,8 +977,7 @@ Thank you!\n";
 		{
 			try
 			{
-				path name = make_path(config_name);
-				ifile config_stream(name);
+				ifile config_stream(config_name);
 				store(parse_config_file(config_stream, desc), vm);
 				notify(vm);
 			} catch (boost::program_options::error& e)
@@ -998,11 +1014,13 @@ Thank you!\n";
 
 		set_fixed_rotable_hydrogens(!flex_hydrogens);
 
-		if (dominimize) //set default settings for minimization
+		if (settings.dominimize) //set default settings for minimization
 		{
+			if(!vm.count("force_cap"))
+				settings.forcecap = 10; //nice and soft
 			if (minparms.maxiters == 0)
 				minparms.maxiters = 10000; //will presumably converge
-			local_only = true;
+			settings.local_only = true;
 			minparms.type = minimization_params::BFGSAccurateLineSearch;
 
 			if (!vm.count("approximation"))
@@ -1016,9 +1034,9 @@ Thank you!\n";
 			minparms.type = minimization_params::BFGSAccurateLineSearch;
 		}
 
-		bool search_box_needed = !(score_only || local_only); // randomize_only and local_only still need the search space; dkoes - for local get box from ligand
-		bool output_produced = !score_only;
-		bool receptor_needed = !randomize_only;
+		bool search_box_needed = !(settings.score_only || settings.local_only); // randomize_only and local_only still need the search space; dkoes - for local get box from ligand
+		bool output_produced = !settings.score_only;
+		bool receptor_needed = !settings.randomize_only;
 
 		if (receptor_needed)
 		{
@@ -1050,15 +1068,11 @@ Thank you!\n";
 					<< desc_simple << '\n';
 			return 1;
 		}
-		if (cpu < 1)
-			cpu = 1;
-		if (vm.count("seed") == 0)
-			seed = auto_seed();
-		if (exhaustiveness < 1)
+
+		if (settings.exhaustiveness < 1)
 			throw usage_error("exhaustiveness must be 1 or greater");
-		if (num_modes < 1)
+		if (settings.num_modes < 1)
 			throw usage_error("num_modes must be 1 or greater");
-		sz max_modes_sz = static_cast<sz>(num_modes);
 
 		boost::optional<std::string> flex_name_opt;
 		if (vm.count("flex"))
@@ -1110,7 +1124,7 @@ Thank you!\n";
 		}
 		if (custom_file_name.size() > 0)
 		{
-			ifile custom_file(make_path(custom_file_name));
+			ifile custom_file(custom_file_name);
 			t.add_terms_from_file(custom_file);
 		}
 		else if (dkoes_score || dkoes_score_old || dkoes_fast)
@@ -1141,7 +1155,7 @@ Thank you!\n";
 
 		if (usergrid_file_name.size() > 0)
 		{
-			ifile user_in(make_path(usergrid_file_name));
+			ifile user_in(usergrid_file_name);
 			fl ug_scaling_factor = 1.0;
 			if(user_grid_lambda != -1.0){
 				ug_scaling_factor = 1 - user_grid_lambda;
@@ -1166,23 +1180,19 @@ Thank you!\n";
 
 		if (vm.count("cpu") == 0)
 		{
-			unsigned num_cpus = boost::thread::hardware_concurrency();
-			if (verbosity > 1)
+			settings.cpu = boost::thread::hardware_concurrency();
+			if (settings.verbosity > 1)
 			{
-				if (num_cpus > 0)
-					log << "Detected " << num_cpus << " CPU"
-							<< ((num_cpus > 1) ? "s" : "") << '\n';
+				if (settings.cpu > 0)
+					log << "Detected " << settings.cpu << " CPU"
+							<< ((settings.cpu > 1) ? "s" : "") << '\n';
 				else
 					log << "Could not detect the number of CPUs, using 1\n";
 			}
-			if (num_cpus > 0)
-				cpu = num_cpus;
-			else
-				cpu = 1;
 		}
-		if (cpu < 1)
-			cpu = 1;
-		if (verbosity > 1 && exhaustiveness < cpu)
+		if (settings.cpu < 1)
+			settings.cpu = 1;
+		if (settings.verbosity > 1 && settings.exhaustiveness < settings.cpu)
 			log
 					<< "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
 
@@ -1221,7 +1231,7 @@ Thank you!\n";
 			outext = outfile.open(out_name);
 		}
 
-		if(score_only) //output header
+		if(settings.score_only) //output header
 		{
 			std::vector<std::string> enabled_names = t.get_names(true);
 			log << "## Name";
@@ -1240,7 +1250,7 @@ Thank you!\n";
 		//loop over input ligands
 		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
 		{
-			doing(verbosity, "Reading input", log);
+			doing(settings.verbosity, "Reading input", log);
 			const std::string& ligand_name = ligand_names[l];
 			mols.setInputFile(ligand_name);
 
@@ -1249,32 +1259,29 @@ Thank you!\n";
 			model m;
 			while (no_lig || mols.readMoleculeIntoModel(m))
 			{
-				if (local_only)
+				if (settings.local_only)
 				{
 					//dkoes - for convenience get box from model
 					gd = m.movable_atoms_box(autobox_add, granularity);
 				}
 
 				boost::optional<model> ref;
-				done(verbosity, log);
+				done(settings.verbosity, log);
 
 				std::stringstream output;
 				std::vector<result_info> results;
 
-				main_procedure(m, *prec, ref, score_only,
-						local_only, randomize_only,
+				main_procedure(m, *prec, ref, settings,
 						false, // no_cache == false
-						atomoutfile.is_open() || include_atom_terms, gpu_on,
-						gd, exhaustiveness, minparms, wt, cpu, seed, verbosity,
-						max_modes_sz, energy_range, out_min_rmsd, log, results,
-						user_grid);
+						atomoutfile.is_open() || settings.include_atom_info, gpu_on,
+						gd,minparms, wt,log, results, user_grid);
 
 				if (outfile)
 				{
 					//write out molecular data
 					for (unsigned j = 0, nr = results.size(); j < nr; j++)
 					{
-						results[j].write(outfile, outext, include_atom_terms, &wt);
+						results[j].write(outfile, outext, settings.include_atom_info, &wt);
 					}
 				}
 				if (atomoutfile)

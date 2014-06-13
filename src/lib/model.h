@@ -256,11 +256,11 @@ struct model {
 	// clean up
 	fl evali     (const precalculate& p,                  const vec& v                          		) const;
 	fl evale     (const precalculate& p, const igrid& ig, const vec& v                          		) const;
-	fl eval      (const precalculate& p, const igrid& ig, const vec& v, const conf& c, grid& user_grid	);
-	fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v, const conf& c, change& g, grid& user_grid);
+	fl eval      (const precalculate& p, const igrid& ig, const vec& v, const conf& c, const grid& user_grid	);
+	fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v, const conf& c, change& g, const grid& user_grid);
 
 	fl eval_intramolecular(                            const precalculate& p,                  const vec& v, const conf& c);
-	fl eval_adjusted      (const scoring_function& sf, const precalculate& p, const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy, grid& user_grid);
+	fl eval_adjusted      (const scoring_function& sf, const precalculate& p, const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy, const grid& user_grid);
 
 
 	fl rmsd_lower_bound(const model& m) const; // uses coords
@@ -287,6 +287,11 @@ struct model {
 			tmp.push_back(coords[i]);
 		return tmp;
 	}
+
+	vecv& coordinates() { //return reference to all coords
+		return coords;
+	}
+
 	vecv get_heavy_atom_movable_coords() const { // FIXME mv
 		vecv tmp;
 		VINA_FOR(i, num_movable_atoms())

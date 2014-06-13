@@ -141,7 +141,7 @@ struct vec {
 	}
 	sz size() const { return 3; }
 
-	void print(std::ostream& out)
+	void print(std::ostream& out) const
 	{
 		out << "<" << data[0] <<"," <<data[1] << "," << data[2] << ">";
 	}

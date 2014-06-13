@@ -43,6 +43,6 @@ clean:
 depend:
 	rm -f dependencies_tmp dependencies_tmp.bak
 	touch dependencies_tmp
-	makedepend -f dependencies_tmp -Y -I ../../../src/lib ../../../src/lib/*.cpp   ../../../src/main/*.cpp
+	makedepend -f dependencies_tmp -Y -I ../../../src/lib ../../../src/lib/*.cpp   ../../../src/main/*.cpp ../../../src/server/*.cpp  ../../../src/tosmina/*.cpp
 	sed -e "s/^\.\.\/\.\.\/\.\.\/src\/[a-z]*\//.\//" dependencies_tmp > dependencies
 	rm -f dependencies_tmp dependencies_tmp.bak

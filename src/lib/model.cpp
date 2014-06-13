@@ -900,7 +900,7 @@ fl model::evale(const precalculate& p, const igrid& ig, const vec& v) const
 }
 
 fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
-		const conf& c, grid& user_grid)
+		const conf& c, const grid& user_grid)
 { // clean up
 	set(c);
 	fl e = evale(p, ig, v);
@@ -924,7 +924,7 @@ fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
 }
 
 fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
-		const conf& c, change& g, grid& user_grid)
+		const conf& c, change& g, const grid& user_grid)
 { // clean up
 	set(c);
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
@@ -997,7 +997,7 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
 
 fl model::eval_adjusted(const scoring_function& sf, const precalculate& p,
 		const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy,
-		grid& user_grid)
+		const grid& user_grid)
 {
 	fl e = eval(p, ig, v, c, user_grid); // sets c
 	return sf.conf_independent(*this, e - intramolecular_energy);
