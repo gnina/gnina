@@ -45,7 +45,7 @@ struct MinimizationFilters
 	unsigned start; //were to start
 	unsigned num; //how many to include, if zero then all
 
-	enum SortType { Score, RMSD };
+	enum SortType { Score=0, RMSD=1, OrigPos=2};
 	SortType sort;
 	bool reverseSort;
 
@@ -61,7 +61,9 @@ struct MinimizationFilters
 		in >> maxScore;
 		in >> start;
 		in >> num;
-		in >> sort;
+		unsigned val = 0;
+		in >> val;
+		sort = (SortType)val;
 		in >> reverseSort;
 		in >> unique;
 	}
@@ -82,9 +84,10 @@ private:
 	unsigned chunk_size; //how many ligands to process at a time
 	bool readAllData; //try after we have consumed all the ligands
 	bool hasReorient; //try if ligand data is prefaced by rotation/translation
-	stream_ptr io;
 	model initm;
 
+	stream_ptr io;
+	unsigned io_position; //guarded by io_mutex as well
 	boost::mutex io_mutex; //protects io
 
 	//holds the result of minimization
@@ -95,8 +98,9 @@ private:
 		string name;
 		string sdf;
 		unsigned position; //location in allResults
+		unsigned orig_position; //location in input stream
 
-		Result(): score(0), rmsd(0), position(0) {}
+		Result(): score(0), rmsd(0), position(0),orig_position(0) {}
 	};
 
 	Result* minimize(model& m); //return new result
@@ -119,6 +123,7 @@ private:
 		unsigned numtors;
 		parsing_struct p;
 		context c;
+		unsigned origpos;
 	};
 
 	//reads into ligands
@@ -132,7 +137,7 @@ public:
 			bool hasR, unsigned chunks = 10) : minparm(minp),
 			valid(true), stopQuery(false), lastAccessed(time(NULL)),
 					chunk_size(chunks), readAllData(false), hasReorient(hasR),
-					io(data), minimizationSpawner(NULL)
+					io(data), io_position(0), minimizationSpawner(NULL)
 	{
 		//create the initial model
 		stringstream rec(recstr);

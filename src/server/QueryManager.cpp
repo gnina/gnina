@@ -99,3 +99,34 @@ QueryPtr QueryManager::get(unsigned qid)
 	q->access();
 	return q;
 }
+
+//remove stale queries
+unsigned QueryManager::purgeOldQueries()
+{
+	unique_lock<mutex>(mu);
+	vector<unsigned> toErase;
+	for (QueryMap::iterator itr = queries.begin(), end = queries.end(); itr
+			!= end; itr++)
+	{
+		QueryPtr q = itr->second;
+		if (q->idle() > timeout  || q->cancelled())
+		{
+			if(q->finished())
+			{
+				queries[itr->first] = QueryPtr(); //should remove shared ptr reference
+				toErase.push_back(itr->first); //this way can bypass iterator invalidation issues
+			}
+			else
+			{
+				q->cancel();
+			}
+		}
+	}
+
+	for(unsigned i = 0, n = toErase.size(); i < n; i++)
+	{
+		queries.erase(toErase[i]);
+	}
+
+	return toErase.size();
+}

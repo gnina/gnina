@@ -191,12 +191,15 @@ bool MinimizationQuery::thread_safe_read(vector<LigandData>& ligands)
 			serialin >> data.numtors;
 			serialin >> data.p;
 			serialin >> data.c;
+			data.origpos = io_position;
+			io_position++;
 		}
 		catch (boost::archive::archive_exception& e)
 		{
 			return ligands.size() > 0; //need to minimize last set of ligands
 		}
 	}
+	return *io;
 }
 
 //read chunks of ligands, minimize them, and store the result
@@ -231,6 +234,7 @@ void MinimizationQuery::thread_minimize(MinimizationQuery* q)
 				m.append(tmp.m);
 
 				Result *result = q->minimize(m);
+				result->orig_position = l.origpos;
 				if (result != NULL)
 					results.push_back(result);
 			}
@@ -263,7 +267,6 @@ void MinimizationQuery::outputMol(unsigned pos, ostream& out)
 	}
 }
 
-
 //comparison object for results
 class MinimizationQuery::ResultsSorter
 {
@@ -278,16 +281,20 @@ public:
 	bool operator()(const Result* lhs, const Result* rhs) const
 	{
 		bool res = false;
-		if(filter.sort == MinimizationFilters::Score)
+		switch (filter.sort)
 		{
+		case MinimizationFilters::Score:
 			res = lhs->score < rhs->score;
-		}
-		else if(filter.sort == MinimizationFilters::RMSD)
-		{
+			break;
+		case MinimizationFilters::RMSD:
 			res = lhs->rmsd < rhs->rmsd;
+			break;
+		case MinimizationFilters::OrigPos:
+			res = lhs->orig_position < rhs->orig_position;
+			break;
 		}
 
-		if(filter.reverseSort)
+		if (filter.reverseSort)
 			res = !res;
 		return res;
 	}
@@ -327,17 +334,17 @@ unsigned MinimizationQuery::loadResults(const MinimizationFilters& filter,
 	sort(results.begin(), results.end(), sorter);
 
 	//uniquification
-	if(filter.unique)
+	if (filter.unique)
 	{
 		unordered_set<string> seen;
 
 		unsigned i = 0;
-		while(i < results.size())
+		while (i < results.size())
 		{
 			Result *res = results[i];
-			if(seen.count(res->name) > 0) //already seen name
+			if (seen.count(res->name) > 0) //already seen name
 			{
-				swap(results[i],results.back());
+				swap(results[i], results.back());
 				results.pop_back();
 				//do NOT increment i
 			}
