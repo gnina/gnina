@@ -324,7 +324,7 @@ unsigned MinimizationQuery::loadResults(const Filters& filter,
 
 	//now sort
 	ResultsSorter sorter(filter);
-	sort(results.begin(), results.end(), filter);
+	sort(results.begin(), results.end(), sorter);
 
 	//uniquification
 	if(filter.unique)
