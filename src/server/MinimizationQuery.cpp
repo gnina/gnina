@@ -267,10 +267,10 @@ void MinimizationQuery::outputMol(unsigned pos, ostream& out)
 //comparison object for results
 class MinimizationQuery::ResultsSorter
 {
-	const Filters& filter;
+	const MinimizationFilters& filter;
 
 public:
-	ResultsSorter(const Filters& f) :
+	ResultsSorter(const MinimizationFilters& f) :
 			filter(f)
 	{
 	}
@@ -278,11 +278,11 @@ public:
 	bool operator()(const Result* lhs, const Result* rhs) const
 	{
 		bool res = false;
-		if(filter.sort == Filters::Score)
+		if(filter.sort == MinimizationFilters::Score)
 		{
 			res = lhs->score < rhs->score;
 		}
-		else if(filter.sort == Filters::RMSD)
+		else if(filter.sort == MinimizationFilters::RMSD)
 		{
 			res = lhs->rmsd < rhs->rmsd;
 		}
@@ -296,7 +296,7 @@ public:
 //copies allResults (safely) into results which is then sorted and filter according
 //to filter; returns the total number of results _before_filtering
 //does not truncate results by start/num of filter
-unsigned MinimizationQuery::loadResults(const Filters& filter,
+unsigned MinimizationQuery::loadResults(const MinimizationFilters& filter,
 		vector<Result*>& results)
 {
 	results_mutex.lock_shared();
@@ -352,7 +352,7 @@ unsigned MinimizationQuery::loadResults(const Filters& filter,
 }
 
 //output text formated data
-void MinimizationQuery::outputData(const Filters& f, ostream& out)
+void MinimizationQuery::outputData(const MinimizationFilters& f, ostream& out)
 {
 	checkThread();
 	vector<Result*> results;
@@ -373,7 +373,7 @@ void MinimizationQuery::outputData(const Filters& f, ostream& out)
 }
 
 //write out all results in sdf.gz format
-void MinimizationQuery::outputMols(const Filters& f, ostream& out)
+void MinimizationQuery::outputMols(const MinimizationFilters& f, ostream& out)
 {
 	vector<Result*> results;
 	loadResults(f, results);

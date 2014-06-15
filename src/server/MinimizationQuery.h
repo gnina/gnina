@@ -36,29 +36,40 @@ struct MinimizationParameters
 	~MinimizationParameters();
 };
 
+//criteria for filtering and  sorting the data
+struct MinimizationFilters
+{
+	double maxScore;
+	double maxRMSD;
+
+	unsigned start; //were to start
+	unsigned num; //how many to include, if zero then all
+
+	enum SortType { Score, RMSD };
+	SortType sort;
+	bool reverseSort;
+
+	bool unique;
+	MinimizationFilters() :
+			maxScore(HUGE_VAL), maxRMSD(HUGE_VAL), sort(Score), start(0), num(0), reverseSort(false), unique(false)
+	{
+	}
+
+	void read(istream& in)
+	{
+		in >> maxRMSD;
+		in >> maxScore;
+		in >> start;
+		in >> num;
+		in >> sort;
+		in >> reverseSort;
+		in >> unique;
+	}
+};
+
 class MinimizationQuery
 {
-public:
 
-	//criteria for filtering and (maybe eventually) sorting the data
-	struct Filters
-	{
-		double maxScore;
-		double maxRMSD;
-
-		unsigned start; //were to start
-		unsigned num; //how many to include, if zero then all
-
-		enum SortType { Score, RMSD };
-		SortType sort;
-		bool reverseSort;
-
-		bool unique;
-		Filters() :
-				maxScore(HUGE_VAL), maxRMSD(HUGE_VAL), sort(Score), start(0), num(0), reverseSort(false), unique(false)
-		{
-		}
-	};
 
 private:
 	class ResultsSorter;
@@ -114,7 +125,7 @@ private:
 	//returns false iff there is no more data to read
 	bool thread_safe_read(vector<LigandData>& ligands);
 
-	unsigned loadResults(const Filters& filter, vector<Result*>& results);
+	unsigned loadResults(const MinimizationFilters& filter, vector<Result*>& results);
 public:
 
 	MinimizationQuery(const MinimizationParameters& minp, const string& recstr, stream_ptr data,
@@ -142,9 +153,9 @@ public:
 
 	//return all current results
 
-	void outputData(const Filters& dp, ostream& out);
+	void outputData(const MinimizationFilters& dp, ostream& out);
 	//write out all results in sdf.gz format
-	void outputMols(const Filters& dp, ostream& out);
+	void outputMols(const MinimizationFilters& dp, ostream& out);
 	//output single mol in sdf format; referenced using current position in processed results array
 	void outputMol(unsigned pos, ostream& out);
 

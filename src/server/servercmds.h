@@ -94,7 +94,18 @@ public:
 
 	void execute(stream_ptr io)
 	{
+		//query id followed by filter params
+		MinimizationFilters filters;
+		unsigned qid = 0;
+		*io >> qid;
+		filters.read(*io);
+		QueryPtr query = qmgr.get(qid);
 
+		if(query)
+		{
+			query->outputData(filters, *io);
+		}
+		io->close();
 	}
 };
 
@@ -111,7 +122,16 @@ public:
 
 	void execute(stream_ptr io)
 	{
-
+		//first line query id and mol id
+		unsigned qid = 0, molid = 0;
+		*io >> qid;
+		*io >> molid;
+		QueryPtr query = qmgr.get(qid);
+		if(query)
+		{
+			query->outputMol(molid, *io);
+		}
+		io->close();
 	}
 };
 
@@ -128,7 +148,17 @@ public:
 
 	void execute(stream_ptr io)
 	{
-
+		//query id followed by filter params
+		MinimizationFilters filters;
+		unsigned qid = 0;
+		*io >> qid;
+		filters.read(*io);
+		QueryPtr query = qmgr.get(qid);
+		if(query)
+		{
+			query->outputMols(filters, *io);
+		}
+		io->close();
 	}
 };
 

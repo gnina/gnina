@@ -54,6 +54,16 @@ static void process_request(stream_ptr s, cmd_map& cmap)
 	}
 }
 
+//periodically check for expired queries
+static void thread_purge_old_queries(QueryManager *qmgr)
+{
+	while(true)
+	{
+		this_thread::sleep(posix_time::time_duration(0,3,0,0));
+		unsigned npurged = qmgr->purgeOldQueries();
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	cl::ParseCommandLineOptions(argc, argv);
@@ -80,7 +90,7 @@ int main(int argc, char *argv[])
 	cout << "Listening on port " << port << "\n";
 
 	//start up cleanup thread
-
+	thread cleanup(thread_purge_old_queries, &queries);
 	while (true)
 	{
 		stream_ptr s = stream_ptr(new tcp::iostream());
