@@ -46,16 +46,23 @@ public:
 		double maxScore;
 		double maxRMSD;
 
+		unsigned start; //were to start
+		unsigned num; //how many to include, if zero then all
+
 		enum SortType { Score, RMSD };
 		SortType sort;
 		bool reverseSort;
+
+		bool unique;
 		Filters() :
-				maxScore(HUGE_VAL), maxRMSD(HUGE_VAL), sort(Score), reverseSort(false)
+				maxScore(HUGE_VAL), maxRMSD(HUGE_VAL), sort(Score), start(0), num(0), reverseSort(false), unique(false)
 		{
 		}
 	};
 
 private:
+	class ResultsSorter;
+
 	const MinimizationParameters& minparm;
 	bool valid;
 	bool stopQuery; //cancelled
@@ -76,6 +83,9 @@ private:
 		double rmsd;
 		string name;
 		string sdf;
+		unsigned position; //location in allResults
+
+		Result(): score(0), rmsd(0), position(0) {}
 	};
 
 	Result* minimize(model& m); //return new result
@@ -104,7 +114,7 @@ private:
 	//returns false iff there is no more data to read
 	bool thread_safe_read(vector<LigandData>& ligands);
 
-	void loadResults(const Filters& filter, vector<Result*>& results);
+	unsigned loadResults(const Filters& filter, vector<Result*>& results);
 public:
 
 	MinimizationQuery(const MinimizationParameters& minp, const string& recstr, stream_ptr data,
@@ -136,7 +146,7 @@ public:
 	//write out all results in sdf.gz format
 	void outputMols(const Filters& dp, ostream& out);
 	//output single mol in sdf format; referenced using current position in processed results array
-	void outputMol(unsigned index, ostream& out);
+	void outputMol(unsigned pos, ostream& out);
 
 	//attempt to cancel,
 	void cancel() { stopQuery = true; }

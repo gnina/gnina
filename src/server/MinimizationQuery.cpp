@@ -12,6 +12,7 @@
 #include "non_cache.h"
 #include "quasi_newton.h"
 #include <boost/archive/binary_iarchive.hpp>
+#include <boost/unordered_set.hpp>
 
 using namespace boost;
 
@@ -238,6 +239,7 @@ void MinimizationQuery::thread_minimize(MinimizationQuery* q)
 			lock_guard<shared_mutex> lock(q->results_mutex);
 			for (unsigned i = 0, n = results.size(); i < n; i++)
 			{
+				results[i]->position = q->allResults.size();
 				q->allResults.push_back(results[i]);
 			}
 		}
@@ -245,3 +247,144 @@ void MinimizationQuery::thread_minimize(MinimizationQuery* q)
 	}
 }
 
+//output the mol at position pos
+void MinimizationQuery::outputMol(unsigned pos, ostream& out)
+{
+	Result *res = NULL;
+	//thread safe grab from allResults
+	results_mutex.lock_shared();
+	if (pos < allResults.size())
+		res = allResults[pos];
+	results_mutex.unlock_shared();
+
+	if (res != NULL) //empty result on error
+	{
+		out << res->sdf;
+	}
+}
+
+
+//comparison object for results
+class MinimizationQuery::ResultsSorter
+{
+	const Filters& filter;
+
+public:
+	ResultsSorter(const Filters& f) :
+			filter(f)
+	{
+	}
+
+	bool operator()(const Result* lhs, const Result* rhs) const
+	{
+		bool res = false;
+		if(filter.sort == Filters::Score)
+		{
+			res = lhs->score < rhs->score;
+		}
+		else if(filter.sort == Filters::RMSD)
+		{
+			res = lhs->rmsd < rhs->rmsd;
+		}
+
+		if(filter.reverseSort)
+			res = !res;
+		return res;
+	}
+
+};
+//copies allResults (safely) into results which is then sorted and filter according
+//to filter; returns the total number of results _before_filtering
+//does not truncate results by start/num of filter
+unsigned MinimizationQuery::loadResults(const Filters& filter,
+		vector<Result*>& results)
+{
+	results_mutex.lock_shared();
+	results = allResults;
+	results_mutex.unlock_shared();
+
+	//filter
+	unsigned total = results.size();
+	unsigned i = 0;
+	while (i < results.size())
+	{
+		Result *res = results[i];
+		if (res->rmsd > filter.maxRMSD || res->score > filter.maxScore)
+		{
+			//needs to be removed
+			swap(results[i], results.back());
+			results.pop_back();
+			//do NOT increment i, it's a new one
+		}
+		else
+		{
+			i++; //go to next
+		}
+	}
+
+	//now sort
+	ResultsSorter sorter(filter);
+	sort(results.begin(), results.end(), filter);
+
+	//uniquification
+	if(filter.unique)
+	{
+		unordered_set<string> seen;
+
+		unsigned i = 0;
+		while(i < results.size())
+		{
+			Result *res = results[i];
+			if(seen.count(res->name) > 0) //already seen name
+			{
+				swap(results[i],results.back());
+				results.pop_back();
+				//do NOT increment i
+			}
+			else
+			{
+				seen.insert(res->name);
+				i++;
+			}
+		}
+	}
+	return total;
+}
+
+//output text formated data
+void MinimizationQuery::outputData(const Filters& f, ostream& out)
+{
+	checkThread();
+	vector<Result*> results;
+	unsigned total = loadResults(f, results);
+
+	//first line is status header with doneness and number done and filtered number
+	out << (minimizationSpawner == NULL) << " " << total << " "
+			<< results.size() << "\n";
+	unsigned end = f.start + f.num;
+	if (end > results.size())
+		end = results.size();
+	for (unsigned i = f.start; i < end; i++)
+	{
+		Result *res = results[i];
+		out << res->position << "," << res->name << "," << res->score << ","
+				<< res->rmsd << "\n";
+	}
+}
+
+//write out all results in sdf.gz format
+void MinimizationQuery::outputMols(const Filters& f, ostream& out)
+{
+	vector<Result*> results;
+	loadResults(f, results);
+
+	//gzip output
+	boost::iostreams::filtering_stream<boost::iostreams::output> strm;
+	strm.push(boost::iostreams::gzip_compressor());
+	strm.push(out);
+
+	for (unsigned i = 0, n = results.size(); i < n; i++)
+	{
+		out << results[i]->sdf;
+	}
+}
