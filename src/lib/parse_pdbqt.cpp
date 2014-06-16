@@ -48,10 +48,9 @@ bool get_fixed_rotable_hydrogens()
 	return fix_hydrogens;
 }
 
-struct stream_parse_error {
-	unsigned line;
-	std::string reason;
-	stream_parse_error(unsigned line_, const std::string& reason_) : line(line_), reason(reason_) {}
+struct stream_parse_error: public  parse_error {
+
+	stream_parse_error(unsigned line_, const std::string& reason_) : parse_error(line_,reason_) {}
 	parse_error to_parse_error(const path& name) const {
 		return parse_error(name, line, reason);
 	}

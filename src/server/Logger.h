@@ -16,6 +16,7 @@
 #include <string>
 #include <boost/thread.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 class Logger
 {
@@ -39,7 +40,7 @@ public:
 		fclose(LOG);
 	}
 
-	//output message with printfstyle arguments atomically to log
+	//output message with printfstyle arguments atomically to log with timestamp
 	void log(const char* str, ...)
 	{
 		if(!LOG) return;
@@ -48,6 +49,8 @@ public:
 
 		locker.lock();
 
+		boost::posix_time::ptime t(boost::posix_time::second_clock::local_time());
+		fprintf(LOG, "%s ",boost::posix_time::to_simple_string(t).c_str());
 		vfprintf(LOG, str, argptr);
 
 		locker.unlock();

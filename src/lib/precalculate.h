@@ -23,6 +23,8 @@
 #ifndef VINA_PRECALCULATE_H
 #define VINA_PRECALCULATE_H
 
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/lock_guard.hpp>
 #include "scoring_function.h"
 #include "matrix.h"
 #include "splines.h"
@@ -312,8 +314,10 @@ class spline_cache
 	sz n;
 	smt t1, t2;
 	//the following are only computed when needed
-	mutable std::vector<Spline> splines; //one for each component
+	mutable Spline *splines; //one for each component
+	mutable unsigned num_splines; //size of splines
 	mutable bool valid;
+	mutable boost::mutex lock; //make thread safe
 
 	//create control points for spline
 	//poitns indexed by component first; nonzero indexec by component
@@ -355,8 +359,18 @@ public:
 
 	spline_cache() :
 			sf(NULL), cutoff(0), n(0), t1(smina_atom_type::NumTypes), t2(
-					smina_atom_type::NumTypes), valid(false)
+					smina_atom_type::NumTypes), valid(false), splines(NULL), num_splines(0)
 	{
+	}
+
+	//need explicit copy constructor to deal with mutex vairable
+	spline_cache(const spline_cache& rhs) :
+			sf(rhs.sf), cutoff(rhs.cutoff), n(rhs.n), t1(rhs.t1), t2(rhs.t2), valid(false), splines(NULL), num_splines(0)
+	{ //mutable member do not get copied
+	}
+
+	~spline_cache() {
+		if(splines) delete [] splines;
 	}
 
 	//intialize values to approprate types etc - do not compute spline
@@ -374,23 +388,30 @@ public:
 
 	component_pair eval(fl r) const
 			{
-		if (splines.size() == 0)
+		if (splines == NULL)
 		{
-			//create spline
-			std::vector<std::vector<pr> > points;
-			std::vector<bool> nonzero;
-			setup_points(points, nonzero);
+			//create spline, thread safe
+			boost::lock_guard<boost::mutex> L(lock);
 
-			splines.resize(sf->num_used_components());
-			for (sz i = 0, n = splines.size(); i < n; i++)
+			if (splines == NULL) //another thread didn't fix it for us
 			{
-				if (nonzero[i]) //worth interpolating
-					splines[i].initialize(points[i]);
+				std::vector<std::vector<pr> > points;
+				std::vector<bool> nonzero;
+				setup_points(points, nonzero);
+
+				num_splines = sf->num_used_components();
+				Spline *tmpsplines = new Spline[num_splines];
+				for (sz i = 0, n = num_splines; i < n; i++)
+				{
+					if (nonzero[i]) //worth interpolating
+						tmpsplines[i].initialize(points[i]);
+				}
+				splines = tmpsplines; //this is assumed atomic
 			}
 		}
 
 		result_components val, deriv;
-		for (sz i = 0, n = splines.size(); i < n; i++)
+		for (sz i = 0, n = num_splines; i < n; i++)
 		{
 			pr ret = splines[i].eval_deriv(r);
 			val[i] = ret.first;

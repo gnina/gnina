@@ -77,7 +77,7 @@ private:
 	class ResultsSorter;
 
 	const MinimizationParameters& minparm;
-	bool valid;
+	bool isFinished;
 	bool stopQuery; //cancelled
 	time_t lastAccessed; //last time accessed
 
@@ -134,8 +134,8 @@ private:
 public:
 
 	MinimizationQuery(const MinimizationParameters& minp, const string& recstr, stream_ptr data,
-			bool hasR, unsigned chunks = 10) : minparm(minp),
-			valid(true), stopQuery(false), lastAccessed(time(NULL)),
+			bool hasR, unsigned chunks = 10) : minparm(minp), isFinished(false),
+			 stopQuery(false), lastAccessed(time(NULL)),
 					chunk_size(chunks), readAllData(false), hasReorient(hasR),
 					io(data), io_position(0), minimizationSpawner(NULL)
 	{
@@ -145,11 +145,6 @@ public:
 	}
 
 	~MinimizationQuery();
-
-	bool isValid() const
-	{
-		return valid;
-	}
 
 	void execute(bool block = false);
 

@@ -29,9 +29,9 @@ struct parse_error {
 	path file;
 	unsigned line;
 	std::string reason;
+	parse_error(): line(0) {}
+	parse_error(unsigned line_, const std::string& reason_ = "") : line(line_), reason(reason_) {}
 	parse_error(const path& file_, unsigned line_, const std::string& reason_ = "") : file(file_), line(line_), reason(reason_) {}
-private:
-	parse_error() {}
 };
 
 #endif

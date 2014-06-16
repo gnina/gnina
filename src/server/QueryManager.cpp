@@ -42,10 +42,9 @@ unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
 		*io << "ERROR\nInvalid receptor size\n";
 		return 0;
 	}
-
-	string recstr(rsize + 1, '\0');
+	getline(*io, str); //absorb newline
+	string recstr(rsize, '\0'); //note that c++ strings are built with null at the end
 	io->read(&recstr[0], rsize);
-
 	//does the ligand data have to be reoriented?
 	bool hasR = false;
 	*io >> hasR;
@@ -53,17 +52,35 @@ unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
 	//absorb newline before ligand data
 	getline(*io, str);
 
+	//attempt to create query
 	QueryPtr q;
-	//protect access to nextID and queries
-	mu.lock();
-	unsigned id = nextID++;
-	q = QueryPtr(new MinimizationQuery(minparm, recstr, io, hasR));
-	queries[id] = q;
-	mu.unlock();
+	try
+	{
+		q = QueryPtr(new MinimizationQuery(minparm, recstr, io, hasR));
+	} catch (parse_error& pe) //couldn't read receptor
+	{
+		*io << "ERROR\n" << pe.reason << "\n";
+		return 0;
+	}  catch (...) { //output below
+	}
 
-	q->execute(); //don't wait for result
+	if (q)
+	{
+		//protect access to nextID and queries
+		mu.lock();
+		unsigned id = nextID++;
+		queries[id] = q;
+		mu.unlock();
 
-	return id;
+		q->execute(); //don't wait for result
+
+		return id;
+	}
+	else //error,
+	{
+		*io << "ERROR\nCould not construct minimization query\n";
+		return 0;
+	}
 }
 
 //count types of queries
@@ -109,9 +126,9 @@ unsigned QueryManager::purgeOldQueries()
 			!= end; itr++)
 	{
 		QueryPtr q = itr->second;
-		if (q->idle() > timeout  || q->cancelled())
+		if (q->idle() > timeout || q->cancelled())
 		{
-			if(q->finished())
+			if (q->finished())
 			{
 				queries[itr->first] = QueryPtr(); //should remove shared ptr reference
 				toErase.push_back(itr->first); //this way can bypass iterator invalidation issues
@@ -123,7 +140,7 @@ unsigned QueryManager::purgeOldQueries()
 		}
 	}
 
-	for(unsigned i = 0, n = toErase.size(); i < n; i++)
+	for (unsigned i = 0, n = toErase.size(); i < n; i++)
 	{
 		queries.erase(toErase[i]);
 	}

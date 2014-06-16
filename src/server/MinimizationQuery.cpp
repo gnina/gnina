@@ -77,7 +77,7 @@ void MinimizationQuery::checkThread()
 bool MinimizationQuery::finished()
 {
 	checkThread();
-	return minimizationSpawner == NULL;
+	return isFinished; //do not want to return true before minimization even starts
 }
 
 //execute the query - set up the minimization threads and communication queue
@@ -102,6 +102,7 @@ void MinimizationQuery::thread_startMinimization(MinimizationQuery *query)
 	}
 	minthreads.join_all(); //block till all done
 	query->io->close();
+	query->isFinished = true;
 }
 
 //thread safe minimization of m
@@ -185,7 +186,6 @@ bool MinimizationQuery::thread_safe_read(vector<LigandData>& ligands)
 		try
 		{
 			LigandData data;
-
 			boost::archive::binary_iarchive serialin(*io,
 					boost::archive::no_header | boost::archive::no_tracking);
 			serialin >> data.numtors;
@@ -193,6 +193,8 @@ bool MinimizationQuery::thread_safe_read(vector<LigandData>& ligands)
 			serialin >> data.c;
 			data.origpos = io_position;
 			io_position++;
+
+			ligands.push_back(data);
 		}
 		catch (boost::archive::archive_exception& e)
 		{
@@ -366,10 +368,10 @@ void MinimizationQuery::outputData(const MinimizationFilters& f, ostream& out)
 	unsigned total = loadResults(f, results);
 
 	//first line is status header with doneness and number done and filtered number
-	out << (minimizationSpawner == NULL) << " " << total << " "
+	out << finished() << " " << total << " "
 			<< results.size() << "\n";
 	unsigned end = f.start + f.num;
-	if (end > results.size())
+	if (end > results.size() || f.num == 0)
 		end = results.size();
 	for (unsigned i = f.start; i < end; i++)
 	{
@@ -392,6 +394,17 @@ void MinimizationQuery::outputMols(const MinimizationFilters& f, ostream& out)
 
 	for (unsigned i = 0, n = results.size(); i < n; i++)
 	{
-		out << results[i]->sdf;
+		Result *r = results[i];
+		strm << r->sdf;
+		//include sddata for affinity/rmsd
+		strm << "> <minimizedAffinity>\n";
+		strm << std::fixed  << std::setprecision(5) << r->score << "\n\n";
+
+		if(r->rmsd >= 0)
+		{
+			strm << "> <minimizedRMSD>\n";
+			strm << std::fixed  << std::setprecision(5) << r->rmsd << "\n\n";
+		}
+		strm << "$$$$\n";
 	}
 }

@@ -51,7 +51,10 @@ public:
 
 		unsigned qid = qmgr.add(oldqid, io);
 		//return the query id (zero if there's a problem)
-		*io << qid;
+
+		log.log("startmin %d %d\n",oldqid,qid);
+		*io << qid << "\n";
+		//do not close io, need to finish reading
 	}
 };
 
@@ -73,11 +76,13 @@ public:
 		getline(*io, str);
 		trim(str);
 		unsigned oldqid = atoi(str.c_str());
+		log.log("cancel %d",oldqid);
 		QueryPtr query = qmgr.get(oldqid);
 		if (query)
 		{
 				query->cancel();
 		}
+		io->close();
 	}
 };
 
@@ -100,7 +105,6 @@ public:
 		*io >> qid;
 		filters.read(*io);
 		QueryPtr query = qmgr.get(qid);
-
 		if(query)
 		{
 			query->outputData(filters, *io);
@@ -185,6 +189,7 @@ public:
 		*io << "Active " << active << "\nInactive "
 				<< inactive << "\nDefunct " << defunct
 				<< "\nLoad " << load <<"\n";
+		io->close();
 	}
 };
 
