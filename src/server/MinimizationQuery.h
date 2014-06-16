@@ -87,6 +87,8 @@ private:
 	model initm;
 
 	stream_ptr io;
+	boost::iostreams::filtering_stream<boost::iostreams::input> io_strm; //uncompressed
+
 	unsigned io_position; //guarded by io_mutex as well
 	boost::mutex io_mutex; //protects io
 
@@ -142,6 +144,10 @@ public:
 		//create the initial model
 		stringstream rec(recstr);
 		initm = parse_receptor_pdbqt("rigid.pdbqt", rec);
+
+		//set up ligand decompression stream
+		io_strm.push(boost::iostreams::gzip_decompressor());
+		io_strm.push(*io);
 	}
 
 	~MinimizationQuery();

@@ -13,7 +13,7 @@
 
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
-
+#include <boost/iostreams/filter/gzip.hpp>
 #include <map>
 
 namespace SminaConverter {
@@ -71,8 +71,13 @@ void convertText(OBMol& mol, ostream& out)
 //binary output
 void convertBinary(OBMol& mol,  ostream& out)
 {
-	boost::archive::binary_oarchive serialout(out,boost::archive::no_header|boost::archive::no_tracking);
-	convert(mol, serialout, out);
+	//by definition, smina format is gzipped
+	boost::iostreams::filtering_stream<boost::iostreams::output> strm;
+	strm.push(boost::iostreams::gzip_compressor());
+	strm.push(out);
+
+	boost::archive::binary_oarchive serialout(strm,boost::archive::no_header|boost::archive::no_tracking);
+	convert(mol, serialout, strm);
 }
 
 } //namespace SminaConverter

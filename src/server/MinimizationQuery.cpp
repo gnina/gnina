@@ -178,16 +178,18 @@ bool MinimizationQuery::thread_safe_read(vector<LigandData>& ligands)
 	ligands.clear();
 	unique_lock<mutex> lock(io_mutex);
 
-	if (!*io)
+	if (!io_strm)
 		return false;
+
+	boost::archive::binary_iarchive serialin(io_strm,
+			boost::archive::no_header | boost::archive::no_tracking);
 
 	for (unsigned i = 0; i < chunk_size; i++)
 	{
 		try
 		{
 			LigandData data;
-			boost::archive::binary_iarchive serialin(*io,
-					boost::archive::no_header | boost::archive::no_tracking);
+
 			serialin >> data.numtors;
 			serialin >> data.p;
 			serialin >> data.c;
@@ -201,7 +203,7 @@ bool MinimizationQuery::thread_safe_read(vector<LigandData>& ligands)
 			return ligands.size() > 0; //need to minimize last set of ligands
 		}
 	}
-	return *io;
+	return io_strm;
 }
 
 //read chunks of ligands, minimize them, and store the result
