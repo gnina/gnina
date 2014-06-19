@@ -24,7 +24,7 @@ void MolGetter::setInputFile(const std::string& fname)
 			type = PDBQT;
 			pdbqtdone = false;
 		}
-		else if (infile.open(lpath, ".smina"))
+		else if (infile.open(lpath, ".smina", true)) //smina always gzipped
 		{
 			type = SMINA;
 		}

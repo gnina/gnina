@@ -65,24 +65,24 @@ struct ofile : public boost::filesystem::ofstream { // never use ofstream pointe
 class izfile : public boost::iostreams::filtering_stream<boost::iostreams::input> {
 
 	std::ifstream uncompressed_infile;
+	bool iszipped;
 public:
 
 	izfile() {}
 
-	izfile(const path& name, const std::string& ext)  {
+	izfile(const path& name, const std::string& ext, bool is_compressed=false):iszipped(is_compressed)  {
 		open(name, ext);
 	}
 
 	//opens file name, but only if it has the appropriate ext
 	//otherwise returns false
-	bool open(const path& name, const std::string& ext) {
+	bool open(const path& name, const std::string& ext, bool is_compressed=false) {
 		using namespace boost::filesystem;
-
+		iszipped = is_compressed;
 		//clean up if we are already open
 		while(!empty()) pop();
 		uncompressed_infile.close();
 
-		bool iszipped = false;
 		std::string fileext = extension(name);
 		if(fileext == ".gz")
 		{
