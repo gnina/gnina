@@ -43,12 +43,14 @@ unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
 		return 0;
 	}
 	getline(*io, str); //absorb newline
+	cerr << "about to read receptor\n";
 	string recstr(rsize, '\0'); //note that c++ strings are built with null at the end
 	io->read(&recstr[0], rsize);
+	cerr << "read receptor\n";
 	//does the ligand data have to be reoriented?
 	bool hasR = false;
 	*io >> hasR;
-
+	cerr << "read hasR " << hasR << "\n";
 	//absorb newline before ligand data
 	getline(*io, str);
 
