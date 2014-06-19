@@ -24,7 +24,7 @@
 #define VINA_PRECALCULATE_H
 
 #include <boost/thread/mutex.hpp>
-#include <boost/thread/lock_guard.hpp>
+#include <boost/thread/locks.hpp>
 #include "scoring_function.h"
 #include "matrix.h"
 #include "splines.h"

@@ -9,6 +9,7 @@
 #include <openbabel/mol.h>
 #include <openbabel/obconversion.h>
 #include <cstring>
+#include <boost/lexical_cast.hpp>
 
 void result_info::setMolecule(const model& m)
 {

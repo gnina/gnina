@@ -13,7 +13,6 @@
 #include "Reorienter.h"
 #include "server_common.h"
 #include "model.h"
-#include <boost/lockfree/queue.hpp>
 #include "parse_pdbqt.h"
 #include "parsing.h"
 #include "custom_terms.h"

@@ -202,6 +202,10 @@ bool MinimizationQuery::thread_safe_read(vector<LigandData>& ligands)
 		{
 			return ligands.size() > 0; //need to minimize last set of ligands
 		}
+		catch(...)
+		{
+			return false; //give up
+		}
 	}
 	return io_strm;
 }
@@ -209,49 +213,54 @@ bool MinimizationQuery::thread_safe_read(vector<LigandData>& ligands)
 //read chunks of ligands, minimize them, and store the result
 void MinimizationQuery::thread_minimize(MinimizationQuery* q)
 {
-	vector<LigandData> ligands;
-	while (q->thread_safe_read(ligands))
-	{
-		if (q->stopQuery) //cancelled
-			return;
-		else if (ligands.size() == 0) //nothing to do yet
-			usleep(10);
-		else //let's minimize!
+	try {
+		vector<LigandData> ligands;
+		while (q->thread_safe_read(ligands))
 		{
-			vector<Result*> results;
-			for (unsigned i = 0, n = ligands.size(); i < n; i++)
+			if (q->stopQuery) //cancelled
+				return;
+			else if (ligands.size() == 0) //nothing to do yet
+				usleep(10);
+			else //let's minimize!
 			{
-				//construct model
-				LigandData& l = ligands[i];
-				model m = q->initm;
-				non_rigid_parsed nr;
-				postprocess_ligand(nr, l.p, l.c, l.numtors);
+				vector<Result*> results;
+				for (unsigned i = 0, n = ligands.size(); i < n; i++)
+				{
+					//construct model
+					LigandData& l = ligands[i];
+					model m = q->initm;
+					non_rigid_parsed nr;
+					postprocess_ligand(nr, l.p, l.c, l.numtors);
 
-				pdbqt_initializer tmp;
-				tmp.initialize_from_nrp(nr, l.c, true);
-				tmp.initialize(nr.mobility_matrix());
-				m.set_name(l.c.sdftext.name);
+					pdbqt_initializer tmp;
+					tmp.initialize_from_nrp(nr, l.c, true);
+					tmp.initialize(nr.mobility_matrix());
+					m.set_name(l.c.sdftext.name);
 
-				if (q->hasReorient)
-					l.reorient.reorient(tmp.m.coordinates());
+					if (q->hasReorient)
+						l.reorient.reorient(tmp.m.coordinates());
 
-				m.append(tmp.m);
+					m.append(tmp.m);
 
-				Result *result = q->minimize(m);
-				result->orig_position = l.origpos;
-				if (result != NULL)
-					results.push_back(result);
+					Result *result = q->minimize(m);
+					result->orig_position = l.origpos;
+					if (result != NULL)
+						results.push_back(result);
+				}
+
+				//add computed results
+				lock_guard<shared_mutex> lock(q->results_mutex);
+				for (unsigned i = 0, n = results.size(); i < n; i++)
+				{
+					results[i]->position = q->allResults.size();
+					q->allResults.push_back(results[i]);
+				}
 			}
 
-			//add computed results
-			lock_guard<shared_mutex> lock(q->results_mutex);
-			for (unsigned i = 0, n = results.size(); i < n; i++)
-			{
-				results[i]->position = q->allResults.size();
-				q->allResults.push_back(results[i]);
-			}
 		}
-
+	} catch(...) //don't die
+	{
+		q->cancel();
 	}
 }
 
@@ -337,27 +346,23 @@ unsigned MinimizationQuery::loadResults(const MinimizationFilters& filter,
 	ResultsSorter sorter(filter);
 	sort(results.begin(), results.end(), sorter);
 
-	//uniquification
+	//uniquification, take best after sort
 	if (filter.unique)
 	{
 		unordered_set<string> seen;
+		vector<Result*> tmpres; tmpres.reserve(results.size());
 
-		unsigned i = 0;
-		while (i < results.size())
+		for(unsigned i = 0, n = results.size(); i < n; i++)
 		{
 			Result *res = results[i];
-			if (seen.count(res->name) > 0) //already seen name
+			if (seen.count(res->name) == 0) //first time we've seen it
 			{
-				swap(results[i], results.back());
-				results.pop_back();
-				//do NOT increment i
-			}
-			else
-			{
+				tmpres.push_back(res);
 				seen.insert(res->name);
-				i++;
 			}
 		}
+		swap(results,tmpres);
+		
 	}
 	return total;
 }
@@ -393,7 +398,6 @@ void MinimizationQuery::outputMols(const MinimizationFilters& f, ostream& out)
 	boost::iostreams::filtering_stream<boost::iostreams::output> strm;
 	strm.push(boost::iostreams::gzip_compressor());
 	strm.push(out);
-
 	for (unsigned i = 0, n = results.size(); i < n; i++)
 	{
 		Result *r = results[i];

@@ -54,6 +54,7 @@ public:
 
 		log.log("startmin %d %d\n",oldqid,qid);
 		*io << qid << "\n";
+		io->flush();
 		//do not close io, need to finish reading
 	}
 };
