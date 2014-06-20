@@ -28,15 +28,25 @@ int main(int argc, char *argv[]) {
 	obmol_opener opener;
 	opener.openForInput(conv, infile);
 
-	ofstream out(outfile.c_str());
+	ostream *out = NULL;
+	ofstream outf;
+	string outname(outfile);
+	if(outname != "-") {
+		outf.open(outfile.c_str());
+		out = &outf;
+	}
+	else //stdout
+	{
+		out = &cout;
+	}
 
 	OBMol mol;
 	while (conv.Read(&mol))
 	{
 		if(textOutput)
-			SminaConverter::convertText(mol, out);
+			SminaConverter::convertText(mol, *out);
 		else
-			SminaConverter::convertBinary(mol, out);
+			SminaConverter::convertBinary(mol, *out);
 	}
 	return 0;
 }
