@@ -32,6 +32,7 @@ unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
 	*io >> str;
 	if (str != "receptor")
 	{
+		cerr << "No receptor\n";
 		*io << "ERROR\nNo receptor\n";
 		return 0;
 	}
@@ -39,6 +40,7 @@ unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
 	*io >> rsize;
 	if (rsize == 0)
 	{
+		cerr << "invalid receptor size\n";
 		*io << "ERROR\nInvalid receptor size\n";
 		return 0;
 	}
@@ -46,11 +48,9 @@ unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
 	cerr << "about to read receptor\n";
 	string recstr(rsize, '\0'); //note that c++ strings are built with null at the end
 	io->read(&recstr[0], rsize);
-	cerr << "read receptor\n";
 	//does the ligand data have to be reoriented?
 	bool hasR = false;
 	*io >> hasR;
-	cerr << "read hasR " << hasR << "\n";
 	//absorb newline before ligand data
 	getline(*io, str);
 
@@ -61,6 +61,7 @@ unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
 		q = QueryPtr(new MinimizationQuery(minparm, recstr, io, hasR));
 	} catch (parse_error& pe) //couldn't read receptor
 	{
+		cerr << "couldn't read receptor\n";
 		*io << "ERROR\n" << pe.reason << "\n";
 		return 0;
 	}  catch (...) { //output below

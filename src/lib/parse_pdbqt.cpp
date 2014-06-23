@@ -155,6 +155,7 @@ void parse_pdbqt_rigid(const std::string& name, std::istream& in, rigid& r) {
 		else if(starts_with(str, "WARNING")) {} // ignore - AutoDockTools bug workaround
 		else if(starts_with(str, "REMARK")) {} // ignore
 		else if(starts_with(str, "ROOT")) {} //ignore
+		else if(starts_with(str, "COMPND")) {} //ignore
 		else if(starts_with(str, "ENDROOT")) {} //ignore
 		else if(starts_with(str, "TORSDOF")) {} //ignore
 		else if(starts_with(str, "USER")) {} // ignore
@@ -171,7 +172,7 @@ void parse_pdbqt_rigid(const std::string& name, std::istream& in, rigid& r) {
 		}
 		else if(starts_with(str, "MODEL"))
 			throw stream_parse_error(count, "Unexpected multi-MODEL input. Use \"vina_split\" first?");
-		else throw parse_error(name, count, std::string("Unknown or inappropriate tag: ") + str);
+		else {} //ignore - dkoes, let's be forgiving
 	}
 }
 

@@ -21,7 +21,7 @@ LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -l boost_timer${BOOST
 	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
 		
 	
-all: smina  tosmina server libsmina
+all: smina  tosmina server libsmina.a
 
 include dependencies
 
@@ -37,7 +37,7 @@ server: $(SERVEROBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"	
     	
-libsmina: $(LIBOBJ)
+libsmina.a: $(LIBOBJ)
 	 ar rcs libsmina.a $^
 
 clean:

@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 	cmd_map commands = assign::map_list_of
 			("startmin",
 					shared_ptr<Command>(new StartMinimization(queries, log)))
-			("cancelquery",
+			("cancel",
 					shared_ptr<Command>(new CancelMinimization(queries, log)))
 			("getscores", shared_ptr<Command>(new GetScores(queries, log)))
 			("getmol", shared_ptr<Command>(new GetMol(queries, log)))

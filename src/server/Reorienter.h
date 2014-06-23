@@ -44,15 +44,8 @@ public:
 
 	void read(istream& in)
 	{
-		for(unsigned i = 0; i < 3; i++)
-		{
-			for(unsigned j = 0; j < 3; j++)
-			{
-				in >> rotation(i,j);
-			}
-		}
-		for(unsigned i = 0; i < 3; i++)
-			in >> translation(i);
+		in.read((char*)rotation.data(),9*sizeof(double));
+		in.read((char*)translation.data(),3*sizeof(double));
 	}
 };
 

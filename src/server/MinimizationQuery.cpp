@@ -105,7 +105,7 @@ void MinimizationQuery::thread_startMinimization(MinimizationQuery *query)
 	}
 	minthreads.join_all(); //block till all done
 
-	cout << "minimization time " << mintime.elapsed().wall/1e9 << "\n";
+	cout << "minimization time " << mintime.elapsed().wall/1e9 << "\t" << query->allResults.size() << " ligs\n";
 	query->io->close();
 	query->isFinished = true;
 }
@@ -195,6 +195,8 @@ bool MinimizationQuery::thread_safe_read(vector<LigandData>& ligands)
 		{
 			LigandData data;
 
+			if(hasReorient)
+				data.reorient.read(io_strm);
 			serialin >> data.numtors;
 			serialin >> data.p;
 			serialin >> data.c;
