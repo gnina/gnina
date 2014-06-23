@@ -10,7 +10,7 @@ CC = ${GPP} ${C_PLATFORM} -ansi  ${C_OPTIONS} $(INCFLAGS)
 
 LDFLAGS := -L$(BASE)/lib -L. -L/usr/local/lib $(LDFLAGS)
 
-LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -lz -l boost_system${BOOST_LIB_VERSION} -l boost_regex${BOOST_LIB_VERSION} -l boost_thread${BOOST_LIB_VERSION} -l boost_serialization${BOOST_LIB_VERSION} -l boost_filesystem${BOOST_LIB_VERSION} -l boost_program_options${BOOST_LIB_VERSION} -l boost_date_time${BOOST_LIB_VERSION}
+LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -l boost_timer${BOOST_LIB_VERSION} -lz -l boost_system${BOOST_LIB_VERSION} -l boost_regex${BOOST_LIB_VERSION} -l boost_thread${BOOST_LIB_VERSION} -l boost_serialization${BOOST_LIB_VERSION} -l boost_filesystem${BOOST_LIB_VERSION} -l boost_program_options${BOOST_LIB_VERSION} -l boost_date_time${BOOST_LIB_VERSION}
 
 .SUFFIXES: .cpp .o
 
@@ -21,7 +21,7 @@ LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -lz -l boost_system${
 	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
 		
 	
-all: smina  tosmina server
+all: smina  tosmina server libsmina
 
 include dependencies
 
@@ -37,6 +37,9 @@ server: $(SERVEROBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"	
     	
+libsmina: $(LIBOBJ)
+	 ar rcs libsmina.a $^
+
 clean:
 	rm -f *.o
 

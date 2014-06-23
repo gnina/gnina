@@ -80,7 +80,7 @@ private:
 	bool stopQuery; //cancelled
 	time_t lastAccessed; //last time accessed
 
-	unsigned chunk_size; //how many ligands to process at a time
+	unsigned chunk_size; //how many ligands to process at a time, performance seems relatively insensitive to this
 	bool readAllData; //try after we have consumed all the ligands
 	bool hasReorient; //try if ligand data is prefaced by rotation/translation
 	model initm;

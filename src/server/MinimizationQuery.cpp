@@ -13,6 +13,7 @@
 #include "quasi_newton.h"
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/unordered_set.hpp>
+#include <boost/timer/timer.hpp>
 
 using namespace boost;
 
@@ -96,11 +97,15 @@ void MinimizationQuery::thread_startMinimization(MinimizationQuery *query)
 	//generate a thread for each set of databases
 	thread_group minthreads;
 
+	timer::cpu_timer mintime;
+
 	for (unsigned t = 0; t < query->minparm.nthreads; t++)
 	{
 		minthreads.add_thread(new thread(thread_minimize, query));
 	}
 	minthreads.join_all(); //block till all done
+
+	cout << "minimization time " << mintime.elapsed().wall/1e9 << "\n";
 	query->io->close();
 	query->isFinished = true;
 }
@@ -213,6 +218,7 @@ bool MinimizationQuery::thread_safe_read(vector<LigandData>& ligands)
 //read chunks of ligands, minimize them, and store the result
 void MinimizationQuery::thread_minimize(MinimizationQuery* q)
 {
+	unsigned cnt = 0;
 	try {
 		vector<LigandData> ligands;
 		while (q->thread_safe_read(ligands))
@@ -227,6 +233,7 @@ void MinimizationQuery::thread_minimize(MinimizationQuery* q)
 				for (unsigned i = 0, n = ligands.size(); i < n; i++)
 				{
 					//construct model
+					cnt++;
 					LigandData& l = ligands[i];
 					model m = q->initm;
 					non_rigid_parsed nr;

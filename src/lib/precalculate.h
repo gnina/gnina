@@ -359,13 +359,13 @@ public:
 
 	spline_cache() :
 			sf(NULL), cutoff(0), n(0), t1(smina_atom_type::NumTypes), t2(
-					smina_atom_type::NumTypes), valid(false), splines(NULL), num_splines(0)
+					smina_atom_type::NumTypes), splines(NULL), num_splines(0), valid(false)
 	{
 	}
 
 	//need explicit copy constructor to deal with mutex vairable
 	spline_cache(const spline_cache& rhs) :
-			sf(rhs.sf), cutoff(rhs.cutoff), n(rhs.n), t1(rhs.t1), t2(rhs.t2), valid(false), splines(NULL), num_splines(0)
+			sf(rhs.sf), cutoff(rhs.cutoff), n(rhs.n), t1(rhs.t1), t2(rhs.t2), splines(NULL), num_splines(0), valid(false)
 	{ //mutable member do not get copied
 	}
 
