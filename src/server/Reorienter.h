@@ -15,6 +15,8 @@
 #include <eigen3/Eigen/Eigenvalues>
 #include <iostream>
 #include "common.h"
+#include "parsing.h"
+
 using namespace Eigen;
 using namespace std;
 
@@ -30,15 +32,41 @@ public:
 
 	}
 
+	void reorient(vec& pt) const
+	{
+		Vector3d v(pt[0],pt[1],pt[2]);
+		v =  rotation*v+translation;
+		pt = vec(v[0],v[1],v[2]);
+	}
+
 	//modify points by rot/trans
 	void reorient(vecv& pts) const
 	{
+		cout << rotation << "\n";
+		cout << translation << "\n";
+
 		Vector3d pt;
 		for(unsigned i = 0, n = pts.size(); i < n; i++)
 		{
-			Vector3d pt(pts[i][0],pts[i][1],pts[i][2]);
-			pt =  rotation*pt+translation;
-			pts[i] = vec(pt[0],pt[1],pt[2]);
+			reorient(pts[i]);
+		}
+	}
+
+	void reorient(parsing_struct::node& node) const
+	{
+		reorient(node.a.coords);
+		for(unsigned i = 0, n = node.ps.size(); i < n; i++)
+		{
+			reorient(node.ps[i]);
+		}
+	}
+
+	//recursively modify p
+	void reorient(parsing_struct& p) const
+	{
+		for(unsigned i = 0, n = p.atoms.size(); i < n; i++)
+		{
+			reorient(p.atoms[i]);
 		}
 	}
 

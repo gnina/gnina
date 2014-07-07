@@ -66,6 +66,17 @@ struct MinimizationFilters
 		in >> reverseSort;
 		in >> unique;
 	}
+
+	void write(ostream& out)
+	{
+		out << " " << maxRMSD;
+		out << " " << maxScore;
+		out << " " << start;
+		out << " " << num;
+		out << " " << sort;
+		out << " " << reverseSort;
+		out << " " << unique;
+	}
 };
 
 class MinimizationQuery
@@ -77,6 +88,7 @@ private:
 
 	const MinimizationParameters& minparm;
 	bool isFinished;
+	double minTime; //time minimization took
 	bool stopQuery; //cancelled
 	time_t lastAccessed; //last time accessed
 
@@ -135,7 +147,7 @@ private:
 public:
 
 	MinimizationQuery(const MinimizationParameters& minp, const string& recstr, stream_ptr data,
-			bool hasR, unsigned chunks = 10) : minparm(minp), isFinished(false),
+			bool hasR, unsigned chunks = 10) : minparm(minp), isFinished(false), minTime(0),
 			 stopQuery(false), lastAccessed(time(NULL)),
 					chunk_size(chunks), readAllData(false), hasReorient(hasR),
 					io(data), io_position(0), minimizationSpawner(NULL)

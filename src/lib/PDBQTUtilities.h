@@ -36,23 +36,20 @@ GNU General Public License for more details.
 #include <set>
 #include "parsing.h"
 
-using namespace std;
-using namespace OpenBabel;
-
 class obbranch
 {
 public:
-	vector<int> atoms;
+	std::vector<int> atoms;
 	bool done;
 	unsigned int index;
-	set<unsigned int> children;
-	vector<unsigned int> parents;
+	std::set<unsigned int> children;
+	std::vector<unsigned int> parents;
 	unsigned int depth;
 	unsigned int connecting_atom_parent;
 	unsigned int connecting_atom_branch;
 	unsigned int how_many_atoms_moved;
 
-	set<unsigned int> rigid_with; //the other branches that move rigidly with this one
+	std::set<unsigned int> rigid_with; //the other branches that move rigidly with this one
 
 	void clear()
 	{
@@ -80,7 +77,7 @@ public:
 	{
 		clear();
 	}
-	void all_atoms(OBMol& mol)
+	void all_atoms(OpenBabel::OBMol& mol)
 	{
 		clear();
 		rigid_with.insert(0);
@@ -91,24 +88,24 @@ public:
 	}
 };
 
-bool IsRotBond_PDBQT(OBBond * the_bond);
-bool IsIn(const vector<int>& vec, const int num);
+bool IsRotBond_PDBQT(OpenBabel::OBBond * the_bond);
+bool IsIn(const std::vector<int>& vec, const int num);
 
-unsigned int AtomsSoFar(const map<unsigned int, obbranch>& tree,
+unsigned int AtomsSoFar(const std::map<unsigned int, obbranch>& tree,
 		unsigned int depth);
-bool FindBondedPiece(const vector<int>& root, const vector<int>& branch,
+bool FindBondedPiece(const std::vector<int>& root, const std::vector<int>& branch,
 		unsigned int& root_atom, unsigned int& branch_atom,
 		unsigned int& root_atom_rank, unsigned int& branch_atom_rank,
-		const OBMol& mol, unsigned int & atoms_moved);
-bool OutputTree(OBMol& mol, context& lines, parsing_struct& p,
-		map<unsigned int, obbranch>& tree, unsigned int depth);
-void ConstructTree(map<unsigned int, obbranch>& tree,
-		vector<vector<int> > rigid_fragments, unsigned int root_piece,
-		const OBMol& mol, bool flexible);
-bool DeleteHydrogens(OBMol & mol);
-bool Separate_preserve_charges(OBMol & mol, vector<OBMol> & result);
-unsigned int FindFragments(OBMol mol,
-		vector<vector<int> >& rigid_fragments);
-unsigned int RotBond_count(OBMol & mol);
+		const OpenBabel::OBMol& mol, unsigned int & atoms_moved);
+bool OutputTree(OpenBabel::OBMol& mol, context& lines, parsing_struct& p,
+		std::map<unsigned int, obbranch>& tree, unsigned int depth);
+void ConstructTree(std::map<unsigned int, obbranch>& tree,
+		std::vector<std::vector<int> > rigid_fragments, unsigned int root_piece,
+		const OpenBabel::OBMol& mol, bool flexible);
+bool DeleteHydrogens(OpenBabel::OBMol & mol);
+bool Separate_preserve_charges(OpenBabel::OBMol & mol, std::vector<OpenBabel::OBMol> & result);
+unsigned int FindFragments(OpenBabel::OBMol mol,
+		std::vector<std::vector<int> >& rigid_fragments);
+unsigned int RotBond_count(OpenBabel::OBMol & mol);
 
 #endif /* PDBQTUTILITIES_H_ */

@@ -105,7 +105,7 @@ void MinimizationQuery::thread_startMinimization(MinimizationQuery *query)
 	}
 	minthreads.join_all(); //block till all done
 
-	cout << "minimization time " << mintime.elapsed().wall/1e9 << "\t" << query->allResults.size() << " ligs\n";
+	query->minTime = mintime.elapsed().wall/1e9;
 	query->io->close();
 	query->isFinished = true;
 }
@@ -238,6 +238,10 @@ void MinimizationQuery::thread_minimize(MinimizationQuery* q)
 					cnt++;
 					LigandData& l = ligands[i];
 					model m = q->initm;
+
+					if(q->hasReorient)
+						l.reorient.reorient(l.p);
+
 					non_rigid_parsed nr;
 					postprocess_ligand(nr, l.p, l.c, l.numtors);
 
@@ -245,9 +249,6 @@ void MinimizationQuery::thread_minimize(MinimizationQuery* q)
 					tmp.initialize_from_nrp(nr, l.c, true);
 					tmp.initialize(nr.mobility_matrix());
 					m.set_name(l.c.sdftext.name);
-
-					if (q->hasReorient)
-						l.reorient.reorient(tmp.m.coordinates());
 
 					m.append(tmp.m);
 
@@ -385,7 +386,8 @@ void MinimizationQuery::outputData(const MinimizationFilters& f, ostream& out)
 
 	//first line is status header with doneness and number done and filtered number
 	out << finished() << " " << total << " "
-			<< results.size() << "\n";
+			<< results.size() << " " << minTime << "\n";
+
 	unsigned end = f.start + f.num;
 	if (end > results.size() || f.num == 0)
 		end = results.size();

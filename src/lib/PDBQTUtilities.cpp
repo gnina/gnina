@@ -34,6 +34,9 @@ GNU General Public License for more details.
 #include <cassert>
 #include <boost/unordered_map.hpp>
 
+using namespace std;
+using namespace OpenBabel;
+
 unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments)
 {
 	unsigned int best_root_atom = 1;

@@ -17,6 +17,56 @@
 #include <map>
 
 namespace SminaConverter {
+
+using namespace OpenBabel;
+using namespace std;
+
+
+MCMolConverter::MCMolConverter(OpenBabel::OBMol& m): mol(m)
+{
+	//precompute fragments and tree
+	int nc = mol.NumConformers();
+	mol.AddHydrogens();
+
+	mol.SetAutomaticFormalCharge(false);
+	DeleteHydrogens(mol); //leaves just polars
+
+	//we kind of assume a connected molecule
+	unsigned best_root_atom = FindFragments(mol, rigid_fragments);
+	torsdof=rigid_fragments.size()-1;
+
+	unsigned int root_piece = 0;
+    for (unsigned j = 0; j < rigid_fragments.size(); j++)
+    {
+      if (IsIn((rigid_fragments[j]), best_root_atom)) {root_piece=j; break;} //this is the root rigid molecule fragment
+    }
+
+    ConstructTree(tree, rigid_fragments, root_piece, mol, true);
+
+    assert(nc == mol.NumConformers()); //didn't lose any in analysis, did we?
+}
+
+
+//output data for this conformer
+void MCMolConverter::convertConformer(unsigned conf, std::ostream& out)
+{
+	parsing_struct p;
+	context c;
+
+	mol.SetConformer(conf);
+    OutputTree(mol, c, p, tree, torsdof);
+
+	boost::iostreams::filtering_stream<boost::iostreams::output> strm;
+	strm.push(boost::iostreams::gzip_compressor());
+	strm.push(out);
+
+	boost::archive::binary_oarchive serialout(strm,boost::archive::no_header|boost::archive::no_tracking);
+
+	serialout << torsdof;
+	serialout << p;
+	serialout << c;
+}
+
 //sets up data structures used by both text and binary
 //we link with smina to nsure compatibility
 unsigned convertParsing(OBMol& mol, parsing_struct& p, context& c)
@@ -43,10 +93,6 @@ unsigned convertParsing(OBMol& mol, parsing_struct& p, context& c)
 
     OutputTree(mol, c, p, tree, torsdof);
 
-  /*  stringstream str;
-    str << "TORSDOF  ";
-    str << torsdof;
-    add_pdbqt_context(c, str.str()); */
     return torsdof;
 }
 
