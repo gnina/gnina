@@ -54,7 +54,8 @@ void MCMolConverter::convertConformer(unsigned conf, std::ostream& out)
 	context c;
 
 	mol.SetConformer(conf);
-    OutputTree(mol, c, p, tree, torsdof);
+	std::map<unsigned int, obbranch> tmptree(tree); //tree gets modified by outputtree
+    OutputTree(mol, c, p, tmptree, torsdof);
 
 	boost::iostreams::filtering_stream<boost::iostreams::output> strm;
 	strm.push(boost::iostreams::gzip_compressor());
