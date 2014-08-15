@@ -211,7 +211,16 @@ struct model {
 
 	grid_dims movable_atoms_box(fl add_to_each_dimension, fl granularity = 0.375) const;
 
-	void write_flex  (                  const path& name, const std::string& remark) const { write_context(flex_context, name, remark); }
+	void write_flex  (const path& name, const std::string& remark) const { write_context(flex_context, name, remark); }
+
+	void write_flex  (std::ostream& out) const {
+		write_context(flex_context, out);
+	}
+
+	void write_ligand(std::ostream& out) const {
+		VINA_FOR_IN(i, ligands)
+			write_context(ligands[i].cont, out);
+	}
 	void write_structure(std::ostream& out) const {
 		VINA_FOR_IN(i, ligands)
 			write_context(ligands[i].cont, out);

@@ -12,13 +12,13 @@
 #include <string>
 #include <boost/thread.hpp>
 #include <boost/unordered_map.hpp>
-
+#include <boost/shared_ptr.hpp>
 #include "MinimizationQuery.h"
 
 using namespace boost;
 using namespace std;
 
-typedef shared_ptr<MinimizationQuery> QueryPtr;
+typedef boost::shared_ptr<MinimizationQuery> QueryPtr;
 
 
 
@@ -32,7 +32,7 @@ private:
 	typedef unordered_map<unsigned, QueryPtr> QueryMap;
 	QueryMap queries;
 
-	mutex mu;
+	boost::mutex mu;
 
 	unsigned timeout; //seconds until purgeable
 

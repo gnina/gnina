@@ -21,8 +21,15 @@ void result_info::setMolecule(const model& m)
 	}
 	else
 	{
-		m.write_structure(str);
+		m.write_ligand(str);
 		molstr = str.str();
+	}
+
+	if(m.num_flex() > 0) //save flex residue info
+	{
+		std::stringstream fstr;
+		m.write_flex(fstr);
+		flexstr = fstr.str();
 	}
 	name = m.get_name();
 }
@@ -86,6 +93,22 @@ static void setMolData(OpenBabel::OBFormat *format, OpenBabel::OBMol& mol,
 	sddata->SetAttribute(attr);
 	sddata->SetValue(value);
 	mol.SetData(sddata);
+}
+
+//output flexible residue conformers
+void result_info::writeFlex(std::ostream& out, std::string& ext)
+{
+	using namespace OpenBabel;
+	OBMol mol;
+	OBConversion outconv;
+	OBFormat *format = outconv.FormatFromExt(ext);
+	//residue are pdbqt only currently
+	outconv.SetInFormat("PDBQT");
+	outconv.SetOutFormat(format);
+
+	outconv.ReadString(&mol, flexstr); //otherwise keep orig mol
+	mol.SetTitle(name); //same name as cmpd
+	outconv.Write(&mol, &out);
 }
 
 //output molecular data

@@ -28,7 +28,7 @@ cl::opt<unsigned> minimizationThreads("threads",
 		cl::init(max(1U, thread::hardware_concurrency() / 2)));
 cl::opt<string> logfile("logfile", cl::desc("file for logging information"));
 
-typedef unordered_map<string, shared_ptr<Command> > cmd_map;
+typedef unordered_map<string, boost::shared_ptr<Command> > cmd_map;
 
 static void process_request(stream_ptr s, cmd_map& cmap)
 {
@@ -75,13 +75,13 @@ int main(int argc, char *argv[])
 	//command map
 	cmd_map commands = assign::map_list_of
 			("startmin",
-					shared_ptr<Command>(new StartMinimization(queries, log)))
+					boost::shared_ptr<Command>(new StartMinimization(queries, log)))
 			("cancel",
-					shared_ptr<Command>(new CancelMinimization(queries, log)))
-			("getscores", shared_ptr<Command>(new GetScores(queries, log)))
-			("getmol", shared_ptr<Command>(new GetMol(queries, log)))
-			("getmols", shared_ptr<Command>(new GetMols(queries, log)))
-			("getstatus", shared_ptr<Command>(new GetStatus(queries, log)));
+					boost::shared_ptr<Command>(new CancelMinimization(queries, log)))
+			("getscores", boost::shared_ptr<Command>(new GetScores(queries, log)))
+			("getmol", boost::shared_ptr<Command>(new GetMol(queries, log)))
+			("getmols", boost::shared_ptr<Command>(new GetMols(queries, log)))
+			("getstatus", boost::shared_ptr<Command>(new GetStatus(queries, log)));
 
 	//start listening
 	io_service io_service;

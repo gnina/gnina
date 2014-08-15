@@ -181,7 +181,7 @@ MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 bool MinimizationQuery::thread_safe_read(vector<LigandData>& ligands)
 {
 	ligands.clear();
-	unique_lock<mutex> lock(io_mutex);
+	boost::unique_lock<boost::mutex> lock(io_mutex);
 
 	if (!io_strm)
 		return false;
@@ -259,7 +259,7 @@ void MinimizationQuery::thread_minimize(MinimizationQuery* q)
 				}
 
 				//add computed results
-				lock_guard<shared_mutex> lock(q->results_mutex);
+				boost::lock_guard<shared_mutex> lock(q->results_mutex);
 				for (unsigned i = 0, n = results.size(); i < n; i++)
 				{
 					results[i]->position = q->allResults.size();
