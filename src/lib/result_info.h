@@ -20,6 +20,7 @@ class result_info
 	fl energy;
 	fl rmsd;
 	std::string molstr;
+	std::string flexstr;
 	std::string atominfo;
 	std::string name;
 	bool sdfvalid;
@@ -45,6 +46,8 @@ public:
 	void setAtomValues(const model& m, const weighted_terms *wt);
 
 	void write(std::ostream& out, std::string& ext, bool include_atom_terms, const weighted_terms *wt=NULL);
+
+	void writeFlex(std::ostream& out, std::string& ext);
 };
 
 

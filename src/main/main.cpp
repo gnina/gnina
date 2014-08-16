@@ -802,6 +802,7 @@ Thank you!\n";
 		std::string rigid_name, flex_name, config_name, log_name, atom_name;
 		std::vector<std::string> ligand_names;
 		std::string out_name;
+		std::string outf_name;
 		std::string ligand_names_file;
 		std::string custom_file_name;
 		std::string usergrid_file_name;
@@ -869,6 +870,8 @@ Thank you!\n";
 		outputs.add_options()
 		("out,o", value<std::string>(&out_name),
 				"output file name, format taken from file extension")
+		("out_flex",value<std::string>(&outf_name),
+				"output file for flexible receptor residues")
 		("log", value<std::string>(&log_name), "optionally, write log file")
 		("atom_terms", value<std::string>(&atom_name),
 				"optionally write per-atom interaction term values")
@@ -1232,6 +1235,13 @@ Thank you!\n";
 			outext = outfile.open(out_name);
 		}
 
+		ozfile outflex;
+		std::string outfext;
+		if(outf_name.length() > 0)
+		{
+			outfext = outflex.open(outf_name);
+		}
+
 		if(settings.score_only) //output header
 		{
 			std::vector<std::string> enabled_names = t.get_names(true);
@@ -1283,6 +1293,14 @@ Thank you!\n";
 					for (unsigned j = 0, nr = results.size(); j < nr; j++)
 					{
 						results[j].write(outfile, outext, settings.include_atom_info, &wt);
+					}
+				}
+				if(outflex)
+				{
+					//write out flexible residue data data
+					for (unsigned j = 0, nr = results.size(); j < nr; j++)
+					{
+						results[j].writeFlex(outflex, outfext);
 					}
 				}
 				if (atomoutfile)
