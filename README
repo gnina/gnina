@@ -39,26 +39,33 @@ Search space (required):
   --no_lig              no ligand; for sampling/minimizing flexible residues
 
 Scoring and minimization options:
-  --custom_scoring arg      custom scoring function file
-  --score_only              score provided ligand pose
-  --local_only              local search only using autobox (you probably want 
-                            to use --minimize)
-  --minimize                energy minimization
-  --randomize_only          generate random poses, attempting to avoid clashes
-  --minimize_iters arg (=0) number iterations of steepest descent; default 
-                            scales with rotors and usually isn't sufficient for
-                            convergence
-  --accurate_line           use accurate line search
-  --minimize_early_term     Stop minimization before convergence conditions are
-                            fully met.
-  --approximation arg       approximation (linear, spline, or exact) to use
-  --factor arg              approximation factor: higher results in a 
-                            finer-grained approximation
-  --print_terms             Print all available terms with default 
-                            parameterizations
+  --custom_scoring arg         custom scoring function file
+  --score_only                 score provided ligand pose
+  --local_only                 local search only using autobox (you probably 
+                               want to use --minimize)
+  --minimize                   energy minimization
+  --randomize_only             generate random poses, attempting to avoid 
+                               clashes
+  --minimize_iters arg (=0)    number iterations of steepest descent; default 
+                               scales with rotors and usually isn't sufficient 
+                               for convergence
+  --accurate_line              use accurate line search
+  --minimize_early_term        Stop minimization before convergence conditions 
+                               are fully met.
+  --approximation arg          approximation (linear, spline, or exact) to use
+  --factor arg                 approximation factor: higher results in a 
+                               finer-grained approximation
+  --force_cap arg              max allowed force; lower values more gently 
+                               minimize clashing structures
+  --user_grid arg              Autodock map file for user grid data based 
+                               calculations
+  --user_grid_lambda arg (=-1) Scales user_grid and functional scoring
+  --print_terms                Print all available terms with default 
+                               parameterizations
 
 Output (optional):
   -o [ --out ] arg      output file name, format taken from file extension
+  --out_flex arg        output file for flexible receptor residues
   --log arg             optionally, write log file
   --atom_terms arg      optionally write per-atom interaction term values
   --atom_term_data      embedded per-atom interaction terms in output sd data
