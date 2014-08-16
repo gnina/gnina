@@ -898,6 +898,10 @@ Thank you!\n";
 		("factor", value<fl>(&approx_factor),
 				"approximation factor: higher results in a finer-grained approximation")
 		("force_cap",value<fl>(&settings.forcecap),"max allowed force; lower values more gently minimize clashing structures")
+		("user_grid", value<std::string>(&usergrid_file_name),
+				"Autodock map file for user grid data based calculations")
+		("user_grid_lambda", value<fl>(&user_grid_lambda)->default_value(-1.0),
+								"Scales user_grid and functional scoring")
 		("print_terms", bool_switch(&print_terms),
 				"Print all available terms with default parameterizations");
 
@@ -910,12 +914,9 @@ Thank you!\n";
 		("dkoes_fast", bool_switch(&dkoes_fast), "VDW+nrot only")
 		("ad4_scoring", bool_switch(&ad4_score),
 				"Approximation of Autodock 4 scoring")
-		("user_grid", value<std::string>(&usergrid_file_name),
-				"Autodock map file for user grid data based calculations, not implemented yet")
 		("verbosity", value<int>(&settings.verbosity)->default_value(1),
-				"Adjust the verbosity of the output, default: 1")
-		("user_grid_lambda", value<fl>(&user_grid_lambda)->default_value(-1.0),
-						"Scales user_grid and functional scoring");
+				"Adjust the verbosity of the output, default: 1");
+
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
