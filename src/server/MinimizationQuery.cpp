@@ -394,7 +394,7 @@ void MinimizationQuery::outputData(const MinimizationFilters& f, ostream& out)
 	for (unsigned i = f.start; i < end; i++)
 	{
 		Result *res = results[i];
-		out << res->position << "," << res->name << "," << res->score << ","
+		out << res->position << "," << res->orig_position << "," << res->name << "," << res->score << ","
 				<< res->rmsd << "\n";
 	}
 }
