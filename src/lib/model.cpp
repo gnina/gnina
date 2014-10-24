@@ -764,11 +764,11 @@ void sdfcontext::write(const vecv& coords, std::ostream& out) const
     	const sdfprop& prop = properties[i];
     	if(prop.type == 'c') //M CHG
     	{
-    		out << "M  CHG 1 " << std::setw(3) << prop.atom << std::setw(4) << (int)prop.value << "\n";
+    		out << "M  CHG 1 " << std::setw(3) << prop.atom+1 << std::setw(4) << (int)prop.value << "\n";
     	}
     	else if(prop.type == 'i') //M  ISO
     	{
-    		out << "M  ISO 1 " << std::setw(3) << prop.atom << std::setw(4) << (int)prop.value << "\n";
+    		out << "M  ISO 1 " << std::setw(3) << prop.atom+1 << std::setw(4) << (int)prop.value << "\n";
     	}
     }
 
