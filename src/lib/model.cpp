@@ -818,7 +818,11 @@ std::string model::ligand_atom_str(sz i, sz lig) const
 			break;
 		}
 	}
-	return pdbline.substr(6,9);
+
+	if(pdbline.size() > 6)
+		return pdbline.substr(6,9);
+	else
+		return "";
 }
 
 

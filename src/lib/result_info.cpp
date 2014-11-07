@@ -37,7 +37,7 @@ void result_info::setMolecule(const model& m)
 //write a table (w/header) of per atom values to out
 void result_info::writeAtomValues(std::ostream& out,
 		const weighted_terms *wt) const
-		{
+{
 	const terms *t = wt->unweighted_terms();
 	out << "atomid el pos";
 	std::vector<std::string> names = t->get_names(true);

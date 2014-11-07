@@ -109,7 +109,7 @@ public:
 				setup_points(points, (smt) t1, (smt) t2, m_cutoff, n, sf);
 				std::vector<void *> deviceMem;
 				float fraction = 0, cutoff = 0;
-				float **splines;
+				float **splines = NULL;
 				cudaMalloc(&splines, sizeof(float*) * points.size());
 				for (sz i = 0, n = points.size(); i < n; i++)
 				{
