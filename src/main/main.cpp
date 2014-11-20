@@ -831,6 +831,7 @@ Thank you!\n";
 		bool flex_hydrogens = false;
 		bool gpu_on = false;
 		bool print_terms = false;
+		bool print_atom_types = false;
 		bool add_hydrogens = true;
 		bool no_lig = false;
 
@@ -906,7 +907,9 @@ Thank you!\n";
 		("user_grid_lambda", value<fl>(&user_grid_lambda)->default_value(-1.0),
 								"Scales user_grid and functional scoring")
 		("print_terms", bool_switch(&print_terms),
-				"Print all available terms with default parameterizations");
+				"Print all available terms with default parameterizations")
+		("print_atom_types", bool_switch(&print_atom_types),
+				"Print all available atom types");
 
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
@@ -1010,6 +1013,14 @@ Thank you!\n";
 		{
 			custom_terms t;
 			t.print_available_terms(std::cout);
+			return 0;
+		}
+
+		if(print_atom_types)
+		{
+			VINA_FOR(i, smina_atom_type::NumTypes) {
+				std::cout << smina_atom_type::data[i].smina_name << "\n";
+			}
 			return 0;
 		}
 #ifdef SMINA_GPU

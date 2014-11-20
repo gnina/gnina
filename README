@@ -21,6 +21,11 @@ http://pubs.acs.org/doi/abs/10.1021/ci300604z
 using OpenBabel and will get different results than the prepare_ligand4.py
 script that comes with AutoDock Tools.
 
+Pre-built binaries are provided that were built on Ubuntu 14.04.  The main
+dependencies are boost (1.54) and openbabel.  A static binary is provided
+in case these dependencies cannot be met (however, it probably still will
+not work if the kernel is older than 2.6.24).
+
 Input:
   -r [ --receptor ] arg rigid part of the receptor (PDBQT)
   --flex arg            flexible side chains, if any (PDBQT)
@@ -101,7 +106,9 @@ Information (optional):
 
 The custom scoring file consists of a weight, term description, and optional
 comments on each line.  The numeric parameters of the term description 
-can be varied to parameterize the scoring function.  Use --print_terms to see all available terms.
+can be varied to parameterize the scoring function.  
+Use --print_terms to see all available terms.
+
 Example (all weights 1.0, all term types listed):
 1.0  ad4_solvation(d-sigma=3.6,_s/q=0.01097,_c=8)  desolvation, q determines whether value is charge dependent
 1.0  ad4_solvation(d-sigma=3.6,_s/q=0.01097,_c=8)  in all terms, c is a distance cutoff
@@ -117,6 +124,8 @@ Example (all weights 1.0, all term types listed):
 1.0  non_dir_h_bond(g=-0.7,_b=0,_c=8)	good and bad
 1.0  non_dir_h_bond_quadratic(o=0.4,_c=8) like repulsion, but for hbond, don't use	
 1.0  non_dir_h_bond_lj(o=-0.7,_^=100,_c=8)	LJ 10-12 potential, capped at ^
+1.0 acceptor_acceptor_quadratic(o=0,_c=8)	quadratic potential between hydrogen bond acceptors
+1.0 donor_donor_quadratic(o=0,_c=8)	quadratic potential between hydroben bond donors
 1.0  num_tors_div	div constant terms are not linearly independent
 1.0  num_heavy_atoms_div	
 1.0  num_heavy_atoms	these terms are just added
@@ -125,3 +134,35 @@ Example (all weights 1.0, all term types listed):
 1.0  num_tors_sqrt
 1.0  num_hydrophobic_atoms
 1.0  ligand_length
+
+
+Atom Type Terms
+You can define custom functionals between pairs of specific atom types:
+
+atom_type_gaussian(t1=,t2=,o=0,_w=0,_c=8)	guassian potential between specified atom types
+atom_type_linear(t1=,t2=,g=0,_b=0,_c=8)	linear potential between specified atom types
+atom_type_quadratic(t1=,t2=,o=0,_c=8)	quadratic potential between specified atom types
+atom_type_inverse_power(t1=,t2=,i=0,_^=100,_c=8)	inverse power potential between specified atom types
+
+Use --print_atom_types to see all available atom types.
+Note that these are all symmetric - you do not need to specify a term for
+(t1,t2) and (t2,t1) (doing so will just double the value of the potential).
+
+Example:  Faking covalent docking.  Consider this custom scoring function:
+-0.035579    gauss(o=0,_w=0.5,_c=8)
+-0.005156    gauss(o=3,_w=2,_c=8)
+0.840245     repulsion(o=0,_c=8)
+-0.035069    hydrophobic(g=0.5,_b=1.5,_c=8)
+-0.587439    non_dir_h_bond(g=-0.7,_b=0,_c=8)
+1.923        num_tors_div
+-100.0       atom_type_gaussian(t1=Chlorine,t2=Sulfur,o=0,_w=3,_c=8)
+
+All but the last term are the default Vina scoring function.  That last
+term applys a very strong guassian potential between Cl and S.  In the
+system we were docking, we modified the two atoms we wanted to be next
+to each other (because they are known form a covalent bond) to be a chlorine
+and a sulfur (the system is not physical, but that's okay).  Since these
+were the only Cl and S in the system and the term has a large weight,
+the best docking solutions all placed these atoms together.
+The final poses could then be rescored/minimized using just the default
+scoring function.
