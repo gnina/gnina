@@ -67,6 +67,7 @@ Scoring and minimization options:
   --user_grid_lambda arg (=-1) Scales user_grid and functional scoring
   --print_terms                Print all available terms with default 
                                parameterizations
+  --print_atom_types           Print all available atom types
 
 Output (optional):
   -o [ --out ] arg      output file name, format taken from file extension
@@ -144,7 +145,9 @@ atom_type_linear(t1=,t2=,g=0,_b=0,_c=8)	linear potential between specified atom 
 atom_type_quadratic(t1=,t2=,o=0,_c=8)	quadratic potential between specified atom types
 atom_type_inverse_power(t1=,t2=,i=0,_^=100,_c=8)	inverse power potential between specified atom types
 
-Use --print_atom_types to see all available atom types.
+Use --print_atom_types to see all available atom types. Note that hydrogens
+are always ignored despite having atom types.
+
 Note that these are all symmetric - you do not need to specify a term for
 (t1,t2) and (t2,t1) (doing so will just double the value of the potential).
 
