@@ -829,6 +829,7 @@ Thank you!\n";
 		fl autobox_add = 4;
 		fl out_min_rmsd = 1;
 		std::string autobox_ligand;
+		std::string flexdist_ligand;
 		int device = 0;
 
 		// -0.035579, -0.005156, 0.840245, -0.035069, -0.587439, 0.05846
@@ -870,8 +871,10 @@ Thank you!\n";
 				"ligand(s)")
 		("flexres", value<std::string>(&flex_res),
 				"flexible side chains specified by comma separated list of chain:resid")
+		("flexdist_ligand", value<std::string>(&flexdist_ligand),
+						"Ligand to use for flexdist")
 		("flexdist", value<double>(&flex_dist),
-				"set all side chains within specified distance to autobox_ligand to flexible");
+				"set all side chains within specified distance to flexdist_ligand to flexible");
 
 		//options_description search_area("Search area (required, except with --score_only)");
 		options_description search_area("Search space (required)");
@@ -1147,7 +1150,12 @@ Thank you!\n";
 				throw usage_error("Search space dimensions should be positive");
 		}
 
-		FlexInfo finfo(flex_res, flex_dist, autobox_ligand, log);
+		if(flex_dist > 0 && flexdist_ligand.size() == 0)
+		{
+			throw usage_error("Must specify flexdist_ligand with flex_dist");
+		}
+
+		FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, log);
 
 		log << cite_message << '\n';
 
