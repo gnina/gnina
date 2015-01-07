@@ -30,6 +30,11 @@ Input:
   -r [ --receptor ] arg rigid part of the receptor (PDBQT)
   --flex arg            flexible side chains, if any (PDBQT)
   -l [ --ligand ] arg   ligand(s)
+  --flexres arg         flexible side chains specified by comma separated list 
+                        of chain:resid
+  --flexdist_ligand arg Ligand to use for flexdist
+  --flexdist arg        set all side chains within specified distance to 
+                        flexdist_ligand to flexible
 
 Search space (required):
   --center_x arg        X coordinate of the center
@@ -40,7 +45,7 @@ Search space (required):
   --size_z arg          size in the Z dimension (Angstroms)
   --autobox_ligand arg  Ligand to use for autobox
   --autobox_add arg     Amount of buffer space to add to auto-generated box 
-                        (default 8)
+                        (default +4 on all six sides)
   --no_lig              no ligand; for sampling/minimizing flexible residues
 
 Scoring and minimization options:
@@ -102,6 +107,7 @@ Information (optional):
   --help                display usage summary
   --help_hidden         display usage summary with hidden options
   --version             display program version
+
 
 
 
