@@ -1,6 +1,6 @@
 BOOST_INCLUDE = $(BASE)/include/boost-${BOOST_VERSION}
 
-LIBOBJ = cache.o coords.o  custom_terms.o everything.o grid.o szv_grid.o model.o monte_carlo.o mutate.o my_pid.o naive_non_cache.o non_cache.o obmolopener.o parallel_mc.o parse_pdbqt.o pdb.o quasi_newton.o quaternion.o random.o ssd.o terms.o weighted_terms.o molgetter.o result_info.o PDBQTUtilities.o SminaConverter.o
+LIBOBJ = cache.o coords.o  custom_terms.o everything.o flexinfo.o grid.o szv_grid.o model.o monte_carlo.o mutate.o my_pid.o naive_non_cache.o non_cache.o obmolopener.o parallel_mc.o parse_pdbqt.o pdb.o quasi_newton.o quaternion.o random.o ssd.o terms.o weighted_terms.o molgetter.o result_info.o PDBQTUtilities.o SminaConverter.o
 MAINOBJ = main.o
 TOSMINAOBJ = tosmina.o CommandLine.o 
 SERVEROBJ = server.o CommandLine.o MinimizationQuery.o QueryManager.o
