@@ -69,8 +69,10 @@ void MCMolConverter::convertConformer(unsigned conf, std::ostream& out)
 }
 
 //sets up data structures used by both text and binary
-//we link with smina to nsure compatibility
-unsigned convertParsing(OBMol& mol, parsing_struct& p, context& c)
+//we link with smina to ensure compatibility
+//rootatom, an obatom index (starting at 1) can be specified, if not
+//the "best" root is chosen
+unsigned convertParsing(OBMol& mol, parsing_struct& p, context& c, int rootatom /* = 0*/)
 {
 	mol.AddHydrogens();
 
@@ -83,6 +85,12 @@ unsigned convertParsing(OBMol& mol, parsing_struct& p, context& c)
 	//we kind of assume a connected molecule
 	unsigned best_root_atom = FindFragments(mol, rigid_fragments);
 	unsigned torsdof=rigid_fragments.size()-1;
+
+	if(rootatom > 0)
+	{
+		//user user supplied root
+		best_root_atom = rootatom;
+	}
 
 	unsigned int root_piece = 0;
     for (unsigned j = 0; j < rigid_fragments.size(); j++)
@@ -98,25 +106,25 @@ unsigned convertParsing(OBMol& mol, parsing_struct& p, context& c)
 }
 
 template <class T>
-static void convert(OBMol& mol, T& serialout, ostream& out)
+static void convert(OBMol& mol, T& serialout, ostream& out, int rootatom=0)
 {
 	parsing_struct p;
 	context c;
-	unsigned torsdof = convertParsing(mol, p, c);
+	unsigned torsdof = convertParsing(mol, p, c, rootatom);
 	serialout << torsdof;
 	serialout << p;
 	serialout << c;
 }
 
 //text output
-void convertText(OBMol& mol, ostream& out)
+void convertText(OBMol& mol, ostream& out, int rootatom/*=0*/)
 {
 	boost::archive::text_oarchive serialout(out,boost::archive::no_header|boost::archive::no_tracking);
-	convert(mol, serialout, out);
+	convert(mol, serialout, out, rootatom);
 }
 
 //binary output
-void convertBinary(OBMol& mol,  ostream& out)
+void convertBinary(OBMol& mol,  ostream& out, int rootatom/*=0*/)
 {
 	//by definition, smina format is gzipped
 	boost::iostreams::filtering_stream<boost::iostreams::output> strm;
@@ -124,7 +132,7 @@ void convertBinary(OBMol& mol,  ostream& out)
 	strm.push(out);
 
 	boost::archive::binary_oarchive serialout(strm,boost::archive::no_header|boost::archive::no_tracking);
-	convert(mol, serialout, strm);
+	convert(mol, serialout, strm, rootatom);
 }
 
 } //namespace SminaConverter
