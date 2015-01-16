@@ -8,6 +8,7 @@ standard Vina (version 1.1.2) include:
  -automatic box creation based on a user-specified bound ligand
  -allow the output of more than 20 docking poses
  -vastly improved minimization algorithms (--minimize goes to convergence)
+ -*experimental* easily define flexible residues of receptor (--flexres and --flexdist)
  
 For workflows where AutoDock Vina is used for minimization (local_only) 
 as opposed to of docking, these changes make Vina much easer to use and 
