@@ -47,17 +47,23 @@ unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
 	getline(*io, str); //absorb newline
 	string recstr(rsize, '\0'); //note that c++ strings are built with null at the end
 	io->read(&recstr[0], rsize);
+
+	//next line is used for parameters
+	getline(*io, str);
+	stringstream params(str);
+
 	//does the ligand data have to be reoriented?
 	bool hasR = false;
-	*io >> hasR;
-	//absorb newline before ligand data
-	getline(*io, str);
+	params >> hasR;
+
+	bool isFrag = false;
+	params >> isFrag;
 
 	//attempt to create query
 	QueryPtr q;
 	try
 	{
-		q = QueryPtr(new MinimizationQuery(minparm, recstr, io, hasR));
+		q = QueryPtr(new MinimizationQuery(minparm, recstr, io, hasR, isFrag));
 	} catch (parse_error& pe) //couldn't read receptor
 	{
 		cerr << "couldn't read receptor\n";

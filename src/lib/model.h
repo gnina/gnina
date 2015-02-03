@@ -217,6 +217,9 @@ struct model {
 		write_context(flex_context, out);
 	}
 
+	void write_flex_sdf( std::ostream& out) const {
+		flex_context.writeSDF(coords, out);
+	}
 	void write_ligand(std::ostream& out) const {
 		VINA_FOR_IN(i, ligands)
 			write_context(ligands[i].cont, out);

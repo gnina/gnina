@@ -95,6 +95,7 @@ private:
 	unsigned chunk_size; //how many ligands to process at a time, performance seems relatively insensitive to this
 	bool readAllData; //try after we have consumed all the ligands
 	bool hasReorient; //try if ligand data is prefaced by rotation/translation
+	bool isFrag; //treat as residue
 	model initm;
 
 	stream_ptr io;
@@ -147,9 +148,9 @@ private:
 public:
 
 	MinimizationQuery(const MinimizationParameters& minp, const string& recstr, stream_ptr data,
-			bool hasR, unsigned chunks = 10) : minparm(minp), isFinished(false), minTime(0),
+			bool hasR, bool isF, unsigned chunks = 10) : minparm(minp), isFinished(false), minTime(0),
 			 stopQuery(false), lastAccessed(time(NULL)),
-					chunk_size(chunks), readAllData(false), hasReorient(hasR),
+					chunk_size(chunks), readAllData(false), hasReorient(hasR), isFrag(isF),
 					io(data), io_position(0), minimizationSpawner(NULL)
 	{
 		//create the initial model
