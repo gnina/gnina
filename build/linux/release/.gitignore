@@ -1,3 +1,9 @@
 *.o
 smina
 vina_split
+smina.linux
+smina.old
+smina.static
+libsmina.a
+server
+tosmina

@@ -1337,7 +1337,7 @@ Thank you!\n";
 					//write out molecular data
 					for (unsigned j = 0, nr = results.size(); j < nr; j++)
 					{
-						results[j].write(outfile, outext, settings.include_atom_info, &wt);
+						results[j].write(outfile, outext, settings.include_atom_info, &wt, j+1);
 					}
 				}
 				if(outflex)

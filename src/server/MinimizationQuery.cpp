@@ -173,7 +173,7 @@ MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 
 	if(m.num_ligands() > 0) {
 		m.write_sdf(str);
-	} else if(m.num_flex() > 0){ //if no ligs, assume optimizing "residue"
+	} else { //if no ligs, assume optimizing "residue"
 		m.write_flex_sdf(str);
 	}
 	result->sdf = str.str();
@@ -248,9 +248,15 @@ void MinimizationQuery::thread_minimize(MinimizationQuery* q)
 						l.reorient.reorient(l.p);
 
 					non_rigid_parsed nr;
-					postprocess_ligand(nr, l.p, l.c, l.numtors);
-
 					pdbqt_initializer tmp;
+
+					if(q->isFrag) {
+						//treat as residue
+						postprocess_residue(nr, l.p, l.c);
+					} else {
+						postprocess_ligand(nr, l.p, l.c, l.numtors);
+					}
+
 					tmp.initialize_from_nrp(nr, l.c, !q->isFrag);
 					tmp.initialize(nr.mobility_matrix());
 					m.set_name(l.c.sdftext.name);

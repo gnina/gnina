@@ -359,8 +359,8 @@ void postprocess_ligand(non_rigid_parsed& nr, parsing_struct& p, context& c, uns
 void postprocess_residue(non_rigid_parsed& nr, parsing_struct& p, context& c) {
 	VINA_FOR_IN(i, p.atoms) { // iterate over "root" of a "residue"
 		parsing_struct::node& p_node = p.atoms[i];
-		p_node.insert_inflex(nr);
-		p_node.insert_immobiles_inflex(nr);
+		p_node.insert_inflex(nr, c);
+		p_node.insert_immobiles_inflex(nr, c);
 	}
 	VINA_FOR_IN(i, p.atoms) { // iterate over "root" of a "residue"
 		parsing_struct::node& p_node = p.atoms[i];

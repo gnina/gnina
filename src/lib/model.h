@@ -119,9 +119,10 @@ struct sdfcontext {
 	std::vector<sdfprop> properties; //CHG and ISO go here
 
 
+	void dump(std::ostream& out) const;
 	void write(const vecv& coords, std::ostream& out) const; //output sdf with provided coords
 	bool valid() const {return atoms.size() > 0; }
-
+	sz size() const {return atoms.size(); }
 	template<class Archive>
 	void serialize(Archive& ar, const unsigned version) {
 		ar & name;
@@ -146,6 +147,7 @@ struct context {
 	void set(sz pdbqtindex, sz sdfindex, sz atomindex);
 
 	sz pdbqtsize() const { return pdbqttext.size(); }
+	sz sdfsize() const { return sdftext.size(); }
 
 	template<class Archive>
 	void serialize(Archive& ar, const unsigned version) {
@@ -219,6 +221,9 @@ struct model {
 
 	void write_flex_sdf( std::ostream& out) const {
 		flex_context.writeSDF(coords, out);
+	}
+	void dump_flex_sdf( std::ostream& out) const {
+		flex_context.sdftext.dump(out);
 	}
 	void write_ligand(std::ostream& out) const {
 		VINA_FOR_IN(i, ligands)
@@ -304,6 +309,11 @@ struct model {
 		return coords;
 	}
 
+	void dump_coords(std::ostream& out) const {
+		VINA_FOR(i, coords.size()) {
+			out << i << " " << coords[i][0] << "," << coords[i][1] << "," << coords[i][2] << "\n";
+		}
+	}
 	vecv get_heavy_atom_movable_coords() const { // FIXME mv
 		vecv tmp;
 		VINA_FOR(i, num_movable_atoms())

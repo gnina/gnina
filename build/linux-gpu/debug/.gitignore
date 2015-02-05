@@ -1,3 +1,4 @@
 /smina
 /vina_split
 *.o
+smina.gpu

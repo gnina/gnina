@@ -220,6 +220,11 @@ public:
 			//dkoes - I don't think I will need to do this, so not bothering to implement it for now
 			abort();
 		}
+		else if(!a.sdftext.valid())
+		{
+			//but I do need to be able to add flex res to an existing model
+			a.sdftext = b.sdftext;
+		}
 	}
 
 	// internal_coords, coords, minus_forces, atoms
@@ -722,6 +727,15 @@ void context::writePDBQT(const vecv& coords, std::ostream& out) const
 		else
 			out << str << '\n';
 	}
+}
+
+void sdfcontext::dump(std::ostream& out) const
+{
+    for(unsigned i = 0, n = atoms.size(); i < n; i++)
+    {
+    	const sdfatom& atom = atoms[i];
+    	out << atom.index << " " << atom.elem << "\n";
+    }
 }
 
 //output sdf format to out

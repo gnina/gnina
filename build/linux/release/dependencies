@@ -868,6 +868,11 @@
 ./everything.o: ../../../src/lib/grid_dim.h
 ./everything.o: ../../../src/lib/curl.h
 ./everything.o: ../../../src/lib/int_pow.h
+./flexinfo.o: ../../../src/lib/flexinfo.h
+./flexinfo.o: ../../../src/lib/obmolopener.h
+./flexinfo.o: ../../../src/lib/box.h ../../../src/lib/common.h
+./flexinfo.o: ../../../src/lib/macros.h ../../../src/lib/tee.h
+./flexinfo.o: ../../../src/lib/file.h
 ./grid.o: ../../../src/lib/grid.h ../../../src/lib/array3d.h
 ./grid.o: ../../../src/lib/common.h ../../../src/lib/macros.h
 ./grid.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
@@ -1215,6 +1220,7 @@
 ./molgetter.o: ../../../src/lib/convert_substring.h
 ./molgetter.o: ../../../src/lib/parse_error.h
 ./molgetter.o: ../../../src/lib/SminaConverter.h
+./molgetter.o: ../../../src/lib/PDBQTUtilities.h
 ./monte_carlo.o: ../../../src/lib/monte_carlo.h
 ./monte_carlo.o: ../../../src/lib/ssd.h
 ./monte_carlo.o: ../../../src/lib/model.h
@@ -3454,11 +3460,13 @@
 ./main.o: ../../../src/lib/precalculate_gpu.h
 ./main.o: ../../../src/lib/molgetter.h
 ./main.o: ../../../src/lib/result_info.h
+./main.o: ../../../src/lib/box.h ../../../src/lib/flexinfo.h
 ./MinimizationQuery.o: ../../../src/server/MinimizationQuery.h
 ./MinimizationQuery.o: ../../../src/server/Reorienter.h
 ./MinimizationQuery.o: ../../../src/lib/common.h
 ./MinimizationQuery.o: ../../../src/lib/macros.h
-./MinimizationQuery.o: ../../../src/server/server_common.h
+./MinimizationQuery.o: ../../../src/lib/parsing.h
+./MinimizationQuery.o: ../../../src/lib/parse_pdbqt.h
 ./MinimizationQuery.o: ../../../src/lib/model.h
 ./MinimizationQuery.o: ../../../src/lib/file.h
 ./MinimizationQuery.o: ../../../src/lib/tree.h
@@ -3626,10 +3634,9 @@
 ./MinimizationQuery.o: ../../../src/lib/array3d.h
 ./MinimizationQuery.o: ../../../src/lib/grid_dim.h
 ./MinimizationQuery.o: ../../../src/lib/curl.h
-./MinimizationQuery.o: ../../../src/lib/parse_pdbqt.h
-./MinimizationQuery.o: ../../../src/lib/parsing.h
 ./MinimizationQuery.o: ../../../src/lib/convert_substring.h
 ./MinimizationQuery.o: ../../../src/lib/parse_error.h
+./MinimizationQuery.o: ../../../src/server/server_common.h
 ./MinimizationQuery.o: ../../../src/lib/custom_terms.h
 ./MinimizationQuery.o: ../../../src/lib/terms.h
 ./MinimizationQuery.o: ../../../src/lib/int_pow.h
@@ -3645,7 +3652,8 @@
 ./QueryManager.o: ../../../src/server/Reorienter.h
 ./QueryManager.o: ../../../src/lib/common.h
 ./QueryManager.o: ../../../src/lib/macros.h
-./QueryManager.o: ../../../src/server/server_common.h
+./QueryManager.o: ../../../src/lib/parsing.h
+./QueryManager.o: ../../../src/lib/parse_pdbqt.h
 ./QueryManager.o: ../../../src/lib/model.h
 ./QueryManager.o: ../../../src/lib/file.h
 ./QueryManager.o: ../../../src/lib/tree.h
@@ -3813,10 +3821,9 @@
 ./QueryManager.o: ../../../src/lib/array3d.h
 ./QueryManager.o: ../../../src/lib/grid_dim.h
 ./QueryManager.o: ../../../src/lib/curl.h
-./QueryManager.o: ../../../src/lib/parse_pdbqt.h
-./QueryManager.o: ../../../src/lib/parsing.h
 ./QueryManager.o: ../../../src/lib/convert_substring.h
 ./QueryManager.o: ../../../src/lib/parse_error.h
+./QueryManager.o: ../../../src/server/server_common.h
 ./QueryManager.o: ../../../src/lib/custom_terms.h
 ./QueryManager.o: ../../../src/lib/terms.h
 ./QueryManager.o: ../../../src/lib/int_pow.h
@@ -3831,6 +3838,8 @@
 ./server.o: ../../../src/server/Reorienter.h
 ./server.o: ../../../src/lib/common.h
 ./server.o: ../../../src/lib/macros.h
+./server.o: ../../../src/lib/parsing.h
+./server.o: ../../../src/lib/parse_pdbqt.h
 ./server.o: ../../../src/lib/model.h
 ./server.o: ../../../src/lib/file.h ../../../src/lib/tree.h
 ./server.o: ../../../src/lib/conf.h
@@ -3997,8 +4006,6 @@
 ./server.o: ../../../src/lib/array3d.h
 ./server.o: ../../../src/lib/grid_dim.h
 ./server.o: ../../../src/lib/curl.h
-./server.o: ../../../src/lib/parse_pdbqt.h
-./server.o: ../../../src/lib/parsing.h
 ./server.o: ../../../src/lib/convert_substring.h
 ./server.o: ../../../src/lib/parse_error.h
 ./server.o: ../../../src/lib/custom_terms.h
@@ -4184,3 +4191,4 @@
 ./tosmina.o: ../../../src/lib/curl.h
 ./tosmina.o: ../../../src/lib/convert_substring.h
 ./tosmina.o: ../../../src/lib/parse_error.h
+./tosmina.o: ../../../src/lib/PDBQTUtilities.h
