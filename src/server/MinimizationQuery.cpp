@@ -114,10 +114,12 @@ void MinimizationQuery::thread_startMinimization(MinimizationQuery *query)
 //allocates and returns a result structure, caller takes responsibility for memory
 MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 {
-	static const vec authentic_v(10, 10, 10);
 	static const grid empty_grid;
 	static const fl autobox_add = 8;
 	static const fl granularity = 0.375;
+	vec authentic_v(10, 10, 10); //"soft" minimization
+
+	if(isFrag) authentic_v = vec(100,100,100); //harder since we can't resolve clashes with fixed parts
 
 	vecv origcoords = m.get_heavy_atom_movable_coords();
 	fl e = max_fl;
@@ -147,11 +149,16 @@ MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 	if (i == 3) //couldn't stay in box
 		out.e = max_fl;
 
-	fl intramolecular_energy = m.eval_intramolecular(*minparm.exact_prec,
-			authentic_v, out.c);
-	e = m.eval_adjusted(*minparm.wt, *minparm.exact_prec, *minparm.nnc,
-			authentic_v, out.c,
-			intramolecular_energy, empty_grid);
+	if(isFrag) {
+		e = m.eval_flex(*minparm.exact_prec, authentic_v, out.c, numProteinAtoms);
+	}
+	else { //standard ligand stuff
+		fl intramolecular_energy = m.eval_intramolecular(*minparm.exact_prec,
+				authentic_v, out.c);
+		e = m.eval_adjusted(*minparm.wt, *minparm.exact_prec, *minparm.nnc,
+				authentic_v, out.c,
+				intramolecular_energy, empty_grid);
+	}
 
 	vecv newcoords = m.get_heavy_atom_movable_coords();
 	assert(newcoords.size() == origcoords.size());
@@ -161,8 +168,11 @@ MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 	{
 		rmsd += (newcoords[i] - origcoords[i]).norm_sqr();
 	}
-	rmsd /= newcoords.size();
-	rmsd = sqrt(rmsd);
+
+	if(newcoords.size() > 0) { //not totally rigid
+		rmsd /= newcoords.size();
+		rmsd = sqrt(rmsd);
+	}
 
 	//construct result
 	Result *result = new Result();
@@ -298,6 +308,7 @@ void MinimizationQuery::outputMol(unsigned pos, ostream& out)
 	if (res != NULL) //empty result on error
 	{
 		out << res->sdf;
+		out << "$$$$\n";
 	}
 }
 

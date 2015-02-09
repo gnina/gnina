@@ -754,7 +754,10 @@ static void create_init_model(const std::string& rigid_name,
 				throw file_error(rigid_name, true);
 
 			rec.AddHydrogens(true);
-
+			FOR_ATOMS_OF_MOL(a, rec)
+			{
+				a->GetPartialCharge();
+			}
 			OBMol rigid;
 			std::string flexstr;
 			finfo.extractFlex(rec, rigid, flexstr);

@@ -124,7 +124,7 @@ struct parsing_struct {
 			void insert_inflex(non_rigid_parsed& nr, context& c) {
 				VINA_FOR_IN(i, ps)
 					ps[i].axis_begin = atom_reference(nr.inflex.size(), true);
-				c.set(pdbqt_context_index, sdf_context_index, nr.inflex.size());
+				c.set(pdbqt_context_index, sdf_context_index, nr.inflex.size(), true);
 				nr.inflex.push_back(a);
 			}
 			void insert_immobiles_inflex(non_rigid_parsed& nr, context& c) {

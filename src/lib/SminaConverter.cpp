@@ -15,6 +15,7 @@
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <map>
+#include <openbabel/obconversion.h>
 
 namespace SminaConverter {
 
@@ -83,7 +84,7 @@ unsigned convertParsing(OBMol& mol, parsing_struct& p, context& c, int rootatom 
 	map<unsigned int, obbranch> tree;
 
 	//we kind of assume a connected molecule
-	unsigned best_root_atom = FindFragments(mol, rigid_fragments);
+	unsigned best_root_atom = FindFragments(mol, rigid_fragments, rootatom);
 	unsigned torsdof=rigid_fragments.size()-1;
 
 	if(rootatom > 0)
