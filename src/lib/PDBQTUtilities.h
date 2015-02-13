@@ -105,7 +105,9 @@ void ConstructTree(std::map<unsigned int, obbranch>& tree,
 bool DeleteHydrogens(OpenBabel::OBMol & mol);
 bool Separate_preserve_charges(OpenBabel::OBMol & mol, std::vector<OpenBabel::OBMol> & result);
 unsigned int FindFragments(OpenBabel::OBMol mol,
-		std::vector<std::vector<int> >& rigid_fragments, unsigned desired_root=0);
+		std::vector<std::vector<int> >& rigid_fragments, unsigned desired_root, const std::vector<int>& norotate);
+unsigned int FindFragments(OpenBabel::OBMol mol,
+		std::vector<std::vector<int> >& rigid_fragments);
 unsigned int RotBond_count(OpenBabel::OBMol & mol);
 
 #endif /* PDBQTUTILITIES_H_ */

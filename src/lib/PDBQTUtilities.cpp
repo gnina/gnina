@@ -33,13 +33,21 @@
 #include "PDBQTUtilities.h"
 #include <cassert>
 #include <boost/unordered_map.hpp>
-
+#include <boost/unordered_set.hpp>
 using namespace std;
 using namespace OpenBabel;
 
+unsigned int FindFragments(OpenBabel::OBMol mol,
+		std::vector<std::vector<int> >& rigid_fragments)
+{
+	std::vector<int> nr;
+	return FindFragments(mol, rigid_fragments);
+}
+
 //return the best root atom and fill in the rigid fragments
-//if desired_root is set, let bonds rotate about it
-unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments, unsigned desired_root)
+//if desired_root is set and rotateAroundRoot is true, let bonds rotate about it
+unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments,
+		unsigned desired_root, const vector<int>& norotate)
 {
 	unsigned int best_root_atom = 1;
 	unsigned int shortest_maximal_remaining_subgraph = mol.NumAtoms();
@@ -65,13 +73,23 @@ unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments, uns
 			best_root_atom = i;
 		}
 	}
+
+	boost::unordered_set<int> norot(norotate.begin(), norotate.end());
 	vector<unsigned int> bonds_to_delete;
 	{
 		OBMol mol_pieces = mol;
 		for (OBBondIterator it = mol_pieces.BeginBonds();
 				it != mol_pieces.EndBonds(); it++)
 		{
-			if (IsRotBond_PDBQT((*it), desired_root))
+			OBBond *bond = *it;
+			int src = bond->GetBeginAtomIdx();
+			int dst = bond->GetEndAtomIdx();
+
+			if (norot.count(src) || norot.count(dst))
+			{
+				//not rotatable
+			}
+			else if (IsRotBond_PDBQT(bond, desired_root))
 			{
 				bonds_to_delete.push_back((*it)->GetIdx());
 			}
@@ -115,9 +133,9 @@ bool IsRotBond_PDBQT(OBBond * the_bond, unsigned desired_root)
 	if (((the_bond->GetBeginAtom())->GetHvyValence() == 1)
 			|| ((the_bond->GetEndAtom())->GetHvyValence() == 1))
 	{
-		if(the_bond->GetBeginAtomIdx() == desired_root)
+		if (the_bond->GetBeginAtomIdx() == desired_root)
 			return true;
-		else if(the_bond->GetEndAtomIdx() == desired_root)
+		else if (the_bond->GetEndAtomIdx() == desired_root)
 			return true;
 
 		return false;

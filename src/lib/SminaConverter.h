@@ -10,6 +10,7 @@
 
 #include <openbabel/mol.h>
 #include <iostream>
+#include <vector>
 #include "parsing.h"
 #include "PDBQTUtilities.h"
 
@@ -17,13 +18,17 @@
  */
 namespace SminaConverter
 {
+	//can optoinal specify a desired root atom and atoms to that should not have rotatable bonds
 	//text output
-	void convertText(OpenBabel::OBMol& mol, std::ostream& out, int rootatom=0);
+	void convertText(OpenBabel::OBMol& mol, std::ostream& out, int rootatom, const std::vector<int>& norotate);
+	void convertText(OpenBabel::OBMol& mol, std::ostream& out);
 	//binary output
-	void convertBinary(OpenBabel::OBMol& mol, std::ostream& out, int rootatom=0);
+	void convertBinary(OpenBabel::OBMol& mol, std::ostream& out, int rootatom, const std::vector<int>& norotate);
+	void convertBinary(OpenBabel::OBMol& mol, std::ostream& out);
 
 	//convert obmol to smina parsing struct and context; return numtors
-	unsigned convertParsing(OpenBabel::OBMol& mol, parsing_struct& p, context& c, int rootatom = 0);
+	unsigned convertParsing(OpenBabel::OBMol& mol, parsing_struct& p, context& c, int rootatom, const std::vector<int>& norotate);
+	unsigned convertParsing(OpenBabel::OBMol& mol, parsing_struct& p, context& c);
 
 	//class for efficiently converting multi-conformer molecule
 	class MCMolConverter
