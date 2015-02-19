@@ -79,9 +79,10 @@ void MCMolConverter::convertConformer(unsigned conf, std::ostream& out)
 //rootatom, an obatom index (starting at 1) can be specified, if not
 //the "best" root is chosen
 unsigned convertParsing(OBMol& mol, parsing_struct& p, context& c, int rootatom,
-		const vector<int>& norotate)
+		const vector<int>& norotate, bool addH)
 {
-	mol.AddHydrogens();
+	if(addH)
+		mol.AddHydrogens();
 
 	mol.SetAutomaticFormalCharge(false);
 	DeleteHydrogens(mol); //leaves just polars
@@ -117,10 +118,10 @@ unsigned convertParsing(OBMol& mol, parsing_struct& p, context& c, int rootatom,
 	return torsdof;
 }
 
-unsigned convertParsing(OpenBabel::OBMol& mol, parsing_struct& p, context& c)
+unsigned convertParsing(OpenBabel::OBMol& mol, parsing_struct& p, context& c, bool addH)
 {
 	std::vector<int> nr;
-	return convertParsing(mol, p, c, 0, nr);
+	return convertParsing(mol, p, c, 0, nr, addH);
 }
 
 template<class T>

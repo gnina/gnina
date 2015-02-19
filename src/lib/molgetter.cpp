@@ -99,15 +99,13 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 		OpenBabel::OBMol mol;
 		while (conv.Read(&mol)) //will return after first success
 		{
-			if(add_hydrogens)
-				mol.AddHydrogens();
 			std::string name = mol.GetTitle();
 			m.set_name(name);
 			try
 			{
 				parsing_struct p;
 				context c;
-				unsigned torsdof = SminaConverter::convertParsing(mol, p, c);
+				unsigned torsdof = SminaConverter::convertParsing(mol, p, c, add_hydrogens);
 				non_rigid_parsed nr;
 				postprocess_ligand(nr, p, c, torsdof);
 				VINA_CHECK(nr.atoms_atoms_bonds.dim() == nr.atoms.size());

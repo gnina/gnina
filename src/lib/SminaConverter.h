@@ -27,8 +27,8 @@ namespace SminaConverter
 	void convertBinary(OpenBabel::OBMol& mol, std::ostream& out);
 
 	//convert obmol to smina parsing struct and context; return numtors
-	unsigned convertParsing(OpenBabel::OBMol& mol, parsing_struct& p, context& c, int rootatom, const std::vector<int>& norotate);
-	unsigned convertParsing(OpenBabel::OBMol& mol, parsing_struct& p, context& c);
+	unsigned convertParsing(OpenBabel::OBMol& mol, parsing_struct& p, context& c, int rootatom, const std::vector<int>& norotate, bool addH=true);
+	unsigned convertParsing(OpenBabel::OBMol& mol, parsing_struct& p, context& c, bool addH=true);
 
 	//class for efficiently converting multi-conformer molecule
 	class MCMolConverter
