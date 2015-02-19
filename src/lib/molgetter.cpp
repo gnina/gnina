@@ -99,6 +99,8 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 		OpenBabel::OBMol mol;
 		while (conv.Read(&mol)) //will return after first success
 		{
+			if(add_hydrogens)
+				mol.AddHydrogens();
 			std::string name = mol.GetTitle();
 			m.set_name(name);
 			try

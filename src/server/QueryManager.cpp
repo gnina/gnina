@@ -74,7 +74,7 @@ unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
 			//force partial charge calculation
 			FOR_ATOMS_OF_MOL(a, rec)
 			{
-			//	a->GetPartialCharge();
+				a->GetPartialCharge();
 			}
 			recstr = conv.WriteString(&rec);
 		}
