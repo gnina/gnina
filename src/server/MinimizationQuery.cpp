@@ -436,12 +436,12 @@ void MinimizationQuery::outputMols(const MinimizationFilters& f, ostream& out)
 		Result *r = results[i];
 		strm << r->sdf;
 		//include sddata for affinity/rmsd
-		strm << "> <minimizedAffinity>\n";
+		strm << ">  <minimizedAffinity>\n";
 		strm << std::fixed  << std::setprecision(5) << r->score << "\n\n";
 
 		if(r->rmsd >= 0)
 		{
-			strm << "> <minimizedRMSD>\n";
+			strm << ">  <minimizedRMSD>\n";
 			strm << std::fixed  << std::setprecision(5) << r->rmsd << "\n\n";
 		}
 		strm << "$$$$\n";

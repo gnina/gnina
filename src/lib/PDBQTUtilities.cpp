@@ -41,7 +41,7 @@ unsigned int FindFragments(OpenBabel::OBMol mol,
 		std::vector<std::vector<int> >& rigid_fragments)
 {
 	std::vector<int> nr;
-	return FindFragments(mol, rigid_fragments);
+	return FindFragments(mol, rigid_fragments, 0, nr);
 }
 
 //return the best root atom and fill in the rigid fragments
