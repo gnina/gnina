@@ -162,8 +162,7 @@ void parse_pdbqt_rigid(const std::string& name, std::istream& in, rigid& r) {
 		else if(starts_with(str, "ATOM  ") || starts_with(str, "HETATM")) {
 			try {
 				parsed_atom pa = parse_pdbqt_atom_string(str);
-				if(!pa.is_hydrogen()) //dkoes - throw out hydrogens..
-					r.atoms.push_back(pa);
+				r.atoms.push_back(pa);
 			}
 			catch(atom_syntax_error& e) {
 				throw parse_error(name, count, "ATOM syntax incorrect: " + e.nature);
