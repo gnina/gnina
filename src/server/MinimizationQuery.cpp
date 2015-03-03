@@ -421,6 +421,34 @@ void MinimizationQuery::outputData(const MinimizationFilters& f, ostream& out)
 	}
 }
 
+//output json formated data, based off of datatables, does not include opening/closing brackets
+void MinimizationQuery::outputJSONData(const MinimizationFilters& f, int draw, ostream& out)
+{
+	checkThread();
+	vector<Result*> results;
+	unsigned total = loadResults(f, results);
+
+	//first line is status header with doneness and number done and filtered number
+	out << "\"finished\": " << finished() << ",\n";
+	out << "\"total\": " << total << ",\n";
+	out << "\"size\": " << results.size() << ",\n";
+	out << "\"time\": " << minTime << ",\n";
+	out << "\"draw\": " << draw << ",\n";
+	out << "\"data\": [\n";
+
+	unsigned end = f.start + f.num;
+	if (end > results.size() || f.num == 0)
+		end = results.size();
+	for (unsigned i = f.start; i < end; i++)
+	{
+		Result *res = results[i];
+		out << "[" << res->position << "," << res->orig_position << "," << res->name << "," << res->score << ","
+				<< res->rmsd << "]";
+		if(i != end-1) out << ",";
+		out << "\n";
+	}
+}
+
 //write out all results in sdf.gz format
 void MinimizationQuery::outputMols(const MinimizationFilters& f, ostream& out)
 {

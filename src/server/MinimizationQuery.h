@@ -170,8 +170,9 @@ public:
 	//all of the result/output functions can be called while an asynchronous
 	//query is running
 
-	//return all current results
-
+	//return all current results summarized
+	void outputData(const MinimizationFilters& dp, ostream& out);
+	void outputJSONData(const MinimizationFilters& dp, int draw, ostream& out);
 	void outputData(const MinimizationFilters& dp, ostream& out);
 	//write out all results in sdf.gz format
 	void outputMols(const MinimizationFilters& dp, ostream& out);
