@@ -422,7 +422,7 @@ void MinimizationQuery::outputData(const MinimizationFilters& f, ostream& out)
 }
 
 //output json formated data, based off of datatables, does not include opening/closing brackets
-void MinimizationQuery::outputJSONData(const MinimizationFilters& f, ostream& out)
+void MinimizationQuery::outputJSONData(const MinimizationFilters& f, int draw, ostream& out)
 {
 	checkThread();
 	vector<Result*> results;
@@ -433,6 +433,7 @@ void MinimizationQuery::outputJSONData(const MinimizationFilters& f, ostream& ou
 	out << "\"total\": " << total << ",\n";
 	out << "\"size\": " << results.size() << ",\n";
 	out << "\"time\": " << minTime << ",\n";
+	out << "\"draw\": " << draw << ",\n";
 	out << "\"data\": [\n";
 
 	unsigned end = f.start + f.num;

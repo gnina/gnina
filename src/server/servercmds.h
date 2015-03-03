@@ -129,13 +129,14 @@ public:
 	{
 		//query id followed by filter params
 		MinimizationFilters filters;
-		unsigned qid = 0;
+		unsigned qid = 0, draw = 0;
 		*io >> qid;
+		*io >> draw; //datatable draw code
 		filters.read(*io);
 		QueryPtr query = qmgr.get(qid);
 		if(query)
 		{
-			query->outputData(filters, *io);
+			query->outputJSONData(filters, draw, *io);
 		}
 		io->close();
 	}
