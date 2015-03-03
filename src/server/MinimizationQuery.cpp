@@ -429,9 +429,10 @@ void MinimizationQuery::outputJSONData(const MinimizationFilters& f, int draw, o
 	unsigned total = loadResults(f, results);
 
 	//first line is status header with doneness and number done and filtered number
+	out << "{\n";
 	out << "\"finished\": " << finished() << ",\n";
-	out << "\"total\": " << total << ",\n";
-	out << "\"size\": " << results.size() << ",\n";
+	out << "\"recordsTotal\": " << total << ",\n";
+	out << "\"recordsFiltered\": " << results.size() << ",\n";
 	out << "\"time\": " << minTime << ",\n";
 	out << "\"draw\": " << draw << ",\n";
 	out << "\"data\": [\n";
@@ -442,11 +443,12 @@ void MinimizationQuery::outputJSONData(const MinimizationFilters& f, int draw, o
 	for (unsigned i = f.start; i < end; i++)
 	{
 		Result *res = results[i];
-		out << "[" << res->position << "," << res->orig_position << "," << res->name << "," << res->score << ","
+		out << "[" << res->position << "," << res->orig_position << ",\"" << res->name << "\"," << res->score << ","
 				<< res->rmsd << "]";
 		if(i != end-1) out << ",";
 		out << "\n";
 	}
+	out << "]}\n";
 }
 
 //write out all results in sdf.gz format

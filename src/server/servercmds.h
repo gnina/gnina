@@ -77,7 +77,7 @@ public:
 		getline(*io, str);
 		trim(str);
 		unsigned oldqid = atoi(str.c_str());
-		log.log("cancel %d",oldqid);
+		log.log("cancel %d\n",oldqid);
 		QueryPtr query = qmgr.get(oldqid);
 		if (query)
 		{
