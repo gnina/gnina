@@ -114,33 +114,6 @@ public:
 	}
 };
 
-//get the json scoring output of the specified minimization
-class GetJSONScores : public Command
-{
-	QueryManager& qmgr;
-
-public:
-	GetJSONScores(QueryManager& q, Logger& l) :
-		Command(l), qmgr(q)
-	{
-	}
-
-	void execute(stream_ptr io)
-	{
-		//query id followed by filter params
-		MinimizationFilters filters;
-		unsigned qid = 0;
-		*io >> qid;
-		filters.read(*io);
-		QueryPtr query = qmgr.get(qid);
-		if(query)
-		{
-			query->outputData(filters, *io);
-		}
-		io->close();
-	}
-};
-
 //return a single requested minimized molecule structure
 class GetMol : public Command
 {
