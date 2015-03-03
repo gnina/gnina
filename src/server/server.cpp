@@ -79,6 +79,7 @@ int main(int argc, char *argv[])
 			("cancel",
 					boost::shared_ptr<Command>(new CancelMinimization(queries, log)))
 			("getscores", boost::shared_ptr<Command>(new GetScores(queries, log)))
+			("getjsonscores", boost::shared_ptr<Command>(new GetJSONScores(queries, log)))
 			("getmol", boost::shared_ptr<Command>(new GetMol(queries, log)))
 			("getmols", boost::shared_ptr<Command>(new GetMols(queries, log)))
 			("getstatus", boost::shared_ptr<Command>(new GetStatus(queries, log)));

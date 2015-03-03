@@ -173,7 +173,7 @@ public:
 	//return all current results summarized
 	void outputData(const MinimizationFilters& dp, ostream& out);
 	void outputJSONData(const MinimizationFilters& dp, int draw, ostream& out);
-	void outputData(const MinimizationFilters& dp, ostream& out);
+
 	//write out all results in sdf.gz format
 	void outputMols(const MinimizationFilters& dp, ostream& out);
 	//output single mol in sdf format; referenced using current position in processed results array
