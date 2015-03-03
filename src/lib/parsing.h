@@ -121,14 +121,15 @@ struct parsing_struct {
 
 
 			// inflex atom insertion
-			void insert_inflex(non_rigid_parsed& nr) {
+			void insert_inflex(non_rigid_parsed& nr, context& c) {
 				VINA_FOR_IN(i, ps)
 					ps[i].axis_begin = atom_reference(nr.inflex.size(), true);
+				c.set(pdbqt_context_index, sdf_context_index, nr.inflex.size(), true);
 				nr.inflex.push_back(a);
 			}
-			void insert_immobiles_inflex(non_rigid_parsed& nr) {
+			void insert_immobiles_inflex(non_rigid_parsed& nr, context& c) {
 				VINA_FOR_IN(i, ps)
-					ps[i].insert_immobile_inflex(nr);
+					ps[i].insert_immobile_inflex(nr, c);
 			}
 
 			// insertion into non_rigid_parsed
@@ -163,12 +164,12 @@ struct parsing_struct {
 		return atoms[immobile_atom.get()].a.coords;
 	}
 	// inflex insertion
-	void insert_immobile_inflex(non_rigid_parsed& nr) {
+	void insert_immobile_inflex(non_rigid_parsed& nr, context& c) {
 		if(!atoms.empty()) {
 			VINA_CHECK(immobile_atom);
 			VINA_CHECK(immobile_atom.get() < atoms.size());
 			axis_end = atom_reference(nr.inflex.size(), true);
-			atoms[immobile_atom.get()].insert_inflex(nr);
+			atoms[immobile_atom.get()].insert_inflex(nr, c);
 		}
 	}
 
@@ -242,6 +243,7 @@ void serialize(Archive & ar, parsing_struct::node_t<parsing_struct>& node, const
 
 extern void add_pdbqt_context(context& c, const std::string& str);
 extern void postprocess_ligand(non_rigid_parsed& nr, parsing_struct& p, context& c, unsigned torsdof);
+extern void postprocess_residue(non_rigid_parsed& nr, parsing_struct& p, context& c);
 
 struct pdbqt_initializer {
 	model m;

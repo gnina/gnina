@@ -88,7 +88,7 @@ public:
 	}
 };
 
-bool IsRotBond_PDBQT(OpenBabel::OBBond * the_bond);
+bool IsRotBond_PDBQT(OpenBabel::OBBond * the_bond, unsigned desired_root=0);
 bool IsIn(const std::vector<int>& vec, const int num);
 
 unsigned int AtomsSoFar(const std::map<unsigned int, obbranch>& tree,
@@ -104,6 +104,8 @@ void ConstructTree(std::map<unsigned int, obbranch>& tree,
 		const OpenBabel::OBMol& mol, bool flexible);
 bool DeleteHydrogens(OpenBabel::OBMol & mol);
 bool Separate_preserve_charges(OpenBabel::OBMol & mol, std::vector<OpenBabel::OBMol> & result);
+unsigned int FindFragments(OpenBabel::OBMol mol,
+		std::vector<std::vector<int> >& rigid_fragments, unsigned desired_root, const std::vector<int>& norotate);
 unsigned int FindFragments(OpenBabel::OBMol mol,
 		std::vector<std::vector<int> >& rigid_fragments);
 unsigned int RotBond_count(OpenBabel::OBMol & mol);

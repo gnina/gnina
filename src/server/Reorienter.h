@@ -42,9 +42,6 @@ public:
 	//modify points by rot/trans
 	void reorient(vecv& pts) const
 	{
-		cout << rotation << "\n";
-		cout << translation << "\n";
-
 		Vector3d pt;
 		for(unsigned i = 0, n = pts.size(); i < n; i++)
 		{
@@ -73,6 +70,8 @@ public:
 	void read(istream& in)
 	{
 		in.read((char*)rotation.data(),9*sizeof(double));
+		//eigen uses column major ordering!
+		rotation.transposeInPlace();
 		in.read((char*)translation.data(),3*sizeof(double));
 	}
 };

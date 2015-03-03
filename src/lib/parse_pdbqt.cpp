@@ -161,7 +161,8 @@ void parse_pdbqt_rigid(const std::string& name, std::istream& in, rigid& r) {
 		else if(starts_with(str, "USER")) {} // ignore
 		else if(starts_with(str, "ATOM  ") || starts_with(str, "HETATM")) {
 			try {
-				r.atoms.push_back(parse_pdbqt_atom_string(str));
+				parsed_atom pa = parse_pdbqt_atom_string(str);
+				r.atoms.push_back(pa);
 			}
 			catch(atom_syntax_error& e) {
 				throw parse_error(name, count, "ATOM syntax incorrect: " + e.nature);
@@ -359,8 +360,8 @@ void postprocess_ligand(non_rigid_parsed& nr, parsing_struct& p, context& c, uns
 void postprocess_residue(non_rigid_parsed& nr, parsing_struct& p, context& c) {
 	VINA_FOR_IN(i, p.atoms) { // iterate over "root" of a "residue"
 		parsing_struct::node& p_node = p.atoms[i];
-		p_node.insert_inflex(nr);
-		p_node.insert_immobiles_inflex(nr);
+		p_node.insert_inflex(nr, c);
+		p_node.insert_immobiles_inflex(nr, c);
 	}
 	VINA_FOR_IN(i, p.atoms) { // iterate over "root" of a "residue"
 		parsing_struct::node& p_node = p.atoms[i];

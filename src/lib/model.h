@@ -66,9 +66,10 @@ struct sdfcontext {
 		atmidx index; //this is set after parsing and corresponds to the model's atom index
 		//the sdf index is just the index into the atoms array plus one
 		char elem[2]; //element symbol, note not necessarily null terminated
+		bool inflex; //true if atom is nonmoving atom in flex - which means we need an offset to get to the coordinate
 
-		sdfatom():index(0) { elem[0] = elem[1] = 0;}
-		sdfatom(const char* nm): index(0)
+		sdfatom():index(0), inflex(false) { elem[0] = elem[1] = 0;}
+		sdfatom(const char* nm): index(0), inflex(false)
 		{
 			elem[0] = elem[1] = 0;
 			if(nm) {
@@ -81,6 +82,7 @@ struct sdfcontext {
 		void serialize(Archive& ar, const unsigned version) {
 			ar & elem;
 			//do NOT export index since this is not set until model creation
+			//same for inflex
 		}
 	};
 	struct sdfbond { //bond connectivity and type
@@ -119,9 +121,10 @@ struct sdfcontext {
 	std::vector<sdfprop> properties; //CHG and ISO go here
 
 
-	void write(const vecv& coords, std::ostream& out) const; //output sdf with provided coords
+	void dump(std::ostream& out) const;
+	void write(const vecv& coords, sz nummove, std::ostream& out) const; //output sdf with provided coords
 	bool valid() const {return atoms.size() > 0; }
-
+	sz size() const {return atoms.size(); }
 	template<class Archive>
 	void serialize(Archive& ar, const unsigned version) {
 		ar & name;
@@ -141,11 +144,12 @@ struct context {
 	sdfcontext sdftext;
 
 	void writePDBQT(const vecv& coords, std::ostream& out) const;
-	void writeSDF(const vecv& coords, std::ostream& out) const { sdftext.write(coords, out); }
+	void writeSDF(const vecv& coords, sz nummove, std::ostream& out) const { sdftext.write(coords, nummove, out); }
 	void update(const appender& transform);
-	void set(sz pdbqtindex, sz sdfindex, sz atomindex);
+	void set(sz pdbqtindex, sz sdfindex, sz atomindex, bool inf = false);
 
 	sz pdbqtsize() const { return pdbqttext.size(); }
+	sz sdfsize() const { return sdftext.size(); }
 
 	template<class Archive>
 	void serialize(Archive& ar, const unsigned version) {
@@ -217,6 +221,12 @@ struct model {
 		write_context(flex_context, out);
 	}
 
+	void write_flex_sdf( std::ostream& out) const {
+		flex_context.writeSDF(coords, m_num_movable_atoms, out);
+	}
+	void dump_flex_sdf( std::ostream& out) const {
+		flex_context.sdftext.dump(out);
+	}
 	void write_ligand(std::ostream& out) const {
 		VINA_FOR_IN(i, ligands)
 			write_context(ligands[i].cont, out);
@@ -231,7 +241,7 @@ struct model {
 	//write ligand data as sdf (no flex); return true if successful
 	bool write_sdf(std::ostream& out) const {
 		if(ligands.size() > 0 && ligands[0].cont.sdftext.valid()) {
-			ligands[0].cont.writeSDF(coords,out);
+			ligands[0].cont.writeSDF(coords,m_num_movable_atoms,out);
 			return true;
 		}
 		return false;
@@ -268,7 +278,8 @@ struct model {
 	fl eval      (const precalculate& p, const igrid& ig, const vec& v, const conf& c, const grid& user_grid	);
 	fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v, const conf& c, change& g, const grid& user_grid);
 
-	fl eval_intramolecular(                            const precalculate& p,                  const vec& v, const conf& c);
+	fl eval_flex(const precalculate& p, const vec& v, const conf& c, unsigned maxGridAtom=0);
+	fl eval_intramolecular(const precalculate& p, const vec& v, const conf& c);
 	fl eval_adjusted      (const scoring_function& sf, const precalculate& p, const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy, const grid& user_grid);
 
 
@@ -301,6 +312,11 @@ struct model {
 		return coords;
 	}
 
+	void dump_coords(std::ostream& out) const {
+		VINA_FOR(i, coords.size()) {
+			out << i << " " << coords[i][0] << "," << coords[i][1] << "," << coords[i][2] << "\n";
+		}
+	}
 	vecv get_heavy_atom_movable_coords() const { // FIXME mv
 		vecv tmp;
 		VINA_FOR(i, num_movable_atoms())

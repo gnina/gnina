@@ -8,36 +8,46 @@
  */
 
 /**********************************************************************
-Copyright (C) 1998-2001 by OpenEye Scientific Software, Inc.
-Some portions Copyright (C) 2003-2006 Geoffrey R. Hutchison
-Some portions Copyright (C) 2004 by Chris Morley
-Some portions Copyright (C) 2014 by David Koes and the University of Pittsburgh
+ Copyright (C) 1998-2001 by OpenEye Scientific Software, Inc.
+ Some portions Copyright (C) 2003-2006 Geoffrey R. Hutchison
+ Some portions Copyright (C) 2004 by Chris Morley
+ Some portions Copyright (C) 2014 by David Koes and the University of Pittsburgh
 
-Original Copyright refers to the pdbformat.cpp file, for reading and
-writing pdb format files.
-Extensively modified 2010 Stuart Armstrong (Source Science/InhibOx)
-for the purpose of reading and writing pdbqt format files.
-Some portions Copyright (C) 2010 by Stuart Armstrong of Source Science/
-InhibOx
+ Original Copyright refers to the pdbformat.cpp file, for reading and
+ writing pdb format files.
+ Extensively modified 2010 Stuart Armstrong (Source Science/InhibOx)
+ for the purpose of reading and writing pdbqt format files.
+ Some portions Copyright (C) 2010 by Stuart Armstrong of Source Science/
+ InhibOx
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation version 2 of the License.
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation version 2 of the License.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-***********************************************************************/
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ ***********************************************************************/
 
 #include "PDBQTUtilities.h"
 #include <cassert>
 #include <boost/unordered_map.hpp>
-
+#include <boost/unordered_set.hpp>
 using namespace std;
 using namespace OpenBabel;
 
-unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments)
+unsigned int FindFragments(OpenBabel::OBMol mol,
+		std::vector<std::vector<int> >& rigid_fragments)
+{
+	std::vector<int> nr;
+	return FindFragments(mol, rigid_fragments, 0, nr);
+}
+
+//return the best root atom and fill in the rigid fragments
+//if desired_root is set and rotateAroundRoot is true, let bonds rotate about it
+unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments,
+		unsigned desired_root, const vector<int>& norotate)
 {
 	unsigned int best_root_atom = 1;
 	unsigned int shortest_maximal_remaining_subgraph = mol.NumAtoms();
@@ -63,13 +73,23 @@ unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments)
 			best_root_atom = i;
 		}
 	}
+
+	boost::unordered_set<int> norot(norotate.begin(), norotate.end());
 	vector<unsigned int> bonds_to_delete;
 	{
 		OBMol mol_pieces = mol;
 		for (OBBondIterator it = mol_pieces.BeginBonds();
 				it != mol_pieces.EndBonds(); it++)
 		{
-			if (IsRotBond_PDBQT((*it)))
+			OBBond *bond = *it;
+			int src = bond->GetBeginAtomIdx();
+			int dst = bond->GetEndAtomIdx();
+
+			if (norot.count(src) || norot.count(dst))
+			{
+				//not rotatable
+			}
+			else if (IsRotBond_PDBQT(bond, desired_root))
 			{
 				bonds_to_delete.push_back((*it)->GetIdx());
 			}
@@ -101,17 +121,23 @@ unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments)
 	return best_root_atom;
 }
 
-bool IsRotBond_PDBQT(OBBond * the_bond)
+bool IsRotBond_PDBQT(OBBond * the_bond, unsigned desired_root)
 //identifies a bond as rotatable if it is a single bond, not amide, not in a ring,
 //and if both atoms it connects have at least one other atom bounded to them
+//will also allow bonds to the desired root to rotate
 {
 	if (!the_bond->IsSingle() || the_bond->IsAmide() || the_bond->IsInRing())
 	{
 		return false;
 	}
-	if (((the_bond->GetBeginAtom())->GetValence() == 1)
-			|| ((the_bond->GetEndAtom())->GetValence() == 1))
+	if (((the_bond->GetBeginAtom())->GetHvyValence() == 1)
+			|| ((the_bond->GetEndAtom())->GetHvyValence() == 1))
 	{
+		if (the_bond->GetBeginAtomIdx() == desired_root)
+			return true;
+		else if (the_bond->GetEndAtomIdx() == desired_root)
+			return true;
+
 		return false;
 	}
 	return true;
@@ -256,24 +282,24 @@ void createSDFContext(OBMol& mol, vector<OBAtom*> atoms, sdfcontext& sc)
 
 	//setup mapping between atom indices (getIdx) and position in atoms
 	boost::unordered_map<unsigned, unsigned> idx2atompos;
-	for(unsigned i = 0, n = atoms.size(); i < n; i++)
+	for (unsigned i = 0, n = atoms.size(); i < n; i++)
 	{
 		idx2atompos[atoms[i]->GetIdx()] = i;
 	}
 
-	for(unsigned i = 0, n = atoms.size(); i < n; i++)
+	for (unsigned i = 0, n = atoms.size(); i < n; i++)
 	{
 		OBAtom *atom = atoms[i];
 		const char *element_name = etab.GetSymbol(atom->GetAtomicNum());
 		sc.atoms.push_back(sdfcontext::sdfatom(element_name));
 
 		///check for special properties
-		if(atom->GetFormalCharge())
+		if (atom->GetFormalCharge())
 		{
 			sdfcontext::sdfprop prop(i, 'c', atom->GetFormalCharge());
 			sc.properties.push_back(prop);
 		}
-		if(atom->GetIsotope())
+		if (atom->GetIsotope())
 		{
 			sdfcontext::sdfprop prop(i, 'i', atom->GetIsotope());
 			sc.properties.push_back(prop);
@@ -281,16 +307,16 @@ void createSDFContext(OBMol& mol, vector<OBAtom*> atoms, sdfcontext& sc)
 	}
 
 	//now bonds
-	for(OBMolBondIter bitr(mol); bitr; ++bitr)
+	for (OBMolBondIter bitr(mol); bitr; ++bitr)
 	{
 		unsigned first = idx2atompos[bitr->GetBeginAtomIdx()];
 		unsigned second = idx2atompos[bitr->GetEndAtomIdx()];
-		sc.bonds.push_back(sdfcontext::sdfbond(first,second,bitr->GetBO()));
+		sc.bonds.push_back(sdfcontext::sdfbond(first, second, bitr->GetBO()));
 	}
 }
 
-
-static void OutputAtom(OBAtom* atom, context& lines, vector<OBAtom*>& atomorder, parsing_struct& p,
+static void OutputAtom(OBAtom* atom, context& lines, vector<OBAtom*>& atomorder,
+		parsing_struct& p,
 		const unsigned int index, unsigned immobile_num)
 {
 	char buffer[BUFF_SIZE];
@@ -425,14 +451,16 @@ static void OutputAtom(OBAtom* atom, context& lines, vector<OBAtom*>& atomorder,
 
 }
 
-static void OutputGroup(OBMol& mol, context& lines, vector<OBAtom*>& atomorder, parsing_struct& p,
+static void OutputGroup(OBMol& mol, context& lines, vector<OBAtom*>& atomorder,
+		parsing_struct& p,
 		unsigned immobile_num,
 		const vector<int>& group, map<unsigned int, unsigned int> new_indexes)
 {
 	for (vector<int>::const_iterator it = group.begin(); it != group.end();
 			it++)
 	{
-		OutputAtom(mol.GetAtom((*it)), lines, atomorder, p, new_indexes.find(*it)->second,
+		OutputAtom(mol.GetAtom((*it)), lines, atomorder, p,
+				new_indexes.find(*it)->second,
 				immobile_num);
 	}
 }
@@ -487,7 +515,8 @@ bool OutputTree(OBMol& mol, context& lines, parsing_struct& p,
 			tree[0].rigid_with.begin();
 			it != tree[0].rigid_with.end(); it++)
 	{
-		OutputGroup(mol, lines, atomorder, pstack.top(), INT_MAX, tree[*it].atoms,
+		OutputGroup(mol, lines, atomorder, pstack.top(), INT_MAX,
+				tree[*it].atoms,
 				new_order);
 	}
 

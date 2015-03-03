@@ -220,6 +220,11 @@ public:
 			//dkoes - I don't think I will need to do this, so not bothering to implement it for now
 			abort();
 		}
+		else if(!a.sdftext.valid())
+		{
+			//but I do need to be able to add flex res to an existing model
+			a.sdftext = b.sdftext;
+		}
 	}
 
 	// internal_coords, coords, minus_forces, atoms
@@ -262,12 +267,14 @@ void context::update(const appender& transform)
 }
 
 //associate pdfbt/sdf data with appropriate atom index from model
-void context::set(sz pdbqtindex, sz sdfindex, sz atomindex)
+void context::set(sz pdbqtindex, sz sdfindex, sz atomindex, bool inf)
 {
 	if(pdbqtindex < pdbqttext.size())
 		pdbqttext[pdbqtindex].second = atomindex;
-	if(sdfindex < sdftext.atoms.size())
+	if(sdfindex < sdftext.atoms.size()) {
 		sdftext.atoms[sdfindex].index = atomindex;
+		sdftext.atoms[sdfindex].inflex = inf;
+	}
 }
 
 
@@ -724,8 +731,17 @@ void context::writePDBQT(const vecv& coords, std::ostream& out) const
 	}
 }
 
+void sdfcontext::dump(std::ostream& out) const
+{
+    for(unsigned i = 0, n = atoms.size(); i < n; i++)
+    {
+    	const sdfatom& atom = atoms[i];
+    	out << atom.index << " " << atom.elem << "\n";
+    }
+}
+
 //output sdf format to out
-void sdfcontext::write(const vecv& coords, std::ostream& out) const
+void sdfcontext::write(const vecv& coords, sz nummove, std::ostream& out) const
 {
 	const unsigned bsize = 1024;
 	char buff[bsize]; //since sprintf is just so much easier to use
@@ -741,8 +757,10 @@ void sdfcontext::write(const vecv& coords, std::ostream& out) const
     for(unsigned i = 0, n = atoms.size(); i < n; i++)
     {
     	const sdfatom& atom = atoms[i];
-    	const vec& c = coords[atom.index];
-    	assert(atom.index < coords.size());
+    	sz idx = atom.index;
+    	if(atom.inflex) idx += nummove; //rigids are after movable
+    	const vec& c = coords[idx];
+    	assert(idx < coords.size());
         snprintf(buff, bsize, "%10.4f%10.4f%10.4f %-3.2s 0  0  0  0  0  0  0  0  0  0  0  0\n",
              c[0], c[1], c[2], atom.elem);
         out << buff;
@@ -943,6 +961,49 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	return e;
 }
 
+//evaluate interactiongs between all of flex (including rigid) and protein
+//will ignore grid_atoms greater than max
+fl model::eval_flex(const precalculate& p, const vec& v, const conf& c, unsigned maxGridAtom)
+{
+	set(c);
+	fl e = 0;
+	sz nat = num_atom_types();
+	const fl cutoff_sqr = p.cutoff_sqr();
+
+	//ignore atoms after maxGridAtom (presumably part of "unfrag")
+	sz gridstop = grid_atoms.size();
+	if(maxGridAtom > 0 && maxGridAtom < gridstop) gridstop = maxGridAtom;
+
+	// flex-rigid
+	VINA_FOR(i, atoms.size())
+	{
+		if (find_ligand(i) < ligands.size())
+			continue; // we only want flex-rigid interaction
+		const atom& a = atoms[i];
+		smt t1 = a.get();
+		if (t1 >= nat)
+			continue;
+		VINA_FOR_IN(j, grid_atoms)
+		{
+			if(j >= gridstop)
+				break;
+			const atom& b = grid_atoms[j];
+			smt t2 = b.get();
+			if (t2 >= nat)
+				continue;
+			fl r2 = vec_distance_sqr(coords[i], b.coords);
+			if (r2 < cutoff_sqr)
+			{
+				fl this_e = p.eval(a, b, r2);
+				curl(this_e, v[1]);
+				e += this_e;
+			}
+		}
+	}
+
+	return e;
+}
+
 fl model::eval_intramolecular(const precalculate& p, const vec& v,
 		const conf& c)
 {
@@ -980,6 +1041,7 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
 			}
 		}
 	}
+
 
 // flex-flex
 	VINA_FOR_IN(i, other_pairs)

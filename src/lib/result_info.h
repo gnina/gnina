@@ -45,7 +45,7 @@ public:
 	//computes per-atom term values and formats them into the atominfo string
 	void setAtomValues(const model& m, const weighted_terms *wt);
 
-	void write(std::ostream& out, std::string& ext, bool include_atom_terms, const weighted_terms *wt=NULL);
+	void write(std::ostream& out, std::string& ext, bool include_atom_terms, const weighted_terms *wt=NULL, int modelnum=0);
 
 	void writeFlex(std::ostream& out, std::string& ext);
 };

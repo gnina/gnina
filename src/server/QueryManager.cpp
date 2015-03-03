@@ -9,8 +9,11 @@
 #include "Reorienter.h"
 #include "MinimizationQuery.h"
 #include <boost/algorithm/string.hpp>
+#include <openbabel/obconversion.h>
+#include <openbabel/mol.h>
 
 using namespace boost;
+using namespace OpenBabel;
 
 //add a query, return zero if unsuccessful
 unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
@@ -28,8 +31,11 @@ unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
 	mu.unlock();
 
 	//read receptor info and rotation/translation info, but leave ligand for minimizer to stream
+	string recline;
+	getline(*io, recline);
+	stringstream recstrm(recline);
 	string str;
-	*io >> str;
+	recstrm >> str;
 	if (str != "receptor")
 	{
 		cerr << "No receptor\n";
@@ -37,33 +43,70 @@ unsigned QueryManager::add(unsigned oldqid, stream_ptr io)
 		return 0;
 	}
 	unsigned rsize = 0; //size of receptor string, must be in pdbqt
-	*io >> rsize;
+	recstrm >> rsize;
 	if (rsize == 0)
 	{
 		cerr << "invalid receptor size\n";
 		*io << "ERROR\nInvalid receptor size\n";
 		return 0;
 	}
-	getline(*io, str); //absorb newline
+
+	unsigned ispdbqt = 0;
+	recstrm >> ispdbqt;
+
 	string recstr(rsize, '\0'); //note that c++ strings are built with null at the end
 	io->read(&recstr[0], rsize);
+
+	if (!ispdbqt)
+	{
+		//have to convert from vanilla pdb to get pdbqt w/correct atom types and
+		//partial charges
+		OBConversion conv;
+		conv.SetInFormat("PDB");
+		conv.SetOutFormat("PDBQT");
+		conv.AddOption("r", OBConversion::OUTOPTIONS); //rigid molecule, otherwise really slow and useless analysis is triggered
+		conv.AddOption("c", OBConversion::OUTOPTIONS); //single combined molecule
+
+		OBMol rec;
+		if (conv.ReadString(&rec, recstr))
+		{
+			rec.AddHydrogens(true);
+			//force partial charge calculation
+			FOR_ATOMS_OF_MOL(a, rec)
+			{
+				a->GetPartialCharge();
+			}
+			recstr = conv.WriteString(&rec);
+		}
+	}
+
+	//next line is used for parameters
+	getline(*io, str);
+	stringstream params(str);
+
 	//does the ligand data have to be reoriented?
 	bool hasR = false;
-	*io >> hasR;
-	//absorb newline before ligand data
-	getline(*io, str);
+	params >> hasR;
+
+	bool isFrag = false;
+	params >> isFrag;
+
+	unsigned numrec = 0, numunfrag = 0;
+	params >> numrec;
+	params >> numunfrag;
 
 	//attempt to create query
 	QueryPtr q;
 	try
 	{
-		q = QueryPtr(new MinimizationQuery(minparm, recstr, io, hasR));
+		q = QueryPtr(new MinimizationQuery(minparm, recstr, io, hasR, isFrag, numrec));
 	} catch (parse_error& pe) //couldn't read receptor
 	{
 		cerr << "couldn't read receptor\n";
 		*io << "ERROR\n" << pe.reason << "\n";
 		return 0;
-	}  catch (...) { //output below
+	} catch (...)
+	{ //output below
 	}
 
 	if (q)

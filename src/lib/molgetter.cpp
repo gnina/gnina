@@ -105,7 +105,7 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 			{
 				parsing_struct p;
 				context c;
-				unsigned torsdof = SminaConverter::convertParsing(mol, p, c);
+				unsigned torsdof = SminaConverter::convertParsing(mol, p, c, add_hydrogens);
 				non_rigid_parsed nr;
 				postprocess_ligand(nr, p, c, torsdof);
 				VINA_CHECK(nr.atoms_atoms_bonds.dim() == nr.atoms.size());

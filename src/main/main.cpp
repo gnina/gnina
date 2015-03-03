@@ -754,7 +754,10 @@ static void create_init_model(const std::string& rigid_name,
 				throw file_error(rigid_name, true);
 
 			rec.AddHydrogens(true);
-
+			FOR_ATOMS_OF_MOL(a, rec)
+			{
+				a->GetPartialCharge();
+			}
 			OBMol rigid;
 			std::string flexstr;
 			finfo.extractFlex(rec, rigid, flexstr);
@@ -1337,7 +1340,7 @@ Thank you!\n";
 					//write out molecular data
 					for (unsigned j = 0, nr = results.size(); j < nr; j++)
 					{
-						results[j].write(outfile, outext, settings.include_atom_info, &wt);
+						results[j].write(outfile, outext, settings.include_atom_info, &wt, j+1);
 					}
 				}
 				if(outflex)
