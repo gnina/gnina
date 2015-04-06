@@ -118,7 +118,7 @@ parsed_atom parse_pdbqt_atom_string(const std::string& str) {
 	if(tmp.acceptable_type()) 
 		return tmp;
 	else 
-		throw atom_syntax_error(std::string("\"") + name + "\" is not a valid AutoDock type. Note that AutoDock atom types are case-sensitive.");
+		throw atom_syntax_error(std::string("\"") + name + "\" is not a valid AutoDock type. Note that AutoDock atom types are case-sensitive.\n"+str);
 }
 
 

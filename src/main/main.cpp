@@ -559,10 +559,11 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 	if (size_z == 0)
 		size_z = (b.max_z - b.min_z);
 
-	else
+	if(!std::isfinite(b.max_x) || !std::isfinite(b.max_y) || !std::isfinite(b.max_z))
 	{
-		std::cerr << "Unable to read  " << autobox_ligand << "\n";
-		exit(-1);
+		std::stringstream msg;
+		msg << "Unable to read  " << autobox_ligand;
+		throw usage_error(msg.str());
 	}
 }
 
