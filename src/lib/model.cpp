@@ -269,8 +269,11 @@ void context::update(const appender& transform)
 //associate pdfbt/sdf data with appropriate atom index from model
 void context::set(sz pdbqtindex, sz sdfindex, sz atomindex, bool inf)
 {
-	if(pdbqtindex < pdbqttext.size())
-		pdbqttext[pdbqtindex].second = atomindex;
+	if(pdbqtindex < pdbqttext.size()) {
+		if(!inf) //inf is true if a nonmoving atom, which will just use the old coordinates
+			pdbqttext[pdbqtindex].second = atomindex;
+
+	}
 	if(sdfindex < sdftext.atoms.size()) {
 		sdftext.atoms[sdfindex].index = atomindex;
 		sdftext.atoms[sdfindex].inflex = inf;

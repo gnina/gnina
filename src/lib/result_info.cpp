@@ -105,7 +105,6 @@ void result_info::writeFlex(std::ostream& out, std::string& ext)
 	//residue are pdbqt only currently
 	outconv.SetInFormat("PDBQT");
 	outconv.SetOutFormat(format);
-
 	outconv.ReadString(&mol, flexstr); //otherwise keep orig mol
 	mol.SetTitle(name); //same name as cmpd
 	outconv.Write(&mol, &out);

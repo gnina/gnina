@@ -1319,6 +1319,7 @@ Thank you!\n";
 			model m;
 			while (no_lig || mols.readMoleculeIntoModel(m))
 			{
+				no_lig = false; //only go through loop once
 				if (settings.local_only)
 				{
 					//dkoes - for convenience get box from model

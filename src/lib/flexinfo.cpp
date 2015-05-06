@@ -134,6 +134,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
 		OBResidue *r = *ritr;
 		char ch = r->GetChain();
 		int resid = r->GetNum();
+
 		std::pair<char,int> chres(ch,resid);
 		if(residues.count(chres))
 		{
@@ -143,12 +144,13 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
 			boost::unordered_map<OBAtom*, int> flexmap; //map rigid atom ptrs to atom indices in flex
 
 			//make absolutely sure that CA is the first atom
+			//first bond is rigid, so take both CA and C
 			for(OBAtomIterator aitr = r->BeginAtoms(), aend = r->EndAtoms(); aitr != aend; ++aitr)
 			{
 				OBAtom *a = *aitr;
 				std::string aid = r->GetAtomID(a);
 				boost::trim(aid);
-				if(aid == "CA")
+				if(aid == "CA" || aid == "C")
 				{
 					flexatoms.push_back(a);
 					flex.AddAtom(*a);
@@ -196,14 +198,20 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
 				{
 					OBAtom *origa = flexatoms[i];
 					OBAtom *newa = flex.GetAtom(flexmap[origa]);
+					newres->RemoveAtom(origa);
 					newres->AddAtom(newa);
 					newa->SetResidue(newres);
 					std::string aid = r->GetAtomID(origa);
 					newres->SetAtomID(newa, aid);
 				}
 			}
-			flexpdbqt += conv.WriteString(&flex);
 
+			//the pdbqt writing code breaks flex into fragments, in the process it loses all residue information
+			//if the full residue is present, it will re-perceive it
+			//the fix here is to write a subsetting openbabel function that properly copies over all information
+			//and to use that in getnextfragment and other places
+			//alternatively, we could rewrite the strings..
+			flexpdbqt += conv.WriteString(&flex);
 			//remove flexatoms from rigid
 			for(unsigned i = 0, n = flexatoms.size(); i < n; i++)
 			{
