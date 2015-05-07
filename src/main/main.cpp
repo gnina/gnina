@@ -1319,7 +1319,10 @@ Thank you!\n";
 			model m;
 			while (no_lig || mols.readMoleculeIntoModel(m))
 			{
-				no_lig = false; //only go through loop once
+				if(no_lig)
+				{
+					m = initm;
+				}
 				if (settings.local_only)
 				{
 					//dkoes - for convenience get box from model
@@ -1361,6 +1364,9 @@ Thank you!\n";
 					}
 				}
 				i++;
+
+				if(no_lig)
+					break; //we are done
 			}
 		}
 	} catch (file_error& e)
