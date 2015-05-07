@@ -830,6 +830,33 @@ struct num_tors_div: public conf_independent
 	}
 };
 
+//just divide energy by 1+w*num_tors as opposed to the more complicated vina formula
+struct num_tors_div_simple: public conf_independent
+{
+	num_tors_div_simple()
+	{
+		name = "num_tors_div_simple";
+		rexpr.assign(name);
+	}
+	sz size() const
+	{
+		return 1;
+	}
+	fl eval(const conf_independent_inputs& in, fl x,
+			flv::const_iterator& i) const
+	{
+		fl w = read_iterator(i);
+		//std::cout << "Num_tors_factor: " << test << std::endl;
+		return smooth_div(x, 1 + w * in.num_tors);
+	}
+	virtual term* createFrom(const std::string& desc) const {
+		if(!regex_match(desc, rexpr))
+			return NULL;
+		return new num_tors_div_simple();
+	}
+};
+
+
 struct ligand_length: public conf_independent
 {
 	ligand_length()
@@ -1000,6 +1027,7 @@ struct term_creators : public std::vector<term*> {
 		push_back(new num_tors_sqr());
 		push_back(new num_tors_sqrt());
 		push_back(new num_tors_div());
+		push_back(new num_tors_div_simple());
 		push_back(new ligand_length());
 		push_back(new num_ligands());
 		push_back(new num_heavy_atoms_div());
