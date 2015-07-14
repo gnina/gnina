@@ -100,6 +100,7 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 		while (conv.Read(&mol)) //will return after first success
 		{
 			std::string name = mol.GetTitle();
+			mol.StripSalts();
 			m.set_name(name);
 			try
 			{
