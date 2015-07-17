@@ -28,6 +28,7 @@ MCMolConverter::MCMolConverter(OpenBabel::OBMol& m) :
 {
 	//precompute fragments and tree
 	int nc = mol.NumConformers();
+	mol.SetConformer(0);
 	mol.AddHydrogens();
 
 	mol.SetAutomaticFormalCharge(false);
@@ -49,7 +50,10 @@ MCMolConverter::MCMolConverter(OpenBabel::OBMol& m) :
 
 	ConstructTree(tree, rigid_fragments, root_piece, mol, true);
 
-	assert(nc == mol.NumConformers()); //didn't lose any in analysis, did we?
+	if(nc != mol.NumConformers())  //didn't lose any in analysis, did we?
+	{
+	  abort(); //there was a bug in openbabel where addhydrogens would eliminate conformers
+	}
 }
 
 //output data for this conformer
@@ -59,6 +63,7 @@ void MCMolConverter::convertConformer(unsigned conf, std::ostream& out)
 	context c;
 
 	mol.SetConformer(conf);
+	
 	std::map<unsigned int, obbranch> tmptree(tree); //tree gets modified by outputtree
 	OutputTree(mol, c, p, tmptree, torsdof);
 

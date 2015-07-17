@@ -147,6 +147,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 		grid& user_grid)
 {
 	change g(m.get_size());
+
 	quasi_newton quasi_newton_par(minparm);
 	const fl slope_orig = nc.getSlope();
 	//try 5 times to get ligand into box
@@ -1319,10 +1320,7 @@ Thank you!\n";
 			model m;
 			while (no_lig || mols.readMoleculeIntoModel(m))
 			{
-				if(no_lig)
-				{
-					m = initm;
-				}
+				no_lig = false; //only go through loop once
 				if (settings.local_only)
 				{
 					//dkoes - for convenience get box from model
@@ -1364,9 +1362,6 @@ Thank you!\n";
 					}
 				}
 				i++;
-
-				if(no_lig)
-					break; //we are done
 			}
 		}
 	} catch (file_error& e)

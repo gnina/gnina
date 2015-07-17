@@ -115,7 +115,7 @@ void MinimizationQuery::thread_startMinimization(MinimizationQuery *query)
 MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 {
 	static const grid empty_grid;
-	static const fl autobox_add = 8;
+	static const fl autobox_add = 4;
 	static const fl granularity = 0.375;
 	vec authentic_v(10, 10, 10); //"soft" minimization
 
@@ -129,10 +129,12 @@ MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 	//do minimization
 	grid_dims gd = m.movable_atoms_box(autobox_add, granularity);
 	change g(m.get_size());
-	quasi_newton quasi_newton_par(minparm.minparms);
 	szv_grid_cache gridcache(m, minparm.prec->cutoff_sqr());
-
 	non_cache nc(gridcache, gd, minparm.prec);
+
+  //regular minimization
+  quasi_newton quasi_newton_par(minparm.minparms);
+
 	//it rarely takes more than one try
 	fl slope = 10;
 	unsigned i;
