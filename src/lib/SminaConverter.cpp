@@ -33,6 +33,7 @@ MCMolConverter::MCMolConverter(OpenBabel::OBMol& m) :
 
 	mol.SetAutomaticFormalCharge(false);
 	DeleteHydrogens(mol); //leaves just polars
+	if(mol.NumAtoms() == 0) return;
 
 	//we kind of assume a connected molecule
 	unsigned best_root_atom = FindFragments(mol, rigid_fragments);
