@@ -234,11 +234,12 @@ void terms::eval_additive_aux(const model& m, const atom_index& i,
 //this routine is not intended to be efficient (see precalc)
 flv terms::evale_robust(const model& m, std::vector<flv>& per_atom) const
 {
-	VINA_CHECK(m.ligands.size() == 1);
-	// only single-ligand systems are supported by this procedure
-
 	flv tmp(size(), 0);
+	// only single-ligand systems are supported by this procedure
+	if(m.ligands.size() == 0) //nolig
+	  return tmp;
 
+  VINA_CHECK(m.ligands.size() == 1);
 	fl max_r_cutoff_sqr = sqr(max_r_cutoff());
 
 	grid_dims box = m.movable_atoms_box(0); // add nothing

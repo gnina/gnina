@@ -73,6 +73,6 @@ int main(int argc, char *argv[])
 
     stringstream str;
     m.write_sdf(str);
-    cout << str.str();
+    cout << str.str() << "$$$$\n";
   }
 }

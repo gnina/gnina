@@ -952,7 +952,9 @@ Thank you!\n";
 		("ad4_scoring", bool_switch(&ad4_score),
 				"Approximation of Autodock 4 scoring")
 		("verbosity", value<int>(&settings.verbosity)->default_value(1),
-				"Adjust the verbosity of the output, default: 1");
+				"Adjust the verbosity of the output, default: 1")
+    ("flex_hydrogens", bool_switch(&flex_hydrogens),
+        "Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.");
 
 
 		options_description misc("Misc (optional)");
@@ -971,9 +973,7 @@ Thank you!\n";
 		("quiet,q", bool_switch(&quiet), "Suppress output messages")
 		("addH", value<bool>(&add_hydrogens),
 				"automatically add hydrogens in ligands (on by default)")
-		("flex_hydrogens", bool_switch(&flex_hydrogens),
-				"Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
-				#ifdef SMINA_GPU
+			#ifdef SMINA_GPU
 				("device", value<int>(&device)->default_value(0), "GPU device to use")
 				("gpu", bool_switch(&gpu_on), "Turn on GPU acceleration")
 #endif
@@ -1320,7 +1320,11 @@ Thank you!\n";
 			model m;
 			while (no_lig || mols.readMoleculeIntoModel(m))
 			{
-				no_lig = false; //only go through loop once
+			  if(no_lig)
+			  {
+			    no_lig = false; //only go through loop once
+			    m = initm;
+			  }
 				if (settings.local_only)
 				{
 					//dkoes - for convenience get box from model
