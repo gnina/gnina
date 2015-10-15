@@ -26,6 +26,12 @@
 #include <boost/unordered_map.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
+namespace smina_atom_type
+{
+	info data[NumTypes] = {{},};
+}
+
+
 template<typename T>
 atom_range get_atom_range(const T& t)
 {

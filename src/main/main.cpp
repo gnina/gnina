@@ -568,6 +568,96 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
 	}
 }
 
+template <class T>
+inline void read_atomconstants_field(smina_atom_type::info& info, T (smina_atom_type::info::* field), unsigned int line, const std::string& field_name, std::istream& in)
+{
+	if (!(in >> (info.*field) ))
+	{
+		throw usage_error("Error at line " + boost::lexical_cast<std::string>(line) + " while reading field '" + field_name + "' from the atom constants file.");
+	}
+}
+
+void setup_atomconstants_from_file(const std::string& atomconstants_file)
+{
+	std::ifstream file(atomconstants_file.c_str());
+	if (file)
+	{
+		// create map from atom type names to indices
+		boost::unordered_map<std::string, unsigned> atomindex;
+		for(size_t i = 0u; i < smina_atom_type::NumTypes; ++i)
+		{
+			atomindex[smina_atom_type::default_data[i].smina_name] = i;
+		}
+
+		//parse each line of the file
+		std::string line;
+		unsigned lineno = 1;
+		while(std::getline(file, line))
+		{
+			std::string name;
+			std::stringstream ss(line);
+
+			if(line.length() == 0 || line[0] == '#')
+				continue;
+
+			ss >> name;
+			
+			if(atomindex.count(name))
+			{
+				unsigned i = atomindex[name];
+				smina_atom_type::info& info = smina_atom_type::data[i];
+
+				//change this atom's parameters
+#				define read_field(field) read_atomconstants_field(info, &smina_atom_type::info::field, lineno, #field, ss)
+				read_field(ad_radius);
+				read_field(ad_depth);
+				read_field(ad_solvation);
+				read_field(ad_volume);
+				read_field(covalent_radius);
+				read_field(xs_radius);
+				read_field(xs_hydrophobe);
+				read_field(xs_donor);
+				read_field(xs_acceptor);
+				read_field(ad_heteroatom);
+#				undef read_field
+			}
+			else
+			{
+				std::cerr << "Line " << lineno << ": ommitting atom type name " << name << "\n";
+			}
+			lineno++;
+		}
+	}
+	else
+		throw usage_error("Error opening atom constants file:  " + atomconstants_file);
+}
+
+void print_atom_info(std::ostream& out)
+{
+	out << "#Name radius depth solvation volume covalent_radius xs_radius xs_hydrophobe xs_donor xs_acceptr ad_heteroatom\n";
+	VINA_FOR(i, smina_atom_type::NumTypes) {
+		smina_atom_type::info& info = smina_atom_type::data[i];
+		out << info.smina_name;
+		out << " " << info.ad_radius;
+		out << " " << info.ad_depth;
+		out << " " << info.ad_solvation;
+		out << " " << info.ad_volume;
+		out << " " << info.covalent_radius;
+		out << " " << info.xs_radius;
+		out << " " << info.xs_hydrophobe;
+		out << " " << info.xs_donor;
+		out << " " << info.xs_acceptor;
+		out << " " << info.ad_heteroatom;
+		out << "\n";
+	}
+}
+
+void setup_atomconstants_default()
+{
+	for(size_t i = 0u; i < smina_atom_type::NumTypes; ++i)
+		smina_atom_type::data[i] = smina_atom_type::default_data[i];
+}
+
 //several built-in functions I've designed
 void setup_dkoes_terms(custom_terms& t, bool dkoes_score, bool dkoes_score_old,
 		bool dkoes_fast)
@@ -825,6 +915,7 @@ Thank you!\n";
 		std::string out_name;
 		std::string outf_name;
 		std::string ligand_names_file;
+		std::string atomconstants_file;
 		std::string custom_file_name;
 		std::string usergrid_file_name;
 		std::string flex_res;
@@ -914,6 +1005,7 @@ Thank you!\n";
 		scoremin.add_options()
 		("custom_scoring", value<std::string>(&custom_file_name),
 				"custom scoring function file")
+		("custom_atoms", value<std::string>(&atomconstants_file), "custom atom type parameters file")
 		("score_only", bool_switch(&settings.score_only)->default_value(false), "score provided ligand pose")
 		("local_only", bool_switch(&settings.local_only)->default_value(false),
 				"local search only using autobox (you probably want to use --minimize)")
@@ -939,8 +1031,7 @@ Thank you!\n";
 								"Scales user_grid and functional scoring")
 		("print_terms", bool_switch(&print_terms),
 				"Print all available terms with default parameterizations")
-		("print_atom_types", bool_switch(&print_atom_types),
-				"Print all available atom types");
+				("print_atom_types", bool_switch(&print_atom_types), "Print all available atom types");
 
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
@@ -1040,6 +1131,11 @@ Thank you!\n";
 			std::cout << version_string << '\n';
 			return 0;
 		}
+
+		setup_atomconstants_default();
+		if (!atomconstants_file.empty())
+			setup_atomconstants_from_file(atomconstants_file);
+
 		if (print_terms)
 		{
 			custom_terms t;
@@ -1047,13 +1143,13 @@ Thank you!\n";
 			return 0;
 		}
 
+
 		if(print_atom_types)
 		{
-			VINA_FOR(i, smina_atom_type::NumTypes) {
-				std::cout << smina_atom_type::data[i].smina_name << "\n";
-			}
+			print_atom_info(std::cout);
 			return 0;
 		}
+
 #ifdef SMINA_GPU
 		initializeCUDA(device);
 #endif
@@ -1142,6 +1238,7 @@ Thank you!\n";
 					center_x, center_y, center_z,
 					size_x, size_y, size_z);
 		}
+
 		if (search_box_needed && autobox_ligand.length() == 0)
 		{
 			options_occurrence oo = get_occurrence(vm, search_area);
