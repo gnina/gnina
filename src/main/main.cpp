@@ -6,7 +6,8 @@
 #include <vector> // ligand paths#include <cmath> // for ceila
 #include <algorithm>
 #include <iterator>#include <boost/filesystem/fstream.hpp>#include <boost/filesystem/exception.hpp>
-#include <boost/filesystem/convenience.hpp> // filesystem::basename#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?#include <boost/lexical_cast.hpp>#include "parse_pdbqt.h"#include "parallel_mc.h"
+#include <boost/filesystem/convenience.hpp> // filesystem::basename#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?#include <boost/lexical_cast.hpp>
+#include <boost/assign.hpp>#include "parse_pdbqt.h"#include "parallel_mc.h"
 #include "file.h"
 #include "cache.h"
 #include "non_cache.h"
@@ -38,6 +39,7 @@
 #include "result_info.h"
 #include "box.h"
 #include "flexinfo.h"
+#include "builtinscoring.h"
 
 using namespace boost::iostreams;
 using boost::filesystem::path;
@@ -658,48 +660,6 @@ void setup_atomconstants_default()
 		smina_atom_type::data[i] = smina_atom_type::default_data[i];
 }
 
-//several built-in functions I've designed
-void setup_dkoes_terms(custom_terms& t, bool dkoes_score, bool dkoes_score_old,
-		bool dkoes_fast)
-{
-	if (dkoes_score + dkoes_score_old + dkoes_fast != 1)
-		throw usage_error("dkoes scoring options are mutually exclusive");
-
-	if (dkoes_score)
-	{
-		t.add("vdw(i=4,_j=8,_s=0,_^=100,_c=8)", 0.009900);
-		t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", -0.153055);
-		t.add("ad4_solvation(d-sigma=3.6,_s/q=0.01097,_c=8)", 0.048934);
-		t.add("num_tors_sqr", 0.317267);
-		t.add("constant_term", -2.469020);
-		/* trained with openbabel partial charges
-		 weights.push_back(0.010764); //vdw
-		 weights.push_back(-0.156861); //hbond
-		 weights.push_back(0.062407); //desolvation
-		 weights.push_back(0.337036); //tors sqr
-		 weights.push_back(-2.231827); //constant
-		 */
-	}
-	else if (dkoes_score_old)
-	{
-		t.add("vdw(i=4,_j=8,_s=0,_^=100,_c=8)", 0.010607);
-		t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", 0.197201);
-		t.add("num_tors_sqr", .285035);
-		t.add("constant_term", -2.585651);
-
-		//desolvation wasn't actually getting counted, but this is the constant
-//			weights.push_back(0.044580); //desolvation
-
-	}
-	else if (dkoes_fast)
-	{
-		t.add("vdw(i=4,_j=8,_s=0,_^=100,_c=8)", 0.008962);
-		t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", 0.387739);
-		t.add("num_tors_sqr", .285035);
-		t.add("constant_term", -2.467357);
-	}
-}
-
 void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
 {
 	std::string line;
@@ -926,6 +886,7 @@ Thank you!\n";
 		fl out_min_rmsd = 1;
 		std::string autobox_ligand;
 		std::string flexdist_ligand;
+		std::string builtin_scoring;
 		int device = 0;
 
 		// -0.035579, -0.005156, 0.840245, -0.035069, -0.587439, 0.05846
@@ -937,10 +898,6 @@ Thank you!\n";
 		fl weight_rot = 0.05846;
 		fl user_grid_lambda;
 		bool help = false, help_hidden = false, version = false;
-		bool dkoes_score = false;
-		bool ad4_score = false;
-		bool dkoes_score_old = false;
-		bool dkoes_fast = false;
 		bool quiet = false;
 		bool accurate_line = false;
 		bool flex_hydrogens = false;
@@ -1003,6 +960,7 @@ Thank you!\n";
 
 		options_description scoremin("Scoring and minimization options");
 		scoremin.add_options()
+		("scoring", value<std::string>(&builtin_scoring),"specify alternative builtin scoring function")
 		("custom_scoring", value<std::string>(&custom_file_name),
 				"custom scoring function file")
 		("custom_atoms", value<std::string>(&atomconstants_file), "custom atom type parameters file")
@@ -1035,13 +993,6 @@ Thank you!\n";
 
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
-		("dkoes_scoring", bool_switch(&dkoes_score),
-				"Use my custom scoring function")
-		("dkoes_scoring_old", bool_switch(&dkoes_score_old),
-				"Use old (vdw+hbond) scoring function")
-		("dkoes_fast", bool_switch(&dkoes_fast), "VDW+nrot only")
-		("ad4_scoring", bool_switch(&ad4_score),
-				"Approximation of Autodock 4 scoring")
 		("verbosity", value<int>(&settings.verbosity)->default_value(1),
 				"Adjust the verbosity of the output, default: 1")
     ("flex_hydrogens", bool_switch(&flex_hydrogens),
@@ -1277,18 +1228,10 @@ Thank you!\n";
 			ifile custom_file(custom_file_name);
 			t.add_terms_from_file(custom_file);
 		}
-		else if (dkoes_score || dkoes_score_old || dkoes_fast)
+		else if (builtin_scoring.size() > 0)
 		{
-			//my own built-in scoring functions
-			setup_dkoes_terms(t, dkoes_score, dkoes_score_old, dkoes_fast);
-		}
-		else if (ad4_score)
-		{
-			t.add("vdw(i=6,_j=12,_s=0,_^=100,_c=8)", 0.1560);
-			t.add("non_dir_h_bond_lj(o=-0.7,_^=100,_c=8)", -0.0974);
-			t.add("ad4_solvation(d-sigma=3.5,_s/q=0.01097,_c=8)", 0.1159);
-			t.add("electrostatic(i=1,_^=100,_c=8)", 0.1465);
-			t.add("num_tors_add", 0.2744);
+			if(!builtin_scoring_functions.set(t, builtin_scoring))
+				throw usage_error("Invalid builtin scoring function: "+builtin_scoring);
 		}
 		else
 		{
