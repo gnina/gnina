@@ -11,7 +11,7 @@
 #include <boost/unordered_map.hpp>
 #include "custom_terms.h"
 
-class builtin_scoring_function
+class builtin_scoring
 {
 	struct singleterm
 	{
@@ -23,7 +23,8 @@ class builtin_scoring_function
 	};
 
 	//map from names to sets of terms
-	boost::unordered_map<std::string, std::vector<singleterm> > functions;
+	typedef boost::unordered_map<std::string, std::vector<singleterm> > funcmap;
+	funcmap functions;
 
 	void add(const std::string& name, const char *term, double w)
 	{
@@ -31,7 +32,7 @@ class builtin_scoring_function
 	}
 
 public:
-	builtin_scoring_function();
+	builtin_scoring();
 
 	//set t to the terms specified by builtin name
 	//return true if successful
@@ -47,6 +48,8 @@ public:
 		}
 		return true;
 	}
+
+	void print_functions(std::ostream& out);
 };
 
-extern builtin_scoring_function builtin_scoring_functions;
+extern builtin_scoring builtin_scoring_functions;

@@ -1231,7 +1231,11 @@ Thank you!\n";
 		else if (builtin_scoring.size() > 0)
 		{
 			if(!builtin_scoring_functions.set(t, builtin_scoring))
-				throw usage_error("Invalid builtin scoring function: "+builtin_scoring);
+			{
+				std::stringstream ss;
+				builtin_scoring_functions.print_functions(ss);
+				throw usage_error("Invalid builtin scoring function: "+builtin_scoring+". Options are:\n"+ss.str());
+			}
 		}
 		else
 		{
@@ -1419,7 +1423,7 @@ Thank you!\n";
 		return 1;
 	} catch (usage_error& e)
 	{
-		std::cerr << "\n\nUsage error: " << e.what() << ".\n";
+		std::cerr << "\n\nUsage error: " << e.what() << "\n";
 		return 1;
 	} catch (parse_error& e)
 	{

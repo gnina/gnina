@@ -1,6 +1,6 @@
 #include "builtinscoring.h"
 
-builtin_scoring_function::builtin_scoring_function()
+builtin_scoring::builtin_scoring()
 {
 	//set all builtin functions
 
@@ -43,5 +43,20 @@ builtin_scoring_function::builtin_scoring_function()
 	add("ad4_scoring","num_tors_add", 0.2744);
 }
 
+void builtin_scoring::print_functions(std::ostream& out)
+{
+	std::vector<std::string> names;
+	for(funcmap::iterator itr = functions.begin(), en = functions.end(); itr != en; ++itr)
+	{
+		names.push_back(itr->first);
+	}
+	std::sort(names.begin(),names.end());
 
-builtin_scoring_function builtin_scoring_functions;
+	for(unsigned i = 0, n = names.size(); i < n; i++)
+	{
+		out << names[i] << "\n";
+	}
+}
+
+//global object for getting scoring functions
+builtin_scoring builtin_scoring_functions;
