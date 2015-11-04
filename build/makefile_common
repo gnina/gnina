@@ -1,9 +1,9 @@
-BOOST_INCLUDE = $(BASE)/include/boost-${BOOST_VERSION}
+BOOST_INCLUDE = $(BASE)/include/boost
 
-LIBOBJ = builtinscoring.o cache.o coords.o  custom_terms.o everything.o flexinfo.o grid.o szv_grid.o model.o monte_carlo.o mutate.o my_pid.o naive_non_cache.o non_cache.o obmolopener.o parallel_mc.o parse_pdbqt.o pdb.o quasi_newton.o quaternion.o random.o ssd.o terms.o weighted_terms.o molgetter.o result_info.o PDBQTUtilities.o SminaConverter.o
+LIBOBJ = builtinscoring.o cache.o coords.o  custom_terms.o everything.o flexinfo.o grid.o szv_grid.o model.o monte_carlo.o mutate.o my_pid.o naive_non_cache.o non_cache.o obmolopener.o parallel_mc.o parse_pdbqt.o pdb.o quasi_newton.o quaternion.o random.o ssd.o terms.o weighted_terms.o molgetter.o result_info.o PDBQTUtilities.o GninaConverter.o
 MAINOBJ = main.o
-TOSMINAOBJ = tosmina.o CommandLine.o 
-FROMSMINAOBJ = fromsmina.o CommandLine.o 
+TOGNINAOBJ = tognina.o CommandLine.o 
+FROMGNINAOBJ = fromgnina.o CommandLine.o 
 SERVEROBJ = server.o CommandLine.o MinimizationQuery.o QueryManager.o
 INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) 
 
@@ -22,28 +22,28 @@ LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -l boost_timer${BOOST
 	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
 		
 	
-all: smina  tosmina server libsmina.a
+all: gnina tognina gninaserver libgnina.a
 
 include dependencies
 
-smina: $(MAINOBJ) $(LIBOBJ)
+gnina: $(MAINOBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"
 
-tosmina: $(TOSMINAOBJ) $(LIBOBJ)
+tognina: $(TOGNINAOBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"
 	
-fromsmina: $(FROMSMINAOBJ) $(LIBOBJ)
+fromgnina: $(FROMGNINAOBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"	
 	
-server: $(SERVEROBJ) $(LIBOBJ)
+gninaserver: $(SERVEROBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"	
     	
-libsmina.a: $(LIBOBJ)
-	 ar rcs libsmina.a $^
+libgnina.a: $(LIBOBJ)
+	 ar rcs libgnina.a $^
 
 clean:
 	rm -f *.o
@@ -51,6 +51,6 @@ clean:
 depend:
 	rm -f dependencies_tmp dependencies_tmp.bak
 	touch dependencies_tmp
-	makedepend -f dependencies_tmp -Y -I ../../../src/lib ../../../src/lib/*.cpp   ../../../src/main/*.cpp ../../../src/server/*.cpp  ../../../src/tosmina/*.cpp
+	makedepend -f dependencies_tmp -Y -I ../../../src/lib ../../../src/lib/*.cpp   ../../../src/main/*.cpp ../../../src/server/*.cpp  ../../../src/tognina/*.cpp
 	sed -e "s/^\.\.\/\.\.\/\.\.\/src\/[a-z]*\//.\//" dependencies_tmp > dependencies
 	rm -f dependencies_tmp dependencies_tmp.bak

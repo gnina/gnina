@@ -10,7 +10,7 @@
 #include <openbabel/mol.h>
 #include <openbabel/obconversion.h>
 #include <boost/archive/binary_iarchive.hpp>
-#include "SminaConverter.h"
+#include "GninaConverter.h"
 
 //setup for reading from fname
 void MolGetter::setInputFile(const std::string& fname)
@@ -27,6 +27,10 @@ void MolGetter::setInputFile(const std::string& fname)
 		else if (infile.open(lpath, ".smina", true)) //smina always gzipped
 		{
 			type = SMINA;
+		}
+		else if (infile.open(lpath, ".gnina", true)) //gnina always gzipped
+		{
+			type = GNINA;
 		}
 		else //openbabel
 		{
@@ -48,6 +52,7 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 	switch (type)
 	{
 	case SMINA:
+	case GNINA:
 		{
 		parsing_struct p;
 		context c;
@@ -106,7 +111,7 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 			{
 				parsing_struct p;
 				context c;
-				unsigned torsdof = SminaConverter::convertParsing(mol, p, c, add_hydrogens);
+				unsigned torsdof = GninaConverter::convertParsing(mol, p, c, add_hydrogens);
 				non_rigid_parsed nr;
 				postprocess_ligand(nr, p, c, torsdof);
 				VINA_CHECK(nr.atoms_atoms_bonds.dim() == nr.atoms.size());

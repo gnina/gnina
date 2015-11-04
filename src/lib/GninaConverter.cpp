@@ -1,13 +1,13 @@
 /*
- * SminaConverter.cpp
+ * GninaConverter.cpp
  *
  *  Created on: Jun 4, 2014
  *      Author: dkoes
  *
- *  Convert internal molecular data (ie OBMol) into smina parse tree.
+ *  Convert internal molecular data (ie OBMol) into gnina parse tree.
  */
 
-#include "SminaConverter.h"
+#include "GninaConverter.h"
 #include "parsing.h"
 #include "PDBQTUtilities.h"
 
@@ -17,7 +17,7 @@
 #include <map>
 #include <openbabel/obconversion.h>
 
-namespace SminaConverter
+namespace GninaConverter
 {
 
 using namespace OpenBabel;
@@ -81,7 +81,7 @@ void MCMolConverter::convertConformer(unsigned conf, std::ostream& out)
 }
 
 //sets up data structures used by both text and binary
-//we link with smina to ensure compatibility
+//we link with gnina to ensure compatibility
 //rootatom, an obatom index (starting at 1) can be specified, if not
 //the "best" root is chosen
 unsigned convertParsing(OBMol& mol, parsing_struct& p, context& c, int rootatom,
@@ -161,7 +161,7 @@ void convertText(OpenBabel::OBMol& mol, std::ostream& out)
 void convertBinary(OBMol& mol, ostream& out, int rootatom,
 		const vector<int>& norotate)
 {
-	//by definition, smina format is gzipped
+	//by definition, gnina format is gzipped
 	boost::iostreams::filtering_stream<boost::iostreams::output> strm;
 	strm.push(boost::iostreams::gzip_compressor());
 	strm.push(out);
@@ -177,4 +177,4 @@ void convertBinary(OpenBabel::OBMol& mol, std::ostream& out)
 	convertBinary(mol, out, 0, nr);
 }
 
-} //namespace SminaConverter
+} //namespace GninaConverter

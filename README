@@ -5,4 +5,4 @@ gnina (pronounced NEE-na) is a fork of smina, which is a fork of AutoDock Vina.
 gnina will contain highly experimental code with substantial algorithmic
 and implementation differences from smina/vina.
 
-At this stage of development, you should not use this code - use [smina](http://smina.sf.net/).
+At this stage of development, you should not use this code - use smina (http://smina.sf.net/).

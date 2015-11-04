@@ -1,12 +1,12 @@
 /*
- * SminaOBMolConverter.h
+ * GninaConverter.h
  *
  *  Created on: Jun 4, 2014
  *      Author: dkoes
  */
 
-#ifndef SMINACONVERTER_H_
-#define SMINACONVERTER_H_
+#ifndef GNINACONVERTER_H_
+#define GNINACONVERTER_H_
 
 #include <openbabel/mol.h>
 #include <iostream>
@@ -16,7 +16,7 @@
 
 /* Routines for converting a molecule to smina format.
  */
-namespace SminaConverter
+namespace GninaConverter
 {
 	//can optoinal specify a desired root atom and atoms to that should not have rotatable bonds
 	//text output
@@ -44,4 +44,4 @@ namespace SminaConverter
 	};
 };
 
-#endif /* SMINACONVERTER_H_ */
+#endif /* GNINACONVERTER_H_ */

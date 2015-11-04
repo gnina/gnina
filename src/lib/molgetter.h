@@ -20,7 +20,7 @@
 class MolGetter
 {
 	const model& initm;
-	enum Type {OB, PDBQT, SMINA}; //different inputs
+	enum Type {OB, PDBQT, SMINA,GNINA}; //different inputs
 
 	Type type;
 	path lpath;

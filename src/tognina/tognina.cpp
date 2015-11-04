@@ -11,7 +11,7 @@
 #include "obmolopener.h" //copied smina
 #include "CommandLine2/CommandLine.h"
 #include <openbabel/mol.h>
-#include "SminaConverter.h"
+#include "GninaConverter.h"
 
 using namespace std;
 using namespace OpenBabel;
@@ -44,9 +44,9 @@ int main(int argc, char *argv[]) {
 	while (conv.Read(&mol))
 	{
 		if(textOutput)
-			SminaConverter::convertText(mol, *out);
+			GninaConverter::convertText(mol, *out);
 		else
-			SminaConverter::convertBinary(mol, *out);
+			GninaConverter::convertBinary(mol, *out);
 	}
 	return 0;
 }
