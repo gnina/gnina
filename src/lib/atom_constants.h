@@ -289,6 +289,10 @@ inline bool xs_anti_h_bond(smt t1, smt t2) {
 	return false;
 }
 
+inline const char* smina_type_to_string(smt at)
+{
+	return smina_atom_type::data[at].smina_name;
+}
 
 inline smt string_to_smina_type(const std::string& name)
 {

@@ -38,7 +38,7 @@ conf_independent_inputs::operator flv() const
 
 unsigned conf_independent_inputs::num_bonded_heavy_atoms(const model& m,
 		const atom_index& i) const
-		{ // FIXME? - could be static, but I don't feel like declaring function friends
+	{ // FIXME? - could be static, but I don't feel like declaring function friends
 	unsigned acc = 0;
 	const std::vector<bond>& bonds = m.get_atom(i).bonds;
 	VINA_FOR_IN(j, bonds)

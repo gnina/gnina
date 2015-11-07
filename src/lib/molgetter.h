@@ -57,6 +57,9 @@ public:
 	//initialize model to initm and add next molecule
 	//return false if no molecule available;
 	bool readMoleculeIntoModel(model &m);
+
+	//return model without ligand
+	const model& getInitModel() const { return initm; }
 };
 
 

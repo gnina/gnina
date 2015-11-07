@@ -4,7 +4,7 @@ LIBOBJ = box.o builtinscoring.o cache.o coords.o  custom_terms.o everything.o fl
 MAINOBJ = main.o
 TOGNINAOBJ = tognina.o CommandLine.o 
 FROMGNINAOBJ = fromgnina.o CommandLine.o 
-GNINAGRIDOBJ = gninagrid.o  
+GNINAGRIDOBJ = gninagrid.o nngridder.o
 SERVEROBJ = server.o CommandLine.o MinimizationQuery.o QueryManager.o
 INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) 
 

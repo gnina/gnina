@@ -329,6 +329,9 @@ struct model {
 
 	fl clash_penalty() const;
 
+	const atomv& get_fixed_atoms() const { return grid_atoms; }
+	const atomv& get_movable_atoms() const { return atoms; }
+
 	model() : m_num_movable_atoms(0) {};
 
 private:
