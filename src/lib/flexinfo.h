@@ -17,6 +17,7 @@ class FlexInfo
 	OpenBabel::OBMol distligand;
 	tee& log;
 public:
+	FlexInfo(tee& l): flex_dist(0), log(l) {}
 	FlexInfo(const std::string& flexres, double flexdist, const std::string& ligand, tee& l);
 	bool hasContent() const
 	{

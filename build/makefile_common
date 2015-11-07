@@ -1,9 +1,10 @@
 BOOST_INCLUDE = $(BASE)/include/boost
 
-LIBOBJ = builtinscoring.o cache.o coords.o  custom_terms.o everything.o flexinfo.o grid.o szv_grid.o model.o monte_carlo.o mutate.o my_pid.o naive_non_cache.o non_cache.o obmolopener.o parallel_mc.o parse_pdbqt.o pdb.o quasi_newton.o quaternion.o random.o ssd.o terms.o weighted_terms.o molgetter.o result_info.o PDBQTUtilities.o GninaConverter.o
+LIBOBJ = box.o builtinscoring.o cache.o coords.o  custom_terms.o everything.o flexinfo.o grid.o szv_grid.o model.o monte_carlo.o mutate.o my_pid.o naive_non_cache.o non_cache.o obmolopener.o parallel_mc.o parse_pdbqt.o pdb.o quasi_newton.o quaternion.o random.o ssd.o terms.o weighted_terms.o molgetter.o result_info.o PDBQTUtilities.o GninaConverter.o
 MAINOBJ = main.o
 TOGNINAOBJ = tognina.o CommandLine.o 
 FROMGNINAOBJ = fromgnina.o CommandLine.o 
+GNINAGRIDOBJ = gninagrid.o  
 SERVEROBJ = server.o CommandLine.o MinimizationQuery.o QueryManager.o
 INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) 
 
@@ -22,7 +23,7 @@ LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -l boost_timer${BOOST
 	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
 		
 	
-all: gnina tognina gninaserver libgnina.a
+all: gnina tognina gninaserver libgnina.a gninagrid
 
 include dependencies
 
@@ -37,6 +38,10 @@ tognina: $(TOGNINAOBJ) $(LIBOBJ)
 fromgnina: $(FROMGNINAOBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"	
+	
+gninagrid: $(GNINAGRIDOBJ) $(LIBOBJ)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+	@echo "Done"    	
 	
 gninaserver: $(SERVEROBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)

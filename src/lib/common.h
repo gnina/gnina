@@ -394,4 +394,13 @@ bool has(const std::vector<T>& v, const T& element) {
 	return std::find(v.begin(), v.end(), element) != v.end();
 }
 
+
+struct usage_error: public std::runtime_error
+{
+	usage_error(const std::string& message) :
+			std::runtime_error(message)
+	{
+	}
+};
+
 #endif

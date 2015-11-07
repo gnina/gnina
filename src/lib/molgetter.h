@@ -10,7 +10,7 @@
 
 #include "model.h"
 #include "obmolopener.h"
-
+#include "flexinfo.h"
 
 //this class abstracts reading molecules from a file
 //we have three means of input:
@@ -19,8 +19,8 @@
 //smina format
 class MolGetter
 {
-	const model& initm;
-	enum Type {OB, PDBQT, SMINA,GNINA}; //different inputs
+	model initm;
+	enum Type {OB, PDBQT, SMINA,GNINA,NONE}; //different inputs
 
 	Type type;
 	path lpath;
@@ -34,8 +34,22 @@ class MolGetter
 
 	//pdbqt data
 	bool pdbqtdone;
+
 public:
-	MolGetter(const model& m, bool addH): initm(m), add_hydrogens(addH), pdbqtdone(false) {}
+
+	MolGetter(bool addH=true):  add_hydrogens(addH),
+			 type(NONE), pdbqtdone(false) {
+	}
+
+	MolGetter(const std::string& rigid_name, const std::string& flex_name,
+			FlexInfo& finfo, bool addH, tee& log):  add_hydrogens(addH),
+			 type(NONE), pdbqtdone(false) {
+		create_init_model(rigid_name, flex_name, finfo, log);
+	}
+
+	//create the initial model from the specified receptor files
+	void create_init_model(const std::string& rigid_name,
+			const std::string& flex_name, FlexInfo& finfo, tee& log);
 
 	//setup for reading from fname
 	void setInputFile(const std::string& fname);
@@ -44,7 +58,6 @@ public:
 	//return false if no molecule available;
 	bool readMoleculeIntoModel(model &m);
 };
-
 
 
 #endif /* MOLGETTER_H_ */

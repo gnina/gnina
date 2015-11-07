@@ -472,13 +472,6 @@ void main_procedure(model& m, precalculate& prec,
 	}
 }
 
-struct usage_error: public std::runtime_error
-{
-	usage_error(const std::string& message) :
-			std::runtime_error(message)
-	{
-	}
-};
 
 struct options_occurrence
 {
@@ -526,49 +519,6 @@ void check_occurrence(boost::program_options::variables_map& vm,
 	}
 }
 
-
-
-//generate a box around the provided ligand padded by autobox_add
-//if centers are always overwritten, but if sizes are non zero they are preserved
-void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
-		fl& center_x,
-		fl& center_y, fl& center_z, fl& size_x, fl& size_y, fl& size_z)
-{
-	using namespace OpenBabel;
-	obmol_opener opener;
-
-	//a ligand file can be provided from which to autobox
-	OBConversion conv;
-	opener.openForInput(conv, autobox_ligand);
-
-	OBMol mol;
-	center_x = center_y = center_z = 0;
-	Box b;
-	while (conv.Read(&mol)) //openbabel divides separate residues into multiple molecules
-	{
-		b.add_ligand_box(mol);
-	}
-
-	//set to center of bounding box (as opposed to center of mass
-	center_x = (b.max_x+b.min_x)/2.0;
-	center_y = (b.max_y+b.min_y)/2.0;
-	center_z = (b.max_z+b.min_z)/2.0;
-
-	b.expand(autobox_add);
-	if (size_x == 0)
-		size_x = (b.max_x - b.min_x);
-	if (size_y == 0)
-		size_y = (b.max_y - b.min_y);
-	if (size_z == 0)
-		size_z = (b.max_z - b.min_z);
-
-	if(!std::isfinite(b.max_x) || !std::isfinite(b.max_y) || !std::isfinite(b.max_z))
-	{
-		std::stringstream msg;
-		msg << "Unable to read  " << autobox_ligand;
-		throw usage_error(msg.str());
-	}
-}
 
 template <class T>
 inline void read_atomconstants_field(smina_atom_type::info& info, T (smina_atom_type::info::* field), unsigned int line, const std::string& field_name, std::istream& in)
@@ -761,79 +711,6 @@ static void initializeCUDA(int device)
 #endif
 
 
-//create the initial model from the specified receptor files
-//mostly because Matt kept complaining about it, this will automatically create
-//pdbqts if necessary using open babel
-static void create_init_model(const std::string& rigid_name,
-		const std::string& flex_name, FlexInfo& finfo, model& initm, tee& log)
-{
-	if (rigid_name.size() > 0)
-	{
-		//support specifying flexible residues explicitly as pdbqt, but only
-		//in compatibility mode where receptor is pdbqt as well
-		if(flex_name.size() > 0)
-		{
-			if(finfo.hasContent())
-			{
-				throw usage_error("Cannot mix -flex option with -flexres or -flexdist options.");
-			}
-			if (boost::filesystem::extension(rigid_name) != ".pdbqt")
-			{
-				throw usage_error("Cannot use -flex option with non-PDBQT receptor.");
-			}
-			ifile rigidin(rigid_name);
-			ifile flexin(flex_name);
-			initm = parse_receptor_pdbqt(rigid_name, rigidin, flex_name, flexin);
-		}
-		else if(!finfo.hasContent() && boost::filesystem::extension(rigid_name) == ".pdbqt")
-		{
-			//compatibility mode - read pdbqt directly with no openbabel shenanigans
-			ifile rigidin(rigid_name);
-			initm = parse_receptor_pdbqt(rigid_name, rigidin);
-		}
-		else
-		{
-			//default, openbabel mode
-			using namespace OpenBabel;
-			obmol_opener fileopener;
-			OBConversion conv;
-			conv.SetOutFormat("PDBQT");
-			conv.AddOption("r", OBConversion::OUTOPTIONS); //rigid molecule, otherwise really slow and useless analysis is triggered
-			conv.AddOption("c", OBConversion::OUTOPTIONS); //single combined molecule
-			fileopener.openForInput(conv, rigid_name);
-			OBMol rec;
-			if (!conv.Read(&rec))
-				throw file_error(rigid_name, true);
-
-			rec.AddHydrogens(true);
-			FOR_ATOMS_OF_MOL(a, rec)
-			{
-				a->GetPartialCharge();
-			}
-			OBMol rigid;
-			std::string flexstr;
-			finfo.extractFlex(rec, rigid, flexstr);
-
-			std::string recstr = conv.WriteString(&rigid);
-			std::stringstream recstream(recstr);
-
-			if(flexstr.size() > 0) //have flexible component
-			{
-				std::stringstream flexstream(flexstr);
-				initm = parse_receptor_pdbqt(rigid_name, recstream, flex_name, flexstream);
-			}
-			else //rigid only
-			{
-				initm = parse_receptor_pdbqt(rigid_name, recstream);
-			}
-
-		}
-
-	}
-}
-
-
-
 int main(int argc, char* argv[])
 {
 	using namespace boost::program_options;
@@ -917,7 +794,7 @@ Thank you!\n";
 		options_description inputs("Input");
 		inputs.add_options()
 		("receptor,r", value<std::string>(&rigid_name),
-				"rigid part of the receptor (PDBQT)")
+				"rigid part of the receptor")
 		("flex", value<std::string>(&flex_name),
 				"flexible side chains, if any (PDBQT)")
 		("ligand,l", value<std::vector<std::string> >(&ligand_names),
@@ -1295,9 +1172,7 @@ Thank you!\n";
 
 
 		//dkoes - parse in receptor once
-		model initm;
-
-		create_init_model(rigid_name, flex_name, finfo, initm, log);
+		MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, log);
 
 		//dkoes, hoist precalculation outside of loop
 		weighted_terms wt(&t, t.weights());
@@ -1351,7 +1226,6 @@ Thank you!\n";
 			log << "\n";
 		}
 
-		MolGetter mols(initm, add_hydrogens);
 		//loop over input ligands
 		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
 		{
@@ -1362,13 +1236,8 @@ Thank you!\n";
 			//process input molecules one at a time
 			unsigned i = 0;
 			model m;
-			while (no_lig || mols.readMoleculeIntoModel(m))
+			while (mols.readMoleculeIntoModel(m))
 			{
-			  if(no_lig)
-			  {
-			    no_lig = false; //only go through loop once
-			    m = initm;
-			  }
 				if (settings.local_only)
 				{
 					//dkoes - for convenience get box from model
@@ -1410,6 +1279,8 @@ Thank you!\n";
 					}
 				}
 				i++;
+				if(no_lig) break; //only go through loop once
+
 			}
 		}
 	} catch (file_error& e)

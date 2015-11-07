@@ -12,6 +12,78 @@
 #include <boost/archive/binary_iarchive.hpp>
 #include "GninaConverter.h"
 
+
+//create the initial model from the specified receptor files
+//mostly because Matt kept complaining about it, this will automatically create
+//pdbqts if necessary using open babel
+void MolGetter::create_init_model(const std::string& rigid_name,
+		const std::string& flex_name, FlexInfo& finfo, tee& log)
+{
+	if (rigid_name.size() > 0)
+	{
+		//support specifying flexible residues explicitly as pdbqt, but only
+		//in compatibility mode where receptor is pdbqt as well
+		if(flex_name.size() > 0)
+		{
+			if(finfo.hasContent())
+			{
+				throw usage_error("Cannot mix -flex option with -flexres or -flexdist options.");
+			}
+			if (boost::filesystem::extension(rigid_name) != ".pdbqt")
+			{
+				throw usage_error("Cannot use -flex option with non-PDBQT receptor.");
+			}
+			ifile rigidin(rigid_name);
+			ifile flexin(flex_name);
+			initm = parse_receptor_pdbqt(rigid_name, rigidin, flex_name, flexin);
+		}
+		else if(!finfo.hasContent() && boost::filesystem::extension(rigid_name) == ".pdbqt")
+		{
+			//compatibility mode - read pdbqt directly with no openbabel shenanigans
+			ifile rigidin(rigid_name);
+			initm = parse_receptor_pdbqt(rigid_name, rigidin);
+		}
+		else
+		{
+			//default, openbabel mode
+			using namespace OpenBabel;
+			obmol_opener fileopener;
+			OBConversion conv;
+			conv.SetOutFormat("PDBQT");
+			conv.AddOption("r", OBConversion::OUTOPTIONS); //rigid molecule, otherwise really slow and useless analysis is triggered
+			conv.AddOption("c", OBConversion::OUTOPTIONS); //single combined molecule
+			fileopener.openForInput(conv, rigid_name);
+			OBMol rec;
+			if (!conv.Read(&rec))
+				throw file_error(rigid_name, true);
+
+			rec.AddHydrogens(true);
+			FOR_ATOMS_OF_MOL(a, rec)
+			{
+				a->GetPartialCharge();
+			}
+			OBMol rigid;
+			std::string flexstr;
+			finfo.extractFlex(rec, rigid, flexstr);
+
+			std::string recstr = conv.WriteString(&rigid);
+			std::stringstream recstream(recstr);
+
+			if(flexstr.size() > 0) //have flexible component
+			{
+				std::stringstream flexstream(flexstr);
+				initm = parse_receptor_pdbqt(rigid_name, recstream, flex_name, flexstream);
+			}
+			else //rigid only
+			{
+				initm = parse_receptor_pdbqt(rigid_name, recstream);
+			}
+
+		}
+
+	}
+}
+
 //setup for reading from fname
 void MolGetter::setInputFile(const std::string& fname)
 {
@@ -134,6 +206,8 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 		}
 		return false; //no valid molecules read
 	}
+	case NONE:
+		return true; //nolig
 		break;
 	}
 	return false; //shouldn't get here
