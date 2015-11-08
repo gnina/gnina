@@ -45,12 +45,12 @@ static bool parse_options(int argc, char *argv[], cmdoptions& o)
 	outputs.add_options()
 	("out,o", value<std::string>(&o.outname),
 			"output file name, format taken from file extension")
-	("map", value<bool>(&o.outmap), "output AD4 map files (for debugging, out is base name)");
+	("map", bool_switch(&o.outmap), "output AD4 map files (for debugging, out is base name)");
 
 	options_description options("Options");
 	options.add_options()
-	("dimension,d", value<double>(&o.dim), "Cubic grid dimension (Angstroms)")
-	("resolution,r", value<double>(&o.res), "Cubic grid resolution (Angstroms)")
+	("dimension", value<double>(&o.dim), "Cubic grid dimension (Angstroms)")
+	("resolution", value<double>(&o.res), "Cubic grid resolution (Angstroms)")
 	("binary_occupancy", value<bool>(&o.binary), "Output binary occupancies (still as floats)")
 	("center_x", value<double>(&o.x), "X coordinate of the center, if unspecified use first ligand")
 	("center_y", value<double>(&o.y), "Y coordinate of the center, if unspecified use first ligand")
@@ -135,7 +135,7 @@ static int createAtomTypeMap(const string& fname, vector<int>& map)
 		while(getline(in, line))
 		{
 			vector<string> types;
-			split(types, "string to split", is_any_of("\t "));
+			split(types, line, is_any_of("\t \n"));
 			for(unsigned i = 0, n = types.size(); i < n; i++)
 			{
 				const string& name = types[i];
@@ -144,7 +144,7 @@ static int createAtomTypeMap(const string& fname, vector<int>& map)
 				{
 					map[t] = cnt;
 				}
-				else
+				else if(name.size() > 0) //this ignores consecutive delimiters
 				{
 					cerr << "Invalid atom type " << name << "\n";
 					exit(-1);
@@ -153,6 +153,7 @@ static int createAtomTypeMap(const string& fname, vector<int>& map)
 			if(types.size() > 1)
 				cnt++;
 		}
+		return cnt;
 	}
 }
 
@@ -160,6 +161,8 @@ static int createAtomTypeMap(const string& fname, vector<int>& map)
 
 int main(int argc, char *argv[])
 {
+	try
+	{
 	//setup commandline options
 	cmdoptions opt;
 	if(!parse_options(argc, argv, opt))
@@ -209,5 +212,12 @@ int main(int argc, char *argv[])
 			gridder.outputBIN(binout);
 		}
 		ligcnt++;
+	}
+
+	} catch (file_error& e)
+	{
+		std::cerr << "\n\nError: could not open \"" << e.name.string()
+				<< "\" for " << (e.in ? "reading" : "writing") << ".\n";
+		return -1;
 	}
 }

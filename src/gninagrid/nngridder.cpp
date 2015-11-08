@@ -48,8 +48,9 @@ float NNGridder::calcPoint(const atom& a, const vec& pt)
 		else //return quadratic
 		{
 			double h = 0.5*ar;
-			double eval = 1.0/M_E*M_E; //e^(-2)
-			return dist*dist*eval/(h*h) - 6.0 *eval*dist/h + 9.0 * eval;
+			double eval = 1.0/(M_E*M_E); //e^(-2)
+			double q = dist*dist*eval/(h*h) - 6.0 *eval*dist/h + 9.0 * eval;
+			return q;
 		}
 	}
 	return 0.0;
@@ -67,13 +68,9 @@ pair<unsigned, unsigned> NNGridder::getrange(const grid_dim& dim, double c, doub
 	}
 
 	double high = c+r-dim.begin;
-	if(high >= dim.end)
+	if(high > 0) //otherwise zero
 	{
-		ret.second = dim.n;
-	}
-	else
-	{
-		ret.second = ceil(high/resolution);
+		ret.second = min(dim.n,(sz)ceil(high/resolution));
 	}
 	return ret;
 }
@@ -102,7 +99,14 @@ void NNGridder::setAtom(const atom& a, boost::multi_array<float, 3>& grid)
 				double x = dims[0].begin+i*resolution;
 				double y = dims[1].begin+j*resolution;
 				double z= dims[2].begin+k*resolution;
-				grid[i][j][k] += calcPoint(a, vec(x,y,z));
+				double val = calcPoint(a, vec(x,y,z));
+				if(binary)
+				{
+					if(val != 0)
+						grid[i][j][k] = 1.0; //don't add, just 1 or 0
+				}
+				else
+					grid[i][j][k] += calcPoint(a, vec(x,y,z));
 			}
 		}
 	}
@@ -132,7 +136,7 @@ void NNGridder::outputMAPGrid(ostream& out, boost::multi_array<float, 3>& grid)
 		{
 			for (unsigned i = 0; i < max; i++)
 			{
-				out << grid[i][j][k];
+				out << grid[i][j][k] << "\n";
 			}
 		}
 	}
@@ -143,14 +147,20 @@ void NNGridder::outputMAPGrid(ostream& out, boost::multi_array<float, 3>& grid)
 string NNGridder::getIndexName(const vector<int>& map, unsigned index) const
 		{
 	stringstream ret;
+	stringstream altret;
 	for (unsigned at = 0; at < smina_atom_type::NumTypes; at++)
 	{
 		if (map[at] == index)
 		{
 			ret << smina_type_to_string((smt) at);
+			altret << "_" << at;
 		}
 	}
-	return ret.str();
+
+	if(ret.str().length() > 32) //there are limits on file name lengths
+		return altret.str();
+	else
+		return ret.str();
 }
 
 NNGridder::NNGridder(const cmdoptions& opt, const vector<int>& recmap,
@@ -190,9 +200,11 @@ NNGridder::NNGridder(const cmdoptions& opt, const vector<int>& recmap,
 			unsigned i = rmap[at];
 			if (receptorGrids.size() <= i)
 				receptorGrids.resize(i + 1);
-			receptorGrids[i].resize(extents[n][n][n]);
-			fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(),
-					0.0);
+			if(receptorGrids[i].num_elements() == 0)
+			{
+				receptorGrids[i].resize(extents[n][n][n]);
+				fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(), 0.0);
+			}
 		}
 
 		if (lmap[at] >= 0)
@@ -200,8 +212,11 @@ NNGridder::NNGridder(const cmdoptions& opt, const vector<int>& recmap,
 			unsigned i = lmap[at];
 			if (ligandGrids.size() <= i)
 				ligandGrids.resize(i + 1);
-			ligandGrids[i].resize(extents[n][n][n]);
-			fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
+			if(ligandGrids[i].num_elements() == 0)
+			{
+				ligandGrids[i].resize(extents[n][n][n]);
+				fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
+			}
 		}
 	}
 
@@ -237,9 +252,11 @@ bool NNGridder::readMolecule()
 
 	//fill in heavy atoms
 	const atomv& atoms = m.get_movable_atoms();
+	assert(atoms.size() == m.coordinates().size());
 	for (unsigned i = 0, n = atoms.size(); i < n; i++)
 	{
-		const atom& a = atoms[i];
+		atom a = atoms[i];
+		a.coords = m.coordinates()[i]; //have to explicitly set coords
 		int pos = lmap[a.sm];
 		if (pos >= 0)
 			setAtom(a, ligandGrids[pos]);
@@ -261,14 +278,14 @@ void NNGridder::outputMAP(const string& base)
 	for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
 	{
 		string name = getIndexName(rmap, a);
-		string fname = base + "_" + name + ".map";
+		string fname = base + "_rec_" + name + ".map";
 		ofstream out(fname.c_str());
 		outputMAPGrid(out, receptorGrids[a]);
 	}
 	for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
 	{
 		string name = getIndexName(lmap, a);
-		string fname = base + "_" + name + ".map";
+		string fname = base + "_lig_" + name + ".map";
 		ofstream out(fname.c_str());
 		outputMAPGrid(out, ligandGrids[a]);
 	}

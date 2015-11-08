@@ -25,7 +25,7 @@ struct cmdoptions
 	bool binary;
 
 	cmdoptions() :
-			dim(16), res(0.5), x(HUGE_VAL), y(HUGE_VAL), z(HUGE_VAL),
+			dim(24), res(0.5), x(HUGE_VAL), y(HUGE_VAL), z(HUGE_VAL),
 			verbosity(1), help(false), version(false), outmap(false), binary(false)
 	{
 	}

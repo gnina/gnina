@@ -132,8 +132,8 @@ MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 	szv_grid_cache gridcache(m, minparm.prec->cutoff_sqr());
 	non_cache nc(gridcache, gd, minparm.prec);
 
-  //regular minimization
-  quasi_newton quasi_newton_par(minparm.minparms);
+	//regular minimization
+	quasi_newton quasi_newton_par(minparm.minparms);
 
 	//it rarely takes more than one try
 	fl slope = 10;
