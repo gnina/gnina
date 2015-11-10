@@ -150,7 +150,7 @@ static int createAtomTypeMap(const string& fname, vector<int>& map)
 					exit(-1);
 				}
 			}
-			if(types.size() > 1)
+			if(types.size() > 0)
 				cnt++;
 		}
 		return cnt;

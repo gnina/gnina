@@ -272,22 +272,39 @@ string NNGridder::getParamString() const
 	return lexical_cast<string>(n) + "." + lexical_cast<string>(chan);
 }
 
+//return true if grid only contains zeroes
+static bool gridIsEmpty(const multi_array<float, 3>& grid)
+{
+	for(const float *ptr = grid.data(), *end = grid.data() + grid.num_elements(); ptr != end; ptr++)
+	{
+		if(*ptr != 0.0) return false;
+	}
+	return true;
+}
+
 //output an AD4 map for each grid
 void NNGridder::outputMAP(const string& base)
 {
 	for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
 	{
-		string name = getIndexName(rmap, a);
-		string fname = base + "_rec_" + name + ".map";
-		ofstream out(fname.c_str());
-		outputMAPGrid(out, receptorGrids[a]);
+		//this is for debugging, so avoid outputting empty grids
+		if(!gridIsEmpty(receptorGrids[a]))
+		{
+			string name = getIndexName(rmap, a);
+			string fname = base + "_rec_" + name + ".map";
+			ofstream out(fname.c_str());
+			outputMAPGrid(out, receptorGrids[a]);
+		}
 	}
 	for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
 	{
-		string name = getIndexName(lmap, a);
-		string fname = base + "_lig_" + name + ".map";
-		ofstream out(fname.c_str());
-		outputMAPGrid(out, ligandGrids[a]);
+		if(!gridIsEmpty(ligandGrids[a]))
+		{
+			string name = getIndexName(lmap, a);
+			string fname = base + "_lig_" + name + ".map";
+			ofstream out(fname.c_str());
+			outputMAPGrid(out, ligandGrids[a]);
+		}
 	}
 
 }

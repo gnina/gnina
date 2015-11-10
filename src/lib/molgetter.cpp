@@ -104,7 +104,7 @@ void MolGetter::setInputFile(const std::string& fname)
 		{
 			type = GNINA;
 		}
-		else //openbabel
+		else if(fname.length() > 0)//openbabel
 		{
 			type = OB;
 			//clear in case we had previous vile
