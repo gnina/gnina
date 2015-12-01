@@ -43,8 +43,8 @@ static bool parse_options(int argc, char *argv[], cmdoptions& o)
 
 	options_description outputs("Output");
 	outputs.add_options()
-	("out,o", value<std::string>(&o.outname),
-			"output file name, format taken from file extension")
+	("out,o", value<std::string>(&o.outname), "output file name base, combined map if outlig not specified, receptor only otherwise")
+	("outlig", value<std::string>(&o.ligoutname), "output file name base for ligand only output")
 	("map", bool_switch(&o.outmap), "output AD4 map files (for debugging, out is base name)");
 
 	options_description options("Options");
@@ -55,6 +55,7 @@ static bool parse_options(int argc, char *argv[], cmdoptions& o)
 	("center_x", value<double>(&o.x), "X coordinate of the center, if unspecified use first ligand")
 	("center_y", value<double>(&o.y), "Y coordinate of the center, if unspecified use first ligand")
 	("center_z", value<double>(&o.z), "Z coordinate of the center, if unspecified use first ligand")
+	("autocenter", value<string>(&o.centerfile), "ligand to use to determine center")
 	("recmap", value<string>(&o.recmap), "Atom type mapping for receptor atoms")
 	("ligmap", value<string>(&o.ligmap), "Atom type mapping for ligand atoms");
 
@@ -172,7 +173,10 @@ int main(int argc, char *argv[])
 	if(!isfinite(opt.x + opt.y + opt.z))
 	{
 		fl dummy; //we wil set the size
-		setup_autobox(opt.ligandfile, 0, opt.x,opt.y, opt.z, dummy, dummy, dummy);
+		string ligandfile = opt.ligandfile;
+		if(opt.centerfile.size() > 0)
+			ligandfile = opt.centerfile;
+		setup_autobox(ligandfile, 0, opt.x,opt.y, opt.z, dummy, dummy, dummy);
 	}
 
 	//setup atom type mapping
@@ -182,17 +186,34 @@ int main(int argc, char *argv[])
 
 	//setup receptor grid
 	NNGridder gridder(opt, recmap, ligmap);
+	string parmstr;
 
-	ofstream binout;
 	if(!opt.outmap)
 	{
 		//embed grid configuration in file name
-		string outname = opt.outname + "." + gridder.getParamString() + ".binmap";
-		binout.open(outname.c_str());
-		if(!binout)
+		string outname;
+		ofstream binout;
+
+		if(opt.ligoutname.size() > 1)
 		{
-			cerr << "Could not open " << outname << "\n";
-			exit(-1);
+			outname = opt.outname + "." + gridder.getParamString(true,false) + ".binmap"; //receptor  only name
+
+			//want separate ligand/receptor grid files
+			//output receptor only
+			binout.open(outname.c_str());
+			if(!binout)
+			{
+				cerr << "Could not open " << outname << "\n";
+				exit(-1);
+			}
+			gridder.outputBIN(binout, true, false);
+			binout.close();
+
+			parmstr = "." + gridder.getParamString(false,true); //ligand only name
+		}
+		else
+		{
+			parmstr = "." + gridder.getParamString(true,true); //ligand and receptor name name
 		}
 	}
 
@@ -202,14 +223,26 @@ int main(int argc, char *argv[])
 	{ //computes ligand grid
 
 		//and output
+		string base;
+		if(opt.ligoutname.size() == 0)
+			base = opt.outname + "_" + lexical_cast<string>(ligcnt);
+		else
+			base = opt.ligoutname + "_" + lexical_cast<string>(ligcnt);
+
 		if(opt.outmap)
 		{
-			string base = opt.outname + "_" + lexical_cast<string>(ligcnt);
 			gridder.outputMAP(base);
 		}
 		else
 		{
-			gridder.outputBIN(binout);
+			string outname = base + parmstr  + ".binmap";
+			ofstream binout(outname.c_str());
+			if(!binout)
+			{
+				cerr << "Could not open " << outname << "\n";
+				exit(-1);
+			}
+			gridder.outputBIN(binout, opt.ligoutname.size() == 0);
 		}
 		ligcnt++;
 	}

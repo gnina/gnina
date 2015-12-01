@@ -10,7 +10,9 @@ struct cmdoptions
 {
 	string receptorfile;
 	string ligandfile;
+	string centerfile; //ligand to use to compute center
 	string outname;
+	string ligoutname; //first separate maps
 	string recmap;
 	string ligmap;
 	double dim;
@@ -23,7 +25,6 @@ struct cmdoptions
 	bool version;
 	bool outmap;
 	bool binary;
-
 	cmdoptions() :
 			dim(24), res(0.5), x(HUGE_VAL), y(HUGE_VAL), z(HUGE_VAL),
 			verbosity(1), help(false), version(false), outmap(false), binary(false)

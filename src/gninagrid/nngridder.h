@@ -39,7 +39,8 @@ class NNGridder
 	float calcPoint(const atom& a, const vec& pt);
 
 	//set the relevant grid points for a
-	void setAtom(const atom& a, boost::multi_array<float, 3>& grid);
+	//return false if atom not in grid
+	bool setAtom(const atom& a, boost::multi_array<float, 3>& grid);
 
 	//output a grid the file in map format (for debug)
 	void outputMAPGrid(ostream& out, boost::multi_array<float, 3>& grid);
@@ -56,13 +57,13 @@ public:
 	bool readMolecule();
 
 	//return string detailing the configuration (size.channels)
-	string getParamString() const;
+	string getParamString(bool outputrec, bool outputlig) const;
 
 	//output an AD4 map for each grid
 	void outputMAP(const string& base);
 
 	//output binary form of raw data in 3D multi-channel form (types are last)
-	void outputBIN(ostream& out);
+	void outputBIN(ostream& out, bool outputrec = true, bool outputlig = true);
 };
 
 #endif
