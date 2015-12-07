@@ -457,21 +457,35 @@ vector<int> DataTransformer<Dtype>::InferBlobShape(const Datum& datum) {
     LOG(FATAL) << "Encoded datum requires OpenCV; compile with USE_OPENCV.";
 #endif  // USE_OPENCV
   }
-  const int crop_size = param_.crop_size();
-  const int datum_channels = datum.channels();
-  const int datum_height = datum.height();
-  const int datum_width = datum.width();
-  // Check dimensions.
-  CHECK_GT(datum_channels, 0);
-  CHECK_GE(datum_height, crop_size);
-  CHECK_GE(datum_width, crop_size);
-  // Build BlobShape.
-  vector<int> shape(4);
-  shape[0] = 1;
-  shape[1] = datum_channels;
-  shape[2] = (crop_size)? crop_size: datum_height;
-  shape[3] = (crop_size)? crop_size: datum_width;
-  return shape;
+  if (datum.has_shape())
+  {
+    // for nd-data
+    CHECK_GT(datum.shape().dim_size(), 0); // has at least a channel dimension
+    CHECK_GT(datum.shape().dim(0), 0);   // has at least one channel
+    vector<int> shape(datum.shape().dim_size() + 1); // include batch dimension
+    shape[0] = 1; // batch_size cannot be inferred from single datum
+    for (int i=0; i<datum.shape().dim_size(); i++)
+    {
+      shape[i+1] = datum.shape().dim(i);
+    }
+    return shape;
+  } else {
+    const int crop_size = param_.crop_size();
+    const int datum_channels = datum.channels();
+    const int datum_height = datum.height();
+    const int datum_width = datum.width();
+    // Check dimensions.
+    CHECK_GT(datum_channels, 0);
+    CHECK_GE(datum_height, crop_size);
+    CHECK_GE(datum_width, crop_size);
+    // Build BlobShape.
+    vector<int> shape(4);
+    shape[0] = 1;
+    shape[1] = datum_channels;
+    shape[2] = (crop_size)? crop_size: datum_height;
+    shape[3] = (crop_size)? crop_size: datum_width;
+    return shape;
+  }
 }
 
 template<typename Dtype>

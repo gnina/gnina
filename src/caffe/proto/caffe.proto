@@ -28,16 +28,18 @@ message BlobProtoVector {
 }
 
 message Datum {
-  optional int32 channels = 1;
-  optional int32 height = 2;
-  optional int32 width = 3;
-  // the actual image data, in bytes
+  // ND-Datum is in dev -- used instead of 4D fields if it's defined.
+  optional BlobShape shape = 8;
   optional bytes data = 4;
   optional int32 label = 5;
-  // Optionally, the datum could also hold float data.
   repeated float float_data = 6;
   // If true data contains an encoded image that need to be decoded
   optional bool encoded = 7 [default = false];
+
+  // 4D dimensions -- current standard.
+  optional int32 channels = 1;
+  optional int32 height = 2;
+  optional int32 width = 3;
 }
 
 message FillerParameter {
