@@ -152,33 +152,41 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
       LOG(ERROR) << "force_color and force_gray only for encoded datum";
     }
   }
-
-  const int crop_size = param_.crop_size();
-  const int datum_channels = datum.channels();
-  const int datum_height = datum.height();
-  const int datum_width = datum.width();
-
-  // Check dimensions.
-  const int channels = transformed_blob->channels();
-  const int height = transformed_blob->height();
-  const int width = transformed_blob->width();
-  const int num = transformed_blob->num();
-
-  CHECK_EQ(channels, datum_channels);
-  CHECK_LE(height, datum_height);
-  CHECK_LE(width, datum_width);
-  CHECK_GE(num, 1);
-
-  if (crop_size) {
-    CHECK_EQ(crop_size, height);
-    CHECK_EQ(crop_size, width);
+  if (datum.has_shape())
+  {
+    // TODO check shape, transform nd-data
+    Dtype* transformed_data = transformed_blob->mutable_cpu_data();
+    for (int i=0; i<datum.float_data_size(); ++i)
+    {
+        transformed_data[i] = datum.float_data(i);
+    }
   } else {
-    CHECK_EQ(datum_height, height);
-    CHECK_EQ(datum_width, width);
-  }
+    const int crop_size = param_.crop_size();
+    const int datum_channels = datum.channels();
+    const int datum_height = datum.height();
+    const int datum_width = datum.width();
 
-  Dtype* transformed_data = transformed_blob->mutable_cpu_data();
-  Transform(datum, transformed_data);
+    // Check dimensions.
+    const int channels = transformed_blob->channels();
+    const int height = transformed_blob->height();
+    const int width = transformed_blob->width();
+    const int num = transformed_blob->num();
+
+    CHECK_EQ(channels, datum_channels);
+    CHECK_LE(height, datum_height);
+    CHECK_LE(width, datum_width);
+    CHECK_GE(num, 1);
+
+    if (crop_size) {
+      CHECK_EQ(crop_size, height);
+      CHECK_EQ(crop_size, width);
+    } else {
+      CHECK_EQ(datum_height, height);
+      CHECK_EQ(datum_width, width);
+    }
+    Dtype* transformed_data = transformed_blob->mutable_cpu_data();
+    Transform(datum, transformed_data);
+  }
 }
 
 template<typename Dtype>

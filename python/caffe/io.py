@@ -68,10 +68,11 @@ def array_to_datum(arr, label=0):
     the output data will be encoded as a string. Otherwise, the output data
     will be stored in float format.
     """
-    if arr.ndim != 3:
-        raise ValueError('Incorrect array shape.')
     datum = caffe_pb2.Datum()
-    datum.channels, datum.height, datum.width = arr.shape
+    if arr.ndim != 3:
+        datum.shape = arr.shape
+    else:
+        datum.channels, datum.height, datum.width = arr.shape
     if arr.dtype == np.uint8:
         datum.data = arr.tostring()
     else:
@@ -85,10 +86,18 @@ def datum_to_array(datum):
     as one can easily get it by calling datum.label.
     """
     if len(datum.data):
-        return np.fromstring(datum.data, dtype=np.uint8).reshape(
-            datum.channels, datum.height, datum.width)
+        if datum.shape:
+            return np.fromstring(datum.data, dtype=np.uint8).reshape(
+                datum.shape)
+        else:
+            return np.fromstring(datum.data, dtype=np.uint8).reshape(
+                datum.channels, datum.height, datum.width)
     else:
-        return np.array(datum.float_data).astype(float).reshape(
+        if datum.shape:
+            return np.array(datum.float_data).astype(float).reshape(
+                datum.shape.dim)
+        else:
+            return np.array(datum.float_data).astype(float).reshape(
             datum.channels, datum.height, datum.width)
 
 
