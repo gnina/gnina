@@ -604,11 +604,6 @@ void print_atom_info(std::ostream& out)
 	}
 }
 
-void setup_atomconstants_default()
-{
-	for(size_t i = 0u; i < smina_atom_type::NumTypes; ++i)
-		smina_atom_type::data[i] = smina_atom_type::default_data[i];
-}
 
 void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
 {
@@ -960,7 +955,6 @@ Thank you!\n";
 			return 0;
 		}
 
-		setup_atomconstants_default();
 		if (!atomconstants_file.empty())
 			setup_atomconstants_from_file(atomconstants_file);
 
