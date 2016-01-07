@@ -152,33 +152,41 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
       LOG(ERROR) << "force_color and force_gray only for encoded datum";
     }
   }
-
-  const int crop_size = param_.crop_size();
-  const int datum_channels = datum.channels();
-  const int datum_height = datum.height();
-  const int datum_width = datum.width();
-
-  // Check dimensions.
-  const int channels = transformed_blob->channels();
-  const int height = transformed_blob->height();
-  const int width = transformed_blob->width();
-  const int num = transformed_blob->num();
-
-  CHECK_EQ(channels, datum_channels);
-  CHECK_LE(height, datum_height);
-  CHECK_LE(width, datum_width);
-  CHECK_GE(num, 1);
-
-  if (crop_size) {
-    CHECK_EQ(crop_size, height);
-    CHECK_EQ(crop_size, width);
+  if (datum.has_shape())
+  {
+    // TODO check shape, transform nd-data
+    Dtype* transformed_data = transformed_blob->mutable_cpu_data();
+    for (int i=0; i<datum.float_data_size(); ++i)
+    {
+        transformed_data[i] = datum.float_data(i);
+    }
   } else {
-    CHECK_EQ(datum_height, height);
-    CHECK_EQ(datum_width, width);
-  }
+    const int crop_size = param_.crop_size();
+    const int datum_channels = datum.channels();
+    const int datum_height = datum.height();
+    const int datum_width = datum.width();
 
-  Dtype* transformed_data = transformed_blob->mutable_cpu_data();
-  Transform(datum, transformed_data);
+    // Check dimensions.
+    const int channels = transformed_blob->channels();
+    const int height = transformed_blob->height();
+    const int width = transformed_blob->width();
+    const int num = transformed_blob->num();
+
+    CHECK_EQ(channels, datum_channels);
+    CHECK_LE(height, datum_height);
+    CHECK_LE(width, datum_width);
+    CHECK_GE(num, 1);
+
+    if (crop_size) {
+      CHECK_EQ(crop_size, height);
+      CHECK_EQ(crop_size, width);
+    } else {
+      CHECK_EQ(datum_height, height);
+      CHECK_EQ(datum_width, width);
+    }
+    Dtype* transformed_data = transformed_blob->mutable_cpu_data();
+    Transform(datum, transformed_data);
+  }
 }
 
 template<typename Dtype>
@@ -457,21 +465,35 @@ vector<int> DataTransformer<Dtype>::InferBlobShape(const Datum& datum) {
     LOG(FATAL) << "Encoded datum requires OpenCV; compile with USE_OPENCV.";
 #endif  // USE_OPENCV
   }
-  const int crop_size = param_.crop_size();
-  const int datum_channels = datum.channels();
-  const int datum_height = datum.height();
-  const int datum_width = datum.width();
-  // Check dimensions.
-  CHECK_GT(datum_channels, 0);
-  CHECK_GE(datum_height, crop_size);
-  CHECK_GE(datum_width, crop_size);
-  // Build BlobShape.
-  vector<int> shape(4);
-  shape[0] = 1;
-  shape[1] = datum_channels;
-  shape[2] = (crop_size)? crop_size: datum_height;
-  shape[3] = (crop_size)? crop_size: datum_width;
-  return shape;
+  if (datum.has_shape())
+  {
+    // for nd-data
+    CHECK_GT(datum.shape().dim_size(), 0); // has at least a channel dimension
+    CHECK_GT(datum.shape().dim(0), 0);   // has at least one channel
+    vector<int> shape(datum.shape().dim_size() + 1); // include batch dimension
+    shape[0] = 1; // batch_size cannot be inferred from single datum
+    for (int i=0; i<datum.shape().dim_size(); i++)
+    {
+      shape[i+1] = datum.shape().dim(i);
+    }
+    return shape;
+  } else {
+    const int crop_size = param_.crop_size();
+    const int datum_channels = datum.channels();
+    const int datum_height = datum.height();
+    const int datum_width = datum.width();
+    // Check dimensions.
+    CHECK_GT(datum_channels, 0);
+    CHECK_GE(datum_height, crop_size);
+    CHECK_GE(datum_width, crop_size);
+    // Build BlobShape.
+    vector<int> shape(4);
+    shape[0] = 1;
+    shape[1] = datum_channels;
+    shape[2] = (crop_size)? crop_size: datum_height;
+    shape[3] = (crop_size)? crop_size: datum_width;
+    return shape;
+  }
 }
 
 template<typename Dtype>
