@@ -129,18 +129,20 @@ class Blob {
   }
 
   /// @brief Deprecated legacy shape accessor num: use shape(0) instead.
-  inline int num() const { return LegacyShape(0); }
+  inline int num() const { return LegacyShape(0, false); }
   /// @brief Deprecated legacy shape accessor channels: use shape(1) instead.
-  inline int channels() const { return LegacyShape(1); }
+  inline int channels() const { return LegacyShape(1, false); }
   /// @brief Deprecated legacy shape accessor height: use shape(2) instead.
   inline int height() const { return LegacyShape(2); }
   /// @brief Deprecated legacy shape accessor width: use shape(3) instead.
   inline int width() const { return LegacyShape(3); }
-  inline int LegacyShape(int index) const {
-    CHECK_LE(num_axes(), 4)
-        << "Cannot use legacy accessors on Blobs with > 4 axes.";
-    CHECK_LT(index, 4);
-    CHECK_GE(index, -4);
+	inline int LegacyShape(int index, bool check=true) const {
+    if(check) { //dkoes, num and channels should be harmless
+      CHECK_LE(num_axes(), 4)
+      << "Cannot use legacy accessors on Blobs with > 4 axes.";
+      CHECK_LT(index, 4);
+      CHECK_GE(index, -4);
+    }
     if (index >= num_axes() || index < -num_axes()) {
       // Axis is out of range, but still in [0, 3] (or [-4, -1] for reverse
       // indexing) -- this special case simulates the one-padding used to fill
