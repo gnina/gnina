@@ -150,12 +150,21 @@ void PoolingLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   PoolingParameter pool_param = this->layer_param_.pooling_param();
   channel_axis_ = bottom[0]->CanonicalAxisIndex(pool_param.axis());
   num_ = bottom[0]->count(0, channel_axis_);
+  channels_ = bottom[0]->shape(channel_axis_);
   const int first_spatial_axis = channel_axis_ + 1;
   const int num_axes = bottom[0]->num_axes();
   num_spatial_axes_ = num_axes - first_spatial_axis;
   CHECK_GE(num_spatial_axes_, 1);
   int* kernel_shape_data = kernel_shape_.mutable_cpu_data();
-  const int* input_shape_data = this->input_shape_.cpu_data();
+
+  // Setup input dimensions (input_shape_).
+  vector<int> bottom_dim_blob_shape(1, num_spatial_axes_ + 1);
+  input_shape_.Reshape(bottom_dim_blob_shape);
+  int* input_shape_data = input_shape_.mutable_cpu_data();
+  for (int i = 0; i < num_spatial_axes_ + 1; ++i) {
+    input_shape_data[i] = bottom[0]->shape(channel_axis_ + i);
+  }
+
   if (global_pooling_) {
     for (int i = 0; i < num_spatial_axes_; ++i) {
       kernel_shape_data[i] = input_shape_data[i+1];
