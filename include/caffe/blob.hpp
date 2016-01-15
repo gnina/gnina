@@ -172,7 +172,7 @@ class Blob {
       offset *= shape(i);
       if (indices.size() > i) {
         CHECK_GE(indices[i], 0);
-        CHECK_LT(indices[i], shape(i));
+        CHECK_LE(indices[i], shape(i));
         offset += indices[i];
       }
     }
