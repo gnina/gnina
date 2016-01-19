@@ -378,6 +378,7 @@ message LayerParameter {
   optional LRNParameter lrn_param = 118;
   optional MemoryDataParameter memory_data_param = 119;
   optional MVNParameter mvn_param = 120;
+  optional NDimDataParameter ndim_data_param = 140;  
   optional PoolingParameter pooling_param = 121;
   optional PowerParameter power_param = 122;
   optional PReLUParameter prelu_param = 131;
@@ -727,6 +728,25 @@ message ImageDataParameter {
   // DEPRECATED. See TransformationParameter. Specify if we want to randomly mirror
   // data.
   optional bool mirror = 6 [default = false];
+  optional string root_folder = 12 [default = ""];
+} 
+
+message NDimDataParameter {
+  // Specify the data source. This is a text file containing the label and location of multi dimensional data
+  optional string source = 1;
+  // Specify the batch size.
+  optional uint32 batch_size = 2 [default = 1];
+  // Shape of a single example (does not include batch_size). E.g., nchannels*w*h*d
+  optional BlobShape shape = 3;
+  // The rand_skip variable is for the data layer to skip a few data points
+  // to avoid all asynchronous sgd clients to start at the same point. The skip
+  // point would be set as rand_skip * rand(0,1). Note that rand_skip should not
+  // be larger than the number of keys in the database.
+  optional uint32 rand_skip = 7 [default = 0];
+  // Whether or not ImageLayer should shuffle the list of files at every epoch.
+  optional bool shuffle = 8 [default = true];
+  // Whether every batch should have a balanced number of true/false exampls
+  optional bool balanced = 9 [default = true];
   optional string root_folder = 12 [default = ""];
 }
 
