@@ -65,6 +65,9 @@ void NDimDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     while(example >> fname)
       binmaps.push_back(fname);
 
+    if(binmaps.size() == 0) //ignore empty lines
+      continue;
+      
     all_.push_back(make_pair(binmaps,label));
     if(label) actives_.push_back(binmaps);
     else decoys_.push_back(binmaps);
@@ -144,6 +147,8 @@ void  NDimDataLayer<Dtype>::load_data_from_files(Dtype* buffer, const std::strin
   using namespace boost::iostreams;
   basic_array_sink<char> data((char*)buffer, example_size*sizeof(Dtype));
 
+  CHECK_GT(files.size(), 0) << "Missing binmaps files";
+  
   unsigned long total = 0;
   for(unsigned i = 0, n = files.size(); i < n; i++)
   {
