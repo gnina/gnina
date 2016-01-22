@@ -170,6 +170,13 @@ void  NDimDataLayer<Dtype>::load_data_from_files(Dtype* buffer, const std::strin
     total += copy(in, data);
   }
   CHECK_EQ(total,example_size*sizeof(Dtype)) << "Incorrect size of inputs (" << total << " vs. " << example_size*sizeof(Dtype) << ") on " << files[0];
+
+  if( this->layer_param_.ndim_data_param().check()) {
+    for(unsigned i = 0; i < example_size; i++) {
+      CHECK(finite(buffer[i])) << "Not finite value at " << i << " in " << files[0];
+    }
+
+  }
 }
 
 

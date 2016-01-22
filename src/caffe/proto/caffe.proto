@@ -747,6 +747,8 @@ message NDimDataParameter {
   optional bool shuffle = 8 [default = true];
   // Whether every batch should have a balanced number of true/false exampls
   optional bool balanced = 9 [default = true];
+  //perform consistency checks on input data (all finite numbers)
+  optional bool check = 10 [default = false];
   optional string root_folder = 12 [default = ""];
 }
 
