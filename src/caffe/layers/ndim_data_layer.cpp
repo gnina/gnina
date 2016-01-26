@@ -145,29 +145,39 @@ template <typename Dtype>
 void  NDimDataLayer<Dtype>::load_data_from_files(Dtype* buffer, const std::string& root, const vector<std::string>& files)
 {
   using namespace boost::iostreams;
-  basic_array_sink<char> data((char*)buffer, example_size*sizeof(Dtype));
 
   CHECK_GT(files.size(), 0) << "Missing binmaps files";
   
   unsigned long total = 0;
   for(unsigned i = 0, n = files.size(); i < n; i++)
   {
-    //TODO, support gzip
     std::string fname = root + files[i];
 
-
-    filtering_stream<input> in;
-    std::ifstream inorig(fname.c_str());
+    std::ifstream inorig(fname.c_str(), std::ios::binary);
+    CHECK((bool)inorig) << "Could not load " << fname;
     std::string::size_type pos = fname.rfind(".gz");
     if (pos != std::string::npos)
     {
+      //setup streams to do copy
+      basic_array_sink<char> data(((char*)buffer)+total, example_size*sizeof(Dtype)-total);
+      filtering_stream<input> in;
       in.push(gzip_decompressor());
+      in.push(inorig);
+      total += copy(in, data);
     }
-    in.push(inorig);
+    else
+    {
+      //do direct read of full file
+      //get length of file
+      inorig.seekg(0, inorig.end);
+      std::streamsize size = inorig.tellg();
+      inorig.seekg(0, inorig.beg);
+      CHECK_LE(total+size, example_size*sizeof(Dtype)) << "file " << fname << " is too big";
+      char *data = ((char*)buffer)+total; //starting place to copy data
+      inorig.read(data, size);
+      total += size;
+    }
 
-    CHECK(in) << "Could not load " << fname;
-
-    total += copy(in, data);
   }
   CHECK_EQ(total,example_size*sizeof(Dtype)) << "Incorrect size of inputs (" << total << " vs. " << example_size*sizeof(Dtype) << ") on " << files[0];
 
@@ -224,7 +234,7 @@ void NDimDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
       offind[0] = item_id;
       int offset = batch->data_.offset(offind);
       load_data_from_files(prefetch_data+offset, root_folder, decoys_[decoys_pos_]);
-      prefetch_label[item_id] = 1;
+      prefetch_label[item_id] = 0;
 
       decoys_pos_++;
       if(decoys_pos_ >= dsz) {
