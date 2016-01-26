@@ -13,6 +13,7 @@
 using namespace boost;
 
 
+
 //return the occupancy for atom a at point x,y,z
 float NNGridder::calcPoint(const atom& a, const vec& pt)
 {
@@ -100,13 +101,15 @@ bool NNGridder::setAtom(const atom& a, boost::multi_array<float, 3>& grid)
 				double y = dims[1].begin+j*resolution;
 				double z= dims[2].begin+k*resolution;
 				double val = calcPoint(a, vec(x,y,z));
+
 				if(binary)
 				{
 					if(val != 0)
 						grid[i][j][k] = 1.0; //don't add, just 1 or 0
 				}
 				else
-					grid[i][j][k] += calcPoint(a, vec(x,y,z));
+					grid[i][j][k] += val;
+
 				isset = true;
 			}
 		}
@@ -222,6 +225,27 @@ NNGridder::NNGridder(const cmdoptions& opt, const vector<int>& recmap,
 		}
 	}
 
+	//check for empty mappings
+	for(unsigned i = 0, nr = receptorGrids.size(); i < nr; i++)
+	{
+	  if(receptorGrids[i].num_elements() == 0)
+	  {
+	    cerr << "Empty slot in receptor types: " << i << ", possible duplicate?\n";
+	    receptorGrids[i].resize(extents[n][n][n]);
+      fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(), 0.0);
+	  }
+	}
+  for(unsigned i = 0, nl = ligandGrids.size(); i < nl; i++)
+  {
+    if(ligandGrids[i].num_elements() == 0)
+    {
+      cerr << "Empty slot in ligand types: " << i << ", possible duplicate?\n";
+      ligandGrids[i].resize(extents[n][n][n]);
+      fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
+    }
+  }
+
+
 	//initialize receptor
 	const model& m = mols.getInitModel();
 
@@ -260,6 +284,7 @@ bool NNGridder::readMolecule()
 		atom a = atoms[i];
 		a.coords = m.coordinates()[i]; //have to explicitly set coords
 		int pos = lmap[a.sm];
+		assert(pos < ligandGrids.size());
 		if (pos >= 0)
 			setAtom(a, ligandGrids[pos]);
 	}
@@ -319,30 +344,40 @@ void NNGridder::outputMAP(const string& base)
 void NNGridder::outputBIN(ostream& out, bool outputrec, bool outputlig)
 {
 	unsigned n = dims[0].n + 1;
-	for (unsigned i = 0; i < n; i++)
-	{
-		for (unsigned j = 0; j < n; j++)
-		{
-			for (unsigned k = 0; k < n; k++)
-			{
-				//when you see this many loops you known you're going to generate a lot of data..
-				if(outputrec)
-				{
-					for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
-					{
-						out.write((char*) &receptorGrids[a][i][j][k],
-								sizeof(float));
-					}
-				}
-				if(outputlig)
-				{
-					for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
-					{
-						out.write((char*) &ligandGrids[a][i][j][k], sizeof(float));
-					}
-				}
-			}
-		}
+  if(outputrec)
+  {
+    for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
+    {
+      for (unsigned i = 0; i < n; i++)
+      {
+        for (unsigned j = 0; j < n; j++)
+        {
+          for (unsigned k = 0; k < n; k++)
+          {
+            //when you see this many loops you known you're going to generate a lot of data..
+
+                out.write((char*) &receptorGrids[a][i][j][k],
+                    sizeof(float));
+            }
+          }
+        }
+    }
 	}
+  if(outputlig)
+  {
+    for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
+    {
+      for (unsigned i = 0; i < n; i++)
+      {
+        for (unsigned j = 0; j < n; j++)
+        {
+          for (unsigned k = 0; k < n; k++)
+          {
+            out.write((char*) &ligandGrids[a][i][j][k], sizeof(float));
+          }
+        }
+      }
+    }
+  }
 }
 

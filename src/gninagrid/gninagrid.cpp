@@ -16,6 +16,7 @@
 #include <boost/multi_array.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
+#include <openbabel/oberror.h>
 
 #include "atom_type.h"
 #include "box.h"
@@ -162,6 +163,7 @@ static int createAtomTypeMap(const string& fname, vector<int>& map)
 
 int main(int argc, char *argv[])
 {
+  OpenBabel::obErrorLog.StopLogging();
 	try
 	{
 	//setup commandline options
