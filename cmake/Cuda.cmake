@@ -260,7 +260,7 @@ endif()
 
 # disable some nvcc diagnostic that apears in boost, glog, glags, opencv, etc.
 foreach(diag cc_clobber_ignored integer_sign_change useless_using_declaration set_but_not_used)
-  list(APPEND CUDA_NVCC_FLAGS -Xcudafe --diag_suppress=${diag})
+  list(APPEND CUDA_NVCC_FLAGS -isystem ${PROTOBUF_INCLUDE_DIR} -Xcudafe --diag_suppress=${diag})
 endforeach()
 
 # setting default testing device

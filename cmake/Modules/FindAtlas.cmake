@@ -17,8 +17,8 @@ set(Atlas_INCLUDE_SEARCH_PATHS
 )
 
 set(Atlas_LIB_SEARCH_PATHS
-  /usr/lib/atlas
-  /usr/lib/atlas-base
+  /usr/lib64/atlas
+  /usr/lib64/atlas-base
   $ENV{Atlas_ROOT_DIR}
   $ENV{Atlas_ROOT_DIR}/lib
 )
@@ -28,7 +28,7 @@ find_path(Atlas_CLAPACK_INCLUDE_DIR NAMES clapack.h PATHS ${Atlas_INCLUDE_SEARCH
 
 find_library(Atlas_CBLAS_LIBRARY NAMES  ptcblas_r ptcblas cblas_r cblas PATHS ${Atlas_LIB_SEARCH_PATHS})
 find_library(Atlas_BLAS_LIBRARY NAMES   atlas_r   atlas                 PATHS ${Atlas_LIB_SEARCH_PATHS})
-find_library(Atlas_LAPACK_LIBRARY NAMES alapack_r alapack lapack_atlas  PATHS ${Atlas_LIB_SEARCH_PATHS})
+find_library(Atlas_LAPACK_LIBRARY NAMES alapack_r alapack lapack_atlas lapack  PATHS ${Atlas_LIB_SEARCH_PATHS})
 
 set(LOOKED_FOR
   Atlas_CBLAS_INCLUDE_DIR
