@@ -4,7 +4,7 @@ set(Caffe_LINKER_LIBS "")
 # ---[ Boost
 find_package(Boost 1.46 REQUIRED COMPONENTS system thread filesystem iostreams)
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
-list(APPEND Caffe_LINKER_LIBS ${Boost_LIBRARIES} python2.6)
+list(APPEND Caffe_LINKER_LIBS ${Boost_LIBRARIES} python2.7)
 
 # ---[ Threads
 find_package(Threads REQUIRED)
