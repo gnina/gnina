@@ -107,7 +107,10 @@ void LRNLayer<Dtype>::CrossChannelForward_cpu(
   const Dtype* bottom_data = bottom[0]->cpu_data();
   Dtype* top_data = top[0]->mutable_cpu_data();
   Dtype* scale_data = scale_.mutable_cpu_data();
+  CHECK_GE(bottom.size(), 1);
+
   const vector<int>& bottom_shape = bottom[0]->shape();
+  CHECK_GE(bottom_shape.size(), 2);
 
   // start with the constant value
   for (int i = 0; i < scale_.count(); ++i) {
@@ -205,8 +208,11 @@ void LRNLayer<Dtype>::CrossChannelBackward_cpu(
   const Dtype* top_data = top[0]->cpu_data();
   const Dtype* bottom_data = bottom[0]->cpu_data();
   const Dtype* scale_data = scale_.cpu_data();
+  CHECK_GE(bottom.size(), 1);
+
   Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
   const vector<int>& bottom_shape = bottom[0]->shape();
+  CHECK_GE(bottom_shape.size(), 2);
   int channels = bottom_shape[1];
 
   int spatial_size = bottom[0]->count(2);
