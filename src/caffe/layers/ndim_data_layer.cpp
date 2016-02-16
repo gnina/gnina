@@ -62,8 +62,11 @@ void NDimDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     //then all binmaps for the example
     binmaps.clear();
 
-    while(example >> fname)
+    while(example >> fname) {
+      if(fname.length() > 0 && fname[0] == '#')
+        break; //ignore rest of line
       binmaps.push_back(fname);
+    }
 
     if(binmaps.size() == 0) //ignore empty lines
       continue;
