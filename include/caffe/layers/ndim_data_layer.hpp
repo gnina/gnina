@@ -24,7 +24,7 @@ class NDimDataLayer : public BasePrefetchingDataLayer<Dtype> {
  public:
   explicit NDimDataLayer(const LayerParameter& param)
       : BasePrefetchingDataLayer<Dtype>(param), actives_pos_(0),
-        decoys_pos_(0), all_pos_(0){}
+        decoys_pos_(0), all_pos_(0), example_size(0), num_rotations(0), current_rotation(0) {}
   virtual ~NDimDataLayer();
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -41,12 +41,14 @@ class NDimDataLayer : public BasePrefetchingDataLayer<Dtype> {
   virtual void load_data_from_files(Dtype*, const std::string& root, const vector<std::string>& files);
   const vector<int> blob2vec(const BlobShape& b) const;
 
-
+  virtual void rotate_data(Dtype *data, unsigned rot);
   vector<vector<std::string> > actives_;
   vector<vector<std::string> > decoys_;
   vector<std::pair< vector<std::string>, int> > all_;
   int actives_pos_, decoys_pos_, all_pos_;
   unsigned example_size;
+  unsigned num_rotations;
+  unsigned current_rotation;
   vector<int> top_shape;
 
 };
