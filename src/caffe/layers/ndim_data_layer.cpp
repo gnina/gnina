@@ -45,7 +45,7 @@ void NDimDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   string root_folder = this->layer_param_.ndim_data_param().root_folder();
   const bool balanced  = this->layer_param_.ndim_data_param().balanced();
-
+  num_rotations = this->layer_param_.ndim_data_param().rotate();
   all_pos_ = actives_pos_ = decoys_pos_ = 0;
   // Read the file with filenames and labels
   const string& source = this->layer_param_.ndim_data_param().source();
@@ -62,8 +62,11 @@ void NDimDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     //then all binmaps for the example
     binmaps.clear();
 
-    while(example >> fname)
+    while(example >> fname) {
+      if(fname.length() > 0 && fname[0] == '#')
+        break; //ignore rest of line
       binmaps.push_back(fname);
+    }
 
     if(binmaps.size() == 0) //ignore empty lines
       continue;
@@ -181,12 +184,124 @@ void  NDimDataLayer<Dtype>::load_data_from_files(Dtype* buffer, const std::strin
   }
   CHECK_EQ(total,example_size*sizeof(Dtype)) << "Incorrect size of inputs (" << total << " vs. " << example_size*sizeof(Dtype) << ") on " << files[0];
 
+  if(current_rotation > 0) {
+    rotate_data(buffer, current_rotation);
+  }
   if( this->layer_param_.ndim_data_param().check()) {
     for(unsigned i = 0; i < example_size; i++) {
       CHECK(finite(buffer[i])) << "Not finite value at " << i << " in " << files[0];
     }
 
   }
+}
+
+static unsigned rotate_coords(unsigned i, unsigned j, unsigned k, const unsigned I, const unsigned J, const unsigned K,unsigned rot)
+{
+  CHECK_LT(rot,24) << "Invalid rotation " << rot << " (must be <24)";
+  CHECK_EQ(I,J) << "Require cube input for rotate"; //could remove this requirement by adjust IJK appropriately
+  CHECK_EQ(J,K) << "Require cube input for rotate";
+  unsigned newi = i, newj = j, newk = k;
+
+  //rotate to a face
+  switch(rot%6) {
+  case 0:
+    newi = i; newj = j; newk = k;
+    break;
+  case 1:
+    newi = j;
+    newj = I-i-1;
+    newk = k;
+    break;
+  case 2:
+    newi = I-i-1;
+    newj = J-j-1;
+    newk = k;
+    break;
+  case 3:
+    newi = J-j-1;
+    newj = i;
+    newk = k;
+    break;
+  case 4:
+    newi = k;
+    newk = I-i-1;
+    newj = j;
+    break;
+  case 5:
+    newi = K-k-1;
+    newk = i;
+    newj = j;
+    break;
+  }
+  i = newi;
+  j = newj;
+  k = newk;
+
+  //now rotate around other axis
+  rot /= 6;
+
+  switch(rot%4) {
+  case 0:
+    newi = i; newj = j; newk = k;
+    break;
+  case 1:
+    newj = k;
+    newk = J-j-1;
+    newi = i;
+    break;
+  case 2:
+    newj = J-j-1;
+    newk = K-k-1;
+    newi = i;
+    break;
+  case 3:
+    newj = K-k-1;
+    newk = j;
+    newi = i;
+    break;
+  }
+  i = newi;
+  j = newj;
+  k = newk;
+
+  return ((newi*J)+newj)*K+k;
+}
+
+// This takes a buffer of a single example (example_sie elements)
+//and will perform a rotation along the axis; rot specifies which of the 32
+//possible rotations will be performed
+template <typename Dtype>
+void NDimDataLayer<Dtype>::rotate_data(Dtype *data, unsigned rot) {
+  Dtype *tdata = (Dtype*)malloc(sizeof(Dtype)*example_size); //transformed data
+
+  CHECK_EQ(top_shape.size(),5) << "Rotate only available for 3D inputs";
+  const unsigned I = top_shape[2];
+  const unsigned J = top_shape[3];
+  const unsigned K = top_shape[4];
+
+  Dtype *from = data;
+  Dtype *to = tdata;
+
+  for(unsigned c = 0, nc = top_shape[1]; c < nc; c++) {
+    //for each channel
+    for(unsigned i = 0; i < I; i++) {
+      for(unsigned j = 0; j < J; j++) {
+        for(unsigned k = 0; k < K; k++) {
+          unsigned origpos =  ((i*J)+j)*K+k;
+          unsigned newpos = rotate_coords(i,j,k,I,J,K,rot);
+          CHECK_LT(newpos+c*I*J*K,example_size) << "out of bounds " << c <<","<<i<<"," <<j<<","<<k<<" rot " << rot <<"\n";
+          to[newpos] = from[origpos];
+        }
+      }
+    }
+
+    //next channel
+    from += I*J*K;
+    to += I*J*K;
+  }
+
+  memcpy(data, tdata,example_size*sizeof(Dtype));
+  free(tdata);
 }
 
 
@@ -227,6 +342,9 @@ void NDimDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
         if (this->layer_param_.ndim_data_param().shuffle()) {
           shuffle(actives_.begin(), actives_.end(), static_cast<caffe::rng_t*>(prefetch_rng_->generator()));
         }
+        if (num_rotations > 0) {
+          current_rotation = (current_rotation+1)%num_rotations;
+        }
       }
     }
     unsigned dsz = decoys_.size();
@@ -242,6 +360,9 @@ void NDimDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
         decoys_pos_ = 0;
         if (this->layer_param_.ndim_data_param().shuffle()) {
           shuffle(decoys_.begin(), decoys_.end(), static_cast<caffe::rng_t*>(prefetch_rng_->generator()));
+        }
+        if (num_rotations > 0) {
+          current_rotation = (current_rotation+1)%num_rotations;
         }
       }
     }
@@ -261,6 +382,9 @@ void NDimDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
         all_pos_ = 0;
         if (this->layer_param_.ndim_data_param().shuffle()) {
           shuffle(all_.begin(), all_.end(), static_cast<caffe::rng_t*>(prefetch_rng_->generator()));
+        }
+        if (num_rotations > 0) {
+          current_rotation = (current_rotation+1)%num_rotations;
         }
       }
     }
