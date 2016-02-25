@@ -198,6 +198,8 @@ void  NDimDataLayer<Dtype>::load_data_from_files(Dtype* buffer, const std::strin
 static unsigned rotate_coords(unsigned i, unsigned j, unsigned k, const unsigned I, const unsigned J, const unsigned K,unsigned rot)
 {
   CHECK_LT(rot,24) << "Invalid rotation " << rot << " (must be <24)";
+  CHECK_EQ(I,J) << "Require cube input for rotate"; //could remove this requirement by adjust IJK appropriately
+  CHECK_EQ(J,K) << "Require cube input for rotate";
   unsigned newi = i, newj = j, newk = k;
 
   //rotate to a face
@@ -207,26 +209,26 @@ static unsigned rotate_coords(unsigned i, unsigned j, unsigned k, const unsigned
     break;
   case 1:
     newi = j;
-    newj = I-i;
+    newj = I-i-1;
     newk = k;
     break;
   case 2:
-    newi = I-i;
-    newj = J-j;
+    newi = I-i-1;
+    newj = J-j-1;
     newk = k;
     break;
   case 3:
-    newi = J-j;
+    newi = J-j-1;
     newj = i;
     newk = k;
     break;
   case 4:
     newi = k;
-    newk = I-i;
+    newk = I-i-1;
     newj = j;
     break;
   case 5:
-    newi = K-k;
+    newi = K-k-1;
     newk = i;
     newj = j;
     break;
@@ -244,16 +246,16 @@ static unsigned rotate_coords(unsigned i, unsigned j, unsigned k, const unsigned
     break;
   case 1:
     newj = k;
-    newk = J-j;
+    newk = J-j-1;
     newi = i;
     break;
   case 2:
-    newj = J-j;
-    newk = K-k;
+    newj = J-j-1;
+    newk = K-k-1;
     newi = i;
     break;
   case 3:
-    newj = K-k;
+    newj = K-k-1;
     newk = j;
     newi = i;
     break;
@@ -287,6 +289,7 @@ void NDimDataLayer<Dtype>::rotate_data(Dtype *data, unsigned rot) {
         for(unsigned k = 0; k < K; k++) {
           unsigned origpos =  ((i*J)+j)*K+k;
           unsigned newpos = rotate_coords(i,j,k,I,J,K,rot);
+          CHECK_LT(newpos+c*I*J*K,example_size) << "out of bounds " << c <<","<<i<<"," <<j<<","<<k<<" rot " << rot <<"\n";
           to[newpos] = from[origpos];
         }
       }
