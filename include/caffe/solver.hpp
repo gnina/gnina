@@ -94,6 +94,14 @@ class Solver {
    */
   virtual inline const char* type() const { return ""; }
 
+  virtual inline Dtype get_base_lr() const {
+    return this->param_.base_lr();
+  }
+
+  virtual inline void set_base_lr(Dtype lr) {
+    this->param_.set_base_lr(lr);
+  }
+
  protected:
   // Make and apply the update value for the current iteration.
   virtual void ApplyUpdate() = 0;
