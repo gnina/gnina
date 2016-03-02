@@ -293,6 +293,7 @@ BOOST_PYTHON_MODULE(_caffe) {
           &Solver<Dtype>::Solve), SolveOverloads())
     .def("step", &Solver<Dtype>::Step)
     .def("restore", &Solver<Dtype>::Restore)
+    .def("testall", &Solver<Dtype>::TestAll)
     .def("snapshot", &Solver<Dtype>::Snapshot)
     .def("get_base_lr", &Solver<Dtype>::get_base_lr)
     .def("set_base_lr", &Solver<Dtype>::set_base_lr)
