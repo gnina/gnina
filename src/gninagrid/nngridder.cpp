@@ -81,8 +81,20 @@ pair<unsigned, unsigned> NNGridder::getrange(const grid_dim& dim, double c, doub
 //figure out what volume of the grid is relevant for this atom and for each
 //grid point in this volume, convert it into world coordinates and call calcpoint
 //to get its value
-bool NNGridder::setAtom(const atom& a, boost::multi_array<float, 3>& grid)
+bool NNGridder::setAtom(const atom& origa, boost::multi_array<float, 3>& grid)
 {
+  atom a = origa;
+  if(Q.real() != 0) { //apply rotation
+    vec tpt = a.coords - trans;
+    quaternion p(0,tpt[0], tpt[1], tpt[2]);
+    p = Q*p*(conj(Q)/norm(Q));
+
+    vec newpt(p.R_component_2(),p.R_component_3(),p.R_component_4());
+    newpt += trans;
+
+    a.coords = newpt;
+  }
+
 	double r = xs_radius(a.sm)*radiusmultiple;
 	vector< pair<unsigned,unsigned> > ranges;
 	for(unsigned i = 0; i < 3; i++)
@@ -169,8 +181,8 @@ string NNGridder::getIndexName(const vector<int>& map, unsigned index) const
 }
 
 NNGridder::NNGridder(const cmdoptions& opt, const vector<int>& recmap,
-		const vector<int>& ligmap) :
-		resolution(opt.res), radiusmultiple(1.5), rmap(recmap), lmap(ligmap), binary(opt.binary)
+		const vector<int>& ligmap, quaternion q) :
+		Q(q), resolution(opt.res), radiusmultiple(1.5), rmap(recmap), lmap(ligmap), binary(opt.binary)
 {
 	if(binary) radiusmultiple = 1.0;
 
@@ -180,6 +192,7 @@ NNGridder::NNGridder(const cmdoptions& opt, const vector<int>& recmap,
 	mols.create_init_model(opt.receptorfile, "", finfo, log);
 
 	//setup grid
+	trans = vec(opt.x,opt.y,opt.z);
 	int numpts = round(opt.dim / opt.res);
 	double half = opt.dim / 2.0;
 	dims[0].begin = opt.x - half;

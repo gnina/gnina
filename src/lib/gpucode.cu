@@ -5,6 +5,7 @@
  */
 #include "gpucode.h"
 #include <thrust/reduce.h>
+#include <thrust/device_ptr.h>
 #include <stdio.h>
 
 __global__ void evaluate_splines(float **splines, float r, float fraction,
@@ -60,26 +61,11 @@ __device__ float evaluate_spline(float *spline, float r, float fraction,
 }
 
 void evaluate_splines_host(const GPUSplineInfo& spInfo,
-		float r, std::vector<float>& vals, std::vector<float>& derivs)
+		float r, float *device_vals, float *device_derivs)
 {
-	unsigned n = spInfo.n;
-	vals.resize(n);
-	derivs.resize(n);
-
-	float *device_vals, *device_derivs;
-	cudaMalloc(&device_vals, sizeof(float) * n);
-	cudaMalloc(&device_derivs, sizeof(float) * n);
-
+  unsigned n = spInfo.n;
 	evaluate_splines<<<n,1>>>((float**)spInfo.splines, r, spInfo.fraction, spInfo.cutoff,
 			device_vals, device_derivs);
-
-	cudaMemcpy(&vals[0], device_vals, n * sizeof(float),
-			cudaMemcpyDeviceToHost);
-	cudaMemcpy(&derivs[0], device_derivs, n * sizeof(float),
-			cudaMemcpyDeviceToHost);
-	cudaFree(device_vals);
-	cudaFree(device_derivs);
-
 }
 
 __device__ float eval_deriv_gpu(GPUNonCacheInfo *dinfo, unsigned t,
@@ -381,7 +367,7 @@ float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
 		float slope,
 		unsigned natoms, unsigned nrecatoms, float v)
 {
-#if 1
+#if 10
 	//this will calculate the per-atom energies and forces
 #define THREADS_PER_BLOCK 1024
 	for (unsigned off = 0; off < nrecatoms; off += THREADS_PER_BLOCK)

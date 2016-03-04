@@ -52,7 +52,9 @@ static bool parse_options(int argc, char *argv[], cmdoptions& o)
 	options.add_options()
 	("dimension", value<double>(&o.dim), "Cubic grid dimension (Angstroms)")
 	("resolution", value<double>(&o.res), "Cubic grid resolution (Angstroms)")
-	("binary_occupancy", value<bool>(&o.binary), "Output binary occupancies (still as floats)")
+	("binary_occupancy", bool_switch(&o.binary), "Output binary occupancies (still as floats)")
+  ("random_rotation", bool_switch(&o.random), "Apply random rotation to input")
+  ("random_seed", value<int>(&o.seed), "Random seed to use")
 	("center_x", value<double>(&o.x), "X coordinate of the center, if unspecified use first ligand")
 	("center_y", value<double>(&o.y), "Y coordinate of the center, if unspecified use first ligand")
 	("center_z", value<double>(&o.z), "Z coordinate of the center, if unspecified use first ligand")
@@ -171,6 +173,7 @@ int main(int argc, char *argv[])
 	if(!parse_options(argc, argv, opt))
 		exit(0);
 
+	srand(opt.seed);
 	//figure out grid center
 	if(!isfinite(opt.x + opt.y + opt.z))
 	{
@@ -186,8 +189,20 @@ int main(int argc, char *argv[])
 	createAtomTypeMap(opt.recmap,recmap);
 	createAtomTypeMap(opt.ligmap,ligmap);
 
+	//initialize random rotation (same for all)
+	NNGridder::quaternion quat(0,0,0,0);
+	if(opt.random)
+	{
+	    double d = rand() / double(RAND_MAX);
+	    double r1 = rand() / double(RAND_MAX) ;
+      double r2 = rand() / double(RAND_MAX) ;
+      double r3 = rand() / double(RAND_MAX) ;
+      quat = NNGridder::quaternion(1,r1/d,r2/d,r3/d);
+	}
+
+
 	//setup receptor grid
-	NNGridder gridder(opt, recmap, ligmap);
+	NNGridder gridder(opt, recmap, ligmap, quat);
 	string parmstr;
 
 	if(!opt.outmap)

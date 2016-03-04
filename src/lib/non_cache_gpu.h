@@ -23,8 +23,6 @@
 #ifndef VINA_NON_CACHE_GPU_H
 #define VINA_NON_CACHE_GPU_H
 
-#ifdef SMINA_GPU
-
 #include "non_cache.h"
 #include "precalculate_gpu.h"
 
@@ -151,9 +149,14 @@ public:
 
 	//evaluate the model on the gpu, v is the curl amount
 	//sets m.minus_forces and returns total energy
-	virtual fl eval_deriv(model& m, fl v) const
+	virtual fl eval_deriv(model& m, fl v, const grid& user_grid) const
 	{
 		//clear energies
+    if(user_grid.initialized())
+    {
+      std::cerr << "usergrid not supported in gpu code yet\n";
+      exit(-1);
+    }
 		unsigned natoms = m.num_movable_atoms();
 		cudaMemset(info.energies, 0, sizeof(float) * natoms);
 
@@ -191,6 +194,5 @@ public:
 
 };
 
-#endif
 #endif
 

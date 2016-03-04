@@ -7,7 +7,8 @@
 #include <algorithm>
 #include <iterator>#include <boost/filesystem/fstream.hpp>#include <boost/filesystem/exception.hpp>
 #include <boost/filesystem/convenience.hpp> // filesystem::basename#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?#include <boost/lexical_cast.hpp>
-#include <boost/assign.hpp>#include "parse_pdbqt.h"#include "parallel_mc.h"
+#include <boost/assign.hpp>
+#include "parse_pdbqt.h"#include "parallel_mc.h"
 #include "file.h"
 #include "cache.h"
 #include "non_cache.h"
@@ -40,6 +41,8 @@
 #include "box.h"
 #include "flexinfo.h"
 #include "builtinscoring.h"
+
+#include <cuda_profiler_api.h>
 
 using namespace boost::iostreams;
 using boost::filesystem::path;
@@ -431,7 +434,6 @@ void main_procedure(model& m, precalculate& prec,
 	{
 
 		non_cache *nc = NULL;
-#ifdef SMINA_GPU
 		if(gpu_on)
 		{
 			precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
@@ -439,10 +441,11 @@ void main_procedure(model& m, precalculate& prec,
 			nc = new non_cache_gpu(gridcache, gd, gprec, slope);
 		}
 		else
-#endif
 		{
 			nc = new non_cache(gridcache, gd, &prec, slope);
 		}
+    cudaProfilerStart();
+
 		if (no_cache)
 		{
 			do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
@@ -468,6 +471,8 @@ void main_procedure(model& m, precalculate& prec,
 					settings, compute_atominfo, log,
 					wt.unweighted_terms(), user_grid, results);
 		}
+    cudaProfilerStop();
+
 		delete nc;
 	}
 }
@@ -664,16 +669,12 @@ std::istream& operator>>(std::istream& in, ApproxType& type)
 		type = LinearApprox;
 	else if (token == "exact")
 		type = Exact;
-#ifdef SMINA_GPU
 	else if (token == "gpu")
-	type = GPU;
-#endif
+	  type = GPU;
 	else
 		throw validation_error(validation_error::invalid_option_value);
 	return in;
 }
-
-#ifdef SMINA_GPU
 
 //set the default device to device and exit with error if there are any problems
 static void initializeCUDA(int device)
@@ -703,7 +704,6 @@ static void initializeCUDA(int device)
 		exit(-1);
 	}
 }
-#endif
 
 
 int main(int argc, char* argv[])
@@ -730,15 +730,16 @@ Please report this error at http://smina.sf.net\n"
 Thank you!\n";
 
 	const std::string cite_message =
-			"   _______  _______ _________ _        _______ \n"
-					"  (  ____ \\(       )\\__   __/( (    /|(  ___  )\n"
-					"  | (    \\/| () () |   ) (   |  \\  ( || (   ) |\n"
-					"  | (_____ | || || |   | |   |   \\ | || (___) |\n"
-					"  (_____  )| |(_)| |   | |   | (\\ \\) ||  ___  |\n"
-					"        ) || |   | |   | |   | | \\   || (   ) |\n"
-					"  /\\____) || )   ( |___) (___| )  \\  || )   ( |\n"
-					"  \\_______)|/     \\|\\_______/|/    )_)|/     \\|\n"
-					"\n\nsmina is based off AutoDock Vina. Please cite appropriately.\n";
+"              _             \n" \
+"             (_)            \n" \
+"   __ _ _ __  _ _ __   __ _ \n" \
+"  / _` | '_ \\| | '_ \\ / _` |\n" \
+" | (_| | | | | | | | | (_| |\n" \
+"  \\__, |_| |_|_|_| |_|\\__,_|\n" \
+"   __/ |                    \n"  \
+"  |___/                     \n"  \
+					"\ngnina is based off of smina and AutoDock Vina.\nPlease cite appropriately.\n\n" \
+"*** IMPORTANT: gnina is not yet intended for production use. Use smina. ***\n";
 
 	try
 	{
@@ -887,11 +888,8 @@ Thank you!\n";
 		("quiet,q", bool_switch(&quiet), "Suppress output messages")
 		("addH", value<bool>(&add_hydrogens),
 				"automatically add hydrogens in ligands (on by default)")
-			#ifdef SMINA_GPU
-				("device", value<int>(&device)->default_value(0), "GPU device to use")
-				("gpu", bool_switch(&gpu_on), "Turn on GPU acceleration")
-#endif
-				;
+		("device", value<int>(&device)->default_value(0), "GPU device to use")
+		("gpu", bool_switch(&gpu_on), "Turn on GPU acceleration");
 
 		options_description config("Configuration file (optional)");
 		config.add_options()("config", value<std::string>(&config_name),
@@ -972,9 +970,7 @@ Thank you!\n";
 			return 0;
 		}
 
-#ifdef SMINA_GPU
 		initializeCUDA(device);
-#endif
 
 		set_fixed_rotable_hydrogens(!flex_hydrogens);
 
@@ -1175,9 +1171,7 @@ Thank you!\n";
 
 		if (gpu_on || approx == GPU)
 		{ //don't get a choice
-#ifdef SMINA_GPU
-		prec = boost::shared_ptr<precalculate>(new precalculate_gpu(wt, approx_factor));
-#endif
+		  prec = boost::shared_ptr<precalculate>(new precalculate_gpu(wt, approx_factor));
 		}
 		else if (approx == SplineApprox)
 			prec = boost::shared_ptr<precalculate>(
@@ -1220,6 +1214,7 @@ Thank you!\n";
 			log << "\n";
 		}
 
+	  boost::timer time;
 		//loop over input ligands
 		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
 		{
@@ -1277,6 +1272,9 @@ Thank you!\n";
 
 			}
 		}
+
+	  std::cout << "Loop time " << time.elapsed() << "\n";
+
 	} catch (file_error& e)
 	{
 		std::cerr << "\n\nError: could not open \"" << e.name.string()

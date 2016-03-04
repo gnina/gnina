@@ -9,6 +9,7 @@
 #include <boost/multi_array.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/math/quaternion.hpp>
 
 #include "atom_type.h"
 #include "box.h"
@@ -22,8 +23,13 @@ using namespace std;
  */
 class NNGridder
 {
+public:
+  typedef boost::math::quaternion<double> quaternion;
+private:
 	MolGetter mols; //this stores the models
 	grid_dims dims; //this is  cuge
+	quaternion Q;
+	vec trans;
 	double resolution;
 	double radiusmultiple; //extra to consider past vdw radius
 	bool binary; //produce binary occupancies
@@ -50,7 +56,8 @@ class NNGridder
 	string getIndexName(const vector<int>& map, unsigned index) const;
 
 public:
-	NNGridder(const cmdoptions& opt, const vector<int>& recmap, const vector<int>& ligmap);
+
+	NNGridder(const cmdoptions& opt, const vector<int>& recmap, const vector<int>& ligmap, quaternion q = quaternion(1,0,0,0));
 
 	//read a molecule (return false if unsuccessful)
 	//set the ligand grid appropriately

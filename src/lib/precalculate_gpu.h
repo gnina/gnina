@@ -1,4 +1,3 @@
-#ifdef SMINA_GPU
 #ifndef __PRECALCULATE_GPU_H
 #define __PRECALCULATE_GPU_H
 /* host code for managing spline gpu calculations */
@@ -25,23 +24,51 @@ class precalculate_gpu: public precalculate
 
 	//evaluates splines at t1/t2 and r, properly swaping result
 	component_pair evaldata(smt t1, smt t2, fl r) const
-			{
+	{
+    if (t1 <= t2)
+    {
+      return cpudata(t1, t2).eval(r);
+    }
+    else
+    {
+      component_pair ret = cpudata(t2, t1).eval(r);
+      ret.first.swapOrder();
+      ret.second.swapOrder();
+      return ret;
+    }
+
+    //DEAD CODE below - using the gpu for this small calculation is very inefficient
 		std::vector<float> vals, derivs;
 		if (t1 <= t2)
 		{
-			evaluate_splines_host(data(t1, t2), r, vals, derivs);
+			evaluate_splines(data(t1, t2), r, vals, derivs);
 			return component_pair(result_components(vals),
 					result_components(derivs));
 		}
 		else
 		{
-			evaluate_splines_host(data(t2, t1), r, vals, derivs);
+			evaluate_splines(data(t2, t1), r, vals, derivs);
 			component_pair ret = component_pair(result_components(vals),
 					result_components(derivs));
 			ret.first.swapOrder();
 			ret.second.swapOrder();
 			return ret;
 		}
+	}
+
+	void evaluate_splines(const GPUSplineInfo& spInfo,
+	    float r, std::vector<float>& vals, std::vector<float>& derivs) const
+	{
+	  unsigned n = spInfo.n;
+	  vals.resize(n);
+	  derivs.resize(n);
+
+	  evaluate_splines_host(spInfo, r, device_vals, device_derivs);
+
+	  cudaMemcpy(&vals[0], device_vals, n * sizeof(float),
+	      cudaMemcpyDeviceToHost);
+	  cudaMemcpy(&derivs[0], device_derivs, n * sizeof(float),
+	      cudaMemcpyDeviceToHost);
 	}
 
 	//create control points for spline
@@ -81,7 +108,8 @@ public:
 	precalculate_gpu(const scoring_function& sf, fl factor_) : // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
 			precalculate(sf),
 					data(num_atom_types(), GPUSplineInfo()),
-					deviceData(NULL),
+					cpudata(num_atom_types(), spline_cache()),
+					deviceData(NULL), device_vals(NULL), device_derivs(NULL),
 					delta(0.000005),
 					factor(factor_)
 	{
@@ -90,6 +118,7 @@ public:
 		unsigned pitch = data.dim();
 		unsigned datasize = pitch * (pitch + 1) / 2;
 		GPUSplineInfo devicedata[datasize]; //todo, investigate using 2d array
+		unsigned maxcomponents = 0;
 
 		if(sf.has_slow())
 		{
@@ -101,6 +130,9 @@ public:
 
 			VINA_RANGE(t2, t1, data.dim())
 			{
+
+		    cpudata(t1, t2).set(sf, (smt) t1, (smt) t2, m_cutoff, n);
+
 				//create the splines and copy the data over to the gpu
 				//todo: do spline interpolation on gpu
 				Spline spline;
@@ -146,8 +178,10 @@ public:
 				info.cutoff = cutoff;
 				data(t1, t2) = info;
 
-				unsigned tindex = triangular_matrix_index_permissive(pitch, t1,
-						t2);
+				if(info.n > maxcomponents)
+				  maxcomponents = info.n;
+
+				unsigned tindex = triangular_matrix_index_permissive(pitch, t1,t2);
 				devicedata[tindex] = info;
 			}
 		}
@@ -156,6 +190,10 @@ public:
 		cudaMalloc(&deviceData, sizeof(GPUSplineInfo) * datasize);
 		cudaMemcpy(deviceData, devicedata, sizeof(GPUSplineInfo) * datasize,
 				cudaMemcpyHostToDevice);
+
+		//allocate buffers for spline host-device computation
+		cudaMalloc(&device_vals, sizeof(float)*maxcomponents);
+		cudaMalloc(&device_derivs, sizeof(float)*maxcomponents);
 	}
 
 	virtual ~precalculate_gpu()
@@ -163,6 +201,9 @@ public:
 		//need to cuda free splines
 		if (deviceData)
 			cudaFree(deviceData);
+
+		if(device_vals) cudaFree(device_vals);
+		if(device_derivs) cudaFree(device_derivs);
 
 		unsigned n = data.dim();
 		for (unsigned i = 0; i < n; i++)
@@ -198,12 +239,11 @@ public:
 	}
 
 	pr eval_deriv(const atom_base& a, const atom_base& b, fl r2) const
-			{
+	{
 		assert(r2 <= m_cutoff_sqr);
 		smt t1 = a.get();
 		smt t2 = b.get();
 		fl r = sqrt(r2);
-
 		component_pair rets = evaldata(t1, t2, r);
 		pr ret(rets.first.eval(a, b), rets.second.eval(a, b));
 
@@ -235,10 +275,11 @@ public:
 private:
 
 	triangular_matrix<GPUSplineInfo> data;
+	triangular_matrix<spline_cache> cpudata;
 	GPUSplineInfo *deviceData;
+  float *device_vals, *device_derivs;
 	fl delta;
 	fl factor;
 };
 
-#endif
 #endif

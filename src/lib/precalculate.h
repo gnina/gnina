@@ -387,7 +387,7 @@ public:
 	}
 
 	component_pair eval(fl r) const
-			{
+	{
 		if (splines == NULL)
 		{
 			//create spline, thread safe
@@ -427,7 +427,7 @@ class precalculate_splines: public precalculate
 {
 	//evaluates splines at t1/t2 and r, properly swaping result
 	component_pair evaldata(smt t1, smt t2, fl r) const
-			{
+	{
 		if (t1 <= t2)
 		{
 			return data(t1, t2).eval(r);

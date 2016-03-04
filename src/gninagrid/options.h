@@ -21,13 +21,15 @@ struct cmdoptions
 	double y;
 	double z;
 	int verbosity;
+	int seed;
+	bool random;
 	bool help;
 	bool version;
 	bool outmap;
 	bool binary;
 	cmdoptions() :
 			dim(24), res(0.5), x(HUGE_VAL), y(HUGE_VAL), z(HUGE_VAL),
-			verbosity(1), help(false), version(false), outmap(false), binary(false)
+			verbosity(1), seed(0), random(false), help(false), version(false), outmap(false), binary(false)
 	{
 	}
 };

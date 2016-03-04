@@ -4,10 +4,9 @@
 
 #ifndef __GPUCODE_H
 #define __GPUCODE_H
-#ifdef SMINA_GPU
 //everything is guarded by SMINA_GPU
 // CUDA runtime
-#include <cuda5/cuda_runtime.h>
+#include <cuda_runtime.h>
 #include <vector>
 
 struct GPUSplineInfo
@@ -46,9 +45,8 @@ struct GPUNonCacheInfo
 	GPUSplineInfo *splineInfo;
 };
 
-void evaluate_splines_host(const GPUSplineInfo& spInfo, float r, std::vector<float>& vals, std::vector<float>& derivs);
+void evaluate_splines_host(const GPUSplineInfo& spInfo, float r, float *device_vals, float *device_derivs);
 float single_point_calc(GPUNonCacheInfo *dinfo, float *energies, float slope, unsigned natoms, unsigned nrecatoms, float v);
 
 
-#endif //SMINA_GPU
 #endif
