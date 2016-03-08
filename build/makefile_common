@@ -1,5 +1,5 @@
 BOOST_INCLUDE = $(BASE)/include/boost
-CUDA_INCLUDE = $(BASE)/cuda/include
+CUDA_INCLUDE = $(BASE)/local/cuda/include
 LIBOBJ = atom_constants.o box.o builtinscoring.o cache.o coords.o  custom_terms.o everything.o flexinfo.o grid.o gpucode.o  szv_grid.o model.o monte_carlo.o mutate.o my_pid.o naive_non_cache.o non_cache.o obmolopener.o parallel_mc.o parse_pdbqt.o pdb.o quasi_newton.o quaternion.o random.o ssd.o terms.o weighted_terms.o molgetter.o result_info.o PDBQTUtilities.o GninaConverter.o
 MAINOBJ = main.o
 TOGNINAOBJ = tognina.o CommandLine.o 
@@ -7,11 +7,11 @@ FROMGNINAOBJ = fromgnina.o CommandLine.o
 GNINAGRIDOBJ = gninagrid.o nngridder.o
 SERVEROBJ = server.o CommandLine.o MinimizationQuery.o QueryManager.o
 INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) -I $(CUDA_INCLUDE) 
-NVCC=$(BASE)/cuda/bin/nvcc
+NVCC=$(BASE)/local/cuda/bin/nvcc
 
 CC = ${GPP} ${C_PLATFORM} -ansi  ${C_OPTIONS} $(INCFLAGS)
 
-LDFLAGS := -L$(BASE)/lib -L. -L/usr/local/lib -L$(BASE)/cuda/lib64 $(LDFLAGS)
+LDFLAGS := -L$(BASE)/lib -L. -L/usr/local/lib -L$(BASE)/local/cuda/lib64 $(LDFLAGS)
 
 LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -l boost_timer${BOOST_LIB_VERSION} -lz -l boost_system${BOOST_LIB_VERSION} -l boost_regex${BOOST_LIB_VERSION} -l boost_thread${BOOST_LIB_VERSION} -l boost_serialization${BOOST_LIB_VERSION} -l boost_filesystem${BOOST_LIB_VERSION} -l boost_program_options${BOOST_LIB_VERSION} -l boost_date_time${BOOST_LIB_VERSION} -lcudart
 
