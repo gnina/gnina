@@ -325,6 +325,8 @@ float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
 	//get total energy
 	thrust::device_ptr<float> dptr(energies);
     float e = thrust::reduce(dptr, dptr + natoms);
-    printf("%f\n", e);
+
+    static int iter = 0;
+    printf("%d, %f\n", iter++, e);
 	return e;
 }
