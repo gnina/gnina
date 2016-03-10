@@ -150,6 +150,27 @@ __device__ void curl(float& e, float *deriv, float v)
 	}
 }
 
+
+//this version based on reduce3 in the cuda samples, but
+//we don't need a global memory access because the array
+//is already shared.
+template <class T> __device__ __inline__ T reduce(T* sdata, T mySum, unsigned int n) {
+    unsigned int tid = threadIdx.x;
+
+    for (unsigned int s=blockDim.x>>1; s>0; s>>=1)
+    {
+        if (tid < s)
+        {
+            sdata[tid] = mySum = mySum + sdata[tid + s];
+        }
+
+        __syncthreads();
+    }
+	return mySum;
+}
+
+template float __device__ reduce<float>(float* sdata, float mySum, unsigned int n);
+
 //calculates the energies of all ligand-prot interactions and combines the results
 //into energies and minus forces
 //needs enough shared memory for derivatives and energies of single ligand atom
@@ -230,13 +251,14 @@ __global__ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 		diff[j] = d;
 		rSq += d * d;
 	}
-
+	
+	float rec_energy = 0;
 	if (rSq < cutoff)
 	{
 		//dkoes - the "derivative" value returned by eval_deriv
 		//is normalized by r (dor = derivative over r?)
 		float dor;
-		myenergies[r] = eval_deriv_gpu(dinfo, t, charge, rt, rcharge, rSq,
+		myenergies[r] = rec_energy = eval_deriv_gpu(dinfo, t, charge, rt, rcharge, rSq,
 				dor);
 		for (unsigned j = 0; j < 3; j++)
 		{
@@ -246,15 +268,14 @@ __global__ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 
 	__syncthreads();
 	//horribly inefficient reduction; TODO improve
+	float this_e = reduce<float>(myenergies, rec_energy, blockDim.x); 
 	if (r == 0)
 	{
-		float this_e = 0;
 		float deriv[3] =
 				{ 0, 0, 0 };
 		unsigned nr = blockDim.x;
 		for (unsigned i = 0; i < nr; i++)
 		{
-			this_e += myenergies[i];
 			deriv[0] += derivs[3 * i];
 			deriv[1] += derivs[3 * i + 1];
 			deriv[2] += derivs[3 * i + 2];
@@ -270,6 +291,7 @@ __global__ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 		dinfo->energies[l] += this_e + out_of_bounds_penalty;
 	}
 }
+
 //calculates the energies of a single ligand atom (determined by block id)
 __global__ void per_ligand_atom_energy(GPUNonCacheInfo *dinfo, float slope, float v)
 {
