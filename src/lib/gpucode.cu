@@ -7,6 +7,7 @@
 #include <thrust/reduce.h>
 #include <thrust/device_ptr.h>
 #include <stdio.h>
+#include "gpu_math.h"
 
 __global__ void evaluate_splines(float **splines, float r, float fraction,
 		float cutoff, float *vals, float *derivs)
@@ -170,6 +171,7 @@ template <class T> __device__ __inline__ T reduce(T* sdata, T mySum, unsigned in
 }
 
 template float __device__ reduce<float>(float* sdata, float mySum, unsigned int n);
+template float3 __device__ reduce<float3>(float3* sdata, float3 mySum, unsigned int n);
 
 //calculates the energies of all ligand-prot interactions and combines the results
 //into energies and minus forces
@@ -253,6 +255,7 @@ __global__ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 	}
 	
 	float rec_energy = 0;
+	float3 rec_deriv;
 	if (rSq < cutoff)
 	{
 		//dkoes - the "derivative" value returned by eval_deriv
@@ -260,32 +263,21 @@ __global__ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 		float dor;
 		myenergies[r] = rec_energy = eval_deriv_gpu(dinfo, t, charge, rt, rcharge, rSq,
 				dor);
-		for (unsigned j = 0; j < 3; j++)
-		{
-			derivs[3 * r + j] = dor * diff[j];
-		}
+		((float3*)derivs)[r] = rec_deriv = *(float3*)diff * dor;
 	}
 
 	__syncthreads();
 	//horribly inefficient reduction; TODO improve
 	float this_e = reduce<float>(myenergies, rec_energy, blockDim.x); 
+	float3 deriv = reduce<float3>((float3*)derivs, rec_deriv, 3*blockDim.x);
 	if (r == 0)
 	{
-		float deriv[3] =
-				{ 0, 0, 0 };
-		unsigned nr = blockDim.x;
-		for (unsigned i = 0; i < nr; i++)
-		{
-			deriv[0] += derivs[3 * i];
-			deriv[1] += derivs[3 * i + 1];
-			deriv[2] += derivs[3 * i + 2];
-		}
-		curl(this_e, deriv, v);
+		curl(this_e, (float *) &deriv, v);
 		
 		//update minus forces
 		for (unsigned j = 0; j < 3; j++)
 		{
-			dinfo->minus_forces[3 * l + j] += deriv[j] + out_of_bounds_deriv[j];
+			dinfo->minus_forces[3 * l + j] += *((float*)&deriv+j) + out_of_bounds_deriv[j];
 		}
 		//and energy
 		dinfo->energies[l] += this_e + out_of_bounds_penalty;
