@@ -255,7 +255,7 @@ __global__ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 	}
 	
 	float rec_energy = 0;
-	float3 rec_deriv;
+	float3 rec_deriv = make_float3(0,0,0);
 	if (rSq < cutoff)
 	{
 		//dkoes - the "derivative" value returned by eval_deriv
