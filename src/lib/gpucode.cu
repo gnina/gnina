@@ -287,98 +287,6 @@ __global__ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 	}
 }
 
-//calculates the energies of a single ligand atom (determined by block id)
-__global__ void per_ligand_atom_energy(GPUNonCacheInfo *dinfo, float slope, float v)
-{
-        unsigned l = blockIdx.x;
-
-        //get ligand atom info
-        unsigned t = dinfo->types[l];
-
-        //TODO: remove hydrogen atoms completely
-        if (t <= 1)
-                return; // hydrogen
-
-        float charge = dinfo->charges[l];
-        float xyz[3] =
-        { dinfo->coords[3 * l], dinfo->coords[3 * l + 1],
-                        dinfo->coords[3 * l + 2] };
-
-        float out_of_bounds_deriv[3] =
-        { 0, 0, 0 };
-        float out_of_bounds_penalty = 0;
-
-        //evaluate for out of boundsness
-        for (unsigned i = 0; i < 3; i++)
-        {
-                float min = dinfo->gridbegins[i];
-                float max = dinfo->gridends[i];
-                if (xyz[i] < min)
-                {
-                        out_of_bounds_deriv[i] = -1;
-                        out_of_bounds_penalty += fabs(min - xyz[i]);
-                        xyz[i] = min;
-                }
-                else if (xyz[i] > max)
-                {
-                        out_of_bounds_deriv[i] = 1;
-                        out_of_bounds_penalty += fabs(max - xyz[i]);
-                        xyz[i] = max;
-                }
-                out_of_bounds_deriv[i] *= slope;
-        }
-
-        out_of_bounds_penalty *= slope;
-
-        //now consider interaction with every possible receptor atom
-        //TODO: parallelize
-        
-        float cutoff = dinfo->cutoff_sq;
-        float this_e = 0;
-        float deriv[3] = {0,0,0};
-        unsigned n = dinfo->nrecatoms;
-        unsigned rt;
-        float rcharge;
-        float rxyz[3];
-        float diff[3];
-        for(unsigned r = 0; r < n; r++) {
-                rt = dinfo->rectypes[r];
-                rcharge = dinfo->reccharges[r];
-                rxyz[0] = dinfo->recoords[3*r];
-                rxyz[1] = dinfo->recoords[3*r+1];
-                rxyz[2] = dinfo->recoords[3*r+2];
-                
-                //compute squared difference
-                float rSq = 0;
-                for(unsigned j = 0; j < 3; j++) {
-                        float d = xyz[j]-rxyz[j];
-                        diff[j] = d;
-                        rSq += d*d;
-                }
-
-                if(rSq < cutoff)
-                {
-                        //dkoes - the "derivative" value returned by eval_deriv
-                        //is normalized by r (dor = derivative over r?)
-                        float dor;
-                        float e = eval_deriv_gpu(dinfo, t, charge, rt, rcharge, rSq, dor);
-                        this_e += e;
-                        for(unsigned j = 0; j < 3; j++) {
-                                deriv[j] +=  dor * diff[j];
-                        }
-                }
-        }
-
-        curl(this_e, deriv, v);
-        //update minus forces
-        for(unsigned j = 0; j < 3; j++) {
-                dinfo->minus_forces[3*l+j] = deriv[j]+out_of_bounds_deriv[j];
-        }
-        //and energy
-        dinfo->energies[l] = this_e + out_of_bounds_penalty;
-}
-
-
 //host side of single point_calculation, energies and coords should already be initialized
 float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
 		float slope,
@@ -404,7 +312,7 @@ float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
 	}
 #else
     //this will calculate the per-atom energies and forces
-    per_ligand_atom_energy<<<natoms,1>>>(dinfo, slope, v);
+    /* per_ligand_atom_energy<<<natoms,1>>>(dinfo, slope, v); */
 #endif
 	//get total energy
 	thrust::device_ptr<float> dptr(energies);
