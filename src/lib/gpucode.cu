@@ -155,23 +155,26 @@ __device__ void curl(float& e, float *deriv, float v)
 //this version based on reduce3 in the cuda samples, but
 //we don't need a global memory access because the array
 //is already shared.
-template <class T> __device__ __inline__ T reduce(T* sdata, T mySum, unsigned int n) {
+template <class T> __device__ __inline__ T reduce(T* sdata, T mySum) {
     unsigned int tid = threadIdx.x;
 
+    unsigned int prevs = blockDim.x;
     for (unsigned int s=blockDim.x>>1; s>0; s>>=1)
     {
         if (tid < s)
         {
             sdata[tid] = mySum = mySum + sdata[tid + s];
         }
-
+        if(tid == 0 && (prevs & 1))
+            mySum += sdata[prevs - 1];
+        prevs = s;
         __syncthreads();
     }
-	return mySum;
+    return mySum;
 }
 
-template float __device__ reduce<float>(float* sdata, float mySum, unsigned int n);
-template float3 __device__ reduce<float3>(float3* sdata, float3 mySum, unsigned int n);
+template float __device__ reduce<float>(float* sdata, float mySum);
+template float3 __device__ reduce<float3>(float3* sdata, float3 mySum);
 
 //calculates the energies of all ligand-prot interactions and combines the results
 //into energies and minus forces
@@ -268,8 +271,8 @@ __global__ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 
 	__syncthreads();
 	//horribly inefficient reduction; TODO improve
-	float this_e = reduce<float>(myenergies, rec_energy, blockDim.x); 
-	float3 deriv = reduce<float3>((float3*)derivs, rec_deriv, 3*blockDim.x);
+	float this_e = reduce<float>(myenergies, rec_energy); 
+	float3 deriv = reduce<float3>((float3*)derivs, rec_deriv);
 	if (r == 0)
 	{
 		curl(this_e, (float *) &deriv, v);
