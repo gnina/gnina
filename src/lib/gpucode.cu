@@ -7,10 +7,13 @@
 #include <thrust/reduce.h>
 #include <thrust/device_ptr.h>
 #include <stdio.h>
-#include "gpu_math.h"
+#include "gpu_util.h"
 
-__global__ void evaluate_splines(float **splines, float r, float fraction,
-		float cutoff, float *vals, float *derivs)
+#define THREADS_PER_BLOCK 1024
+
+global
+void evaluate_splines(float **splines, float r, float fraction,
+                      float cutoff, float *vals, float *derivs)
 {
 	unsigned i = blockIdx.x;
 	float *spline = splines[i];
@@ -37,8 +40,9 @@ __global__ void evaluate_splines(float **splines, float r, float fraction,
 
 //TODO: buy compute 3.0 or greater card and implement dynamic paralellism
 //evaluate a single spline
-__device__ float evaluate_spline(float *spline, float r, float fraction,
-		float cutoff, float& deriv)
+device
+float evaluate_spline(float *spline, float r, float fraction,
+                      float cutoff, float& deriv)
 {
 	float val = 0;
 	deriv = 0;
@@ -62,15 +66,16 @@ __device__ float evaluate_spline(float *spline, float r, float fraction,
 }
 
 void evaluate_splines_host(const GPUSplineInfo& spInfo,
-		float r, float *device_vals, float *device_derivs)
+                           float r, float *device_vals, float *device_derivs)
 {
-  unsigned n = spInfo.n;
+    unsigned n = spInfo.n;
 	evaluate_splines<<<n,1>>>((float**)spInfo.splines, r, spInfo.fraction, spInfo.cutoff,
-			device_vals, device_derivs);
+                              device_vals, device_derivs);
 }
 
-__device__ float eval_deriv_gpu(GPUNonCacheInfo *dinfo, unsigned t,
-		float charge, unsigned rt, float rcharge, float r2, float& dor)
+device
+float eval_deriv_gpu(GPUNonCacheInfo *dinfo, unsigned t,
+                     float charge, unsigned rt, float rcharge, float r2, float& dor)
 {
 	float r = sqrt(r2);
 	unsigned t1, t2;
@@ -111,21 +116,21 @@ __device__ float eval_deriv_gpu(GPUNonCacheInfo *dinfo, unsigned t,
 		if (n > 1)
 		{
 			val = evaluate_spline(spInfo.splines[1], r, fraction, cutoff,
-					deriv);
+                                  deriv);
 			ret += val * charge1;
 			d += deriv * charge1;
 			//AbsBChargeDependent,//multiply by abs(b)'s charge
 			if (n > 2)
 			{
 				val = evaluate_spline(spInfo.splines[2], r, fraction, cutoff,
-						deriv);
+                                      deriv);
 				ret += val * charge2;
 				d += deriv * charge2;
 				//ABChargeDependent,//multiply by a*b
 				if (n > 3)
 				{
 					val = evaluate_spline(spInfo.splines[3], r, fraction,
-							cutoff, deriv);
+                                          cutoff, deriv);
 					ret += val * charge2 * charge1;
 					d += deriv * charge2 * charge1;
 				}
@@ -139,7 +144,8 @@ __device__ float eval_deriv_gpu(GPUNonCacheInfo *dinfo, unsigned t,
 
 //curl function to scale back positive energies and match vina calculations
 //assume v is reasonable
-__device__ void curl(float& e, float *deriv, float v)
+device
+void curl(float& e, float *deriv, float v)
 {
 	if (e > 0)
 	{
@@ -155,7 +161,9 @@ __device__ void curl(float& e, float *deriv, float v)
 //this version based on reduce3 in the cuda samples, but
 //we don't need a global memory access because the array
 //is already shared.
-template <class T> __device__ __inline__ T reduce(T* sdata, T mySum) {
+template <class T>
+device __inline__
+T reduce(T* sdata, T mySum) {
     unsigned int tid = threadIdx.x;
 
     unsigned int prevs = blockDim.x;
@@ -173,15 +181,16 @@ template <class T> __device__ __inline__ T reduce(T* sdata, T mySum) {
     return mySum;
 }
 
-template float __device__ reduce<float>(float* sdata, float mySum);
-template float3 __device__ reduce<float3>(float3* sdata, float3 mySum);
+template float device reduce<float>(float* sdata, float mySum);
+template float3 device reduce<float3>(float3* sdata, float3 mySum);
 
 //calculates the energies of all ligand-prot interactions and combines the results
 //into energies and minus forces
 //needs enough shared memory for derivatives and energies of single ligand atom
 //roffset specifies how far into the receptor atoms we are
-__global__ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
-		float slope, float v)
+global
+void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
+                        float slope, float v)
 {
 	unsigned l = blockIdx.x;
 	unsigned r = threadIdx.x;
@@ -192,23 +201,22 @@ __global__ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 	if (t <= 1) //hydrogen ligand atom
 		return;
 	float out_of_bounds_deriv[3] =
-			{ 0, 0, 0 };
+        { 0, 0, 0 };
 	float out_of_bounds_penalty = 0;
 
-	extern __shared__ float mysmem[];
-	float *myenergies = mysmem;
-	float *derivs = mysmem+blockDim.x;
+    shared static float energies[THREADS_PER_BLOCK];
+	shared static float derivs[THREADS_PER_BLOCK];
 
 	//initailize shared memory
-	myenergies[r] = 0;
+	energies[r] = 0;
 	derivs[3 * r] = 0;
 	derivs[3 * r + 1] = 0;
 	derivs[3 * r + 2] = 0;
 
 	float charge = dinfo->charges[l];
 	float xyz[3] =
-			{ dinfo->coords[3 * l], dinfo->coords[3 * l + 1],
-					dinfo->coords[3 * l + 2] };
+        { dinfo->coords[3 * l], dinfo->coords[3 * l + 1],
+          dinfo->coords[3 * l + 2] };
 
 	//evaluate for out of boundsness
 	for (unsigned i = 0; i < 3; i++)
@@ -264,14 +272,14 @@ __global__ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 		//dkoes - the "derivative" value returned by eval_deriv
 		//is normalized by r (dor = derivative over r?)
 		float dor;
-		myenergies[r] = rec_energy = eval_deriv_gpu(dinfo, t, charge, rt, rcharge, rSq,
-				dor);
+		energies[r] = rec_energy = eval_deriv_gpu(dinfo, t, charge, rt, rcharge, rSq,
+                                                  dor);
 		((float3*)derivs)[r] = rec_deriv = *(float3*)diff * dor;
 	}
 
 	__syncthreads();
 	//horribly inefficient reduction; TODO improve
-	float this_e = reduce<float>(myenergies, rec_energy); 
+	float this_e = reduce<float>(energies, rec_energy); 
 	float3 deriv = reduce<float3>((float3*)derivs, rec_deriv);
 	if (r == 0)
 	{
@@ -289,12 +297,12 @@ __global__ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 
 //host side of single point_calculation, energies and coords should already be initialized
 float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
-		float slope,
-		unsigned natoms, unsigned nrecatoms, float v)
+                        float slope, unsigned natoms,
+                        unsigned nrecatoms, float v)
 {
 #if 10
 	//this will calculate the per-atom energies and forces
-#define THREADS_PER_BLOCK 1024
+
 	for (unsigned off = 0; off < nrecatoms; off += THREADS_PER_BLOCK)
 	{
 		unsigned nr = nrecatoms - off;
@@ -316,5 +324,7 @@ float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
 #endif
 	//get total energy
 	thrust::device_ptr<float> dptr(energies);
-	return thrust::reduce(dptr, dptr + natoms);
+    float e = thrust::reduce(dptr, dptr + natoms);
+    printf("%f\n", e);
+	return e;
 }
