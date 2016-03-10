@@ -6,6 +6,14 @@
 #define float3(x, y, z) make_float3(x, y, z)
 
 host device __inline__ static
+float3 __shfl_down(const float3 &a, int delta) {
+    return float3(__shfl_down(a.x, delta),
+                  __shfl_down(a.y, delta),
+                  __shfl_down(a.z, delta));
+}
+
+
+host device __inline__ static
 float &get(float3 &a, int b){
     return
            b == 0 ? a.x :

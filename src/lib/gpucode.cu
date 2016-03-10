@@ -157,28 +157,31 @@ void curl(float& e, float *deriv, float v)
 	}
 }
 
-
-//this version based on reduce3 in the cuda samples, but
-//we don't need a global memory access because the array
-//is already shared.
+//device functions for warp-based reduction using shufl operations
 template <class T>
-device __inline__
-T reduce(T* sdata, T mySum) {
-    unsigned int tid = threadIdx.x;
+device __forceinline__
+T warp_sum(T mySum) {
+	for (int offset = warpSize>>1; offset > 0; offset>>=1)
+        mySum += __shfl_down(mySum, offset);
+	return mySum;
+}
+ 
+template <class T>
+device __forceinline__
+T block_sum(T* sdata, T mySum) {
+	const unsigned int lane = threadIdx.x & 31;
+	const unsigned int wid = threadIdx.x>>5;
 
-    unsigned int prevs = blockDim.x;
-    for (unsigned int s=blockDim.x>>1; s>0; s>>=1)
-    {
-        if (tid < s)
-        {
-            sdata[tid] = mySum = mySum + sdata[tid + s];
-        }
-        if(tid == 0 && (prevs & 1))
-            mySum += sdata[prevs - 1];
-        prevs = s;
-        __syncthreads();
-    }
-    return mySum;
+	mySum = warp_sum(mySum);
+	if (lane==0)
+        sdata[wid] = mySum;
+	__syncthreads();
+
+	if (wid == 0) {
+		mySum = (threadIdx.x < blockDim.x >> 5) ? sdata[lane] : 0;
+		mySum = warp_sum(mySum);
+	}
+	return mySum;
 }
 
 //calculates the energies of all ligand-prot interactions and combines the results
@@ -261,8 +264,8 @@ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 
 	__syncthreads();
 	//horribly inefficient reduction; TODO improve
-	float this_e = reduce<float>(energies, rec_energy); 
-	float3 deriv = reduce<float3>(derivs, rec_deriv);
+	float this_e = block_sum<float>(energies, rec_energy); 
+	float3 deriv = block_sum<float3>(derivs, rec_deriv);
 	if (r == 0)
 	{
 		curl(this_e, (float *) &deriv, v);
