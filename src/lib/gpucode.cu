@@ -197,42 +197,36 @@ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 	//TODO: remove hydrogen atoms completely
 	if (t <= 1) //hydrogen ligand atom
 		return;
-	float out_of_bounds_deriv[3] =
-        { 0, 0, 0 };
+	float3 out_of_bounds_deriv = float3(0, 0, 0);
 	float out_of_bounds_penalty = 0;
 
     shared static float energies[THREADS_PER_BLOCK];
-	shared static float derivs[THREADS_PER_BLOCK];
+	shared static float3 derivs[THREADS_PER_BLOCK];
 
 	//initailize shared memory
 	energies[r] = 0;
-	derivs[3 * r] = 0;
-	derivs[3 * r + 1] = 0;
-	derivs[3 * r + 2] = 0;
+    derivs[r] = float3(0, 0, 0);
 
-	float charge = dinfo->charges[l];
-	float xyz[3] =
-        { dinfo->coords[3 * l], dinfo->coords[3 * l + 1],
-          dinfo->coords[3 * l + 2] };
+	float3 xyz = ((float3 *) dinfo->coords)[l];
 
 	//evaluate for out of boundsness
 	for (unsigned i = 0; i < 3; i++)
 	{
 		float min = dinfo->gridbegins[i];
 		float max = dinfo->gridends[i];
-		if (xyz[i] < min)
+		if (get(xyz, i) < min)
 		{
-			out_of_bounds_deriv[i] = -1;
-			out_of_bounds_penalty += fabs(min - xyz[i]);
-			xyz[i] = min;
+			get(out_of_bounds_deriv, i) = -1;
+			out_of_bounds_penalty += fabs(min - get(xyz, i));
+			get(xyz, i) = min;
 		}
-		else if (xyz[i] > max)
+		else if (get(xyz, i) > max)
 		{
-			out_of_bounds_deriv[i] = 1;
-			out_of_bounds_penalty += fabs(max - xyz[i]);
-			xyz[i] = max;
+			get(out_of_bounds_deriv, i) = 1;
+			out_of_bounds_penalty += fabs(max - get(xyz, i));
+			get(xyz, i) = max;
 		}
-		out_of_bounds_deriv[i] *= slope;
+		get(out_of_bounds_deriv, i) *= slope;
 	}
 
 	out_of_bounds_penalty *= slope;
@@ -240,54 +234,40 @@ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 	//now consider interaction with every possible receptor atom
 	//TODO: parallelize
 
-	float cutoff = dinfo->cutoff_sq;
-
-	unsigned rt;
-	float rcharge;
-	float rxyz[3];
-	float diff[3];
-
-	rt = dinfo->rectypes[ridx];
-	rcharge = dinfo->reccharges[ridx];
-	rxyz[0] = dinfo->recoords[3 * ridx];
-	rxyz[1] = dinfo->recoords[3 * ridx + 1];
-	rxyz[2] = dinfo->recoords[3 * ridx + 2];
-
 	//compute squared difference
 	float rSq = 0;
+	float3 diff = xyz - ((float3 *) dinfo->recoords)[ridx];
 	for (unsigned j = 0; j < 3; j++)
 	{
-		float d = xyz[j] - rxyz[j];
-		diff[j] = d;
+		float d = get(diff, j);
+		get(diff, j) = d;
 		rSq += d * d;
 	}
 	
 	float rec_energy = 0;
 	float3 rec_deriv = make_float3(0,0,0);
-	if (rSq < cutoff)
+	if (rSq < dinfo->cutoff_sq)
 	{
 		//dkoes - the "derivative" value returned by eval_deriv
 		//is normalized by r (dor = derivative over r?)
 		float dor;
-		energies[r] = rec_energy = eval_deriv_gpu(dinfo, t, charge, rt, rcharge, rSq,
+		energies[r] = rec_energy = eval_deriv_gpu(dinfo, t,
+                                                  dinfo->charges[l],
+                                                  dinfo->rectypes[ridx],
+                                                  dinfo->reccharges[ridx], rSq,
                                                   dor);
-		((float3*)derivs)[r] = rec_deriv = *(float3*)diff * dor;
+		derivs[r] = rec_deriv = diff * dor;
 	}
 
 	__syncthreads();
 	//horribly inefficient reduction; TODO improve
 	float this_e = reduce<float>(energies, rec_energy); 
-	float3 deriv = reduce<float3>((float3*)derivs, rec_deriv);
+	float3 deriv = reduce<float3>(derivs, rec_deriv);
 	if (r == 0)
 	{
 		curl(this_e, (float *) &deriv, v);
 		
-		//update minus forces
-		for (unsigned j = 0; j < 3; j++)
-		{
-			dinfo->minus_forces[3 * l + j] += *((float*)&deriv+j) + out_of_bounds_deriv[j];
-		}
-		//and energy
+        ((float3 *) dinfo->minus_forces)[l] = deriv + out_of_bounds_deriv;
 		dinfo->energies[l] += this_e + out_of_bounds_penalty;
 	}
 }
