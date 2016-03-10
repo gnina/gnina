@@ -181,9 +181,6 @@ T reduce(T* sdata, T mySum) {
     return mySum;
 }
 
-template float device reduce<float>(float* sdata, float mySum);
-template float3 device reduce<float3>(float3* sdata, float3 mySum);
-
 //calculates the energies of all ligand-prot interactions and combines the results
 //into energies and minus forces
 //needs enough shared memory for derivatives and energies of single ligand atom

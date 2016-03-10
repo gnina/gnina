@@ -185,6 +185,10 @@ fl non_cache::eval_deriv(model& m, fl v, const grid& user_grid) const
 		m.minus_forces[i] = deriv + out_of_bounds_deriv;
 		e += this_e + out_of_bounds_penalty;
 	}
+
+    static int iter = 0;
+    printf("%d, %f\n", iter++, e);
+    
 	return e;
 }
 
