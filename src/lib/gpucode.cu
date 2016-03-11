@@ -210,7 +210,7 @@ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
                         float slope, float v)
 {
 	unsigned l = blockIdx.x;
-	unsigned r = threadIdx.x;
+	unsigned r = blockDim.x - threadIdx.x - 1;
 	unsigned ridx = roffset + r;
 	//get ligand atom info
 	unsigned t = dinfo->types[l];
@@ -276,7 +276,7 @@ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 	shared float3 derivs[32];
 	float this_e = block_sum<float>(energies, rec_energy); 
 	float3 deriv = block_sum<float3>(derivs, rec_deriv);
-	if (r == 0)
+	if (threadIdx.x == 0)
 	{
 		curl(this_e, (float *) &deriv, v);
 		
