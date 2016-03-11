@@ -285,7 +285,7 @@ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 	}
 }
 
-global void reduce_energy(GPUNonCacheInfo *dinfo, unsigned natoms) {
+global void reduce_energy(GPUNonCacheInfo *dinfo) {
 	int l  = threadIdx.x;
 	shared float energies[warpSize];
 	float my_energy = dinfo->energies[l];
@@ -308,7 +308,7 @@ float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
 		unsigned nr = nrecatoms - off;
 		if (nr > THREADS_PER_BLOCK)
 			nr = THREADS_PER_BLOCK;
-		interaction_energy<<<natoms,nr, sizeof(float)*nr*4>>>(dinfo, off,slope, v);
+		interaction_energy<<<natoms,nr>>>(dinfo, off,slope, v);
 		cudaError err = cudaGetLastError();
 		if (cudaSuccess != err)
 		{
@@ -323,7 +323,7 @@ float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
     /* per_ligand_atom_energy<<<natoms,1>>>(dinfo, slope, v); */
 #endif
 	//get total energy
-	reduce_energy<<<1, natoms>>>(dinfo, natoms);
+	reduce_energy<<<1, natoms>>>(dinfo);
 	cudaError err2 = cudaGetLastError();
 	if (cudaSuccess != err2)
 	{
@@ -333,7 +333,7 @@ float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
 	}
 	cudaThreadSynchronize();
 	float e;
-	cudaMemcpy(&e, &dinfo->energies[0],sizeof(float),cudaMemcpyDeviceToHost);
+	cudaMemcpy(&e, &energies[0], sizeof(float), cudaMemcpyDeviceToHost);
 	return e;
 	// thrust::device_ptr<float> dptr(energies);
     // float e = thrust::reduce(dptr, dptr + natoms);
