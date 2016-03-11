@@ -180,7 +180,7 @@ __device__ __forceinline__
 bool isNotDiv32(unsigned int val) {
 	return val & 31;
 }
- 
+
 template <class T>
 device __forceinline__
 T block_sum(T* sdata, T mySum) {
@@ -295,14 +295,15 @@ global void reduce_energy(GPUNonCacheInfo *dinfo) {
 	}	
 }
 
+
 //host side of single point_calculation, energies and coords should already be initialized
 float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
                         float slope, unsigned natoms,
                         unsigned nrecatoms, float v)
 {
-#if 10
+    /* Assumed by warp_sum */
+    assert(THREADS_PER_BLOCK <= 1024);
 	//this will calculate the per-atom energies and forces
-
 	for (unsigned off = 0; off < nrecatoms; off += THREADS_PER_BLOCK)
 	{
 		unsigned nr = nrecatoms - off;
@@ -318,10 +319,6 @@ float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
 		}
 		cudaThreadSynchronize();
 	}
-#else
-    //this will calculate the per-atom energies and forces
-    /* per_ligand_atom_energy<<<natoms,1>>>(dinfo, slope, v); */
-#endif
 	//get total energy
 	reduce_energy<<<1, natoms>>>(dinfo);
 	cudaError err2 = cudaGetLastError();

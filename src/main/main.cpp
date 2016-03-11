@@ -444,7 +444,7 @@ void main_procedure(model& m, precalculate& prec,
 		{
 			nc = new non_cache(gridcache, gd, &prec, slope);
 		}
-    cudaProfilerStart();
+    /* cudaProfilerStart(); */
 
 		if (no_cache)
 		{
@@ -471,7 +471,7 @@ void main_procedure(model& m, precalculate& prec,
 					settings, compute_atominfo, log,
 					wt.unweighted_terms(), user_grid, results);
 		}
-    cudaProfilerStop();
+    /* cudaProfilerStop(); */
 
 		delete nc;
 	}
