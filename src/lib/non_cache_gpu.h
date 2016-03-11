@@ -152,11 +152,11 @@ public:
 	virtual fl eval_deriv(model& m, fl v, const grid& user_grid) const
 	{
 		//clear energies
-    if(user_grid.initialized())
-    {
-      std::cerr << "usergrid not supported in gpu code yet\n";
-      exit(-1);
-    }
+        if(user_grid.initialized())
+        {
+            std::cerr << "usergrid not supported in gpu code yet\n";
+            exit(-1);
+        }
 		unsigned natoms = m.num_movable_atoms();
 		cudaMemset(info.energies, 0, sizeof(float) * natoms);
 
@@ -177,11 +177,13 @@ public:
 		cudaMemset(info.energies, 0, natoms*sizeof(float));
 
 		//this will calculate the per-atom energies and forces; curl ignored
-		double e = single_point_calc(dinfo, info.energies, slope, info.natoms, info.nrecatoms, v);
+		double e = single_point_calc(dinfo, info.energies, slope,
+                                     info.natoms, info.nrecatoms, v);
 
 		//get forces
 		float forces[natoms*3];
-		cudaMemcpy(forces, info.minus_forces, natoms*3*sizeof(float), cudaMemcpyDeviceToHost);
+		cudaMemcpy(forces, info.minus_forces, natoms*3*sizeof(float),
+                   cudaMemcpyDeviceToHost);
 
 		for(unsigned i = 0; i < natoms; i++) {
 			for(unsigned j = 0; j < 3; j++) {
