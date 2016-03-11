@@ -1,5 +1,6 @@
 #include "non_cache_gpu.h"
 #include "loop_timer.h"
+#include "gpu_math.h"
 
 non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
                              const grid_dims& gd_,
@@ -35,22 +36,12 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
     cudaMemcpy(info.types, &htypes[0], sizeof(unsigned) * natoms,
                cudaMemcpyHostToDevice);
 
-    //allocate memory and initialize grid dimensions
-    cudaMalloc(&info.gridends, sizeof(float) * 3);
-    cudaMalloc(&info.gridbegins, sizeof(float) * 3);
-
-    float hbegins[3] =
-		{	gd[0].begin, gd[1].begin, gd[2].begin};
-    float hends[3] =
-		{	gd[0].end, gd[1].end, gd[2].end};
+    info.gridbegins = float3(gd[0].begin, gd[1].begin, gd[2].begin);
+    info.gridends = float3(gd[0].end, gd[1].end, gd[2].end);
 
     assert(gd[0].n > 0);
     assert(gd[1].n > 0);
     assert(gd[2].n > 0);
-
-    cudaMemcpy(info.gridbegins, hbegins, sizeof(float) * 3,
-               cudaMemcpyHostToDevice);
-    cudaMemcpy(info.gridends, hends, sizeof(float) * 3, cudaMemcpyHostToDevice);
 
     //figure out all possibly relevant receptor atoms
     szv recatomids;
@@ -102,12 +93,12 @@ non_cache_gpu::~non_cache_gpu()
     cudaFree(info.minus_forces);
     cudaFree(info.energies);
 
-    cudaFree(info.gridbegins);
-    cudaFree(info.gridends);
-
     cudaFree(info.recoords);
     cudaFree(info.reccharges);
     cudaFree(info.rectypes);
+
+    /* cudaFree(info.e_penalties); */
+    /* cudaFree(info.deriv_penalties); */
 
     cudaFree(dinfo);
 }

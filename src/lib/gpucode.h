@@ -30,10 +30,12 @@ struct GPUNonCacheInfo
 	unsigned *types; //n
 	float *minus_forces; //3*n
 	float *energies; //per atom energy
+    float *e_penalties;
+    float *deriv_penalties;
 
 	//device pointers for grid data
-	float *gridends; //max range of grid
-	float *gridbegins; //min range of grid
+	float3 gridends; //max range of grid
+	float3 gridbegins; //min range of grid
 
 	//device pointers for receptor data
 	float *recoords;

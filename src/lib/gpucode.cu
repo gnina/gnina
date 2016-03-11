@@ -227,8 +227,8 @@ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
     //evaluate for out of boundsness
     for (unsigned i = 0; i < 3; i++)
     {
-        float min = dinfo->gridbegins[i];
-        float max = dinfo->gridends[i];
+        float min = get(dinfo->gridbegins, i);
+        float max = get(dinfo->gridends, i);
         if (get(xyz, i) < min)
         {
             get(out_of_bounds_deriv, i) = -1;
@@ -295,6 +295,12 @@ global void reduce_energy(GPUNonCacheInfo *dinfo) {
 	}	
 }
 
+/* global */
+/* void apply_penalties(float3 *coords, float3 gridBegins, float3 gridEnds, */
+/*                      float3 *e_penalties, float3 *deriv_penalties){ */
+    
+/* } */
+
 
 //host side of single point_calculation, energies and coords should already be initialized
 float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
@@ -310,25 +316,14 @@ float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
 		if (nr > THREADS_PER_BLOCK)
 			nr = THREADS_PER_BLOCK;
 		interaction_energy<<<natoms,nr>>>(dinfo, off,slope, v);
-		cudaError err = cudaGetLastError();
-		if (cudaSuccess != err)
-		{
-			fprintf(stderr, "cudaCheckError() failed at %s:%i : %s\n",
-					__FILE__, __LINE__, cudaGetErrorString(err));
-			exit(-1);
-		}
 		cudaThreadSynchronize();
+        abort_on_gpu_err();
 	}
 	//get total energy
 	reduce_energy<<<1, natoms>>>(dinfo);
-	cudaError err2 = cudaGetLastError();
-	if (cudaSuccess != err2)
-	{
-		fprintf(stderr, "cudaCheckError() failed at %s:%i : %s\n",
-				__FILE__, __LINE__, cudaGetErrorString(err2));
-		exit(-1);
-	}
 	cudaThreadSynchronize();
+    abort_on_gpu_err();
+    
 	float e;
 	cudaMemcpy(&e, &energies[0], sizeof(float), cudaMemcpyDeviceToHost);
 	return e;

@@ -5,6 +5,8 @@
 
 #define float3(x, y, z) make_float3(x, y, z)
 
+#ifdef __CUDACC__
+
 device __inline__ static
 float3 __shfl_down(const float3 &a, int delta) {
     return float3(__shfl_down(a.x, delta),
@@ -12,6 +14,7 @@ float3 __shfl_down(const float3 &a, int delta) {
                   __shfl_down(a.z, delta));
 }
 
+#endif
 
 host device __inline__ static
 float &get(float3 &a, int b){
