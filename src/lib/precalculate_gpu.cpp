@@ -127,7 +127,6 @@ precalculate_gpu::precalculate_gpu(const scoring_function& sf, fl factor_) : // 
             std::vector<void *> deviceMem;
             float fraction = 0, cutoff = 0;
             float **splines = NULL;
-            cudaMalloc(&splines, sizeof(float*) * points.size());
             for (sz i = 0, n = points.size(); i < n; i++)
             {
                 //the size of points is the number of components
