@@ -1,4 +1,5 @@
 #include "non_cache_gpu.h"
+#include "loop_timer.h"
 
 non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
                              const grid_dims& gd_,
@@ -120,6 +121,9 @@ fl non_cache_gpu::eval(const model& m, fl v) const
 //sets m.minus_forces and returns total energy
 fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
 {
+    static loop_timer t;
+    t.resume();
+    
     //clear energies
     if(user_grid.initialized())
     {
@@ -143,7 +147,6 @@ fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
     cudaMemcpy(info.coords, hcoords, sizeof(float) * natoms * 3,
                cudaMemcpyHostToDevice);
     cudaMemset(info.minus_forces, 0, natoms*3*sizeof(float));
-    cudaMemset(info.energies, 0, natoms*sizeof(float));
 
     //this will calculate the per-atom energies and forces; curl ignored
     double e = single_point_calc(dinfo, info.energies, slope,
@@ -159,6 +162,8 @@ fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
             m.minus_forces[i][j] = forces[3*i+j];
         }
     }
+
+    t.stop();
 
     return e;
 }

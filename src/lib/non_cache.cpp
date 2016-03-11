@@ -22,6 +22,7 @@
 
 #include "non_cache.h"
 #include "curl.h"
+#include "loop_timer.h"
 
 non_cache::non_cache(szv_grid_cache& gcache, const grid_dims& gd_,
 		const precalculate* p_, fl slope_) :
@@ -107,7 +108,11 @@ bool non_cache::within(const model& m, fl margin) const
 }
 
 fl non_cache::eval_deriv(model& m, fl v, const grid& user_grid) const
-		{ // clean up
+{ // clean up
+
+    static loop_timer t;
+    t.resume();
+    
 	fl e = 0;
 	const fl cutoff_sqr = p->cutoff_sqr();
 
@@ -186,9 +191,7 @@ fl non_cache::eval_deriv(model& m, fl v, const grid& user_grid) const
 		e += this_e + out_of_bounds_penalty;
 	}
 
-    static int iter = 0;
-    //printf("%d, %f\n", iter++, e);
-    
+    t.stop();
 	return e;
 }
 
