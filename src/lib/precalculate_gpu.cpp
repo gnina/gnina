@@ -95,7 +95,15 @@ precalculate_gpu::precalculate_gpu(const scoring_function& sf, fl factor_) : // 
     unsigned pitch = data.dim();
     unsigned datasize = pitch * (pitch + 1) / 2;
     GPUSplineInfo devicedata[datasize]; //todo, investigate using 2d array
-    unsigned maxcomponents = 0;
+	unsigned maxcomponents = 0;
+//Prepare to store and then transfer all spline data to GPU
+	std::vector<FloatSplineData> allSplineData;
+	std::vector<int> indices;
+	std::vector<void *> deviceMem;
+	float **splines;
+	int numc = sf.num_used_components();
+	std::vector<int> locations;
+	allSplineData.reserve(datasize * data.dim());
 
     if(sf.has_slow())
     {
@@ -119,7 +127,6 @@ precalculate_gpu::precalculate_gpu(const scoring_function& sf, fl factor_) : // 
             std::vector<void *> deviceMem;
             float fraction = 0, cutoff = 0;
             float **splines = NULL;
-            cudaMalloc(&splines, sizeof(float*) * points.size());
             for (sz i = 0, n = points.size(); i < n; i++)
             {
                 //the size of points is the number of components
@@ -127,51 +134,61 @@ precalculate_gpu::precalculate_gpu(const scoring_function& sf, fl factor_) : // 
                 spline.initialize(points[i]);
                 fraction = spline.getFraction();
                 cutoff = spline.getCutoff();
-                //conver to float
+                //convert to float
                 const std::vector<SplineData>& data = spline.getData();
-                std::vector<FloatSplineData> fldata;
-                fldata.reserve(data.size());
+				locations.push_back((int)allSplineData.size());
                 for (sz j = 0, m = data.size(); j < m; j++)
                 {
-                    fldata.push_back(FloatSplineData(data[j]));
+                    allSplineData.push_back(FloatSplineData(data[j]));
                 }
-                //create cuda memory
-                deviceMem.push_back(NULL);
-                cudaMalloc(&deviceMem.back(),
-                           sizeof(FloatSplineData) * fldata.size());
-                cudaMemcpy(deviceMem.back(), &fldata[0],
-                           sizeof(FloatSplineData) * fldata.size(),
-                           cudaMemcpyHostToDevice);
             }
 
-            //copy array of pointers over to device
-            cudaMemcpy(splines, &deviceMem[0],
-                       sizeof(float*) * deviceMem.size(),
-                       cudaMemcpyHostToDevice);
             GPUSplineInfo info;
-            info.n = deviceMem.size();
-            info.splines = splines;
+            info.n = numc;
             info.fraction = fraction;
             info.cutoff = cutoff;
             data(t1, t2) = info;
 
-            if(info.n > maxcomponents)
-                maxcomponents = info.n;
+			if(info.n > maxcomponents)
+				maxcomponents = info.n;
 
             unsigned tindex = triangular_matrix_index_permissive(pitch, t1,t2);
             devicedata[tindex] = info;
+			indices.push_back(tindex);
         }
     }
     //copy devicedata to gpu
+	void *deviceAllSplineData = NULL;
+	cudaMalloc(&deviceAllSplineData,
+			sizeof(FloatSplineData) * allSplineData.size());
+	cudaMemcpy(deviceAllSplineData, &allSplineData[0],
+			sizeof(FloatSplineData) * allSplineData.size(),
+			cudaMemcpyHostToDevice);
+	for (sz i = 0, j = locations.size(); i < j; i++) {
+		deviceMem.push_back((FloatSplineData*) deviceAllSplineData + locations[i]);
+	}
 
-    cudaMalloc(&deviceData, sizeof(GPUSplineInfo) * datasize);
-    cudaMemcpy(deviceData, devicedata, sizeof(GPUSplineInfo) * datasize,
-               cudaMemcpyHostToDevice);
+	cudaMalloc(&splines, sizeof(FloatSplineData*) * deviceMem.size());
+	cudaMemcpy(splines, &deviceMem[0], sizeof(FloatSplineData*) * deviceMem.size(),
+			cudaMemcpyHostToDevice);
 
-    //allocate buffers for spline host-device computation
-    cudaMalloc(&device_vals, sizeof(float)*maxcomponents);
-    cudaMalloc(&device_derivs, sizeof(float)*maxcomponents);
-    }
+	assert(indices.size() == datasize);
+	//finally, fill in splines pointer in GPUSplineInfo using points.size()*tindex
+	for (sz m = 0, p = indices.size(); m < p; m++) {
+		devicedata[indices[m]].splines = splines + m * numc;
+	}
+
+	//copy device data
+
+	cudaMalloc(&deviceData, sizeof(GPUSplineInfo) * datasize);
+	cudaMemcpy(deviceData, devicedata, sizeof(GPUSplineInfo) * datasize,
+			cudaMemcpyHostToDevice);
+
+	//allocate buffers for spline host-device computation
+	cudaMalloc(&device_vals, sizeof(float)*maxcomponents);
+	cudaMalloc(&device_derivs, sizeof(float)*maxcomponents);
+
+}
 
 precalculate_gpu::~precalculate_gpu() {
     //need to cuda free splines
