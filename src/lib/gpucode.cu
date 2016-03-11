@@ -157,6 +157,15 @@ void curl(float& e, float *deriv, float v)
 	}
 }
 
+template <typename T> T __device__ __host__ zero(void);
+template <> float3 zero(void){
+    return float3(0,0,0);
+}
+
+template <> float zero(void){
+    return 0;
+}
+
 //device functions for warp-based reduction using shufl operations
 template <class T>
 device __forceinline__
@@ -164,6 +173,11 @@ T warp_sum(T mySum) {
 	for (int offset = warpSize>>1; offset > 0; offset>>=1)
         mySum += __shfl_down(mySum, offset);
 	return mySum;
+}
+
+__device__ __forceinline__ 
+bool isNotDiv32(unsigned int val) {
+	return val & 31;
 }
  
 template <class T>
@@ -178,8 +192,10 @@ T block_sum(T* sdata, T mySum) {
 	__syncthreads();
 
 	if (wid == 0) {
-		mySum = (threadIdx.x < blockDim.x >> 5) ? sdata[lane] : 0;
+		mySum = (threadIdx.x < blockDim.x >> 5) ? sdata[lane] : zero<T>();
 		mySum = warp_sum(mySum);
+        if (threadIdx.x == 0 && isNotDiv32(blockDim.x))
+            mySum += sdata[blockDim.x >> 5];
 	}
 	return mySum;
 }
@@ -263,7 +279,6 @@ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 	}
 
 	__syncthreads();
-	//horribly inefficient reduction; TODO improve
 	float this_e = block_sum<float>(energies, rec_energy); 
 	float3 deriv = block_sum<float3>(derivs, rec_deriv);
 	if (r == 0)
