@@ -335,10 +335,4 @@ float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
 	float e;
 	cudaMemcpy(&e, &energies[0], sizeof(float), cudaMemcpyDeviceToHost);
 	return e;
-	// thrust::device_ptr<float> dptr(energies);
-    // float e = thrust::reduce(dptr, dptr + natoms);
-
-    /* static int iter = 0; */
-    /* printf("%d, %f\n", iter++, e); */
-	// return e;
 }
