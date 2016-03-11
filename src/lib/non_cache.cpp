@@ -187,7 +187,7 @@ fl non_cache::eval_deriv(model& m, fl v, const grid& user_grid) const
 	}
 
     static int iter = 0;
-    printf("%d, %f\n", iter++, e);
+    //printf("%d, %f\n", iter++, e);
     
 	return e;
 }
