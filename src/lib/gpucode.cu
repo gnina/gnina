@@ -205,12 +205,13 @@ T block_sum(T* sdata, T mySum) {
 //into energies and minus forces
 //needs enough shared memory for derivatives and energies of single ligand atom
 //roffset specifies how far into the receptor atoms we are
-global
-void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
+template<bool remainder> global
+void interaction_energy(GPUNonCacheInfo *dinfo, unsigned remainder_offset,
                         float slope, float v)
 {
 	unsigned l = blockIdx.x;
 	unsigned r = blockDim.x - threadIdx.x - 1;
+	unsigned roffset = remainder ? remainder_offset : blockIdx.y * THREADS_PER_BLOCK;
 	unsigned ridx = roffset + r;
 	//get ligand atom info
 	unsigned t = dinfo->types[l];
@@ -303,21 +304,29 @@ float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
 {
     /* Assumed by warp_sum */
     assert(THREADS_PER_BLOCK <= 1024);
-	//this will calculate the per-atom energies and forces
-	for (unsigned off = 0; off < nrecatoms; off += THREADS_PER_BLOCK)
+
+	//this will calculate the per-atom energies and forces.
+	//there is one execution stream for the blocks with
+	//a full complement of threads and a separate stream
+	//for the blocks that have the remaining threads
+	unsigned nfull_blocks = nrecatoms / THREADS_PER_BLOCK;
+	unsigned nthreads_remain = nrecatoms % THREADS_PER_BLOCK;
+	
+	dim3 fullGrid(natoms,nfull_blocks);
+	dim3 remainGrid(natoms);
+
+	if (nfull_blocks)
+		interaction_energy<0><<<fullGrid,THREADS_PER_BLOCK,1>>>(dinfo, 0, slope, v);
+	if (nthreads_remain) 
+		interaction_energy<1><<<remainGrid,nthreads_remain>>>(dinfo, nrecatoms - nthreads_remain, slope, v);
+
+	cudaThreadSynchronize();
+	cudaError err = cudaGetLastError();
+	if (cudaSuccess != err)
 	{
-		unsigned nr = nrecatoms - off;
-		if (nr > THREADS_PER_BLOCK)
-			nr = THREADS_PER_BLOCK;
-		interaction_energy<<<natoms,nr>>>(dinfo, off,slope, v);
-		cudaError err = cudaGetLastError();
-		if (cudaSuccess != err)
-		{
-			fprintf(stderr, "cudaCheckError() failed at %s:%i : %s\n",
-					__FILE__, __LINE__, cudaGetErrorString(err));
-			exit(-1);
-		}
-		cudaThreadSynchronize();
+		fprintf(stderr, "cudaCheckError() failed at %s:%i : %s\n",
+				__FILE__, __LINE__, cudaGetErrorString(err));
+		exit(-1);
 	}
 	//get total energy
 	reduce_energy<<<1, natoms>>>(dinfo);
