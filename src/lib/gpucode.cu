@@ -10,6 +10,7 @@
 #include "gpu_util.h"
 
 #define THREADS_PER_BLOCK 1024
+#define warpSize 32
 
 global
 void evaluate_splines(float **splines, float r, float fraction,
@@ -290,6 +291,16 @@ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 	}
 }
 
+global void reduce_energy(GPUNonCacheInfo *dinfo, unsigned natoms) {
+	int l  = threadIdx.x;
+	shared float energies[warpSize];
+	float my_energy = dinfo->energies[l];
+	float e = block_sum<float>(energies, my_energy);
+	if ( l == 0 ) {
+		dinfo->energies[0] = e;
+	}	
+}
+
 //host side of single point_calculation, energies and coords should already be initialized
 float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
                         float slope, unsigned natoms,
@@ -318,10 +329,22 @@ float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
     /* per_ligand_atom_energy<<<natoms,1>>>(dinfo, slope, v); */
 #endif
 	//get total energy
-	thrust::device_ptr<float> dptr(energies);
-    float e = thrust::reduce(dptr, dptr + natoms);
+	reduce_energy<<<1, natoms>>>(dinfo, natoms);
+	cudaError err2 = cudaGetLastError();
+	if (cudaSuccess != err2)
+	{
+		fprintf(stderr, "cudaCheckError() failed at %s:%i : %s\n",
+				__FILE__, __LINE__, cudaGetErrorString(err2));
+		exit(-1);
+	}
+	cudaThreadSynchronize();
+	float e;
+	cudaMemcpy(&e, &dinfo->energies[0],sizeof(float),cudaMemcpyDeviceToHost);
+	return e;
+	// thrust::device_ptr<float> dptr(energies);
+    // float e = thrust::reduce(dptr, dptr + natoms);
 
     /* static int iter = 0; */
     /* printf("%d, %f\n", iter++, e); */
-	return e;
+	// return e;
 }
