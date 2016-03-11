@@ -229,27 +229,28 @@ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 	float3 xyz = ((float3 *) dinfo->coords)[l];
 
 	//evaluate for out of boundsness
-	for (unsigned i = 0; i < 3; i++)
-	{
-		float min = dinfo->gridbegins[i];
-		float max = dinfo->gridends[i];
-		if (get(xyz, i) < min)
+	if (threadIdx.x == 0) {
+		for (unsigned i = 0; i < 3; i++)
 		{
-			get(out_of_bounds_deriv, i) = -1;
-			out_of_bounds_penalty += fabs(min - get(xyz, i));
-			get(xyz, i) = min;
+			float min = dinfo->gridbegins[i];
+			float max = dinfo->gridends[i];
+			if (get(xyz, i) < min)
+			{
+				get(out_of_bounds_deriv, i) = -1;
+				out_of_bounds_penalty += fabs(min - get(xyz, i));
+				get(xyz, i) = min;
+			}
+			else if (get(xyz, i) > max)
+			{
+				get(out_of_bounds_deriv, i) = 1;
+				out_of_bounds_penalty += fabs(max - get(xyz, i));
+				get(xyz, i) = max;
+			}
+			get(out_of_bounds_deriv, i) *= slope;
 		}
-		else if (get(xyz, i) > max)
-		{
-			get(out_of_bounds_deriv, i) = 1;
-			out_of_bounds_penalty += fabs(max - get(xyz, i));
-			get(xyz, i) = max;
-		}
-		get(out_of_bounds_deriv, i) *= slope;
+
+		out_of_bounds_penalty *= slope;
 	}
-
-	out_of_bounds_penalty *= slope;
-
 	//now consider interaction with every possible receptor atom
 	//TODO: parallelize
 
@@ -278,7 +279,6 @@ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
 		derivs[r] = rec_deriv = diff * dor;
 	}
 
-	__syncthreads();
 	float this_e = block_sum<float>(energies, rec_energy); 
 	float3 deriv = block_sum<float3>(derivs, rec_deriv);
 	if (r == 0)
