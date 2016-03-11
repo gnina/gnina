@@ -3,5 +3,5 @@
 
 # $BIN $ARGS
 
-../build/linux-gpu/release/smina.gpu -r receptor.pdb -l MP5.pdb --autobox_ligand MES.pdb --gpu --minimize
+./smina.gpu -r receptor.pdb -l MP5.pdb --autobox_ligand MES.pdb --minimize --gpu
 
