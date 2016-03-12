@@ -30,7 +30,6 @@ struct non_cache_gpu: public non_cache
 {
 private:
 	GPUNonCacheInfo info; //host struct of device pointers
-	GPUNonCacheInfo *dinfo;//device pointer to info;
 
 public:
 	non_cache_gpu(szv_grid_cache& gcache, const grid_dims& gd_,

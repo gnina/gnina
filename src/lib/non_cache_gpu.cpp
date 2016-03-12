@@ -73,9 +73,6 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
 
     info.ntypes = p_->num_types();
     info.splineInfo = p_->getDeviceData();
-    //create struct
-    cudaMalloc(&dinfo, sizeof(GPUNonCacheInfo));
-    cudaMemcpy(dinfo, &info, sizeof(GPUNonCacheInfo), cudaMemcpyHostToDevice);
 }
 
 non_cache_gpu::~non_cache_gpu()
@@ -88,8 +85,6 @@ non_cache_gpu::~non_cache_gpu()
     
     cudaFree(info.rec_atoms);
     cudaFree(info.rectypes);
-
-    cudaFree(dinfo);
 }
 
 fl non_cache_gpu::eval(const model& m, fl v) const
