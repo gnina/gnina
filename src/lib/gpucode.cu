@@ -345,9 +345,6 @@ float single_point_calc(const GPUNonCacheInfo *info, force_energy_tup *out,
             <<<nlig_atoms,nthreads_remain>>>
             (*info, nrec_atoms - nthreads_remain, slope, v);
     
-	cudaThreadSynchronize();
-    abort_on_gpu_err();
-    
 	//get total energy
 	reduce_energy<<<1, nlig_atoms>>>(out);
 	cudaThreadSynchronize();
