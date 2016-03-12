@@ -57,11 +57,7 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
         unsigned index = recatomids[i];
         const vec& c = m.grid_atoms[index].coords;
         atom_params *a = &hrec_atoms[i];
-        
-        for (unsigned j = 0; j < 3; j++)
-        {
-            get(a->coords, j) = c[j];
-        }
+        a->coords = c;
         a->charge = m.grid_atoms[index].charge;
         
         hrectypes[i] = m.grid_atoms[index].get();

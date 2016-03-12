@@ -247,21 +247,21 @@ void interaction_energy(const GPUNonCacheInfo dinfo,
     //evaluate for out of boundsness
     for (unsigned i = 0; i < 3; i++)
     {
-        float min = get(dinfo.gridbegins, i);
-        float max = get(dinfo.gridends, i);
-        if (get(xyz, i) < min)
+        float min = dinfo.gridbegins[i];
+        float max = dinfo.gridends[i];
+        if (xyz[i] < min)
         {
-            get(out_of_bounds_deriv, i) = -1;
-            out_of_bounds_penalty += fabs(min - get(xyz, i));
-            get(xyz, i) = min;
+            out_of_bounds_deriv[i] = -1;
+            out_of_bounds_penalty += fabs(min - xyz[i]);
+            xyz[i] = min;
         }
-        else if (get(xyz, i) > max)
+        else if (xyz[i] > max)
         {
-            get(out_of_bounds_deriv, i) = 1;
-            out_of_bounds_penalty += fabs(max - get(xyz, i));
-            get(xyz, i) = max;
+            out_of_bounds_deriv[i]= 1;
+            out_of_bounds_penalty += fabs(max - xyz[i]);
+            xyz[i] = max;
         }
-        get(out_of_bounds_deriv, i) *= slope;
+        out_of_bounds_deriv[i] *= slope;
     }
 
     out_of_bounds_penalty *= slope;
@@ -274,8 +274,7 @@ void interaction_energy(const GPUNonCacheInfo dinfo,
 	float rSq = 0;
 	for (unsigned j = 0; j < 3; j++)
 	{
-		float d = get(diff, j);
-		get(diff, j) = d;
+		float d = diff[j];
 		rSq += d * d;
 	}
 	
@@ -300,10 +299,10 @@ void interaction_energy(const GPUNonCacheInfo dinfo,
 	if (threadIdx.x == 0)
 	{
 		curl(this_e, (float *) &deriv, v);
-        /* dinfo.result[l] += force_energy_tup(deriv + out_of_bounds_deriv, */
-        /*                                     this_e + out_of_bounds_penalty); */
-        xadd(&dinfo.result[l], force_energy_tup(deriv + out_of_bounds_deriv,
-                                                this_e + out_of_bounds_penalty));
+        dinfo.result[l] += force_energy_tup(deriv + out_of_bounds_deriv,
+                                            this_e + out_of_bounds_penalty);
+        /* xadd(&dinfo.result[l], force_energy_tup(deriv + out_of_bounds_deriv, */
+        /*                                         this_e + out_of_bounds_penalty)); */
 	}
 }
 
