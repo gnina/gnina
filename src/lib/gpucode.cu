@@ -205,12 +205,13 @@ T block_sum(T* sdata, T mySum) {
 //into energies and minus forces
 //needs enough shared memory for derivatives and energies of single ligand atom
 //roffset specifies how far into the receptor atoms we are
-global
-void interaction_energy(GPUNonCacheInfo *dinfo, unsigned roffset,
+template<bool remainder> global
+void interaction_energy(GPUNonCacheInfo *dinfo, unsigned remainder_offset,
                         float slope, float v)
 {
 	unsigned l = blockIdx.x;
 	unsigned r = blockDim.x - threadIdx.x - 1;
+	unsigned roffset = remainder ? remainder_offset : blockIdx.y * THREADS_PER_BLOCK;
 	unsigned ridx = roffset + r;
 	//get ligand atom info
 	unsigned t = dinfo->types[l];
@@ -301,26 +302,36 @@ global void reduce_energy(GPUNonCacheInfo *dinfo) {
     
 /* } */
 
-
 //host side of single point_calculation, energies and coords should already be initialized
 float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
-                        float slope, unsigned natoms,
-                        unsigned nrecatoms, float v)
+                        float slope, unsigned nlig_atoms,
+                        unsigned nrec_atoms, float v)
 {
     /* Assumed by warp_sum */
     assert(THREADS_PER_BLOCK <= 1024);
-	//this will calculate the per-atom energies and forces
-	for (unsigned off = 0; off < nrecatoms; off += THREADS_PER_BLOCK)
-	{
-		unsigned nr = nrecatoms - off;
-		if (nr > THREADS_PER_BLOCK)
-			nr = THREADS_PER_BLOCK;
-		interaction_energy<<<natoms,nr>>>(dinfo, off,slope, v);
-		cudaThreadSynchronize();
-        abort_on_gpu_err();
-	}
+
+	//this will calculate the per-atom energies and forces.
+	//there is one execution stream for the blocks with
+	//a full complement of threads and a separate stream
+	//for the blocks that have the remaining threads
+	unsigned nfull_blocks = nrec_atoms / THREADS_PER_BLOCK;
+	unsigned nthreads_remain = nrec_atoms % THREADS_PER_BLOCK;
+
+	if (nfull_blocks)
+		interaction_energy<0>
+            <<<dim3(nlig_atoms, nfull_blocks), THREADS_PER_BLOCK, 1>>>
+            (dinfo, 0, slope, v);
+	if (nthreads_remain) 
+		interaction_energy<1>
+            <<<nlig_atoms,nthreads_remain>>>
+            (dinfo, nrec_atoms - nthreads_remain, slope, v);
+    
+	cudaThreadSynchronize();
+    abort_on_gpu_err();
+
+    
 	//get total energy
-	reduce_energy<<<1, natoms>>>(dinfo);
+	reduce_energy<<<1, nlig_atoms>>>(dinfo);
 	cudaThreadSynchronize();
     abort_on_gpu_err();
     
