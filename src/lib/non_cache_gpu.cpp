@@ -105,19 +105,12 @@ fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
     unsigned nlig_atoms = m.num_movable_atoms();
     cudaMemset(info.result, 0, sizeof(force_energy_tup[nlig_atoms]));
     
-    /* TODO:charges */
     atom_params hlig_atoms[nlig_atoms];
 
     //update coordinates
     for (unsigned i = 0; i < nlig_atoms; i++)
-    {
-        const vec& c = m.coords[i];
-        atom_params *a = &hlig_atoms[i];
-        for (unsigned j = 0; j < 3; j++)
-        {
-            get(a->coords, j) = c[j];
-        }
-    }
+        hlig_atoms[i].coords = m.coords[i];
+    
     cudaMemcpy(info.lig_atoms, hlig_atoms, sizeof(hlig_atoms), cudaMemcpyHostToDevice);
 
     //this will calculate the per-atom energies and forces; curl ignored
@@ -131,11 +124,10 @@ fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
     for(unsigned i = 0; i < nlig_atoms; i++) {
         force_energy_tup *t = &out[i];
         for(unsigned j = 0; j < 3; j++) {
-            m.minus_forces[i][j] = get(t->minus_force, j);
+            m.minus_forces[i][j] = t->minus_force[j];
         }
     }
 
     t.stop();
-
     return e;
 }
