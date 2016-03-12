@@ -197,22 +197,25 @@ void operator+=(force_energy_tup &a, const force_energy_tup &b){
     a.energy += b.energy;
 }
 
+/* requires blockDim.x <= 1024, blockDim.y == 1 */
 template <class T>
 device __forceinline__
-T block_sum(T* sdata, T mySum) {
+T block_sum(T mySum) {
 	const unsigned int lane = threadIdx.x & 31;
 	const unsigned int wid = threadIdx.x>>5;
 
+    __shared__ T scratch[32];
+
 	mySum = warp_sum(mySum);
 	if (lane==0)
-        sdata[wid] = mySum;
+        scratch[wid] = mySum;
 	__syncthreads();
 
 	if (wid == 0) {
-		mySum = (threadIdx.x < blockDim.x >> 5) ? sdata[lane] : zero<T>();
+		mySum = (threadIdx.x < blockDim.x >> 5) ? scratch[lane] : zero<T>();
 		mySum = warp_sum(mySum);
         if (threadIdx.x == 0 && isNotDiv32(blockDim.x))
-            mySum += sdata[blockDim.x >> 5];
+            mySum += scratch[blockDim.x >> 5];
 	}
 	return mySum;
 }
@@ -292,10 +295,8 @@ void interaction_energy(const GPUNonCacheInfo dinfo,
 		rec_deriv = diff * dor;
 	}
     
-    shared float energies[32];
-	shared float3 derivs[32];
-	float this_e = block_sum<float>(energies, rec_energy);
-	float3 deriv = block_sum<float3>(derivs, rec_deriv);
+	float this_e = block_sum<float>(rec_energy);
+	float3 deriv = block_sum<float3>(rec_deriv);
 	if (threadIdx.x == 0)
 	{
 		curl(this_e, (float *) &deriv, v);
@@ -308,8 +309,7 @@ void interaction_energy(const GPUNonCacheInfo dinfo,
 
 global void reduce_energy(force_energy_tup *result) {
 	int l = threadIdx.x;
-	shared float energies[warpSize];
-	float e = block_sum<float>(energies, result[l].energy);
+	float e = block_sum<float>(result[l].energy);
 	if ( l == 0 ) {
 		result[0].energy = e;
 	}	
@@ -338,7 +338,7 @@ float single_point_calc(const GPUNonCacheInfo *info, force_energy_tup *out,
 
 	if (nfull_blocks)
 		interaction_energy<0>
-            <<<dim3(nlig_atoms, nfull_blocks), THREADS_PER_BLOCK, 1>>>
+            <<<dim3(nlig_atoms, nfull_blocks), THREADS_PER_BLOCK>>>
             (*info, 0, slope, v);
 	if (nthreads_remain) 
 		interaction_energy<1>
@@ -347,7 +347,8 @@ float single_point_calc(const GPUNonCacheInfo *info, force_energy_tup *out,
     
 	//get total energy
 	reduce_energy<<<1, nlig_atoms>>>(out);
-	cudaThreadSynchronize();
+    cudaThreadSynchronize();
+	/* cudaStreamSynchronize(0); */
     abort_on_gpu_err();
     
 	force_energy_tup reduced;
