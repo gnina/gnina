@@ -2,6 +2,8 @@
 #include "loop_timer.h"
 #include "gpu_math.h"
 
+force_energy_tup::force_energy_tup(void){};
+
 non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
                              const grid_dims& gd_,
                              const precalculate_gpu* p_,
