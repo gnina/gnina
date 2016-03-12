@@ -8,6 +8,7 @@
 // CUDA runtime
 #include <cuda_runtime.h>
 #include <vector>
+#include "gpu_math.h"
 
 struct GPUSplineInfo
 {

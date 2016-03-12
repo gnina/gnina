@@ -3,11 +3,11 @@
  * a nicer way to organize this, but I'm currently slightly flummoxed as to
  * how to cleaning mix object-oriented cpu and gpu code.
  */
-#include "gpucode.h"
 #include <thrust/reduce.h>
 #include <thrust/device_ptr.h>
 #include <stdio.h>
 #include "gpu_util.h"
+#include "gpucode.h"
 
 #define THREADS_PER_BLOCK 1024
 #define warpSize 32
@@ -280,7 +280,7 @@ void interaction_energy(const GPUNonCacheInfo dinfo,
 	}
 	
 	float rec_energy = 0;
-	float3 rec_deriv = make_float3(0,0,0);
+	float3 rec_deriv(0,0,0);
 	if (rSq < dinfo.cutoff_sq)
 	{
 		//dkoes - the "derivative" value returned by eval_deriv
