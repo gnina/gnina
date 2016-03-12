@@ -15,6 +15,7 @@ struct gfloat3 : float3{
 };
 
 #define float3 gfloat3
+/* #define float3(x, y, z) make_float3(x, y, z) */
 
 #ifdef __CUDACC__
 

@@ -280,7 +280,7 @@ void interaction_energy(const GPUNonCacheInfo dinfo,
 	}
 	
 	float rec_energy = 0;
-	float3 rec_deriv(0,0,0);
+	float3 rec_deriv = float3(0,0,0);
 	if (rSq < dinfo.cutoff_sq)
 	{
 		//dkoes - the "derivative" value returned by eval_deriv
