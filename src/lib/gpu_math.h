@@ -25,6 +25,14 @@ float &get(float3 &a, int b){
 }
 
 host device __inline__ static
+const float &get(const float3 &a, int b){
+    return
+           b == 0 ? a.x :
+           b == 1 ? a.y :
+           a.z;
+}
+
+host device __inline__ static
 float3 operator+(const float3 &a, const float3 &b) {
 	return make_float3(a.x + b.x, a.y + b.y, a.z + b.z);
 }

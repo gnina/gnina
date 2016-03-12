@@ -75,7 +75,7 @@ void evaluate_splines_host(const GPUSplineInfo& spInfo,
 }
 
 device
-float eval_deriv_gpu(GPUNonCacheInfo *dinfo, unsigned t,
+float eval_deriv_gpu(const GPUNonCacheInfo dinfo, unsigned t,
                      float charge, unsigned rt, float rcharge, float r2, float& dor)
 {
 	float r = sqrt(r2);
@@ -97,7 +97,7 @@ float eval_deriv_gpu(GPUNonCacheInfo *dinfo, unsigned t,
 	}
 
 	unsigned tindex = t1 + t2 * (t2 + 1) / 2;
-	GPUSplineInfo spInfo = dinfo->splineInfo[tindex];
+	GPUSplineInfo spInfo = dinfo.splineInfo[tindex];
 	unsigned n = spInfo.n; //number of components
 
 	float ret = 0, d = 0;
@@ -206,7 +206,7 @@ T block_sum(T* sdata, T mySum) {
 //needs enough shared memory for derivatives and energies of single ligand atom
 //roffset specifies how far into the receptor atoms we are
 template<bool remainder> global
-void interaction_energy(GPUNonCacheInfo *dinfo,
+void interaction_energy(const GPUNonCacheInfo dinfo,
                         unsigned remainder_offset,
                         float slope, float v)
 {
@@ -215,14 +215,14 @@ void interaction_energy(GPUNonCacheInfo *dinfo,
 	unsigned roffset = remainder ? remainder_offset : blockIdx.y * THREADS_PER_BLOCK;
 	unsigned ridx = roffset + r;
 	//get ligand atom info
-	unsigned t = dinfo->types[l];
+	unsigned t = dinfo.types[l];
 	//TODO: remove hydrogen atoms completely
 	if (t <= 1) //hydrogen ligand atom
 		return;
     
 	//now consider interaction with every possible receptor atom
 	//TODO: parallelize
-    atom_params lin = dinfo->lig_atoms[l];
+    atom_params lin = dinfo.lig_atoms[l];
     float3 xyz = lin.coords;
     
     float3 out_of_bounds_deriv = float3(0, 0, 0);
@@ -231,8 +231,8 @@ void interaction_energy(GPUNonCacheInfo *dinfo,
     //evaluate for out of boundsness
     for (unsigned i = 0; i < 3; i++)
     {
-        float min = get(dinfo->gridbegins, i);
-        float max = get(dinfo->gridends, i);
+        float min = get(dinfo.gridbegins, i);
+        float max = get(dinfo.gridends, i);
         if (get(xyz, i) < min)
         {
             get(out_of_bounds_deriv, i) = -1;
@@ -252,7 +252,7 @@ void interaction_energy(GPUNonCacheInfo *dinfo,
 
 
 	//compute squared difference
-    atom_params rin = dinfo->rec_atoms[ridx];
+    atom_params rin = dinfo.rec_atoms[ridx];
 	float3 diff = xyz - rin.coords;
 
 	float rSq = 0;
@@ -265,14 +265,14 @@ void interaction_energy(GPUNonCacheInfo *dinfo,
 	
 	float rec_energy = 0;
 	float3 rec_deriv = make_float3(0,0,0);
-	if (rSq < dinfo->cutoff_sq)
+	if (rSq < dinfo.cutoff_sq)
 	{
 		//dkoes - the "derivative" value returned by eval_deriv
 		//is normalized by r (dor = derivative over r?)
 		float dor;
 		rec_energy = eval_deriv_gpu(dinfo, t,
                                     lin.charge,
-                                    dinfo->rectypes[ridx],
+                                    dinfo.rectypes[ridx],
                                     rin.charge, rSq, dor);
 		rec_deriv = diff * dor;
 	}
@@ -284,7 +284,7 @@ void interaction_energy(GPUNonCacheInfo *dinfo,
 	if (threadIdx.x == 0)
 	{
 		curl(this_e, (float *) &deriv, v);
-        dinfo->result[l] =
+        dinfo.result[l] =
             force_energy_tup(deriv + out_of_bounds_deriv,
                              this_e + out_of_bounds_penalty);
 	}
@@ -306,7 +306,7 @@ global void reduce_energy(force_energy_tup *result) {
 /* } */
 
 //host side of single point_calculation, energies and coords should already be initialized
-float single_point_calc(GPUNonCacheInfo *dinfo, force_energy_tup *out,
+float single_point_calc(const GPUNonCacheInfo *info, force_energy_tup *out,
                         float slope, unsigned nlig_atoms,
                         unsigned nrec_atoms, float v)
 {
@@ -323,11 +323,11 @@ float single_point_calc(GPUNonCacheInfo *dinfo, force_energy_tup *out,
 	if (nfull_blocks)
 		interaction_energy<0>
             <<<dim3(nlig_atoms, nfull_blocks), THREADS_PER_BLOCK, 1>>>
-            (dinfo, 0, slope, v);
+            (*info, 0, slope, v);
 	if (nthreads_remain) 
 		interaction_energy<1>
             <<<nlig_atoms,nthreads_remain>>>
-            (dinfo, nrec_atoms - nthreads_remain, slope, v);
+            (*info, nrec_atoms - nthreads_remain, slope, v);
     
 	cudaThreadSynchronize();
     abort_on_gpu_err();

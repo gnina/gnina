@@ -61,7 +61,7 @@ struct GPUNonCacheInfo
 };
 
 void evaluate_splines_host(const GPUSplineInfo& spInfo, float r, float *device_vals, float *device_derivs);
-float single_point_calc(GPUNonCacheInfo *dinfo, force_energy_tup *out, float slope, unsigned nlig_atoms, unsigned nrec_atoms, float v);
+float single_point_calc(const GPUNonCacheInfo *dinfo, force_energy_tup *out, float slope, unsigned nlig_atoms, unsigned nrec_atoms, float v);
 
 
 #endif

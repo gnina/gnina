@@ -130,7 +130,7 @@ fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
     cudaMemcpy(info.lig_atoms, hlig_atoms, sizeof(hlig_atoms), cudaMemcpyHostToDevice);
 
     //this will calculate the per-atom energies and forces; curl ignored
-    double e = single_point_calc(dinfo, info.result, slope,
+    double e = single_point_calc(&info, info.result, slope,
                                  info.nlig_atoms, info.nrec_atoms, v);
 
     //get forces

@@ -1,0 +1,44 @@
+              _             
+             (_)            
+   __ _ _ __  _ _ __   __ _ 
+  / _` | '_ \| | '_ \ / _` |
+ | (_| | | | | | | | | (_| |
+  \__, |_| |_|_|_| |_|\__,_|
+   __/ |                    
+  |___/                     
+
+gnina is based off of smina and AutoDock Vina.
+Please cite appropriately.
+
+*** IMPORTANT: gnina is not yet intended for production use. Use smina. ***
+
+Weights      Terms
+-0.035579    gauss(o=0,_w=0.5,_c=8)
+-0.005156    gauss(o=3,_w=2,_c=8)
+0.840245     repulsion(o=0,_c=8)
+-0.035069    hydrophobic(g=0.5,_b=1.5,_c=8)
+-0.587439    non_dir_h_bond(g=-0.7,_b=0,_c=8)
+1.923        num_tors_div
+
+Affinity: -1.23791  0.27296 (kcal/mol)
+RMSD: 2.97857
+Affinity: -3.67307  0.34572 (kcal/mol)
+RMSD: 5.12011
+Affinity: -2.20333  0.14169 (kcal/mol)
+RMSD: 4.67140
+Affinity: -3.89996  0.43526 (kcal/mol)
+RMSD: 5.73568
+Affinity: -5.52948  -0.80025 (kcal/mol)
+RMSD: 4.56913
+Affinity: -3.59324  0.04159 (kcal/mol)
+RMSD: 5.53511
+Affinity: -6.94110  0.57879 (kcal/mol)
+RMSD: 4.88072
+Affinity: -0.03317  -0.64764 (kcal/mol)
+RMSD: 5.28297
+Affinity: 7.26244  -0.30793 (kcal/mol)
+RMSD: 4.01158
+Affinity: 10.65365  -0.22726 (kcal/mol)
+RMSD: 2.93936
+Loop time 0.25137
+Loops:3208 wall:137180587 avg:42762
