@@ -206,7 +206,8 @@ T block_sum(T* sdata, T mySum) {
 //needs enough shared memory for derivatives and energies of single ligand atom
 //roffset specifies how far into the receptor atoms we are
 template<bool remainder> global
-void interaction_energy(GPUNonCacheInfo *dinfo, unsigned remainder_offset,
+void interaction_energy(GPUNonCacheInfo *dinfo,
+                        unsigned remainder_offset,
                         float slope, float v)
 {
 	unsigned l = blockIdx.x;
@@ -221,7 +222,9 @@ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned remainder_offset,
     
 	//now consider interaction with every possible receptor atom
 	//TODO: parallelize
-    float3 xyz = ((float3 *) dinfo->coords)[l];
+    atom_params lin = dinfo->lig_atoms[l];
+    float3 xyz = lin.coords;
+    
     float3 out_of_bounds_deriv = float3(0, 0, 0);
     float out_of_bounds_penalty = 0;
 
@@ -249,8 +252,10 @@ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned remainder_offset,
 
 
 	//compute squared difference
+    atom_params rin = dinfo->rec_atoms[ridx];
+	float3 diff = xyz - rin.coords;
+
 	float rSq = 0;
-	float3 diff = xyz - ((float3 *) dinfo->recoords)[ridx];
 	for (unsigned j = 0; j < 3; j++)
 	{
 		float d = get(diff, j);
@@ -266,33 +271,31 @@ void interaction_energy(GPUNonCacheInfo *dinfo, unsigned remainder_offset,
 		//is normalized by r (dor = derivative over r?)
 		float dor;
 		rec_energy = eval_deriv_gpu(dinfo, t,
-                                    dinfo->charges[l],
+                                    lin.charge,
                                     dinfo->rectypes[ridx],
-                                    dinfo->reccharges[ridx], rSq,
-                                    dor);
+                                    rin.charge, rSq, dor);
 		rec_deriv = diff * dor;
 	}
     
     shared float energies[32];
 	shared float3 derivs[32];
-	float this_e = block_sum<float>(energies, rec_energy); 
+	float this_e = block_sum<float>(energies, rec_energy);
 	float3 deriv = block_sum<float3>(derivs, rec_deriv);
 	if (threadIdx.x == 0)
 	{
 		curl(this_e, (float *) &deriv, v);
-		
-        ((float3 *) dinfo->minus_forces)[l] += deriv + out_of_bounds_deriv;
-		dinfo->energies[l] += this_e + out_of_bounds_penalty;
+        dinfo->result[l] =
+            force_energy_tup(deriv + out_of_bounds_deriv,
+                             this_e + out_of_bounds_penalty);
 	}
 }
 
-global void reduce_energy(GPUNonCacheInfo *dinfo) {
-	int l  = threadIdx.x;
+global void reduce_energy(force_energy_tup *result) {
+	int l = threadIdx.x;
 	shared float energies[warpSize];
-	float my_energy = dinfo->energies[l];
-	float e = block_sum<float>(energies, my_energy);
+	float e = block_sum<float>(energies, result[l].energy);
 	if ( l == 0 ) {
-		dinfo->energies[0] = e;
+		result[0].energy = e;
 	}	
 }
 
@@ -303,7 +306,7 @@ global void reduce_energy(GPUNonCacheInfo *dinfo) {
 /* } */
 
 //host side of single point_calculation, energies and coords should already be initialized
-float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
+float single_point_calc(GPUNonCacheInfo *dinfo, force_energy_tup *out,
                         float slope, unsigned nlig_atoms,
                         unsigned nrec_atoms, float v)
 {
@@ -328,14 +331,13 @@ float single_point_calc(GPUNonCacheInfo *dinfo, float *energies,
     
 	cudaThreadSynchronize();
     abort_on_gpu_err();
-
     
 	//get total energy
-	reduce_energy<<<1, nlig_atoms>>>(dinfo);
+	reduce_energy<<<1, nlig_atoms>>>(out);
 	cudaThreadSynchronize();
     abort_on_gpu_err();
     
-	float e;
-	cudaMemcpy(&e, &energies[0], sizeof(float), cudaMemcpyDeviceToHost);
-	return e;
+	force_energy_tup reduced;
+	cudaMemcpy(&reduced, out, sizeof(reduced), cudaMemcpyDeviceToHost);
+	return reduced.energy;
 }
