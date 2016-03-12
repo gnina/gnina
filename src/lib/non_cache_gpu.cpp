@@ -112,7 +112,7 @@ fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
     }
     
     unsigned nlig_atoms = m.num_movable_atoms();
-    cudaMemset(info.result, 0, sizeof(float[nlig_atoms]));
+    cudaMemset(info.result, 0, sizeof(force_energy_tup[nlig_atoms]));
     
     /* TODO:charges */
     atom_params hlig_atoms[nlig_atoms];

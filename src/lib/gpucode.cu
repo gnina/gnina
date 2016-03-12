@@ -167,6 +167,16 @@ template <> float zero(void){
     return 0;
 }
 
+/* Can't really return an accurate value. Don't need it anyway. */
+__device__
+void xadd(force_energy_tup *a, const force_energy_tup &b){
+    atomicAdd(&a->minus_force.x, b.minus_force.x);
+    atomicAdd(&a->minus_force.y, b.minus_force.y);
+    atomicAdd(&a->minus_force.z, b.minus_force.z);
+    atomicAdd(&a->energy, b.energy);
+}
+
+
 //device functions for warp-based reduction using shufl operations
 template <class T>
 device __forceinline__
@@ -179,6 +189,12 @@ T warp_sum(T mySum) {
 __device__ __forceinline__ 
 bool isNotDiv32(unsigned int val) {
 	return val & 31;
+}
+
+__device__
+void operator+=(force_energy_tup &a, const force_energy_tup &b){
+    a.minus_force += b.minus_force;
+    a.energy += b.energy;
 }
 
 template <class T>
@@ -284,9 +300,10 @@ void interaction_energy(const GPUNonCacheInfo dinfo,
 	if (threadIdx.x == 0)
 	{
 		curl(this_e, (float *) &deriv, v);
-        dinfo.result[l] =
-            force_energy_tup(deriv + out_of_bounds_deriv,
-                             this_e + out_of_bounds_penalty);
+        /* dinfo.result[l] += force_energy_tup(deriv + out_of_bounds_deriv, */
+        /*                                     this_e + out_of_bounds_penalty); */
+        xadd(&dinfo.result[l], force_energy_tup(deriv + out_of_bounds_deriv,
+                                                this_e + out_of_bounds_penalty));
 	}
 }
 
