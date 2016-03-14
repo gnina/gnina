@@ -242,7 +242,7 @@ inline fl xs_radius(smina_atom_type::type t) {
 }
 
 const std::string non_ad_metal_names[] = { // expand as necessary
-	"Cu", "Fe", "Na", "K", "Hg", "Co", "U", "Cd", "Ni"
+	"Cu", "Fe", "Na", "K", "Hg", "Co", "U", "Cd", "Ni","Si"
 };
 
 inline bool is_non_ad_metal_name(const std::string& name) {
