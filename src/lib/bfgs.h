@@ -126,7 +126,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 			test = temp;
 	}
 
-	alamin = std::numeric_limits<fl>::epsilon() / test;
+	alamin = std::numeric_limits<float>::epsilon() / test;
 	alpha = FIRST; //single newton step
 	for (;;) //always try full newton step first
 	{
@@ -254,7 +254,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		g = g_new; // dkoes - check the convergence of the new gradient
 
 		fl gradnormsq = scalar_product(g, g, n);
-//std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+		//std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
 
 		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
 		{

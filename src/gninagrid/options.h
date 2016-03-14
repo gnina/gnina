@@ -17,9 +17,9 @@ struct cmdoptions
 	string ligmap;
 	double dim;
 	double res;
-	double x;
-	double y;
-	double z;
+	fl x;
+	fl y;
+	fl z;
 	int verbosity;
 	int seed;
 	bool random;
