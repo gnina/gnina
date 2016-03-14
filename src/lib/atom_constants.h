@@ -310,7 +310,8 @@ inline smt string_to_smina_type(const std::string& name)
 				return string_to_smina_type(atom_equivalence_data[i].to);
 		if (is_non_ad_metal_name(name))
 			return smina_atom_type::GenericMetal; //generic metal
-		return smina_atom_type::NumTypes;
+		return smina_atom_type::GenericMetal; //TODO: implement default catch-all type
+
 	}
 	else
 	{
