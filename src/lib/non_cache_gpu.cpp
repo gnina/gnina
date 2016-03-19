@@ -2,6 +2,8 @@
 #include "loop_timer.h"
 #include "gpu_math.h"
 
+force_energy_tup::force_energy_tup(void){};
+
 non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
                              const grid_dims& gd_,
                              const precalculate_gpu* p_,
@@ -11,29 +13,22 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
     const model& m = gcache.getModel();
     info.cutoff_sq = p->cutoff_sqr();
 
-    unsigned natoms = m.num_movable_atoms();
-    info.natoms = natoms;
+    unsigned nlig_atoms = m.num_movable_atoms();
+    info.nlig_atoms = nlig_atoms;
     //allocate memory for positions, partial charges, and atom types of movable atoms
-    cudaMalloc(&info.coords, sizeof(float) * natoms * 3);
-    cudaMalloc(&info.charges, sizeof(float) * natoms);
-    cudaMalloc(&info.types, sizeof(unsigned) * natoms);
-    cudaMalloc(&info.energies, sizeof(float) * natoms);
+    cudaMalloc(&info.lig_atoms, sizeof(atom_params[nlig_atoms]));
+    cudaMalloc(&info.lig_penalties, sizeof(force_energy_tup[nlig_atoms]));
+    cudaMalloc(&info.result, sizeof(force_energy_tup[nlig_atoms]));
+    cudaMalloc(&info.types, sizeof(unsigned[nlig_atoms]));
 
-    //allocate memory for minus forces of movable atoms, init to zero
-    cudaMalloc(&info.minus_forces, sizeof(unsigned) * natoms * 3);
-    cudaMemset(info.minus_forces, 0, sizeof(unsigned) * natoms * 3);
     //initialize atom types and partial charges
-    std::vector<unsigned> htypes(natoms);
-    std::vector<float> hcharges(natoms);
+    std::vector<unsigned> htypes(nlig_atoms);
 
-    VINA_FOR(i, natoms)
+    VINA_FOR(i, nlig_atoms)
     {
         htypes[i] = m.atoms[i].get();
-        hcharges[i] = m.atoms[i].charge;
     }
-    cudaMemcpy(info.charges, &hcharges[0], sizeof(float) * natoms,
-               cudaMemcpyHostToDevice);
-    cudaMemcpy(info.types, &htypes[0], sizeof(unsigned) * natoms,
+    cudaMemcpy(info.types, &htypes[0], sizeof(unsigned[nlig_atoms]),
                cudaMemcpyHostToDevice);
 
     info.gridbegins = float3(gd[0].begin, gd[1].begin, gd[2].begin);
@@ -46,61 +41,46 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
     //figure out all possibly relevant receptor atoms
     szv recatomids;
     gcache.compute_relevant(gd_, recatomids);
-    unsigned nrecatoms = recatomids.size();
-    info.nrecatoms = nrecatoms;
+    unsigned nrec_atoms = recatomids.size();
+    info.nrec_atoms = nrec_atoms;
 
     //allocate memory for positions, atom types, and partial charges of all
     //possibly relevant receptor atoms
-    cudaMalloc(&info.recoords, nrecatoms * 3 * sizeof(float));
-    cudaMalloc(&info.reccharges, nrecatoms * sizeof(float));
-    cudaMalloc(&info.rectypes, nrecatoms * sizeof(unsigned));
+    cudaMalloc(&info.rec_atoms, sizeof(atom_params[nrec_atoms]));
+    cudaMalloc(&info.rectypes, sizeof(unsigned[nrec_atoms]));
 
     //initialize
-    std::vector<float> hrecoords(3 * nrecatoms);
-    std::vector<unsigned> hrectypes(nrecatoms);
-    std::vector<float> hreccharges(nrecatoms);
-    for (unsigned i = 0; i < nrecatoms; i++)
+    std::vector<atom_params> hrec_atoms(nrec_atoms);
+    std::vector<unsigned> hrectypes(nrec_atoms);
+    for (unsigned i = 0; i < nrec_atoms; i++)
     {
         unsigned index = recatomids[i];
         const vec& c = m.grid_atoms[index].coords;
-        for (unsigned j = 0; j < 3; j++)
-        {
-            hrecoords[3 * i + j] = c[j];
-        }
-        hreccharges[i] = m.grid_atoms[index].charge;
+        atom_params *a = &hrec_atoms[i];
+        a->coords = c;
+        a->charge = m.grid_atoms[index].charge;
+        
         hrectypes[i] = m.grid_atoms[index].get();
     }
-    cudaMemcpy(info.recoords, &hrecoords[0], nrecatoms * sizeof(float) * 3,
+    cudaMemcpy(info.rec_atoms, &hrec_atoms[0], sizeof(atom_params[nrec_atoms]),
                cudaMemcpyHostToDevice);
-    cudaMemcpy(info.reccharges, &hreccharges[0], nrecatoms * sizeof(float),
-               cudaMemcpyHostToDevice);
-    cudaMemcpy(info.rectypes, &hrectypes[0], nrecatoms * sizeof(float),
+    cudaMemcpy(info.rectypes, &hrectypes[0], sizeof(unsigned[nrec_atoms]),
                cudaMemcpyHostToDevice);
 
     info.ntypes = p_->num_types();
     info.splineInfo = p_->getDeviceData();
-    //create struct
-    cudaMalloc(&dinfo, sizeof(GPUNonCacheInfo));
-    cudaMemcpy(dinfo, &info, sizeof(GPUNonCacheInfo), cudaMemcpyHostToDevice);
 }
 
 non_cache_gpu::~non_cache_gpu()
 {
     //deallocate device memory
-    cudaFree(info.coords);
-    cudaFree(info.charges);
+    cudaFree(info.lig_atoms);
+    cudaFree(info.lig_penalties);
+    cudaFree(info.result);
     cudaFree(info.types);
-    cudaFree(info.minus_forces);
-    cudaFree(info.energies);
-
-    cudaFree(info.recoords);
-    cudaFree(info.reccharges);
+    
+    cudaFree(info.rec_atoms);
     cudaFree(info.rectypes);
-
-    /* cudaFree(info.e_penalties); */
-    /* cudaFree(info.deriv_penalties); */
-
-    cudaFree(dinfo);
 }
 
 fl non_cache_gpu::eval(const model& m, fl v) const
@@ -121,40 +101,33 @@ fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
         std::cerr << "usergrid not supported in gpu code yet\n";
         exit(-1);
     }
-    unsigned natoms = m.num_movable_atoms();
-    cudaMemset(info.energies, 0, sizeof(float) * natoms);
-
-    float hcoords[natoms * 3];
+    
+    unsigned nlig_atoms = m.num_movable_atoms();
+    cudaMemset(info.result, 0, sizeof(force_energy_tup[nlig_atoms]));
+    
+    atom_params hlig_atoms[nlig_atoms];
 
     //update coordinates
-    for (unsigned i = 0; i < natoms; i++)
-    {
-        const vec& c = m.coords[i];
-        for (unsigned j = 0; j < 3; j++)
-        {
-            hcoords[3 * i + j] = c[j];
-        }
-    }
-    cudaMemcpy(info.coords, hcoords, sizeof(float) * natoms * 3,
-               cudaMemcpyHostToDevice);
-    cudaMemset(info.minus_forces, 0, natoms*3*sizeof(float));
+    for (unsigned i = 0; i < nlig_atoms; i++)
+        hlig_atoms[i].coords = m.coords[i];
+    
+    cudaMemcpy(info.lig_atoms, hlig_atoms, sizeof(hlig_atoms), cudaMemcpyHostToDevice);
 
     //this will calculate the per-atom energies and forces; curl ignored
-    double e = single_point_calc(dinfo, info.energies, slope,
-                                 info.natoms, info.nrecatoms, v);
+    double e = single_point_calc(&info, info.result, slope,
+                                 info.nlig_atoms, info.nrec_atoms, v);
 
     //get forces
-    float forces[natoms*3];
-    cudaMemcpy(forces, info.minus_forces, natoms*3*sizeof(float),
-               cudaMemcpyDeviceToHost);
+    force_energy_tup out[nlig_atoms];
+    cudaMemcpy(out, info.result, sizeof(out), cudaMemcpyDeviceToHost);
 
-    for(unsigned i = 0; i < natoms; i++) {
+    for(unsigned i = 0; i < nlig_atoms; i++) {
+        force_energy_tup *t = &out[i];
         for(unsigned j = 0; j < 3; j++) {
-            m.minus_forces[i][j] = forces[3*i+j];
+            m.minus_forces[i][j] = t->minus_force[j];
         }
     }
 
     t.stop();
-
     return e;
 }
