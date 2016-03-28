@@ -145,7 +145,12 @@ void Caffe::SetDevice(const int device_id) {
   }
   // The call to cudaSetDevice must come before any calls to Get, which
   // may perform initialization using the GPU.
-  CUDA_CHECK(cudaSetDevice(device_id));
+  if(device_id >= 0) {
+    CUDA_CHECK(cudaSetDevice(device_id));
+  } else {
+    //negative means pick first avail
+    cudaSetValidDevices(NULL,0);
+  }
   if (Get().cublas_handle_) CUBLAS_CHECK(cublasDestroy(Get().cublas_handle_));
   if (Get().curand_generator_) {
     CURAND_CHECK(curandDestroyGenerator(Get().curand_generator_));

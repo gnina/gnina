@@ -167,7 +167,7 @@ int train() {
           FLAGS_gpu = "" +
               boost::lexical_cast<string>(solver_param.device_id());
       } else {  // Set default GPU if unspecified
-          FLAGS_gpu = "" + boost::lexical_cast<string>(0);
+          FLAGS_gpu = "" + boost::lexical_cast<string>(-1);
       }
   }
 
