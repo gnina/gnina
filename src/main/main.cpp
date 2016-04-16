@@ -45,7 +45,7 @@
 #include <boost/ref.hpp>
 #include <boost/bind.hpp>
 #include <boost/lockfree/queue.hpp>
-#include <atomic>
+#include <boost/atomic.hpp>
 #include <boost/unordered_map.hpp>
 
 #include <cuda_profiler_api.h>
@@ -733,9 +733,9 @@ struct worker_job {
 //writer queue job format
 struct writer_job {
 	unsigned int molid;
-	std::vector<result_info*> results;
+	std::vector<result_info>* results;
 
-	writer_job(unsigned int molid, std::vector<result_info*> results):
+	writer_job(unsigned int molid, std::vector<result_info>* results):
 		molid(molid), results(results) {};
 
 	writer_job():
@@ -746,7 +746,7 @@ struct writer_job {
 void threads_at_work(boost::lockfree::queue<worker_job>* wrkq, MolGetter* mols, user_settings* settings,
 		boost::shared_ptr<precalculate> prec, bool gpu_on, minimization_params* minparms,
 		const weighted_terms* wt, grid* user_grid, bool work_done,
-		tee* log, std::ofstream* atomoutfile, std::atomic<int>* nligs, std::atomic<bool>* ligcount_final) {
+		tee* log, std::ofstream* atomoutfile, boost::atomic<int>* nligs, boost::atomic<bool>* ligcount_final) {
 	while (!work_done || !wrkq->empty()) {
 		worker_job j;
 		if (wrkq->pop(j)) {
@@ -754,8 +754,8 @@ void threads_at_work(boost::lockfree::queue<worker_job>* wrkq, MolGetter* mols, 
 			boost::optional<model> ref;
 			main_procedure(*(j.m), *prec, ref, *settings,
 					false, // no_cache == false
-					*atomoutfile.is_open() || *settings.include_atom_info, gpu_on,
-					j.gd, *minparms, *wt, log, *(j.results), *user_grid);
+					atomoutfile->is_open() || settings->include_atom_info, gpu_on,
+					j.gd, *minparms, *wt, *log, *(j.results), *user_grid);
 
 			writer_job k(j.molid, j.results);
 			writerq.push(k);
@@ -766,9 +766,9 @@ void threads_at_work(boost::lockfree::queue<worker_job>* wrkq, MolGetter* mols, 
 	*ligcount_final = true;
 }
 
-void write_out(std::vector<result_info> results, ozfile outfile, std::string outext, 
-		user_settings settings, const weighted_terms wt, ozfile outflex, 
-		std::string outfext, std::ofstream atomoutfile) {
+void write_out(std::vector<result_info> &results, ozfile &outfile, std::string &outext, 
+		user_settings &settings, const weighted_terms &wt, ozfile &outflex, 
+		std::string &outfext, std::ofstream &atomoutfile) {
 	if (outfile)
 	{
 		//write out molecular data
@@ -799,7 +799,7 @@ void thread_a_writing(boost::lockfree::queue<writer_job>* writerq,
 		std::unordered_map<int, result_info*>* proc_out, 
 		user_settings* settings, const weighted_terms* wt, 
 		ozfile* outfile, std::string* outext, ozfile* outflex, std::string* outfext,
-		std::ofstream &atomoutfile, std::atomic<int>* nligs, std::atomic<bool>* ligcount_final) {
+		std::ofstream &atomoutfile, boost::atomic<int>* nligs, boost::atomic<bool>* ligcount_final) {
 	int nwritten = 0;
 	boost::unordered_map<int, result_info*> proc_out;
 	while (!*ligcount_final || nwritten < *nligs){
@@ -1336,8 +1336,8 @@ Thank you!\n";
 	  //This should probably be a different type of queue that blocks
 	  //instead of doing busy waiting
 	  boost::lockfree::queue<writer_job> writerq(0);
-	  std::atomic<int> nligs = 0;
-	  std::atomic<bool> ligcount_final = false;
+	  boost::atomic<int> nligs = 0;
+	  boost::atomic<bool> ligcount_final = false;
 	  bool work_done = false;
 	  unsigned int nthreads = boost::thread::hardware_concurrency();
 	  boost::thread_group worker_threads;
@@ -1355,7 +1355,7 @@ Thank you!\n";
 	  boost::thread writer_thread(boost::bind(thread_a_writing, &proc_out, &settings,
 				  &wt, &outfile, &outext, 
 				  &outflex, &outfext,
-				  &atomoutfile, std::atomic<int>* nligs, std::atomic<bool>* ligcount_final));
+				  &atomoutfile, boost::atomic<int>* nligs, boost::atomic<bool>* ligcount_final));
 
 	  //loop over input ligands, adding them to the work queue
 	  for (unsigned l = 0; l < nl; l++)
