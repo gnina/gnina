@@ -45,7 +45,7 @@
 #include <boost/ref.hpp>
 #include <boost/bind.hpp>
 #include <boost/lockfree/queue.hpp>
-#include <boost/atomic.hpp>
+#include <atomic>
 #include <boost/unordered_map.hpp>
 
 #include <cuda_profiler_api.h>
@@ -724,7 +724,7 @@ struct worker_job {
 	worker_job():
 		molid(0), m(NULL), results(NULL) {
 			for (int i=0; i<3; i++) {
-				gd[i] = grid_dim x;
+				gd[i] = grid_dim();
 			}
 		};
 
@@ -743,14 +743,14 @@ struct writer_job {
 };
 
 //function to occupy the worker threads with individual ligands from the work queue
-void threads_at_work(boost::lockfree::queue<job>* wrkq, MolGetter* mols, user_settings* settings,
+void threads_at_work(boost::lockfree::queue<worker_job>* wrkq, MolGetter* mols, user_settings* settings,
 		boost::shared_ptr<precalculate> prec, bool gpu_on, minimization_params* minparms,
 		const weighted_terms* wt, grid* user_grid, bool work_done,
 		tee* log, std::ofstream* atomoutfile, std::atomic<int>* nligs, std::atomic<bool>* ligcount_final) {
-	while (!work_done || !*wrkq.empty()) {
-		writer_job j;
-		if (*wrkq.pop(j)) {
-			*nligs++;
+	while (!work_done || !wrkq->empty()) {
+		worker_job j;
+		if (wrkq->pop(j)) {
+			(*nligs)++;
 			boost::optional<model> ref;
 			main_procedure(*(j.m), *prec, ref, *settings,
 					false, // no_cache == false
@@ -766,8 +766,9 @@ void threads_at_work(boost::lockfree::queue<job>* wrkq, MolGetter* mols, user_se
 	*ligcount_final = true;
 }
 
-void write_out(std::vector<result_info> results, outfile, outext, settings, 
-		wt, outflex, outfext, atomoutfile) {
+void write_out(std::vector<result_info> results, ozfile outfile, std::string outext, 
+		user_settings settings, const weighted_terms wt, ozfile outflex, 
+		std::string outfext, std::ofstream atomoutfile) {
 	if (outfile)
 	{
 		//write out molecular data
@@ -794,7 +795,8 @@ void write_out(std::vector<result_info> results, outfile, outext, settings,
 }
 
 //function for the writing thread to write ligands in order to output file
-void threads_a_writing(std::unordered_map<int, result_info*>* proc_out, 
+void thread_a_writing(boost::lockfree::queue<writer_job>* writerq, 
+		std::unordered_map<int, result_info*>* proc_out, 
 		user_settings* settings, const weighted_terms* wt, 
 		ozfile* outfile, std::string* outext, ozfile* outflex, std::string* outfext,
 		std::ofstream &atomoutfile, std::atomic<int>* nligs, std::atomic<bool>* ligcount_final) {
@@ -802,7 +804,7 @@ void threads_a_writing(std::unordered_map<int, result_info*>* proc_out,
 	boost::unordered_map<int, result_info*> proc_out;
 	while (!*ligcount_final || nwritten < *nligs){
 		writer_job j;	
-		if (*writerq.pop(j)) {
+		if (writerq->pop(j)) {
 			if (j.molid == nwritten) {
 				write_out(j.results, *outfile, *outext, *settings, *wt, 
 						*outflex, *outfext, *atomoutfile);
@@ -1331,6 +1333,8 @@ Thank you!\n";
 		}
 
 	  boost::lockfree::queue<worker_job> wrkq(0);
+	  //This should probably be a different type of queue that blocks
+	  //instead of doing busy waiting
 	  boost::lockfree::queue<writer_job> writerq(0);
 	  std::atomic<int> nligs = 0;
 	  std::atomic<bool> ligcount_final = false;
@@ -1348,7 +1352,7 @@ Thank you!\n";
 	  }
 
 	  //launch writer thread to write results wherever they go
-	  boost::thread writer_thread(boost::bind(threads_a_writing, &proc_out, &settings,
+	  boost::thread writer_thread(boost::bind(thread_a_writing, &proc_out, &settings,
 				  &wt, &outfile, &outext, 
 				  &outflex, &outfext,
 				  &atomoutfile, std::atomic<int>* nligs, std::atomic<bool>* ligcount_final));
@@ -1361,9 +1365,13 @@ Thank you!\n";
 		  mols.setInputFile(ligand_name);
 
 		  unsigned i = 0;
-		  model* m = new model;
 
-		  while (mols.readMoleculeIntoModel(m)) {
+		  for (;;) {
+			model* m = new model;
+			if (!mols.readMoleculeIntoModel(m)) {
+				delete m;
+				break;
+			}
 			if (settings.local_only) {
 				gd = m.movable_atoms_box(autobox_add, granularity);
 			}
@@ -1374,10 +1382,9 @@ Thank you!\n";
 			//TODO:is this ever used?
 			std::stringstream output;
 
-			worker_job j(i, m, results, gd, ref);
+			worker_job j(i, m, results, gd);
 			wrkq.push(j);
 
-			model* m = new model; 
 			i++;
 			if(no_lig) break;
 		  }
