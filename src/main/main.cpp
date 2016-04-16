@@ -711,34 +711,84 @@ static void initializeCUDA(int device)
 }
 
 //work queue job format
-struct job {
+struct worker_job {
 	unsigned int molid;
 	model* m;
 	std::vector<result_info>* results;
+	grid_dims gd;
 
-	job(unsigned int molid, model* m, std::vector<result_info>* results):
-		molid(molid), m(m), results(results) {};
+	worker_job(unsigned int molid, model* m, std::vector<result_info>* results,
+			grid_dims gd):
+		molid(molid), m(m), results(results), gd(gd) {};
 	
-	job():
-		molid(0), m(NULL), results(NULL) {};
+	worker_job():
+		molid(0), m(NULL), results(NULL) {
+			for (int i=0; i<3; i++) {
+				gd[i] = grid_dim x;
+			}
+		};
 
+};
+
+//writer queue job format
+struct writer_job {
+	unsigned int molid;
+	std::vector<result_info*> results;
+
+	writer_job(unsigned int molid, std::vector<result_info*> results):
+		molid(molid), results(results) {};
+
+	writer_job():
+		molid(0), results(NULL) {};	
 };
 
 //function to occupy the worker threads with individual ligands from the work queue
 void threads_at_work(boost::lockfree::queue<job>* wrkq, MolGetter* mols, user_settings* settings,
-		boost::shared_ptr<precalculate> prec, bool gpu_on, grid_dims gd, minimization_params* minparms,
-		const weighted_terms* wt, grid* user_grid, bool work_done
-		std::unordered_map<int, result_info*>* proc_out, tee* log, std::ofstream* atomoutfile
-		boost::optional<model>* ref) {
+		boost::shared_ptr<precalculate> prec, bool gpu_on, minimization_params* minparms,
+		const weighted_terms* wt, grid* user_grid, bool work_done,
+		tee* log, std::ofstream* atomoutfile, std::atomic<int>* nligs, std::atomic<bool>* ligcount_final) {
 	while (!work_done || !*wrkq.empty()) {
-		job j;
+		writer_job j;
 		if (*wrkq.pop(j)) {
-			main_procedure(*(j->m), *prec, *ref, *settings,
+			*nligs++;
+			boost::optional<model> ref;
+			main_procedure(*(j.m), *prec, ref, *settings,
 					false, // no_cache == false
 					*atomoutfile.is_open() || *settings.include_atom_info, gpu_on,
-					gd, *minparms, *wt, log, *(j->results), *user_grid);
+					j.gd, *minparms, *wt, log, *(j.results), *user_grid);
 
-			proc_out[j.molid] = j.results;
+			writer_job k(j.molid, j.results);
+			writerq.push(k);
+			delete j.m;
+			delete j.ref;
+		}
+	}
+	*ligcount_final = true;
+}
+
+void write_out(std::vector<result_info> results, outfile, outext, settings, 
+		wt, outflex, outfext, atomoutfile) {
+	if (outfile)
+	{
+		//write out molecular data
+		for (unsigned j = 0, nr = results.size(); j < nr; j++)
+		{
+			results[j].write(outfile, outext, settings.include_atom_info, &wt, j+1);
+		}
+	}
+	if(outflex)
+	{
+		//write out flexible residue data data
+		for (unsigned j = 0, nr = results.size(); j < nr; j++)
+		{
+			results[j].writeFlex(outflex, outfext);
+		}
+	}
+	if (atomoutfile)
+	{
+		for (unsigned j = 0, m = results.size(); j < m; j++)
+		{
+			results[j].writeAtomValues(atomoutfile, &wt);
 		}
 	}
 }
@@ -747,34 +797,28 @@ void threads_at_work(boost::lockfree::queue<job>* wrkq, MolGetter* mols, user_se
 void threads_a_writing(std::unordered_map<int, result_info*>* proc_out, 
 		user_settings* settings, const weighted_terms* wt, 
 		ozfile* outfile, std::string* outext, ozfile* outflex, std::string* outfext,
-		std::ofstream &atomoutfile, bool no_lig) {
-	for (int i=0; i < nligands; i++) {
-		while (proc_out[i] == NULL);	
-		std::vector<result_info>& results = proc_out[i];
-		if (outfile)
-		{
-			//write out molecular data
-			for (unsigned j = 0, nr = results.size(); j < nr; j++)
-			{
-				results[j].write(outfile, outext, settings.include_atom_info, &wt, j+1);
+		std::ofstream &atomoutfile, std::atomic<int>* nligs, std::atomic<bool>* ligcount_final) {
+	int nwritten = 0;
+	boost::unordered_map<int, result_info*> proc_out;
+	while (!*ligcount_final || nwritten < *nligs){
+		writer_job j;	
+		if (*writerq.pop(j)) {
+			if (j.molid == nwritten) {
+				write_out(j.results, *outfile, *outext, *settings, *wt, 
+						*outflex, *outfext, *atomoutfile);
+				nwritten++;
+				delete j.results;
+				while (unordered_map<int, result_info*>iterator i = proc_out.find(nwritten)>0) {
+					write_out(i->second, *outfile, *outext, *settings, *wt,
+							*outflex, *outfext, *atomoutfile);
+					nwritten++;
+					delete i->second;
+				}
+			}
+			else {
+				proc_out[j.molid] = j.results;
 			}
 		}
-		if(outflex)
-		{
-			//write out flexible residue data data
-			for (unsigned j = 0, nr = results.size(); j < nr; j++)
-			{
-				results[j].writeFlex(outflex, outfext);
-			}
-		}
-		if (atomoutfile)
-		{
-			for (unsigned j = 0, m = results.size(); j < m; j++)
-			{
-				results[j].writeAtomValues(atomoutfile, &wt);
-			}
-		}
-		if(no_lig) break; //only go through loop once
 	}
 }
 
@@ -1286,8 +1330,10 @@ Thank you!\n";
 			log << "\n";
 		}
 
-	  boost::lockfree::queue<job> wrkq(0);
-	  std::unordered_map<int, result_info*> proc_out;
+	  boost::lockfree::queue<worker_job> wrkq(0);
+	  boost::lockfree::queue<writer_job> writerq(0);
+	  std::atomic<int> nligs = 0;
+	  std::atomic<bool> ligcount_final = false;
 	  bool work_done = false;
 	  unsigned int nthreads = boost::thread::hardware_concurrency();
 	  boost::thread_group worker_threads;
@@ -1296,16 +1342,16 @@ Thank you!\n";
 	  //launch worker threads to process ligands in the work queue
 	  for (int i=0; i != nthreads; i++) {
 		  worker_threads.create_thread(boost::bind(threads_at_work, &wrkq, &mols, 
-					  &settings, prec, gpu_on, gd, &minparms, 
-					  &wt, &user_grid, &work_done, &proc_out, &log,
-					  atomoutfile, &ref));
+					  &settings, prec, gpu_on, &minparms, 
+					  &wt, &user_grid, &work_done, &log,
+					  atomoutfile, &nligs, &ligcount_final));
 	  }
 
 	  //launch writer thread to write results wherever they go
 	  boost::thread writer_thread(boost::bind(threads_a_writing, &proc_out, &settings,
 				  &wt, &outfile, &outext, 
 				  &outflex, &outfext,
-				  &atomoutfile, no_lig));
+				  &atomoutfile, std::atomic<int>* nligs, std::atomic<bool>* ligcount_final));
 
 	  //loop over input ligands, adding them to the work queue
 	  for (unsigned l = 0; l < nl; l++)
@@ -1315,23 +1361,23 @@ Thank you!\n";
 		  mols.setInputFile(ligand_name);
 
 		  unsigned i = 0;
-		  model m;
+		  model* m = new model;
 
 		  while (mols.readMoleculeIntoModel(m)) {
 			if (settings.local_only) {
 				gd = m.movable_atoms_box(autobox_add, granularity);
 			}
 
-			boost::optional<model> ref;
 			done(settings.verbosity, log);
+			std::vector<result_info>* results = new std::vector<result_info>;
 
+			//TODO:is this ever used?
 			std::stringstream output;
-			std::vector<result_info> results;
 
-			job j(i, &m, &results[0]);
+			worker_job j(i, m, results, gd, ref);
 			wrkq.push(j);
 
-			model m;
+			model* m = new model; 
 			i++;
 			if(no_lig) break;
 		  }
