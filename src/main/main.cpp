@@ -710,7 +710,7 @@ int main(int argc, char* argv[])
 {
 	using namespace boost::program_options;
 	const std::string version_string =
-			"Smina "__DATE__".  Based on AutoDock Vina 1.1.2.";
+			"gnina "__DATE__".";
 	const std::string error_message =
 			"\n\n\
 Please report this error at http://smina.sf.net\n"
