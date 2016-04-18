@@ -8,6 +8,7 @@
 // CUDA runtime
 #include <cuda_runtime.h>
 #include <vector>
+#include "gpu_math.h"
 
 struct GPUSplineInfo
 {
@@ -19,35 +20,51 @@ struct GPUSplineInfo
 	GPUSplineInfo(): n(0), splines(NULL), fraction(0), cutoff(0) {}
 };
 
+/* float3 reads/writes can't be coalesced into a single load/store. But
+   float4 ops can. Rather than padding 3-dimensional data to exploit this,
+   pack it in with a relevant piece of 1-dimensional data. NB: without
+   __align__, the compiler can't do this coalescing. */
+struct __align__(sizeof(float4)) atom_params{
+    float3 coords;
+    float charge;
+};
+
+struct __align__(sizeof(float4)) force_energy_tup{
+    float3 minus_force;
+    float energy;
+
+    __host__ __device__ force_energy_tup(void);
+    __host__ __device__ force_energy_tup(float3 f, float e)
+        : minus_force(f), energy(e){};
+
+};
+
 struct GPUNonCacheInfo
 {
-	unsigned natoms, nrecatoms;
+	unsigned nlig_atoms, nrec_atoms;
 	float cutoff_sq;
-	//device pointers for ligand data
-	float *coords; //3*n - this is the only thing that actually changes
-	float *charges; //n
-	unsigned *types; //n
-	float *minus_forces; //3*n
-	float *energies; //per atom energy
-    float *e_penalties;
-    float *deriv_penalties;
 
 	//device pointers for grid data
 	float3 gridends; //max range of grid
 	float3 gridbegins; //min range of grid
+    
+	//device pointers for ligand data
+    atom_params *lig_atoms;
+    force_energy_tup *lig_penalties;
+    force_energy_tup *result;
+	unsigned *types; //n
 
 	//device pointers for receptor data
-	float *recoords;
-	float *reccharges;
+    atom_params *rec_atoms;
 	unsigned *rectypes;
-
+    
 	//triangular matrix of spline data, indexed by type, device pointer
 	unsigned ntypes; //number of atom types; also, dimension of triangular splineInfo
 	GPUSplineInfo *splineInfo;
 };
 
 void evaluate_splines_host(const GPUSplineInfo& spInfo, float r, float *device_vals, float *device_derivs);
-float single_point_calc(GPUNonCacheInfo *dinfo, float *energies, float slope, unsigned natoms, unsigned nrecatoms, float v);
+float single_point_calc(const GPUNonCacheInfo *dinfo, force_energy_tup *out, float slope, unsigned nlig_atoms, unsigned nrec_atoms, float v);
 
 
 #endif
