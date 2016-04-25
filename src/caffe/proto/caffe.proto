@@ -387,7 +387,7 @@ message LayerParameter {
   optional LRNParameter lrn_param = 118;
   optional MemoryDataParameter memory_data_param = 119;
   optional MVNParameter mvn_param = 120;
-  optional NDimDataParameter ndim_data_param = 140;  
+  optional NDimDataParameter ndim_data_param = 150;  
   optional PoolingParameter pooling_param = 121;
   optional PowerParameter power_param = 122;
   optional PReLUParameter prelu_param = 131;
