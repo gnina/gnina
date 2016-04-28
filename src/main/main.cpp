@@ -1354,7 +1354,7 @@ Thank you!\n";
 	  int nligs = 0;
 	  bool ligcount_final = false;
 	  bool work_done = false;
-	  unsigned int nthreads = boost::thread::hardware_concurrency() - 2;
+	  unsigned int nthreads = settings.cpu;
 	  global_state gs(&settings, prec, gpu_on, &minparms, &wt, &user_grid,
 					  &log, &atomoutfile);
 	  boost::thread_group worker_threads;
