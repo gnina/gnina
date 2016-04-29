@@ -41,12 +41,16 @@
 #include "box.h"
 #include "flexinfo.h"
 #include "builtinscoring.h"
+#include <boost/thread/thread.hpp>
+#include <boost/ref.hpp>
+#include <boost/bind.hpp>
+#include <boost/lockfree/queue.hpp>
+#include <boost/unordered_map.hpp>
 
 #include <cuda_profiler_api.h>
 
 using namespace boost::iostreams;
 using boost::filesystem::path;
-
 
 //just a collection of user-specified configurations
 struct user_settings
@@ -705,6 +709,135 @@ static void initializeCUDA(int device)
 	}
 }
 
+//work queue job format
+struct worker_job {
+	unsigned int molid;
+	model* m;
+	std::vector<result_info>* results;
+	grid_dims gd;
+
+	worker_job(unsigned int molid, model* m, std::vector<result_info>* results,
+			grid_dims gd):
+		molid(molid), m(m), results(results), gd(gd) {};
+	
+	worker_job():
+		molid(0), m(NULL), results(NULL) {
+			for (int i=0; i<3; i++) {
+				gd[i] = grid_dim();
+			}
+		};
+
+};
+
+//writer queue job format
+struct writer_job {
+	unsigned int molid;
+	std::vector<result_info>* results;
+
+	writer_job(unsigned int molid, std::vector<result_info>* results):
+		molid(molid), results(results) {};
+
+	writer_job():
+		molid(0), results(NULL) {};	
+};
+
+//A struct of what maybe ought to be global variables. These are packed together
+//because of boost's restriction on the number of arguments you can 
+//give to bind (max args is 9, but I need 10+ for the following thread
+//functions) so I can reduce the number of args I pass.
+struct global_state {
+	user_settings* settings;
+	boost::shared_ptr<precalculate> prec;
+	bool gpu_on;
+	minimization_params* minparms;
+	weighted_terms* wt;
+	grid* user_grid;
+	tee* log;
+	std::ofstream* atomoutfile;
+
+	global_state(user_settings* settings, boost::shared_ptr<precalculate> prec,
+			bool gpu_on, minimization_params* minparms, weighted_terms* wt,
+			grid* user_grid, tee* log, std::ofstream* atomoutfile):
+		settings(settings), prec(prec), gpu_on(gpu_on), minparms(minparms), wt(wt),
+		user_grid(user_grid), log(log), atomoutfile(atomoutfile) {};
+};
+
+//function to occupy the worker threads with individual ligands from the work queue
+void threads_at_work(boost::lockfree::queue<worker_job>* wrkq, 
+		boost::lockfree::queue<writer_job>* writerq, global_state* gs, MolGetter* mols, 
+		bool* work_done, int* nligs, bool* ligcount_final) {
+	while (!*work_done || !wrkq->empty()) {
+		worker_job j;
+		if (wrkq->pop(j)) {
+			__sync_fetch_and_add(nligs, 1);
+			main_procedure(*(j.m), *gs->prec, boost::optional<model> (), *gs->settings,
+					false, // no_cache == false
+					gs->atomoutfile->is_open() || gs->settings->include_atom_info, gs->gpu_on,
+					j.gd, *gs->minparms, *gs->wt, *gs->log, *(j.results), *gs->user_grid);
+
+			writer_job k(j.molid, j.results);
+			writerq->push(k);
+			delete j.m;
+		}
+	}
+	*ligcount_final = true;
+}
+
+void write_out(std::vector<result_info> &results, ozfile &outfile, std::string &outext, 
+		user_settings &settings, const weighted_terms &wt, ozfile &outflex, 
+		std::string &outfext, std::ofstream &atomoutfile) {
+	if (outfile)
+	{
+		//write out molecular data
+		for (unsigned j = 0, nr = results.size(); j < nr; j++)
+		{
+			results[j].write(outfile, outext, settings.include_atom_info, &wt, j+1);
+		}
+	}
+	if(outflex)
+	{
+		//write out flexible residue data data
+		for (unsigned j = 0, nr = results.size(); j < nr; j++)
+		{
+			results[j].writeFlex(outflex, outfext);
+		}
+	}
+	if (atomoutfile)
+	{
+		for (unsigned j = 0, m = results.size(); j < m; j++)
+		{
+			results[j].writeAtomValues(atomoutfile, &wt);
+		}
+	}
+}
+
+//function for the writing thread to write ligands in order to output file
+void thread_a_writing(boost::lockfree::queue<writer_job>* writerq, global_state* gs,
+		ozfile* outfile, std::string* outext, ozfile* outflex, std::string* outfext,
+		int* nligs, bool* ligcount_final) {
+	int nwritten = 0;
+	boost::unordered_map<int, std::vector<result_info>*> proc_out;
+	while (!*ligcount_final || nwritten < *nligs){
+		writer_job j;	
+		if (writerq->pop(j)) {
+			if (j.molid == nwritten) {
+				write_out(*j.results, *outfile, *outext, *gs->settings, *gs->wt, 
+						*outflex, *outfext, *gs->atomoutfile);
+				nwritten++;
+				delete j.results;
+				for (boost::unordered_map<int, std::vector<result_info>*>::iterator i; (i = proc_out.find(nwritten)) != proc_out.end();) {
+					write_out(*i->second, *outfile, *outext, *gs->settings, *gs->wt,
+							*outflex, *outfext, *gs->atomoutfile);
+					nwritten++;
+					delete i->second;
+				}
+			}
+			else {
+				proc_out[j.molid] = j.results;
+			}
+		}
+	}
+}
 
 int main(int argc, char* argv[])
 {
@@ -1214,64 +1347,67 @@ Thank you!\n";
 			log << "\n";
 		}
 
+	  boost::lockfree::queue<worker_job> wrkq(0);
+	  //This should probably be a different type of queue that blocks
+	  //instead of doing busy waiting
+	  boost::lockfree::queue<writer_job> writerq(0);
+	  int nligs = 0;
+	  bool ligcount_final = false;
+	  bool work_done = false;
+	  unsigned int nthreads = settings.cpu;
+	  global_state gs(&settings, prec, gpu_on, &minparms, &wt, &user_grid,
+					  &log, &atomoutfile);
+	  boost::thread_group worker_threads;
 	  boost::timer time;
-		//loop over input ligands
-		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
-		{
-			doing(settings.verbosity, "Reading input", log);
-			const std::string& ligand_name = ligand_names[l];
-			mols.setInputFile(ligand_name);
 
-			//process input molecules one at a time
-			unsigned i = 0;
-			model m;
-			while (mols.readMoleculeIntoModel(m))
-			{
-				if (settings.local_only)
-				{
-					//dkoes - for convenience get box from model
-					gd = m.movable_atoms_box(autobox_add, granularity);
-				}
+	  //launch worker threads to process ligands in the work queue
+	  for (int i=0; i != nthreads; i++) {
+		  worker_threads.create_thread(boost::bind(threads_at_work, &wrkq, 
+						  &writerq, &gs, &mols, &work_done, 
+						  &nligs, &ligcount_final));
+	  }
 
-				boost::optional<model> ref;
-				done(settings.verbosity, log);
+	  //launch writer thread to write results wherever they go
+	  boost::thread writer_thread(thread_a_writing, &writerq, &gs, &outfile, &outext, 
+				  &outflex, &outfext, &nligs, &ligcount_final);
 
-				std::stringstream output;
-				std::vector<result_info> results;
+	  //loop over input ligands, adding them to the work queue
+	  for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
+	  {
+		  doing(settings.verbosity, "Reading input", log);
+		  const std::string ligand_name = ligand_names[l];
+		  mols.setInputFile(ligand_name);
 
-				main_procedure(m, *prec, ref, settings,
-						false, // no_cache == false
-						atomoutfile.is_open() || settings.include_atom_info, gpu_on,
-						gd,minparms, wt,log, results, user_grid);
+		  unsigned i = 0;
 
-				if (outfile)
-				{
-					//write out molecular data
-					for (unsigned j = 0, nr = results.size(); j < nr; j++)
-					{
-						results[j].write(outfile, outext, settings.include_atom_info, &wt, j+1);
-					}
-				}
-				if(outflex)
-				{
-					//write out flexible residue data data
-					for (unsigned j = 0, nr = results.size(); j < nr; j++)
-					{
-						results[j].writeFlex(outflex, outfext);
-					}
-				}
-				if (atomoutfile)
-				{
-					for (unsigned j = 0, m = results.size(); j < m; j++)
-					{
-						results[j].writeAtomValues(atomoutfile, &wt);
-					}
-				}
-				i++;
-				if(no_lig) break; //only go through loop once
-
+		  for (;;) {
+			model* m = new model;
+			if (!mols.readMoleculeIntoModel(*m)) {
+				delete m;
+				break;
 			}
-		}
+			if (settings.local_only) {
+				gd = m->movable_atoms_box(autobox_add, granularity);
+			}
+
+			done(settings.verbosity, log);
+			std::vector<result_info>* results = new std::vector<result_info>;
+
+			//TODO:is this ever used?
+			std::stringstream output;
+
+			worker_job j(i, m, results, gd);
+			wrkq.push(j);
+
+			i++;
+			if(no_lig) break;
+		  }
+	  }
+
+	  //join all the threads when their work is done
+	  work_done = true;
+	  worker_threads.join_all();
+	  writer_thread.join();
 
 	  std::cout << "Loop time " << time.elapsed() << "\n";
 

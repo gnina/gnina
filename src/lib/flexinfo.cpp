@@ -127,6 +127,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
 	OBConversion conv;
 	conv.SetOutFormat("PDBQT");
 	conv.AddOption("s", OBConversion::OUTOPTIONS); //flexible residue
+	rigid.BeginModify();
 	//identify atoms that have to be in flexible component
 	//this is the side chain and CA, but _not_ the C and N
 	for(OBResidueIterator ritr = rigid.BeginResidues(), rend = rigid.EndResidues(); ritr != rend; ++ritr)
@@ -206,12 +207,54 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
 				}
 			}
 
-			//the pdbqt writing code breaks flex into fragments, in the process it loses all residue information
-			//if the full residue is present, it will re-perceive it
-			//the fix here is to write a subsetting openbabel function that properly copies over all information
-			//and to use that in getnextfragment and other places
-			//alternatively, we could rewrite the strings..
-			flexpdbqt += conv.WriteString(&flex);
+			std::string flexres = conv.WriteString(&flex);
+
+			if(newres)
+			{
+				//the pdbqt writing code breaks flex into fragments, in the process it loses all residue information
+				//so we rewrite the strings..
+				std::vector<std::string> tokens;
+				std::string resn = newres->GetName();
+				while(resn.size() < 3)
+					resn += " ";
+
+				std::string resnum = boost::lexical_cast<std::string>(newres->GetNum());
+				while(resnum.size() < 4)
+					resnum = " " + resnum;
+
+				char ch = newres->GetChain();
+				boost::split(tokens, flexres, boost::is_any_of("\n"));
+				for(unsigned i = 0, n = tokens.size(); i < n; i++)
+				{
+					std::string line = tokens[i];
+					if(line.size() > 25)
+					{
+						//replace UNL with resn
+						for(unsigned p = 0; p < 3; p++)
+						{
+							line[17+p] = resn[p];
+						}
+						//resid
+						for(unsigned p = 0; p < 4; p++)
+						{
+							line[22+p] = resnum[p];
+						}
+
+						line[21] = ch;
+					}
+
+					if(line.size() > 0)
+					{
+						flexpdbqt += line;
+						flexpdbqt += "\n";
+					}
+				}
+			}
+			else
+			{
+				flexpdbqt += flexres;
+			}
+
 			//remove flexatoms from rigid
 			for(unsigned i = 0, n = flexatoms.size(); i < n; i++)
 			{
@@ -220,5 +263,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
 			}
 		} //end if residue
 	}
+
+	rigid.EndModify();
 
 }
