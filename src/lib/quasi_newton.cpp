@@ -22,6 +22,7 @@
 
 #include "quasi_newton.h"
 #include "bfgs.h"
+#include "conf_gpu.h"
 
 struct quasi_newton_aux {
 	model* m;
@@ -38,7 +39,31 @@ struct quasi_newton_aux {
 
 void quasi_newton::operator()(model& m, const precalculate& p, const igrid& ig, output_type& out, change& g, const vec& v, const grid& user_grid) const { // g must have correct size
 	quasi_newton_aux aux(&m, &p, &ig, v, &user_grid);
-	fl res = bfgs(aux, out.c, g, average_required_improvement, params);
-	out.e = res;
+	// check whether we're using the gpu for the minimization algorithm. if so, malloc and
+	// copy change, out, and aux here. then call bfgs with the gpu out,aux, and change, which will
+	// automatically use the gpu for the routine via templating of bfgs
+	if (ig.gpu_on) {
+		/*change_gpu chgpu;
+		cudaMalloc(&chgpu, sizeof(change_gpu));
+		cudaMemcpy(chgpu, &g, sizeof(change), cudaMemcpyHostToDevice);
+
+		output_type_gpu outgpu;
+		cudaMalloc(&outgpu, sizeof(output_type_gpu));
+		cudaMemcpy(outgpu, &out, sizeof(output_type), cudaMemcpyHostToDevice);
+
+		quasi_newton_aux aux_gpu;
+		cudaMalloc(&aux_gpu, sizeof(aux_gpu));
+		cudaMemcpy(aux_gpu, &aux, sizeof(aux), cudaMemcpyHostToDevice);
+		*/
+		change_gpu chgpu = g;
+		output_type_gpu outgpu = out;
+		quasi_newton_aux aux_gpu = aux;
+		fl res = bfgs(aux_gpu, outgpu.c, chgpu, average_required_improvement, params);
+		outgpu.e = res;
+	}
+	else {
+		fl res = bfgs(aux, out.c, g, average_required_improvement, params);
+		out.e = res;
+	}
 }
 
