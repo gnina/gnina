@@ -12,6 +12,76 @@
 
 using namespace boost;
 
+static void createDefaultMap(const char *names[], vector<int>& map)
+{
+	map.assign(smina_atom_type::NumTypes, -1);
+	const char **nameptr = names;
+	unsigned cnt = 0;
+	while(*nameptr != NULL) {
+		string name(*nameptr);
+		//note that if we every start using merged atom types by default
+		//this code will have to be updated
+		smt t = string_to_smina_type(name);
+		if(t < smina_atom_type::NumTypes) //valid
+		{
+			map[t] = cnt;
+			cnt++;
+		}
+		else //should never happen
+		{
+			cerr << "Invalid atom type " << name << "\n";
+			exit(-1);
+		}
+		nameptr++;
+	}
+}
+
+//initialize default receptor/ligand maps
+//these were determined by evaluating how common various atoms types are
+void NNGridder::createDefaultRecMap(vector<int>& map)
+{
+	const char *names[] = {"AliphaticCarbonXSHydrophobe",
+			"AliphaticCarbonXSNonHydrophobe",
+			"AromaticCarbonXSHydrophobe",
+			"AromaticCarbonXSNonHydrophobe",
+			"Calcium",
+			"Iron",
+			"Magnesium",
+			"Nitrogen",
+			"NitrogenXSAcceptor",
+			"NitrogenXSDonor",
+			"NitrogenXSDonorAcceptor",
+			"OxygenXSAcceptor",
+			"OxygenXSDonorAcceptor",
+			"Phosphorus",
+			"Sulfur",
+			"Zinc", NULL};
+
+	createDefaultMap(names, map);
+}
+
+void NNGridder::createDefaultLigMap(vector<int>& map) {
+	const char *names[] = {"AliphaticCarbonXSHydrophobe",
+			"AliphaticCarbonXSNonHydrophobe",
+			"AromaticCarbonXSHydrophobe",
+			"AromaticCarbonXSNonHydrophobe",
+			"Bromine",
+			"Chlorine",
+			"Fluorine",
+			"Nitrogen",
+			"NitrogenXSAcceptor",
+			"NitrogenXSDonor",
+			"NitrogenXSDonorAcceptor",
+			"Oxygen",
+			"OxygenXSAcceptor",
+			"OxygenXSDonorAcceptor",
+			"Phosphorus",
+			"Sulfur",
+			"SulfurAcceptor",
+			"Iodine",
+			NULL};
+	createDefaultMap(names, map);
+}
 
 
 //return the occupancy for atom a at point x,y,z
@@ -180,104 +250,61 @@ string NNGridder::getIndexName(const vector<int>& map, unsigned index) const
 		return ret.str();
 }
 
-NNGridder::NNGridder(const cmdoptions& opt, const vector<int>& recmap,
-		const vector<int>& ligmap, quaternion q) :
-		Q(q), resolution(opt.res), radiusmultiple(1.5), rmap(recmap), lmap(ligmap), binary(opt.binary)
+//create a mapping from atom type ids to a unique id given a file specifying
+//what types we care about (anything missing is ignored); if multiple types are
+//on the same line, they are merged, if the file isn't specified, use default mapping
+//return total number of types
+//map is indexed by smina_atom_type, maps to -1 if type should be ignored
+static int createAtomTypeMap(const string& fname, vector<int>& map)
 {
-	if(binary) radiusmultiple = 1.0;
+	map.assign(smina_atom_type::NumTypes, -1);
 
-	//open receptor
-	tee log(true);
-	FlexInfo finfo(log); //dummy
-	mols.create_init_model(opt.receptorfile, "", finfo, log);
-
-	//setup grid
-	trans = vec(opt.x,opt.y,opt.z);
-	int numpts = round(opt.dim / opt.res);
-	double half = opt.dim / 2.0;
-	dims[0].begin = opt.x - half;
-	dims[0].end = opt.x + half;
-	dims[0].n = numpts;
-
-	dims[1].begin = opt.y - half;
-	dims[1].end = opt.y + half;
-	dims[1].n = numpts;
-
-	dims[2].begin = opt.z - half;
-	dims[2].end = opt.z + half;
-	dims[2].n = numpts;
-	unsigned n = numpts + 1; //fencepost
-
-	receptorGrids.reserve(smina_atom_type::NumTypes);
-	ligandGrids.reserve(smina_atom_type::NumTypes);
-
-	for (unsigned at = 0; at < smina_atom_type::NumTypes; at++)
+	if(fname.size() == 0)
 	{
-		if (rmap[at] >= 0) //valid type for receptor
+		//default mapping
+		cerr << "Map file not specified\n";
+		exit(-1);
+	}
+	else
+	{
+		int cnt = 0;
+		ifstream in(fname.c_str());
+
+		if(!in)
 		{
-			unsigned i = rmap[at];
-			if (receptorGrids.size() <= i)
-				receptorGrids.resize(i + 1);
-			if(receptorGrids[i].num_elements() == 0)
-			{
-				receptorGrids[i].resize(extents[n][n][n]);
-				fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(), 0.0);
-			}
+			cerr << "Could not open " << fname << "\n";
+			exit(-1);
 		}
-
-		if (lmap[at] >= 0)
+		string line;
+		while(getline(in, line))
 		{
-			unsigned i = lmap[at];
-			if (ligandGrids.size() <= i)
-				ligandGrids.resize(i + 1);
-			if(ligandGrids[i].num_elements() == 0)
+			vector<string> types;
+			split(types, line, is_any_of("\t \n"));
+			for(unsigned i = 0, n = types.size(); i < n; i++)
 			{
-				ligandGrids[i].resize(extents[n][n][n]);
-				fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
+				const string& name = types[i];
+				smt t = string_to_smina_type(name);
+				if(t < smina_atom_type::NumTypes) //valid
+				{
+					map[t] = cnt;
+				}
+				else if(name.size() > 0) //this ignores consecutive delimiters
+				{
+					cerr << "Invalid atom type " << name << "\n";
+					exit(-1);
+				}
 			}
+			if(types.size() > 0)
+				cnt++;
 		}
+		return cnt;
 	}
-
-	//check for empty mappings
-	for(unsigned i = 0, nr = receptorGrids.size(); i < nr; i++)
-	{
-	  if(receptorGrids[i].num_elements() == 0)
-	  {
-	    cerr << "Empty slot in receptor types: " << i << ", possible duplicate?\n";
-	    receptorGrids[i].resize(extents[n][n][n]);
-      fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(), 0.0);
-	  }
-	}
-  for(unsigned i = 0, nl = ligandGrids.size(); i < nl; i++)
-  {
-    if(ligandGrids[i].num_elements() == 0)
-    {
-      cerr << "Empty slot in ligand types: " << i << ", possible duplicate?\n";
-      ligandGrids[i].resize(extents[n][n][n]);
-      fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
-    }
-  }
-
-
-	//initialize receptor
-	const model& m = mols.getInitModel();
-
-	const atomv& atoms = m.get_fixed_atoms();
-	for (unsigned i = 0, n = atoms.size(); i < n; i++)
-	{
-		const atom& a = atoms[i];
-		int pos = rmap[a.sm];
-		if (pos >= 0)
-			setAtom(a, receptorGrids[pos]);
-	}
-
-	//set ligand file
-	mols.setInputFile(opt.ligandfile);
 }
+
 
 //read a molecule (return false if unsuccessful)
 //set the ligand grid appropriately
-bool NNGridder::readMolecule()
+bool NNMolsGridder::readMolecule()
 {
 	model m;
 	if (!mols.readMoleculeIntoModel(m))
@@ -394,3 +421,170 @@ void NNGridder::outputBIN(ostream& out, bool outputrec, bool outputlig)
   }
 }
 
+//set all the elements of a grid to zero
+void NNGridder::zeroGrids(vector<boost::multi_array<float, 3> >& grid)
+{
+	for(unsigned i = 0, n = grid.size(); i < n; i++)
+	{
+		boost::multi_array<float, 3>& g = grid[i];
+		std::fill(g.data(),g.data()+g.num_elements(), 0.0);
+	}
+}
+
+
+void NNGridder::setMapsAndGrids(const gridoptions& opt)
+{
+	if(opt.recmap.size() == 0)
+		NNGridder::createDefaultRecMap(rmap);
+	else
+		createAtomTypeMap(opt.recmap,rmap);
+
+	if(opt.ligmap.size() == 0)
+		NNGridder::createDefaultLigMap(lmap);
+	else
+		createAtomTypeMap(opt.ligmap,lmap);
+
+	//setup grids,
+	trans = vec(opt.x,opt.y,opt.z);
+	int numpts = round(opt.dim / opt.res);
+	double half = opt.dim / 2.0;
+	dims[0].begin = opt.x - half;
+	dims[0].end = opt.x + half;
+	dims[0].n = numpts;
+
+	dims[1].begin = opt.y - half;
+	dims[1].end = opt.y + half;
+	dims[1].n = numpts;
+
+	dims[2].begin = opt.z - half;
+	dims[2].end = opt.z + half;
+	dims[2].n = numpts;
+	unsigned n = numpts + 1; //fencepost
+
+	receptorGrids.reserve(smina_atom_type::NumTypes);
+	ligandGrids.reserve(smina_atom_type::NumTypes);
+
+	for (unsigned at = 0; at < smina_atom_type::NumTypes; at++)
+	{
+		if (rmap[at] >= 0) //valid type for receptor
+		{
+			unsigned i = rmap[at];
+			if (receptorGrids.size() <= i)
+				receptorGrids.resize(i + 1);
+			if(receptorGrids[i].num_elements() == 0)
+			{
+				receptorGrids[i].resize(extents[n][n][n]);
+				fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(), 0.0);
+			}
+		}
+
+		if (lmap[at] >= 0)
+		{
+			unsigned i = lmap[at];
+			if (ligandGrids.size() <= i)
+				ligandGrids.resize(i + 1);
+			if(ligandGrids[i].num_elements() == 0)
+			{
+				ligandGrids[i].resize(extents[n][n][n]);
+				fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
+			}
+		}
+	}
+
+	//check for empty mappings
+	for(unsigned i = 0, nr = receptorGrids.size(); i < nr; i++)
+	{
+	  if(receptorGrids[i].num_elements() == 0)
+	  {
+	    cerr << "Empty slot in receptor types: " << i << ", possible duplicate?\n";
+	    receptorGrids[i].resize(extents[n][n][n]);
+      fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(), 0.0);
+	  }
+	}
+  for(unsigned i = 0, nl = ligandGrids.size(); i < nl; i++)
+  {
+    if(ligandGrids[i].num_elements() == 0)
+    {
+      cerr << "Empty slot in ligand types: " << i << ", possible duplicate?\n";
+      ligandGrids[i].resize(extents[n][n][n]);
+      fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
+    }
+  }
+
+}
+
+NNMolsGridder::NNMolsGridder(const gridoptions& opt, quaternion q)
+{
+	binary = opt.binary;
+	resolution = opt.res;
+	radiusmultiple = 1.5;
+	Q = q;
+
+	if(binary) radiusmultiple = 1.0;
+
+	setMapsAndGrids(opt);
+
+	//open receptor
+	tee log(true);
+	FlexInfo finfo(log); //dummy
+	mols.create_init_model(opt.receptorfile, "", finfo, log);
+
+	//initialize receptor
+	const model& m = mols.getInitModel();
+
+	const atomv& atoms = m.get_fixed_atoms();
+	for (unsigned i = 0, n = atoms.size(); i < n; i++)
+	{
+		const atom& a = atoms[i];
+		int pos = rmap[a.sm];
+		if (pos >= 0)
+			setAtom(a, receptorGrids[pos]);
+	}
+
+	//set ligand file
+	mols.setInputFile(opt.ligandfile);
+}
+
+
+NNModelGridder::NNModelGridder(const gridoptions& opt)
+{
+	binary = opt.binary;
+	resolution = opt.res;
+	radiusmultiple = 1.5;
+	Q = quaternion(1,0,0,0);
+
+	if(binary) radiusmultiple = 1.0;
+
+	setMapsAndGrids(opt);
+
+	//setRecptor needs to be called to init receptor grids
+}
+
+void NNModelGridder::setReceptor(model& m)
+{
+	zeroGrids(receptorGrids);
+	const atomv& atoms = m.get_fixed_atoms();
+	for(unsigned i = 0, n = atoms.size(); i < n; i++) {
+		const atom& a = atoms[i];
+		int pos = rmap[a.sm];
+		if(pos >= 0)
+			setAtom(a, receptorGrids[pos]);
+	}
+}
+
+void NNModelGridder::setLigand(model& m)
+{
+	zeroGrids(ligandGrids);
+	//fill in heavy atoms
+	const atomv& atoms = m.get_movable_atoms();
+	assert(atoms.size() == m.coordinates().size());
+	for (unsigned i = 0, n = atoms.size(); i < n; i++)
+	{
+		atom a = atoms[i];
+		a.coords = m.coordinates()[i]; //have to explicitly set coords
+		int pos = lmap[a.sm];
+		assert(pos < ligandGrids.size());
+		if (pos >= 0)
+			setAtom(a, ligandGrids[pos]);
+	}
+}

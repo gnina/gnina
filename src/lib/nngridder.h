@@ -13,8 +13,8 @@
 
 #include "atom_type.h"
 #include "box.h"
+#include "gridoptions.h"
 #include "molgetter.h"
-#include "options.h"
 
 using namespace std;
 
@@ -25,9 +25,8 @@ class NNGridder
 {
 public:
   typedef boost::math::quaternion<double> quaternion;
-private:
-	MolGetter mols; //this stores the models
-	grid_dims dims; //this is  cuge
+protected:
+	grid_dims dims; //this is a cube
 	quaternion Q;
 	vec trans;
 	double resolution;
@@ -55,13 +54,14 @@ private:
 	//in map - this isn't particularly efficient, but is only for debug purposes
 	string getIndexName(const vector<int>& map, unsigned index) const;
 
+	//setup ligand/receptor maps
+	//setup grid dimensions and zero-init
+	void setMapsAndGrids(const gridoptions& opt);
+
+	static void zeroGrids(vector<boost::multi_array<float, 3> >& grid);
 public:
 
-	NNGridder(const cmdoptions& opt, const vector<int>& recmap, const vector<int>& ligmap, quaternion q = quaternion(1,0,0,0));
-
-	//read a molecule (return false if unsuccessful)
-	//set the ligand grid appropriately
-	bool readMolecule();
+	NNGridder(): resolution(0.5), radiusmultiple(1.5), binary(false) {}
 
 	//return string detailing the configuration (size.channels)
 	string getParamString(bool outputrec, bool outputlig) const;
@@ -71,6 +71,45 @@ public:
 
 	//output binary form of raw data in 3D multi-channel form (types are last)
 	void outputBIN(ostream& out, bool outputrec = true, bool outputlig = true);
+
+	//initialize default receptor/ligand maps
+	static void createDefaultRecMap(vector<int>& map);
+	static void createDefaultLigMap(vector<int>& map);
+};
+
+/* This gridder uses a MolGetter to read molecules */
+class NNMolsGridder : public NNGridder
+{
+public:
+  typedef boost::math::quaternion<double> quaternion;
+private:
+	MolGetter mols; //this stores the models
+
+public:
+
+	NNMolsGridder(const gridoptions& opt, quaternion q = quaternion(1,0,0,0));
+
+	//read a molecule (return false if unsuccessful)
+	//set the ligand grid appropriately
+	bool readMolecule();
+
+};
+
+/* This gridder extracts ligand from model rather than reading from file */
+class NNModelGridder : public NNGridder
+{
+public:
+  typedef boost::math::quaternion<double> quaternion;
+private:
+	MolGetter mols; //this stores the models
+
+public:
+
+	NNModelGridder(const gridoptions& opt);
+
+	void setReceptor(model& m);
+	void setLigand(model& m);
+
 };
 
 #endif

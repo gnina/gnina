@@ -6,7 +6,7 @@
 using namespace std;
 
 /* options that can be set on the command line */
-struct cmdoptions
+struct gridoptions
 {
 	string receptorfile;
 	string ligandfile;
@@ -27,7 +27,7 @@ struct cmdoptions
 	bool version;
 	bool outmap;
 	bool binary;
-	cmdoptions() :
+	gridoptions() :
 			dim(24), res(0.5), x(HUGE_VAL), y(HUGE_VAL), z(HUGE_VAL),
 			verbosity(1), seed(0), random(false), help(false), version(false), outmap(false), binary(false)
 	{

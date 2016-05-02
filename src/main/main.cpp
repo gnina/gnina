@@ -20,6 +20,7 @@
 #include "quasi_newton.h"
 #include "tee.h"
 #include "custom_terms.h"
+#include "cnn_scorer.h"
 #include <openbabel/babelconfig.h>
 #include <openbabel/mol.h>
 #include <openbabel/parsmart.h>
@@ -741,7 +742,7 @@ struct writer_job {
 		molid(0), results(NULL) {};	
 };
 
-//A struct of what maybe ought to be global variables. These are packed together
+//A struct of parameters that define the current run. These are packed together
 //because of boost's restriction on the number of arguments you can 
 //give to bind (max args is 9, but I need 10+ for the following thread
 //functions) so I can reduce the number of args I pass.
@@ -754,12 +755,13 @@ struct global_state {
 	grid* user_grid;
 	tee* log;
 	std::ofstream* atomoutfile;
+	CNNScorer cnn_scorer;
 
 	global_state(user_settings* settings, boost::shared_ptr<precalculate> prec,
 			bool gpu_on, minimization_params* minparms, weighted_terms* wt,
-			grid* user_grid, tee* log, std::ofstream* atomoutfile):
+			grid* user_grid, tee* log, std::ofstream* atomoutfile, CNNScorer cnn):
 		settings(settings), prec(prec), gpu_on(gpu_on), minparms(minparms), wt(wt),
-		user_grid(user_grid), log(log), atomoutfile(atomoutfile) {};
+		user_grid(user_grid), log(log), atomoutfile(atomoutfile), cnn_scorer(cnn) {};
 };
 
 //function to occupy the worker threads with individual ligands from the work queue
@@ -844,6 +846,7 @@ void thread_a_writing(boost::lockfree::queue<writer_job>* writerq, global_state*
 	}
 }
 
+
 int main(int argc, char* argv[])
 {
 	using namespace boost::program_options;
@@ -918,6 +921,8 @@ Thank you!\n";
 		bool add_hydrogens = true;
 		bool no_lig = false;
 
+		cnn_options cnnopts;
+
 		user_settings settings;
 		minimization_params minparms;
 		ApproxType approx = LinearApprox;
@@ -971,7 +976,7 @@ Thank you!\n";
 
 		options_description scoremin("Scoring and minimization options");
 		scoremin.add_options()
-		("scoring", value<std::string>(&builtin_scoring),"specify alternative builtin scoring function")
+		("scoring", value<std::string>(&builtin_scoring),"specify alternative built-in scoring function")
 		("custom_scoring", value<std::string>(&custom_file_name),
 				"custom scoring function file")
 		("custom_atoms", value<std::string>(&atomconstants_file), "custom atom type parameters file")
@@ -1009,6 +1014,19 @@ Thank you!\n";
     ("flex_hydrogens", bool_switch(&flex_hydrogens),
         "Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.");
 
+
+		options_description cnn("Convolutional neural net (CNN) scoring");
+		cnn.add_options()
+		("cnn_model", value<std::string>(&cnnopts.cnn_model),
+						"caffe cnn model file")
+		("cnn_weights", value<std::string>(&cnnopts.cnn_model),
+								"caffe cnn weights file (*.caffemodel)")
+		("cnn_recmap", value<std::string>(&cnnopts.cnn_recmap),
+									"receptor atom type to channel mapping")
+		("cnn_ligmap", value<std::string>(&cnnopts.cnn_ligmap),
+									"ligand atom type to channel mapping")
+		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
+					"Use provided model and weights file to score final pose.");
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
@@ -1239,7 +1257,7 @@ Thank you!\n";
 			{
 				std::stringstream ss;
 				builtin_scoring_functions.print_functions(ss);
-				throw usage_error("Invalid builtin scoring function: "+builtin_scoring+". Options are:\n"+ss.str());
+				throw usage_error("Invalid built-in scoring function: "+builtin_scoring+". Options are:\n"+ss.str());
 			}
 		}
 		else
@@ -1301,6 +1319,7 @@ Thank you!\n";
 
 		//dkoes - parse in receptor once
 		MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, log);
+		CNNScorer cnn_scorer(cnnopts, mols.getInitModel());
 
 		//dkoes, hoist precalculation outside of loop
 		weighted_terms wt(&t, t.weights());
@@ -1361,12 +1380,15 @@ Thank you!\n";
 	  bool work_done = false;
 	  unsigned int nthreads = settings.cpu;
 	  global_state gs(&settings, prec, gpu_on, &minparms, &wt, &user_grid,
-					  &log, &atomoutfile);
+					  &log, &atomoutfile, cnn_scorer);
 	  boost::thread_group worker_threads;
 	  boost::timer time;
 
+	  if(!settings.local_only)
+	  	nthreads = 1; //docking is multithreaded already, don't add additional parallelism other than pipeline
+
 	  //launch worker threads to process ligands in the work queue
-	  for (int i=0; i != nthreads; i++) {
+	  for (int i=0; i < nthreads; i++) {
 		  worker_threads.create_thread(boost::bind(threads_at_work, &wrkq, 
 						  &writerq, &gs, &mols, &work_done, 
 						  &nligs, &ligcount_final));
@@ -1386,26 +1408,22 @@ Thank you!\n";
 		  unsigned i = 0;
 
 		  for (;;) {
-			model* m = new model;
-			if (!mols.readMoleculeIntoModel(*m)) {
-				delete m;
-				break;
-			}
-			if (settings.local_only) {
-				gd = m->movable_atoms_box(autobox_add, granularity);
-			}
+				model* m = new model;
+				if (!mols.readMoleculeIntoModel(*m)) {
+					delete m;
+					break;
+				}
+				if (settings.local_only) {
+					gd = m->movable_atoms_box(autobox_add, granularity);
+				}
 
-			done(settings.verbosity, log);
-			std::vector<result_info>* results = new std::vector<result_info>();
+				done(settings.verbosity, log);
+				std::vector<result_info>* results = new std::vector<result_info>();
+				worker_job j(i, m, results, gd);
+				wrkq.push(j);
 
-			//TODO:is this ever used?
-			std::stringstream output;
-
-			worker_job j(i, m, results, gd);
-			wrkq.push(j);
-
-			i++;
-			if(no_lig) break;
+				i++;
+				if(no_lig) break;
 		  }
 	  }
 

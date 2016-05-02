@@ -21,7 +21,8 @@
 #include "atom_type.h"
 #include "box.h"
 #include "molgetter.h"
-#include "options.h"
+
+#include "gridoptions.h"
 #include "nngridder.h"
 
 using namespace std;
@@ -31,7 +32,7 @@ using namespace boost;
 //parse commandline options using boost::program_options and put the values in opts
 //return true if successfull and ready to compute
 //will exit on error
-static bool parse_options(int argc, char *argv[], cmdoptions& o)
+static bool parse_options(int argc, char *argv[], gridoptions& o)
 {
 	using namespace boost::program_options;
 	positional_options_description positional; // remains empty
@@ -102,65 +103,6 @@ static bool parse_options(int argc, char *argv[], cmdoptions& o)
 	return true;
 }
 
-//create a mapping from atom type ids to a unique id given a file specifying
-//what types we care about (anything missing is ignored); if multiple types are
-//on the same line, they are merged, if the file isn't specified, use default mapping
-//return total number of types
-//map is indexed by smina_atom_type, maps to -1 if type should be ignored
-static int createAtomTypeMap(const string& fname, vector<int>& map)
-{
-	map.assign(smina_atom_type::NumTypes, -1);
-
-	if(fname.size() == 0)
-	{
-		//default mapping
-		int cnt = 0;
-		for(int i = 0; i < smina_atom_type::NumTypes; i++)
-		{
-			if(!is_hydrogen((smt)i))
-			{
-				map[i] = cnt;
-				cnt++;
-			}
-		}
-		return cnt;
-	}
-	else
-	{
-		int cnt = 0;
-		ifstream in(fname.c_str());
-
-		if(!in)
-		{
-			cerr << "Could not open " << fname << "\n";
-			exit(-1);
-		}
-		string line;
-		while(getline(in, line))
-		{
-			vector<string> types;
-			split(types, line, is_any_of("\t \n"));
-			for(unsigned i = 0, n = types.size(); i < n; i++)
-			{
-				const string& name = types[i];
-				smt t = string_to_smina_type(name);
-				if(t < smina_atom_type::NumTypes) //valid
-				{
-					map[t] = cnt;
-				}
-				else if(name.size() > 0) //this ignores consecutive delimiters
-				{
-					cerr << "Invalid atom type " << name << "\n";
-					exit(-1);
-				}
-			}
-			if(types.size() > 0)
-				cnt++;
-		}
-		return cnt;
-	}
-}
-
 
 
 int main(int argc, char *argv[])
@@ -169,7 +111,7 @@ int main(int argc, char *argv[])
 	try
 	{
 	//setup commandline options
-	cmdoptions opt;
+	gridoptions opt;
 	if(!parse_options(argc, argv, opt))
 		exit(0);
 
@@ -184,10 +126,6 @@ int main(int argc, char *argv[])
 		setup_autobox(ligandfile, 0, opt.x,opt.y, opt.z, dummy, dummy, dummy);
 	}
 
-	//setup atom type mapping
-	vector<int> recmap, ligmap;
-	createAtomTypeMap(opt.recmap,recmap);
-	createAtomTypeMap(opt.ligmap,ligmap);
 
 	//initialize random rotation (same for all)
 	NNGridder::quaternion quat(0,0,0,0);
@@ -202,7 +140,7 @@ int main(int argc, char *argv[])
 
 
 	//setup receptor grid
-	NNGridder gridder(opt, recmap, ligmap, quat);
+	NNMolsGridder gridder(opt, quat);
 	string parmstr;
 
 	if(!opt.outmap)
