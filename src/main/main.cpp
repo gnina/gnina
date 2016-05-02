@@ -770,6 +770,7 @@ void threads_at_work(boost::lockfree::queue<worker_job>* wrkq,
 		worker_job j;
 		if (wrkq->pop(j)) {
 			__sync_fetch_and_add(nligs, 1);
+
 			main_procedure(*(j.m), *gs->prec, boost::optional<model> (), *gs->settings,
 					false, // no_cache == false
 					gs->atomoutfile->is_open() || gs->settings->include_atom_info, gs->gpu_on,
@@ -778,6 +779,8 @@ void threads_at_work(boost::lockfree::queue<worker_job>* wrkq,
 			writer_job k(j.molid, j.results);
 			writerq->push(k);
 			delete j.m;
+		} else {
+			boost::thread::yield();
 		}
 	}
 	*ligcount_final = true;
@@ -835,6 +838,8 @@ void thread_a_writing(boost::lockfree::queue<writer_job>* writerq, global_state*
 			else {
 				proc_out[j.molid] = j.results;
 			}
+		} else {
+			boost::thread::yield();
 		}
 	}
 }
@@ -1354,7 +1359,7 @@ Thank you!\n";
 	  int nligs = 0;
 	  bool ligcount_final = false;
 	  bool work_done = false;
-	  unsigned int nthreads = boost::thread::hardware_concurrency() - 2;
+	  unsigned int nthreads = settings.cpu;
 	  global_state gs(&settings, prec, gpu_on, &minparms, &wt, &user_grid,
 					  &log, &atomoutfile);
 	  boost::thread_group worker_threads;
@@ -1391,7 +1396,7 @@ Thank you!\n";
 			}
 
 			done(settings.verbosity, log);
-			std::vector<result_info>* results = new std::vector<result_info>;
+			std::vector<result_info>* results = new std::vector<result_info>();
 
 			//TODO:is this ever used?
 			std::stringstream output;
