@@ -7,8 +7,8 @@ force_energy_tup::force_energy_tup(void){};
 non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
                              const grid_dims& gd_,
                              const precalculate_gpu* p_,
-                             fl slope_) :
-	non_cache(gcache, gd_, p_, slope_)
+                             fl slope_, bool gpu_on) :
+	non_cache(gcache, gd_, p_, slope_, gpu_on)
 {
     const model& m = gcache.getModel();
     info.cutoff_sq = p->cutoff_sqr();

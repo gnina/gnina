@@ -33,7 +33,7 @@ private:
 
 public:
 	non_cache_gpu(szv_grid_cache& gcache, const grid_dims& gd_,
-                  const precalculate_gpu* p_, fl slope_);
+                  const precalculate_gpu* p_, fl slope_, bool gpu_on);
 	virtual ~non_cache_gpu();
 	fl eval(const model& m, fl v) const;
 	//evaluate the model on the gpu, v is the curl amount

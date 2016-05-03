@@ -442,11 +442,11 @@ void main_procedure(model& m, precalculate& prec,
 		{
 			precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
 			if(!gprec) abort();
-			nc = new non_cache_gpu(gridcache, gd, gprec, slope);
+			nc = new non_cache_gpu(gridcache, gd, gprec, slope, gpu_on);
 		}
 		else
 		{
-			nc = new non_cache(gridcache, gd, &prec, slope);
+			nc = new non_cache(gridcache, gd, &prec, slope, gpu_on);
 		}
     /* cudaProfilerStart(); */
 
