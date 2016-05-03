@@ -885,10 +885,9 @@ message LRNParameter {
 }
 
 message MemoryDataParameter {
-  optional uint32 batch_size = 1;
-  optional uint32 channels = 2;
-  optional uint32 height = 3;
-  optional uint32 width = 4;
+  optional uint32 batch_size = 1 [default = 1];
+  // Shape of a single example (does not include batch_size). E.g., nchannels*w*h*d
+  optional BlobShape shape = 2;
 }
 
 message MVNParameter {
