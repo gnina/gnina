@@ -813,7 +813,7 @@ message NDimDataParameter {
   optional uint32 rand_skip = 7 [default = 0];
   // Whether or not ImageLayer should shuffle the list of files at every epoch.
   optional bool shuffle = 8 [default = true];
-  // Whether every batch should have a balanced number of true/false exampls
+  // Whether every batch should have a balanced number of true/false examples
   optional bool balanced = 9 [default = true];
   //perform consistency checks on input data (all finite numbers)
   optional bool check = 10 [default = false];
@@ -823,6 +823,9 @@ message NDimDataParameter {
   //will be cycled with every pass through the actives, even if not all decoys have
   //been sampled
   optional uint32 rotate = 13 [default = 0];
+  //ignore files, input will be provided programmatically
+  optional bool inmemory = 14 [default = false];
+  
 }
 
 message InfogainLossParameter {
