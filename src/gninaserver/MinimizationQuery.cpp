@@ -136,12 +136,13 @@ MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 	quasi_newton quasi_newton_par(minparm.minparms);
 
 	//it rarely takes more than one try
+	bool gpu_on = false;
 	fl slope = 10;
 	unsigned i;
 	for (i = 0; i < 3; i++)
 	{
 		nc.setSlope(slope);
-		quasi_newton_par(m, *minparm.prec, nc, out, g, authentic_v, empty_grid);
+		quasi_newton_par(m, *minparm.prec, nc, out, g, authentic_v, empty_grid, gpu_on);
 		m.set(out.c); // just to be sure
 		if (nc.within(m))
 			break;

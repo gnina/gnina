@@ -153,7 +153,7 @@ fl do_randomization(model& m, const vec& corner1,
 
 void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 		output_type& out, const vec& cap, const minimization_params& minparm,
-		grid& user_grid)
+		grid& user_grid, bool gpu_on)
 {
 	change g(m.get_size());
 
@@ -166,7 +166,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	VINA_FOR(p, 5)
 	{
 		nc.setSlope(slope);
-		quasi_newton_par(m, prec, nc, out, g, cap, user_grid); //quasi_newton operator
+		quasi_newton_par(m, prec, nc, out, g, cap, user_grid, gpu_on); //quasi_newton operator
 		m.set(out.c); // just to be sure
 		if (nc.within(m)) {
 			break;
@@ -205,7 +205,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		const vec& corner1, const vec& corner2,
 		const parallel_mc& par, const user_settings& settings,
 		bool compute_atominfo, tee& log,
-		const terms *t, grid& user_grid, std::vector<result_info>& results)
+		const terms *t, grid& user_grid, std::vector<result_info>& results, bool gpu_on)
 {
 	boost::timer time;
 
@@ -261,7 +261,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		output_type out(c, e);
 		doing(settings.verbosity, "Performing local search", log);
 		refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm,
-				user_grid);
+				user_grid, gpu_on);
 		done(settings.verbosity, log);
 
 		//be as exact as possible for final score
@@ -308,7 +308,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		doing(settings.verbosity, "Refining results", log);
 		VINA_FOR_IN(i, out_cont)
 			refine_structure(m, prec, nc, out_cont[i], authentic_v,
-					par.mc.ssd_par.minparm, user_grid);
+					par.mc.ssd_par.minparm, user_grid, gpu_on);
 
 		if (!out_cont.empty())
 		{
@@ -442,11 +442,11 @@ void main_procedure(model& m, precalculate& prec,
 		{
 			precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
 			if(!gprec) abort();
-			nc = new non_cache_gpu(gridcache, gd, gprec, slope, gpu_on);
+			nc = new non_cache_gpu(gridcache, gd, gprec, slope);
 		}
 		else
 		{
-			nc = new non_cache(gridcache, gd, &prec, slope, gpu_on);
+			nc = new non_cache(gridcache, gd, &prec, slope);
 		}
     /* cudaProfilerStart(); */
 
@@ -455,7 +455,7 @@ void main_procedure(model& m, precalculate& prec,
 			do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
 					settings, compute_atominfo, log,
 					wt.unweighted_terms(), user_grid,
-					results);
+					results, gpu_on);
 		}
 		else
 		{
@@ -473,7 +473,7 @@ void main_procedure(model& m, precalculate& prec,
 				done(settings.verbosity, log);
 			do_search(m, ref, wt, prec, c, *nc, corner1, corner2, par,
 					settings, compute_atominfo, log,
-					wt.unweighted_terms(), user_grid, results);
+					wt.unweighted_terms(), user_grid, results, gpu_on);
 		}
     /* cudaProfilerStop(); */
 

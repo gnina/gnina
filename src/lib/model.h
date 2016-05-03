@@ -29,6 +29,8 @@
 #include <string>
 #include "file.h"
 #include "tree.h"
+#include "tree_gpu.h"
+#include "conf_gpu.h"
 #include "matrix.h"
 #include "precalculate.h"
 #include "igrid.h"
@@ -177,11 +179,33 @@ struct ligand : public flexible_body, atom_range {
 	}
 };
 
+struct ligand_gpu : public flexible_body_gpu, atom_range_gpu {
+	unsigned degrees_of_freedom; // can be different from the apparent number of rotatable bonds, because of the disabled torsions
+	interacting_pairs pairs;
+	context cont;
+	ligand_gpu(): degrees_of_freedom(0) {}
+	ligand_gpu(const flexible_body_gpu& f, unsigned degrees_of_freedom_) : flexible_body_gpu(f), atom_range_gpu(0, 0), degrees_of_freedom(degrees_of_freedom_) {}
+	void set_range();
+
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned version) {
+		ar & degrees_of_freedom;
+		ar & pairs;
+		ar & cont;
+        ar & boost::serialization::base_object<flexible_body>(*this);
+        ar & boost::serialization::base_object<atom_range>(*this);
+	}
+};
 struct residue : public main_branch {
 	residue() {} //serialization
 	residue(const main_branch& m) : main_branch(m) {}
 };
 
+struct residue_gpu : public main_branch_gpu {
+	residue_gpu() {} //serialization
+	residue_gpu(const main_branch_gpu& m) : main_branch_gpu(m) {}
+};
 enum distance_type {DISTANCE_FIXED, DISTANCE_ROTOR, DISTANCE_VARIABLE};
 typedef strictly_triangular_matrix<distance_type> distance_type_matrix;
 
@@ -260,6 +284,9 @@ struct model {
 	void sete(const conf& c);
 	void set (const conf& c);
 
+	void seti(const conf_gpu& c);
+	void sete(const conf_gpu& c);
+	void set (const conf_gpu& c);
 	std::string ligand_atom_str(sz i, sz lig=0) const;
 	fl gyration_radius(sz ligand_number) const; // uses coords
 
@@ -276,11 +303,16 @@ struct model {
 	fl evali     (const precalculate& p,                  const vec& v                          		) const;
 	fl evale     (const precalculate& p, const igrid& ig, const vec& v                          		) const;
 	fl eval      (const precalculate& p, const igrid& ig, const vec& v, const conf& c, const grid& user_grid	);
+	fl eval      (const precalculate& p, const igrid& ig, const vec& v, const conf_gpu& c, const grid& user_grid	);
 	fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v, const conf& c, change& g, const grid& user_grid);
+	fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v, const conf_gpu& c, change_gpu& g, const grid& user_grid);
 
 	fl eval_flex(const precalculate& p, const vec& v, const conf& c, unsigned maxGridAtom=0);
+	fl eval_flex(const precalculate& p, const vec& v, const conf_gpu& c, unsigned maxGridAtom=0);
 	fl eval_intramolecular(const precalculate& p, const vec& v, const conf& c);
+	fl eval_intramolecular(const precalculate& p, const vec& v, const conf_gpu& c);
 	fl eval_adjusted      (const scoring_function& sf, const precalculate& p, const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy, const grid& user_grid);
+	fl eval_adjusted      (const scoring_function& sf, const precalculate& p, const igrid& ig, const vec& v, const conf_gpu& c, fl intramolecular_energy, const grid& user_grid);
 
 
 	fl rmsd_lower_bound(const model& m) const; // uses coords

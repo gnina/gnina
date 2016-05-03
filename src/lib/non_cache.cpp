@@ -25,9 +25,9 @@
 #include "loop_timer.h"
 
 non_cache::non_cache(szv_grid_cache& gcache, const grid_dims& gd_,
-		const precalculate* p_, fl slope_, bool gpu_on) :
-		sgrid(gcache, gd_), gd(gd_), p(p_), slope(
-				slope_, gpu_on(gpu_on))
+		const precalculate* p_, fl slope_) :
+		sgrid(gcache, gd_), gd(gd_), p(p_), 
+		slope(slope_)
 {
 }
 

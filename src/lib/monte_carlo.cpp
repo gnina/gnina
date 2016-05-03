@@ -43,6 +43,7 @@ void monte_carlo::single_run(model& m, output_type& out, const precalculate& p, 
 	change g(s);
 	vec authentic_v(1000, 1000, 1000);
 	out.e = max_fl;
+	bool gpu_on = false;
 	output_type current(out);
 	minimization_params minparms = ssd_par.minparm;
 	if(minparms.maxiters == 0)
@@ -52,15 +53,15 @@ void monte_carlo::single_run(model& m, output_type& out, const precalculate& p, 
 	VINA_U_FOR(step, num_steps) {
 		output_type candidate(current.c, max_fl);
 		mutate_conf(candidate.c, m, mutation_amplitude, generator);
-		quasi_newton_par(m, p, ig, candidate, g, hunt_cap, user_grid);
+		quasi_newton_par(m, p, ig, candidate, g, hunt_cap, user_grid, gpu_on);
 		if(step == 0 || metropolis_accept(current.e, candidate.e, temperature, generator)) {
-			quasi_newton_par(m, p, ig, candidate, g, authentic_v, user_grid);
+			quasi_newton_par(m, p, ig, candidate, g, authentic_v, user_grid, gpu_on);
 			current = candidate;
 			if(current.e < out.e)
 				out = current;
 		}
 	}
-	quasi_newton_par(m, p, ig, out, g, authentic_v, user_grid);
+	quasi_newton_par(m, p, ig, out, g, authentic_v, user_grid, gpu_on);
 }
 
 void monte_carlo::many_runs(model& m, output_container& out, const precalculate& p, const igrid& ig, const vec& corner1, const vec& corner2, sz num_runs, rng& generator, grid& user_grid) const {
@@ -90,6 +91,7 @@ void monte_carlo::operator()(model& m, output_container& out, const precalculate
 	output_type tmp(s, 0);
 	tmp.c.randomize(corner1, corner2, generator);
 	fl best_e = max_fl;
+	bool gpu_on = false;
 	minimization_params minparms = ssd_par.minparm;
 	if(minparms.maxiters == 0)
 		minparms.maxiters = ssd_par.evals;
@@ -99,7 +101,7 @@ void monte_carlo::operator()(model& m, output_container& out, const precalculate
 			++(*increment_me);
 		output_type candidate = tmp;
 		mutate_conf(candidate.c, m, mutation_amplitude, generator);
-		quasi_newton_par(m, p, ig, candidate, g, hunt_cap, user_grid);
+		quasi_newton_par(m, p, ig, candidate, g, hunt_cap, user_grid, gpu_on);
 		if(step == 0 || metropolis_accept(tmp.e, candidate.e, temperature, generator)) {
 			tmp = candidate;
 
@@ -107,7 +109,7 @@ void monte_carlo::operator()(model& m, output_container& out, const precalculate
 
 			// FIXME only for very promising ones
 			if(tmp.e < best_e || out.size() < num_saved_mins) {
-				quasi_newton_par(m, p, ig, tmp, g, authentic_v, user_grid);
+				quasi_newton_par(m, p, ig, tmp, g, authentic_v, user_grid, gpu_on);
 				m.set(tmp.c); // FIXME? useless?
 				tmp.coords = m.get_heavy_atom_movable_coords();
 				add_to_output_container(out, tmp, min_rmsd, num_saved_mins); // 20 - max size

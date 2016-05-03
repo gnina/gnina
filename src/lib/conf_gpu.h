@@ -28,6 +28,8 @@
 #include "quaternion.h"
 #include "random.h"
 #include "conf.h"
+#include <iostream>
+#include <string>
 
 struct scale_gpu {
 	fl position;
@@ -44,24 +46,24 @@ struct conf_size_gpu {
 	}
 };
 
-inline void torsions_set_to_null(flv& torsions) {
+inline void torsions_set_to_null_gpu(flv& torsions) {
 	VINA_FOR_IN(i, torsions)
 		torsions[i] = 0;
 }
 
-inline void torsions_increment(flv& torsions, const flv& c, fl factor) { // new torsions are normalized
+inline void torsions_increment_gpu(flv& torsions, const flv& c, fl factor) { // new torsions are normalized
 	VINA_FOR_IN(i, torsions) {
 		torsions[i] += normalized_angle(factor * c[i]);
 		normalize_angle(torsions[i]);
 	}
 }
 
-inline void torsions_randomize(flv& torsions, rng& generator) {
+inline void torsions_randomize_gpu(flv& torsions, rng& generator) {
 	VINA_FOR_IN(i, torsions)
 		torsions[i] = random_fl(-pi, pi, generator);
 }
 
-inline bool torsions_too_close(const flv& torsions1, const flv& torsions2, fl cutoff) {
+inline bool torsions_too_close_gpu(const flv& torsions1, const flv& torsions2, fl cutoff) {
 	assert(torsions1.size() == torsions2.size());
 	VINA_FOR_IN(i, torsions1)
 		if(std::abs(normalized_angle(torsions1[i] - torsions2[i])) > cutoff) 
@@ -69,7 +71,7 @@ inline bool torsions_too_close(const flv& torsions1, const flv& torsions2, fl cu
 	return true;
 }
 
-inline void torsions_generate(flv& torsions, fl spread, fl rp, const flv* rs, rng& generator) {
+inline void torsions_generate_gpu(flv& torsions, fl spread, fl rp, const flv* rs, rng& generator) {
 	assert(!rs || rs->size() == torsions.size()); // if present, rs should be the same size as torsions
 	VINA_FOR_IN(i, torsions)
 		if(rs && random_fl(0, 1, generator) < rp)
@@ -81,6 +83,14 @@ inline void torsions_generate(flv& torsions, fl spread, fl rp, const flv* rs, rn
 struct rigid_change_gpu {
 	vec position;
 	vec orientation;
+	rigid_change_gpu(const rigid_change& rc) {
+		for (int i=0; i<rc.position.size(); i++) {
+			position[i] = rc.position[i];
+		}
+		for (int i=0; i<rc.orientation.size(); i++) {
+			orientation[i] = rc.orientation[i];
+		}
+	}
 	rigid_change_gpu() : position(0, 0, 0), orientation(0, 0, 0) {}
 	void print() const {
 		::print(position);
@@ -91,6 +101,12 @@ struct rigid_change_gpu {
 struct rigid_conf_gpu {
 	vec position;
 	qt orientation;
+	rigid_conf_gpu(const rigid_conf& rc) {
+		for (int i=0; i<rc.position.size(); i++) {
+			position[i] = rc.position[i];
+		}
+		orientation = rc.orientation;
+	}
 	rigid_conf_gpu() : position(0, 0, 0), orientation(qt_identity) {}
 	void set_to_null() {
 		position = zero_vec;
@@ -149,6 +165,8 @@ private:
 struct ligand_change_gpu {
 	rigid_change_gpu rigid;
 	flv torsions;
+	ligand_change_gpu(const ligand_change& lc) : rigid(lc.rigid), torsions(lc.torsions) {}
+	ligand_change_gpu() {}
 	void print() const {
 		rigid.print();
 		printnl(torsions);
@@ -158,17 +176,19 @@ struct ligand_change_gpu {
 struct ligand_conf_gpu {
 	rigid_conf_gpu rigid;
 	flv torsions;
+	ligand_conf_gpu(const ligand_conf& lc) : rigid(lc.rigid), torsions(lc.torsions) {}
+	ligand_conf_gpu() {}
 	void set_to_null() {
 		rigid.set_to_null();
-		torsions_set_to_null(torsions);
+		torsions_set_to_null_gpu(torsions);
 	}
 	void increment(const ligand_change_gpu& c, fl factor) {
 		rigid.increment(c.rigid, factor);
-		torsions_increment(torsions, c.torsions, factor);
+		torsions_increment_gpu(torsions, c.torsions, factor);
 	}
 	void randomize(const vec& corner1, const vec& corner2, rng& generator) {
 		rigid.randomize(corner1, corner2, generator);
-		torsions_randomize(torsions, generator);
+		torsions_randomize_gpu(torsions, generator);
 	}
 	void print() const {
 		rigid.print();
@@ -185,6 +205,8 @@ private:
 
 struct residue_change_gpu {
 	flv torsions;
+	residue_change_gpu(const residue_change& rc) : torsions(rc.torsions) {}
+	residue_change_gpu() {}
 	void print() const {
 		printnl(torsions);
 	}
@@ -192,14 +214,16 @@ struct residue_change_gpu {
 
 struct residue_conf_gpu {
 	flv torsions;
+	residue_conf_gpu(const residue_conf& rc) : torsions(rc.torsions) {}
+	residue_conf_gpu() {}
 	void set_to_null() {
-		torsions_set_to_null(torsions);
+		torsions_set_to_null_gpu(torsions);
 	}
 	void increment(const residue_change_gpu& c, fl factor) {
-		torsions_increment(torsions, c.torsions, factor);
+		torsions_increment_gpu(torsions, c.torsions, factor);
 	}
 	void randomize(rng& generator) {
-		torsions_randomize(torsions, generator);
+		torsions_randomize_gpu(torsions, generator);
 	}
 	void print() const {
 		printnl(torsions);
@@ -212,9 +236,17 @@ private:
 	}
 };
 
-struct change_gpu : public change {
+struct change_gpu {
 	std::vector<ligand_change_gpu> ligands;
 	std::vector<residue_change_gpu> flex;
+	change_gpu(const change& c) {
+		for (int i=0; i<c.ligands.size(); i++) {
+			ligands.push_back(ligand_change_gpu(c.ligands[i]));
+		}	
+		for (int i=0; i<c.flex.size(); i++) {
+			flex.push_back(residue_change_gpu(c.flex[i]));
+		}
+	}	
 	change_gpu(const conf_size_gpu& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
 		VINA_FOR_IN(i, ligands)
 			ligands[i].torsions.resize(s.ligands[i], 0);
@@ -301,6 +333,14 @@ struct change_gpu : public change {
 struct conf_gpu {
 	std::vector<ligand_conf_gpu> ligands;
 	std::vector<residue_conf_gpu> flex;
+	conf_gpu(const conf& c) {
+		for (int i=0; i<c.ligands.size(); i++) {
+			ligands.push_back(ligand_conf_gpu(c.ligands[i]));
+		}
+		for (int i=0; i<c.flex.size(); i++) {
+			flex.push_back(residue_conf_gpu(c.flex[i]));
+		}
+	}
 	conf_gpu() {}
 	conf_gpu(const conf_size_gpu& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
 		VINA_FOR_IN(i, ligands)
@@ -315,31 +355,31 @@ struct conf_gpu {
 			flex[i].set_to_null();
 	}
 	void increment(const change_gpu& c, fl factor) { // torsions get normalized, orientations do not
-		log << "heygirl hey\n";
+		std::cout << "heygirl hey\n";
 		VINA_FOR_IN(i, ligands)
 			ligands[i].increment(c.ligands[i], factor);
 		VINA_FOR_IN(i, flex)
 			flex[i]   .increment(c.flex[i],    factor);
 	}
-	bool internal_too_close(const conf& c, fl torsions_cutoff) const {
+	bool internal_too_close(const conf_gpu& c, fl torsions_cutoff) const {
 		assert(ligands.size() == c.ligands.size());
 		VINA_FOR_IN(i, ligands)
-			if(!torsions_too_close(ligands[i].torsions, c.ligands[i].torsions, torsions_cutoff))
+			if(!torsions_too_close_gpu(ligands[i].torsions, c.ligands[i].torsions, torsions_cutoff))
 				return false;
 		return true;
 	}
-	bool external_too_close(const conf& c, const scale_gpu& cutoff) const {
+	bool external_too_close(const conf_gpu& c, const scale_gpu& cutoff) const {
 		assert(ligands.size() == c.ligands.size());
 		VINA_FOR_IN(i, ligands)
 			if(!ligands[i].rigid.too_close(c.ligands[i].rigid, cutoff.position, cutoff.orientation))
 				return false;
 		assert(flex.size() == c.flex.size());
 		VINA_FOR_IN(i, flex)
-			if(!torsions_too_close(flex[i].torsions, c.flex[i].torsions, cutoff.torsion))
+			if(!torsions_too_close_gpu(flex[i].torsions, c.flex[i].torsions, cutoff.torsion))
 				return false;
 		return true;
 	}
-	bool too_close(const conf& c, const scale_gpu& cutoff) const {
+	bool too_close(const conf_gpu& c, const scale_gpu& cutoff) const {
 		return internal_too_close(c, cutoff.torsion) &&
 			   external_too_close(c, cutoff); // a more efficient implementation is possible, probably
 	}
@@ -348,17 +388,17 @@ struct conf_gpu {
 			ligands[i].rigid.position.assign(0);
 			ligands[i].rigid.orientation = qt_identity;
 			const flv* torsions_rs = rs ? (&rs->ligands[i].torsions) : NULL;
-			torsions_generate(ligands[i].torsions, torsion_spread, rp, torsions_rs, generator);
+			torsions_generate_gpu(ligands[i].torsions, torsion_spread, rp, torsions_rs, generator);
 		}
 	}
-	void generate_external(const scale_gpu& spread, fl rp, const conf* rs, rng& generator) { // torsions are not normalized after this
+	void generate_external(const scale_gpu& spread, fl rp, const conf_gpu* rs, rng& generator) { // torsions are not normalized after this
 		VINA_FOR_IN(i, ligands) {
 			const rigid_conf_gpu* rigid_conf_rs = rs ? (&rs->ligands[i].rigid) : NULL;
 			ligands[i].rigid.generate(spread.position, spread.orientation, rp, rigid_conf_rs, generator);
 		}
 		VINA_FOR_IN(i, flex) {
 			const flv* torsions_rs = rs ? (&rs->flex[i].torsions) : NULL;
-			torsions_generate(flex[i].torsions, spread.torsion, rp, torsions_rs, generator);
+			torsions_generate_gpu(flex[i].torsions, spread.torsion, rp, torsions_rs, generator);
 		}
 	}
 	void randomize(const vec& corner1, const vec& corner2, rng& generator) {
@@ -407,16 +447,17 @@ private:
 	}
 };
 
-struct output_type_gpu : public output_type {
-	conf c;
+struct output_type_gpu {
+	conf_gpu c;
 	fl e;
 	vecv coords;
-	output_type_gpu(const conf& c_, fl e_) : c(c_), e(e_) {}
+	output_type_gpu(const conf_gpu& c_, fl e_) : c(c_), e(e_) {}
+	output_type_gpu(output_type& ot) : c(ot.c), e(ot.e), coords(ot.coords) {}
 };
 
-typedef boost::ptr_vector<output_type> output_container;
+typedef boost::ptr_vector<output_type_gpu> output_container_gpu;
 
-inline bool operator<(const output_type& a, const output_type& b) { // for sorting output_container
+inline bool operator<(const output_type_gpu& a, const output_type_gpu& b) { // for sorting output_container
 	return a.e < b.e;
 }
 
