@@ -6,6 +6,7 @@
  */
 
 #include "cnn_scorer.h"
+#include "gridoptions.h"
 
 #include "caffe/common.hpp"
 #include "caffe/layer.hpp"
@@ -18,12 +19,14 @@ using namespace std;
 
 //initialize from commandline options
 //throw error if missing required info
-CNNScorer::CNNScorer(const cnn_options& cnnopts, const model& m) {
+CNNScorer::CNNScorer(const cnn_options& cnnopts,  const vec& center, const model& m) {
 	if(cnnopts.cnn_scoring) {
 		//load cnn model
 	  NetParameter param;
 	  ReadNetParamsFromTextFileOrDie(cnnopts.cnn_model, &param);
 	  param.mutable_state()->set_phase(TEST);
+	  //set batchsize to one
+
 	  net.reset(new Net<float>(param));
 
 		//load weights
@@ -49,6 +52,27 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const model& m) {
 	  }
 
 		//initialize receptor part of grid
+	  BlobShape shape = data->layer_param().ndim_data_param().shape();
+	  if(shape.dim_size() != 4) {
+		  throw usage_error("Input data layer does not have correct number of dimensions.");
+	  }
+	  unsigned nchannels = shape.dim(0);
+	  unsigned dim = shape.dim(1);
+	  if(dim != shape.dim(2) || dim != shape.dim(3)) {
+		  throw usage_error("Input data layer does not have cubic dimensions.");
+	  }
+
+	  gridoptions gopt;
+	  gopt.res = cnnopts.resolution;
+	  gopt.dim = round((dim-1)*gopt.res);
+
+	  gopt.x = center[0];
+	  gopt.y = center[1];
+	  gopt.z = center[2];
+
+	  grid.initialize(gopt);
+	  grid.setReceptor(m);
+
 	}
 
 }

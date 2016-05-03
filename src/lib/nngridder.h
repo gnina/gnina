@@ -75,6 +75,8 @@ public:
 	//initialize default receptor/ligand maps
 	static void createDefaultRecMap(vector<int>& map);
 	static void createDefaultLigMap(vector<int>& map);
+
+	unsigned nchannels() const { return receptorGrids.size() + ligandGrids.size(); }
 };
 
 /* This gridder uses a MolGetter to read molecules */
@@ -101,14 +103,15 @@ class NNModelGridder : public NNGridder
 public:
   typedef boost::math::quaternion<double> quaternion;
 private:
-	MolGetter mols; //this stores the models
 
 public:
 
-	NNModelGridder(const gridoptions& opt);
+	NNModelGridder() {}
 
-	void setReceptor(model& m);
-	void setLigand(model& m);
+	void initialize(const gridoptions& opt);
+
+	void setReceptor(const model& m);
+	void setLigand(const model& m);
 
 };
 

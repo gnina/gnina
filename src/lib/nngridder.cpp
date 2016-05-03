@@ -546,7 +546,7 @@ NNMolsGridder::NNMolsGridder(const gridoptions& opt, quaternion q)
 }
 
 
-NNModelGridder::NNModelGridder(const gridoptions& opt)
+void NNModelGridder::initialize(const gridoptions& opt)
 {
 	binary = opt.binary;
 	resolution = opt.res;
@@ -560,7 +560,7 @@ NNModelGridder::NNModelGridder(const gridoptions& opt)
 	//setRecptor needs to be called to init receptor grids
 }
 
-void NNModelGridder::setReceptor(model& m)
+void NNModelGridder::setReceptor(const model& m)
 {
 	zeroGrids(receptorGrids);
 	const atomv& atoms = m.get_fixed_atoms();
@@ -572,7 +572,7 @@ void NNModelGridder::setReceptor(model& m)
 	}
 }
 
-void NNModelGridder::setLigand(model& m)
+void NNModelGridder::setLigand(const model& m)
 {
 	zeroGrids(ligandGrids);
 	//fill in heavy atoms

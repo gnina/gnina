@@ -18,10 +18,10 @@ struct cnn_options {
 	std::string cnn_weights; //weights for model
 	std::string cnn_recmap; //optional file specifying receptor atom typing to channel map
 	std::string cnn_ligmap; //optional file specifying ligand atom typing to channel map
-
+	double resolution; //this isn't specified in model file, so be careful about straying from default
 	bool cnn_scoring; //if true, do cnn_scoring of final pose
 
-	cnn_options(): cnn_scoring(false) {}
+	cnn_options(): resolution(0.5), cnn_scoring(false) {}
 };
 
 /* This class evaluates protein-ligand poses according to a provided
@@ -30,13 +30,13 @@ struct cnn_options {
 class CNNScorer {
 	typedef float Dtype;
 	caffe::shared_ptr<caffe::Net<Dtype> > net;
-	//NNGridder grid;
+	NNModelGridder grid;
 
 public:
 	CNNScorer() {}
 	virtual ~CNNScorer() {}
 
-	CNNScorer(const cnn_options& cnnopts, const model& m);
+	CNNScorer(const cnn_options& cnnopts, const vec& center, const model& m);
 
 	bool initialized() const { return net; }
 

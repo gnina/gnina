@@ -312,6 +312,10 @@ struct model {
 		return coords;
 	}
 
+	const vecv& coordinates() const { //return reference to all coords
+		return coords;
+	}
+
 	void dump_coords(std::ostream& out) const {
 		VINA_FOR(i, coords.size()) {
 			out << i << " " << coords[i][0] << "," << coords[i][1] << "," << coords[i][2] << "\n";

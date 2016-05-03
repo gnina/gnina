@@ -5,10 +5,13 @@
 #include <exception>
 #include <vector> // ligand paths#include <cmath> // for ceila
 #include <algorithm>
-#include <iterator>#include <boost/filesystem/fstream.hpp>#include <boost/filesystem/exception.hpp>
+#include <iterator>
+#include <boost/filesystem/fstream.hpp>
+#include <boost/filesystem/exception.hpp>
 #include <boost/filesystem/convenience.hpp> // filesystem::basename#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?#include <boost/lexical_cast.hpp>
 #include <boost/assign.hpp>
-#include "parse_pdbqt.h"#include "parallel_mc.h"
+#include "parse_pdbqt.h"
+#include "parallel_mc.h"
 #include "file.h"
 #include "cache.h"
 #include "non_cache.h"
@@ -71,10 +74,12 @@ struct user_settings
 	bool include_atom_info;
 
 	//reasonable defaults
-	user_settings(): energy_range(2.0), num_modes(9), out_min_rmsd(1),
-			forcecap(1000),seed(auto_seed()),verbosity(1), cpu(1), exhaustiveness(10),
-			score_only(false), randomize_only(false), local_only(false),
-			dominimize(false), include_atom_info(false)
+	user_settings() :
+			energy_range(2.0), num_modes(9), out_min_rmsd(1),
+					forcecap(1000), seed(auto_seed()), verbosity(1), cpu(1), exhaustiveness(
+							10),
+					score_only(false), randomize_only(false), local_only(false),
+					dominimize(false), include_atom_info(false)
 	{
 
 	}
@@ -169,7 +174,8 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 		nc.setSlope(slope);
 		quasi_newton_par(m, prec, nc, out, g, cap, user_grid); //quasi_newton operator
 		m.set(out.c); // just to be sure
-		if (nc.within(m)) {
+		if (nc.within(m))
+		{
 			break;
 		}
 		slope *= 10;
@@ -215,7 +221,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 	conf c = m.get_initial_conf();
 	fl e = max_fl;
 	fl rmsd = 0;
-	const vec authentic_v(settings.forcecap, settings.forcecap, settings.forcecap); //small cap restricts initial movement from clash
+	const vec authentic_v(settings.forcecap, settings.forcecap,
+			settings.forcecap); //small cap restricts initial movement from clash
 	if (settings.score_only)
 	{
 		fl intramolecular_energy = m.eval_intramolecular(exact_prec,
@@ -235,7 +242,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log
 		<< "Term values, before weighting:\n";
 		log << std::setprecision(5);
-		log << "## " << boost::replace_all_copy(m.get_name()," ","_");
+		log << "## " << boost::replace_all_copy(m.get_name(), " ", "_");
 
 		VINA_FOR_IN(i, term_values)
 		{
@@ -431,7 +438,8 @@ void main_procedure(model& m, precalculate& prec,
 	const fl slope = 1e6; // FIXME: too large? used to be 100
 	if (settings.randomize_only)
 	{
-		fl e = do_randomization(m, corner1, corner2, settings.seed, settings.verbosity, log);
+		fl e = do_randomization(m, corner1, corner2, settings.seed,
+				settings.verbosity, log);
 		results.push_back(result_info(e, -1, m));
 		return;
 	}
@@ -439,17 +447,18 @@ void main_procedure(model& m, precalculate& prec,
 	{
 
 		non_cache *nc = NULL;
-		if(gpu_on)
+		if (gpu_on)
 		{
 			precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
-			if(!gprec) abort();
+			if (!gprec)
+				abort();
 			nc = new non_cache_gpu(gridcache, gd, gprec, slope);
 		}
 		else
 		{
 			nc = new non_cache(gridcache, gd, &prec, slope);
 		}
-    /* cudaProfilerStart(); */
+		/* cudaProfilerStart(); */
 
 		if (no_cache)
 		{
@@ -460,7 +469,8 @@ void main_procedure(model& m, precalculate& prec,
 		}
 		else
 		{
-			bool cache_needed = !(settings.score_only || settings.randomize_only || settings.local_only);
+			bool cache_needed = !(settings.score_only || settings.randomize_only
+					|| settings.local_only);
 			if (cache_needed)
 				doing(settings.verbosity, "Analyzing the binding site", log);
 			cache c("scoring_function_version001", gd, slope);
@@ -476,12 +486,11 @@ void main_procedure(model& m, precalculate& prec,
 					settings, compute_atominfo, log,
 					wt.unweighted_terms(), user_grid, results);
 		}
-    /* cudaProfilerStop(); */
+		/* cudaProfilerStop(); */
 
 		delete nc;
 	}
 }
-
 
 struct options_occurrence
 {
@@ -529,13 +538,17 @@ void check_occurrence(boost::program_options::variables_map& vm,
 	}
 }
 
-
-template <class T>
-inline void read_atomconstants_field(smina_atom_type::info& info, T (smina_atom_type::info::* field), unsigned int line, const std::string& field_name, std::istream& in)
+template<class T>
+inline void read_atomconstants_field(smina_atom_type::info& info,
+		T (smina_atom_type::info::*field), unsigned int line,
+		const std::string& field_name, std::istream& in)
 {
-	if (!(in >> (info.*field) ))
+	if (!(in >> (info.*field)))
 	{
-		throw usage_error("Error at line " + boost::lexical_cast<std::string>(line) + " while reading field '" + field_name + "' from the atom constants file.");
+		throw usage_error(
+				"Error at line " + boost::lexical_cast<std::string>(line)
+						+ " while reading field '" + field_name
+						+ "' from the atom constants file.");
 	}
 }
 
@@ -546,7 +559,7 @@ void setup_atomconstants_from_file(const std::string& atomconstants_file)
 	{
 		// create map from atom type names to indices
 		boost::unordered_map<std::string, unsigned> atomindex;
-		for(size_t i = 0u; i < smina_atom_type::NumTypes; ++i)
+		for (size_t i = 0u; i < smina_atom_type::NumTypes; ++i)
 		{
 			atomindex[smina_atom_type::default_data[i].smina_name] = i;
 		}
@@ -554,17 +567,17 @@ void setup_atomconstants_from_file(const std::string& atomconstants_file)
 		//parse each line of the file
 		std::string line;
 		unsigned lineno = 1;
-		while(std::getline(file, line))
+		while (std::getline(file, line))
 		{
 			std::string name;
 			std::stringstream ss(line);
 
-			if(line.length() == 0 || line[0] == '#')
+			if (line.length() == 0 || line[0] == '#')
 				continue;
 
 			ss >> name;
-			
-			if(atomindex.count(name))
+
+			if (atomindex.count(name))
 			{
 				unsigned i = atomindex[name];
 				smina_atom_type::info& info = smina_atom_type::data[i];
@@ -585,19 +598,23 @@ void setup_atomconstants_from_file(const std::string& atomconstants_file)
 			}
 			else
 			{
-				std::cerr << "Line " << lineno << ": ommitting atom type name " << name << "\n";
+				std::cerr << "Line " << lineno << ": ommitting atom type name "
+						<< name << "\n";
 			}
 			lineno++;
 		}
 	}
 	else
-		throw usage_error("Error opening atom constants file:  " + atomconstants_file);
+		throw usage_error(
+				"Error opening atom constants file:  " + atomconstants_file);
 }
 
 void print_atom_info(std::ostream& out)
 {
-	out << "#Name radius depth solvation volume covalent_radius xs_radius xs_hydrophobe xs_donor xs_acceptr ad_heteroatom\n";
-	VINA_FOR(i, smina_atom_type::NumTypes) {
+	out
+			<< "#Name radius depth solvation volume covalent_radius xs_radius xs_hydrophobe xs_donor xs_acceptr ad_heteroatom\n";
+	VINA_FOR(i, smina_atom_type::NumTypes)
+	{
 		smina_atom_type::info& info = smina_atom_type::data[i];
 		out << info.smina_name;
 		out << " " << info.ad_radius;
@@ -613,7 +630,6 @@ void print_atom_info(std::ostream& out)
 		out << "\n";
 	}
 }
-
 
 void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
 {
@@ -675,7 +691,7 @@ std::istream& operator>>(std::istream& in, ApproxType& type)
 	else if (token == "exact")
 		type = Exact;
 	else if (token == "gpu")
-	  type = GPU;
+		type = GPU;
 	else
 		throw validation_error(validation_error::invalid_option_value);
 	return in;
@@ -699,54 +715,71 @@ static void initializeCUDA(int device)
 
 	if (deviceProp.computeMode == cudaComputeModeProhibited)
 	{
-		std::cerr << "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n";
+		std::cerr
+				<< "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n";
 		exit(-1);
 	}
 
 	if (error != cudaSuccess)
 	{
-		std::cerr << "cudaGetDeviceProperties returned error code " << error << "\n";
+		std::cerr << "cudaGetDeviceProperties returned error code " << error
+				<< "\n";
 		exit(-1);
 	}
 }
 
 //work queue job format
-struct worker_job {
+struct worker_job
+{
 	unsigned int molid;
 	model* m;
 	std::vector<result_info>* results;
 	grid_dims gd;
 
 	worker_job(unsigned int molid, model* m, std::vector<result_info>* results,
-			grid_dims gd):
-		molid(molid), m(m), results(results), gd(gd) {};
-	
-	worker_job():
-		molid(0), m(NULL), results(NULL) {
-			for (int i=0; i<3; i++) {
-				gd[i] = grid_dim();
-			}
-		};
+			grid_dims gd) :
+			molid(molid), m(m), results(results), gd(gd)
+	{
+	}
+	;
+
+	worker_job() :
+			molid(0), m(NULL), results(NULL)
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			gd[i] = grid_dim();
+		}
+	}
+	;
 
 };
 
 //writer queue job format
-struct writer_job {
+struct writer_job
+{
 	unsigned int molid;
 	std::vector<result_info>* results;
 
-	writer_job(unsigned int molid, std::vector<result_info>* results):
-		molid(molid), results(results) {};
+	writer_job(unsigned int molid, std::vector<result_info>* results) :
+			molid(molid), results(results)
+	{
+	}
+	;
 
-	writer_job():
-		molid(0), results(NULL) {};	
+	writer_job() :
+			molid(0), results(NULL)
+	{
+	}
+	;
 };
 
 //A struct of parameters that define the current run. These are packed together
 //because of boost's restriction on the number of arguments you can 
 //give to bind (max args is 9, but I need 10+ for the following thread
 //functions) so I can reduce the number of args I pass.
-struct global_state {
+struct global_state
+{
 	user_settings* settings;
 	boost::shared_ptr<precalculate> prec;
 	bool gpu_on;
@@ -759,47 +792,65 @@ struct global_state {
 
 	global_state(user_settings* settings, boost::shared_ptr<precalculate> prec,
 			bool gpu_on, minimization_params* minparms, weighted_terms* wt,
-			grid* user_grid, tee* log, std::ofstream* atomoutfile, CNNScorer cnn):
-		settings(settings), prec(prec), gpu_on(gpu_on), minparms(minparms), wt(wt),
-		user_grid(user_grid), log(log), atomoutfile(atomoutfile), cnn_scorer(cnn) {};
+			grid* user_grid, tee* log, std::ofstream* atomoutfile,
+			CNNScorer cnn) :
+			settings(settings), prec(prec), gpu_on(gpu_on), minparms(minparms), wt(
+					wt),
+					user_grid(user_grid), log(log), atomoutfile(atomoutfile), cnn_scorer(
+							cnn)
+	{
+	}
+	;
 };
 
 //function to occupy the worker threads with individual ligands from the work queue
-void threads_at_work(boost::lockfree::queue<worker_job>* wrkq, 
-		boost::lockfree::queue<writer_job>* writerq, global_state* gs, MolGetter* mols, 
-		bool* work_done, int* nligs, bool* ligcount_final) {
-	while (!*work_done || !wrkq->empty()) {
+void threads_at_work(boost::lockfree::queue<worker_job>* wrkq,
+		boost::lockfree::queue<writer_job>* writerq, global_state* gs,
+		MolGetter* mols,
+		bool* work_done, int* nligs, bool* ligcount_final)
+{
+	while (!*work_done || !wrkq->empty())
+	{
 		worker_job j;
-		if (wrkq->pop(j)) {
+		if (wrkq->pop(j))
+		{
 			__sync_fetch_and_add(nligs, 1);
 
-			main_procedure(*(j.m), *gs->prec, boost::optional<model> (), *gs->settings,
+			main_procedure(*(j.m), *gs->prec, boost::optional<model>(),
+					*gs->settings,
 					false, // no_cache == false
-					gs->atomoutfile->is_open() || gs->settings->include_atom_info, gs->gpu_on,
-					j.gd, *gs->minparms, *gs->wt, *gs->log, *(j.results), *gs->user_grid);
+					gs->atomoutfile->is_open()
+							|| gs->settings->include_atom_info, gs->gpu_on,
+					j.gd, *gs->minparms, *gs->wt, *gs->log, *(j.results),
+					*gs->user_grid);
 
 			writer_job k(j.molid, j.results);
 			writerq->push(k);
 			delete j.m;
-		} else {
+		}
+		else
+		{
 			boost::thread::yield();
 		}
 	}
 	*ligcount_final = true;
 }
 
-void write_out(std::vector<result_info> &results, ozfile &outfile, std::string &outext, 
-		user_settings &settings, const weighted_terms &wt, ozfile &outflex, 
-		std::string &outfext, std::ofstream &atomoutfile) {
+void write_out(std::vector<result_info> &results, ozfile &outfile,
+		std::string &outext,
+		user_settings &settings, const weighted_terms &wt, ozfile &outflex,
+		std::string &outfext, std::ofstream &atomoutfile)
+{
 	if (outfile)
 	{
 		//write out molecular data
 		for (unsigned j = 0, nr = results.size(); j < nr; j++)
 		{
-			results[j].write(outfile, outext, settings.include_atom_info, &wt, j+1);
+			results[j].write(outfile, outext, settings.include_atom_info, &wt,
+					j + 1);
 		}
 	}
-	if(outflex)
+	if (outflex)
 	{
 		//write out flexible residue data data
 		for (unsigned j = 0, nr = results.size(); j < nr; j++)
@@ -817,35 +868,46 @@ void write_out(std::vector<result_info> &results, ozfile &outfile, std::string &
 }
 
 //function for the writing thread to write ligands in order to output file
-void thread_a_writing(boost::lockfree::queue<writer_job>* writerq, global_state* gs,
-		ozfile* outfile, std::string* outext, ozfile* outflex, std::string* outfext,
-		int* nligs, bool* ligcount_final) {
+void thread_a_writing(boost::lockfree::queue<writer_job>* writerq,
+		global_state* gs,
+		ozfile* outfile, std::string* outext, ozfile* outflex,
+		std::string* outfext,
+		int* nligs, bool* ligcount_final)
+{
 	int nwritten = 0;
 	boost::unordered_map<int, std::vector<result_info>*> proc_out;
-	while (!*ligcount_final || nwritten < *nligs){
-		writer_job j;	
-		if (writerq->pop(j)) {
-			if (j.molid == nwritten) {
-				write_out(*j.results, *outfile, *outext, *gs->settings, *gs->wt, 
+	while (!*ligcount_final || nwritten < *nligs)
+	{
+		writer_job j;
+		if (writerq->pop(j))
+		{
+			if (j.molid == nwritten)
+			{
+				write_out(*j.results, *outfile, *outext, *gs->settings, *gs->wt,
 						*outflex, *outfext, *gs->atomoutfile);
 				nwritten++;
 				delete j.results;
-				for (boost::unordered_map<int, std::vector<result_info>*>::iterator i; (i = proc_out.find(nwritten)) != proc_out.end();) {
-					write_out(*i->second, *outfile, *outext, *gs->settings, *gs->wt,
+				for (boost::unordered_map<int, std::vector<result_info>*>::iterator i;
+						(i = proc_out.find(nwritten)) != proc_out.end();)
+				{
+					write_out(*i->second, *outfile, *outext, *gs->settings,
+							*gs->wt,
 							*outflex, *outfext, *gs->atomoutfile);
 					nwritten++;
 					delete i->second;
 				}
 			}
-			else {
+			else
+			{
 				proc_out[j.molid] = j.results;
 			}
-		} else {
+		}
+		else
+		{
 			boost::thread::yield();
 		}
 	}
 }
-
 
 int main(int argc, char* argv[])
 {
@@ -871,16 +933,16 @@ Please report this error at http://smina.sf.net\n"
 Thank you!\n";
 
 	const std::string cite_message =
-"              _             \n" \
-"             (_)            \n" \
-"   __ _ _ __  _ _ __   __ _ \n" \
-"  / _` | '_ \\| | '_ \\ / _` |\n" \
-" | (_| | | | | | | | | (_| |\n" \
-"  \\__, |_| |_|_|_| |_|\\__,_|\n" \
-"   __/ |                    \n"  \
-"  |___/                     \n"  \
-					"\ngnina is based off of smina and AutoDock Vina.\nPlease cite appropriately.\n\n" \
-"*** IMPORTANT: gnina is not yet intended for production use. Use smina. ***\n";
+			"              _             \n"
+					"             (_)            \n"
+					"   __ _ _ __  _ _ __   __ _ \n"
+					"  / _` | '_ \\| | '_ \\ / _` |\n"
+					" | (_| | | | | | | | | (_| |\n"
+					"  \\__, |_| |_|_|_| |_|\\__,_|\n"
+					"   __/ |                    \n"
+					"  |___/                     \n"
+					"\ngnina is based off of smina and AutoDock Vina.\nPlease cite appropriately.\n\n"
+					"*** IMPORTANT: gnina is not yet intended for production use. Use smina. ***\n";
 
 	try
 	{
@@ -941,7 +1003,7 @@ Thank you!\n";
 		("flexres", value<std::string>(&flex_res),
 				"flexible side chains specified by comma separated list of chain:resid")
 		("flexdist_ligand", value<std::string>(&flexdist_ligand),
-						"Ligand to use for flexdist")
+				"Ligand to use for flexdist")
 		("flexdist", value<double>(&flex_dist),
 				"set all side chains within specified distance to flexdist_ligand to flexible");
 
@@ -966,21 +1028,25 @@ Thank you!\n";
 		outputs.add_options()
 		("out,o", value<std::string>(&out_name),
 				"output file name, format taken from file extension")
-		("out_flex",value<std::string>(&outf_name),
+		("out_flex", value<std::string>(&outf_name),
 				"output file for flexible receptor residues")
 		("log", value<std::string>(&log_name), "optionally, write log file")
 		("atom_terms", value<std::string>(&atom_name),
 				"optionally write per-atom interaction term values")
-		("atom_term_data", bool_switch(&settings.include_atom_info)->default_value(false),
+		("atom_term_data",
+				bool_switch(&settings.include_atom_info)->default_value(false),
 				"embedded per-atom interaction terms in output sd data");
 
 		options_description scoremin("Scoring and minimization options");
 		scoremin.add_options()
-		("scoring", value<std::string>(&builtin_scoring),"specify alternative built-in scoring function")
+		("scoring", value<std::string>(&builtin_scoring),
+				"specify alternative built-in scoring function")
 		("custom_scoring", value<std::string>(&custom_file_name),
 				"custom scoring function file")
-		("custom_atoms", value<std::string>(&atomconstants_file), "custom atom type parameters file")
-		("score_only", bool_switch(&settings.score_only)->default_value(false), "score provided ligand pose")
+		("custom_atoms", value<std::string>(&atomconstants_file),
+				"custom atom type parameters file")
+		("score_only", bool_switch(&settings.score_only)->default_value(false),
+				"score provided ligand pose")
 		("local_only", bool_switch(&settings.local_only)->default_value(false),
 				"local search only using autobox (you probably want to use --minimize)")
 		("minimize", bool_switch(&settings.dominimize)->default_value(false),
@@ -998,42 +1064,46 @@ Thank you!\n";
 				"approximation (linear, spline, or exact) to use")
 		("factor", value<fl>(&approx_factor),
 				"approximation factor: higher results in a finer-grained approximation")
-		("force_cap",value<fl>(&settings.forcecap),"max allowed force; lower values more gently minimize clashing structures")
+		("force_cap", value<fl>(&settings.forcecap),
+				"max allowed force; lower values more gently minimize clashing structures")
 		("user_grid", value<std::string>(&usergrid_file_name),
 				"Autodock map file for user grid data based calculations")
 		("user_grid_lambda", value<fl>(&user_grid_lambda)->default_value(-1.0),
-								"Scales user_grid and functional scoring")
+				"Scales user_grid and functional scoring")
 		("print_terms", bool_switch(&print_terms),
 				"Print all available terms with default parameterizations")
-				("print_atom_types", bool_switch(&print_atom_types), "Print all available atom types");
+		("print_atom_types", bool_switch(&print_atom_types),
+				"Print all available atom types");
 
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
 		("verbosity", value<int>(&settings.verbosity)->default_value(1),
 				"Adjust the verbosity of the output, default: 1")
-    ("flex_hydrogens", bool_switch(&flex_hydrogens),
-        "Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.");
-
+		("flex_hydrogens", bool_switch(&flex_hydrogens),
+				"Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.");
 
 		options_description cnn("Convolutional neural net (CNN) scoring");
 		cnn.add_options()
 		("cnn_model", value<std::string>(&cnnopts.cnn_model),
-						"caffe cnn model file")
+				"caffe cnn model file")
 		("cnn_weights", value<std::string>(&cnnopts.cnn_model),
-								"caffe cnn weights file (*.caffemodel)")
+				"caffe cnn weights file (*.caffemodel)")
 		("cnn_recmap", value<std::string>(&cnnopts.cnn_recmap),
-									"receptor atom type to channel mapping")
+				"receptor atom type to channel mapping")
 		("cnn_ligmap", value<std::string>(&cnnopts.cnn_ligmap),
-									"ligand atom type to channel mapping")
+				"ligand atom type to channel mapping")
+		("cnn_resolution", value<fl>(&cnnopts.resolution)->default_value(0.5),
+				"resolution of grids, don't change unless you really know what you are doing")
 		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
-					"Use provided model and weights file to score final pose.");
+				"Use provided model and weights file to score final pose.");
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
 		("cpu", value<int>(&settings.cpu),
 				"the number of CPUs to use (the default is to try to detect the number of CPUs or, failing that, use 1)")
 		("seed", value<int>(&settings.seed), "explicit random seed")
-		("exhaustiveness", value<int>(&settings.exhaustiveness)->default_value(8),
+		("exhaustiveness",
+				value<int>(&settings.exhaustiveness)->default_value(8),
 				"exhaustiveness of the global search (roughly proportional to time)")
 		("num_modes", value<sz>(&settings.num_modes)->default_value(9),
 				"maximum number of binding modes to generate")
@@ -1119,8 +1189,7 @@ Thank you!\n";
 			return 0;
 		}
 
-
-		if(print_atom_types)
+		if (print_atom_types)
 		{
 			print_atom_info(std::cout);
 			return 0;
@@ -1132,7 +1201,7 @@ Thank you!\n";
 
 		if (settings.dominimize) //set default settings for minimization
 		{
-			if(!vm.count("force_cap"))
+			if (!vm.count("force_cap"))
 				settings.forcecap = 10; //nice and soft
 			if (minparms.maxiters == 0)
 				minparms.maxiters = 10000; //will presumably converge
@@ -1153,6 +1222,9 @@ Thank you!\n";
 		bool search_box_needed = !(settings.score_only || settings.local_only); // randomize_only and local_only still need the search space; dkoes - for local get box from ligand
 		bool output_produced = !settings.score_only;
 		bool receptor_needed = !settings.randomize_only;
+
+		if (cnnopts.cnn_scoring) //don't want to have to regrid receptor each time
+			search_box_needed = true;
 
 		if (receptor_needed)
 		{
@@ -1226,7 +1298,7 @@ Thank you!\n";
 				throw usage_error("Search space dimensions should be positive");
 		}
 
-		if(flex_dist > 0 && flexdist_ligand.size() == 0)
+		if (flex_dist > 0 && flexdist_ligand.size() == 0)
 		{
 			throw usage_error("Must specify flexdist_ligand with flex_dist");
 		}
@@ -1243,7 +1315,8 @@ Thank you!\n";
 
 		//dkoes, set the scoring function
 		custom_terms t;
-		if(user_grid_lambda != -1.0){
+		if (user_grid_lambda != -1.0)
+		{
 			t.set_scaling_factor(user_grid_lambda);
 		}
 		if (custom_file_name.size() > 0)
@@ -1253,11 +1326,13 @@ Thank you!\n";
 		}
 		else if (builtin_scoring.size() > 0)
 		{
-			if(!builtin_scoring_functions.set(t, builtin_scoring))
+			if (!builtin_scoring_functions.set(t, builtin_scoring))
 			{
 				std::stringstream ss;
 				builtin_scoring_functions.print_functions(ss);
-				throw usage_error("Invalid built-in scoring function: "+builtin_scoring+". Options are:\n"+ss.str());
+				throw usage_error(
+						"Invalid built-in scoring function: " + builtin_scoring
+								+ ". Options are:\n" + ss.str());
 			}
 		}
 		else
@@ -1269,7 +1344,7 @@ Thank you!\n";
 			t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", -0.587439);
 			t.add("num_tors_div", 5 * 0.05846 / 0.1 - 1);
 		}
-				
+
 		log << std::setw(12) << std::left << "Weights" << " Terms\n" << t
 				<< "\n";
 
@@ -1277,7 +1352,8 @@ Thank you!\n";
 		{
 			ifile user_in(usergrid_file_name);
 			fl ug_scaling_factor = 1.0;
-			if(user_grid_lambda != -1.0){
+			if (user_grid_lambda != -1.0)
+			{
 				ug_scaling_factor = 1 - user_grid_lambda;
 			}
 			setup_user_gd(user_gd, user_in);
@@ -1316,10 +1392,9 @@ Thank you!\n";
 			log
 					<< "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
 
-
 		//dkoes - parse in receptor once
 		MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, log);
-		CNNScorer cnn_scorer(cnnopts, mols.getInitModel());
+		CNNScorer cnn_scorer(cnnopts, vec(center_x, center_y, center_z), mols.getInitModel());
 
 		//dkoes, hoist precalculation outside of loop
 		weighted_terms wt(&t, t.weights());
@@ -1328,7 +1403,8 @@ Thank you!\n";
 
 		if (gpu_on || approx == GPU)
 		{ //don't get a choice
-		  prec = boost::shared_ptr<precalculate>(new precalculate_gpu(wt, approx_factor));
+			prec = boost::shared_ptr<precalculate>(
+					new precalculate_gpu(wt, approx_factor));
 		}
 		else if (approx == SplineApprox)
 			prec = boost::shared_ptr<precalculate>(
@@ -1351,12 +1427,12 @@ Thank you!\n";
 
 		ozfile outflex;
 		std::string outfext;
-		if(outf_name.length() > 0)
+		if (outf_name.length() > 0)
 		{
 			outfext = outflex.open(outf_name);
 		}
 
-		if(settings.score_only) //output header
+		if (settings.score_only) //output header
 		{
 			std::vector<std::string> enabled_names = t.get_names(true);
 			log << "## Name";
@@ -1364,75 +1440,83 @@ Thank you!\n";
 			{
 				log << " " << enabled_names[i];
 			}
-			for (unsigned i = 0, n = t.conf_independent_terms.size(); i < n; i++)
+			for (unsigned i = 0, n = t.conf_independent_terms.size(); i < n;
+					i++)
 			{
 				log << " " << t.conf_independent_terms[i].name;
 			}
 			log << "\n";
 		}
 
-	  boost::lockfree::queue<worker_job> wrkq(0);
-	  //This should probably be a different type of queue that blocks
-	  //instead of doing busy waiting
-	  boost::lockfree::queue<writer_job> writerq(0);
-	  int nligs = 0;
-	  bool ligcount_final = false;
-	  bool work_done = false;
-	  unsigned int nthreads = settings.cpu;
-	  global_state gs(&settings, prec, gpu_on, &minparms, &wt, &user_grid,
-					  &log, &atomoutfile, cnn_scorer);
-	  boost::thread_group worker_threads;
-	  boost::timer time;
+		boost::lockfree::queue<worker_job> wrkq(0);
+		//This should probably be a different type of queue that blocks
+		//instead of doing busy waiting
+		boost::lockfree::queue<writer_job> writerq(0);
+		int nligs = 0;
+		bool ligcount_final = false;
+		bool work_done = false;
+		unsigned int nthreads = settings.cpu;
+		global_state gs(&settings, prec, gpu_on, &minparms, &wt, &user_grid,
+				&log, &atomoutfile, cnn_scorer);
+		boost::thread_group worker_threads;
+		boost::timer time;
 
-	  if(!settings.local_only)
-	  	nthreads = 1; //docking is multithreaded already, don't add additional parallelism other than pipeline
+		if (!settings.local_only)
+			nthreads = 1; //docking is multithreaded already, don't add additional parallelism other than pipeline
 
-	  //launch worker threads to process ligands in the work queue
-	  for (int i=0; i < nthreads; i++) {
-		  worker_threads.create_thread(boost::bind(threads_at_work, &wrkq, 
-						  &writerq, &gs, &mols, &work_done, 
-						  &nligs, &ligcount_final));
-	  }
+		//launch worker threads to process ligands in the work queue
+		for (int i = 0; i < nthreads; i++)
+		{
+			worker_threads.create_thread(boost::bind(threads_at_work, &wrkq,
+					&writerq, &gs, &mols, &work_done,
+					&nligs, &ligcount_final));
+		}
 
-	  //launch writer thread to write results wherever they go
-	  boost::thread writer_thread(thread_a_writing, &writerq, &gs, &outfile, &outext, 
-				  &outflex, &outfext, &nligs, &ligcount_final);
+		//launch writer thread to write results wherever they go
+		boost::thread writer_thread(thread_a_writing, &writerq, &gs, &outfile,
+				&outext,
+				&outflex, &outfext, &nligs, &ligcount_final);
 
-	  //loop over input ligands, adding them to the work queue
-	  for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
-	  {
-		  doing(settings.verbosity, "Reading input", log);
-		  const std::string ligand_name = ligand_names[l];
-		  mols.setInputFile(ligand_name);
+		//loop over input ligands, adding them to the work queue
+		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
+		{
+			doing(settings.verbosity, "Reading input", log);
+			const std::string ligand_name = ligand_names[l];
+			mols.setInputFile(ligand_name);
 
-		  unsigned i = 0;
+			unsigned i = 0;
 
-		  for (;;) {
+			for (;;)
+			{
 				model* m = new model;
-				if (!mols.readMoleculeIntoModel(*m)) {
+				if (!mols.readMoleculeIntoModel(*m))
+				{
 					delete m;
 					break;
 				}
-				if (settings.local_only) {
+				if (settings.local_only)
+				{
 					gd = m->movable_atoms_box(autobox_add, granularity);
 				}
 
 				done(settings.verbosity, log);
-				std::vector<result_info>* results = new std::vector<result_info>();
+				std::vector<result_info>* results =
+						new std::vector<result_info>();
 				worker_job j(i, m, results, gd);
 				wrkq.push(j);
 
 				i++;
-				if(no_lig) break;
-		  }
-	  }
+				if (no_lig)
+					break;
+			}
+		}
 
-	  //join all the threads when their work is done
-	  work_done = true;
-	  worker_threads.join_all();
-	  writer_thread.join();
+		//join all the threads when their work is done
+		work_done = true;
+		worker_threads.join_all();
+		writer_thread.join();
 
-	  std::cout << "Loop time " << time.elapsed() << "\n";
+		std::cout << "Loop time " << time.elapsed() << "\n";
 
 	} catch (file_error& e)
 	{
