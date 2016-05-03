@@ -21,11 +21,30 @@ using namespace std;
 //throw error if missing required info
 CNNScorer::CNNScorer(const cnn_options& cnnopts,  const vec& center, const model& m) {
 	if(cnnopts.cnn_scoring) {
+
+		if(cnnopts.cnn_model.size() == 0) {
+			throw usage_error("Missing model for cnn scoring.");
+		}
+		if(cnnopts.cnn_weights.size() == 0) {
+			throw usage_error("Missing weights for cnn scoring.");
+		}
+
 		//load cnn model
 	  NetParameter param;
 	  ReadNetParamsFromTextFileOrDie(cnnopts.cnn_model, &param);
 	  param.mutable_state()->set_phase(TEST);
-	  //set batchsize to one
+	  LayerParameter *first = param.mutable_layer(0);
+  	//must be ndim
+	  NDimDataParameter *ndimparam = first->mutable_ndim_data_param();
+	  if(ndimparam == NULL) {
+	  	throw usage_error("First layer of model must be NDimData.");
+	  }
+	  ndimparam->set_inmemory(true);
+
+	  //set batch size to 1
+	  ndimparam->set_batch_size(1);
+	  //let user specify rotations
+	  ndimparam->set_rotate(min(24U,cnnopts.cnn_rotations));
 
 	  net.reset(new Net<float>(param));
 
@@ -42,17 +61,17 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts,  const vec& center, const model
 	  	throw usage_error("No layers in model!");
 	  }
 
-	  NDimDataLayer<Dtype> *data = dynamic_cast<NDimDataLayer<Dtype>*>(layers[0].get());
-	  if(data == NULL) {
+	  ndim = dynamic_cast<NDimDataLayer<Dtype>*>(layers[0].get());
+	  if(ndim == NULL) {
 	  	throw usage_error("First layer of model must be NDimData.");
 	  }
 
-	  if(net->num_outputs() > 1) {
-	  	throw usage_error("Model must produce single output layer.");
+	  if(!net->has_blob("output")) {
+	  	throw usage_error("Model must have output layer named \"output\".");
 	  }
 
 		//initialize receptor part of grid
-	  BlobShape shape = data->layer_param().ndim_data_param().shape();
+	  BlobShape shape = ndim->layer_param().ndim_data_param().shape();
 	  if(shape.dim_size() != 4) {
 		  throw usage_error("Input data layer does not have correct number of dimensions.");
 	  }
@@ -74,5 +93,21 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts,  const vec& center, const model
 	  grid.setReceptor(m);
 
 	}
+
+}
+
+//return score of model, assumes receptor has not changed from initialization
+float CNNScorer::score(const model& m)
+{
+	if(!initialized()) return -1.0;
+	grid.setLigand(m);
+
+	grid.outputMem(ndim->getMemoryData());
+	ndim->memoryIsSet();
+
+	net->Forward();
+	const shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
+	const Dtype* out = outblob->cpu_data();
+	return out[0];
 
 }

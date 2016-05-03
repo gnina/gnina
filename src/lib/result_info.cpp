@@ -134,6 +134,12 @@ void result_info::write(std::ostream& out, std::string& ext,
 			out << std::fixed  << std::setprecision(5) << rmsd << "\n\n";
 		}
 
+		if(cnnscore >= 0)
+		{
+			out << "> <CNNscore>\n";
+			out << std::fixed  << std::setprecision(10) << cnnscore << "\n\n";
+		}
+
 		if (include_atom_terms)
 		{
 			std::stringstream astr;
@@ -165,6 +171,13 @@ void result_info::write(std::ostream& out, std::string& ext,
 					"minimizedRMSD",
 					boost::lexical_cast<std::string>((float) rmsd));
 		}
+		if (cnnscore >= 0)
+		{
+			setMolData(format, mol,
+					"CNNscore",
+					boost::lexical_cast<std::string>((float) cnnscore));
+		}
+
 		if (include_atom_terms)
 		{
 			std::stringstream astr;

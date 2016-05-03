@@ -72,6 +72,9 @@ public:
 	//output binary form of raw data in 3D multi-channel form (types are last)
 	void outputBIN(ostream& out, bool outputrec = true, bool outputlig = true);
 
+	//set vector to full set of grids
+	void outputMem(vector<float>& out);
+
 	//initialize default receptor/ligand maps
 	static void createDefaultRecMap(vector<int>& map);
 	static void createDefaultLigMap(vector<int>& map);

@@ -212,7 +212,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		const vec& corner1, const vec& corner2,
 		const parallel_mc& par, const user_settings& settings,
 		bool compute_atominfo, tee& log,
-		const terms *t, grid& user_grid, std::vector<result_info>& results)
+		const terms *t, grid& user_grid, CNNScorer& cnn, std::vector<result_info>& results)
 {
 	boost::timer time;
 
@@ -220,6 +220,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 	conf_size s = m.get_size();
 	conf c = m.get_initial_conf();
 	fl e = max_fl;
+	fl cnnscore = -1.0;
 	fl rmsd = 0;
 	const vec authentic_v(settings.forcecap, settings.forcecap,
 			settings.forcecap); //small cap restricts initial movement from clash
@@ -234,6 +235,14 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
 		log.endl();
+
+		cnnscore = cnn.score(m);
+		if(cnnscore >= 0.0)
+		{
+			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
+			log.endl();
+		}
+
 		std::vector<flv> atominfo;
 		flv term_values = t->evale_robust(m);
 		log << "Intramolecular energy: " << std::fixed << std::setprecision(5)
@@ -259,7 +268,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		}
 		log << '\n';
 
-		results.push_back(result_info(e, -1, m));
+		results.push_back(result_info(e, cnnscore, -1, m));
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
 	}
@@ -300,7 +309,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 		m.set(out.c);
 		done(settings.verbosity, log);
-		results.push_back(result_info(e, rmsd, m));
+		results.push_back(result_info(e, cnnscore, rmsd, m));
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
 	}
@@ -366,7 +375,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 			log.endl();
 
 			//dkoes - setup result_info
-			results.push_back(result_info(out_cont[i].e, -1, m));
+			results.push_back(result_info(out_cont[i].e, cnnscore, -1, m));
 			if (compute_atominfo)
 				results.back().setAtomValues(m, &sf);
 
@@ -410,7 +419,7 @@ void main_procedure(model& m, precalculate& prec,
 		bool no_cache, bool compute_atominfo, bool gpu_on,
 		const grid_dims& gd, minimization_params minparm,
 		const weighted_terms& wt, tee& log,
-		std::vector<result_info>& results, grid& user_grid)
+		std::vector<result_info>& results, grid& user_grid, CNNScorer& cnn)
 {
 	doing(settings.verbosity, "Setting up the scoring function", log);
 
@@ -440,7 +449,7 @@ void main_procedure(model& m, precalculate& prec,
 	{
 		fl e = do_randomization(m, corner1, corner2, settings.seed,
 				settings.verbosity, log);
-		results.push_back(result_info(e, -1, m));
+		results.push_back(result_info(e, -1, -1, m));
 		return;
 	}
 	else
@@ -464,7 +473,7 @@ void main_procedure(model& m, precalculate& prec,
 		{
 			do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
 					settings, compute_atominfo, log,
-					wt.unweighted_terms(), user_grid,
+					wt.unweighted_terms(), user_grid, cnn,
 					results);
 		}
 		else
@@ -484,7 +493,7 @@ void main_procedure(model& m, precalculate& prec,
 				done(settings.verbosity, log);
 			do_search(m, ref, wt, prec, c, *nc, corner1, corner2, par,
 					settings, compute_atominfo, log,
-					wt.unweighted_terms(), user_grid, results);
+					wt.unweighted_terms(), user_grid, cnn, results);
 		}
 		/* cudaProfilerStop(); */
 
@@ -822,7 +831,7 @@ void threads_at_work(boost::lockfree::queue<worker_job>* wrkq,
 					gs->atomoutfile->is_open()
 							|| gs->settings->include_atom_info, gs->gpu_on,
 					j.gd, *gs->minparms, *gs->wt, *gs->log, *(j.results),
-					*gs->user_grid);
+					*gs->user_grid, gs->cnn_scorer);
 
 			writer_job k(j.molid, j.results);
 			writerq->push(k);
@@ -1086,7 +1095,7 @@ Thank you!\n";
 		cnn.add_options()
 		("cnn_model", value<std::string>(&cnnopts.cnn_model),
 				"caffe cnn model file")
-		("cnn_weights", value<std::string>(&cnnopts.cnn_model),
+		("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
 				"caffe cnn weights file (*.caffemodel)")
 		("cnn_recmap", value<std::string>(&cnnopts.cnn_recmap),
 				"receptor atom type to channel mapping")
@@ -1094,6 +1103,8 @@ Thank you!\n";
 				"ligand atom type to channel mapping")
 		("cnn_resolution", value<fl>(&cnnopts.resolution)->default_value(0.5),
 				"resolution of grids, don't change unless you really know what you are doing")
+		("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
+				"evaluate multiple rotations of pose (max 24)")
 		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
 				"Use provided model and weights file to score final pose.");
 
@@ -1128,9 +1139,9 @@ Thank you!\n";
 		("version", bool_switch(&version), "display program version");
 
 		options_description desc, desc_simple;
-		desc.add(inputs).add(search_area).add(outputs).add(scoremin).
+		desc.add(inputs).add(search_area).add(outputs).add(scoremin).add(cnn).
 				add(hidden).add(misc).add(config).add(info);
-		desc_simple.add(inputs).add(search_area).add(scoremin).
+		desc_simple.add(inputs).add(search_area).add(scoremin).add(cnn).
 				add(outputs).add(misc).add(config).add(info);
 
 		variables_map vm;

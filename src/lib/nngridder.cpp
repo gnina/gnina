@@ -421,6 +421,26 @@ void NNGridder::outputBIN(ostream& out, bool outputrec, bool outputlig)
   }
 }
 
+void NNGridder::outputMem(vector<float>& out)
+{
+	unsigned n = dims[0].n + 1;
+	unsigned gsize = n*n*n;
+	out.resize(gsize*receptorGrids.size()+gsize*ligandGrids.size());
+
+	float *ptr = &out[0];
+  for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
+  {
+  	memcpy(ptr, receptorGrids[a].origin(), gsize*sizeof(float));
+  	ptr += gsize;
+  }
+  for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
+  {
+  	memcpy(ptr, ligandGrids[a].origin(), gsize*sizeof(float));
+  	ptr += gsize;
+  }
+}
+
+
 //set all the elements of a grid to zero
 void NNGridder::zeroGrids(vector<boost::multi_array<float, 3> >& grid)
 {
