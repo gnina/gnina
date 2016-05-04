@@ -31,223 +31,18 @@
 #include <iostream>
 #include <string>
 
-struct scale_gpu {
-	fl position;
-	fl orientation;
-	fl torsion;
-	scale_gpu(fl position_, fl orientation_, fl torsion_) : position(position_), orientation(orientation_), torsion(torsion_) {}
-};
-
-struct conf_size_gpu {
-	szv ligands;
-	szv flex;
-	sz num_degrees_of_freedom() const {
-		return sum(ligands) + sum(flex) + 6 * ligands.size();
-	}
-};
-
-inline void torsions_set_to_null_gpu(flv& torsions) {
-	VINA_FOR_IN(i, torsions)
-		torsions[i] = 0;
-}
-
-inline void torsions_increment_gpu(flv& torsions, const flv& c, fl factor) { // new torsions are normalized
-	VINA_FOR_IN(i, torsions) {
-		torsions[i] += normalized_angle(factor * c[i]);
-		normalize_angle(torsions[i]);
-	}
-}
-
-inline void torsions_randomize_gpu(flv& torsions, rng& generator) {
-	VINA_FOR_IN(i, torsions)
-		torsions[i] = random_fl(-pi, pi, generator);
-}
-
-inline bool torsions_too_close_gpu(const flv& torsions1, const flv& torsions2, fl cutoff) {
-	assert(torsions1.size() == torsions2.size());
-	VINA_FOR_IN(i, torsions1)
-		if(std::abs(normalized_angle(torsions1[i] - torsions2[i])) > cutoff) 
-			return false;
-	return true;
-}
-
-inline void torsions_generate_gpu(flv& torsions, fl spread, fl rp, const flv* rs, rng& generator) {
-	assert(!rs || rs->size() == torsions.size()); // if present, rs should be the same size as torsions
-	VINA_FOR_IN(i, torsions)
-		if(rs && random_fl(0, 1, generator) < rp)
-			torsions[i] = (*rs)[i];
-		else
-			torsions[i] += random_fl(-spread, spread, generator);
-}
-
-struct rigid_change_gpu {
-	vec position;
-	vec orientation;
-	rigid_change_gpu(const rigid_change& rc) {
-		for (int i=0; i<rc.position.size(); i++) {
-			position[i] = rc.position[i];
-		}
-		for (int i=0; i<rc.orientation.size(); i++) {
-			orientation[i] = rc.orientation[i];
-		}
-	}
-	rigid_change_gpu() : position(0, 0, 0), orientation(0, 0, 0) {}
-	void print() const {
-		::print(position);
-		::print(orientation);
-	}
-};
-
-struct rigid_conf_gpu {
-	vec position;
-	qt orientation;
-	rigid_conf_gpu(const rigid_conf& rc) {
-		for (int i=0; i<rc.position.size(); i++) {
-			position[i] = rc.position[i];
-		}
-		orientation = rc.orientation;
-	}
-	rigid_conf_gpu() : position(0, 0, 0), orientation(qt_identity) {}
-	void set_to_null() {
-		position = zero_vec;
-		orientation = qt_identity;
-	}
-	void increment(const rigid_change_gpu& c, fl factor) {
-		position += factor * c.position;
-		vec rotation; rotation = factor * c.orientation;
-		quaternion_increment(orientation, rotation); // orientation does not get normalized; tests show rounding errors growing very slowly
-	}
-	void randomize(const vec& corner1, const vec& corner2, rng& generator) {
-		position = random_in_box(corner1, corner2, generator);
-		orientation = random_orientation(generator);
-	}
-	bool too_close(const rigid_conf_gpu& c, fl position_cutoff, fl orientation_cutoff) const {
-		if(vec_distance_sqr(position, c.position) > sqr(position_cutoff)) return false;
-		if(sqr(quaternion_difference(orientation, c.orientation)) > sqr(orientation_cutoff)) return false;
-		return true;
-	}
-	void mutate_position(fl spread, rng& generator) {
-		position += spread * random_inside_sphere(generator);
-	}
-	void mutate_orientation(fl spread, rng& generator) {
-		vec tmp; tmp = spread * random_inside_sphere(generator);
-		quaternion_increment(orientation, tmp);
-	}
-	void generate(fl position_spread, fl orientation_spread, fl rp, const rigid_conf_gpu* rs, rng& generator) {
-		if(rs && random_fl(0, 1, generator) < rp)
-			position = rs->position;
-		else
-			mutate_position(position_spread, generator);
-		if(rs && random_fl(0, 1, generator) < rp)
-			orientation = rs->orientation;
-		else
-			mutate_orientation(orientation_spread, generator);
-	}
-	void apply(const vecv& in, vecv& out, sz begin, sz end) const {
-		assert(in.size() == out.size());
-		const mat m = quaternion_to_r3(orientation);
-		VINA_RANGE(i, begin, end)
-			out[i] = m * in[i] + position;
-	}
-	void print() const {
-		::print(position);
-		::print(orientation);
-	}
-private:
-	friend class boost::serialization::access;
-	template<class Archive>
-	void serialize(Archive & ar, const unsigned version) {
-		ar & position;
-		ar & orientation;
-	}
-};
-
-struct ligand_change_gpu {
-	rigid_change_gpu rigid;
-	flv torsions;
-	ligand_change_gpu(const ligand_change& lc) : rigid(lc.rigid), torsions(lc.torsions) {}
-	ligand_change_gpu() {}
-	void print() const {
-		rigid.print();
-		printnl(torsions);
-	}
-};
-
-struct ligand_conf_gpu {
-	rigid_conf_gpu rigid;
-	flv torsions;
-	ligand_conf_gpu(const ligand_conf& lc) : rigid(lc.rigid), torsions(lc.torsions) {}
-	ligand_conf_gpu() {}
-	void set_to_null() {
-		rigid.set_to_null();
-		torsions_set_to_null_gpu(torsions);
-	}
-	void increment(const ligand_change_gpu& c, fl factor) {
-		rigid.increment(c.rigid, factor);
-		torsions_increment_gpu(torsions, c.torsions, factor);
-	}
-	void randomize(const vec& corner1, const vec& corner2, rng& generator) {
-		rigid.randomize(corner1, corner2, generator);
-		torsions_randomize_gpu(torsions, generator);
-	}
-	void print() const {
-		rigid.print();
-		printnl(torsions);
-	}
-private:
-	friend class boost::serialization::access;
-	template<class Archive>
-	void serialize(Archive & ar, const unsigned version) {
-		ar & rigid;
-		ar & torsions;
-	}
-};
-
-struct residue_change_gpu {
-	flv torsions;
-	residue_change_gpu(const residue_change& rc) : torsions(rc.torsions) {}
-	residue_change_gpu() {}
-	void print() const {
-		printnl(torsions);
-	}
-};
-
-struct residue_conf_gpu {
-	flv torsions;
-	residue_conf_gpu(const residue_conf& rc) : torsions(rc.torsions) {}
-	residue_conf_gpu() {}
-	void set_to_null() {
-		torsions_set_to_null_gpu(torsions);
-	}
-	void increment(const residue_change_gpu& c, fl factor) {
-		torsions_increment_gpu(torsions, c.torsions, factor);
-	}
-	void randomize(rng& generator) {
-		torsions_randomize_gpu(torsions, generator);
-	}
-	void print() const {
-		printnl(torsions);
-	}
-private:
-	friend class boost::serialization::access;
-	template<class Archive>
-	void serialize(Archive & ar, const unsigned version) {
-		ar & torsions;
-	}
-};
-
 struct change_gpu {
-	std::vector<ligand_change_gpu> ligands;
-	std::vector<residue_change_gpu> flex;
+	std::vector<ligand_change> ligands;
+	std::vector<residue_change> flex;
 	change_gpu(const change& c) {
 		for (int i=0; i<c.ligands.size(); i++) {
-			ligands.push_back(ligand_change_gpu(c.ligands[i]));
+			ligands.push_back(c.ligands[i]);
 		}	
 		for (int i=0; i<c.flex.size(); i++) {
-			flex.push_back(residue_change_gpu(c.flex[i]));
+			flex.push_back(c.flex[i]);
 		}
 	}	
-	change_gpu(const conf_size_gpu& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
+	change_gpu(const conf_size& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
 		VINA_FOR_IN(i, ligands)
 			ligands[i].torsions.resize(s.ligands[i], 0);
 		VINA_FOR_IN(i, flex)
@@ -257,7 +52,7 @@ struct change_gpu {
 	void clear()
 	{
 		VINA_FOR_IN(i, ligands) {
-			ligands[i].rigid = rigid_change_gpu();
+			ligands[i].rigid = rigid_change();
 			ligands[i].torsions.assign(ligands[i].torsions.size(),0);
 		}
 		VINA_FOR_IN(i, flex)
@@ -280,7 +75,7 @@ struct change_gpu {
 	}
 	fl operator()(sz index) const { // returns by value
 		VINA_FOR_IN(i, ligands) {
-			const ligand_change_gpu& lig = ligands[i];
+			const ligand_change& lig = ligands[i];
 			if(index < 3) return lig.rigid.position[index];
 			index -= 3;
 			if(index < 3) return lig.rigid.orientation[index];
@@ -289,7 +84,7 @@ struct change_gpu {
 			index -= lig.torsions.size();
 		}
 		VINA_FOR_IN(i, flex) {
-			const residue_change_gpu& res = flex[i];
+			const residue_change& res = flex[i];
 			if(index < res.torsions.size()) return res.torsions[index];
 			index -= res.torsions.size();
 		}
@@ -298,7 +93,7 @@ struct change_gpu {
 	}
 	fl& operator()(sz index) {
 		VINA_FOR_IN(i, ligands) {
-			ligand_change_gpu& lig = ligands[i];
+			ligand_change& lig = ligands[i];
 			if(index < 3) return lig.rigid.position[index];
 			index -= 3;
 			if(index < 3) return lig.rigid.orientation[index];
@@ -307,7 +102,7 @@ struct change_gpu {
 			index -= lig.torsions.size();
 		}
 		VINA_FOR_IN(i, flex) {
-			residue_change_gpu& res = flex[i];
+			residue_change& res = flex[i];
 			if(index < res.torsions.size()) return res.torsions[index];
 			index -= res.torsions.size();
 		}
@@ -331,22 +126,28 @@ struct change_gpu {
 };
 
 struct conf_gpu {
-	std::vector<ligand_conf_gpu> ligands;
-	std::vector<residue_conf_gpu> flex;
+	std::vector<ligand_conf> ligands;
+	std::vector<residue_conf> flex;
 	conf_gpu(const conf& c) {
 		for (int i=0; i<c.ligands.size(); i++) {
-			ligands.push_back(ligand_conf_gpu(c.ligands[i]));
+			ligands.push_back(c.ligands[i]);
 		}
 		for (int i=0; i<c.flex.size(); i++) {
-			flex.push_back(residue_conf_gpu(c.flex[i]));
+			flex.push_back(c.flex[i]);
 		}
 	}
 	conf_gpu() {}
-	conf_gpu(const conf_size_gpu& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
+	conf_gpu(const conf_size& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
 		VINA_FOR_IN(i, ligands)
 			ligands[i].torsions.resize(s.ligands[i], 0); // FIXME?
 		VINA_FOR_IN(i, flex)
 			flex[i].torsions.resize(s.flex[i], 0); // FIXME?
+	}
+	conf to_conf() {
+		conf c;
+		c.ligands = ligands;
+		c.flex = flex;
+		return c;
 	}
 	void set_to_null() {
 		VINA_FOR_IN(i, ligands)
@@ -364,22 +165,22 @@ struct conf_gpu {
 	bool internal_too_close(const conf_gpu& c, fl torsions_cutoff) const {
 		assert(ligands.size() == c.ligands.size());
 		VINA_FOR_IN(i, ligands)
-			if(!torsions_too_close_gpu(ligands[i].torsions, c.ligands[i].torsions, torsions_cutoff))
+			if(!torsions_too_close(ligands[i].torsions, c.ligands[i].torsions, torsions_cutoff))
 				return false;
 		return true;
 	}
-	bool external_too_close(const conf_gpu& c, const scale_gpu& cutoff) const {
+	bool external_too_close(const conf_gpu& c, const scale& cutoff) const {
 		assert(ligands.size() == c.ligands.size());
 		VINA_FOR_IN(i, ligands)
 			if(!ligands[i].rigid.too_close(c.ligands[i].rigid, cutoff.position, cutoff.orientation))
 				return false;
 		assert(flex.size() == c.flex.size());
 		VINA_FOR_IN(i, flex)
-			if(!torsions_too_close_gpu(flex[i].torsions, c.flex[i].torsions, cutoff.torsion))
+			if(!torsions_too_close(flex[i].torsions, c.flex[i].torsions, cutoff.torsion))
 				return false;
 		return true;
 	}
-	bool too_close(const conf_gpu& c, const scale_gpu& cutoff) const {
+	bool too_close(const conf_gpu& c, const scale& cutoff) const {
 		return internal_too_close(c, cutoff.torsion) &&
 			   external_too_close(c, cutoff); // a more efficient implementation is possible, probably
 	}
@@ -388,17 +189,17 @@ struct conf_gpu {
 			ligands[i].rigid.position.assign(0);
 			ligands[i].rigid.orientation = qt_identity;
 			const flv* torsions_rs = rs ? (&rs->ligands[i].torsions) : NULL;
-			torsions_generate_gpu(ligands[i].torsions, torsion_spread, rp, torsions_rs, generator);
+			torsions_generate(ligands[i].torsions, torsion_spread, rp, torsions_rs, generator);
 		}
 	}
-	void generate_external(const scale_gpu& spread, fl rp, const conf_gpu* rs, rng& generator) { // torsions are not normalized after this
+	void generate_external(const scale& spread, fl rp, const conf_gpu* rs, rng& generator) { // torsions are not normalized after this
 		VINA_FOR_IN(i, ligands) {
-			const rigid_conf_gpu* rigid_conf_rs = rs ? (&rs->ligands[i].rigid) : NULL;
+			const rigid_conf* rigid_conf_rs = rs ? (&rs->ligands[i].rigid) : NULL;
 			ligands[i].rigid.generate(spread.position, spread.orientation, rp, rigid_conf_rs, generator);
 		}
 		VINA_FOR_IN(i, flex) {
 			const flv* torsions_rs = rs ? (&rs->flex[i].torsions) : NULL;
-			torsions_generate_gpu(flex[i].torsions, spread.torsion, rp, torsions_rs, generator);
+			torsions_generate(flex[i].torsions, spread.torsion, rp, torsions_rs, generator);
 		}
 	}
 	void randomize(const vec& corner1, const vec& corner2, rng& generator) {
@@ -417,7 +218,7 @@ struct conf_gpu {
 	//read only because of quaternions
 	fl operator()(sz index) const { // returns by value
 		VINA_FOR_IN(i, ligands) {
-			const ligand_conf_gpu& lig = ligands[i];
+			const ligand_conf& lig = ligands[i];
 			if(index < 3) return lig.rigid.position[index];
 			index -= 3;
 			if(index < 3)
@@ -430,7 +231,7 @@ struct conf_gpu {
 			index -= lig.torsions.size();
 		}
 		VINA_FOR_IN(i, flex) {
-			const residue_conf_gpu& res = flex[i];
+			const residue_conf& res = flex[i];
 			if(index < res.torsions.size()) return res.torsions[index];
 			index -= res.torsions.size();
 		}
