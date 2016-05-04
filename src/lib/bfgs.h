@@ -197,6 +197,14 @@ void subtract_change(Change& b, const Change& a, sz n)
 		b(i) -= a(i);
 }
 
+//F template argument
+//quasi_newton_aux: calls eval_deriv on model to calculate forces
+//
+//Conf template argument
+//conf type (conf.h) stores conformer in terms of torsions
+//
+//Change template argument
+//change type (conf.h) basically same as conf, but stores deltas
 template<typename F, typename Conf, typename Change>
 fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		const minimization_params& params)
