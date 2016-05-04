@@ -156,7 +156,6 @@ struct conf_gpu {
 			flex[i].set_to_null();
 	}
 	void increment(const change_gpu& c, fl factor) { // torsions get normalized, orientations do not
-		std::cout << "heygirl hey\n";
 		VINA_FOR_IN(i, ligands)
 			ligands[i].increment(c.ligands[i], factor);
 		VINA_FOR_IN(i, flex)

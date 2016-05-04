@@ -62,8 +62,7 @@ void quasi_newton::operator()(model& m, const precalculate& p, const igrid& ig, 
 		*/
 		change_gpu chgpu(g);
 		output_type_gpu outgpu(out);
-		quasi_newton_aux aux_gpu = aux;
-		fl res = bfgs(aux_gpu, outgpu.c, chgpu, average_required_improvement, params);
+		fl res = bfgs(aux, outgpu.c, chgpu, average_required_improvement, params);
 		out.c = outgpu.c.to_conf();
 		out.e = res;
 	}

@@ -207,6 +207,12 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 
 	Change g_new(g);
 	Conf x_new(x);
+	// a major part of what this does is call model.eval_deriv, which calls 
+	// the eval_deriv routine in non_cache (which does the scoring function
+	// evaluation for receptor-ligand pairs), eval_interacting_pairs_deriv,
+	// which computes pairwise interactions from within the flexible 
+	// components (in the simplest case this is just the ligand's 
+	// intramolecular pairwise interactions)
 	fl f0 = f(x, g);
 
 	fl f_orig = f0;
