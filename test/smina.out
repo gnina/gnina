@@ -1,0 +1,37 @@
+==14564== NVPROF is profiling process 14564, command: ./smina.gpu -r receptor.pdb -l smaller_test.sdf --autobox_ligand MES.pdb --gpu --minimize
+==14564== Profiling application: ./smina.gpu -r receptor.pdb -l smaller_test.sdf --autobox_ligand MES.pdb --gpu --minimize
+==14564== Profiling result:
+Time(%)      Time     Calls       Avg       Min       Max  Name
+ 56.28%  152.99ms      7523  20.336us  16.288us  42.752us  interaction_energy(GPUNonCacheInfo*, unsigned int, float, float)
+ 19.52%  53.066ms     22570  2.3510us  2.0800us  9.2490us  [CUDA memset]
+ 14.64%  39.806ms      7523  5.2910us  4.8000us  12.481us  void thrust::system::cuda::detail::bulk_::detail::launch_by_value<unsigned int=128, thrust::system::cuda::detail::bulk_::detail::cuda_task<thrust::system::cuda::detail::bulk_::parallel_group<thrust::system::cuda::detail::bulk_::concurrent_group<thrust::system::cuda::detail::bulk_::agent<unsigned long=7>, unsigned long=128>, unsigned long=0>, thrust::system::cuda::detail::bulk_::detail::closure<thrust::system::cuda::detail::reduce_detail::reduce_partitions, thrust::tuple<thrust::system::cuda::detail::bulk_::detail::cursor<unsigned int=1>, thrust::device_ptr<float>, thrust::system::cuda::detail::aligned_decomposition<long>, thrust::detail::normal_iterator<thrust::pointer<float, thrust::system::cuda::detail::tag, thrust::use_default, thrust::use_default>>, float, thrust::plus<float>, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type>>>>(unsigned long=7)
+  7.56%  20.546ms     15046  1.3650us  1.2480us  8.6400us  [CUDA memcpy DtoH]
+  2.00%  5.4377ms      8288     656ns     608ns  1.7290us  [CUDA memcpy HtoD]
+
+==14564== API calls:
+Time(%)      Time     Calls       Avg       Min       Max  Name
+ 22.52%  178.31ms      7523  23.701us  2.5330us  46.412us  cudaThreadSynchronize
+ 17.01%  134.66ms      8293  16.238us  4.4520us  89.003ms  cudaMalloc
+ 14.89%  117.87ms     15811  7.4540us  3.3360us  37.229us  cudaMemcpy
+ 11.21%  88.705ms     22570  3.9300us  2.6020us  270.06us  cudaMemset
+  8.69%  68.777ms     15046  4.5710us  3.9290us  238.88us  cudaLaunch
+  8.50%  67.258ms      7523  8.9400us  8.3990us  224.37us  cudaMemcpyAsync
+  6.67%  52.817ms      7523  7.0200us     911ns  15.973us  cudaEventSynchronize
+  4.13%  32.701ms      7523  4.3460us  4.0790us  14.586us  cudaFree
+  2.63%  20.828ms     15046  1.3840us  1.2040us  11.818us  cudaFuncGetAttributes
+  0.90%  7.1023ms      7523     944ns     784ns  11.210us  cudaEventCreateWithFlags
+  0.66%  5.2424ms     22570     232ns     181ns  10.303us  cudaGetDevice
+  0.64%  5.0385ms     37615     133ns      97ns  215.15us  cudaSetupArgument
+  0.51%  4.0426ms      7523     537ns     465ns  6.5620us  cudaEventDestroy
+  0.51%  3.9982ms      7523     531ns     463ns  10.713us  cudaEventRecord
+  0.32%  2.5063ms     15046     166ns     106ns  8.9810us  cudaConfigureCall
+  0.16%  1.2679ms      7523     168ns     138ns     343ns  cudaGetLastError
+  0.03%  217.84us        83  2.6240us      81ns  95.825us  cuDeviceGetAttribute
+  0.03%  212.18us         1  212.18us  212.18us  212.18us  cudaGetDeviceProperties
+  0.00%  39.217us         1  39.217us  39.217us  39.217us  cuDeviceTotalMem
+  0.00%  22.764us         1  22.764us  22.764us  22.764us  cuDeviceGetName
+  0.00%  4.2900us         1  4.2900us  4.2900us  4.2900us  cudaSetDevice
+  0.00%  3.3310us        11     302ns     188ns     650ns  cudaDeviceGetAttribute
+  0.00%  2.0080us         1  2.0080us  2.0080us  2.0080us  cudaProfilerStart
+  0.00%     869ns         2     434ns     141ns     728ns  cuDeviceGetCount
+  0.00%     321ns         2     160ns      88ns     233ns  cuDeviceGet
