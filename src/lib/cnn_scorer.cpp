@@ -19,7 +19,7 @@ using namespace std;
 
 //initialize from commandline options
 //throw error if missing required info
-CNNScorer::CNNScorer(const cnn_options& cnnopts,  const vec& center, const model& m) {
+CNNScorer::CNNScorer(const cnn_options& cnnopts,  const vec& center, const model& m): rotations(cnnopts.cnn_rotations) {
 	if(cnnopts.cnn_scoring) {
 
 		if(cnnopts.cnn_model.size() == 0) {
@@ -69,6 +69,9 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts,  const vec& center, const model
 	  if(!net->has_blob("output")) {
 	  	throw usage_error("Model must have output layer named \"output\".");
 	  }
+	  if(net->blob_by_name("output")->count() != 2) {
+	  	throw usage_error("Model output layer does not have exactly two outputs.");
+	  }
 
 		//initialize receptor part of grid
 	  BlobShape shape = ndim->layer_param().ndim_data_param().shape();
@@ -105,9 +108,20 @@ float CNNScorer::score(const model& m)
 	grid.outputMem(ndim->getMemoryData());
 	ndim->memoryIsSet();
 
-	net->Forward();
+	unsigned n = 1;
+	if(rotations > 0) n = rotations;
+
+	double score = 0.0;
 	const shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
-	const Dtype* out = outblob->cpu_data();
-	return out[0];
+
+	//take average of all rotations if requested
+	for(unsigned i = 0; i < n; i++)
+	{
+		net->Forward();
+		const Dtype* out = outblob->cpu_data();
+		score += out[1];
+		cout << out[1] << "\n";
+	}
+	return score/n;
 
 }

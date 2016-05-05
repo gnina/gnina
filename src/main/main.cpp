@@ -66,12 +66,14 @@ struct user_settings
 	int seed;
 	int verbosity;
 	int cpu;
+	int device; //gpu number
 	int exhaustiveness;
 	bool score_only;
 	bool randomize_only;
 	bool local_only;
 	bool dominimize;
 	bool include_atom_info;
+	bool gpu_on;
 
 	//reasonable defaults
 	user_settings() :
@@ -416,7 +418,7 @@ void load_ent_values(const grid_dims& gd, std::istream& user_in,
 void main_procedure(model& m, precalculate& prec,
 		const boost::optional<model>& ref, // m is non-const (FIXME?)
 		const user_settings& settings,
-		bool no_cache, bool compute_atominfo, bool gpu_on,
+		bool no_cache, bool compute_atominfo,
 		const grid_dims& gd, minimization_params minparm,
 		const weighted_terms& wt, tee& log,
 		std::vector<result_info>& results, grid& user_grid, CNNScorer& cnn)
@@ -456,7 +458,7 @@ void main_procedure(model& m, precalculate& prec,
 	{
 
 		non_cache *nc = NULL;
-		if (gpu_on)
+		if (settings.gpu_on)
 		{
 			precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
 			if (!gprec)
@@ -709,9 +711,17 @@ std::istream& operator>>(std::istream& in, ApproxType& type)
 //set the default device to device and exit with error if there are any problems
 static void initializeCUDA(int device)
 {
-	cudaSetDevice(device);
 	cudaError_t error;
 	cudaDeviceProp deviceProp;
+
+	error = cudaSetDevice(device);
+	if (error != cudaSuccess)
+	{
+		std::cerr << "cudaSetDevice returned error code " << error << "\n";
+		exit(-1);
+	}
+
+
 	error = cudaGetDevice(&device);
 
 	if (error != cudaSuccess)
@@ -791,7 +801,6 @@ struct global_state
 {
 	user_settings* settings;
 	boost::shared_ptr<precalculate> prec;
-	bool gpu_on;
 	minimization_params* minparms;
 	weighted_terms* wt;
 	grid* user_grid;
@@ -800,10 +809,10 @@ struct global_state
 	CNNScorer cnn_scorer;
 
 	global_state(user_settings* settings, boost::shared_ptr<precalculate> prec,
-			bool gpu_on, minimization_params* minparms, weighted_terms* wt,
+			minimization_params* minparms, weighted_terms* wt,
 			grid* user_grid, tee* log, std::ofstream* atomoutfile,
 			CNNScorer cnn) :
-			settings(settings), prec(prec), gpu_on(gpu_on), minparms(minparms), wt(
+			settings(settings), prec(prec), minparms(minparms), wt(
 					wt),
 					user_grid(user_grid), log(log), atomoutfile(atomoutfile), cnn_scorer(
 							cnn)
@@ -818,6 +827,9 @@ void threads_at_work(boost::lockfree::queue<worker_job>* wrkq,
 		MolGetter* mols,
 		bool* work_done, int* nligs, bool* ligcount_final)
 {
+	if(gs->settings->gpu_on)
+		initializeCUDA(gs->settings->device);
+
 	while (!*work_done || !wrkq->empty())
 	{
 		worker_job j;
@@ -829,8 +841,8 @@ void threads_at_work(boost::lockfree::queue<worker_job>* wrkq,
 					*gs->settings,
 					false, // no_cache == false
 					gs->atomoutfile->is_open()
-							|| gs->settings->include_atom_info, gs->gpu_on,
-					j.gd, *gs->minparms, *gs->wt, *gs->log, *(j.results),
+							|| gs->settings->include_atom_info, j.gd,
+							*gs->minparms, *gs->wt, *gs->log, *(j.results),
 					*gs->user_grid, gs->cnn_scorer);
 
 			writer_job k(j.molid, j.results);
@@ -972,7 +984,6 @@ Thank you!\n";
 		std::string autobox_ligand;
 		std::string flexdist_ligand;
 		std::string builtin_scoring;
-		int device = 0;
 
 		// -0.035579, -0.005156, 0.840245, -0.035069, -0.587439, 0.05846
 		fl weight_gauss1 = -0.035579;
@@ -986,7 +997,6 @@ Thank you!\n";
 		bool quiet = false;
 		bool accurate_line = false;
 		bool flex_hydrogens = false;
-		bool gpu_on = false;
 		bool print_terms = false;
 		bool print_atom_types = false;
 		bool add_hydrogens = true;
@@ -1125,8 +1135,8 @@ Thank you!\n";
 		("quiet,q", bool_switch(&quiet), "Suppress output messages")
 		("addH", value<bool>(&add_hydrogens),
 				"automatically add hydrogens in ligands (on by default)")
-		("device", value<int>(&device)->default_value(0), "GPU device to use")
-		("gpu", bool_switch(&gpu_on), "Turn on GPU acceleration");
+		("device", value<int>(&settings.device)->default_value(0), "GPU device to use")
+		("gpu", bool_switch(&settings.gpu_on), "Turn on GPU acceleration");
 
 		options_description config("Configuration file (optional)");
 		config.add_options()("config", value<std::string>(&config_name),
@@ -1206,7 +1216,7 @@ Thank you!\n";
 			return 0;
 		}
 
-		initializeCUDA(device);
+		//initializeCUDA(settings.device);
 
 		set_fixed_rotable_hydrogens(!flex_hydrogens);
 
@@ -1412,7 +1422,7 @@ Thank you!\n";
 
 		boost::shared_ptr<precalculate> prec;
 
-		if (gpu_on || approx == GPU)
+		if (settings.gpu_on || approx == GPU)
 		{ //don't get a choice
 			prec = boost::shared_ptr<precalculate>(
 					new precalculate_gpu(wt, approx_factor));
@@ -1467,7 +1477,7 @@ Thank you!\n";
 		bool ligcount_final = false;
 		bool work_done = false;
 		unsigned int nthreads = settings.cpu;
-		global_state gs(&settings, prec, gpu_on, &minparms, &wt, &user_grid,
+		global_state gs(&settings, prec, &minparms, &wt, &user_grid,
 				&log, &atomoutfile, cnn_scorer);
 		boost::thread_group worker_threads;
 		boost::timer time;
