@@ -1021,7 +1021,7 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	VINA_FOR_IN(i, ligands)
 		e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
 				minus_forces); // adds to minus_forces
-	// calculate derivatives
+	// calculate derivatives - resultant forces on subunits
 	ligands.derivative(coords, minus_forces, g.ligands);
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
 	return e;

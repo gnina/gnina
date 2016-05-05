@@ -35,12 +35,8 @@ struct change_gpu {
 	std::vector<ligand_change> ligands;
 	std::vector<residue_change> flex;
 	change_gpu(const change& c) {
-		for (int i=0; i<c.ligands.size(); i++) {
-			ligands.push_back(c.ligands[i]);
-		}	
-		for (int i=0; i<c.flex.size(); i++) {
-			flex.push_back(c.flex[i]);
-		}
+		cudaMalloc(this, sizeof(change_gpu));
+		cudaMemcpy(&this, &c, sizeof(change), cudaMemcpyHostToDevice);
 	}	
 	change_gpu(const conf_size& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
 		VINA_FOR_IN(i, ligands)
@@ -252,7 +248,10 @@ struct output_type_gpu {
 	fl e;
 	vecv coords;
 	output_type_gpu(const conf_gpu& c_, fl e_) : c(c_), e(e_) {}
-	output_type_gpu(output_type& ot) : c(ot.c), e(ot.e), coords(ot.coords) {}
+	output_type_gpu(output_type& ot) : c(ot.c), e(ot.e), coords(ot.coords) {
+		cudaMalloc(&outgpu, sizeof(output_type_gpu));
+		cudaMemcpy(outgpu, &out, sizeof(output_type), cudaMemcpyHostToDevice);
+	}
 };
 
 typedef boost::ptr_vector<output_type_gpu> output_container_gpu;
