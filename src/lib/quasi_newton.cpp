@@ -22,7 +22,12 @@
 
 #include "quasi_newton.h"
 #include "bfgs.h"
-#include "gpu_util.h"
+
+/* TODO: remove */
+template<typename F, typename Conf, typename Change>
+fl launch_bfgs_kernel(output_type& out,
+                      F& f, Conf& x, Change& g, const fl average_required_improvement,
+                      const minimization_params& params);
 
 struct quasi_newton_aux {
 	model* m;
@@ -39,30 +44,9 @@ struct quasi_newton_aux {
 
 void quasi_newton::operator()(model& m, const precalculate& p, const igrid& ig, output_type& out, change& g, const vec& v, const grid& user_grid, bool gpu_on) const { // g must have correct size
 	quasi_newton_aux aux(&m, &p, &ig, v, &user_grid);
-	// check whether we're using the gpu for the minimization algorithm. if so, malloc and
-	// copy change, out, aux, and model here. then launch the bfgs kernel
+	// check whether we're using the gpu for the minimization algorithm.
 	if (gpu_on) {
-		change* c = NULL; 
-		cudaMalloc(c, sizeof(change));
-		cudaMemcpy(c, &g, sizeof(change), cudaMemcpyHostToDevice);
-
-		output_type* outgpu = NULL;
-		cudaMalloc(outgpu, sizeof(output_type));
-		cudaMemcpy(outgpu, &out, sizeof(output_type), cudaMemcpyHostToDevice);
-
-		quasi_newton_aux* aux_gpu = NULL;
-		cudaMalloc(aux_gpu, sizeof(aux_gpu));
-		cudaMemcpy(aux_gpu, &aux, sizeof(aux), cudaMemcpyHostToDevice);
-
-		model* m_gpu = NULL;
-		cudaMalloc(m_gpu, sizeof(model));
-		cudaMemcpy(m_gpu, &m, sizeof(model), cudaMemcpyHostToDevice);	
-
-		bfgs<<<dim3(1), 1>>>(aux_gpu, &outgpu->c, &outgpu->e, c, average_required_improvement, params);
-		cudaThreadSynchronize();
-		abort_on_gpu_err();
-		cudaMemcpy(&out, outgpu, sizeof(outgpu), cudaMemcpyDeviceToHost);
-		// set out.e on the device since the kernel can't have a return value
+        launch_bfgs_kernel(out, aux, out.c, g, average_required_improvement, params);
 	}
 	else {
 		fl res = bfgs(aux, out.c, g, average_required_improvement, params);

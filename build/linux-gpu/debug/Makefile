@@ -4,16 +4,16 @@ GPP=g++
 C_OPTIONS= -O0  -g   
 BOOST_LIB_VERSION=
 NVCC=nvcc
-NVOPTS=-gencode arch=compute_20,code=sm_20 -gencode arch=compute_30,code=sm_30 -O0 -g
+NVOPTS=-gencode arch=compute_52,code=sm_52 -O0 -g
 OPENBABEL_INCLUDE=/usr/include/openbabel-2.0
-GPUOBJ = gpucode.o
+GPUOBJ = gpucode.o bfgs.cu quasi_newton.cpp
 
 include ../../makefile_common
 
 .DEFAULT_GOAL := gpu
 
 %.o : ../../../src/lib/%.cu 
-	$(NVCC) $(NVOPTS) -DSMINA_GPU -o $@ -c $< 
-	
+	$(NVCC) $(NVOPTS) -DSMINA_GPU -o $@ -c $<
+
 gpu: $(MAINOBJ) $(LIBOBJ) $(GPUOBJ)
 	$(CC) $(LDFLAGS) -o smina.$@ $^ $(LIBS)  -lcudart
