@@ -8,8 +8,9 @@
 #ifndef SRC_LIB_CNN_SCORER_H_
 #define SRC_LIB_CNN_SCORER_H_
 
-#include "caffe/layers/ndim_data_layer.hpp"
 #include "caffe/caffe.hpp"
+#include "caffe/layers/ndim_data_layer.hpp"
+
 #include "nngridder.h"
 #include "model.h"
 

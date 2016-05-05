@@ -750,6 +750,9 @@ static void initializeCUDA(int device)
 				<< "\n";
 		exit(-1);
 	}
+
+	caffe::Caffe::SetDevice(device);
+	caffe::Caffe::set_mode(caffe::Caffe::GPU);
 }
 
 //work queue job format
@@ -1222,6 +1225,7 @@ Thank you!\n";
 		}
 
 		google::InitGoogleLogging(argv[0]); //otherwise caffe spits crap out on stderr
+		google::SetStderrLogging(2);
 
 		set_fixed_rotable_hydrogens(!flex_hydrogens);
 

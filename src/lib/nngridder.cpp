@@ -603,8 +603,10 @@ void NNModelGridder::setLigand(const model& m)
 		atom a = atoms[i];
 		a.coords = m.coordinates()[i]; //have to explicitly set coords
 		int pos = lmap[a.sm];
-		assert(pos < ligandGrids.size());
-		if (pos >= 0)
-			setAtom(a, ligandGrids[pos]);
+		if(pos >= 0) { //ignore atom types not in map
+			assert(pos < ligandGrids.size());
+			if (pos >= 0)
+				setAtom(a, ligandGrids[pos]);
+		}
 	}
 }

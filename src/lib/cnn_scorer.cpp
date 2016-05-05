@@ -8,7 +8,6 @@
 #include "cnn_scorer.h"
 #include "gridoptions.h"
 
-#include "caffe/common.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/net.hpp"
 #include "caffe/proto/caffe.pb.h"
@@ -25,7 +24,6 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 {
 	if (cnnopts.cnn_scoring)
 	{
-
 		if (cnnopts.cnn_model.size() == 0)
 		{
 			throw usage_error("Missing model for cnn scoring.");
