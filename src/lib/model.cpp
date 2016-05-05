@@ -837,24 +837,6 @@ void model::set(const conf& c)
 	flex.set_conf(atoms, coords, c.flex);
 }
 
-void model::seti(const conf_gpu& c)
-{
-	ligands.set_conf(atoms, internal_coords, c.ligands);
-}
-
-void model::sete(const conf_gpu& c)
-{
-	VINA_FOR_IN(i, ligands)
-		c.ligands[i].rigid.apply(internal_coords, coords, ligands[i].begin,
-				ligands[i].end);
-	flex.set_conf(atoms, coords, c.flex);
-}
-
-void model::set(const conf_gpu& c)
-{
-	ligands.set_conf(atoms, coords, c.ligands);
-	flex.set_conf(atoms, coords, c.flex);
-}
 //dkoes - return the string corresponding to i'th ligand atoms pdb information
 //which is serial+name
 std::string model::ligand_atom_str(sz i, sz lig) const
@@ -981,29 +963,6 @@ fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
 	return e;
 }
 
-fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
-		const conf_gpu& c, const grid& user_grid)
-{ // clean up
-	set(c);
-	fl e = evale(p, ig, v);
-	VINA_FOR_IN(i, ligands)
-		e += eval_interacting_pairs(p, v[0], ligands[i].pairs, coords); // coords instead of internal coords
-	//std::cout << "smina_contribution: " << e << "\n";
-	if(user_grid.initialized())
-	{
-		fl uge = 0;
-		vecv l_coords = this->get_ligand_coords();
-		VINA_FOR_IN(i, l_coords)
-		{
-			fl tmp = user_grid.evaluate_user(l_coords[i], (fl) 1000);
-			uge += tmp;
-			e += tmp;
-		}
-		std::cout << "User_grid_contribution: " << uge << "\n";
-	}
-
-	return e;
-}
 fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 		const conf& c, change& g, const grid& user_grid)
 { // clean up
@@ -1022,22 +981,6 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 		e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
 				minus_forces); // adds to minus_forces
 	// calculate derivatives - resultant forces on subunits
-	ligands.derivative(coords, minus_forces, g.ligands);
-	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
-	return e;
-}
-
-fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
-		const conf_gpu& c, change_gpu& g, const grid& user_grid)
-{ // clean up
-	set(c);
-	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
-	e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
-			minus_forces); // adds to minus_forces
-	VINA_FOR_IN(i, ligands)
-		e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
-				minus_forces); // adds to minus_forces
-	// calculate derivatives
 	ligands.derivative(coords, minus_forces, g.ligands);
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
 	return e;
@@ -1085,46 +1028,6 @@ fl model::eval_flex(const precalculate& p, const vec& v, const conf& c, unsigned
 	return e;
 }
 
-fl model::eval_flex(const precalculate& p, const vec& v, const conf_gpu& c, unsigned maxGridAtom)
-{
-	set(c);
-	fl e = 0;
-	sz nat = num_atom_types();
-	const fl cutoff_sqr = p.cutoff_sqr();
-
-	//ignore atoms after maxGridAtom (presumably part of "unfrag")
-	sz gridstop = grid_atoms.size();
-	if(maxGridAtom > 0 && maxGridAtom < gridstop) gridstop = maxGridAtom;
-
-	// flex-rigid
-	VINA_FOR(i, atoms.size())
-	{
-		if (find_ligand(i) < ligands.size())
-			continue; // we only want flex-rigid interaction
-		const atom& a = atoms[i];
-		smt t1 = a.get();
-		if (t1 >= nat)
-			continue;
-		VINA_FOR_IN(j, grid_atoms)
-		{
-			if(j >= gridstop)
-				break;
-			const atom& b = grid_atoms[j];
-			smt t2 = b.get();
-			if (t2 >= nat)
-				continue;
-			fl r2 = vec_distance_sqr(coords[i], b.coords);
-			if (r2 < cutoff_sqr)
-			{
-				fl this_e = p.eval(a, b, r2);
-				curl(this_e, v[1]);
-				e += this_e;
-			}
-		}
-	}
-
-	return e;
-}
 fl model::eval_intramolecular(const precalculate& p, const vec& v,
 		const conf& c)
 {
@@ -1182,62 +1085,6 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
 	return e;
 }
 
-fl model::eval_intramolecular(const precalculate& p, const vec& v,
-		const conf_gpu& c)
-{
-	set(c);
-	fl e = 0;
-
-	// internal for each ligand
-	VINA_FOR_IN(i, ligands)
-		e += eval_interacting_pairs(p, v[0], ligands[i].pairs, coords); // coords instead of internal coords
-
-	sz nat = num_atom_types();
-	const fl cutoff_sqr = p.cutoff_sqr();
-
-	// flex-rigid
-	VINA_FOR(i, num_movable_atoms())
-	{
-		if (find_ligand(i) < ligands.size())
-			continue; // we only want flex-rigid interaction
-		const atom& a = atoms[i];
-		smt t1 = a.get();
-		if (t1 >= nat)
-			continue;
-		VINA_FOR_IN(j, grid_atoms)
-		{
-			const atom& b = grid_atoms[j];
-			smt t2 = b.get();
-			if (t2 >= nat)
-				continue;
-			fl r2 = vec_distance_sqr(coords[i], b.coords);
-			if (r2 < cutoff_sqr)
-			{
-				fl this_e = p.eval(a, b, r2);
-				curl(this_e, v[1]);
-				e += this_e;
-			}
-		}
-	}
-
-
-// flex-flex
-	VINA_FOR_IN(i, other_pairs)
-	{
-		const interacting_pair& pair = other_pairs[i];
-		if (find_ligand(pair.a) < ligands.size()
-				|| find_ligand(pair.b) < ligands.size())
-			continue; // we only need flex-flex
-		fl r2 = vec_distance_sqr(coords[pair.a], coords[pair.b]);
-		if (r2 < cutoff_sqr)
-		{
-			fl this_e = p.eval(atoms[pair.a], atoms[pair.b], r2);
-			curl(this_e, v[2]);
-			e += this_e;
-		}
-	}
-	return e;
-}
 fl model::eval_adjusted(const scoring_function& sf, const precalculate& p,
 		const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy,
 		const grid& user_grid)
@@ -1246,13 +1093,6 @@ fl model::eval_adjusted(const scoring_function& sf, const precalculate& p,
 	return sf.conf_independent(*this, e - intramolecular_energy);
 }
 
-fl model::eval_adjusted(const scoring_function& sf, const precalculate& p,
-		const igrid& ig, const vec& v, const conf_gpu& c, fl intramolecular_energy,
-		const grid& user_grid)
-{
-	fl e = eval(p, ig, v, c, user_grid); // sets c
-	return sf.conf_independent(*this, e - intramolecular_energy);
-}
 fl model::rmsd_lower_bound_asymmetric(const model& x, const model& y) const
 		{ // actually static
 	sz n = x.m_num_movable_atoms;
