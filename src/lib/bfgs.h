@@ -28,6 +28,7 @@
 typedef triangular_matrix<fl> flmat;
 
 template<typename Change>
+__host__ __device__
 void minus_mat_vec_product(const flmat& m, const Change& in, Change& out)
 {
 	sz n = m.dim();
@@ -41,6 +42,7 @@ void minus_mat_vec_product(const flmat& m, const Change& in, Change& out)
 }
 
 template<typename Change>
+__host__ __device__
 inline fl scalar_product(const Change& a, const Change& b, sz n)
 {
 	fl tmp = 0;
@@ -50,6 +52,7 @@ inline fl scalar_product(const Change& a, const Change& b, sz n)
 }
 
 template<typename Change>
+__host__ __device__
 inline bool bfgs_update(flmat& h, const Change& p, const Change& y,
 		const fl alpha)
 {
@@ -72,6 +75,7 @@ inline bool bfgs_update(flmat& h, const Change& p, const Change& y,
 //dkoes - this is the line search method used by vina,
 //it is simple and fast, but may return an inappropriately large alpha
 template<typename F, typename Conf, typename Change>
+__host__ __device__
 fl fast_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		const Change& p, Conf& x_new, Change& g_new, fl& f1)
 { // returns alpha
@@ -98,6 +102,7 @@ fl fast_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 //a bit of effort into calculating a good scaling factor, and ensures that alpha
 //will actually result in a smaller value
 template<typename F, typename Conf, typename Change>
+__host__ __device__    
 fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		const Change& p, Conf& x_new, Change& g_new, fl& f1)
 { // returns alpha
@@ -184,6 +189,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 	}
 }
 
+__host__ __device__
 inline void set_diagonal(flmat& m, fl x)
 {
 	VINA_FOR(i, m.dim())
@@ -191,6 +197,7 @@ inline void set_diagonal(flmat& m, fl x)
 }
 
 template<typename Change>
+__host__ __device__
 void subtract_change(Change& b, const Change& a, sz n)
 { // b -= a
 	VINA_FOR(i, n)
@@ -397,6 +404,101 @@ fl conjgrad(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		g = g_orig;
 	}
 	return f0;
+}
+
+template<typename F, typename Conf, typename Change>
+__global__
+void bfgs_kernel(F* func, Conf* out_c, fl* out_e, Change* g_,
+                 const fl average_required_improvement,
+                 const minimization_params& params)
+{ // x is I/O, final value is returned
+	F& f = *func;
+	Conf& x = *out_c;
+	Change& g = *g_;
+	sz n = g.num_floats();
+	flmat h(n, 0);
+	set_diagonal(h, 1);
+
+	Change g_new(g);
+	Conf x_new(x);
+	// a major part of what f does is call model.eval_deriv, which calls 
+	// the eval_deriv routine in non_cache (which does the scoring function
+	// evaluation for receptor-ligand pairs), eval_interacting_pairs_deriv,
+	// which computes pairwise interactions from within the flexible 
+	// components (in the simplest case this is just the ligand's 
+	// intramolecular pairwise interactions)
+	fl f0 = f(x, g);
+
+	fl f_orig = f0;
+	Change g_orig(g);
+	Conf x_orig(x);
+
+	Change p(g);
+
+//	std::ofstream fout("minout.sdf");
+	VINA_U_FOR(step, params.maxiters)
+	{
+		//Update of estimated Hessian
+		minus_mat_vec_product(h, g, p);
+		fl f1 = 0;
+		fl alpha;
+
+//		f.m->set(x);
+//		f.m->write_sdf(fout);
+//		fout << "$$$$\n";
+
+		if (params.type == minimization_params::BFGSAccurateLineSearch)
+			alpha = accurate_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
+		else
+			alpha = fast_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
+
+		if(alpha == 0)
+			break; //line direction was wrong, give up
+
+		Change y(g_new);
+		subtract_change(y, g, n);
+
+		fl prevf0 = f0;
+		f0 = f1;
+		x = x_new;
+
+		if (params.early_term)
+		{
+			//dkoes - use the progress in reducing the function value as an indication of when to stop
+			fl diff = prevf0 - f0;
+			if (fabs(diff) < 1e-5) //arbitrary cutoff
+			{
+				break;
+			}
+		}
+
+		g = g_new; // dkoes - check the convergence of the new gradient
+
+		fl gradnormsq = scalar_product(g, g, n);
+		//std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+
+		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
+		{
+			break; // breaks for nans too // FIXME !!??
+		}
+
+		if (step == 0)
+		{
+			const fl yy = scalar_product(y, y, n);
+			if (std::abs(yy) > epsilon_fl)
+				set_diagonal(h, alpha * scalar_product(y, p, n) / yy);
+		}
+
+		bool h_updated = bfgs_update(h, p, y, alpha);
+	}
+
+	if (!(f0 <= f_orig))
+	{ // succeeds for nans too
+		f0 = f_orig;
+		x = x_orig;
+		g = g_orig;
+	}
+	*out_e = f0;
 }
 
 #endif
