@@ -47,9 +47,15 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		ndimparam->set_inmemory(true);
 
 		//set batch size to 1
-		ndimparam->set_batch_size(1);
-		//let user specify rotations
-		ndimparam->set_rotate(min(24U, cnnopts.cnn_rotations));
+		unsigned bsize = 1;
+		//unless we have rotations, in which case do them all at once
+		if(cnnopts.cnn_rotations > 0) {
+			//let user specify rotations
+			unsigned nrot = min(24U, cnnopts.cnn_rotations);
+			ndimparam->set_rotate(nrot);
+			bsize = nrot;
+		}
+		ndimparam->set_batch_size(bsize);
 
 		net.reset(new Net<float>(param));
 
@@ -77,7 +83,7 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		{
 			throw usage_error("Model must have output layer named \"output\".");
 		}
-		if (net->blob_by_name("output")->count() != 2)
+		if (net->blob_by_name("output")->count() != 2*bsize)
 		{
 			throw usage_error(
 					"Model output layer does not have exactly two outputs.");
@@ -130,13 +136,15 @@ float CNNScorer::score(const model& m)
 	double score = 0.0;
 	const shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
 
+	net->Forward(); //do all rotations at once if requested
+
 	//take average of all rotations if requested
 	for (unsigned i = 0; i < n; i++)
 	{
 		net->Forward();
 		const Dtype* out = outblob->cpu_data();
-		score += out[1];
-		cout << out[1] << "\n";
+		score += out[2*i+1];
+		cout << out[2*i+1] << "\n";
 	}
 	return score / n;
 
