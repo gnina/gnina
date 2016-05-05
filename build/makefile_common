@@ -7,7 +7,7 @@ FROMGNINAOBJ = fromgnina.o CommandLine.o
 GNINAGRIDOBJ = gninagrid.o nngridder.o
 SERVEROBJ = server.o CommandLine.o MinimizationQuery.o QueryManager.o
 INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) -I $(CUDA_INCLUDE) 
-NVCC=$(BASE)/cuda/bin/nvcc -std=c++11 -Xcudafe "--diag_suppress=boolean_controlling_expr_is_constant"
+NVCC=nvcc -std=c++11 -Xcudafe "--diag_suppress=boolean_controlling_expr_is_constant"
 
 CC = ${GPP} ${C_PLATFORM} -ansi  ${C_OPTIONS} $(INCFLAGS)
 
