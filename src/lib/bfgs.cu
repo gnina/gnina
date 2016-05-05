@@ -20,11 +20,9 @@
 
  */
 
-#include "conf.h"
 #include "matrix.h"
 #include "gpu_util.h"
 #include <numeric>
-#include <cuda_runtime.h>
 
 typedef triangular_matrix<fl> flmat;
 
@@ -41,7 +39,7 @@ void minus_mat_vec_product(const flmat& m, const Change& in, Change& out)
 	}
 }
 
-template<typename Change> __device__ 
+template<typename Change> __device__
 inline fl scalar_product(const Change& a, const Change& b, sz n)
 {
 	fl tmp = 0;
@@ -50,7 +48,7 @@ inline fl scalar_product(const Change& a, const Change& b, sz n)
 	return tmp;
 }
 
-template<typename Change> __device__ 
+template<typename Change> __device__
 inline bool bfgs_update(flmat& h, const Change& p, const Change& y,
 		const fl alpha)
 {
@@ -208,10 +206,10 @@ void subtract_change(Change& b, const Change& a, sz n)
 //
 //Change template argument
 //change type (conf.h) basically same as conf, but stores deltas
-
 template<typename F, typename Conf, typename Change> __global__
-void bfgs_kernel(F* func, Conf* out_c, fl* out_e, Change* g_, const fl
-                 average_required_improvement, const minimization_params& params)
+void bfgs_kernel(F* func, Conf* out_c, fl* out_e, Change* g_,
+                 const fl average_required_improvement,
+                 const minimization_params& params)
 { // x is I/O, final value is returned
 	F& f = *func;
 	Conf& x = *out_c;
@@ -300,37 +298,6 @@ void bfgs_kernel(F* func, Conf* out_c, fl* out_e, Change* g_, const fl
 		g = g_orig;
 	}
 	*out_e = f0;
-}
-
-template<typename F, typename Conf, typename Change>
-fl launch_bfgs_kernel(output_type& out,
-                      F& f, Conf& x, Change& g, const fl average_required_improvement,
-                      const minimization_params& params)
-{
-
-    change* c = NULL; 
-    cudaMalloc(&c, sizeof(*c));
-    cudaMemcpy(c, &g, sizeof(*c), cudaMemcpyHostToDevice);
-
-    output_type* outgpu = NULL;
-    cudaMalloc(&outgpu, sizeof(*outgpu));
-    cudaMemcpy(outgpu, &out, sizeof(*outgpu), cudaMemcpyHostToDevice);
-
-    quasi_newton_aux* aux_gpu = NULL;
-    cudaMalloc(&aux_gpu, sizeof(*aux_gpu));
-    cudaMemcpy(aux_gpu, &aux, sizeof(*aux_gpu), cudaMemcpyHostToDevice);
-
-    model* m_gpu = NULL;
-    cudaMalloc(&m_gpu, sizeof(*m_gpu));
-    cudaMemcpy(m_gpu, &m, sizeof(*m_gpu), cudaMemcpyHostToDevice);	
-
-    launch_bfgs_kernel(aux_gpu, &outgpu->c, &outgpu->e, c, average_required_improvement, params);
-    cudaThreadSynchronize();
-    abort_on_gpu_err();
-    cudaMemcpy(&out, outgpu, sizeof(outgpu), cudaMemcpyDeviceToHost);
-
-    
-    bfgs_kernel<<<1, 1>>>(func, out_c, out_e, g_, average_required_improvement, params);
 }
 
 //set g = g_new + B*g
