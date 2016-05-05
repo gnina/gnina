@@ -1,0 +1,3791 @@
+              _             
+             (_)            
+   __ _ _ __  _ _ __   __ _ 
+  / _` | '_ \| | '_ \ / _` |
+ | (_| | | | | | | | | (_| |
+  \__, |_| |_|_|_| |_|\__,_|
+   __/ |                    
+  |___/                     
+
+gnina is based off of smina and AutoDock Vina.
+Please cite appropriately.
+
+*** IMPORTANT: gnina is not yet intended for production use. Use smina. ***
+
+Weights      Terms
+-0.035579    gauss(o=0,_w=0.5,_c=8)
+-0.005156    gauss(o=3,_w=2,_c=8)
+0.840245     repulsion(o=0,_c=8)
+-0.035069    hydrophobic(g=0.5,_b=1.5,_c=8)
+-0.587439    non_dir_h_bond(g=-0.7,_b=0,_c=8)
+1.923        num_tors_div
+
+Affinity: -6.23223  0.11583 (kcal/mol)
+RMSD: 0.71880
+Affinity: -3.45612  -0.08693 (kcal/mol)
+RMSD: 3.75379
+Affinity: -6.26499  1.63042 (kcal/mol)
+RMSD: 1.83101
+Affinity: -6.23548  -0.56877 (kcal/mol)
+RMSD: 1.73074
+Affinity: -6.64465  -0.21963 (kcal/mol)
+RMSD: 1.90845
+Affinity: -5.57962  -0.30389 (kcal/mol)
+RMSD: 1.24616
+Affinity: -5.59866  -0.34372 (kcal/mol)
+RMSD: 1.25396
+Affinity: -7.17273  -0.51732 (kcal/mol)
+RMSD: 0.67780
+Affinity: -7.26194  -0.54400 (kcal/mol)
+RMSD: 0.95033
+Affinity: -7.26161  -0.54436 (kcal/mol)
+RMSD: 0.95028
+Affinity: -6.05940  -0.14191 (kcal/mol)
+RMSD: 1.82066
+Affinity: -5.47784  -0.34742 (kcal/mol)
+RMSD: 1.11638
+Affinity: -6.81479  -0.43734 (kcal/mol)
+RMSD: 1.51888
+Affinity: -5.89377  -0.44794 (kcal/mol)
+RMSD: 0.86318
+Affinity: -6.17595  0.09213 (kcal/mol)
+RMSD: 0.76451
+Affinity: -7.69405  0.44139 (kcal/mol)
+RMSD: 0.73305
+Affinity: -7.93101  0.68465 (kcal/mol)
+RMSD: 0.86114
+Affinity: -7.93312  0.68403 (kcal/mol)
+RMSD: 0.86076
+Affinity: -6.00560  -0.26887 (kcal/mol)
+RMSD: 1.44982
+Affinity: -7.67329  0.36914 (kcal/mol)
+RMSD: 0.68671
+Affinity: -3.62712  0.05520 (kcal/mol)
+RMSD: 1.45883
+Affinity: -6.70779  0.26083 (kcal/mol)
+RMSD: 0.93723
+Affinity: -6.70778  0.26086 (kcal/mol)
+RMSD: 0.93709
+Affinity: -6.84036  0.51151 (kcal/mol)
+RMSD: 1.34631
+Affinity: -6.83513  0.52550 (kcal/mol)
+RMSD: 1.33037
+Affinity: -6.83517  0.52550 (kcal/mol)
+RMSD: 1.33042
+Affinity: -6.83513  0.52540 (kcal/mol)
+RMSD: 1.33039
+Affinity: -8.38669  0.23239 (kcal/mol)
+RMSD: 1.52311
+Affinity: -4.71055  1.36644 (kcal/mol)
+RMSD: 2.70030
+Affinity: -6.15234  -0.17526 (kcal/mol)
+RMSD: 0.64819
+Affinity: -6.15233  -0.17531 (kcal/mol)
+RMSD: 0.64817
+Affinity: -9.81128  0.23179 (kcal/mol)
+RMSD: 1.98629
+Affinity: -2.92828  -0.29322 (kcal/mol)
+RMSD: 2.44544
+Affinity: -2.92850  -0.29307 (kcal/mol)
+RMSD: 1.46724
+Affinity: -7.88691  -0.11091 (kcal/mol)
+RMSD: 1.84353
+Affinity: -0.85142  0.04384 (kcal/mol)
+RMSD: 6.78066
+Affinity: 0.94090  -0.29786 (kcal/mol)
+RMSD: 2.58773
+Affinity: 0.17731  -0.25445 (kcal/mol)
+RMSD: 1.12938
+Affinity: -9.86726  0.22629 (kcal/mol)
+RMSD: 1.97946
+Affinity: 0.92897  -0.29905 (kcal/mol)
+RMSD: 2.58592
+Affinity: -4.55030  -0.30833 (kcal/mol)
+RMSD: 1.30983
+Affinity: -5.00606  1.77682 (kcal/mol)
+RMSD: 1.74775
+Affinity: -5.00547  1.77700 (kcal/mol)
+RMSD: 1.74759
+Affinity: -3.81830  1.83728 (kcal/mol)
+RMSD: 1.76128
+Affinity: -3.81793  1.83675 (kcal/mol)
+RMSD: 1.76136
+Affinity: -7.51365  -0.60677 (kcal/mol)
+RMSD: 0.34696
+Affinity: -7.32002  -0.40052 (kcal/mol)
+RMSD: 0.80063
+Affinity: -7.44588  -0.38360 (kcal/mol)
+RMSD: 0.44931
+Affinity: -7.54850  -0.59926 (kcal/mol)
+RMSD: 0.35010
+Affinity: -7.51283  -0.58835 (kcal/mol)
+RMSD: 0.57215
+Affinity: -7.54935  -0.52603 (kcal/mol)
+RMSD: 0.98070
+Affinity: -6.33021  -0.19027 (kcal/mol)
+RMSD: 0.74380
+Affinity: -6.38279  -0.09643 (kcal/mol)
+RMSD: 0.72544
+Affinity: -5.67424  0.32042 (kcal/mol)
+RMSD: 1.26609
+Affinity: -5.55989  0.13267 (kcal/mol)
+RMSD: 1.99075
+Affinity: -5.21474  0.23127 (kcal/mol)
+RMSD: 1.54733
+Affinity: -6.81345  0.09510 (kcal/mol)
+RMSD: 1.78310
+Affinity: -6.81407  0.08578 (kcal/mol)
+RMSD: 1.76393
+Affinity: -5.53310  -0.02527 (kcal/mol)
+RMSD: 2.09319
+Affinity: -7.05581  -0.20521 (kcal/mol)
+RMSD: 0.71957
+Affinity: -7.00155  -0.19091 (kcal/mol)
+RMSD: 0.72316
+Affinity: -7.00164  -0.19087 (kcal/mol)
+RMSD: 0.72335
+Affinity: -7.05583  -0.20517 (kcal/mol)
+RMSD: 0.71946
+Affinity: -6.52987  -0.23271 (kcal/mol)
+RMSD: 1.04213
+Affinity: -8.00906  0.08765 (kcal/mol)
+RMSD: 0.58155
+Affinity: -4.94148  -0.42377 (kcal/mol)
+RMSD: 2.89261
+Affinity: -6.72665  -0.71664 (kcal/mol)
+RMSD: 1.59974
+Affinity: -6.95253  -0.12018 (kcal/mol)
+RMSD: 1.66053
+Affinity: -6.73238  -0.18971 (kcal/mol)
+RMSD: 2.04528
+Affinity: -7.06219  -0.32087 (kcal/mol)
+RMSD: 1.99151
+Affinity: -7.05596  -0.32093 (kcal/mol)
+RMSD: 2.07861
+Affinity: -6.99831  -0.15642 (kcal/mol)
+RMSD: 1.77586
+Affinity: -6.52675  -0.26061 (kcal/mol)
+RMSD: 0.66276
+Affinity: -5.28968  0.35022 (kcal/mol)
+RMSD: 1.34691
+Affinity: -6.99245  -0.22768 (kcal/mol)
+RMSD: 1.02273
+Affinity: -7.03144  -0.20853 (kcal/mol)
+RMSD: 1.12759
+Affinity: -6.89290  -0.21189 (kcal/mol)
+RMSD: 0.93754
+Affinity: -6.83556  -0.25423 (kcal/mol)
+RMSD: 0.85735
+Affinity: -6.83591  -0.25422 (kcal/mol)
+RMSD: 0.85738
+Affinity: -6.79346  -0.29088 (kcal/mol)
+RMSD: 1.39655
+Affinity: -4.10686  0.19766 (kcal/mol)
+RMSD: 1.78479
+Affinity: -4.04303  0.11249 (kcal/mol)
+RMSD: 1.54423
+Affinity: -8.45920  -0.24102 (kcal/mol)
+RMSD: 0.54686
+Affinity: -8.45926  -0.24097 (kcal/mol)
+RMSD: 0.54714
+Affinity: -8.46492  -0.25917 (kcal/mol)
+RMSD: 0.59311
+Affinity: -8.46206  -0.25924 (kcal/mol)
+RMSD: 0.59337
+Affinity: -6.41723  0.00303 (kcal/mol)
+RMSD: 1.61087
+Affinity: -6.37329  -0.04959 (kcal/mol)
+RMSD: 1.64443
+Affinity: -6.42229  -0.06801 (kcal/mol)
+RMSD: 1.64553
+Affinity: 1.59206  0.91180 (kcal/mol)
+RMSD: 2.81235
+Affinity: -6.82671  -0.31153 (kcal/mol)
+RMSD: 0.35847
+Affinity: -7.32808  -0.43412 (kcal/mol)
+RMSD: 0.98930
+Affinity: -6.82659  -0.31151 (kcal/mol)
+RMSD: 0.35828
+Affinity: -6.33893  -0.22380 (kcal/mol)
+RMSD: 0.73799
+Affinity: -6.31439  -0.28527 (kcal/mol)
+RMSD: 0.87425
+Affinity: -6.30728  -0.25582 (kcal/mol)
+RMSD: 0.62248
+Affinity: -6.88236  0.03936 (kcal/mol)
+RMSD: 0.61673
+Affinity: -7.68729  0.68549 (kcal/mol)
+RMSD: 1.51043
+Affinity: -7.12120  -0.36930 (kcal/mol)
+RMSD: 1.55755
+Affinity: -7.62982  0.17036 (kcal/mol)
+RMSD: 1.48317
+Affinity: -7.63134  -0.47706 (kcal/mol)
+RMSD: 1.67301
+Affinity: -8.99968  -0.33904 (kcal/mol)
+RMSD: 0.57330
+Affinity: -7.29235  -0.24008 (kcal/mol)
+RMSD: 0.76453
+Affinity: -9.05617  -0.44362 (kcal/mol)
+RMSD: 0.59800
+Affinity: -7.57619  -0.54041 (kcal/mol)
+RMSD: 0.48850
+Affinity: -7.34629  -0.35604 (kcal/mol)
+RMSD: 0.44867
+Affinity: -7.34343  -0.53829 (kcal/mol)
+RMSD: 0.84285
+Affinity: -7.35000  -0.21319 (kcal/mol)
+RMSD: 0.43656
+Affinity: -7.43540  -0.52893 (kcal/mol)
+RMSD: 0.88268
+Affinity: -7.37201  0.24683 (kcal/mol)
+RMSD: 0.64728
+Affinity: -7.37024  0.24878 (kcal/mol)
+RMSD: 0.64951
+Affinity: -7.85357  0.03655 (kcal/mol)
+RMSD: 0.96929
+Affinity: -5.89508  0.58882 (kcal/mol)
+RMSD: 2.89971
+Affinity: -5.92111  1.52311 (kcal/mol)
+RMSD: 3.29543
+Affinity: -2.09465  0.83501 (kcal/mol)
+RMSD: 1.08802
+Affinity: -6.44316  0.20903 (kcal/mol)
+RMSD: 2.03345
+Affinity: -5.59586  -0.15722 (kcal/mol)
+RMSD: 1.17895
+Affinity: -7.08870  0.45816 (kcal/mol)
+RMSD: 1.37158
+Affinity: -7.29446  0.27901 (kcal/mol)
+RMSD: 1.02133
+Affinity: -7.30480  0.39404 (kcal/mol)
+RMSD: 1.53487
+Affinity: -7.40461  0.50631 (kcal/mol)
+RMSD: 1.48943
+Affinity: -7.20380  -0.03940 (kcal/mol)
+RMSD: 1.21931
+Affinity: -7.40461  0.50625 (kcal/mol)
+RMSD: 1.48949
+Affinity: -5.49747  -0.09770 (kcal/mol)
+RMSD: 0.93520
+Affinity: -0.58276  0.15841 (kcal/mol)
+RMSD: 2.15048
+Affinity: -0.58453  0.15573 (kcal/mol)
+RMSD: 2.13866
+Affinity: -8.49537  -0.25828 (kcal/mol)
+RMSD: 1.25248
+Affinity: -8.68045  -0.12607 (kcal/mol)
+RMSD: 0.77833
+Affinity: -8.68073  -0.12608 (kcal/mol)
+RMSD: 0.77847
+Affinity: -8.94486  -0.34967 (kcal/mol)
+RMSD: 0.94102
+Affinity: -6.69616  -0.08922 (kcal/mol)
+RMSD: 1.49016
+Affinity: -5.86003  0.08369 (kcal/mol)
+RMSD: 0.79180
+Affinity: -8.45134  0.05480 (kcal/mol)
+RMSD: 1.13511
+Affinity: -6.15074  -0.25067 (kcal/mol)
+RMSD: 0.45138
+Affinity: -6.15075  -0.25068 (kcal/mol)
+RMSD: 0.45140
+Affinity: -6.40149  -0.11961 (kcal/mol)
+RMSD: 1.17993
+Affinity: -6.32242  -0.24080 (kcal/mol)
+RMSD: 0.54770
+Affinity: -4.93020  1.20160 (kcal/mol)
+RMSD: 3.00134
+Affinity: -4.83546  1.58074 (kcal/mol)
+RMSD: 3.42768
+Affinity: -1.94081  1.47269 (kcal/mol)
+RMSD: 3.04514
+Affinity: -6.31206  -0.26399 (kcal/mol)
+RMSD: 0.95016
+Affinity: -6.02055  3.02244 (kcal/mol)
+RMSD: 3.91154
+Affinity: -4.99451  -0.39548 (kcal/mol)
+RMSD: 1.10567
+Affinity: -5.00542  -0.39422 (kcal/mol)
+RMSD: 1.11225
+Affinity: -4.85769  -0.22175 (kcal/mol)
+RMSD: 1.14370
+Affinity: -4.85448  -0.22152 (kcal/mol)
+RMSD: 1.14376
+Affinity: -7.73593  -0.48287 (kcal/mol)
+RMSD: 0.82627
+Affinity: -6.30213  0.28240 (kcal/mol)
+RMSD: 1.20857
+Affinity: -6.51221  -0.21399 (kcal/mol)
+RMSD: 0.76285
+Affinity: -6.50944  -0.21399 (kcal/mol)
+RMSD: 0.76274
+Affinity: -6.61346  -0.10970 (kcal/mol)
+RMSD: 0.50962
+Affinity: -6.69205  -0.29409 (kcal/mol)
+RMSD: 0.42147
+Affinity: -6.69185  -0.29409 (kcal/mol)
+RMSD: 0.42153
+Affinity: -6.61335  -0.10969 (kcal/mol)
+RMSD: 0.50952
+Affinity: -6.69178  -0.29410 (kcal/mol)
+RMSD: 0.42126
+Affinity: -6.13556  0.11742 (kcal/mol)
+RMSD: 2.40093
+Affinity: -5.14231  0.24262 (kcal/mol)
+RMSD: 1.40390
+Affinity: -7.52200  -0.31641 (kcal/mol)
+RMSD: 0.61015
+Affinity: -7.52199  -0.31626 (kcal/mol)
+RMSD: 0.60989
+Affinity: -7.49058  -0.30039 (kcal/mol)
+RMSD: 0.63337
+Affinity: -8.79687  -0.16923 (kcal/mol)
+RMSD: 1.61281
+Affinity: -2.21050  0.07848 (kcal/mol)
+RMSD: 1.37666
+Affinity: -2.21043  0.07850 (kcal/mol)
+RMSD: 1.37674
+Affinity: -2.36267  0.18913 (kcal/mol)
+RMSD: 1.07278
+Affinity: -6.86998  -0.27789 (kcal/mol)
+RMSD: 1.79739
+Affinity: -5.49571  0.45486 (kcal/mol)
+RMSD: 1.75454
+Affinity: -7.46464  -0.31690 (kcal/mol)
+RMSD: 1.52572
+Affinity: -3.41427  0.44907 (kcal/mol)
+RMSD: 1.72189
+Affinity: -4.46222  1.18890 (kcal/mol)
+RMSD: 3.03241
+Affinity: -6.00462  0.63401 (kcal/mol)
+RMSD: 2.83573
+Affinity: -6.73703  -0.31620 (kcal/mol)
+RMSD: 0.50968
+Affinity: -6.73713  -0.31612 (kcal/mol)
+RMSD: 0.50969
+Affinity: -6.73674  -0.31616 (kcal/mol)
+RMSD: 0.50971
+Affinity: -6.96080  -0.17941 (kcal/mol)
+RMSD: 0.79689
+Affinity: -6.73682  -0.31614 (kcal/mol)
+RMSD: 0.50974
+Affinity: -6.96001  -0.18017 (kcal/mol)
+RMSD: 0.79727
+Affinity: -6.95805  -0.17931 (kcal/mol)
+RMSD: 0.79689
+Affinity: -6.96046  -0.17972 (kcal/mol)
+RMSD: 0.79719
+Affinity: -4.78075  -0.23820 (kcal/mol)
+RMSD: 1.07127
+Affinity: -7.09986  -0.22557 (kcal/mol)
+RMSD: 1.37465
+Affinity: -7.11253  -0.20089 (kcal/mol)
+RMSD: 1.40986
+Affinity: -6.56156  -0.95644 (kcal/mol)
+RMSD: 1.69183
+Affinity: -7.44417  0.32886 (kcal/mol)
+RMSD: 1.33023
+Affinity: -7.44413  0.32874 (kcal/mol)
+RMSD: 1.33012
+Affinity: -7.55980  0.38435 (kcal/mol)
+RMSD: 1.10077
+Affinity: -7.42940  0.33587 (kcal/mol)
+RMSD: 1.29423
+Affinity: -6.34465  0.35386 (kcal/mol)
+RMSD: 1.43020
+Affinity: -6.78315  0.60201 (kcal/mol)
+RMSD: 1.36399
+Affinity: -7.34263  0.29555 (kcal/mol)
+RMSD: 1.38326
+Affinity: -1.33833  0.30543 (kcal/mol)
+RMSD: 1.29817
+Affinity: -6.81990  0.35947 (kcal/mol)
+RMSD: 1.54131
+Affinity: -6.81969  0.35967 (kcal/mol)
+RMSD: 1.54146
+Affinity: -5.22426  1.28670 (kcal/mol)
+RMSD: 1.78496
+Affinity: -7.89803  -0.27895 (kcal/mol)
+RMSD: 1.06894
+Affinity: -7.58863  -0.37244 (kcal/mol)
+RMSD: 1.11021
+Affinity: -7.61084  -0.35620 (kcal/mol)
+RMSD: 0.97505
+Affinity: -7.61362  -0.35686 (kcal/mol)
+RMSD: 0.97513
+Affinity: -8.91229  -0.31781 (kcal/mol)
+RMSD: 0.58124
+Affinity: -7.83262  -0.21560 (kcal/mol)
+RMSD: 0.75094
+Affinity: -8.98209  -0.42654 (kcal/mol)
+RMSD: 0.61169
+Affinity: -6.12944  0.12008 (kcal/mol)
+RMSD: 1.00653
+Affinity: -6.62092  0.13705 (kcal/mol)
+RMSD: 0.98650
+Affinity: -5.88013  -0.67167 (kcal/mol)
+RMSD: 1.30863
+Affinity: -6.44474  0.74023 (kcal/mol)
+RMSD: 1.31330
+Affinity: -6.03039  0.71503 (kcal/mol)
+RMSD: 2.23785
+Affinity: -6.26847  0.10362 (kcal/mol)
+RMSD: 2.10385
+Affinity: -7.09236  0.06872 (kcal/mol)
+RMSD: 1.79611
+Affinity: -6.33192  -0.50741 (kcal/mol)
+RMSD: 0.82167
+Affinity: -6.50681  -0.48492 (kcal/mol)
+RMSD: 0.83509
+Affinity: 17.43270  0.21180 (kcal/mol)
+RMSD: 1.10143
+Affinity: -3.96334  0.99113 (kcal/mol)
+RMSD: 2.20423
+Affinity: -6.60285  -0.47532 (kcal/mol)
+RMSD: 1.25787
+Affinity: -7.33370  -0.42984 (kcal/mol)
+RMSD: 1.69227
+Affinity: -7.33365  -0.42974 (kcal/mol)
+RMSD: 1.69252
+Affinity: -5.67325  -0.39551 (kcal/mol)
+RMSD: 2.22269
+Affinity: -8.35009  -0.19015 (kcal/mol)
+RMSD: 1.38310
+Affinity: -8.05124  -0.29767 (kcal/mol)
+RMSD: 1.28184
+Affinity: -6.78060  -0.18907 (kcal/mol)
+RMSD: 1.21971
+Affinity: -6.78649  0.10583 (kcal/mol)
+RMSD: 0.75054
+Affinity: -6.58181  0.06625 (kcal/mol)
+RMSD: 0.64617
+Affinity: -6.25305  -0.04614 (kcal/mol)
+RMSD: 0.73958
+Affinity: -6.22631  -0.07709 (kcal/mol)
+RMSD: 0.71364
+Affinity: -7.91576  -0.31094 (kcal/mol)
+RMSD: 0.63577
+Affinity: -7.91579  -0.31052 (kcal/mol)
+RMSD: 0.63583
+Affinity: -7.85849  -0.56064 (kcal/mol)
+RMSD: 0.73354
+Affinity: -7.91631  -0.31007 (kcal/mol)
+RMSD: 0.63577
+Affinity: -7.85847  -0.56061 (kcal/mol)
+RMSD: 0.73358
+Affinity: -7.91528  -0.31124 (kcal/mol)
+RMSD: 0.63552
+Affinity: -7.91668  -0.31011 (kcal/mol)
+RMSD: 0.63621
+Affinity: -7.80036  -0.52206 (kcal/mol)
+RMSD: 0.82485
+Affinity: -8.02556  -0.33893 (kcal/mol)
+RMSD: 0.64002
+Affinity: -8.02583  -0.33867 (kcal/mol)
+RMSD: 0.63972
+Affinity: -7.80010  -0.52221 (kcal/mol)
+RMSD: 0.82493
+Affinity: -8.04826  -0.35260 (kcal/mol)
+RMSD: 0.79062
+Affinity: -7.91454  -0.33717 (kcal/mol)
+RMSD: 0.81836
+Affinity: -7.91453  -0.33723 (kcal/mol)
+RMSD: 0.81838
+Affinity: -7.82380  -0.55604 (kcal/mol)
+RMSD: 0.58668
+Affinity: -8.00843  -0.35494 (kcal/mol)
+RMSD: 0.63200
+Affinity: -5.70455  -0.36154 (kcal/mol)
+RMSD: 0.77970
+Affinity: -5.70435  -0.36146 (kcal/mol)
+RMSD: 0.77961
+Affinity: -7.76724  -0.49078 (kcal/mol)
+RMSD: 0.67659
+Affinity: -7.66835  -0.57210 (kcal/mol)
+RMSD: 0.55549
+Affinity: -7.66778  -0.57236 (kcal/mol)
+RMSD: 0.55388
+Affinity: -7.53883  -0.14329 (kcal/mol)
+RMSD: 1.21457
+Affinity: -7.53853  -0.14339 (kcal/mol)
+RMSD: 1.21460
+Affinity: -7.20771  -0.29325 (kcal/mol)
+RMSD: 0.52147
+Affinity: -7.42709  -0.11823 (kcal/mol)
+RMSD: 0.72752
+Affinity: -7.51043  -0.14760 (kcal/mol)
+RMSD: 1.25950
+Affinity: -7.48521  -0.07359 (kcal/mol)
+RMSD: 0.67648
+Affinity: -7.43236  -0.24323 (kcal/mol)
+RMSD: 1.55938
+Affinity: -7.01575  -0.20931 (kcal/mol)
+RMSD: 1.46889
+Affinity: -7.47599  -0.21539 (kcal/mol)
+RMSD: 1.55972
+Affinity: -6.59404  -0.18674 (kcal/mol)
+RMSD: 1.25814
+Affinity: -3.41477  0.10140 (kcal/mol)
+RMSD: 2.87970
+Affinity: -6.05752  1.17949 (kcal/mol)
+RMSD: 2.36294
+Affinity: -1.93596  1.63266 (kcal/mol)
+RMSD: 3.95451
+Affinity: -7.28988  -0.49971 (kcal/mol)
+RMSD: 0.60123
+Affinity: -7.94664  -0.52617 (kcal/mol)
+RMSD: 1.46114
+Affinity: -7.28999  -0.49948 (kcal/mol)
+RMSD: 0.60112
+Affinity: -7.29004  -0.49956 (kcal/mol)
+RMSD: 0.60130
+Affinity: -7.94665  -0.52618 (kcal/mol)
+RMSD: 1.46083
+Affinity: -7.30468  -0.50049 (kcal/mol)
+RMSD: 0.64696
+Affinity: -7.38545  -0.39263 (kcal/mol)
+RMSD: 0.69519
+Affinity: -7.87217  -0.05817 (kcal/mol)
+RMSD: 1.41851
+Affinity: -7.40177  -0.39334 (kcal/mol)
+RMSD: 0.73776
+Affinity: -7.97667  -0.10037 (kcal/mol)
+RMSD: 1.76894
+Affinity: -3.33044  1.21498 (kcal/mol)
+RMSD: 3.26357
+Affinity: -7.80586  -0.29276 (kcal/mol)
+RMSD: 1.22932
+Affinity: -4.01755  1.06690 (kcal/mol)
+RMSD: 1.30838
+Affinity: -4.00084  1.06739 (kcal/mol)
+RMSD: 1.30799
+Affinity: -3.99709  1.06116 (kcal/mol)
+RMSD: 1.39739
+Affinity: 0.30603  0.14818 (kcal/mol)
+RMSD: 1.98053
+Affinity: 6.43484  -0.15326 (kcal/mol)
+RMSD: 1.99679
+Affinity: -7.61454  -0.00959 (kcal/mol)
+RMSD: 1.46298
+Affinity: -7.66373  0.05612 (kcal/mol)
+RMSD: 1.44178
+Affinity: -7.99287  0.06745 (kcal/mol)
+RMSD: 1.32718
+Affinity: -7.35597  -0.50970 (kcal/mol)
+RMSD: 1.16105
+Affinity: -7.35583  -0.50964 (kcal/mol)
+RMSD: 1.16115
+Affinity: -7.78452  -0.44802 (kcal/mol)
+RMSD: 0.59217
+Affinity: -7.81021  -0.45405 (kcal/mol)
+RMSD: 0.69914
+Affinity: -7.48262  -0.28397 (kcal/mol)
+RMSD: 0.86429
+Affinity: -7.18496  0.28452 (kcal/mol)
+RMSD: 1.05823
+Affinity: -7.49764  0.01693 (kcal/mol)
+RMSD: 0.84998
+Affinity: -7.49786  0.01687 (kcal/mol)
+RMSD: 0.84988
+Affinity: -7.42593  -0.00214 (kcal/mol)
+RMSD: 0.87390
+Affinity: -7.16960  0.26153 (kcal/mol)
+RMSD: 1.03505
+Affinity: -7.45314  -0.30854 (kcal/mol)
+RMSD: 1.19015
+Affinity: -6.89188  -0.22701 (kcal/mol)
+RMSD: 1.68874
+Affinity: -7.42653  -0.29205 (kcal/mol)
+RMSD: 1.21194
+Affinity: -6.91329  -0.28117 (kcal/mol)
+RMSD: 1.52764
+Affinity: -5.04282  -0.23808 (kcal/mol)
+RMSD: 2.65850
+Affinity: -6.45379  0.17732 (kcal/mol)
+RMSD: 2.72190
+Affinity: -5.05204  -0.23321 (kcal/mol)
+RMSD: 2.14992
+Affinity: -4.73715  0.15845 (kcal/mol)
+RMSD: 2.31885
+Affinity: -6.45882  -0.20508 (kcal/mol)
+RMSD: 1.99389
+Affinity: -6.62531  -0.35476 (kcal/mol)
+RMSD: 0.96573
+Affinity: -6.29815  0.24716 (kcal/mol)
+RMSD: 1.46645
+Affinity: -5.12964  0.42085 (kcal/mol)
+RMSD: 1.73067
+Affinity: -0.67635  0.16288 (kcal/mol)
+RMSD: 1.13917
+Affinity: -4.41609  1.40229 (kcal/mol)
+RMSD: 2.54263
+Affinity: -5.51668  0.30503 (kcal/mol)
+RMSD: 3.10460
+Affinity: -4.62812  0.53236 (kcal/mol)
+RMSD: 1.40351
+Affinity: -3.77346  0.76288 (kcal/mol)
+RMSD: 1.35586
+Affinity: -3.33339  -0.38408 (kcal/mol)
+RMSD: 1.57884
+Affinity: -5.10835  -0.36178 (kcal/mol)
+RMSD: 1.95348
+Affinity: -5.00313  -0.45064 (kcal/mol)
+RMSD: 2.88492
+Affinity: -5.84334  -0.45169 (kcal/mol)
+RMSD: 2.97152
+Affinity: -4.81819  -0.59564 (kcal/mol)
+RMSD: 1.86128
+Affinity: -5.97741  -0.45480 (kcal/mol)
+RMSD: 2.83137
+Affinity: -4.81840  -0.59561 (kcal/mol)
+RMSD: 1.86129
+Affinity: -5.08124  -0.45385 (kcal/mol)
+RMSD: 2.86239
+Affinity: -3.11565  -0.42450 (kcal/mol)
+RMSD: 1.56803
+Affinity: -8.21497  0.75847 (kcal/mol)
+RMSD: 0.95331
+Affinity: -8.21207  0.75869 (kcal/mol)
+RMSD: 0.95339
+Affinity: -7.36859  -0.28668 (kcal/mol)
+RMSD: 2.58602
+Affinity: -6.39744  -0.25432 (kcal/mol)
+RMSD: 0.71748
+Affinity: -6.20871  0.14862 (kcal/mol)
+RMSD: 0.98566
+Affinity: -7.16649  0.65794 (kcal/mol)
+RMSD: 1.18115
+Affinity: -6.90784  0.52841 (kcal/mol)
+RMSD: 1.31471
+Affinity: -7.19660  0.66372 (kcal/mol)
+RMSD: 1.18519
+Affinity: -3.54099  -0.23062 (kcal/mol)
+RMSD: 1.48877
+Affinity: -6.75689  0.72471 (kcal/mol)
+RMSD: 1.38441
+Affinity: -2.27539  1.84885 (kcal/mol)
+RMSD: 1.62102
+Affinity: -7.26031  -0.15444 (kcal/mol)
+RMSD: 1.99698
+Affinity: -7.11875  0.00156 (kcal/mol)
+RMSD: 1.16454
+Affinity: -7.11880  0.00184 (kcal/mol)
+RMSD: 1.16419
+Affinity: -7.10645  0.51917 (kcal/mol)
+RMSD: 1.27152
+Affinity: -6.44895  -0.10590 (kcal/mol)
+RMSD: 2.23577
+Affinity: -7.03467  0.04810 (kcal/mol)
+RMSD: 1.21224
+Affinity: -6.56063  1.21485 (kcal/mol)
+RMSD: 1.28718
+Affinity: -6.24978  0.91897 (kcal/mol)
+RMSD: 1.72920
+Affinity: -7.29275  0.37280 (kcal/mol)
+RMSD: 2.11316
+Affinity: -7.32595  0.40840 (kcal/mol)
+RMSD: 0.89974
+Affinity: -6.13561  -0.14135 (kcal/mol)
+RMSD: 0.74434
+Affinity: -6.37545  0.10338 (kcal/mol)
+RMSD: 1.13400
+Affinity: -6.17455  -0.07845 (kcal/mol)
+RMSD: 0.73410
+Affinity: -6.23434  0.02078 (kcal/mol)
+RMSD: 1.08668
+Affinity: -6.71103  0.51728 (kcal/mol)
+RMSD: 1.68586
+Affinity: -6.45418  0.43440 (kcal/mol)
+RMSD: 1.77983
+Affinity: -6.10547  0.46971 (kcal/mol)
+RMSD: 1.84811
+Affinity: -5.82853  0.40958 (kcal/mol)
+RMSD: 1.62942
+Affinity: -6.39097  0.49559 (kcal/mol)
+RMSD: 1.31687
+Affinity: -6.54836  0.42677 (kcal/mol)
+RMSD: 1.03046
+Affinity: -6.71910  -0.11706 (kcal/mol)
+RMSD: 2.24368
+Affinity: -5.83967  0.68147 (kcal/mol)
+RMSD: 1.06360
+Affinity: -7.66046  -0.63975 (kcal/mol)
+RMSD: 1.97698
+Affinity: -7.64246  -0.52980 (kcal/mol)
+RMSD: 0.93182
+Affinity: -7.98657  -0.29860 (kcal/mol)
+RMSD: 1.60609
+Affinity: -8.10087  -0.46303 (kcal/mol)
+RMSD: 0.94279
+Affinity: -6.64576  -0.19347 (kcal/mol)
+RMSD: 1.35898
+Affinity: -6.72584  -0.42381 (kcal/mol)
+RMSD: 1.15310
+Affinity: -6.30533  -0.20985 (kcal/mol)
+RMSD: 0.75866
+Affinity: -6.27853  -0.01920 (kcal/mol)
+RMSD: 0.73594
+Affinity: -8.28087  -0.33383 (kcal/mol)
+RMSD: 0.82515
+Affinity: -8.30778  -0.28272 (kcal/mol)
+RMSD: 0.89946
+Affinity: -1.51302  0.15637 (kcal/mol)
+RMSD: 2.33284
+Affinity: -4.01695  1.05788 (kcal/mol)
+RMSD: 2.30959
+Affinity: -5.76924  -0.04768 (kcal/mol)
+RMSD: 1.44083
+Affinity: -6.55086  -0.15461 (kcal/mol)
+RMSD: 0.71264
+Affinity: -6.55099  -0.15462 (kcal/mol)
+RMSD: 0.71273
+Affinity: -7.95334  -0.81898 (kcal/mol)
+RMSD: 1.01957
+Affinity: -6.43493  -0.50466 (kcal/mol)
+RMSD: 1.46208
+Affinity: -7.30077  -0.36843 (kcal/mol)
+RMSD: 0.59908
+Affinity: -6.73913  -0.05136 (kcal/mol)
+RMSD: 0.73293
+Affinity: -7.32491  -0.35310 (kcal/mol)
+RMSD: 0.58726
+Affinity: -6.71989  -0.03329 (kcal/mol)
+RMSD: 0.72161
+Affinity: -6.15269  0.19022 (kcal/mol)
+RMSD: 0.98691
+Affinity: -5.39475  -0.49576 (kcal/mol)
+RMSD: 1.03493
+Affinity: -6.83402  -0.34449 (kcal/mol)
+RMSD: 1.99884
+Affinity: -6.84398  -0.43614 (kcal/mol)
+RMSD: 1.91706
+Affinity: -5.89368  -0.44803 (kcal/mol)
+RMSD: 0.86321
+Affinity: -6.84672  -0.43901 (kcal/mol)
+RMSD: 1.87894
+Affinity: -6.88632  -0.36943 (kcal/mol)
+RMSD: 1.80242
+Affinity: -7.08462  -0.27730 (kcal/mol)
+RMSD: 1.40646
+Affinity: -4.29848  0.11614 (kcal/mol)
+RMSD: 0.35817
+Affinity: -4.80014  0.31428 (kcal/mol)
+RMSD: 1.07939
+Affinity: -5.24038  0.04377 (kcal/mol)
+RMSD: 0.56405
+Affinity: -5.24055  0.04395 (kcal/mol)
+RMSD: 0.56417
+Affinity: -6.05805  0.36497 (kcal/mol)
+RMSD: 0.97190
+Affinity: -6.05796  0.36508 (kcal/mol)
+RMSD: 0.97188
+Affinity: -5.68495  0.73456 (kcal/mol)
+RMSD: 1.00496
+Affinity: -5.58837  0.53512 (kcal/mol)
+RMSD: 0.82034
+Affinity: -6.74995  0.06287 (kcal/mol)
+RMSD: 0.74830
+Affinity: -6.77874  -0.30820 (kcal/mol)
+RMSD: 0.61554
+Affinity: -6.77864  -0.30816 (kcal/mol)
+RMSD: 0.61529
+Affinity: -5.18038  0.11792 (kcal/mol)
+RMSD: 1.54971
+Affinity: -5.80268  0.12802 (kcal/mol)
+RMSD: 1.82619
+Affinity: -5.25892  -0.31521 (kcal/mol)
+RMSD: 1.00313
+Affinity: -5.67012  -0.03187 (kcal/mol)
+RMSD: 1.35285
+Affinity: -5.79063  -0.11773 (kcal/mol)
+RMSD: 1.48292
+Affinity: -6.83558  -0.08546 (kcal/mol)
+RMSD: 0.98966
+Affinity: -6.45872  -0.24947 (kcal/mol)
+RMSD: 0.65846
+Affinity: -6.78523  0.20351 (kcal/mol)
+RMSD: 0.69154
+Affinity: -6.15849  2.08451 (kcal/mol)
+RMSD: 2.55201
+Affinity: -5.42167  -0.00743 (kcal/mol)
+RMSD: 1.73640
+Affinity: -7.18369  -0.46033 (kcal/mol)
+RMSD: 0.68446
+Affinity: -7.23373  -0.23948 (kcal/mol)
+RMSD: 0.70604
+Affinity: -7.74201  -0.20214 (kcal/mol)
+RMSD: 1.03527
+Affinity: -7.50219  -0.01825 (kcal/mol)
+RMSD: 0.77369
+Affinity: -7.82136  -0.48711 (kcal/mol)
+RMSD: 1.23259
+Affinity: -7.94785  0.49767 (kcal/mol)
+RMSD: 0.64663
+Affinity: -7.70750  -0.24996 (kcal/mol)
+RMSD: 2.15327
+Affinity: -4.22315  -0.33438 (kcal/mol)
+RMSD: 1.64869
+Affinity: -6.85428  -0.21975 (kcal/mol)
+RMSD: 0.90880
+Affinity: -6.04288  0.22622 (kcal/mol)
+RMSD: 0.47188
+Affinity: -6.12344  0.18195 (kcal/mol)
+RMSD: 0.43957
+Affinity: -6.51210  -0.21398 (kcal/mol)
+RMSD: 0.76282
+Affinity: -6.25068  0.03163 (kcal/mol)
+RMSD: 1.74944
+Affinity: -5.83699  -0.34583 (kcal/mol)
+RMSD: 0.75590
+Affinity: -5.95283  -0.28513 (kcal/mol)
+RMSD: 0.79525
+Affinity: -5.70976  -0.22950 (kcal/mol)
+RMSD: 1.87029
+Affinity: -5.68977  -0.23006 (kcal/mol)
+RMSD: 1.89495
+Affinity: -7.06487  0.03770 (kcal/mol)
+RMSD: 1.61629
+Affinity: -7.51432  -0.41958 (kcal/mol)
+RMSD: 0.65821
+Affinity: -7.46595  -0.46331 (kcal/mol)
+RMSD: 0.72679
+Affinity: -7.44311  -0.45242 (kcal/mol)
+RMSD: 0.59463
+Affinity: -7.44314  -0.45239 (kcal/mol)
+RMSD: 0.59468
+Affinity: -7.37991  -0.42729 (kcal/mol)
+RMSD: 0.60844
+Affinity: -6.69191  0.26179 (kcal/mol)
+RMSD: 0.93621
+Affinity: -4.40566  -0.26722 (kcal/mol)
+RMSD: 2.15902
+Affinity: -6.90599  0.08641 (kcal/mol)
+RMSD: 0.96779
+Affinity: -6.74175  -0.02493 (kcal/mol)
+RMSD: 1.03089
+Affinity: -8.57419  -0.34808 (kcal/mol)
+RMSD: 2.05762
+Affinity: -7.25125  -0.43650 (kcal/mol)
+RMSD: 1.77237
+Affinity: -7.40626  -0.48127 (kcal/mol)
+RMSD: 1.75712
+Affinity: -7.40637  -0.48148 (kcal/mol)
+RMSD: 1.75749
+Affinity: -5.16066  1.61527 (kcal/mol)
+RMSD: 2.71232
+Affinity: -7.76030  -0.18197 (kcal/mol)
+RMSD: 1.44617
+Affinity: -7.37439  -0.37869 (kcal/mol)
+RMSD: 1.39537
+Affinity: -7.71741  -0.25182 (kcal/mol)
+RMSD: 1.68038
+Affinity: -7.71750  -0.25198 (kcal/mol)
+RMSD: 1.68058
+Affinity: -7.33403  -0.39068 (kcal/mol)
+RMSD: 0.75700
+Affinity: -7.33417  -0.39071 (kcal/mol)
+RMSD: 0.75693
+Affinity: -6.27538  -0.08841 (kcal/mol)
+RMSD: 0.75112
+Affinity: -5.78073  -0.29403 (kcal/mol)
+RMSD: 0.82629
+Affinity: -6.75122  -0.29156 (kcal/mol)
+RMSD: 0.57806
+Affinity: -2.89665  0.04942 (kcal/mol)
+RMSD: 1.03631
+Affinity: -3.73621  0.07418 (kcal/mol)
+RMSD: 1.42216
+Affinity: -8.42471  -0.22073 (kcal/mol)
+RMSD: 1.61423
+Affinity: -6.45800  -0.14651 (kcal/mol)
+RMSD: 0.73351
+Affinity: -6.45808  -0.14633 (kcal/mol)
+RMSD: 0.73376
+Affinity: -6.53809  -0.11052 (kcal/mol)
+RMSD: 0.48224
+Affinity: -6.53838  -0.11002 (kcal/mol)
+RMSD: 0.48223
+Affinity: -6.45801  -0.14637 (kcal/mol)
+RMSD: 0.73368
+Affinity: -6.52207  -0.16686 (kcal/mol)
+RMSD: 0.72247
+Affinity: -6.57223  -0.05730 (kcal/mol)
+RMSD: 1.35969
+Affinity: -7.04693  -0.32241 (kcal/mol)
+RMSD: 1.75736
+Affinity: -5.63016  0.06162 (kcal/mol)
+RMSD: 1.23205
+Affinity: -6.27848  -0.65985 (kcal/mol)
+RMSD: 1.95956
+Affinity: -7.80280  -0.27216 (kcal/mol)
+RMSD: 1.29527
+Affinity: -7.73849  -0.00120 (kcal/mol)
+RMSD: 0.75200
+Affinity: -7.83901  0.19677 (kcal/mol)
+RMSD: 1.35100
+Affinity: -7.77856  -0.04723 (kcal/mol)
+RMSD: 0.57004
+Affinity: -7.77860  -0.04720 (kcal/mol)
+RMSD: 0.57035
+Affinity: -7.93455  0.00139 (kcal/mol)
+RMSD: 0.75000
+Affinity: -7.75093  -0.03197 (kcal/mol)
+RMSD: 0.54892
+Affinity: -7.82512  0.05553 (kcal/mol)
+RMSD: 1.15964
+Affinity: -7.96618  0.03372 (kcal/mol)
+RMSD: 1.22100
+Affinity: -6.52710  -0.21562 (kcal/mol)
+RMSD: 0.75705
+Affinity: -6.33295  0.00643 (kcal/mol)
+RMSD: 0.69207
+Affinity: -6.33546  0.00889 (kcal/mol)
+RMSD: 0.69205
+Affinity: -6.52708  -0.21565 (kcal/mol)
+RMSD: 0.75704
+Affinity: -3.48376  2.41419 (kcal/mol)
+RMSD: 2.44761
+Affinity: -4.02774  -0.54468 (kcal/mol)
+RMSD: 1.19532
+Affinity: -5.66975  0.05439 (kcal/mol)
+RMSD: 0.52708
+Affinity: -4.66826  0.21786 (kcal/mol)
+RMSD: 0.76569
+Affinity: -5.84568  0.66646 (kcal/mol)
+RMSD: 0.89246
+Affinity: -5.81368  0.69089 (kcal/mol)
+RMSD: 0.72374
+Affinity: -5.81387  0.69076 (kcal/mol)
+RMSD: 0.72393
+Affinity: -5.37509  0.39869 (kcal/mol)
+RMSD: 0.91210
+Affinity: -5.37491  0.39796 (kcal/mol)
+RMSD: 0.91202
+Affinity: -6.03523  -0.33880 (kcal/mol)
+RMSD: 1.19955
+Affinity: -6.55809  -0.15010 (kcal/mol)
+RMSD: 0.67820
+Affinity: -6.55870  -0.19402 (kcal/mol)
+RMSD: 0.64864
+Affinity: -6.85595  -0.27967 (kcal/mol)
+RMSD: 3.02341
+Affinity: -6.54564  -0.04546 (kcal/mol)
+RMSD: 1.48484
+Affinity: -6.64183  -0.46647 (kcal/mol)
+RMSD: 2.50579
+Affinity: -5.41606  0.22808 (kcal/mol)
+RMSD: 1.49657
+Affinity: -6.64836  -0.22888 (kcal/mol)
+RMSD: 2.55991
+Affinity: -6.13213  -0.00993 (kcal/mol)
+RMSD: 4.03026
+Affinity: -4.86107  0.40887 (kcal/mol)
+RMSD: 2.69227
+Affinity: -6.72711  0.23608 (kcal/mol)
+RMSD: 0.83178
+Affinity: -6.48290  0.08027 (kcal/mol)
+RMSD: 0.64111
+Affinity: -6.45902  0.09777 (kcal/mol)
+RMSD: 0.66344
+Affinity: -6.45894  0.09747 (kcal/mol)
+RMSD: 0.66345
+Affinity: -5.30427  -0.00993 (kcal/mol)
+RMSD: 0.83140
+Affinity: -5.30012  0.10419 (kcal/mol)
+RMSD: 0.95388
+Affinity: -5.85700  -0.27124 (kcal/mol)
+RMSD: 0.57830
+Affinity: -5.23816  0.05361 (kcal/mol)
+RMSD: 0.83063
+Affinity: -6.23901  0.41117 (kcal/mol)
+RMSD: 0.61727
+Affinity: -6.23795  0.40987 (kcal/mol)
+RMSD: 0.61743
+Affinity: -6.14839  0.09552 (kcal/mol)
+RMSD: 0.77374
+Affinity: -6.14841  0.09551 (kcal/mol)
+RMSD: 0.77396
+Affinity: -6.81943  0.36312 (kcal/mol)
+RMSD: 0.85107
+Affinity: -6.81949  0.36364 (kcal/mol)
+RMSD: 0.85120
+Affinity: -6.99317  -0.30877 (kcal/mol)
+RMSD: 0.96774
+Affinity: -7.48451  -0.24741 (kcal/mol)
+RMSD: 0.98017
+Affinity: -7.48418  -0.24776 (kcal/mol)
+RMSD: 0.81606
+Affinity: -7.49967  0.42566 (kcal/mol)
+RMSD: 0.90009
+Affinity: -7.14295  0.15124 (kcal/mol)
+RMSD: 0.69413
+Affinity: -6.83244  -0.29570 (kcal/mol)
+RMSD: 1.21508
+Affinity: -7.24952  0.36778 (kcal/mol)
+RMSD: 2.18394
+Affinity: -7.25460  0.38562 (kcal/mol)
+RMSD: 2.19423
+Affinity: -5.91020  0.23379 (kcal/mol)
+RMSD: 1.77085
+Affinity: -1.01932  0.30561 (kcal/mol)
+RMSD: 1.11803
+Affinity: -5.90784  0.94283 (kcal/mol)
+RMSD: 2.60922
+Affinity: -0.78092  -0.61981 (kcal/mol)
+RMSD: 0.95400
+Affinity: -5.07343  1.11608 (kcal/mol)
+RMSD: 1.17797
+Affinity: -3.71881  2.20772 (kcal/mol)
+RMSD: 1.29068
+Affinity: -7.22343  0.17880 (kcal/mol)
+RMSD: 0.94963
+Affinity: -7.22326  0.17853 (kcal/mol)
+RMSD: 0.94950
+Affinity: -7.27297  0.12665 (kcal/mol)
+RMSD: 0.95911
+Affinity: -5.90139  0.11533 (kcal/mol)
+RMSD: 0.86006
+Affinity: -6.27476  0.24262 (kcal/mol)
+RMSD: 1.57643
+Affinity: -7.27696  -0.53700 (kcal/mol)
+RMSD: 0.67925
+Affinity: -7.54004  -0.21998 (kcal/mol)
+RMSD: 1.08627
+Affinity: -6.07301  0.40037 (kcal/mol)
+RMSD: 1.97176
+Affinity: -6.27265  -0.05309 (kcal/mol)
+RMSD: 1.08821
+Affinity: -5.57833  -0.15935 (kcal/mol)
+RMSD: 1.38372
+Affinity: -6.19829  0.42261 (kcal/mol)
+RMSD: 0.77567
+Affinity: -5.93808  -0.04772 (kcal/mol)
+RMSD: 1.33236
+Affinity: -6.00668  -0.52695 (kcal/mol)
+RMSD: 1.63136
+Affinity: -6.00673  -0.52694 (kcal/mol)
+RMSD: 1.63105
+Affinity: -6.89198  -0.32268 (kcal/mol)
+RMSD: 1.56742
+Affinity: -6.24958  -0.53898 (kcal/mol)
+RMSD: 1.52103
+Affinity: -6.65937  -0.40884 (kcal/mol)
+RMSD: 1.44303
+Affinity: -6.65952  -0.40887 (kcal/mol)
+RMSD: 1.44288
+Affinity: -7.00415  -0.20191 (kcal/mol)
+RMSD: 0.66891
+Affinity: -7.88054  -0.31821 (kcal/mol)
+RMSD: 1.26143
+Affinity: -7.17273  -0.51732 (kcal/mol)
+RMSD: 0.67780
+Affinity: -7.26194  -0.54400 (kcal/mol)
+RMSD: 0.95033
+Affinity: -7.26161  -0.54436 (kcal/mol)
+RMSD: 0.95028
+Affinity: -7.87732  -0.49010 (kcal/mol)
+RMSD: 0.76313
+Affinity: -8.10532  -0.61991 (kcal/mol)
+RMSD: 0.72315
+Affinity: -8.21484  -0.41809 (kcal/mol)
+RMSD: 0.78649
+Affinity: -4.74089  -0.23390 (kcal/mol)
+RMSD: 1.23895
+Affinity: -6.39390  -0.36598 (kcal/mol)
+RMSD: 1.70366
+Affinity: -8.07099  -0.60106 (kcal/mol)
+RMSD: 1.96823
+Affinity: -8.18867  -0.57872 (kcal/mol)
+RMSD: 1.68395
+Affinity: -5.19940  0.41386 (kcal/mol)
+RMSD: 1.57340
+Affinity: -5.59539  0.08851 (kcal/mol)
+RMSD: 1.50967
+Affinity: -1.01747  -0.23764 (kcal/mol)
+RMSD: 1.32660
+Affinity: -2.42108  0.19843 (kcal/mol)
+RMSD: 1.22392
+Affinity: -7.74426  0.07450 (kcal/mol)
+RMSD: 0.71926
+Affinity: -7.86693  -0.67957 (kcal/mol)
+RMSD: 0.97634
+Affinity: -7.64060  0.14931 (kcal/mol)
+RMSD: 0.81355
+Affinity: -6.53539  -0.05307 (kcal/mol)
+RMSD: 1.96618
+Affinity: -6.64452  -0.03868 (kcal/mol)
+RMSD: 1.97092
+Affinity: -6.43624  -0.26269 (kcal/mol)
+RMSD: 0.69317
+Affinity: -6.43618  -0.26273 (kcal/mol)
+RMSD: 0.69399
+Affinity: -6.59167  -0.27857 (kcal/mol)
+RMSD: 1.34627
+Affinity: -6.73261  0.44096 (kcal/mol)
+RMSD: 1.52928
+Affinity: -6.73288  0.44120 (kcal/mol)
+RMSD: 1.52933
+Affinity: -7.80881  -0.45709 (kcal/mol)
+RMSD: 1.09796
+Affinity: -7.80855  -0.45706 (kcal/mol)
+RMSD: 1.09802
+Affinity: -7.42604  -0.44655 (kcal/mol)
+RMSD: 1.57261
+Affinity: -7.85365  -0.45891 (kcal/mol)
+RMSD: 1.21798
+Affinity: -6.52881  0.31159 (kcal/mol)
+RMSD: 2.03021
+Affinity: -8.13238  -0.61008 (kcal/mol)
+RMSD: 0.98003
+Affinity: -6.71860  -0.04830 (kcal/mol)
+RMSD: 1.17786
+Affinity: -7.32613  -0.45535 (kcal/mol)
+RMSD: 0.73176
+Affinity: -5.86034  0.09115 (kcal/mol)
+RMSD: 1.23250
+Affinity: -6.57819  0.28701 (kcal/mol)
+RMSD: 0.89361
+Affinity: -6.36994  0.14993 (kcal/mol)
+RMSD: 0.82995
+Affinity: -6.76066  -0.31343 (kcal/mol)
+RMSD: 2.27631
+Affinity: -6.83590  -0.56923 (kcal/mol)
+RMSD: 1.06019
+Affinity: -7.13248  0.08161 (kcal/mol)
+RMSD: 1.33539
+Affinity: -7.12436  0.03258 (kcal/mol)
+RMSD: 1.37088
+Affinity: -7.08345  -0.38061 (kcal/mol)
+RMSD: 0.81339
+Affinity: -7.08348  -0.38061 (kcal/mol)
+RMSD: 0.81373
+Affinity: -7.08346  -0.38058 (kcal/mol)
+RMSD: 0.81358
+Affinity: -7.08347  -0.38062 (kcal/mol)
+RMSD: 0.81354
+Affinity: -7.08343  -0.38059 (kcal/mol)
+RMSD: 0.81321
+Affinity: -7.20460  -0.33327 (kcal/mol)
+RMSD: 0.84179
+Affinity: -8.10775  -0.57153 (kcal/mol)
+RMSD: 1.17673
+Affinity: -7.32045  -0.52088 (kcal/mol)
+RMSD: 0.77958
+Affinity: -7.32094  -0.52016 (kcal/mol)
+RMSD: 0.77985
+Affinity: -8.65221  0.10958 (kcal/mol)
+RMSD: 1.49143
+Affinity: -8.64516  -0.31733 (kcal/mol)
+RMSD: 0.62288
+Affinity: -8.48216  -0.27034 (kcal/mol)
+RMSD: 0.50170
+Affinity: -7.99655  -0.76122 (kcal/mol)
+RMSD: 1.77945
+Affinity: -8.90485  -0.71821 (kcal/mol)
+RMSD: 1.91170
+Affinity: -8.27579  -0.75049 (kcal/mol)
+RMSD: 1.37296
+Affinity: -8.52175  -0.75980 (kcal/mol)
+RMSD: 1.46711
+Affinity: -8.49676  -0.75943 (kcal/mol)
+RMSD: 1.43386
+Affinity: -8.37841  -0.67683 (kcal/mol)
+RMSD: 0.80535
+Affinity: -8.37844  -0.67687 (kcal/mol)
+RMSD: 0.80534
+Affinity: -7.75722  -0.53835 (kcal/mol)
+RMSD: 1.74515
+Affinity: -8.29805  -0.56510 (kcal/mol)
+RMSD: 0.94509
+Affinity: -8.24861  -0.40307 (kcal/mol)
+RMSD: 1.38511
+Affinity: -5.06292  -0.45395 (kcal/mol)
+RMSD: 1.21556
+Affinity: -7.70744  -0.24661 (kcal/mol)
+RMSD: 0.85619
+Affinity: -8.92637  -0.47107 (kcal/mol)
+RMSD: 1.61041
+Affinity: -6.52828  -0.38157 (kcal/mol)
+RMSD: 0.91435
+Affinity: -6.65445  -0.15121 (kcal/mol)
+RMSD: 0.72808
+Affinity: -6.73982  -0.13587 (kcal/mol)
+RMSD: 0.73329
+Affinity: -6.79652  -0.15428 (kcal/mol)
+RMSD: 0.71704
+Affinity: -6.58571  -0.13528 (kcal/mol)
+RMSD: 0.74313
+Affinity: -3.22822  0.89997 (kcal/mol)
+RMSD: 1.97045
+Affinity: -7.98001  -0.47603 (kcal/mol)
+RMSD: 0.98518
+Affinity: -6.38318  -0.51970 (kcal/mol)
+RMSD: 0.72702
+Affinity: -7.73467  -0.44244 (kcal/mol)
+RMSD: 0.83283
+Affinity: -6.99235  -0.40597 (kcal/mol)
+RMSD: 1.41625
+Affinity: -7.71671  0.58616 (kcal/mol)
+RMSD: 1.32591
+Affinity: -7.14113  0.10981 (kcal/mol)
+RMSD: 1.15708
+Affinity: -7.73310  0.58008 (kcal/mol)
+RMSD: 1.31169
+Affinity: -7.11488  0.09225 (kcal/mol)
+RMSD: 1.17445
+Affinity: -7.11462  0.09213 (kcal/mol)
+RMSD: 1.17436
+Affinity: -7.11489  0.09223 (kcal/mol)
+RMSD: 1.17431
+Affinity: -7.74078  0.58734 (kcal/mol)
+RMSD: 1.29129
+Affinity: -3.85523  0.11220 (kcal/mol)
+RMSD: 0.89645
+Affinity: -4.56662  0.25181 (kcal/mol)
+RMSD: 0.89066
+Affinity: -6.74059  -0.35801 (kcal/mol)
+RMSD: 0.51311
+Affinity: -6.55051  0.26556 (kcal/mol)
+RMSD: 0.85377
+Affinity: -6.41303  1.22201 (kcal/mol)
+RMSD: 1.76798
+Affinity: -6.41539  1.20198 (kcal/mol)
+RMSD: 1.76176
+Affinity: -6.41545  1.20227 (kcal/mol)
+RMSD: 1.76169
+Affinity: -7.53025  -0.03976 (kcal/mol)
+RMSD: 0.60899
+Affinity: -7.66406  -0.43500 (kcal/mol)
+RMSD: 1.01001
+Affinity: -7.53034  -0.03997 (kcal/mol)
+RMSD: 0.60884
+Affinity: -7.82603  -0.45110 (kcal/mol)
+RMSD: 1.00025
+Affinity: -6.52428  0.47489 (kcal/mol)
+RMSD: 0.91248
+Affinity: -7.23822  -0.22971 (kcal/mol)
+RMSD: 1.08581
+Affinity: -7.58063  -0.21929 (kcal/mol)
+RMSD: 0.69090
+Affinity: -7.36148  -0.24105 (kcal/mol)
+RMSD: 1.10825
+Affinity: -7.52548  -0.20354 (kcal/mol)
+RMSD: 0.70407
+Affinity: -6.29124  -0.19518 (kcal/mol)
+RMSD: 0.78351
+Affinity: -6.11440  -0.17695 (kcal/mol)
+RMSD: 0.74180
+Affinity: -7.09043  -0.27685 (kcal/mol)
+RMSD: 1.02372
+Affinity: -6.37657  0.22360 (kcal/mol)
+RMSD: 1.44367
+Affinity: -7.70544  0.00970 (kcal/mol)
+RMSD: 0.75348
+Affinity: -8.28329  -0.13731 (kcal/mol)
+RMSD: 0.92626
+Affinity: -8.34156  0.37953 (kcal/mol)
+RMSD: 0.76414
+Affinity: -8.34172  0.37979 (kcal/mol)
+RMSD: 0.76430
+Affinity: -8.40035  0.37795 (kcal/mol)
+RMSD: 0.76971
+Affinity: -8.24294  -0.04707 (kcal/mol)
+RMSD: 0.95991
+Affinity: 0.89263  4.63308 (kcal/mol)
+RMSD: 2.86123
+Affinity: -4.13959  5.62622 (kcal/mol)
+RMSD: 2.94150
+Affinity: -7.29463  -0.29997 (kcal/mol)
+RMSD: 1.90906
+Affinity: -7.50222  -0.25599 (kcal/mol)
+RMSD: 1.72836
+Affinity: -7.50453  -0.23948 (kcal/mol)
+RMSD: 1.69864
+Affinity: -5.46977  0.47419 (kcal/mol)
+RMSD: 1.30463
+Affinity: -8.53724  -0.33166 (kcal/mol)
+RMSD: 1.06588
+Affinity: -3.24921  0.93312 (kcal/mol)
+RMSD: 1.98228
+Affinity: -7.07309  -0.02314 (kcal/mol)
+RMSD: 0.91308
+Affinity: -7.23296  0.19849 (kcal/mol)
+RMSD: 0.89379
+Affinity: -5.87893  -0.00036 (kcal/mol)
+RMSD: 1.41594
+Affinity: -6.90087  0.11468 (kcal/mol)
+RMSD: 1.94017
+Affinity: -7.75163  -0.53234 (kcal/mol)
+RMSD: 0.81564
+Affinity: -7.96139  -0.29533 (kcal/mol)
+RMSD: 0.86084
+Affinity: -7.75151  -0.53237 (kcal/mol)
+RMSD: 0.81593
+Affinity: -7.96111  -0.29567 (kcal/mol)
+RMSD: 0.86082
+Affinity: -7.75155  -0.53223 (kcal/mol)
+RMSD: 0.81582
+Affinity: -7.81623  -0.50098 (kcal/mol)
+RMSD: 0.87716
+Affinity: -7.80869  -0.32740 (kcal/mol)
+RMSD: 0.65862
+Affinity: -7.63020  -0.45575 (kcal/mol)
+RMSD: 0.63681
+Affinity: -7.96550  -0.30926 (kcal/mol)
+RMSD: 0.94899
+Affinity: -7.96534  -0.30907 (kcal/mol)
+RMSD: 0.94904
+Affinity: -7.63016  -0.45576 (kcal/mol)
+RMSD: 0.63680
+Affinity: -6.36222  0.40121 (kcal/mol)
+RMSD: 2.02626
+Affinity: -6.19545  0.09061 (kcal/mol)
+RMSD: 1.95532
+Affinity: -6.14068  0.18928 (kcal/mol)
+RMSD: 1.97625
+Affinity: -7.11878  1.48889 (kcal/mol)
+RMSD: 1.32419
+Affinity: -6.89380  1.43442 (kcal/mol)
+RMSD: 1.08589
+Affinity: -6.78586  1.24613 (kcal/mol)
+RMSD: 0.80924
+Affinity: -7.12409  1.49482 (kcal/mol)
+RMSD: 1.50696
+Affinity: -4.79357  1.23884 (kcal/mol)
+RMSD: 0.49648
+Affinity: -7.12415  1.49524 (kcal/mol)
+RMSD: 1.50684
+Affinity: -4.79375  1.23889 (kcal/mol)
+RMSD: 0.49628
+Affinity: -6.80074  1.37779 (kcal/mol)
+RMSD: 0.75870
+Affinity: -6.91300  1.29045 (kcal/mol)
+RMSD: 1.25219
+Affinity: -6.88442  1.38616 (kcal/mol)
+RMSD: 1.08717
+Affinity: -7.04576  -0.19134 (kcal/mol)
+RMSD: 0.89508
+Affinity: -7.37601  -0.31212 (kcal/mol)
+RMSD: 0.71201
+Affinity: -7.32674  -0.30908 (kcal/mol)
+RMSD: 0.70513
+Affinity: -7.17531  -0.23052 (kcal/mol)
+RMSD: 1.00951
+Affinity: -4.57568  0.07303 (kcal/mol)
+RMSD: 1.59154
+Affinity: -4.10786  0.10348 (kcal/mol)
+RMSD: 1.25004
+Affinity: -3.23515  1.97953 (kcal/mol)
+RMSD: 3.24235
+Affinity: -6.50946  -0.30475 (kcal/mol)
+RMSD: 0.82742
+Affinity: -6.35938  -0.30117 (kcal/mol)
+RMSD: 0.72881
+Affinity: -6.35948  -0.30122 (kcal/mol)
+RMSD: 0.72888
+Affinity: -6.20736  0.22304 (kcal/mol)
+RMSD: 0.67356
+Affinity: -7.32078  -0.39246 (kcal/mol)
+RMSD: 0.76231
+Affinity: -7.44584  -0.38344 (kcal/mol)
+RMSD: 0.44933
+Affinity: -7.31821  -0.39221 (kcal/mol)
+RMSD: 0.76203
+Affinity: -7.28440  -0.17921 (kcal/mol)
+RMSD: 0.90303
+Affinity: -7.44883  0.02001 (kcal/mol)
+RMSD: 0.53272
+Affinity: -6.29236  -0.26160 (kcal/mol)
+RMSD: 0.60284
+Affinity: -6.22253  -0.18402 (kcal/mol)
+RMSD: 0.99080
+Affinity: -7.69012  -0.50706 (kcal/mol)
+RMSD: 1.30194
+Affinity: -7.80531  -0.49206 (kcal/mol)
+RMSD: 1.24581
+Affinity: -7.80545  -0.49206 (kcal/mol)
+RMSD: 1.24597
+Affinity: -8.00098  0.30063 (kcal/mol)
+RMSD: 0.92441
+Affinity: -7.01836  -0.19043 (kcal/mol)
+RMSD: 0.58409
+Affinity: -6.96802  -0.16500 (kcal/mol)
+RMSD: 0.57805
+Affinity: -7.01838  -0.19047 (kcal/mol)
+RMSD: 0.58396
+Affinity: -6.96799  -0.16500 (kcal/mol)
+RMSD: 0.57772
+Affinity: -1.24403  0.57748 (kcal/mol)
+RMSD: 0.88829
+Affinity: -1.82674  0.45067 (kcal/mol)
+RMSD: 1.05849
+Affinity: -6.01230  -0.50320 (kcal/mol)
+RMSD: 1.44789
+Affinity: -7.87973  -0.43450 (kcal/mol)
+RMSD: 0.93109
+Affinity: -7.83698  -0.30806 (kcal/mol)
+RMSD: 0.95310
+Affinity: -7.83757  -0.30803 (kcal/mol)
+RMSD: 0.95321
+Affinity: -7.84149  -0.30672 (kcal/mol)
+RMSD: 0.95322
+Affinity: -7.34814  -0.65811 (kcal/mol)
+RMSD: 0.81383
+Affinity: -7.86462  -0.43421 (kcal/mol)
+RMSD: 0.99019
+Affinity: -7.52065  -0.48083 (kcal/mol)
+RMSD: 0.76287
+Affinity: -7.82717  -0.21272 (kcal/mol)
+RMSD: 0.75518
+Affinity: -3.28719  0.28875 (kcal/mol)
+RMSD: 2.35273
+Affinity: -4.45739  0.46753 (kcal/mol)
+RMSD: 0.87184
+Affinity: -4.39689  0.47364 (kcal/mol)
+RMSD: 0.89259
+Affinity: -4.84136  0.65404 (kcal/mol)
+RMSD: 1.08219
+Affinity: -4.10446  0.53308 (kcal/mol)
+RMSD: 0.96187
+Affinity: -5.43220  1.08080 (kcal/mol)
+RMSD: 1.09545
+Affinity: -6.72963  -0.28459 (kcal/mol)
+RMSD: 0.85756
+Affinity: -6.77676  -0.12948 (kcal/mol)
+RMSD: 1.01057
+Affinity: -6.77717  -0.12923 (kcal/mol)
+RMSD: 1.01021
+Affinity: -6.94087  -0.27439 (kcal/mol)
+RMSD: 0.90585
+Affinity: -6.77734  -0.12903 (kcal/mol)
+RMSD: 1.01009
+Affinity: -6.77696  -0.12919 (kcal/mol)
+RMSD: 1.01010
+Affinity: -6.55486  -0.03655 (kcal/mol)
+RMSD: 0.69658
+Affinity: -5.55183  0.09404 (kcal/mol)
+RMSD: 1.85486
+Affinity: -9.03775  -0.57138 (kcal/mol)
+RMSD: 1.19671
+Affinity: -9.03780  -0.57144 (kcal/mol)
+RMSD: 1.19658
+Affinity: -8.08751  -0.61641 (kcal/mol)
+RMSD: 1.14493
+Affinity: -8.97461  -0.57308 (kcal/mol)
+RMSD: 1.11025
+Affinity: -9.18633  -0.50875 (kcal/mol)
+RMSD: 1.20642
+Affinity: -9.18918  -0.50879 (kcal/mol)
+RMSD: 1.20674
+Affinity: -9.09159  -0.55517 (kcal/mol)
+RMSD: 1.12224
+Affinity: -6.79924  0.52167 (kcal/mol)
+RMSD: 1.39218
+Affinity: -6.71727  0.15465 (kcal/mol)
+RMSD: 1.03441
+Affinity: -6.71711  0.15440 (kcal/mol)
+RMSD: 1.03492
+Affinity: -6.71743  0.15472 (kcal/mol)
+RMSD: 1.03454
+Affinity: -6.79290  0.52312 (kcal/mol)
+RMSD: 1.39350
+Affinity: -6.74963  -0.32129 (kcal/mol)
+RMSD: 1.64213
+Affinity: -6.79299  0.52364 (kcal/mol)
+RMSD: 1.39399
+Affinity: -4.00005  -0.16891 (kcal/mol)
+RMSD: 1.50386
+Affinity: -6.14554  0.13679 (kcal/mol)
+RMSD: 1.71558
+Affinity: -6.29921  -0.08483 (kcal/mol)
+RMSD: 1.36254
+Affinity: -9.12245  2.08490 (kcal/mol)
+RMSD: 1.25034
+Affinity: -5.23268  -0.38568 (kcal/mol)
+RMSD: 0.70740
+Affinity: -6.35557  -0.21101 (kcal/mol)
+RMSD: 0.48207
+Affinity: -6.44995  -0.34565 (kcal/mol)
+RMSD: 0.59024
+Affinity: -2.08791  -0.14340 (kcal/mol)
+RMSD: 2.09543
+Affinity: -6.71668  -0.08424 (kcal/mol)
+RMSD: 0.61541
+Affinity: -7.44931  -0.22941 (kcal/mol)
+RMSD: 1.13317
+Affinity: -6.97950  -0.27932 (kcal/mol)
+RMSD: 1.08972
+Affinity: -6.97866  -0.14706 (kcal/mol)
+RMSD: 0.49879
+Affinity: -7.46739  -0.22153 (kcal/mol)
+RMSD: 0.77201
+Affinity: -7.42333  -0.21293 (kcal/mol)
+RMSD: 0.78046
+Affinity: -5.15098  -0.24802 (kcal/mol)
+RMSD: 0.79380
+Affinity: -5.14501  -0.14594 (kcal/mol)
+RMSD: 0.81490
+Affinity: -5.14460  -0.14613 (kcal/mol)
+RMSD: 0.81486
+Affinity: -5.38162  0.22266 (kcal/mol)
+RMSD: 0.73116
+Affinity: -5.13228  0.29665 (kcal/mol)
+RMSD: 1.18772
+Affinity: -5.55372  0.05499 (kcal/mol)
+RMSD: 1.10045
+Affinity: -6.21995  -0.51862 (kcal/mol)
+RMSD: 1.29386
+Affinity: -7.82371  -0.48925 (kcal/mol)
+RMSD: 0.44611
+Affinity: -7.90569  -0.49276 (kcal/mol)
+RMSD: 0.41934
+Affinity: -8.14836  -0.44347 (kcal/mol)
+RMSD: 1.01296
+Affinity: -8.25410  -0.45601 (kcal/mol)
+RMSD: 0.99369
+Affinity: -6.77449  0.22610 (kcal/mol)
+RMSD: 1.12313
+Affinity: -8.47390  -0.10634 (kcal/mol)
+RMSD: 1.35939
+Affinity: -2.25731  0.20263 (kcal/mol)
+RMSD: 2.06393
+Affinity: -2.25724  0.20261 (kcal/mol)
+RMSD: 2.06333
+Affinity: 6.83852  0.21267 (kcal/mol)
+RMSD: 1.51108
+Affinity: -7.16660  -0.20607 (kcal/mol)
+RMSD: 1.25220
+Affinity: -7.37378  -0.25139 (kcal/mol)
+RMSD: 1.44596
+Affinity: -7.39929  -0.21727 (kcal/mol)
+RMSD: 1.42957
+Affinity: -6.96555  -0.27138 (kcal/mol)
+RMSD: 0.63171
+Affinity: -7.36608  -0.08026 (kcal/mol)
+RMSD: 0.96507
+Affinity: -7.48926  0.00973 (kcal/mol)
+RMSD: 0.89634
+Affinity: -7.11053  -0.24674 (kcal/mol)
+RMSD: 1.27768
+Affinity: -7.22801  -0.10119 (kcal/mol)
+RMSD: 0.93176
+Affinity: -7.35927  -0.20648 (kcal/mol)
+RMSD: 1.31605
+Affinity: -7.10293  -0.24344 (kcal/mol)
+RMSD: 1.37490
+Affinity: -7.10250  -0.24371 (kcal/mol)
+RMSD: 1.37503
+Affinity: -7.43233  -0.35554 (kcal/mol)
+RMSD: 1.60711
+Affinity: -7.20998  -0.27115 (kcal/mol)
+RMSD: 1.56351
+Affinity: -1.43758  0.03027 (kcal/mol)
+RMSD: 2.47980
+Affinity: 0.04375  -0.53272 (kcal/mol)
+RMSD: 1.78383
+Affinity: 0.04361  -0.53269 (kcal/mol)
+RMSD: 2.08182
+Affinity: -0.01053  -0.63872 (kcal/mol)
+RMSD: 1.79248
+Affinity: -0.01025  -0.63909 (kcal/mol)
+RMSD: 2.02765
+Affinity: -8.26082  -0.53467 (kcal/mol)
+RMSD: 1.29788
+Affinity: -8.26075  -0.53449 (kcal/mol)
+RMSD: 1.29883
+Affinity: -6.79212  -0.08599 (kcal/mol)
+RMSD: 0.74963
+Affinity: -6.46706  -0.21863 (kcal/mol)
+RMSD: 0.72313
+Affinity: -6.72763  -0.14005 (kcal/mol)
+RMSD: 0.79589
+Affinity: -6.46715  -0.21892 (kcal/mol)
+RMSD: 0.72361
+Affinity: -6.83621  -0.51758 (kcal/mol)
+RMSD: 0.72449
+Affinity: -6.51602  -0.02023 (kcal/mol)
+RMSD: 0.47291
+Affinity: -6.63211  -0.07147 (kcal/mol)
+RMSD: 0.81903
+Affinity: -6.64300  -0.16669 (kcal/mol)
+RMSD: 1.28740
+Affinity: -6.85956  -0.51806 (kcal/mol)
+RMSD: 0.96942
+Affinity: -4.13432  -0.18611 (kcal/mol)
+RMSD: 1.12617
+Affinity: -6.26036  -0.27860 (kcal/mol)
+RMSD: 1.03512
+Affinity: -7.23265  -0.34338 (kcal/mol)
+RMSD: 1.43908
+Affinity: -7.21576  -0.36708 (kcal/mol)
+RMSD: 1.39235
+Affinity: -6.21078  -0.30295 (kcal/mol)
+RMSD: 1.01141
+Affinity: -7.23254  -0.34337 (kcal/mol)
+RMSD: 1.43892
+Affinity: -6.22424  -0.29749 (kcal/mol)
+RMSD: 1.01918
+Affinity: -7.23294  -0.34327 (kcal/mol)
+RMSD: 1.43874
+Affinity: -6.22407  -0.29737 (kcal/mol)
+RMSD: 1.01953
+Affinity: -6.23598  -0.25866 (kcal/mol)
+RMSD: 1.08018
+Affinity: -7.20824  -0.30909 (kcal/mol)
+RMSD: 1.43837
+Affinity: -6.22375  -0.29794 (kcal/mol)
+RMSD: 1.01889
+Affinity: -7.23297  -0.34273 (kcal/mol)
+RMSD: 1.43912
+Affinity: -7.20786  -0.30958 (kcal/mol)
+RMSD: 1.43816
+Affinity: -6.23618  -0.25867 (kcal/mol)
+RMSD: 1.08057
+Affinity: -6.21175  -0.30417 (kcal/mol)
+RMSD: 1.01100
+Affinity: -7.23437  -0.34198 (kcal/mol)
+RMSD: 1.44000
+Affinity: -6.23443  -0.25471 (kcal/mol)
+RMSD: 1.14105
+Affinity: -7.21611  -0.30510 (kcal/mol)
+RMSD: 1.43962
+Affinity: -6.99180  1.10727 (kcal/mol)
+RMSD: 4.91742
+Affinity: -4.11681  1.31167 (kcal/mol)
+RMSD: 5.75135
+Affinity: -8.20803  -0.69973 (kcal/mol)
+RMSD: 1.43386
+Affinity: -8.20820  -0.69972 (kcal/mol)
+RMSD: 1.25145
+Affinity: -5.38226  -0.10539 (kcal/mol)
+RMSD: 0.92074
+Affinity: -5.38229  -0.10569 (kcal/mol)
+RMSD: 0.91090
+Affinity: -8.19563  -0.28726 (kcal/mol)
+RMSD: 1.43800
+Affinity: -6.67935  0.07055 (kcal/mol)
+RMSD: 1.07244
+Affinity: -6.96049  0.59538 (kcal/mol)
+RMSD: 1.34365
+Affinity: -6.67942  0.07027 (kcal/mol)
+RMSD: 1.07233
+Affinity: -6.65652  0.03915 (kcal/mol)
+RMSD: 1.09247
+Affinity: -6.95106  0.59337 (kcal/mol)
+RMSD: 1.34664
+Affinity: -6.91221  0.59937 (kcal/mol)
+RMSD: 1.22006
+Affinity: -6.95123  0.59349 (kcal/mol)
+RMSD: 1.34645
+Affinity: -7.35171  -0.06192 (kcal/mol)
+RMSD: 1.63852
+Affinity: -7.97743  0.11469 (kcal/mol)
+RMSD: 1.48537
+Affinity: -7.46500  -0.27388 (kcal/mol)
+RMSD: 0.47027
+Affinity: -6.71550  -0.29018 (kcal/mol)
+RMSD: 1.56521
+Affinity: -7.01750  -0.41017 (kcal/mol)
+RMSD: 0.66619
+Affinity: -6.70265  -0.33118 (kcal/mol)
+RMSD: 0.57539
+Affinity: -6.70256  -0.33118 (kcal/mol)
+RMSD: 0.57540
+Affinity: -6.86544  -0.31708 (kcal/mol)
+RMSD: 0.71649
+Affinity: -7.65199  -0.57230 (kcal/mol)
+RMSD: 1.73907
+Affinity: -7.45654  -0.57451 (kcal/mol)
+RMSD: 1.44679
+Affinity: -7.77421  -0.42137 (kcal/mol)
+RMSD: 0.96213
+Affinity: -7.43815  -0.31227 (kcal/mol)
+RMSD: 1.33947
+Affinity: -6.64409  0.21758 (kcal/mol)
+RMSD: 1.11375
+Affinity: -6.60833  0.23483 (kcal/mol)
+RMSD: 1.20449
+Affinity: -6.93355  -0.16835 (kcal/mol)
+RMSD: 1.35244
+Affinity: -4.72023  -0.12641 (kcal/mol)
+RMSD: 0.99365
+Affinity: -7.52594  0.66494 (kcal/mol)
+RMSD: 1.52366
+Affinity: -7.62553  -0.20732 (kcal/mol)
+RMSD: 1.46034
+Affinity: -7.62551  -0.20745 (kcal/mol)
+RMSD: 1.46032
+Affinity: -7.37008  -0.21277 (kcal/mol)
+RMSD: 1.38977
+Affinity: -7.37017  -0.21265 (kcal/mol)
+RMSD: 1.39008
+Affinity: -8.44641  0.63446 (kcal/mol)
+RMSD: 1.37823
+Affinity: -8.44618  0.63448 (kcal/mol)
+RMSD: 1.37832
+Affinity: -8.14009  0.53079 (kcal/mol)
+RMSD: 1.47639
+Affinity: -8.19796  -0.37407 (kcal/mol)
+RMSD: 1.24439
+Affinity: -8.43943  0.64492 (kcal/mol)
+RMSD: 1.42210
+Affinity: -8.14183  0.45535 (kcal/mol)
+RMSD: 1.19081
+Affinity: -7.97997  0.42819 (kcal/mol)
+RMSD: 1.15959
+Affinity: -8.02557  -0.32884 (kcal/mol)
+RMSD: 1.25503
+Affinity: -8.20825  -0.46636 (kcal/mol)
+RMSD: 1.57713
+Affinity: -8.23952  0.62480 (kcal/mol)
+RMSD: 1.11708
+Affinity: -5.81024  0.40721 (kcal/mol)
+RMSD: 1.73705
+Affinity: -7.08901  0.50769 (kcal/mol)
+RMSD: 1.59584
+Affinity: -3.46449  -0.22794 (kcal/mol)
+RMSD: 2.03920
+Affinity: -6.24211  0.37460 (kcal/mol)
+RMSD: 1.66657
+Affinity: -6.12667  0.44747 (kcal/mol)
+RMSD: 1.33045
+Affinity: -4.51806  0.12538 (kcal/mol)
+RMSD: 1.21362
+Affinity: -7.01465  -0.08771 (kcal/mol)
+RMSD: 1.50615
+Affinity: -7.01227  -0.08755 (kcal/mol)
+RMSD: 1.50615
+Affinity: -6.75921  0.36375 (kcal/mol)
+RMSD: 1.14333
+Affinity: -5.96695  -0.00924 (kcal/mol)
+RMSD: 1.65534
+Affinity: -6.75273  0.32475 (kcal/mol)
+RMSD: 0.96102
+Affinity: -6.77975  0.35545 (kcal/mol)
+RMSD: 0.94515
+Affinity: -7.24480  0.16411 (kcal/mol)
+RMSD: 0.95247
+Affinity: -6.71844  -0.24890 (kcal/mol)
+RMSD: 2.39008
+Affinity: -7.81946  0.06529 (kcal/mol)
+RMSD: 0.70785
+Affinity: -7.71505  0.05985 (kcal/mol)
+RMSD: 0.74806
+Affinity: -8.76149  0.43802 (kcal/mol)
+RMSD: 1.29914
+Affinity: -7.57457  0.11643 (kcal/mol)
+RMSD: 1.17989
+Affinity: -4.96061  -0.07875 (kcal/mol)
+RMSD: 1.17097
+Affinity: -6.02302  -0.43970 (kcal/mol)
+RMSD: 2.61268
+Affinity: -6.73215  0.13794 (kcal/mol)
+RMSD: 0.94392
+Affinity: -6.21216  -0.34995 (kcal/mol)
+RMSD: 1.00116
+Affinity: -6.28738  0.39866 (kcal/mol)
+RMSD: 2.27793
+Affinity: -2.93120  0.35324 (kcal/mol)
+RMSD: 1.10373
+Affinity: -5.41621  -0.25083 (kcal/mol)
+RMSD: 0.67231
+Affinity: 0.64485  -0.34058 (kcal/mol)
+RMSD: 2.36565
+Affinity: -4.83109  0.85119 (kcal/mol)
+RMSD: 2.68834
+Affinity: -5.95554  -0.10296 (kcal/mol)
+RMSD: 4.28714
+Affinity: -3.33361  2.04665 (kcal/mol)
+RMSD: 2.89419
+Affinity: -5.21784  0.01065 (kcal/mol)
+RMSD: 7.71726
+Affinity: -3.81291  0.45298 (kcal/mol)
+RMSD: 1.79323
+Affinity: -5.73395  -0.08358 (kcal/mol)
+RMSD: 2.20150
+Affinity: -7.79962  -0.53197 (kcal/mol)
+RMSD: 0.75682
+Affinity: -7.79960  -0.53194 (kcal/mol)
+RMSD: 0.75700
+Affinity: -7.83493  -0.47960 (kcal/mol)
+RMSD: 0.54265
+Affinity: -7.83487  -0.47961 (kcal/mol)
+RMSD: 0.54241
+Affinity: -7.79974  -0.53192 (kcal/mol)
+RMSD: 0.75727
+Affinity: -7.79935  -0.53205 (kcal/mol)
+RMSD: 0.75751
+Affinity: -7.79977  -0.53195 (kcal/mol)
+RMSD: 0.75714
+Affinity: -7.71012  -0.49537 (kcal/mol)
+RMSD: 0.72078
+Affinity: -6.21923  -0.37258 (kcal/mol)
+RMSD: 1.78285
+Affinity: -7.13770  0.23426 (kcal/mol)
+RMSD: 1.06677
+Affinity: -6.32179  -0.29233 (kcal/mol)
+RMSD: 0.75289
+Affinity: -5.19563  -0.53171 (kcal/mol)
+RMSD: 1.09419
+Affinity: -6.70542  -0.49905 (kcal/mol)
+RMSD: 1.22979
+Affinity: -6.75520  0.30625 (kcal/mol)
+RMSD: 0.79766
+Affinity: -6.75055  0.36734 (kcal/mol)
+RMSD: 0.81561
+Affinity: -3.51317  0.11540 (kcal/mol)
+RMSD: 2.36159
+Affinity: -4.64220  -0.16908 (kcal/mol)
+RMSD: 2.31230
+Affinity: -7.35526  -0.41506 (kcal/mol)
+RMSD: 1.07392
+Affinity: -7.35516  -0.41512 (kcal/mol)
+RMSD: 1.07386
+Affinity: -4.38920  1.41066 (kcal/mol)
+RMSD: 1.09227
+Affinity: -4.24550  1.36844 (kcal/mol)
+RMSD: 1.05105
+Affinity: -3.55801  1.30235 (kcal/mol)
+RMSD: 0.94292
+Affinity: -3.88455  1.40161 (kcal/mol)
+RMSD: 1.00370
+Affinity: -3.94690  0.87754 (kcal/mol)
+RMSD: 1.06496
+Affinity: -3.91002  1.25827 (kcal/mol)
+RMSD: 2.29188
+Affinity: -3.81766  1.39542 (kcal/mol)
+RMSD: 0.97300
+Affinity: -3.99005  1.50914 (kcal/mol)
+RMSD: 1.44720
+Affinity: -7.51554  -0.43506 (kcal/mol)
+RMSD: 1.06905
+Affinity: -7.51559  -0.43504 (kcal/mol)
+RMSD: 1.06906
+Affinity: -6.44769  -0.08148 (kcal/mol)
+RMSD: 0.47316
+Affinity: -7.32838  -0.32358 (kcal/mol)
+RMSD: 1.21577
+Affinity: -7.53087  0.04844 (kcal/mol)
+RMSD: 1.00604
+Affinity: -7.50861  0.03823 (kcal/mol)
+RMSD: 1.07234
+Affinity: -7.50835  0.03784 (kcal/mol)
+RMSD: 1.07232
+Affinity: -5.42323  -0.33007 (kcal/mol)
+RMSD: 1.17925
+Affinity: -6.76333  -0.28684 (kcal/mol)
+RMSD: 0.44041
+Affinity: -6.76301  -0.28708 (kcal/mol)
+RMSD: 0.44031
+Affinity: -6.76270  -0.28747 (kcal/mol)
+RMSD: 0.44031
+Affinity: -6.76332  -0.28698 (kcal/mol)
+RMSD: 0.44028
+Affinity: -6.85612  -0.26817 (kcal/mol)
+RMSD: 0.66123
+Affinity: -6.85564  -0.26702 (kcal/mol)
+RMSD: 0.66221
+Affinity: -6.85639  -0.26794 (kcal/mol)
+RMSD: 0.66133
+Affinity: -6.85681  -0.26788 (kcal/mol)
+RMSD: 0.66175
+Affinity: -7.09620  -0.29438 (kcal/mol)
+RMSD: 1.20617
+Affinity: -5.84906  0.17701 (kcal/mol)
+RMSD: 0.92555
+Affinity: -5.84588  0.17682 (kcal/mol)
+RMSD: 0.92555
+Affinity: -6.88217  -0.20670 (kcal/mol)
+RMSD: 1.32537
+Affinity: -6.52527  0.51031 (kcal/mol)
+RMSD: 1.30121
+Affinity: -6.20246  0.58667 (kcal/mol)
+RMSD: 1.48054
+Affinity: -6.19666  0.53279 (kcal/mol)
+RMSD: 1.44740
+Affinity: -6.57181  0.55676 (kcal/mol)
+RMSD: 1.35271
+Affinity: -6.89293  0.30916 (kcal/mol)
+RMSD: 0.69374
+Affinity: -7.11915  -0.33751 (kcal/mol)
+RMSD: 0.58907
+Affinity: -7.06418  -0.34790 (kcal/mol)
+RMSD: 0.56218
+Affinity: -6.94076  -0.17413 (kcal/mol)
+RMSD: 0.54272
+Affinity: -6.39081  -0.21872 (kcal/mol)
+RMSD: 0.60505
+Affinity: -6.34325  -0.21789 (kcal/mol)
+RMSD: 0.62104
+Affinity: -6.96942  -0.18928 (kcal/mol)
+RMSD: 0.51808
+Affinity: -6.84505  -0.20282 (kcal/mol)
+RMSD: 0.61331
+Affinity: -6.98237  -0.16080 (kcal/mol)
+RMSD: 1.11171
+Affinity: -6.82931  -0.18708 (kcal/mol)
+RMSD: 0.63331
+Affinity: -6.52704  -0.26447 (kcal/mol)
+RMSD: 0.59806
+Affinity: -6.05721  -0.00591 (kcal/mol)
+RMSD: 0.76692
+Affinity: -6.52125  -0.22383 (kcal/mol)
+RMSD: 0.59986
+Affinity: -6.52101  -0.22389 (kcal/mol)
+RMSD: 0.59976
+Affinity: -5.62153  0.01080 (kcal/mol)
+RMSD: 0.87178
+Affinity: 1.59000  -0.45088 (kcal/mol)
+RMSD: 2.64961
+Affinity: 1.42866  -0.43848 (kcal/mol)
+RMSD: 2.50944
+Affinity: -6.95244  0.28023 (kcal/mol)
+RMSD: 1.08216
+Affinity: -6.59110  0.65530 (kcal/mol)
+RMSD: 1.17826
+Affinity: -2.70605  0.09649 (kcal/mol)
+RMSD: 0.98236
+Affinity: -7.15132  -0.26431 (kcal/mol)
+RMSD: 0.58051
+Affinity: -7.15967  0.00269 (kcal/mol)
+RMSD: 1.57689
+Affinity: -5.62843  0.70793 (kcal/mol)
+RMSD: 1.52149
+Affinity: -5.75723  0.62619 (kcal/mol)
+RMSD: 1.50708
+Affinity: -5.49126  -0.35052 (kcal/mol)
+RMSD: 1.20312
+Affinity: -5.43758  -0.35787 (kcal/mol)
+RMSD: 1.17699
+Affinity: -7.06554  -0.20853 (kcal/mol)
+RMSD: 2.14193
+Affinity: -7.65483  0.12880 (kcal/mol)
+RMSD: 0.67004
+Affinity: -7.65475  0.12888 (kcal/mol)
+RMSD: 0.66997
+Affinity: -7.00942  -0.23904 (kcal/mol)
+RMSD: 0.94933
+Affinity: -7.28629  0.12484 (kcal/mol)
+RMSD: 0.66984
+Affinity: -8.04980  -0.10445 (kcal/mol)
+RMSD: 1.38353
+Affinity: -7.99740  -0.19190 (kcal/mol)
+RMSD: 1.42031
+Affinity: -7.96701  -0.22192 (kcal/mol)
+RMSD: 1.43575
+Affinity: -7.17007  -0.25814 (kcal/mol)
+RMSD: 0.92581
+Affinity: -7.50900  -0.22632 (kcal/mol)
+RMSD: 0.80776
+Affinity: -7.41275  -0.06607 (kcal/mol)
+RMSD: 0.81682
+Affinity: -7.59347  -0.35183 (kcal/mol)
+RMSD: 1.16604
+Affinity: -6.38599  -0.46746 (kcal/mol)
+RMSD: 1.21966
+Affinity: -6.97058  0.12104 (kcal/mol)
+RMSD: 1.62495
+Affinity: -6.93704  0.15016 (kcal/mol)
+RMSD: 1.54492
+Affinity: -5.82589  0.13944 (kcal/mol)
+RMSD: 1.53214
+Affinity: -6.90563  -0.29706 (kcal/mol)
+RMSD: 1.56420
+Affinity: -7.41042  -0.10120 (kcal/mol)
+RMSD: 1.92869
+Affinity: -6.29372  -0.24112 (kcal/mol)
+RMSD: 1.37044
+Affinity: -6.29213  -0.24051 (kcal/mol)
+RMSD: 1.35709
+Affinity: -5.87071  -0.20611 (kcal/mol)
+RMSD: 1.14054
+Affinity: -6.32644  0.13279 (kcal/mol)
+RMSD: 0.88543
+Affinity: -6.27937  0.48582 (kcal/mol)
+RMSD: 0.78134
+Affinity: -6.71173  -0.43308 (kcal/mol)
+RMSD: 1.13116
+Affinity: -6.71197  -0.43310 (kcal/mol)
+RMSD: 1.13142
+Affinity: -6.60378  -0.46446 (kcal/mol)
+RMSD: 1.11178
+Affinity: -6.60379  -0.46453 (kcal/mol)
+RMSD: 1.11159
+Affinity: -5.03183  -0.53398 (kcal/mol)
+RMSD: 2.32936
+Affinity: -5.13482  0.01796 (kcal/mol)
+RMSD: 1.22261
+Affinity: -5.81758  -0.59418 (kcal/mol)
+RMSD: 1.10175
+Affinity: -7.63795  -0.49581 (kcal/mol)
+RMSD: 0.83051
+Affinity: -7.14795  0.62114 (kcal/mol)
+RMSD: 1.33014
+Affinity: -7.14800  0.62133 (kcal/mol)
+RMSD: 1.33015
+Affinity: -6.79968  0.07088 (kcal/mol)
+RMSD: 1.04724
+Affinity: -6.79986  0.07097 (kcal/mol)
+RMSD: 1.04734
+Affinity: -7.14236  0.62227 (kcal/mol)
+RMSD: 1.33338
+Affinity: -6.84933  -0.02958 (kcal/mol)
+RMSD: 1.16016
+Affinity: -6.98925  -0.44690 (kcal/mol)
+RMSD: 1.59713
+Affinity: -5.54676  -0.59086 (kcal/mol)
+RMSD: 2.17836
+Affinity: -5.29012  0.70291 (kcal/mol)
+RMSD: 1.07115
+Affinity: -6.36902  -0.16427 (kcal/mol)
+RMSD: 2.38507
+Affinity: -7.41984  0.07049 (kcal/mol)
+RMSD: 0.68358
+Affinity: -7.40692  0.18118 (kcal/mol)
+RMSD: 1.12785
+Affinity: -7.49524  0.06499 (kcal/mol)
+RMSD: 0.67600
+Affinity: -7.34136  0.24833 (kcal/mol)
+RMSD: 0.98853
+Affinity: -1.87808  0.76665 (kcal/mol)
+RMSD: 1.10921
+Affinity: -2.49570  -0.21247 (kcal/mol)
+RMSD: 1.39829
+Affinity: -2.82408  -0.25995 (kcal/mol)
+RMSD: 1.21143
+Affinity: -6.40710  -0.07351 (kcal/mol)
+RMSD: 0.61578
+Affinity: -6.66132  0.05192 (kcal/mol)
+RMSD: 0.96210
+Affinity: -7.77653  -0.38719 (kcal/mol)
+RMSD: 0.99780
+Affinity: -7.11076  -0.59395 (kcal/mol)
+RMSD: 1.00359
+Affinity: -6.51141  1.31570 (kcal/mol)
+RMSD: 0.63792
+Affinity: -6.51903  1.30079 (kcal/mol)
+RMSD: 0.62736
+Affinity: -4.40241  0.42807 (kcal/mol)
+RMSD: 0.89768
+Affinity: -6.71394  0.67459 (kcal/mol)
+RMSD: 2.92454
+Affinity: -4.09844  -0.13883 (kcal/mol)
+RMSD: 2.18262
+Affinity: -8.07595  -0.02221 (kcal/mol)
+RMSD: 0.63421
+Affinity: -8.91400  -0.62247 (kcal/mol)
+RMSD: 0.70266
+Affinity: -8.62747  0.07812 (kcal/mol)
+RMSD: 1.52838
+Affinity: -8.59461  0.03976 (kcal/mol)
+RMSD: 0.63777
+Affinity: -7.93184  -0.30784 (kcal/mol)
+RMSD: 1.01980
+Affinity: -8.48254  -0.26987 (kcal/mol)
+RMSD: 0.50188
+Affinity: -8.59756  -0.00333 (kcal/mol)
+RMSD: 0.95555
+Affinity: -5.61553  -0.69680 (kcal/mol)
+RMSD: 1.38565
+Affinity: -6.26133  -0.28463 (kcal/mol)
+RMSD: 1.79401
+Affinity: -6.62283  -0.24375 (kcal/mol)
+RMSD: 1.73219
+Affinity: -6.33785  -0.28072 (kcal/mol)
+RMSD: 1.05453
+Affinity: -6.62292  0.49304 (kcal/mol)
+RMSD: 0.82260
+Affinity: -6.83257  0.19497 (kcal/mol)
+RMSD: 1.74983
+Affinity: -6.49644  -0.06300 (kcal/mol)
+RMSD: 1.22031
+Affinity: -7.13629  -0.35194 (kcal/mol)
+RMSD: 0.87879
+Affinity: -6.48073  -0.37755 (kcal/mol)
+RMSD: 0.78214
+Affinity: -5.81274  0.16251 (kcal/mol)
+RMSD: 1.73123
+Affinity: -5.31422  -0.31362 (kcal/mol)
+RMSD: 1.00506
+Affinity: -5.31406  -0.31374 (kcal/mol)
+RMSD: 1.00538
+Affinity: -5.41559  -0.16590 (kcal/mol)
+RMSD: 1.02327
+Affinity: -5.99817  0.33595 (kcal/mol)
+RMSD: 1.78321
+Affinity: -6.80550  0.16830 (kcal/mol)
+RMSD: 0.93858
+Affinity: -4.78819  0.19482 (kcal/mol)
+RMSD: 6.61024
+Affinity: -7.06052  -0.60149 (kcal/mol)
+RMSD: 0.81109
+Affinity: -7.29038  -0.38100 (kcal/mol)
+RMSD: 1.03294
+Affinity: -7.29024  -0.38091 (kcal/mol)
+RMSD: 1.03292
+Affinity: 4.81458  0.82545 (kcal/mol)
+RMSD: 1.28497
+Affinity: -4.61821  1.36720 (kcal/mol)
+RMSD: 5.27456
+Affinity: -6.69344  0.06443 (kcal/mol)
+RMSD: 1.39814
+Affinity: -6.98877  -0.54006 (kcal/mol)
+RMSD: 2.22954
+Affinity: -5.70146  -0.27551 (kcal/mol)
+RMSD: 1.41413
+Affinity: -6.14640  -0.08703 (kcal/mol)
+RMSD: 1.20741
+Affinity: -6.09688  -0.14476 (kcal/mol)
+RMSD: 1.10308
+Affinity: -7.03592  -0.23445 (kcal/mol)
+RMSD: 0.54035
+Affinity: -6.93492  -0.60046 (kcal/mol)
+RMSD: 2.59442
+Affinity: -7.43165  0.30440 (kcal/mol)
+RMSD: 0.81067
+Affinity: -6.50800  -0.17291 (kcal/mol)
+RMSD: 0.98977
+Affinity: -6.69096  -0.28313 (kcal/mol)
+RMSD: 1.20216
+Affinity: -6.67411  -0.29214 (kcal/mol)
+RMSD: 1.14251
+Affinity: -2.71885  1.07792 (kcal/mol)
+RMSD: 2.73528
+Affinity: -6.55582  -0.12974 (kcal/mol)
+RMSD: 1.18649
+Affinity: -4.95696  -0.44215 (kcal/mol)
+RMSD: 1.05741
+Affinity: -6.98306  -0.38699 (kcal/mol)
+RMSD: 1.29209
+Affinity: -5.22969  -0.36143 (kcal/mol)
+RMSD: 1.41201
+Affinity: -6.79205  0.05772 (kcal/mol)
+RMSD: 0.97577
+Affinity: -6.58495  -0.00972 (kcal/mol)
+RMSD: 1.00021
+Affinity: -6.92875  0.22163 (kcal/mol)
+RMSD: 0.87375
+Affinity: -6.35559  -0.18998 (kcal/mol)
+RMSD: 0.77717
+Affinity: -6.35562  -0.18999 (kcal/mol)
+RMSD: 0.77733
+Affinity: -5.92873  -0.33456 (kcal/mol)
+RMSD: 1.76001
+Affinity: -2.78113  1.12522 (kcal/mol)
+RMSD: 2.13556
+Affinity: -0.34615  0.58952 (kcal/mol)
+RMSD: 1.30913
+Affinity: -6.58934  0.26439 (kcal/mol)
+RMSD: 0.97533
+Affinity: -7.75866  -0.03101 (kcal/mol)
+RMSD: 1.06053
+Affinity: -6.09922  -0.49040 (kcal/mol)
+RMSD: 1.60598
+Affinity: -4.95697  -0.40030 (kcal/mol)
+RMSD: 2.21858
+Affinity: -7.31410  -0.08677 (kcal/mol)
+RMSD: 0.46205
+Affinity: -7.31365  -0.08743 (kcal/mol)
+RMSD: 0.99411
+Affinity: -7.31367  -0.08733 (kcal/mol)
+RMSD: 0.46196
+Affinity: -7.31231  -0.08587 (kcal/mol)
+RMSD: 0.99470
+Affinity: -7.19351  -0.52355 (kcal/mol)
+RMSD: 0.95390
+Affinity: -7.19349  -0.52359 (kcal/mol)
+RMSD: 0.45898
+Affinity: -7.19346  -0.52364 (kcal/mol)
+RMSD: 0.45888
+Affinity: -7.19345  -0.52360 (kcal/mol)
+RMSD: 0.95399
+Affinity: -5.08669  -0.32388 (kcal/mol)
+RMSD: 0.80927
+Affinity: -6.63533  -0.38172 (kcal/mol)
+RMSD: 0.75901
+Affinity: -4.98691  -0.26587 (kcal/mol)
+RMSD: 0.84722
+Affinity: -7.00178  0.00745 (kcal/mol)
+RMSD: 0.89918
+Affinity: -7.00146  0.00719 (kcal/mol)
+RMSD: 1.34469
+Affinity: -7.25955  0.42754 (kcal/mol)
+RMSD: 0.97744
+Affinity: -7.25966  0.42772 (kcal/mol)
+RMSD: 1.43921
+Affinity: -6.13207  0.04985 (kcal/mol)
+RMSD: 0.75396
+Affinity: -5.16925  -0.26196 (kcal/mol)
+RMSD: 0.64730
+Affinity: -6.74133  -0.10118 (kcal/mol)
+RMSD: 0.67733
+Affinity: -7.48189  0.01491 (kcal/mol)
+RMSD: 0.83208
+Affinity: -7.48222  0.01507 (kcal/mol)
+RMSD: 0.83179
+Affinity: -6.79116  -0.06583 (kcal/mol)
+RMSD: 0.67507
+Affinity: -6.79112  -0.06586 (kcal/mol)
+RMSD: 0.67487
+Affinity: -5.72698  -0.28216 (kcal/mol)
+RMSD: 1.62336
+Affinity: -6.40878  -0.05206 (kcal/mol)
+RMSD: 1.26052
+Affinity: -3.64669  5.88117 (kcal/mol)
+RMSD: 2.94660
+Affinity: -2.65830  -0.18776 (kcal/mol)
+RMSD: 1.51638
+Affinity: -6.28399  -0.27707 (kcal/mol)
+RMSD: 0.78698
+Affinity: -7.14115  0.67633 (kcal/mol)
+RMSD: 1.89514
+Affinity: -7.28104  0.30485 (kcal/mol)
+RMSD: 1.90601
+Affinity: -5.16278  -0.15275 (kcal/mol)
+RMSD: 1.39864
+Affinity: -5.44332  -0.18279 (kcal/mol)
+RMSD: 1.91723
+Affinity: -8.04606  -0.30731 (kcal/mol)
+RMSD: 0.61288
+Affinity: -8.04610  -0.30743 (kcal/mol)
+RMSD: 0.61285
+Affinity: -6.45948  -0.09826 (kcal/mol)
+RMSD: 0.72175
+Affinity: -7.54292  -0.01273 (kcal/mol)
+RMSD: 0.86579
+Affinity: -7.64133  0.28465 (kcal/mol)
+RMSD: 0.92093
+Affinity: -7.36490  0.50606 (kcal/mol)
+RMSD: 0.74996
+Affinity: -7.25184  -0.60869 (kcal/mol)
+RMSD: 1.64503
+Affinity: -6.61914  -0.18645 (kcal/mol)
+RMSD: 1.77291
+Affinity: -7.36797  0.39721 (kcal/mol)
+RMSD: 0.90804
+Affinity: -6.83389  0.08403 (kcal/mol)
+RMSD: 0.75462
+Affinity: -7.45245  -0.39503 (kcal/mol)
+RMSD: 1.13967
+Affinity: -7.49032  -0.68102 (kcal/mol)
+RMSD: 0.75220
+Affinity: -7.49310  -0.68149 (kcal/mol)
+RMSD: 0.75224
+Affinity: -7.60537  -0.47727 (kcal/mol)
+RMSD: 0.92134
+Affinity: -7.60538  -0.47728 (kcal/mol)
+RMSD: 0.92134
+Affinity: -7.53662  -0.16790 (kcal/mol)
+RMSD: 1.13748
+Affinity: -7.02483  0.21255 (kcal/mol)
+RMSD: 0.79181
+Affinity: -6.96418  0.53702 (kcal/mol)
+RMSD: 1.00882
+Affinity: -6.95784  0.36477 (kcal/mol)
+RMSD: 1.00171
+Affinity: -6.95791  0.36497 (kcal/mol)
+RMSD: 1.00184
+Affinity: -6.95786  0.36487 (kcal/mol)
+RMSD: 1.00167
+Affinity: -4.21900  0.26713 (kcal/mol)
+RMSD: 1.84660
+Affinity: -3.07148  0.76812 (kcal/mol)
+RMSD: 1.40479
+Affinity: -4.40089  -0.40499 (kcal/mol)
+RMSD: 2.17452
+Affinity: -7.33140  -0.55001 (kcal/mol)
+RMSD: 0.83361
+Affinity: -3.95932  0.68501 (kcal/mol)
+RMSD: 1.92799
+Affinity: 3.52009  -0.22416 (kcal/mol)
+RMSD: 1.24286
+Affinity: -6.81226  -0.25664 (kcal/mol)
+RMSD: 0.85083
+Affinity: -7.13342  -0.38706 (kcal/mol)
+RMSD: 0.55615
+Affinity: -7.13375  -0.38702 (kcal/mol)
+RMSD: 0.55598
+Affinity: -6.87519  -0.23309 (kcal/mol)
+RMSD: 0.83638
+Affinity: -6.54192  -0.35546 (kcal/mol)
+RMSD: 0.94080
+Affinity: -6.96715  -0.40044 (kcal/mol)
+RMSD: 0.83009
+Affinity: -6.53499  -0.35423 (kcal/mol)
+RMSD: 0.94553
+Affinity: -7.18457  0.20420 (kcal/mol)
+RMSD: 0.65608
+Affinity: -6.04051  -0.52664 (kcal/mol)
+RMSD: 1.83483
+Affinity: -6.26691  -0.54012 (kcal/mol)
+RMSD: 1.56012
+Affinity: -4.95737  0.93772 (kcal/mol)
+RMSD: 2.03531
+Affinity: -1.61551  0.15042 (kcal/mol)
+RMSD: 1.12519
+Affinity: -5.36791  0.70088 (kcal/mol)
+RMSD: 1.59575
+Affinity: -6.00135  0.11537 (kcal/mol)
+RMSD: 1.69082
+Affinity: -6.98815  0.26560 (kcal/mol)
+RMSD: 1.28512
+Affinity: -6.67670  -0.30047 (kcal/mol)
+RMSD: 1.72447
+Affinity: -6.93669  -0.29832 (kcal/mol)
+RMSD: 0.82509
+Affinity: -6.25601  0.12573 (kcal/mol)
+RMSD: 1.12577
+Affinity: -6.25075  0.12720 (kcal/mol)
+RMSD: 1.14428
+Affinity: -6.23914  0.48342 (kcal/mol)
+RMSD: 1.24836
+Affinity: -6.23915  0.48365 (kcal/mol)
+RMSD: 1.24844
+Affinity: -6.22546  0.46300 (kcal/mol)
+RMSD: 0.79442
+Affinity: -5.98187  -0.26000 (kcal/mol)
+RMSD: 0.96895
+Affinity: -5.97924  -0.25973 (kcal/mol)
+RMSD: 0.96866
+Affinity: -6.25343  0.44119 (kcal/mol)
+RMSD: 1.23714
+Affinity: -5.46984  -0.34851 (kcal/mol)
+RMSD: 1.00503
+Affinity: -5.47313  -0.34799 (kcal/mol)
+RMSD: 1.00432
+Affinity: -6.25334  0.44077 (kcal/mol)
+RMSD: 1.23698
+Affinity: -6.48340  0.67172 (kcal/mol)
+RMSD: 0.85557
+Affinity: -6.48287  0.67160 (kcal/mol)
+RMSD: 0.85541
+Affinity: -5.39326  0.59225 (kcal/mol)
+RMSD: 1.15671
+Affinity: -6.58424  0.01748 (kcal/mol)
+RMSD: 0.57369
+Affinity: -5.20916  0.19680 (kcal/mol)
+RMSD: 1.74135
+Affinity: -5.03421  0.06403 (kcal/mol)
+RMSD: 1.75052
+Affinity: -5.88365  1.32187 (kcal/mol)
+RMSD: 2.83430
+Affinity: -6.06970  -0.02107 (kcal/mol)
+RMSD: 2.91090
+Affinity: -0.38671  -0.32213 (kcal/mol)
+RMSD: 1.07839
+Affinity: -6.79198  0.01978 (kcal/mol)
+RMSD: 0.68096
+Affinity: -6.72914  0.20961 (kcal/mol)
+RMSD: 1.03872
+Affinity: -6.72928  0.20929 (kcal/mol)
+RMSD: 1.03828
+Affinity: -6.72909  0.20909 (kcal/mol)
+RMSD: 1.03864
+Affinity: -6.75422  0.56347 (kcal/mol)
+RMSD: 1.29282
+Affinity: -6.73488  0.58730 (kcal/mol)
+RMSD: 1.36192
+Affinity: -6.74951  0.62767 (kcal/mol)
+RMSD: 1.21711
+Affinity: -6.68595  0.18254 (kcal/mol)
+RMSD: 1.05264
+Affinity: -6.59549  -0.32245 (kcal/mol)
+RMSD: 0.76861
+Affinity: -6.59503  -0.32268 (kcal/mol)
+RMSD: 0.76815
+Affinity: -6.99457  -0.13485 (kcal/mol)
+RMSD: 0.49746
+Affinity: -6.99441  -0.13498 (kcal/mol)
+RMSD: 0.49725
+Affinity: -6.91305  -0.07128 (kcal/mol)
+RMSD: 1.21557
+Affinity: -6.90808  -0.07571 (kcal/mol)
+RMSD: 1.30276
+Affinity: -6.97511  -0.05560 (kcal/mol)
+RMSD: 1.57593
+Affinity: -6.33322  -0.17857 (kcal/mol)
+RMSD: 2.12665
+Affinity: -2.98412  0.98220 (kcal/mol)
+RMSD: 3.87421
+Affinity: -3.56978  0.98904 (kcal/mol)
+RMSD: 2.58314
+Affinity: -0.91324  0.39547 (kcal/mol)
+RMSD: 2.97663
+Affinity: -2.31220  1.34832 (kcal/mol)
+RMSD: 1.30244
+Affinity: -7.05588  -0.26187 (kcal/mol)
+RMSD: 1.91149
+Affinity: -6.61596  -0.05304 (kcal/mol)
+RMSD: 1.84025
+Affinity: -7.02983  -0.01089 (kcal/mol)
+RMSD: 1.19532
+Affinity: -7.22939  0.61036 (kcal/mol)
+RMSD: 1.11645
+Affinity: -7.34784  0.61154 (kcal/mol)
+RMSD: 1.29343
+Affinity: -7.31732  0.57565 (kcal/mol)
+RMSD: 1.30999
+Affinity: -6.54665  0.29367 (kcal/mol)
+RMSD: 0.66902
+Affinity: -2.81748  -0.23064 (kcal/mol)
+RMSD: 2.07974
+Affinity: -5.84639  -0.10227 (kcal/mol)
+RMSD: 1.82035
+Affinity: -8.47424  -0.18084 (kcal/mol)
+RMSD: 2.10710
+Affinity: -7.11351  -0.02222 (kcal/mol)
+RMSD: 0.89375
+Affinity: -5.55514  0.15671 (kcal/mol)
+RMSD: 1.11425
+Affinity: -5.54631  0.20787 (kcal/mol)
+RMSD: 1.12063
+Affinity: -5.83019  -0.26189 (kcal/mol)
+RMSD: 0.60227
+Affinity: -5.83033  -0.26185 (kcal/mol)
+RMSD: 0.60218
+Affinity: -6.29947  0.54606 (kcal/mol)
+RMSD: 0.68791
+Affinity: -6.19963  0.13653 (kcal/mol)
+RMSD: 0.81261
+Affinity: -6.19954  0.13650 (kcal/mol)
+RMSD: 0.81244
+Affinity: -6.40160  0.64619 (kcal/mol)
+RMSD: 0.80484
+Affinity: -6.83564  0.39953 (kcal/mol)
+RMSD: 0.90940
+Affinity: -6.10540  0.08972 (kcal/mol)
+RMSD: 0.67650
+Affinity: -6.34199  0.36917 (kcal/mol)
+RMSD: 1.33834
+Affinity: -6.80023  -0.06392 (kcal/mol)
+RMSD: 1.54528
+Affinity: -6.78132  -0.05124 (kcal/mol)
+RMSD: 1.54492
+Affinity: -1.68949  -0.09284 (kcal/mol)
+RMSD: 2.06363
+Affinity: -7.10624  0.48417 (kcal/mol)
+RMSD: 1.45939
+Affinity: -6.65072  0.45789 (kcal/mol)
+RMSD: 1.19818
+Affinity: -7.10410  0.50037 (kcal/mol)
+RMSD: 1.44408
+Affinity: -7.10408  0.50015 (kcal/mol)
+RMSD: 1.44418
+Affinity: -4.06769  0.40745 (kcal/mol)
+RMSD: 2.28030
+Affinity: -6.81996  -0.33929 (kcal/mol)
+RMSD: 0.80561
+Affinity: -6.79601  -0.35849 (kcal/mol)
+RMSD: 0.99997
+Affinity: -6.53857  -0.23632 (kcal/mol)
+RMSD: 0.43544
+Affinity: -6.81850  -0.32974 (kcal/mol)
+RMSD: 0.82391
+Affinity: -6.77952  -0.33905 (kcal/mol)
+RMSD: 0.82390
+Affinity: -6.60237  0.10017 (kcal/mol)
+RMSD: 1.10510
+Affinity: -6.57270  0.51333 (kcal/mol)
+RMSD: 1.38043
+Affinity: -5.78996  0.12815 (kcal/mol)
+RMSD: 1.40621
+Affinity: -6.75074  -0.24869 (kcal/mol)
+RMSD: 1.10396
+Affinity: -0.64857  -0.60943 (kcal/mol)
+RMSD: 0.89027
+Affinity: -6.75057  -0.24919 (kcal/mol)
+RMSD: 1.10390
+Affinity: -6.58417  -0.23061 (kcal/mol)
+RMSD: 1.05981
+Affinity: -6.95289  -0.19188 (kcal/mol)
+RMSD: 1.42620
+Affinity: -7.40134  -0.23605 (kcal/mol)
+RMSD: 0.72658
+Affinity: -7.05768  -0.22302 (kcal/mol)
+RMSD: 1.48554
+Affinity: -7.35137  -0.22132 (kcal/mol)
+RMSD: 0.72256
+Affinity: -6.88108  -0.09398 (kcal/mol)
+RMSD: 1.45959
+Affinity: -7.28528  -0.17665 (kcal/mol)
+RMSD: 0.54510
+Affinity: -7.87374  0.35208 (kcal/mol)
+RMSD: 1.32545
+Affinity: -6.15098  -0.19438 (kcal/mol)
+RMSD: 1.24328
+Affinity: -6.53843  0.09741 (kcal/mol)
+RMSD: 1.22620
+Affinity: 0.00789  1.12530 (kcal/mol)
+RMSD: 3.53106
+Affinity: 0.07600  1.04166 (kcal/mol)
+RMSD: 3.55417
+Affinity: -4.58758  0.66472 (kcal/mol)
+RMSD: 1.27418
+Affinity: -4.79314  0.78668 (kcal/mol)
+RMSD: 1.28527
+Affinity: -3.93186  0.47750 (kcal/mol)
+RMSD: 1.22870
+Affinity: -6.05888  0.59154 (kcal/mol)
+RMSD: 1.50874
+Affinity: -7.05801  -0.18326 (kcal/mol)
+RMSD: 1.15041
+Affinity: -7.46478  -0.17649 (kcal/mol)
+RMSD: 0.69030
+Affinity: -7.40983  -0.16058 (kcal/mol)
+RMSD: 0.67431
+Affinity: -7.15998  -0.19663 (kcal/mol)
+RMSD: 1.18606
+Affinity: -6.85357  -0.51440 (kcal/mol)
+RMSD: 1.39637
+Affinity: -7.09233  -0.15399 (kcal/mol)
+RMSD: 1.55328
+Affinity: -6.58226  0.29551 (kcal/mol)
+RMSD: 1.87528
+Affinity: -7.03526  0.41110 (kcal/mol)
+RMSD: 1.44409
+Affinity: -7.45108  0.16339 (kcal/mol)
+RMSD: 0.92857
+Affinity: -4.44769  0.46267 (kcal/mol)
+RMSD: 1.19116
+Affinity: -4.74289  0.67191 (kcal/mol)
+RMSD: 1.42599
+Affinity: -4.89497  0.70853 (kcal/mol)
+RMSD: 1.42349
+Affinity: -4.39583  0.31837 (kcal/mol)
+RMSD: 1.24407
+Affinity: -6.17049  -0.24469 (kcal/mol)
+RMSD: 1.00495
+Affinity: -6.22191  -0.25353 (kcal/mol)
+RMSD: 0.52856
+Affinity: -5.94631  0.23801 (kcal/mol)
+RMSD: 0.54548
+Affinity: -6.56065  0.15529 (kcal/mol)
+RMSD: 0.85521
+Affinity: -6.01985  0.25075 (kcal/mol)
+RMSD: 0.61416
+Affinity: -6.01992  0.25066 (kcal/mol)
+RMSD: 0.61416
+Affinity: -6.47054  0.66224 (kcal/mol)
+RMSD: 1.12783
+Affinity: -6.79329  0.33802 (kcal/mol)
+RMSD: 0.93343
+Affinity: -6.79341  0.33791 (kcal/mol)
+RMSD: 0.93356
+Affinity: -7.12949  0.10538 (kcal/mol)
+RMSD: 0.74097
+Affinity: -6.40852  -0.18553 (kcal/mol)
+RMSD: 1.24731
+Affinity: -1.88339  0.48998 (kcal/mol)
+RMSD: 2.26407
+Affinity: -3.82926  1.32151 (kcal/mol)
+RMSD: 2.78525
+Affinity: -4.62713  1.75148 (kcal/mol)
+RMSD: 2.78391
+Affinity: -7.16194  0.26512 (kcal/mol)
+RMSD: 1.02009
+Affinity: -7.03623  -0.26628 (kcal/mol)
+RMSD: 1.42897
+Affinity: -5.49449  -0.26239 (kcal/mol)
+RMSD: 0.74997
+Affinity: -5.57962  0.13356 (kcal/mol)
+RMSD: 1.04458
+Affinity: -5.64211  -0.16036 (kcal/mol)
+RMSD: 1.24708
+Affinity: -6.56489  -0.12746 (kcal/mol)
+RMSD: 0.42673
+Affinity: -6.46611  -0.14712 (kcal/mol)
+RMSD: 0.67252
+Affinity: -6.46621  -0.14695 (kcal/mol)
+RMSD: 0.67245
+Affinity: -6.46611  -0.14709 (kcal/mol)
+RMSD: 0.67234
+Affinity: -6.56483  -0.12740 (kcal/mol)
+RMSD: 0.42690
+Affinity: -6.46614  -0.14699 (kcal/mol)
+RMSD: 0.67249
+Affinity: -6.53815  -0.16437 (kcal/mol)
+RMSD: 0.67180
+Affinity: -6.38447  -0.13738 (kcal/mol)
+RMSD: 1.29364
+Affinity: -2.88430  -0.29593 (kcal/mol)
+RMSD: 1.83895
+Affinity: -7.07890  -0.46677 (kcal/mol)
+RMSD: 0.80416
+Affinity: -7.26046  -0.58686 (kcal/mol)
+RMSD: 1.41403
+Affinity: -7.38189  -0.56715 (kcal/mol)
+RMSD: 1.41798
+Affinity: -4.25893  1.00568 (kcal/mol)
+RMSD: 2.04254
+Affinity: -5.14889  2.23586 (kcal/mol)
+RMSD: 1.85430
+Affinity: -5.62503  1.83918 (kcal/mol)
+RMSD: 2.08687
+Affinity: -5.93892  1.27624 (kcal/mol)
+RMSD: 2.09157
+Affinity: -6.54250  1.46362 (kcal/mol)
+RMSD: 0.62502
+Affinity: -6.78233  1.42684 (kcal/mol)
+RMSD: 0.82176
+Affinity: -6.78391  1.42800 (kcal/mol)
+RMSD: 0.82230
+Affinity: -6.71738  1.43763 (kcal/mol)
+RMSD: 0.67397
+Affinity: -6.71440  1.43766 (kcal/mol)
+RMSD: 0.67363
+Affinity: -6.52973  0.41907 (kcal/mol)
+RMSD: 0.94560
+Affinity: -2.63563  0.13959 (kcal/mol)
+RMSD: 0.98591
+Affinity: -6.18934  0.26106 (kcal/mol)
+RMSD: 1.18125
+Affinity: -3.74770  -0.53690 (kcal/mol)
+RMSD: 1.14029
+Affinity: -7.21068  -0.18049 (kcal/mol)
+RMSD: 2.12784
+Affinity: -6.42676  -0.38360 (kcal/mol)
+RMSD: 1.20245
+Affinity: -7.27501  -0.14872 (kcal/mol)
+RMSD: 0.56207
+Affinity: -7.00013  -0.19568 (kcal/mol)
+RMSD: 0.94056
+Affinity: -7.29043  -0.15920 (kcal/mol)
+RMSD: 0.76810
+Affinity: -7.06967  -0.21016 (kcal/mol)
+RMSD: 1.03069
+Affinity: -7.61766  -0.38902 (kcal/mol)
+RMSD: 0.85578
+Affinity: -7.67651  -0.34602 (kcal/mol)
+RMSD: 0.95717
+Affinity: -7.34287  -0.49888 (kcal/mol)
+RMSD: 0.87293
+Affinity: -7.34707  -0.50033 (kcal/mol)
+RMSD: 0.87312
+Affinity: -6.59138  -0.36402 (kcal/mol)
+RMSD: 1.91774
+Affinity: -6.61721  0.78035 (kcal/mol)
+RMSD: 2.95787
+Affinity: -5.80457  0.71861 (kcal/mol)
+RMSD: 2.92045
+Affinity: -3.44580  0.47083 (kcal/mol)
+RMSD: 3.56974
+Affinity: -6.31701  0.23116 (kcal/mol)
+RMSD: 1.72223
+Affinity: -4.81198  0.60798 (kcal/mol)
+RMSD: 0.77832
+Affinity: -6.33891  -0.22383 (kcal/mol)
+RMSD: 0.73798
+Affinity: -6.32444  -0.26741 (kcal/mol)
+RMSD: 0.75862
+Affinity: -6.30710  -0.25598 (kcal/mol)
+RMSD: 0.62264
+Affinity: -5.22509  0.10151 (kcal/mol)
+RMSD: 0.42384
+Affinity: -7.14554  -0.41792 (kcal/mol)
+RMSD: 0.97403
+Affinity: -4.18964  0.58294 (kcal/mol)
+RMSD: 2.30005
+Affinity: -6.93635  -0.20277 (kcal/mol)
+RMSD: 0.85701
+Affinity: -6.91686  -0.09471 (kcal/mol)
+RMSD: 0.84954
+Affinity: -7.00629  -0.10166 (kcal/mol)
+RMSD: 0.89830
+Affinity: -6.91231  -0.23305 (kcal/mol)
+RMSD: 0.85883
+Affinity: -6.91230  -0.23307 (kcal/mol)
+RMSD: 0.85879
+Affinity: -7.01532  -0.21500 (kcal/mol)
+RMSD: 0.93535
+Affinity: -7.17594  -0.17862 (kcal/mol)
+RMSD: 0.70107
+Affinity: -5.64760  0.03452 (kcal/mol)
+RMSD: 1.82177
+Affinity: -6.73154  -0.19267 (kcal/mol)
+RMSD: 0.87903
+Affinity: -6.46464  -0.25342 (kcal/mol)
+RMSD: 0.71487
+Affinity: -6.46467  -0.25341 (kcal/mol)
+RMSD: 0.71469
+Affinity: -7.21078  -0.09311 (kcal/mol)
+RMSD: 1.18705
+Affinity: -7.41005  -0.17964 (kcal/mol)
+RMSD: 0.74160
+Affinity: -7.23906  -0.13981 (kcal/mol)
+RMSD: 1.21318
+Affinity: -7.36216  -0.15659 (kcal/mol)
+RMSD: 0.73234
+Affinity: -6.46513  0.37701 (kcal/mol)
+RMSD: 0.55854
+Affinity: -6.27108  0.91698 (kcal/mol)
+RMSD: 0.67775
+Affinity: -6.21199  0.29907 (kcal/mol)
+RMSD: 0.60290
+Affinity: -6.55057  0.32003 (kcal/mol)
+RMSD: 0.48153
+Affinity: -7.45769  0.44757 (kcal/mol)
+RMSD: 1.25065
+Affinity: -5.59247  0.08584 (kcal/mol)
+RMSD: 1.18253
+Affinity: -5.55182  0.07846 (kcal/mol)
+RMSD: 0.60380
+Affinity: -7.47030  0.15489 (kcal/mol)
+RMSD: 1.28921
+Affinity: -7.46525  0.15592 (kcal/mol)
+RMSD: 1.34567
+Affinity: -5.18155  0.42167 (kcal/mol)
+RMSD: 1.03244
+Affinity: -7.35875  0.11819 (kcal/mol)
+RMSD: 0.99183
+Affinity: -5.61164  0.06223 (kcal/mol)
+RMSD: 0.68639
+Affinity: -7.49959  0.06280 (kcal/mol)
+RMSD: 0.95266
+Affinity: -7.23762  0.30473 (kcal/mol)
+RMSD: 0.84938
+Affinity: -7.45091  0.12419 (kcal/mol)
+RMSD: 1.23856
+Affinity: -6.41659  -0.24066 (kcal/mol)
+RMSD: 1.51335
+Affinity: -7.32001  -0.40040 (kcal/mol)
+RMSD: 0.80068
+Affinity: -7.44584  -0.38344 (kcal/mol)
+RMSD: 0.44933
+Affinity: -7.32003  -0.40040 (kcal/mol)
+RMSD: 0.80062
+Affinity: -7.28444  -0.17918 (kcal/mol)
+RMSD: 0.90308
+Affinity: -7.50016  0.04394 (kcal/mol)
+RMSD: 0.49976
+Affinity: -6.69194  0.26186 (kcal/mol)
+RMSD: 0.93618
+Affinity: -7.64566  -0.09681 (kcal/mol)
+RMSD: 0.86672
+Affinity: -3.75493  2.74002 (kcal/mol)
+RMSD: 3.54769
+Affinity: -7.38044  -0.41351 (kcal/mol)
+RMSD: 1.08642
+Affinity: -7.53353  -0.63596 (kcal/mol)
+RMSD: 0.92569
+Affinity: -6.63637  -0.19394 (kcal/mol)
+RMSD: 1.60289
+Affinity: -6.60906  0.27406 (kcal/mol)
+RMSD: 1.22500
+Affinity: -6.76097  0.00325 (kcal/mol)
+RMSD: 1.55038
+Affinity: -7.01520  -0.30389 (kcal/mol)
+RMSD: 1.70074
+Affinity: -6.59958  -0.09196 (kcal/mol)
+RMSD: 0.99178
+Affinity: -6.31399  -0.25975 (kcal/mol)
+RMSD: 0.59621
+Affinity: -6.19401  0.08204 (kcal/mol)
+RMSD: 1.44514
+Affinity: 0.18564  0.13011 (kcal/mol)
+RMSD: 1.98742
+Affinity: -7.18184  0.43446 (kcal/mol)
+RMSD: 1.61230
+Affinity: -7.18293  0.43601 (kcal/mol)
+RMSD: 1.62458
+Affinity: -6.63203  0.81425 (kcal/mol)
+RMSD: 1.30560
+Affinity: -8.91415  -0.62214 (kcal/mol)
+RMSD: 0.70257
+Affinity: -8.65236  0.11030 (kcal/mol)
+RMSD: 1.49147
+Affinity: -8.59492  0.04008 (kcal/mol)
+RMSD: 0.63789
+Affinity: -7.93184  -0.30781 (kcal/mol)
+RMSD: 1.01979
+Affinity: -8.48254  -0.26987 (kcal/mol)
+RMSD: 0.50188
+Affinity: -8.59787  -0.00307 (kcal/mol)
+RMSD: 0.95561
+Affinity: -6.71854  -0.11965 (kcal/mol)
+RMSD: 1.45745
+Affinity: -7.38399  -0.55878 (kcal/mol)
+RMSD: 1.79120
+Affinity: -6.39713  -0.09085 (kcal/mol)
+RMSD: 0.66609
+Affinity: -6.41873  0.32783 (kcal/mol)
+RMSD: 0.86337
+Affinity: -6.46566  -0.11295 (kcal/mol)
+RMSD: 1.45609
+Affinity: -4.73510  0.15700 (kcal/mol)
+RMSD: 0.98251
+Affinity: -6.59966  0.19044 (kcal/mol)
+RMSD: 1.75069
+Affinity: -6.68727  0.13939 (kcal/mol)
+RMSD: 1.75286
+Affinity: -5.91927  -0.57329 (kcal/mol)
+RMSD: 0.73551
+Affinity: -5.80020  -0.20395 (kcal/mol)
+RMSD: 1.82403
+Affinity: -7.45863  -0.43523 (kcal/mol)
+RMSD: 0.81040
+Affinity: -7.38999  -0.60637 (kcal/mol)
+RMSD: 0.79208
+Affinity: -7.38995  -0.60637 (kcal/mol)
+RMSD: 0.89207
+Affinity: -7.29361  -0.62093 (kcal/mol)
+RMSD: 1.07934
+Affinity: -7.43223  -0.43841 (kcal/mol)
+RMSD: 0.68838
+Affinity: -7.25573  -0.61984 (kcal/mol)
+RMSD: 0.82054
+Affinity: -7.25559  -0.61995 (kcal/mol)
+RMSD: 0.98703
+Affinity: -7.24314  -0.66527 (kcal/mol)
+RMSD: 0.92886
+Affinity: -6.58220  -0.12405 (kcal/mol)
+RMSD: 1.55119
+Affinity: -6.08585  -0.17055 (kcal/mol)
+RMSD: 1.61510
+Affinity: -6.75747  -0.27844 (kcal/mol)
+RMSD: 1.33443
+Affinity: -7.23301  0.26414 (kcal/mol)
+RMSD: 0.67738
+Affinity: -7.44438  0.33220 (kcal/mol)
+RMSD: 2.06632
+Affinity: -4.69775  0.52026 (kcal/mol)
+RMSD: 1.05359
+Affinity: -6.64355  0.06024 (kcal/mol)
+RMSD: 0.45759
+Affinity: -6.16533  0.24420 (kcal/mol)
+RMSD: 2.27892
+Affinity: -3.48994  -0.28755 (kcal/mol)
+RMSD: 2.23157
+Affinity: -2.09592  -0.60601 (kcal/mol)
+RMSD: 2.37429
+Affinity: -6.02906  -0.44462 (kcal/mol)
+RMSD: 1.77682
+Affinity: -8.07129  -0.60838 (kcal/mol)
+RMSD: 1.01378
+Affinity: -8.26954  -0.52618 (kcal/mol)
+RMSD: 0.63721
+Affinity: -8.07125  -0.60851 (kcal/mol)
+RMSD: 1.01381
+Affinity: -8.26952  -0.52625 (kcal/mol)
+RMSD: 0.63747
+Affinity: -8.07141  -0.60830 (kcal/mol)
+RMSD: 1.01364
+Affinity: -8.26949  -0.52627 (kcal/mol)
+RMSD: 0.63752
+Affinity: -8.18012  -0.52920 (kcal/mol)
+RMSD: 1.08596
+Affinity: -8.26949  -0.52642 (kcal/mol)
+RMSD: 0.63760
+Affinity: -8.17973  -0.52831 (kcal/mol)
+RMSD: 1.08369
+Affinity: -8.09399  -0.61922 (kcal/mol)
+RMSD: 1.02472
+Affinity: -8.11584  -0.61443 (kcal/mol)
+RMSD: 1.01835
+Affinity: -8.11622  -0.61418 (kcal/mol)
+RMSD: 1.01818
+Affinity: -8.11586  -0.61433 (kcal/mol)
+RMSD: 1.01844
+Affinity: -8.11655  -0.61413 (kcal/mol)
+RMSD: 1.01770
+Affinity: -8.23856  -0.50598 (kcal/mol)
+RMSD: 0.66592
+Affinity: -8.23869  -0.50582 (kcal/mol)
+RMSD: 0.66536
+Affinity: -8.23843  -0.50592 (kcal/mol)
+RMSD: 0.66694
+Affinity: -4.77435  0.48394 (kcal/mol)
+RMSD: 0.93837
+Affinity: -7.72304  0.49981 (kcal/mol)
+RMSD: 0.71972
+Affinity: -4.97106  0.45597 (kcal/mol)
+RMSD: 0.68379
+Affinity: -6.92306  0.33650 (kcal/mol)
+RMSD: 1.15088
+Affinity: -6.16135  -0.29028 (kcal/mol)
+RMSD: 0.61482
+Affinity: -6.16134  -0.29033 (kcal/mol)
+RMSD: 0.61490
+Affinity: -6.73916  0.32731 (kcal/mol)
+RMSD: 0.84477
+Affinity: -6.05600  -0.34181 (kcal/mol)
+RMSD: 0.59646
+Affinity: -6.93973  0.37600 (kcal/mol)
+RMSD: 1.14327
+Affinity: -6.95073  0.31279 (kcal/mol)
+RMSD: 1.13211
+Affinity: -6.06837  0.04914 (kcal/mol)
+RMSD: 0.85775
+Affinity: -6.06823  0.04928 (kcal/mol)
+RMSD: 0.85784
+Affinity: -7.26090  0.10325 (kcal/mol)
+RMSD: 0.85655
+Affinity: -6.93132  0.66643 (kcal/mol)
+RMSD: 0.99699
+Affinity: -7.24810  0.14665 (kcal/mol)
+RMSD: 1.23148
+Affinity: -7.20155  0.15294 (kcal/mol)
+RMSD: 0.88996
+Affinity: -7.20135  0.15297 (kcal/mol)
+RMSD: 0.88993
+Affinity: -6.06042  0.04480 (kcal/mol)
+RMSD: 1.01788
+Affinity: -7.24140  0.18093 (kcal/mol)
+RMSD: 0.94271
+Affinity: -5.96374  -0.34813 (kcal/mol)
+RMSD: 1.46903
+Affinity: -8.65137  0.18423 (kcal/mol)
+RMSD: 0.73491
+Affinity: -6.06151  0.26976 (kcal/mol)
+RMSD: 1.06410
+Affinity: -6.79840  0.50860 (kcal/mol)
+RMSD: 1.45337
+Affinity: -6.89268  0.58812 (kcal/mol)
+RMSD: 1.42800
+Affinity: -6.31927  -0.34929 (kcal/mol)
+RMSD: 1.99571
+Affinity: -7.67880  -0.17057 (kcal/mol)
+RMSD: 0.62518
+Affinity: -7.73551  -0.15934 (kcal/mol)
+RMSD: 0.59176
+Affinity: -7.50428  -0.03463 (kcal/mol)
+RMSD: 0.66134
+Affinity: -7.84120  -0.15611 (kcal/mol)
+RMSD: 0.54763
+Affinity: -7.55113  -0.02590 (kcal/mol)
+RMSD: 0.65408
+Affinity: -7.88010  -0.12197 (kcal/mol)
+RMSD: 0.55206
+Affinity: -8.16915  0.84898 (kcal/mol)
+RMSD: 1.52247
+Affinity: -4.29480  -0.48563 (kcal/mol)
+RMSD: 3.39593
+Affinity: -6.15467  -0.07556 (kcal/mol)
+RMSD: 0.92323
+Affinity: -8.08532  -0.61641 (kcal/mol)
+RMSD: 1.14479
+Affinity: -9.03787  -0.57143 (kcal/mol)
+RMSD: 1.19662
+Affinity: -7.55242  -0.17993 (kcal/mol)
+RMSD: 0.61700
+Affinity: -7.55222  -0.18002 (kcal/mol)
+RMSD: 0.61693
+Affinity: -7.84196  0.20320 (kcal/mol)
+RMSD: 1.31785
+Affinity: -6.47190  -0.34284 (kcal/mol)
+RMSD: 1.34219
+Affinity: -4.03405  -0.39033 (kcal/mol)
+RMSD: 1.46172
+Affinity: -2.48297  -0.20219 (kcal/mol)
+RMSD: 1.32378
+Affinity: -5.97309  0.24836 (kcal/mol)
+RMSD: 0.91587
+Affinity: -6.81716  0.09394 (kcal/mol)
+RMSD: 0.92964
+Affinity: -6.27133  -0.36310 (kcal/mol)
+RMSD: 0.94104
+Affinity: -5.41113  -0.32860 (kcal/mol)
+RMSD: 0.93272
+Affinity: -5.44183  -0.30715 (kcal/mol)
+RMSD: 1.16327
+Affinity: -5.41083  -0.32856 (kcal/mol)
+RMSD: 0.93298
+Affinity: -5.43186  -0.30785 (kcal/mol)
+RMSD: 1.16094
+Affinity: -5.43157  -0.30784 (kcal/mol)
+RMSD: 1.16102
+Affinity: -5.41088  -0.32854 (kcal/mol)
+RMSD: 0.93282
+Affinity: -5.36003  -0.39086 (kcal/mol)
+RMSD: 0.73199
+Affinity: -7.26511  -0.06505 (kcal/mol)
+RMSD: 0.92745
+Affinity: -6.94352  0.41392 (kcal/mol)
+RMSD: 1.86171
+Affinity: -7.69298  0.58677 (kcal/mol)
+RMSD: 0.75045
+Affinity: -7.69292  0.58652 (kcal/mol)
+RMSD: 0.75055
+Affinity: -7.71835  0.52737 (kcal/mol)
+RMSD: 0.38593
+Affinity: -7.72467  0.53569 (kcal/mol)
+RMSD: 0.37748
+Affinity: -7.72458  0.53575 (kcal/mol)
+RMSD: 0.37750
+Affinity: -7.68880  0.24116 (kcal/mol)
+RMSD: 0.82523
+Affinity: -7.74644  0.26620 (kcal/mol)
+RMSD: 0.83272
+Affinity: -6.89085  0.36420 (kcal/mol)
+RMSD: 1.11561
+Affinity: -5.98599  0.12826 (kcal/mol)
+RMSD: 0.89302
+Affinity: -4.78289  -0.99694 (kcal/mol)
+RMSD: 1.06188
+Affinity: -6.00504  0.34069 (kcal/mol)
+RMSD: 0.67887
+Affinity: -5.77864  0.01808 (kcal/mol)
+RMSD: 1.14109
+Affinity: -6.26565  -0.25488 (kcal/mol)
+RMSD: 0.65351
+Affinity: -6.26573  -0.25485 (kcal/mol)
+RMSD: 0.65336
+Affinity: -6.81419  0.39929 (kcal/mol)
+RMSD: 1.15627
+Affinity: -6.99043  -0.06660 (kcal/mol)
+RMSD: 1.28613
+Affinity: -6.93587  0.01454 (kcal/mol)
+RMSD: 1.34014
+Affinity: -6.58640  0.29221 (kcal/mol)
+RMSD: 0.73122
+Affinity: -6.94464  0.30766 (kcal/mol)
+RMSD: 1.22355
+Affinity: -7.33579  0.27490 (kcal/mol)
+RMSD: 1.19700
+Affinity: -6.88912  0.28508 (kcal/mol)
+RMSD: 1.13048
+Affinity: -6.88934  0.28514 (kcal/mol)
+RMSD: 1.13053
+Affinity: -7.30936  0.26234 (kcal/mol)
+RMSD: 1.17030
+Affinity: -7.05302  -0.52859 (kcal/mol)
+RMSD: 1.10244
+Affinity: -6.45405  0.82746 (kcal/mol)
+RMSD: 1.80687
+Affinity: -6.13130  -0.19646 (kcal/mol)
+RMSD: 0.70127
+Affinity: -6.15368  -0.18762 (kcal/mol)
+RMSD: 0.77389
+Affinity: -6.25304  -0.07611 (kcal/mol)
+RMSD: 0.77817
+Affinity: -6.30233  -0.09955 (kcal/mol)
+RMSD: 1.11924
+Affinity: -5.73614  -0.36713 (kcal/mol)
+RMSD: 0.75921
+Affinity: -5.73629  -0.36706 (kcal/mol)
+RMSD: 0.75939
+Affinity: -5.96897  -0.05618 (kcal/mol)
+RMSD: 0.79196
+Affinity: -5.96890  -0.05635 (kcal/mol)
+RMSD: 0.79189
+Affinity: -5.45186  -0.45903 (kcal/mol)
+RMSD: 2.19838
+Affinity: -6.70327  0.15476 (kcal/mol)
+RMSD: 2.98958
+Affinity: -6.40880  -0.23165 (kcal/mol)
+RMSD: 0.56383
+Affinity: -4.22382  0.59389 (kcal/mol)
+RMSD: 1.61969
+Affinity: -5.28492  0.62671 (kcal/mol)
+RMSD: 1.58631
+Affinity: -7.30085  -0.26094 (kcal/mol)
+RMSD: 0.81315
+Affinity: -7.40369  -0.10844 (kcal/mol)
+RMSD: 0.88674
+Affinity: -7.14017  -0.33788 (kcal/mol)
+RMSD: 0.62887
+Affinity: -7.19370  -0.21603 (kcal/mol)
+RMSD: 0.74197
+Affinity: -7.19373  -0.21603 (kcal/mol)
+RMSD: 0.63149
+Affinity: -7.36250  -0.31482 (kcal/mol)
+RMSD: 0.60919
+Affinity: -6.75677  0.72465 (kcal/mol)
+RMSD: 1.38445
+Affinity: -2.27483  1.84801 (kcal/mol)
+RMSD: 1.62060
+Affinity: -8.39150  0.68742 (kcal/mol)
+RMSD: 1.22700
+Affinity: -8.39128  0.68717 (kcal/mol)
+RMSD: 1.22719
+Affinity: -8.37965  0.68350 (kcal/mol)
+RMSD: 1.22622
+Affinity: -7.45997  0.61689 (kcal/mol)
+RMSD: 1.22388
+Affinity: -5.21155  -0.41080 (kcal/mol)
+RMSD: 1.05904
+Affinity: -6.45952  -0.40278 (kcal/mol)
+RMSD: 1.18289
+Affinity: -6.45954  -0.40292 (kcal/mol)
+RMSD: 1.18282
+Affinity: -6.91058  0.18263 (kcal/mol)
+RMSD: 1.21125
+Affinity: -5.97035  0.29103 (kcal/mol)
+RMSD: 1.58374
+Affinity: -6.87925  0.20591 (kcal/mol)
+RMSD: 1.16556
+Affinity: -6.54221  0.33907 (kcal/mol)
+RMSD: 1.62561
+Affinity: -6.62504  0.25048 (kcal/mol)
+RMSD: 1.03643
+Affinity: -6.98918  0.14137 (kcal/mol)
+RMSD: 0.83446
+Affinity: -7.26517  -0.25575 (kcal/mol)
+RMSD: 1.35928
+Affinity: -4.16640  -0.10979 (kcal/mol)
+RMSD: 2.23923
+Affinity: -8.85907  0.34036 (kcal/mol)
+RMSD: 1.30639
+Affinity: -4.48210  -0.21074 (kcal/mol)
+RMSD: 1.51017
+Affinity: -4.37798  0.28623 (kcal/mol)
+RMSD: 1.34182
+Affinity: -6.18934  0.26106 (kcal/mol)
+RMSD: 1.18125
+Affinity: -2.51602  -0.45762 (kcal/mol)
+RMSD: 2.43588
+Affinity: -2.51601  -0.45765 (kcal/mol)
+RMSD: 2.43557
+Affinity: -5.85606  -0.13193 (kcal/mol)
+RMSD: 1.16687
+Affinity: -6.46180  -0.48759 (kcal/mol)
+RMSD: 1.63012
+Affinity: -5.15682  -0.37712 (kcal/mol)
+RMSD: 0.72818
+Affinity: -4.06540  0.92494 (kcal/mol)
+RMSD: 2.20555
+Affinity: -4.57454  -0.14824 (kcal/mol)
+RMSD: 1.85096
+Affinity: -6.59685  -0.38862 (kcal/mol)
+RMSD: 0.61244
+Affinity: -7.12155  -0.31107 (kcal/mol)
+RMSD: 1.26318
+Affinity: -6.08563  -0.19333 (kcal/mol)
+RMSD: 2.00588
+Affinity: -6.72999  -0.20958 (kcal/mol)
+RMSD: 0.74584
+Affinity: -6.74509  -0.22847 (kcal/mol)
+RMSD: 0.73861
+Affinity: -6.63124  -0.24312 (kcal/mol)
+RMSD: 0.73187
+Affinity: -6.77503  -0.28059 (kcal/mol)
+RMSD: 0.67223
+Affinity: -6.82296  -0.04305 (kcal/mol)
+RMSD: 1.58032
+Affinity: -6.91944  -0.01270 (kcal/mol)
+RMSD: 1.83244
+Affinity: -5.36133  0.37556 (kcal/mol)
+RMSD: 1.75939
+Affinity: -6.56172  -0.10824 (kcal/mol)
+RMSD: 1.25390
+Affinity: -6.49932  -0.17656 (kcal/mol)
+RMSD: 0.89193
+Affinity: -6.49843  -0.17686 (kcal/mol)
+RMSD: 0.89216
+Affinity: -7.48331  -0.18047 (kcal/mol)
+RMSD: 0.48727
+Affinity: -7.48373  -0.18081 (kcal/mol)
+RMSD: 0.48748
+Affinity: -7.35624  -0.38607 (kcal/mol)
+RMSD: 0.83815
+Affinity: -7.35615  -0.38613 (kcal/mol)
+RMSD: 0.83838
+Affinity: -6.95783  0.24089 (kcal/mol)
+RMSD: 1.74775
+Affinity: -7.35145  -0.27533 (kcal/mol)
+RMSD: 0.84718
+Affinity: -7.31672  -0.25912 (kcal/mol)
+RMSD: 0.85706
+Affinity: -7.35151  -0.27523 (kcal/mol)
+RMSD: 0.84731
+Affinity: -7.31662  -0.25922 (kcal/mol)
+RMSD: 0.85659
+Affinity: -7.35154  -0.27527 (kcal/mol)
+RMSD: 0.84721
+Affinity: -7.31695  -0.25920 (kcal/mol)
+RMSD: 0.85639
+Affinity: -7.35143  -0.27520 (kcal/mol)
+RMSD: 0.84715
+Affinity: -7.31682  -0.25926 (kcal/mol)
+RMSD: 0.85675
+Affinity: -5.81205  -0.26345 (kcal/mol)
+RMSD: 0.58140
+Affinity: -5.55489  0.15651 (kcal/mol)
+RMSD: 1.11424
+Affinity: -5.83000  -0.26193 (kcal/mol)
+RMSD: 0.60228
+Affinity: -5.83032  -0.26189 (kcal/mol)
+RMSD: 0.60214
+Affinity: -6.19969  0.13652 (kcal/mol)
+RMSD: 0.81269
+Affinity: -6.60736  -0.23437 (kcal/mol)
+RMSD: 0.73034
+Affinity: -7.22978  0.12419 (kcal/mol)
+RMSD: 1.32804
+Affinity: -7.31430  0.14605 (kcal/mol)
+RMSD: 1.31896
+Affinity: -6.64064  -0.17531 (kcal/mol)
+RMSD: 1.19079
+Affinity: -6.71577  -0.20674 (kcal/mol)
+RMSD: 0.58283
+Affinity: -3.42772  0.14652 (kcal/mol)
+RMSD: 1.49093
+Affinity: -3.02831  0.04250 (kcal/mol)
+RMSD: 1.02421
+Affinity: -3.20444  0.02101 (kcal/mol)
+RMSD: 1.00850
+Affinity: -7.91919  -0.34300 (kcal/mol)
+RMSD: 1.13702
+Affinity: -7.91955  -0.34300 (kcal/mol)
+RMSD: 1.13695
+Affinity: -7.95120  -0.33441 (kcal/mol)
+RMSD: 1.33245
+Affinity: -7.88328  -0.34174 (kcal/mol)
+RMSD: 1.05501
+Affinity: -8.20547  -0.28366 (kcal/mol)
+RMSD: 0.57707
+Affinity: -4.71174  -0.28617 (kcal/mol)
+RMSD: 0.59956
+Affinity: -6.84547  -0.27604 (kcal/mol)
+RMSD: 1.48292
+Affinity: -6.41412  0.22862 (kcal/mol)
+RMSD: 1.52495
+Affinity: -6.12248  -0.27347 (kcal/mol)
+RMSD: 0.62999
+Affinity: -6.77338  -0.34670 (kcal/mol)
+RMSD: 1.02897
+Affinity: -6.57593  0.09443 (kcal/mol)
+RMSD: 1.43843
+Affinity: -5.39507  1.18665 (kcal/mol)
+RMSD: 1.52237
+Affinity: -4.96827  0.65325 (kcal/mol)
+RMSD: 1.68648
+Affinity: -3.12210  0.16685 (kcal/mol)
+RMSD: 1.77100
+Affinity: 4.04210  -0.06791 (kcal/mol)
+RMSD: 1.50811
+Affinity: -1.72633  0.19186 (kcal/mol)
+RMSD: 3.42267
+Affinity: -3.58420  1.04015 (kcal/mol)
+RMSD: 2.68802
+Affinity: -5.52583  0.35956 (kcal/mol)
+RMSD: 3.83564
+Affinity: -3.81251  0.91710 (kcal/mol)
+RMSD: 2.74342
+Affinity: -7.24837  -0.49862 (kcal/mol)
+RMSD: 1.54046
+Affinity: -3.23482  0.85209 (kcal/mol)
+RMSD: 1.97405
+Affinity: -8.21282  -0.14049 (kcal/mol)
+RMSD: 1.25521
+Affinity: -8.15923  -0.14360 (kcal/mol)
+RMSD: 1.20407
+Affinity: -6.30564  1.74547 (kcal/mol)
+RMSD: 4.07840
+Affinity: -2.28462  0.92220 (kcal/mol)
+RMSD: 2.44110
+Affinity: -5.36887  0.13309 (kcal/mol)
+RMSD: 0.51080
+Affinity: -5.63965  0.19663 (kcal/mol)
+RMSD: 1.72144
+Affinity: -6.64989  0.27790 (kcal/mol)
+RMSD: 1.04506
+Affinity: -6.95474  0.45053 (kcal/mol)
+RMSD: 1.49072
+Affinity: -6.64549  0.28127 (kcal/mol)
+RMSD: 1.04413
+Affinity: -7.00261  0.52917 (kcal/mol)
+RMSD: 1.40746
+Affinity: -8.73976  -0.07550 (kcal/mol)
+RMSD: 1.66724
+Affinity: -8.63897  -0.17465 (kcal/mol)
+RMSD: 1.97386
+Affinity: -5.43046  1.22930 (kcal/mol)
+RMSD: 1.85059
+Affinity: -2.29983  0.28040 (kcal/mol)
+RMSD: 1.01449
+Affinity: -2.56364  0.12097 (kcal/mol)
+RMSD: 1.06314
+Affinity: -6.06537  0.64260 (kcal/mol)
+RMSD: 1.45728
+Affinity: -5.47091  0.51518 (kcal/mol)
+RMSD: 1.15901
+Affinity: -5.87640  0.47809 (kcal/mol)
+RMSD: 1.14554
+Affinity: -8.23779  -0.16778 (kcal/mol)
+RMSD: 0.83691
+Affinity: -7.21772  -0.39108 (kcal/mol)
+RMSD: 0.90697
+Affinity: -7.20295  -0.35528 (kcal/mol)
+RMSD: 0.95860
+Affinity: -7.30891  -0.17969 (kcal/mol)
+RMSD: 1.37534
+Affinity: -7.59404  -0.20647 (kcal/mol)
+RMSD: 1.60456
+Affinity: -7.19272  0.10497 (kcal/mol)
+RMSD: 1.61374
+Affinity: -6.61767  -0.30045 (kcal/mol)
+RMSD: 1.50969
+Affinity: -6.62023  -0.30041 (kcal/mol)
+RMSD: 1.51010
+Affinity: -7.76482  0.84091 (kcal/mol)
+RMSD: 1.40894
+Affinity: -7.36631  0.41667 (kcal/mol)
+RMSD: 1.81849
+Affinity: -7.72607  0.80505 (kcal/mol)
+RMSD: 1.41399
+Affinity: -7.42576  0.50262 (kcal/mol)
+RMSD: 1.23181
+Affinity: -4.77900  0.27025 (kcal/mol)
+RMSD: 1.52656
+Affinity: -6.59104  0.20309 (kcal/mol)
+RMSD: 1.01774
+Affinity: -8.44281  -0.66029 (kcal/mol)
+RMSD: 1.36350
+Affinity: -9.25717  -0.66993 (kcal/mol)
+RMSD: 1.29385
+Affinity: -9.25729  -0.67001 (kcal/mol)
+RMSD: 1.29377
+Affinity: -7.43916  -0.20257 (kcal/mol)
+RMSD: 1.44544
+Affinity: -8.58629  -0.38051 (kcal/mol)
+RMSD: 1.39309
+Affinity: -8.36575  -0.40081 (kcal/mol)
+RMSD: 1.38114
+Affinity: -7.80050  -0.06160 (kcal/mol)
+RMSD: 1.11559
+Affinity: -9.26951  -0.44010 (kcal/mol)
+RMSD: 1.92245
+Affinity: -8.25725  0.63672 (kcal/mol)
+RMSD: 1.13864
+Affinity: -6.42682  -0.19728 (kcal/mol)
+RMSD: 0.80309
+Affinity: -5.65336  0.59876 (kcal/mol)
+RMSD: 1.44065
+Affinity: -5.58939  0.22614 (kcal/mol)
+RMSD: 2.12400
+Affinity: -5.75451  0.14655 (kcal/mol)
+RMSD: 1.55898
+Affinity: -5.79990  -0.02267 (kcal/mol)
+RMSD: 1.55211
+Affinity: 6.63388  0.23470 (kcal/mol)
+RMSD: 2.40059
+Affinity: -7.72510  -0.39184 (kcal/mol)
+RMSD: 0.83833
+Affinity: -7.12538  -0.40197 (kcal/mol)
+RMSD: 1.49442
+Affinity: -6.13148  -0.31039 (kcal/mol)
+RMSD: 1.08842
+Affinity: -7.40441  -0.18578 (kcal/mol)
+RMSD: 0.68687
+Affinity: -7.32399  0.11147 (kcal/mol)
+RMSD: 1.13619
+Affinity: -7.35175  -0.16960 (kcal/mol)
+RMSD: 0.69048
+Affinity: -7.38533  0.04615 (kcal/mol)
+RMSD: 1.16619
+Affinity: -7.16205  -0.22400 (kcal/mol)
+RMSD: 1.17249
+Affinity: -7.16439  -0.22188 (kcal/mol)
+RMSD: 1.16952
+Affinity: -7.23146  -0.22160 (kcal/mol)
+RMSD: 0.53859
+Affinity: -7.23132  -0.22158 (kcal/mol)
+RMSD: 0.53835
+Affinity: -7.15093  -0.21301 (kcal/mol)
+RMSD: 0.57659
+Affinity: -7.18985  -0.23384 (kcal/mol)
+RMSD: 1.13724
+Affinity: -7.14782  -0.21319 (kcal/mol)
+RMSD: 0.57667
+Affinity: -5.31306  -0.42343 (kcal/mol)
+RMSD: 1.31063
+Affinity: -8.82815  -0.14182 (kcal/mol)
+RMSD: 1.86874
+Affinity: -8.81316  -0.14534 (kcal/mol)
+RMSD: 1.75134
+Affinity: -8.72846  -0.14789 (kcal/mol)
+RMSD: 1.95874
+Affinity: -8.80274  -0.23065 (kcal/mol)
+RMSD: 2.04482
+Affinity: -6.78476  0.11819 (kcal/mol)
+RMSD: 0.99982
+Affinity: -6.78472  0.11815 (kcal/mol)
+RMSD: 1.00014
+Affinity: -6.69597  0.12295 (kcal/mol)
+RMSD: 1.05807
+Affinity: -6.69612  0.12295 (kcal/mol)
+RMSD: 1.05841
+Affinity: -6.65459  0.07733 (kcal/mol)
+RMSD: 0.87167
+Affinity: -6.65453  0.07741 (kcal/mol)
+RMSD: 0.87166
+Affinity: -5.58099  0.14446 (kcal/mol)
+RMSD: 1.98987
+Affinity: -5.57289  0.14990 (kcal/mol)
+RMSD: 1.98465
+Affinity: -7.02216  0.00490 (kcal/mol)
+RMSD: 1.83162
+Affinity: -6.65128  -0.10950 (kcal/mol)
+RMSD: 1.84679
+Affinity: -6.63255  -0.42185 (kcal/mol)
+RMSD: 1.87756
+Affinity: -6.26233  -0.20298 (kcal/mol)
+RMSD: 1.36362
+Affinity: -6.43612  -0.10824 (kcal/mol)
+RMSD: 1.45752
+Affinity: -6.01584  -0.35005 (kcal/mol)
+RMSD: 1.58845
+Affinity: -6.52847  -0.28634 (kcal/mol)
+RMSD: 1.52273
+Affinity: -6.29780  -0.26357 (kcal/mol)
+RMSD: 1.98883
+Affinity: -5.90349  -0.41225 (kcal/mol)
+RMSD: 0.92841
+Affinity: -5.98003  -0.43618 (kcal/mol)
+RMSD: 1.01039
+Affinity: -4.15825  0.30283 (kcal/mol)
+RMSD: 2.51668
+Affinity: -5.87827  -0.44034 (kcal/mol)
+RMSD: 0.98873
+Affinity: -5.98007  -0.43617 (kcal/mol)
+RMSD: 1.01038
+Affinity: -5.18899  -0.28813 (kcal/mol)
+RMSD: 0.81649
+Affinity: -6.60296  -0.14073 (kcal/mol)
+RMSD: 1.07313
+Affinity: -6.73750  -0.34987 (kcal/mol)
+RMSD: 0.73143
+Affinity: -6.84551  -0.33161 (kcal/mol)
+RMSD: 0.88600
+Affinity: -6.39840  0.22681 (kcal/mol)
+RMSD: 0.76475
+Affinity: -7.83504  -0.49116 (kcal/mol)
+RMSD: 0.82316
+Affinity: -6.25343  -0.41243 (kcal/mol)
+RMSD: 0.60514
+Affinity: -6.06465  -0.19491 (kcal/mol)
+RMSD: 0.77794
+Affinity: -6.06290  -0.19966 (kcal/mol)
+RMSD: 0.77797
+Affinity: -6.65293  -0.47877 (kcal/mol)
+RMSD: 0.61050
+Affinity: -7.67205  -0.10618 (kcal/mol)
+RMSD: 1.13535
+Affinity: -7.04730  0.05472 (kcal/mol)
+RMSD: 0.62559
+Affinity: -7.36970  0.10217 (kcal/mol)
+RMSD: 0.77864
+Affinity: -7.18342  0.06618 (kcal/mol)
+RMSD: 0.75198
+Affinity: -8.24842  -0.17761 (kcal/mol)
+RMSD: 1.46611
+Affinity: -8.24835  -0.17779 (kcal/mol)
+RMSD: 2.13682
+Affinity: -7.73239  -0.03464 (kcal/mol)
+RMSD: 1.27861
+Affinity: -7.40174  0.80718 (kcal/mol)
+RMSD: 1.01272
+Affinity: -7.90904  -0.18645 (kcal/mol)
+RMSD: 1.49897
+Affinity: -6.45138  -0.46951 (kcal/mol)
+RMSD: 2.66993
+Affinity: -7.31330  -0.27965 (kcal/mol)
+RMSD: 1.50380
+Affinity: -7.31300  -0.28013 (kcal/mol)
+RMSD: 1.50423
+Affinity: -7.31300  -0.28001 (kcal/mol)
+RMSD: 1.50410
+Affinity: -7.32400  -0.44771 (kcal/mol)
+RMSD: 1.19982
+Affinity: -7.68929  -0.34013 (kcal/mol)
+RMSD: 1.05793
+Affinity: -7.87649  0.13407 (kcal/mol)
+RMSD: 1.06884
+Affinity: -2.54428  -0.70847 (kcal/mol)
+RMSD: 1.36675
+Affinity: -2.82768  -0.34240 (kcal/mol)
+RMSD: 1.39766
+Affinity: -5.58607  -0.75906 (kcal/mol)
+RMSD: 2.86431
+Affinity: -6.83633  -0.38017 (kcal/mol)
+RMSD: 0.52117
+Affinity: -8.04958  -0.26232 (kcal/mol)
+RMSD: 0.97844
+Affinity: -7.80768  -0.31491 (kcal/mol)
+RMSD: 1.58727
+Affinity: -7.80778  -0.31487 (kcal/mol)
+RMSD: 1.79849
+Affinity: -6.66183  0.27562 (kcal/mol)
+RMSD: 0.57187
+Affinity: -6.66185  0.27551 (kcal/mol)
+RMSD: 0.57164
+Affinity: -6.37519  -0.33686 (kcal/mol)
+RMSD: 2.04214
+Affinity: -7.01565  -0.51607 (kcal/mol)
+RMSD: 1.45678
+Affinity: -6.43374  0.00035 (kcal/mol)
+RMSD: 0.83575
+Affinity: -7.46198  0.30974 (kcal/mol)
+RMSD: 1.88623
+Affinity: -7.51765  -0.42541 (kcal/mol)
+RMSD: 2.14936
+Affinity: -6.14102  0.64685 (kcal/mol)
+RMSD: 1.32654
+Affinity: -6.57293  0.49352 (kcal/mol)
+RMSD: 1.46686
+Affinity: -6.14091  0.64694 (kcal/mol)
+RMSD: 1.32650
+Affinity: -6.57270  0.49340 (kcal/mol)
+RMSD: 1.46681
+Affinity: -6.83022  0.26035 (kcal/mol)
+RMSD: 0.80698
+Affinity: -5.67992  -0.45231 (kcal/mol)
+RMSD: 2.36346
+Affinity: -6.47270  -0.23439 (kcal/mol)
+RMSD: 0.50079
+Affinity: -6.65038  -0.17585 (kcal/mol)
+RMSD: 0.62908
+Affinity: -6.38169  -0.25454 (kcal/mol)
+RMSD: 0.47340
+Affinity: -3.90423  0.07894 (kcal/mol)
+RMSD: 1.95735
+Affinity: -4.99240  -0.15983 (kcal/mol)
+RMSD: 2.97158
+Affinity: -0.53050  0.15183 (kcal/mol)
+RMSD: 1.21849
+Affinity: -7.06699  -0.26800 (kcal/mol)
+RMSD: 1.37168
+Affinity: -7.23483  -0.26216 (kcal/mol)
+RMSD: 1.37626
+Affinity: -6.39212  -0.27995 (kcal/mol)
+RMSD: 2.14225
+Affinity: -7.50706  -0.40747 (kcal/mol)
+RMSD: 0.79611
+Affinity: -7.36443  -0.18255 (kcal/mol)
+RMSD: 0.78888
+Affinity: -7.36439  -0.18255 (kcal/mol)
+RMSD: 0.78886
+Affinity: -7.36426  -0.18278 (kcal/mol)
+RMSD: 0.78888
+Affinity: -7.33611  -0.20849 (kcal/mol)
+RMSD: 0.85770
+Affinity: -7.47375  -0.40635 (kcal/mol)
+RMSD: 0.81639
+Affinity: -7.33506  -0.20970 (kcal/mol)
+RMSD: 0.85775
+Affinity: -7.47373  -0.40634 (kcal/mol)
+RMSD: 0.81629
+Affinity: -7.55606  -0.40480 (kcal/mol)
+RMSD: 0.87992
+Affinity: -7.29793  -0.14582 (kcal/mol)
+RMSD: 0.79626
+Affinity: -7.29725  -0.14635 (kcal/mol)
+RMSD: 0.79665
+Affinity: -7.53643  -0.40312 (kcal/mol)
+RMSD: 0.88505
+Affinity: -7.54438  -0.40485 (kcal/mol)
+RMSD: 0.85015
+Affinity: -7.53370  -0.40493 (kcal/mol)
+RMSD: 0.83065
+Affinity: -7.53320  -0.40316 (kcal/mol)
+RMSD: 0.88547
+Affinity: -7.22739  -0.24750 (kcal/mol)
+RMSD: 0.79511
+Affinity: -5.30386  -0.25769 (kcal/mol)
+RMSD: 0.63928
+Affinity: -7.43310  -0.42543 (kcal/mol)
+RMSD: 1.13221
+Affinity: -7.06456  -0.15198 (kcal/mol)
+RMSD: 1.61656
+Affinity: -7.22063  -0.29854 (kcal/mol)
+RMSD: 0.67354
+Affinity: -4.85019  -0.42459 (kcal/mol)
+RMSD: 1.06551
+Affinity: -4.85000  -0.42466 (kcal/mol)
+RMSD: 1.06553
+Affinity: -4.71365  -0.24500 (kcal/mol)
+RMSD: 1.10646
+Affinity: -4.71367  -0.24502 (kcal/mol)
+RMSD: 1.10653
+Affinity: -6.68027  -0.31827 (kcal/mol)
+RMSD: 0.92049
+Affinity: -7.94982  -0.36954 (kcal/mol)
+RMSD: 0.68629
+Affinity: -7.94967  -0.36945 (kcal/mol)
+RMSD: 0.68650
+Affinity: -8.00303  -0.40568 (kcal/mol)
+RMSD: 0.69682
+Affinity: -8.00298  -0.40570 (kcal/mol)
+RMSD: 0.69727
+Affinity: -8.00295  -0.40573 (kcal/mol)
+RMSD: 0.69742
+Affinity: -8.00310  -0.40569 (kcal/mol)
+RMSD: 0.69715
+Affinity: -8.00306  -0.40568 (kcal/mol)
+RMSD: 0.69718
+Affinity: -8.00302  -0.40565 (kcal/mol)
+RMSD: 0.69710
+Affinity: -8.00294  -0.40567 (kcal/mol)
+RMSD: 0.69726
+Affinity: -7.94968  -0.36942 (kcal/mol)
+RMSD: 0.68639
+Affinity: -7.94912  -0.36881 (kcal/mol)
+RMSD: 0.67732
+Affinity: -8.00303  -0.40572 (kcal/mol)
+RMSD: 0.69689
+Affinity: -7.99200  -0.39566 (kcal/mol)
+RMSD: 0.75896
+Affinity: -7.93124  -0.37462 (kcal/mol)
+RMSD: 0.75696
+Affinity: -7.99419  -0.39628 (kcal/mol)
+RMSD: 0.75942
+Affinity: -7.93116  -0.37449 (kcal/mol)
+RMSD: 0.75705
+Affinity: -7.00818  -0.20120 (kcal/mol)
+RMSD: 0.72509
+Affinity: -6.95059  -0.18366 (kcal/mol)
+RMSD: 0.74103
+Affinity: -6.95066  -0.18363 (kcal/mol)
+RMSD: 0.74099
+Affinity: -7.00813  -0.20116 (kcal/mol)
+RMSD: 0.72495
+Affinity: -7.84628  0.51571 (kcal/mol)
+RMSD: 1.17882
+Affinity: -7.61885  -0.19381 (kcal/mol)
+RMSD: 1.44752
+Affinity: -6.87708  -0.35298 (kcal/mol)
+RMSD: 1.40554
+Affinity: -4.59465  -0.26008 (kcal/mol)
+RMSD: 1.19703
+Affinity: -7.03407  -0.38361 (kcal/mol)
+RMSD: 1.34737
+Affinity: -6.99515  -0.47918 (kcal/mol)
+RMSD: 1.47420
+Affinity: -6.33172  -0.31186 (kcal/mol)
+RMSD: 1.24673
+Affinity: -6.63761  -0.31949 (kcal/mol)
+RMSD: 1.10515
+Affinity: -7.02250  -0.24145 (kcal/mol)
+RMSD: 0.92197
+Affinity: -7.46919  -0.11597 (kcal/mol)
+RMSD: 0.67257
+Affinity: -7.42184  -0.37393 (kcal/mol)
+RMSD: 0.53260
+Affinity: -7.42179  -0.37395 (kcal/mol)
+RMSD: 0.53284
+Affinity: -7.58288  -0.33722 (kcal/mol)
+RMSD: 0.44624
+Affinity: -7.27910  0.08038 (kcal/mol)
+RMSD: 0.98538
+Affinity: -7.48407  -0.36590 (kcal/mol)
+RMSD: 0.52764
+Affinity: -7.48417  -0.36593 (kcal/mol)
+RMSD: 0.52771
+Affinity: -6.75279  0.20275 (kcal/mol)
+RMSD: 1.00156
+Affinity: -6.64615  -0.33107 (kcal/mol)
+RMSD: 1.16072
+Affinity: -7.28505  0.77049 (kcal/mol)
+RMSD: 1.14743
+Affinity: -5.55540  0.15700 (kcal/mol)
+RMSD: 1.11423
+Affinity: -5.55509  0.15678 (kcal/mol)
+RMSD: 1.11416
+Affinity: -7.28479  0.77029 (kcal/mol)
+RMSD: 1.14743
+Affinity: -5.54313  0.20774 (kcal/mol)
+RMSD: 1.12058
+Affinity: -5.54700  0.20841 (kcal/mol)
+RMSD: 1.12088
+Affinity: -5.54320  0.20779 (kcal/mol)
+RMSD: 1.12074
+Affinity: -6.40123  0.64591 (kcal/mol)
+RMSD: 0.80491
+Affinity: -5.88647  -0.34775 (kcal/mol)
+RMSD: 0.74108
+Affinity: -6.56771  0.86855 (kcal/mol)
+RMSD: 2.02719
+Affinity: -6.56744  0.86837 (kcal/mol)
+RMSD: 2.02754
+Affinity: -6.53472  0.79258 (kcal/mol)
+RMSD: 1.93759
+Affinity: -6.58740  0.84728 (kcal/mol)
+RMSD: 2.02084
+Affinity: -6.60430  0.85278 (kcal/mol)
+RMSD: 2.06665
+Affinity: -7.54800  0.52850 (kcal/mol)
+RMSD: 1.59924
+Affinity: -6.69631  0.21203 (kcal/mol)
+RMSD: 2.23492
+Affinity: -5.78886  -0.25635 (kcal/mol)
+RMSD: 1.26345
+Affinity: -6.68213  0.62497 (kcal/mol)
+RMSD: 1.11923
+Affinity: -6.60252  -0.41447 (kcal/mol)
+RMSD: 2.57971
+Affinity: -6.39493  0.12265 (kcal/mol)
+RMSD: 1.76694
+Affinity: -7.59775  -0.06886 (kcal/mol)
+RMSD: 0.81503
+Affinity: -6.28949  -0.44864 (kcal/mol)
+RMSD: 1.05794
+Affinity: -6.51184  -0.40053 (kcal/mol)
+RMSD: 0.57731
+Affinity: -6.42156  0.14190 (kcal/mol)
+RMSD: 0.74617
+Affinity: -6.19356  -0.42886 (kcal/mol)
+RMSD: 0.73105
+Affinity: -5.74083  -0.24991 (kcal/mol)
+RMSD: 0.75072
+Affinity: -5.19174  0.84537 (kcal/mol)
+RMSD: 1.58622
+Affinity: -5.19719  0.84443 (kcal/mol)
+RMSD: 1.58675
+Affinity: -6.93325  0.11809 (kcal/mol)
+RMSD: 0.61562
+Affinity: -7.42555  -0.21686 (kcal/mol)
+RMSD: 0.89411
+Affinity: -6.93315  0.11801 (kcal/mol)
+RMSD: 0.61559
+Affinity: -7.14599  -0.30789 (kcal/mol)
+RMSD: 0.99019
+Affinity: -7.14637  -0.30768 (kcal/mol)
+RMSD: 0.99020
+Affinity: -7.57328  -0.23792 (kcal/mol)
+RMSD: 0.88048
+Affinity: -7.02781  0.41326 (kcal/mol)
+RMSD: 1.58861
+Affinity: -5.79748  -0.05456 (kcal/mol)
+RMSD: 0.39304
+Affinity: -5.60774  -0.04337 (kcal/mol)
+RMSD: 0.42439
+Affinity: -7.48314  -0.69830 (kcal/mol)
+RMSD: 1.14699
+Affinity: -6.95535  -0.40117 (kcal/mol)
+RMSD: 0.92943
+Affinity: -7.30120  -0.14994 (kcal/mol)
+RMSD: 0.85375
+Affinity: -7.20286  -0.12404 (kcal/mol)
+RMSD: 0.63743
+Affinity: -7.13007  -0.18184 (kcal/mol)
+RMSD: 1.67407
+Affinity: -7.09185  -0.20545 (kcal/mol)
+RMSD: 1.51487
+Affinity: -7.05411  -0.17812 (kcal/mol)
+RMSD: 1.63826
+Affinity: -6.00954  -0.05475 (kcal/mol)
+RMSD: 1.65831
+Affinity: -3.75381  0.18066 (kcal/mol)
+RMSD: 1.40110
+Affinity: -5.56236  -0.20933 (kcal/mol)
+RMSD: 2.02064
+Affinity: -7.26731  -0.27934 (kcal/mol)
+RMSD: 0.39509
+Affinity: -6.27787  -0.31179 (kcal/mol)
+RMSD: 1.76343
+Affinity: -6.34655  -0.26123 (kcal/mol)
+RMSD: 1.69061
+Affinity: -4.66451  2.48935 (kcal/mol)
+RMSD: 1.64520
+Affinity: -5.00582  -0.51377 (kcal/mol)
+RMSD: 1.57233
+Affinity: -5.00548  -0.51412 (kcal/mol)
+RMSD: 1.57239
+Affinity: -7.22126  -0.23293 (kcal/mol)
+RMSD: 0.75870
+Affinity: -8.87248  -0.33947 (kcal/mol)
+RMSD: 0.55282
+Affinity: -8.93496  -0.44506 (kcal/mol)
+RMSD: 0.57501
+Loop time 16.62815

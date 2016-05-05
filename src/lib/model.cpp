@@ -1008,13 +1008,20 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 		const conf& c, change& g, const grid& user_grid)
 { // clean up
 	set(c);
+	// ig.eval_deriv uses non_cache; if it's non_cache_gpu we obtain energies
+	// and forces via scoring function evaluation in single_point_calc
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
+	// this uses precalculate's eval_deriv and updates energies and forces for
+	// the movable parts of the system - ligands and flexible receptor
+	// residues (CHECK WITH DAVID)
+	// the first eval is for pairwise interactions between different molecules
+	// the second eval is intramolecular
 	e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
 			minus_forces); // adds to minus_forces
 	VINA_FOR_IN(i, ligands)
 		e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
 				minus_forces); // adds to minus_forces
-	// calculate derivatives
+	// calculate derivatives - resultant forces on subunits
 	ligands.derivative(coords, minus_forces, g.ligands);
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
 	return e;

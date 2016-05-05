@@ -86,6 +86,8 @@ struct atom_frame : public frame, public atom_range {
 			coords[i] = local_to_lab(atoms[i].coords);
 	}
 	vecp sum_force_and_torque(const vecv& coords, const vecv& forces) const {
+		// Correctly calculates resultant force for subunit by
+		// computing F=sum(Fi) and T=sum((Ri-R) cross Fi).
 		vecp tmp;
 		tmp.first.assign(0);
 		tmp.second.assign(0);

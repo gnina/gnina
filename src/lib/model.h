@@ -29,7 +29,6 @@
 #include <string>
 #include "file.h"
 #include "tree.h"
-#include "tree_gpu.h"
 #include "conf_gpu.h"
 #include "matrix.h"
 #include "precalculate.h"
@@ -179,33 +178,11 @@ struct ligand : public flexible_body, atom_range {
 	}
 };
 
-struct ligand_gpu : public flexible_body_gpu, atom_range_gpu {
-	unsigned degrees_of_freedom; // can be different from the apparent number of rotatable bonds, because of the disabled torsions
-	interacting_pairs pairs;
-	context cont;
-	ligand_gpu(): degrees_of_freedom(0) {}
-	ligand_gpu(const flexible_body_gpu& f, unsigned degrees_of_freedom_) : flexible_body_gpu(f), atom_range_gpu(0, 0), degrees_of_freedom(degrees_of_freedom_) {}
-	void set_range();
-
-	friend class boost::serialization::access;
-	template<class Archive>
-	void serialize(Archive& ar, const unsigned version) {
-		ar & degrees_of_freedom;
-		ar & pairs;
-		ar & cont;
-        ar & boost::serialization::base_object<flexible_body>(*this);
-        ar & boost::serialization::base_object<atom_range>(*this);
-	}
-};
 struct residue : public main_branch {
 	residue() {} //serialization
 	residue(const main_branch& m) : main_branch(m) {}
 };
 
-struct residue_gpu : public main_branch_gpu {
-	residue_gpu() {} //serialization
-	residue_gpu(const main_branch_gpu& m) : main_branch_gpu(m) {}
-};
 enum distance_type {DISTANCE_FIXED, DISTANCE_ROTOR, DISTANCE_VARIABLE};
 typedef strictly_triangular_matrix<distance_type> distance_type_matrix;
 

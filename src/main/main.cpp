@@ -770,6 +770,7 @@ void threads_at_work(boost::lockfree::queue<worker_job>* wrkq,
 		worker_job j;
 		if (wrkq->pop(j)) {
 			__sync_fetch_and_add(nligs, 1);
+
 			main_procedure(*(j.m), *gs->prec, boost::optional<model> (), *gs->settings,
 					false, // no_cache == false
 					gs->atomoutfile->is_open() || gs->settings->include_atom_info, gs->gpu_on,
@@ -778,6 +779,8 @@ void threads_at_work(boost::lockfree::queue<worker_job>* wrkq,
 			writer_job k(j.molid, j.results);
 			writerq->push(k);
 			delete j.m;
+		} else {
+			boost::thread::yield();
 		}
 	}
 	*ligcount_final = true;
@@ -835,6 +838,8 @@ void thread_a_writing(boost::lockfree::queue<writer_job>* writerq, global_state*
 			else {
 				proc_out[j.molid] = j.results;
 			}
+		} else {
+			boost::thread::yield();
 		}
 	}
 }
@@ -843,7 +848,7 @@ int main(int argc, char* argv[])
 {
 	using namespace boost::program_options;
 	const std::string version_string =
-			"Smina "__DATE__".  Based on AutoDock Vina 1.1.2.";
+			"gnina "__DATE__".";
 	const std::string error_message =
 			"\n\n\
 Please report this error at http://smina.sf.net\n"
@@ -1391,7 +1396,7 @@ Thank you!\n";
 			}
 
 			done(settings.verbosity, log);
-			std::vector<result_info>* results = new std::vector<result_info>;
+			std::vector<result_info>* results = new std::vector<result_info>();
 
 			//TODO:is this ever used?
 			std::stringstream output;

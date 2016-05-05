@@ -27,7 +27,7 @@
 #include <numeric>
 typedef triangular_matrix<fl> flmat;
 
-template<typename Change>
+template<typename Change> __device__ __forceinline__
 void minus_mat_vec_product(const flmat& m, const Change& in, Change& out)
 {
 	sz n = m.dim();
@@ -40,7 +40,7 @@ void minus_mat_vec_product(const flmat& m, const Change& in, Change& out)
 	}
 }
 
-template<typename Change>
+template<typename Change> __device__ __forceinline__
 inline fl scalar_product(const Change& a, const Change& b, sz n)
 {
 	fl tmp = 0;
@@ -49,7 +49,7 @@ inline fl scalar_product(const Change& a, const Change& b, sz n)
 	return tmp;
 }
 
-template<typename Change>
+template<typename Change> __device__ __forceinline__
 inline bool bfgs_update(flmat& h, const Change& p, const Change& y,
 		const fl alpha)
 {
@@ -72,6 +72,7 @@ inline bool bfgs_update(flmat& h, const Change& p, const Change& y,
 //dkoes - this is the line search method used by vina,
 //it is simple and fast, but may return an inappropriately large alpha
 template<typename F, typename Conf, typename Change>
+__device__ __forceinline__
 fl fast_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		const Change& p, Conf& x_new, Change& g_new, fl& f1)
 { // returns alpha
@@ -98,6 +99,7 @@ fl fast_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 //a bit of effort into calculating a good scaling factor, and ensures that alpha
 //will actually result in a smaller value
 template<typename F, typename Conf, typename Change>
+__device__ __forceinline__
 fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		const Change& p, Conf& x_new, Change& g_new, fl& f1)
 { // returns alpha
@@ -190,7 +192,7 @@ inline void set_diagonal(flmat& m, fl x)
 		m(i, i) = x;
 }
 
-template<typename Change>
+template<typename Change> __device__ __forceinline__
 void subtract_change(Change& b, const Change& a, sz n)
 { // b -= a
 	VINA_FOR(i, n)
@@ -205,10 +207,13 @@ void subtract_change(Change& b, const Change& a, sz n)
 //
 //Change template argument
 //change type (conf.h) basically same as conf, but stores deltas
-template<typename F, typename Conf, typename Change>
-fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
+template<typename F, typename Conf, typename Change> __global__
+void bfgs(F* func, Conf* out_c, fl* out_e, Change* g_, const fl average_required_improvement,
 		const minimization_params& params)
 { // x is I/O, final value is returned
+	F& f = *func;
+	Conf& x = *out_c;
+	Change& g = *g_;
 	sz n = g.num_floats();
 	flmat h(n, 0);
 	set_diagonal(h, 1);
@@ -292,11 +297,11 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		x = x_orig;
 		g = g_orig;
 	}
-	return f0;
+	*out_e = f0;
 }
 
 //set g = g_new + B*g
-template<typename Change>
+template<typename Change> __device__ __forceinline__
 void conjugate_update(Change& s, fl B, const Change& g_new, sz n)
 {
 	VINA_FOR(i, n)
@@ -311,6 +316,7 @@ void conjugate_update(Change& s, fl B, const Change& g_new, sz n)
 //This may be partly due to an inadequate line search method or a buggy
 //implementation, but I don't feel compelled to invest any more time into it.
 template<typename F, typename Conf, typename Change>
+__device__ __forceinline__
 fl conjgrad(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		const minimization_params& params)
 { // x is I/O, final value is returned
