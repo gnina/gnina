@@ -303,8 +303,13 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e << "  "
 				<< intramolecular_energy
 				<< " (kcal/mol)\nRMSD: " << rmsd;
-		;
 		log.endl();
+		cnnscore = cnn.score(m);
+		if(cnnscore >= 0.0)
+		{
+			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
+			log.endl();
+		}
 		if (!nc.within(m))
 			log
 			<< "WARNING: not all movable atoms are within the search space\n";
@@ -1216,7 +1221,7 @@ Thank you!\n";
 			return 0;
 		}
 
-		//initializeCUDA(settings.device);
+		google::InitGoogleLogging(argv[0]); //otherwise caffe spits crap out on stderr
 
 		set_fixed_rotable_hydrogens(!flex_hydrogens);
 
