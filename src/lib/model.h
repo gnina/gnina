@@ -29,7 +29,6 @@
 #include <string>
 #include "file.h"
 #include "tree.h"
-#include "conf_gpu.h"
 #include "matrix.h"
 #include "precalculate.h"
 #include "igrid.h"
@@ -261,9 +260,6 @@ struct model {
 	void sete(const conf& c);
 	void set (const conf& c);
 
-	void seti(const conf_gpu& c);
-	void sete(const conf_gpu& c);
-	void set (const conf_gpu& c);
 	std::string ligand_atom_str(sz i, sz lig=0) const;
 	fl gyration_radius(sz ligand_number) const; // uses coords
 
@@ -280,16 +276,11 @@ struct model {
 	fl evali     (const precalculate& p,                  const vec& v                          		) const;
 	fl evale     (const precalculate& p, const igrid& ig, const vec& v                          		) const;
 	fl eval      (const precalculate& p, const igrid& ig, const vec& v, const conf& c, const grid& user_grid	);
-	fl eval      (const precalculate& p, const igrid& ig, const vec& v, const conf_gpu& c, const grid& user_grid	);
 	fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v, const conf& c, change& g, const grid& user_grid);
-	fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v, const conf_gpu& c, change_gpu& g, const grid& user_grid);
 
 	fl eval_flex(const precalculate& p, const vec& v, const conf& c, unsigned maxGridAtom=0);
-	fl eval_flex(const precalculate& p, const vec& v, const conf_gpu& c, unsigned maxGridAtom=0);
 	fl eval_intramolecular(const precalculate& p, const vec& v, const conf& c);
-	fl eval_intramolecular(const precalculate& p, const vec& v, const conf_gpu& c);
 	fl eval_adjusted      (const scoring_function& sf, const precalculate& p, const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy, const grid& user_grid);
-	fl eval_adjusted      (const scoring_function& sf, const precalculate& p, const igrid& ig, const vec& v, const conf_gpu& c, fl intramolecular_energy, const grid& user_grid);
 
 
 	fl rmsd_lower_bound(const model& m) const; // uses coords

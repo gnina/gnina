@@ -20,11 +20,10 @@
 
  */
 
-#ifndef VINA_BFGS_H
-#define VINA_BFGS_H
-
 #include "matrix.h"
+#include "gpu_util.h"
 #include <numeric>
+
 typedef triangular_matrix<fl> flmat;
 
 template<typename Change> __device__ __forceinline__

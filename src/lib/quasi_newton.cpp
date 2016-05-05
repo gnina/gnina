@@ -35,11 +35,6 @@ struct quasi_newton_aux {
 		const fl tmp = m->eval_deriv(*p, *ig, v, c, g, *user_grid);
 		return tmp;
 	}
-	
-	fl operator()(const conf_gpu& c, change_gpu& g) {
-		const fl tmp = m->eval_deriv(*p, *ig, v, c, g, *user_grid);
-		return tmp;
-	}
 };
 
 void quasi_newton::operator()(model& m, const precalculate& p, const igrid& ig, output_type& out, change& g, const vec& v, const grid& user_grid, bool gpu_on) const { // g must have correct size
