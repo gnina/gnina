@@ -75,6 +75,8 @@ typedef std::pair<fl, fl> pr;
 
 struct vec {
 	fl data[3];
+  /* TODO: remove */
+  fl pad[1];
 	vec() {
 #ifndef NDEBUG
 		data[0] = data[1] = data[2] = not_a_num;
@@ -208,8 +210,8 @@ struct mat {
 	}
 	vec operator*(const vec& v) const {
 		return vec(data[0]*v[0] + data[3]*v[1] + data[6]*v[2],
-			       data[1]*v[0] + data[4]*v[1] + data[7]*v[2],
-				   data[2]*v[0] + data[5]*v[1] + data[8]*v[2]);
+               data[1]*v[0] + data[4]*v[1] + data[7]*v[2],
+               data[2]*v[0] + data[5]*v[1] + data[8]*v[2]);
 	}
 	const mat& operator*=(fl s) {
 		VINA_FOR(i, 9)

@@ -135,15 +135,8 @@ fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
                                info.nlig_atoms, info.nrec_atoms, v);
 
   //get forces
-  cudaMemcpy(result_scratch, info.result,
-             sizeof(*result_scratch) * nlig_atoms, cudaMemcpyDeviceToHost);
-
-  for(unsigned i = 0; i < nlig_atoms; i++) {
-    const force_energy_tup &t = result_scratch[i];
-    for(unsigned j = 0; j < 3; j++) {
-      m.minus_forces[i][j] = t.minus_force[j];
-    }
-  }
+  cudaMemcpy(&m.minus_forces[0], info.result,
+             sizeof(m.minus_forces[0]) * nlig_atoms, cudaMemcpyDeviceToHost);
 
   cudaMemsetAsync(info.result, 0, sizeof(force_energy_tup[nlig_atoms]), 0);
 
