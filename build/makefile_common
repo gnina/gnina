@@ -6,6 +6,7 @@ TOGNINAOBJ = tognina.o CommandLine.o
 FROMGNINAOBJ = fromgnina.o CommandLine.o 
 GNINAGRIDOBJ = gninagrid.o nngridder.o
 SERVEROBJ = server.o CommandLine.o MinimizationQuery.o QueryManager.o
+CFLAGS += -Wno-deprecated-declarations
 INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) -I $(CUDA_INCLUDE) 
 NVCC=$(BASE)/cuda/bin/nvcc
 
@@ -18,10 +19,10 @@ LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -l boost_timer${BOOST
 .SUFFIXES: .cpp .o
 
 %.o : ../../../src/*/%.cpp 
-	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -dc $< 
+	$(CC) -I ../../../src/lib -o $@ -dc $< 
 
 %.o : ../../../src/lib/CommandLine2/%.cpp 
-	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -dc $< 
+	$(CC) -I ../../../src/lib -o $@ -dc $< 
 
 %.o : ../../../src/lib/%.cu ../../../src/lib/*gpu.h
 	$(NVCC) $(NVOPTS) -DSMINA_GPU -o $@ -dc $< 
