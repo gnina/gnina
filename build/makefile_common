@@ -9,7 +9,7 @@ SERVEROBJ = server.o CommandLine.o MinimizationQuery.o QueryManager.o
 INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) -I $(CUDA_INCLUDE) 
 NVCC=$(BASE)/cuda/bin/nvcc
 
-CC = ${GPP} ${C_PLATFORM} -ansi  ${C_OPTIONS} $(INCFLAGS)
+CC = $(NVCC) -std=c++11 --compiler-options="$(C_PLATFORM) $(C_OPTIONS) $(CFLAGS)" $(INCFLAGS)
 
 LDFLAGS := -L$(BASE)/lib -L. -L/usr/local/lib -L$(BASE)/cuda/lib64 $(LDFLAGS)
 
@@ -18,14 +18,14 @@ LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -l boost_timer${BOOST
 .SUFFIXES: .cpp .o
 
 %.o : ../../../src/*/%.cpp 
-	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
-	
+	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -dc $< 
+
 %.o : ../../../src/lib/CommandLine2/%.cpp 
-	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
-	
+	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -dc $< 
+
 %.o : ../../../src/lib/%.cu ../../../src/lib/*gpu.h
-	$(NVCC) $(NVOPTS) -DSMINA_GPU -o $@ -c $< 
-	
+	$(NVCC) $(NVOPTS) -DSMINA_GPU -o $@ -dc $< 
+
 all: gnina tognina gninaserver libgnina.a gninagrid
 
 include dependencies
@@ -37,19 +37,19 @@ gnina: $(MAINOBJ) $(LIBOBJ)
 tognina: $(TOGNINAOBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"
-	
+
 fromgnina: $(FROMGNINAOBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"	
-	
+
 gninagrid: $(GNINAGRIDOBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"    	
-	
+
 gninaserver: $(SERVEROBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"	
-    	
+
 libgnina.a: $(LIBOBJ)
 	 ar rcs libgnina.a $^
 

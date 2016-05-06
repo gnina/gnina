@@ -13,7 +13,7 @@ include ../../makefile_common
 .DEFAULT_GOAL := gpu
 
 %.o : ../../../src/lib/%.cu 
-	$(NVCC) $(NVOPTS) -DSMINA_GPU -o $@ -c $<
+	$(NVCC) $(NVOPTS) -DSMINA_GPU -o $@ -dc $<
 
 gpu: $(MAINOBJ) $(LIBOBJ) $(GPUOBJ)
-	$(CC) $(LDFLAGS) -o smina.$@ $^ $(LIBS)  -lcudart
+	$(NVCC) $(LDFLAGS) -o smina.$@ $^ $(LIBS)  -lcudart

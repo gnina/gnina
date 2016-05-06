@@ -880,8 +880,9 @@ fl model::gyration_radius(sz ligand_number) const
 }
 
 fl model::eval_interacting_pairs(const precalculate& p, fl v,
-		const interacting_pairs& pairs, const vecv& coords) const
-		{ // clean up
+                                 const interacting_pairs& pairs,
+                                 const vecv& coords) const
+{ // clean up
 	const fl cutoff_sqr = p.cutoff_sqr();
 	fl e = 0;
 	VINA_FOR_IN(i, pairs)
@@ -899,8 +900,9 @@ fl model::eval_interacting_pairs(const precalculate& p, fl v,
 }
 
 fl model::eval_interacting_pairs_deriv(const precalculate& p, fl v,
-		const interacting_pairs& pairs, const vecv& coords, vecv& forces) const
-		{ // adds to forces  // clean up
+                                       const interacting_pairs& pairs,
+                                       const vecv& coords, vecv& forces) const
+{ // adds to forces  // clean up
 	const fl cutoff_sqr = p.cutoff_sqr();
 	fl e = 0;
 	VINA_FOR_IN(i, pairs)
@@ -964,7 +966,7 @@ fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
 }
 
 fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
-		const conf& c, change& g, const grid& user_grid)
+                     const conf& c, change& g, const grid& user_grid)
 { // clean up
 	set(c);
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
@@ -981,7 +983,8 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 
 //evaluate interactiongs between all of flex (including rigid) and protein
 //will ignore grid_atoms greater than max
-fl model::eval_flex(const precalculate& p, const vec& v, const conf& c, unsigned maxGridAtom)
+fl model::eval_flex(const precalculate& p, const vec& v, const conf& c,
+                    unsigned maxGridAtom)
 {
 	set(c);
 	fl e = 0;
@@ -1022,8 +1025,7 @@ fl model::eval_flex(const precalculate& p, const vec& v, const conf& c, unsigned
 	return e;
 }
 
-fl model::eval_intramolecular(const precalculate& p, const vec& v,
-		const conf& c)
+fl model::eval_intramolecular(const precalculate& p, const vec& v, const conf& c)
 {
 	set(c);
 	fl e = 0;
@@ -1080,8 +1082,9 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
 }
 
 fl model::eval_adjusted(const scoring_function& sf, const precalculate& p,
-		const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy,
-		const grid& user_grid)
+                        const igrid& ig, const vec& v, const conf& c,
+                        fl intramolecular_energy,
+                        const grid& user_grid)
 {
 	fl e = eval(p, ig, v, c, user_grid); // sets c
 	return sf.conf_independent(*this, e - intramolecular_energy);
