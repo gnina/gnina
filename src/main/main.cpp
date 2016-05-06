@@ -710,23 +710,22 @@ int main(int argc, char* argv[])
 {
 	using namespace boost::program_options;
 	const std::string version_string =
-			"Smina "__DATE__".  Based on AutoDock Vina 1.1.2.";
+			"Smina " __DATE__ ".  Based on AutoDock Vina 1.1.2.";
 	const std::string error_message =
-    "\n\n\ Please report this error at http://smina.sf.net\n"
-    "Please remember to include the following in your problem report:\n\
-  * the EXACT error message,\n\
-  * your version of the program,\n\
-  * the type of computer system you are running it on,\n\
-	* all command line options,\n\
-	* configuration file (if used),\n\
-    * ligand file as PDBQT,\n\
-    * receptor file as PDBQT,\n\
-	* flexible side chains file as PDBQT (if used),\n\
-	* output file as PDBQT (if any),\n\
-    * input (if possible),\n\
-	* random seed the program used (this is printed when the program starts).\n\
-\n\
-Thank you!\n";
+        "\n\n Please report this error at http://smina.sf.net\n"
+        "Please remember to include the following in your problem report:\n"
+        "* the EXACT error message,\n"
+        "* your version of the program,\n"
+        "* the type of computer system you are running it on,\n"
+        "* all command line options,\n"
+        "* configuration file (if used),\n"
+        "* ligand file as PDBQT,\n"
+        "* receptor file as PDBQT,\n"
+        "* flexible side chains file as PDBQT (if used),\n"
+        "* output file as PDBQT (if any),\n"
+        "* input (if possible),\n"
+        "* random seed the program used (this is printed when the program starts).\n"
+        "\n Thank you!\n";
 
 	const std::string cite_message =
 "              _             \n" \
