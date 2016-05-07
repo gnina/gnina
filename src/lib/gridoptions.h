@@ -20,16 +20,17 @@ struct gridoptions
 	fl x;
 	fl y;
 	fl z;
+	fl randtranslate;
 	int verbosity;
 	int seed;
-	bool random;
+	bool randrotate;
 	bool help;
 	bool version;
 	bool outmap;
 	bool binary;
 	gridoptions() :
 			dim(24), res(0.5), x(HUGE_VAL), y(HUGE_VAL), z(HUGE_VAL),
-			verbosity(1), seed(0), random(false), help(false), version(false), outmap(false), binary(false)
+			verbosity(1), seed(0), randrotate(false), randtranslate(0.0), help(false), version(false), outmap(false), binary(false)
 	{
 	}
 };

@@ -54,7 +54,8 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	("dimension", value<double>(&o.dim), "Cubic grid dimension (Angstroms)")
 	("resolution", value<double>(&o.res), "Cubic grid resolution (Angstroms)")
 	("binary_occupancy", bool_switch(&o.binary), "Output binary occupancies (still as floats)")
-  ("random_rotation", bool_switch(&o.random), "Apply random rotation to input")
+  ("random_rotation", bool_switch(&o.randrotate), "Apply random rotation to input")
+  ("random_translation", value<fl>(&o.randtranslate), "Apply random translation to input up to specified distance")
   ("random_seed", value<int>(&o.seed), "Random seed to use")
 	("center_x", value<fl>(&o.x), "X coordinate of the center, if unspecified use first ligand")
 	("center_y", value<fl>(&o.y), "Y coordinate of the center, if unspecified use first ligand")
@@ -129,7 +130,7 @@ int main(int argc, char *argv[])
 
 	//initialize random rotation (same for all)
 	NNGridder::quaternion quat(0,0,0,0);
-	if(opt.random)
+	if(opt.randrotate)
 	{
 	    double d = rand() / double(RAND_MAX);
 	    double r1 = rand() / double(RAND_MAX) ;
@@ -138,6 +139,18 @@ int main(int argc, char *argv[])
       quat = NNGridder::quaternion(1,r1/d,r2/d,r3/d);
 	}
 
+	if(opt.randtranslate)
+	{
+		double offx = rand() / double(RAND_MAX/2.0) - 1.0;
+		double offy = rand() / double(RAND_MAX/2.0) - 1.0;
+		double offz = rand() / double(RAND_MAX/2.0) - 1.0;
+		std::cout << opt.x << "," << opt.y << "," << opt.z << "\n";
+		opt.x += offx*opt.randtranslate;
+		opt.y += offy*opt.randtranslate;
+		opt.z += offz*opt.randtranslate;
+		                std::cout << opt.x << "," << opt.y << "," << opt.z << "\n";
+
+	}
 
 	//setup receptor grid
 	NNMolsGridder gridder(opt, quat);
