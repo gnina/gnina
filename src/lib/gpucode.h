@@ -51,7 +51,6 @@ struct GPUNonCacheInfo
   //device pointers for ligand data
   atom_params *lig_atoms;
   force_energy_tup *lig_penalties;
-  force_energy_tup *result;
   unsigned *types; //n
 
   //device pointers for receptor data
