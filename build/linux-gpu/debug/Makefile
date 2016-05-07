@@ -4,7 +4,7 @@ GPP=g++
 C_OPTIONS= -O0  -g   
 BOOST_LIB_VERSION=
 NVCC=nvcc
-NVOPTS=-gencode arch=compute_52,code=sm_52 -O0 -g
+NVOPTS=-std=c++11 -gencode arch=compute_52,code=sm_52 -O0 -g
 OPENBABEL_INCLUDE=/usr/include/openbabel-2.0
 GPUOBJ = gpucode.o
 
