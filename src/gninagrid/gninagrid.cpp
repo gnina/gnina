@@ -144,12 +144,9 @@ int main(int argc, char *argv[])
 		double offx = rand() / double(RAND_MAX/2.0) - 1.0;
 		double offy = rand() / double(RAND_MAX/2.0) - 1.0;
 		double offz = rand() / double(RAND_MAX/2.0) - 1.0;
-		std::cout << opt.x << "," << opt.y << "," << opt.z << "\n";
 		opt.x += offx*opt.randtranslate;
 		opt.y += offy*opt.randtranslate;
 		opt.z += offz*opt.randtranslate;
-		                std::cout << opt.x << "," << opt.y << "," << opt.z << "\n";
-
 	}
 
 	//setup receptor grid
