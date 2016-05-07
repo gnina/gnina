@@ -31,7 +31,6 @@ struct non_cache_gpu: public non_cache
 private:
 	GPUNonCacheInfo info; //host struct of device pointers
   atom_params *lig_atoms_scratch;
-  force_energy_tup *result_scratch;
 
 public:
 	non_cache_gpu(szv_grid_cache& gcache, const grid_dims& gd_,

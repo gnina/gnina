@@ -18,7 +18,6 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
   //allocate memory for positions, partial charges, and atom types of movable atoms
   cudaMalloc(&info.lig_atoms, sizeof(atom_params[nlig_atoms]));
   cudaMalloc(&info.lig_penalties, sizeof(force_energy_tup[nlig_atoms]));
-  cudaMalloc(&info.result, sizeof(force_energy_tup[nlig_atoms]));
   cudaMalloc(&info.types, sizeof(unsigned[nlig_atoms]));
 
   cudaHostAlloc(&lig_atoms_scratch,
@@ -74,14 +73,8 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
   cudaMemcpy(info.rectypes, &hrectypes[0], sizeof(unsigned[nrec_atoms]),
              cudaMemcpyHostToDevice);
 
-  cudaHostAlloc(&result_scratch,
-                sizeof(*result_scratch) * nlig_atoms,
-                cudaHostAllocDefault);
-
   info.ntypes = p_->num_types();
   info.splineInfo = p_->getDeviceData();
-
-  cudaMemsetAsync(info.result, 0, sizeof(force_energy_tup[nlig_atoms]), 0);
 }
 
 non_cache_gpu::~non_cache_gpu()
@@ -89,13 +82,11 @@ non_cache_gpu::~non_cache_gpu()
   //deallocate device memory
   cudaFree(info.lig_atoms);
   cudaFree(info.lig_penalties);
-  cudaFree(info.result);
   cudaFree(info.types);
     
   cudaFree(info.rec_atoms);
   cudaFree(info.rectypes);
 
-  cudaFreeHost(result_scratch);
   cudaFreeHost(lig_atoms_scratch);
 
   /* print_hits(); */
@@ -119,7 +110,7 @@ fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
     std::cerr << "usergrid not supported in gpu code yet\n";
     exit(-1);
   }
-    
+
   unsigned nlig_atoms = m.num_movable_atoms();
     
   //update coordinates
@@ -129,16 +120,13 @@ fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
   cudaMemcpyAsync(info.lig_atoms, lig_atoms_scratch,
                   sizeof(*lig_atoms_scratch) * nlig_atoms,
                   cudaMemcpyHostToDevice, 0);
+  
+  force_energy_tup *forces = (force_energy_tup *) &m.minus_forces[0];
+  memset(forces, 0, nlig_atoms * sizeof(*forces));
 
   //this will calculate the per-atom energies and forces; curl ignored
-  double e = single_point_calc(&info, info.result, slope,
+  double e = single_point_calc(&info, forces, slope,
                                info.nlig_atoms, info.nrec_atoms, v);
-
-  //get forces
-  cudaMemcpy(&m.minus_forces[0], info.result,
-             sizeof(m.minus_forces[0]) * nlig_atoms, cudaMemcpyDeviceToHost);
-
-  cudaMemsetAsync(info.result, 0, sizeof(force_energy_tup[nlig_atoms]), 0);
 
   t.stop();
   return e;
