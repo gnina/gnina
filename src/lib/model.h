@@ -29,6 +29,7 @@
 #include <string>
 #include "file.h"
 #include "tree.h"
+#include "tree_gpu.h"
 #include "matrix.h"
 #include "precalculate.h"
 #include "igrid.h"
@@ -184,6 +185,17 @@ struct ligand : public flexible_body, atom_range {
 	}
 };
 
+
+struct ligand_gpu {
+	unsigned degrees_of_freedom;
+	interacting_pairs pairs;
+	context cont;
+	tree_gpu t;
+	ligand_gpu() : degrees_of_freedom(0) {}
+	ligand_gpu(ligand& l) : degrees_of_freedom(l.degrees_of_freedom),
+                            pairs(l.pairs), cont(l.cont), t(l) {}
+};
+
 struct residue : public main_branch {
 	residue() {} //serialization
 	residue(const main_branch& m) : main_branch(m) {}
@@ -271,6 +283,7 @@ struct model {
 	void seti(const conf& c);
 	void sete(const conf& c);
 	void set (const conf& c);
+    void set_gpu(const conf& c);
 
 	std::string ligand_atom_str(sz i, sz lig=0) const;
 	fl gyration_radius(sz ligand_number) const; // uses coords
@@ -350,6 +363,8 @@ struct model {
 	}
 	void check_internal_pairs() const;
 	void print_stuff() const; // FIXME rm
+    /* TODO: rm */
+    void print_counts(void) const;
 
 	fl clash_penalty() const;
 
@@ -359,6 +374,7 @@ struct model {
 	model() : m_num_movable_atoms(0) {};
     /* TODO:remove */
 	gvecv coords;
+    ligand_gpu lgpu;
 private:
 	//my, aren't we friendly!
 	friend struct non_cache;

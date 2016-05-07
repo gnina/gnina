@@ -13,6 +13,8 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
   const model& m = gcache.getModel();
   info.cutoff_sq = p->cutoff_sqr();
 
+  m.print_counts();
+
   unsigned nlig_atoms = m.num_movable_atoms();
   info.nlig_atoms = nlig_atoms;
   //allocate memory for positions, partial charges, and atom types of movable atoms
