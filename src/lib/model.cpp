@@ -839,7 +839,7 @@ void model::set(const conf& c)
 	flex.set_conf(atoms, coords, c.flex);
 }
 
-void model::set(const conf& c)
+void model::set_gpu(const conf& c)
 {
     assert(c.ligands.size() == 1);
 	lgpu.t.set_conf(atoms, coords, c.ligands[0]);
@@ -991,7 +991,7 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 		e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
 				minus_forces); // adds to minus_forces
 	// calculate derivatives
-	lgpu.t.derivative(coords, minus_forces, g.ligands);
+	lgpu.t.derivative(coords, minus_forces, g.ligands[0]);
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
 	return e;
 }

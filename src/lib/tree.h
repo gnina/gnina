@@ -136,8 +136,9 @@ struct axis_frame : public atom_frame {
 	void set_derivative(const vecp& force_torque, fl& c) const {
 		c = force_torque.second * axis;
 	}
-protected:
+    /* TODO: was protected. Reprotect */
 	vec axis;
+protected:
 
 	axis_frame() {}
 	friend class boost::serialization::access;

@@ -372,9 +372,11 @@ struct model {
 	const atomv& get_movable_atoms() const { return atoms; }
 
 	model() : m_num_movable_atoms(0) {};
-    /* TODO:remove */
+    /* TODO:protect */
 	gvecv coords;
     ligand_gpu lgpu;
+    vector_mutable<ligand> ligands;
+
 private:
 	//my, aren't we friendly!
 	friend struct non_cache;
@@ -441,7 +443,6 @@ private:
 	atomv grid_atoms;
 	atomv atoms; // movable, inflex
 
-	vector_mutable<ligand> ligands;
 	vector_mutable<residue> flex;
 	context flex_context;
   // all except internal to one ligand: ligand-other ligands;

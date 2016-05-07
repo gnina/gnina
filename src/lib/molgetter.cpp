@@ -154,6 +154,7 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 			}
 
 			m.append(tmp.m);
+            /* TODO: move */
 			m.lgpu = m.ligands[0];
 			return true;
 		}
