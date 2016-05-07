@@ -49,7 +49,6 @@ struct GPUNonCacheInfo
   float3 gridbegins; //min range of grid
     
   //device pointers for ligand data
-  atom_params *lig_atoms;
   force_energy_tup *lig_penalties;
   unsigned *types; //n
 
@@ -62,8 +61,11 @@ struct GPUNonCacheInfo
   GPUSplineInfo *splineInfo;
 };
 
-void evaluate_splines_host(const GPUSplineInfo& spInfo, float r, float *device_vals, float *device_derivs);
-float single_point_calc(const GPUNonCacheInfo *dinfo, force_energy_tup *out, float slope, unsigned nlig_atoms, unsigned nrec_atoms, float v);
+void evaluate_splines_host(const GPUSplineInfo& spInfo, float r,
+                           float *device_vals, float *device_derivs);
+float single_point_calc(const GPUNonCacheInfo *dinfo, atom_params *lig,
+                        force_energy_tup *out, float slope,
+                        unsigned nlig_atoms, unsigned nrec_atoms, float v);
 
 
 #endif

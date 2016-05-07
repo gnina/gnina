@@ -357,7 +357,8 @@ struct model {
 	const atomv& get_movable_atoms() const { return atoms; }
 
 	model() : m_num_movable_atoms(0) {};
-
+    /* TODO:remove */
+	vecv coords;
 private:
 	//my, aren't we friendly!
 	friend struct non_cache;
@@ -415,7 +416,8 @@ private:
                                   const vecv& coords, gvecv& forces) const;
 
 	vecv internal_coords;
-	vecv coords;
+    /* TODO:reprivate */
+	/* vecv coords; */
   //I believe this contains the accumulated directional deltas for each
   //atom
 	gvecv minus_forces; 

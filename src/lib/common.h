@@ -75,8 +75,9 @@ typedef std::pair<fl, fl> pr;
 
 struct vec {
 	fl data[3];
-  /* TODO: remove */
-  fl pad[1];
+    /* TODO: remove. Exists so that force_energy_tup * can be
+       interpretend as vec *. */
+    fl pad[1];
 	vec() {
 #ifndef NDEBUG
 		data[0] = data[1] = data[2] = not_a_num;
@@ -87,6 +88,13 @@ struct vec {
 		data[1] = y;
 		data[2] = z;
 	}
+    vec operator=(const vec& b){
+        data[0] = b.data[0];
+        data[1] = b.data[1];
+        data[2] = b.data[2];
+        return *this;
+    }
+    
 	const fl& operator[](sz i) const { assert(i < 3); return data[i]; }
 	      fl& operator[](sz i)       { assert(i < 3); return data[i]; }
     fl norm_sqr() const {
