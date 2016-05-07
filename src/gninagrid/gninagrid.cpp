@@ -28,7 +28,6 @@
 using namespace std;
 using namespace boost;
 
-
 //parse commandline options using boost::program_options and put the values in opts
 //return true if successfull and ready to compute
 //will exit on error
@@ -45,22 +44,32 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 
 	options_description outputs("Output");
 	outputs.add_options()
-	("out,o", value<std::string>(&o.outname), "output file name base, combined map if outlig not specified, receptor only otherwise")
-	("outlig", value<std::string>(&o.ligoutname), "output file name base for ligand only output")
-	("map", bool_switch(&o.outmap), "output AD4 map files (for debugging, out is base name)");
+	("out,o", value<std::string>(&o.outname),
+			"output file name base, combined map if outlig not specified, receptor only otherwise")
+	("outlig", value<std::string>(&o.ligoutname),
+			"output file name base for ligand only output")
+	("map", bool_switch(&o.outmap),
+			"output AD4 map files (for debugging, out is base name)");
 
 	options_description options("Options");
 	options.add_options()
 	("dimension", value<double>(&o.dim), "Cubic grid dimension (Angstroms)")
 	("resolution", value<double>(&o.res), "Cubic grid resolution (Angstroms)")
-	("binary_occupancy", bool_switch(&o.binary), "Output binary occupancies (still as floats)")
-  ("random_rotation", bool_switch(&o.randrotate), "Apply random rotation to input")
-  ("random_translation", value<fl>(&o.randtranslate), "Apply random translation to input up to specified distance")
-  ("random_seed", value<int>(&o.seed), "Random seed to use")
-	("center_x", value<fl>(&o.x), "X coordinate of the center, if unspecified use first ligand")
-	("center_y", value<fl>(&o.y), "Y coordinate of the center, if unspecified use first ligand")
-	("center_z", value<fl>(&o.z), "Z coordinate of the center, if unspecified use first ligand")
-	("autocenter", value<string>(&o.centerfile), "ligand to use to determine center")
+	("binary_occupancy", bool_switch(&o.binary),
+			"Output binary occupancies (still as floats)")
+	("random_rotation", bool_switch(&o.randrotate),
+			"Apply random rotation to input")
+	("random_translation", value<fl>(&o.randtranslate),
+			"Apply random translation to input up to specified distance")
+	("random_seed", value<int>(&o.seed), "Random seed to use")
+	("center_x", value<fl>(&o.x),
+			"X coordinate of the center, if unspecified use first ligand")
+	("center_y", value<fl>(&o.y),
+			"Y coordinate of the center, if unspecified use first ligand")
+	("center_z", value<fl>(&o.z),
+			"Z coordinate of the center, if unspecified use first ligand")
+	("autocenter", value<string>(&o.centerfile),
+			"ligand to use to determine center")
 	("recmap", value<string>(&o.recmap), "Atom type mapping for receptor atoms")
 	("ligmap", value<string>(&o.ligmap), "Atom type mapping for ligand atoms");
 
@@ -76,7 +85,7 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	try
 	{
 		store(
-			command_line_parser(argc, argv).options(desc)
+				command_line_parser(argc, argv).options(desc)
 						.style(
 						command_line_style::default_style
 								^ command_line_style::allow_guessing)
@@ -97,120 +106,119 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	}
 	if (o.version)
 	{
-		cout << "gnina "  __DATE__ << '\n';
+		cout << "gnina " __DATE__ << '\n';
 		return false;
 	}
 
 	return true;
 }
 
-
-
 int main(int argc, char *argv[])
 {
-  OpenBabel::obErrorLog.StopLogging();
+	OpenBabel::obErrorLog.StopLogging();
 	try
 	{
-	//setup commandline options
-	gridoptions opt;
-	if(!parse_options(argc, argv, opt))
-		exit(0);
+		//setup commandline options
+		gridoptions opt;
+		if (!parse_options(argc, argv, opt))
+			exit(0);
 
-	srand(opt.seed);
-	//figure out grid center
-	if(!isfinite(opt.x + opt.y + opt.z))
-	{
-		fl dummy; //we wil set the size
-		string ligandfile = opt.ligandfile;
-		if(opt.centerfile.size() > 0)
-			ligandfile = opt.centerfile;
-		setup_autobox(ligandfile, 0, opt.x,opt.y, opt.z, dummy, dummy, dummy);
-	}
-
-
-	//initialize random rotation (same for all)
-	NNGridder::quaternion quat(0,0,0,0);
-	if(opt.randrotate)
-	{
-	    double d = rand() / double(RAND_MAX);
-	    double r1 = rand() / double(RAND_MAX) ;
-      double r2 = rand() / double(RAND_MAX) ;
-      double r3 = rand() / double(RAND_MAX) ;
-      quat = NNGridder::quaternion(1,r1/d,r2/d,r3/d);
-	}
-
-	if(opt.randtranslate)
-	{
-		double offx = rand() / double(RAND_MAX/2.0) - 1.0;
-		double offy = rand() / double(RAND_MAX/2.0) - 1.0;
-		double offz = rand() / double(RAND_MAX/2.0) - 1.0;
-		opt.x += offx*opt.randtranslate;
-		opt.y += offy*opt.randtranslate;
-		opt.z += offz*opt.randtranslate;
-	}
-
-	//setup receptor grid
-	NNMolsGridder gridder(opt, quat);
-	string parmstr;
-
-	if(!opt.outmap)
-	{
-		//embed grid configuration in file name
-		string outname;
-		ofstream binout;
-
-		if(opt.ligoutname.size() > 1)
+		srand(opt.seed);
+		//figure out grid center
+		if (!isfinite(opt.x + opt.y + opt.z))
 		{
-			outname = opt.outname + "." + gridder.getParamString(true,false) + ".binmap"; //receptor  only name
+			fl dummy; //we wil set the size
+			string ligandfile = opt.ligandfile;
+			if (opt.centerfile.size() > 0)
+				ligandfile = opt.centerfile;
+			setup_autobox(ligandfile, 0, opt.x, opt.y, opt.z, dummy, dummy,
+					dummy);
+		}
 
-			//want separate ligand/receptor grid files
-			//output receptor only
-			binout.open(outname.c_str());
-			if(!binout)
+		//initialize random rotation (same for all)
+		NNGridder::quaternion quat(0, 0, 0, 0);
+		if (opt.randrotate)
+		{
+			double d = rand() / double(RAND_MAX);
+			double r1 = rand() / double(RAND_MAX);
+			double r2 = rand() / double(RAND_MAX);
+			double r3 = rand() / double(RAND_MAX);
+			quat = NNGridder::quaternion(1, r1 / d, r2 / d, r3 / d);
+		}
+
+		if (opt.randtranslate)
+		{
+			double offx = rand() / double(RAND_MAX / 2.0) - 1.0;
+			double offy = rand() / double(RAND_MAX / 2.0) - 1.0;
+			double offz = rand() / double(RAND_MAX / 2.0) - 1.0;
+			opt.x += offx * opt.randtranslate;
+			opt.y += offy * opt.randtranslate;
+			opt.z += offz * opt.randtranslate;
+		}
+
+		//setup receptor grid
+		NNMolsGridder gridder(opt, quat);
+		string parmstr;
+
+		if (!opt.outmap)
+		{
+			//embed grid configuration in file name
+			string outname;
+			ofstream binout;
+
+			if (opt.ligoutname.size() > 1)
 			{
-				cerr << "Could not open " << outname << "\n";
-				exit(-1);
+				outname = opt.outname + "."
+						+ gridder.getParamString(true, false) + ".binmap"; //receptor  only name
+
+				//want separate ligand/receptor grid files
+				//output receptor only
+				binout.open(outname.c_str());
+				if (!binout)
+				{
+					cerr << "Could not open " << outname << "\n";
+					exit(-1);
+				}
+				gridder.outputBIN(binout, true, false);
+				binout.close();
+
+				parmstr = "." + gridder.getParamString(false, true); //ligand only name
 			}
-			gridder.outputBIN(binout, true, false);
-			binout.close();
-
-			parmstr = "." + gridder.getParamString(false,true); //ligand only name
-		}
-		else
-		{
-			parmstr = "." + gridder.getParamString(true,true); //ligand and receptor name name
-		}
-	}
-
-	//for each ligand..
-	unsigned ligcnt = 0;
-	while(gridder.readMolecule())
-	{ //computes ligand grid
-
-		//and output
-		string base;
-		if(opt.ligoutname.size() == 0)
-			base = opt.outname + "_" + lexical_cast<string>(ligcnt);
-		else
-			base = opt.ligoutname + "_" + lexical_cast<string>(ligcnt);
-
-		if(opt.outmap)
-		{
-			gridder.outputMAP(base);
-		}
-		else
-		{
-			string outname = base + parmstr  + ".binmap";
-			ofstream binout(outname.c_str());
-			if(!binout)
+			else
 			{
-				cerr << "Could not open " << outname << "\n";
-				exit(-1);
+				parmstr = "." + gridder.getParamString(true, true); //ligand and receptor name name
 			}
-			gridder.outputBIN(binout, opt.ligoutname.size() == 0);
 		}
-		ligcnt++;
-	}
+
+		//for each ligand..
+		unsigned ligcnt = 0;
+		while (gridder.readMolecule())
+		{ //computes ligand grid
+
+			//and output
+			string base;
+			if (opt.ligoutname.size() == 0)
+				base = opt.outname + "_" + lexical_cast<string>(ligcnt);
+			else
+				base = opt.ligoutname + "_" + lexical_cast<string>(ligcnt);
+
+			if (opt.outmap)
+			{
+				gridder.outputMAP(base);
+			}
+			else
+			{
+				string outname = base + parmstr + ".binmap";
+				ofstream binout(outname.c_str());
+				if (!binout)
+				{
+					cerr << "Could not open " << outname << "\n";
+					exit(-1);
+				}
+				gridder.outputBIN(binout, opt.ligoutname.size() == 0);
+			}
+			ligcnt++;
+		}
 
 	} catch (file_error& e)
 	{
