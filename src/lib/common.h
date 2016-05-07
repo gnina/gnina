@@ -225,6 +225,10 @@ struct mat {
 	}
 };
 
+/* TODO: clean */
+#include "gpu_mem.h"
+typedef std::vector<vec, gpu_managed_alloc<vec> > gvecv;
+
 typedef std::vector<vec> vecv;
 typedef std::pair<vec, vec> vecp;
 typedef std::vector<fl> flv;

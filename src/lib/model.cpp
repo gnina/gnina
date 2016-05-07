@@ -243,10 +243,10 @@ public:
 	}
 
 	// internal_coords, coords, minus_forces, atoms
-	template<typename T>
-	void coords_append(std::vector<T>& a, const std::vector<T>& b)
+	template<typename T, typename A>
+	void coords_append(std::vector<T, A>& a, const std::vector<T, A>& b)
 	{ // first arg becomes aaaaaaaabbbbbbbbbaab
-		std::vector<T> b_copy(b); // more straightforward to make a copy of b and transform that than to do piecewise transformations of the result
+		std::vector<T, A> b_copy(b); // more straightforward to make a copy of b and transform that than to do piecewise transformations of the result
 
 		is_a = true;
 		VINA_FOR_IN(i, a)
@@ -257,7 +257,7 @@ public:
 			update(b_copy[i]);
 
 		// interleave 
-		typedef typename std::vector<T>::const_iterator const cci;
+		typedef typename std::vector<T, A>::const_iterator const cci;
 		cci b1 = b_copy.begin();
 		cci b2 = b_copy.begin() + b_info.m_num_movable_atoms;
 		cci b3 = b_copy.end();
@@ -901,7 +901,7 @@ fl model::eval_interacting_pairs(const precalculate& p, fl v,
 
 fl model::eval_interacting_pairs_deriv(const precalculate& p, fl v,
                                        const interacting_pairs& pairs,
-                                       const vecv& coords, vecv& forces) const
+                                       const vecv& coords, gvecv& forces) const
 { // adds to forces  // clean up
 	const fl cutoff_sqr = p.cutoff_sqr();
 	fl e = 0;

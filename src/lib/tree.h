@@ -85,7 +85,7 @@ struct atom_frame : public frame, public atom_range {
 		VINA_RANGE(i, begin, end)
 			coords[i] = local_to_lab(atoms[i].coords);
 	}
-	vecp sum_force_and_torque(const vecv& coords, const vecv& forces) const {
+	vecp sum_force_and_torque(const vecv& coords, const gvecv& forces) const {
 		vecp tmp;
 		tmp.first.assign(0);
 		tmp.second.assign(0);
@@ -208,7 +208,7 @@ void branches_set_conf(std::vector<T>& b, const frame& parent, const atomv& atom
 }
 
 template<typename T> // T == branch
-void branches_derivative(const std::vector<T>& b, const vec& origin, const vecv& coords, const vecv& forces, vecp& out, flv::iterator& d) { // adds to out
+void branches_derivative(const std::vector<T>& b, const vec& origin, const vecv& coords, const gvecv& forces, vecp& out, flv::iterator& d) { // adds to out
 	VINA_FOR_IN(i, b) {
 		vecp force_torque = b[i].derivative(coords, forces, d);
 		out.first  += force_torque.first;
@@ -228,7 +228,7 @@ struct tree {
 		node.set_conf(parent, atoms, coords, c);
 		branches_set_conf(children, node, atoms, coords, c);
 	}
-	vecp derivative(const vecv& coords, const vecv& forces, flv::iterator& p) const {
+	vecp derivative(const vecv& coords, const gvecv& forces, flv::iterator& p) const {
 		vecp force_torque = node.sum_force_and_torque(coords, forces);
 		fl& d = *p; // reference
 		++p;
@@ -268,14 +268,14 @@ struct heterotree {
 		branches_set_conf(children, node, atoms, coords, p);
 		assert(p == c.torsions.end());
 	}
-	void derivative(const vecv& coords, const vecv& forces, ligand_change& c) const {
+	void derivative(const vecv& coords, const gvecv& forces, ligand_change& c) const {
 		vecp force_torque = node.sum_force_and_torque(coords, forces);
 		flv::iterator p = c.torsions.begin();
 		branches_derivative(children, node.get_origin(), coords, forces, force_torque, p);
 		node.set_derivative(force_torque, c.rigid);
 		assert(p == c.torsions.end());
 	}
-	void derivative(const vecv& coords, const vecv& forces, residue_change& c) const {
+	void derivative(const vecv& coords, const gvecv& forces, residue_change& c) const {
 		vecp force_torque = node.sum_force_and_torque(coords, forces);
 		flv::iterator p = c.torsions.begin();
 		fl& d = *p; // reference
@@ -317,7 +317,7 @@ struct vector_mutable : public std::vector<T> {
 		return tmp;
 	}
 	template<typename C>
-	void derivative(const vecv& coords, const vecv& forces, std::vector<C>& c) const { // C == ligand_change || residue_change
+	void derivative(const vecv& coords, const gvecv& forces, std::vector<C>& c) const { // C == ligand_change || residue_change
 		VINA_FOR_IN(i, (*this))
 			(*this)[i].derivative(coords, forces, c[i]);
 	}

@@ -412,12 +412,13 @@ private:
                             const interacting_pairs& pairs, const vecv& coords) const;
 	fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
                                   const interacting_pairs& pairs,
-                                  const vecv& coords, vecv& forces) const;
+                                  const vecv& coords, gvecv& forces) const;
 
 	vecv internal_coords;
 	vecv coords;
-  //I believe this contains the accumulated directional deltas for each atom
-	vecv minus_forces; 
+  //I believe this contains the accumulated directional deltas for each
+  //atom
+	gvecv minus_forces; 
 
 	atomv grid_atoms;
 	atomv atoms; // movable, inflex
@@ -433,5 +434,7 @@ private:
 
 	std::string name;
 };
+
+
 
 #endif
