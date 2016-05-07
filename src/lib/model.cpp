@@ -830,7 +830,8 @@ void model::sete(const conf& c)
 	VINA_FOR_IN(i, ligands)
 		c.ligands[i].rigid.apply(internal_coords, coords, ligands[i].begin,
                                  ligands[i].end);
-	flex.set_conf(atoms, coords, c.flex);
+    /* TODO */
+	/* flex.set_conf(atoms, coords, c.flex); */
 }
 
 void model::set(const conf& c)

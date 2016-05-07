@@ -98,7 +98,7 @@ struct tree_gpu {
 	}
 
 	void do_confs(segment_node& node, int my_index,
-                  const frame& parent, const atomv& atoms, 
+                  const frame& parent, const gatomv& atoms, 
                   gvecv& coords, flv::const_iterator& c) {
 		node.s.set_conf(parent, atoms, coords, c);
 		for (int i=node.child_range[0]; i<=node.child_range[1]; i++) {
@@ -106,7 +106,7 @@ struct tree_gpu {
 		}
 	}
 
-	void set_conf(const atomv& atoms, gvecv& coords, const ligand_conf& c) {
+	void set_conf(const gatomv& atoms, gvecv& coords, const ligand_conf& c) {
 		root.rb.set_conf(atoms, coords, c.rigid);
 		flv::const_iterator p = c.torsions.begin();
 		for (int i=0; i<=root.child_range[1]; i++) {

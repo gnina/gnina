@@ -236,19 +236,7 @@ struct mat {
 /* TODO: clean */
 #include "gpu_mem.h"
 
-struct gvecv : std::vector<vec, gpu_managed_alloc<vec> >{
-    __device__ __host__
-    vec &operator[](int a){
-        /* TODO: heh heh */
-        return ((vec *) _M_impl._M_start)[a];
-    };
-
-    const vec &operator[](int a) const{
-        /* TODO: heh heh */
-        return ((vec *) _M_impl._M_start)[a];
-    };
-};
-
+typedef gvector<vec> gvecv;
 typedef std::vector<vec> vecv;
 typedef std::pair<vec, vec> vecp;
 typedef std::vector<fl> flv;

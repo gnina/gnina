@@ -369,7 +369,7 @@ struct model {
 	fl clash_penalty() const;
 
 	const atomv& get_fixed_atoms() const { return grid_atoms; }
-	const atomv& get_movable_atoms() const { return atoms; }
+	const gatomv& get_movable_atoms() const { return atoms; }
 
 	model() : m_num_movable_atoms(0) {};
     /* TODO:protect */
@@ -441,7 +441,7 @@ private:
 	gvecv minus_forces; 
 
 	atomv grid_atoms;
-	atomv atoms; // movable, inflex
+	gatomv atoms; // movable, inflex
 
 	vector_mutable<residue> flex;
 	context flex_context;
