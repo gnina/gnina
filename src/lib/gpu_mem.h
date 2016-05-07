@@ -8,7 +8,7 @@ template <class T>
 struct gpu_managed_alloc {
   typedef T value_type;
   gpu_managed_alloc(){};
-  template <class U> gpu_managed_alloc(const gpu_managed_alloc<U>& other){};
+  template <class U> gpu_managed_alloc(const gpu_managed_alloc<U>& other){}
   T* allocate(std::size_t n){
     T *ret;
     cudaMallocManaged(&ret, sizeof(T) * n);

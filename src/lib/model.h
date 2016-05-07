@@ -125,7 +125,7 @@ struct sdfcontext {
 
 	void dump(std::ostream& out) const;
   //output sdf with provided coords
-	void write(const vecv& coords, sz nummove, std::ostream& out) const;
+	void write(const gvecv& coords, sz nummove, std::ostream& out) const;
 	bool valid() const {return atoms.size() > 0; }
 	sz size() const {return atoms.size(); }
 	template<class Archive>
@@ -146,8 +146,8 @@ struct context {
 	pdbqtcontext pdbqttext;
 	sdfcontext sdftext;
 
-	void writePDBQT(const vecv& coords, std::ostream& out) const;
-	void writeSDF(const vecv& coords, sz nummove, std::ostream& out)
+	void writePDBQT(const gvecv& coords, std::ostream& out) const;
+	void writeSDF(const gvecv& coords, sz nummove, std::ostream& out)
     const { sdftext.write(coords, nummove, out); }
 	void update(const appender& transform);
 	void set(sz pdbqtindex, sz sdfindex, sz atomindex, bool inf = false);
@@ -331,7 +331,7 @@ struct model {
 		return tmp;
 	}
 
-	vecv& coordinates() { //return reference to all coords
+	gvecv& coordinates() { //return reference to all coords
 		return coords;
 	}
 
@@ -358,7 +358,7 @@ struct model {
 
 	model() : m_num_movable_atoms(0) {};
     /* TODO:remove */
-	vecv coords;
+	gvecv coords;
 private:
 	//my, aren't we friendly!
 	friend struct non_cache;
@@ -410,10 +410,10 @@ private:
 	fl clash_penalty_aux(const interacting_pairs& pairs) const;
 
 	fl eval_interacting_pairs(const precalculate& p, fl v,
-                            const interacting_pairs& pairs, const vecv& coords) const;
+                            const interacting_pairs& pairs, const gvecv& coords) const;
 	fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
                                   const interacting_pairs& pairs,
-                                  const vecv& coords, gvecv& forces) const;
+                                  const gvecv& coords, gvecv& forces) const;
 
 	vecv internal_coords;
     /* TODO:reprivate */

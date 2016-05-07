@@ -726,7 +726,7 @@ std::string coords_to_pdbqt_string(const vec& coords, const std::string& str)
 	return tmp;
 }
 
-void context::writePDBQT(const vecv& coords, std::ostream& out) const
+void context::writePDBQT(const gvecv& coords, std::ostream& out) const
 {
 	VINA_FOR_IN(i, pdbqttext)
 	{
@@ -759,7 +759,7 @@ void sdfcontext::dump(std::ostream& out) const
 }
 
 //output sdf format to out
-void sdfcontext::write(const vecv& coords, sz nummove, std::ostream& out) const
+void sdfcontext::write(const gvecv& coords, sz nummove, std::ostream& out) const
 {
 	const unsigned bsize = 1024;
 	char buff[bsize]; //since sprintf is just so much easier to use
@@ -820,14 +820,16 @@ void model::write_context(const context& c, std::ostream& out) const
 
 void model::seti(const conf& c)
 {
-	ligands.set_conf(atoms, internal_coords, c.ligands);
+    /* TODO */
+    assert(0);
+	/* ligands.set_conf(atoms, internal_coords, c.ligands); */
 }
 
 void model::sete(const conf& c)
 {
 	VINA_FOR_IN(i, ligands)
 		c.ligands[i].rigid.apply(internal_coords, coords, ligands[i].begin,
-				ligands[i].end);
+                                 ligands[i].end);
 	flex.set_conf(atoms, coords, c.flex);
 }
 
@@ -881,7 +883,7 @@ fl model::gyration_radius(sz ligand_number) const
 
 fl model::eval_interacting_pairs(const precalculate& p, fl v,
                                  const interacting_pairs& pairs,
-                                 const vecv& coords) const
+                                 const gvecv& coords) const
 { // clean up
 	const fl cutoff_sqr = p.cutoff_sqr();
 	fl e = 0;
@@ -901,7 +903,7 @@ fl model::eval_interacting_pairs(const precalculate& p, fl v,
 
 fl model::eval_interacting_pairs_deriv(const precalculate& p, fl v,
                                        const interacting_pairs& pairs,
-                                       const vecv& coords, gvecv& forces) const
+                                       const gvecv& coords, gvecv& forces) const
 { // adds to forces  // clean up
 	const fl cutoff_sqr = p.cutoff_sqr();
 	fl e = 0;
@@ -927,11 +929,16 @@ fl model::eval_interacting_pairs_deriv(const precalculate& p, fl v,
 }
 
 fl model::evali(const precalculate& p, const vec& v) const
-		{ // clean up
-	fl e = 0;
-	VINA_FOR_IN(i, ligands)
-		e += eval_interacting_pairs(p, v[0], ligands[i].pairs, internal_coords); // probably might was well use coords here
-	return e;
+{ // clean up
+
+    assert(0);
+    /* TODO */
+	/* fl e = 0; */
+	/* VINA_FOR_IN(i, ligands) */
+	/* 	e += eval_interacting_pairs(p, v[0], ligands[i].pairs, internal_coords); */
+    //probably might as well use coords here
+	/* return e; */
+    return 0;
 }
 
 fl model::evale(const precalculate& p, const igrid& ig, const vec& v) const

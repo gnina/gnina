@@ -126,7 +126,7 @@ struct rigid_conf {
 		else
 			mutate_orientation(orientation_spread, generator);
 	}
-	void apply(const vecv& in, vecv& out, sz begin, sz end) const {
+	void apply(const vecv& in, gvecv& out, sz begin, sz end) const {
 		assert(in.size() == out.size());
 		const mat m = quaternion_to_r3(orientation);
 		VINA_RANGE(i, begin, end)

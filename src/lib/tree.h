@@ -81,11 +81,11 @@ struct atom_range {
 
 struct atom_frame : public frame, public atom_range {
 	atom_frame(const vec& origin_, sz begin_, sz end_) : frame(origin_), atom_range(begin_, end_) {}
-	void set_coords(const atomv& atoms, vecv& coords) const {
+	void set_coords(const atomv& atoms, gvecv& coords) const {
 		VINA_RANGE(i, begin, end)
 			coords[i] = local_to_lab(atoms[i].coords);
 	}
-	vecp sum_force_and_torque(const vecv& coords, const gvecv& forces) const {
+	vecp sum_force_and_torque(const gvecv& coords, const gvecv& forces) const {
 		vecp tmp;
 		tmp.first.assign(0);
 		tmp.second.assign(0);
@@ -108,7 +108,7 @@ struct atom_frame : public frame, public atom_range {
 struct rigid_body : public atom_frame {
 	rigid_body() {}
 	rigid_body(const vec& origin_, sz begin_, sz end_) : atom_frame(origin_, begin_, end_) {}
-	void set_conf(const atomv& atoms, vecv& coords, const rigid_conf& c) {
+	void set_conf(const atomv& atoms, gvecv& coords, const rigid_conf& c) {
 		origin = c.position;
 		set_orientation(c.orientation);
 		set_coords(atoms, coords);
@@ -155,7 +155,7 @@ struct segment : public axis_frame {
 		relative_axis = axis;
 		relative_origin = origin - parent.get_origin();
 	}
-	void set_conf(const frame& parent, const atomv& atoms, vecv& coords, flv::const_iterator& c) {
+	void set_conf(const frame& parent, const atomv& atoms, gvecv& coords, flv::const_iterator& c) {
 		const fl torsion = *c;
 		++c;
 		origin = parent.local_to_lab(relative_origin);
@@ -186,7 +186,7 @@ struct first_segment : public axis_frame {
 	first_segment() {}
 	first_segment(const segment& s) : axis_frame(s) {}
 	first_segment(const vec& origin_, sz begin_, sz end_, const vec& axis_root) : axis_frame(origin_, begin_, end_, axis_root) {}
-	void set_conf(const atomv& atoms, vecv& coords, fl torsion) {
+	void set_conf(const atomv& atoms, gvecv& coords, fl torsion) {
 		set_orientation(angle_to_quaternion(axis, torsion));
 		set_coords(atoms, coords);
 	}
@@ -202,13 +202,13 @@ struct first_segment : public axis_frame {
 };
 
 template<typename T> // T == branch
-void branches_set_conf(std::vector<T>& b, const frame& parent, const atomv& atoms, vecv& coords, flv::const_iterator& c) {
+void branches_set_conf(std::vector<T>& b, const frame& parent, const atomv& atoms, gvecv& coords, flv::const_iterator& c) {
 	VINA_FOR_IN(i, b)
 		b[i].set_conf(parent, atoms, coords, c);
 }
 
 template<typename T> // T == branch
-void branches_derivative(const std::vector<T>& b, const vec& origin, const vecv& coords, const gvecv& forces, vecp& out, flv::iterator& d) { // adds to out
+void branches_derivative(const std::vector<T>& b, const vec& origin, const gvecv& coords, const gvecv& forces, vecp& out, flv::iterator& d) { // adds to out
 	VINA_FOR_IN(i, b) {
 		vecp force_torque = b[i].derivative(coords, forces, d);
 		out.first  += force_torque.first;
@@ -224,11 +224,11 @@ struct tree {
 
 	tree() {} //for serialization
 	tree(const T& node_) : node(node_) {}
-	void set_conf(const frame& parent, const atomv& atoms, vecv& coords, flv::const_iterator& c) {
+	void set_conf(const frame& parent, const atomv& atoms, gvecv& coords, flv::const_iterator& c) {
 		node.set_conf(parent, atoms, coords, c);
 		branches_set_conf(children, node, atoms, coords, c);
 	}
-	vecp derivative(const vecv& coords, const gvecv& forces, flv::iterator& p) const {
+	vecp derivative(const gvecv& coords, const gvecv& forces, flv::iterator& p) const {
 		vecp force_torque = node.sum_force_and_torque(coords, forces);
 		fl& d = *p; // reference
 		++p;
@@ -255,27 +255,27 @@ struct heterotree {
 
 	heterotree() {} //for serialization
 	heterotree(const Node& node_) : node(node_) {}
-	void set_conf(const atomv& atoms, vecv& coords, const ligand_conf& c) {
+	void set_conf(const atomv& atoms, gvecv& coords, const ligand_conf& c) {
 		node.set_conf(atoms, coords, c.rigid);
 		flv::const_iterator p = c.torsions.begin();
 		branches_set_conf(children, node, atoms, coords, p);
 		assert(p == c.torsions.end());
 	}
-	void set_conf(const atomv& atoms, vecv& coords, const residue_conf& c) {
+	void set_conf(const atomv& atoms, gvecv& coords, const residue_conf& c) {
 		flv::const_iterator p = c.torsions.begin();
 		node.set_conf(atoms, coords, *p);
 		++p;
 		branches_set_conf(children, node, atoms, coords, p);
 		assert(p == c.torsions.end());
 	}
-	void derivative(const vecv& coords, const gvecv& forces, ligand_change& c) const {
+	void derivative(const gvecv& coords, const gvecv& forces, ligand_change& c) const {
 		vecp force_torque = node.sum_force_and_torque(coords, forces);
 		flv::iterator p = c.torsions.begin();
 		branches_derivative(children, node.get_origin(), coords, forces, force_torque, p);
 		node.set_derivative(force_torque, c.rigid);
 		assert(p == c.torsions.end());
 	}
-	void derivative(const vecv& coords, const gvecv& forces, residue_change& c) const {
+	void derivative(const gvecv& coords, const gvecv& forces, residue_change& c) const {
 		vecp force_torque = node.sum_force_and_torque(coords, forces);
 		flv::iterator p = c.torsions.begin();
 		fl& d = *p; // reference
@@ -306,7 +306,7 @@ typedef heterotree<first_segment> main_branch;
 template<typename T> // T == flexible_body || main_branch
 struct vector_mutable : public std::vector<T> {
 	template<typename C>
-	void set_conf(const atomv& atoms, vecv& coords, const std::vector<C>& c) { // C == ligand_conf || residue_conf
+	void set_conf(const atomv& atoms, gvecv& coords, const std::vector<C>& c) { // C == ligand_conf || residue_conf
 		VINA_FOR_IN(i, (*this))
 			(*this)[i].set_conf(atoms, coords, c[i]);
 	}
@@ -317,7 +317,7 @@ struct vector_mutable : public std::vector<T> {
 		return tmp;
 	}
 	template<typename C>
-	void derivative(const vecv& coords, const gvecv& forces, std::vector<C>& c) const { // C == ligand_change || residue_change
+	void derivative(const gvecv& coords, const gvecv& forces, std::vector<C>& c) const { // C == ligand_change || residue_change
 		VINA_FOR_IN(i, (*this))
 			(*this)[i].derivative(coords, forces, c[i]);
 	}
