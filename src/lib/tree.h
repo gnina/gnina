@@ -48,8 +48,8 @@ protected:
 	vec origin;
     __host__ __device__
 	void set_orientation(const qt& q) { // does not normalize the orientation
-		g_quaternion_write(&orientation_q, q);
-		orientation_m = g_quaternion_to_r3(orientation_q);
+		orientation_q = q;
+		orientation_m = quaternion_to_r3(orientation_q);
 	}
 	qt  orientation_q;
 	mat orientation_m;
@@ -185,12 +185,9 @@ struct segment : public axis_frame {
 		++c;
 		origin = parent.local_to_lab(relative_origin);
 		axis = parent.local_to_lab_direction(relative_axis);
-        qt tmp;
-        g_quaternion_write(&tmp,
-                           g_quaternion_normalize_approx(
-                               g_angle_to_quaternion(axis, torsion) *
-                               parent.orientation()));
-		set_orientation(tmp);
+		set_orientation(quaternion_normalize_approx(
+                            angle_to_quaternion(axis, torsion) *
+                            parent.orientation()));
 		set_coords(atoms, coords);
 	}
 

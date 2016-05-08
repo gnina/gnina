@@ -29,15 +29,6 @@ bool eq(const qt& a, const qt& b) { // elementwise approximate equality - may re
 		   eq(a.R_component_4(), b.R_component_4());
 }
 
-qt angle_to_quaternion(const vec& axis, fl angle) { // axis is assumed to be a unit vector
-	//assert(eq(tvmet::norm2(axis), 1));
-	assert(eq(axis.norm(), 1));
-	normalize_angle(angle); // this is probably only necessary if angles can be very big
-	fl c = std::cos(angle/2);
-	fl s = std::sin(angle/2);
-	return qt(c, s*axis[0], s*axis[1], s*axis[2]);
-}
-
 qt angle_to_quaternion(const vec& rotation) {
 	//fl angle = tvmet::norm2(rotation); 
 	fl angle = rotation.norm(); 
@@ -66,45 +57,6 @@ vec quaternion_to_angle(const qt& q) {
 	}
 	else // when c = -1 or 1, angle/2 = 0 or pi, therefore angle = 0
 		return zero_vec;
-}
-
-mat quaternion_to_r3(const qt& q) {
-	assert(quaternion_is_normalized(q));
-
-	const fl a = q.R_component_1();
-	const fl b = q.R_component_2();
-	const fl c = q.R_component_3();
-	const fl d = q.R_component_4();
-
-	const fl aa = a*a;
-	const fl ab = a*b;
-	const fl ac = a*c;
-	const fl ad = a*d;
-	const fl bb = b*b;
-	const fl bc = b*c;
-	const fl bd = b*d;
-	const fl cc = c*c;
-	const fl cd = c*d;
-	const fl dd = d*d;
-
-	assert(eq(aa+bb+cc+dd, 1));
-
-	mat tmp;
-
-	// from http://www.boost.org/doc/libs/1_35_0/libs/math/quaternion/TQE.pdf
-	tmp(0, 0) = (aa+bb-cc-dd);
-	tmp(0, 1) = 2*(-ad+bc);
-	tmp(0, 2) = 2*(ac+bd);
-
-	tmp(1, 0) = 2*(ad+bc);
-	tmp(1, 1) = (aa-bb+cc-dd);
-	tmp(1, 2) = 2*(-ab+cd);
-
-	tmp(2, 0) = 2*(-ac+bd);
-	tmp(2, 1) = 2*(ab+cd);
-	tmp(2, 2) = (aa-bb-cc+dd);
-
-	return tmp;
 }
 
 qt random_orientation(rng& generator) {
