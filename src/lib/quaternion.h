@@ -32,7 +32,7 @@
 typedef boost::math::quaternion<fl> bqt;
 
 struct qt : float4{
-    qt();
+    __host__ __device__ qt(){};
     __host__ __device__
     qt(fl _x, fl _y, fl _z, fl _w){
         x = _x;

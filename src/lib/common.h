@@ -76,7 +76,7 @@ struct gpair{
     T1 first;
     T2 second;
     __host__ __device__
-    gpair();
+    gpair(){};
     __host__ __device__
     gpair(T1 f, T2 s) : first(f), second(s){};
 };
