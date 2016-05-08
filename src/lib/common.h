@@ -42,6 +42,7 @@
 
 
 #include "macros.h"
+#include "math.h"
 
 typedef float fl;
 
@@ -61,11 +62,14 @@ struct minimization_params
 };
 
 template<typename T>
+__host__ __device__
 inline T sqr(T x) {
 	return x*x;
 }
 
-const fl not_a_num = std::sqrt(fl(-1)); // FIXME? check 
+#define not_a_num 0.0
+/* TODO: reactivate. */
+/* const fl not_a_num = std::sqrt(fl(-1)); // FIXME? check  */
 
 typedef std::size_t sz;
 typedef unsigned short atmidx; //dkoes - to reduce size of smina format
@@ -104,6 +108,7 @@ struct vec {
 	      fl& operator[](sz i)       { assert(i < 3); return data[i]; }
     __host__ __device__
     fl norm_sqr() const {
+        /* TODO: oleg was using sqr */
 		return sqr(data[0]) + sqr(data[1]) + sqr(data[2]);
 	}
     __host__ __device__

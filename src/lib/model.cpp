@@ -859,6 +859,10 @@ std::string model::ligand_atom_str(sz i, sz lig) const
 	const context& cont = ligands[lig].cont;
 	for(sz c = 0, nc = cont.pdbqtsize(); c < nc; c++)
 	{
+        /* TODO: nvcc flags error here:
+           ../../../src/lib/model.cpp:862: warning: integer conversion
+           resulted in a change of sign
+        */
 		if(cont.pdbqttext[c].second.get_value_or(-1) == i)
 		{
 			pdbline = ligands[lig].cont.pdbqttext[c].first;

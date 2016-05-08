@@ -28,20 +28,25 @@
 
 struct frame {
 	frame(const vec& origin_) : origin(origin_), orientation_q(qt_identity), orientation_m(quaternion_to_r3(qt_identity)) {}
+    __host__ __device__
 	vec local_to_lab(const vec& local_coords) const {
 		vec tmp;
 		tmp = origin + orientation_m*local_coords; 
 		return tmp;
 	}
+    __host__ __device__
 	vec local_to_lab_direction(const vec& local_direction) const {
 		vec tmp;
 		tmp = orientation_m * local_direction;
 		return tmp;
 	}
+    __host__ __device__
 	const qt& orientation() const { return orientation_q; }
+    __host__ __device__
 	const vec& get_origin() const { return origin; }
 protected:
 	vec origin;
+    __host__ __device__
 	void set_orientation(const qt& q) { // does not normalize the orientation
 		orientation_q = q;
 		orientation_m = quaternion_to_r3(orientation_q);
@@ -81,6 +86,7 @@ struct atom_range {
 
 struct atom_frame : public frame, public atom_range {
 	atom_frame(const vec& origin_, sz begin_, sz end_) : frame(origin_), atom_range(begin_, end_) {}
+    __host__ __device__
 	void set_coords(const gatomv& atoms, gvecv& coords) const {
 		VINA_RANGE(i, begin, end)
 			coords[i] = local_to_lab(atoms[i].coords);
@@ -110,12 +116,14 @@ struct atom_frame : public frame, public atom_range {
 struct rigid_body : public atom_frame {
 	rigid_body() {}
 	rigid_body(const vec& origin_, sz begin_, sz end_) : atom_frame(origin_, begin_, end_) {}
+    __host__ __device__
 	void set_conf(const gatomv& atoms, gvecv& coords, const rigid_conf& c) {
 		origin = c.position;
 		set_orientation(c.orientation);
 		set_coords(atoms, coords);
 	}
 	void count_torsions(sz& s) const {} // do nothing
+    __host__ __device__
 	void set_derivative(const vecp& force_torque, rigid_change& c) const {
 		c.position     = force_torque.first;
 		c.orientation  = force_torque.second;
@@ -135,6 +143,7 @@ struct axis_frame : public atom_frame {
 		VINA_CHECK(nrm >= epsilon_fl);
 		axis = (1/nrm) * diff;
 	}
+    __host__ __device__
 	void set_derivative(const vecp& force_torque, fl& c) const {
 		c = force_torque.second * axis;
 	}
@@ -158,6 +167,7 @@ struct segment : public axis_frame {
 		relative_axis = axis;
 		relative_origin = origin - parent.get_origin();
 	}
+    __host__ __device__
 	void set_conf(const frame& parent, const gatomv& atoms, gvecv& coords, flv::const_iterator& c) {
 		const fl torsion = *c;
 		++c;

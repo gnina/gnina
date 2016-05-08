@@ -121,7 +121,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 	//compue lambdamin
 	for (i = 0; i < n; i++)
 	{
-		temp = fabs(p(i)) / std::max(fabs(x(i)), 1.0);
+		temp = fabs(p(i)) / std::max(fabs(x(i)), 1.0f);
 		if (temp > test)
 			test = temp;
 	}
