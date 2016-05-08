@@ -157,9 +157,18 @@ inline qt quaternion_normalize_approx(const qt& q, const fl tolerance = 1e-6) {
 __host__ __device__
 inline
 void g_normalize_angle(fl& x) { // subtract or add enough 2*pi's to make x be in [-pi, pi]
-	assert(x <=  3*pi);
-    assert(x >= 3*pi);
-	if(x >    pi) { // in (   pi, 3*pi]
+
+    if(x >  3*pi) { // very large
+		fl n = ( x - pi) / (2*pi); // how many 2*pi's do you want to subtract?
+		x -= 2*pi*ceil(n); // ceil can be very slow, but this should not be called often
+		normalize_angle(x);
+	}
+	else if(x < -3*pi) { // very small
+		fl n = (-x - pi) / (2*pi); // how many 2*pi's do you want to add?
+		x += 2*pi*ceil(n); // ceil can be very slow, but this should not be called often
+		normalize_angle(x);
+	}
+	else if(x >    pi) { // in (   pi, 3*pi]
 		x -= 2*pi;
 	}
 	else if(x <   -pi) { // in [-3*pi,  -pi)
