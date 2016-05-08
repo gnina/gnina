@@ -101,4 +101,123 @@ void quaternion_increment(qt& q, const vec& rotation);
 vec quaternion_difference(const qt& b, const qt& a); // rotation that needs to be applied to convert a to b
 void print(const qt& q, std::ostream& out = std::cout); // print as an angle
 
+/* TODO: remove */
+
+__host__ __device__
+inline
+void g_normalize_angle(fl& x) { // subtract or add enough 2*pi's to
+     // make x be in [-pi, pi]
+    assert(x < 3 * pi);
+    assert(x > -3 * pi);
+	if(x >    pi) { // in (   pi, 3*pi]
+		x -= 2*pi;
+	}
+	else if(x <   -pi) { // in [-3*pi,  -pi)
+		x += 2*pi;
+	}
+	assert(x >= -pi && x <= pi);
+	// in [-pi, pi]
+}
+
+__host__ __device__
+inline
+qt g_angle_to_quaternion(const vec& axis, fl angle) { // axis is assumed to be a unit vector
+	//assert(eq(tvmet::norm2(axis), 1));
+	/* assert(eq(axis.norm(), 1)); */
+	g_normalize_angle(angle); // this is probably only necessary if angles can be very big
+	fl c = cos(angle/2);
+	fl s = sin(angle/2);
+    float4 ret = make_float4(c, s*axis[0], s*axis[1], s*axis[2]);
+	return *(qt *)&ret;
+}
+
+__host__ __device__
+inline
+fl g_quaternion_norm_sqr(const qt& q) { // equivalent to
+                                        // sqr(boost::math::abs(const
+                                        // qt&))
+    float4 punned = *(float4 *)&q;
+	return sqr(punned.x) + sqr(punned.y) + sqr(punned.z) + sqr(punned.w);
+}
+
+__host__ __device__
+inline
+qt& g_scale(qt &l, fl r){
+    float4 q = *(float4 *)&l;
+
+    q.x *= r;
+    q.y *= r;
+    q.z *= r;
+    q.w *= r;
+
+    *(float4 *)&l = q;
+
+    return(l);
+}
+
+__host__ __device__
+inline
+qt g_quaternion_normalize_approx(qt q, const fl tolerance = 1e-6) {
+	const fl s = g_quaternion_norm_sqr(q);
+	/* assert(eq(s, sqr(boost::math::abs(q)))); */
+    if(abs(s - 1) < tolerance)
+        ; // most likely scenario
+    else {
+        const fl a = sqrt(s);
+        /* assert(a > epsilon_fl); */
+        g_scale(q, 1/a);
+        /* assert(quaternion_is_normalized(q)); */
+    }
+    return q;
+}
+
+__host__ __device__
+inline
+void g_quaternion_write(qt *to, const qt& q) {
+    *(float4 *)to = *(float4 *)&q;
+}
+
+__host__ __device__
+mat g_quaternion_to_r3(const qt& q) {
+	/* assert(quaternion_is_normalized(q)); */
+
+    float4 punned = *(float4 *)&q;
+
+	const fl a = punned.x;
+	const fl b = punned.y;
+	const fl c = punned.z;
+	const fl d = punned.w;
+
+	const fl aa = a*a;
+	const fl ab = a*b;
+	const fl ac = a*c;
+	const fl ad = a*d;
+	const fl bb = b*b;
+	const fl bc = b*c;
+	const fl bd = b*d;
+	const fl cc = c*c;
+	const fl cd = c*d;
+	const fl dd = d*d;
+
+	/* assert(eq(aa+bb+cc+dd, 1)); */
+
+	mat tmp;
+
+	// from http://www.boost.org/doc/libs/1_35_0/libs/math/quaternion/TQE.pdf
+	tmp(0, 0) = (aa+bb-cc-dd);
+	tmp(0, 1) = 2*(-ad+bc);
+	tmp(0, 2) = 2*(ac+bd);
+
+	tmp(1, 0) = 2*(ad+bc);
+	tmp(1, 1) = (aa-bb+cc-dd);
+	tmp(1, 2) = 2*(-ab+cd);
+
+	tmp(2, 0) = 2*(-ac+bd);
+	tmp(2, 1) = 2*(ab+cd);
+	tmp(2, 2) = (aa-bb-cc+dd);
+
+	return tmp;
+}
+
+
 #endif

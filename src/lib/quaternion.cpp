@@ -22,7 +22,6 @@
 
 #include "quaternion.h"
 
-
 bool eq(const qt& a, const qt& b) { // elementwise approximate equality - may return false for equivalent rotations
 	return eq(a.R_component_1(), b.R_component_1()) && \
 		   eq(a.R_component_2(), b.R_component_2()) && \
@@ -140,3 +139,4 @@ vec quaternion_difference(const qt& b, const qt& a) { // rotation that needs to 
 void print(const qt& q, std::ostream& out) { // print as an angle
 	print(quaternion_to_angle(q), out);
 }
+
