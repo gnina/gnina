@@ -68,14 +68,22 @@ inline T sqr(T x) {
 }
 
 #define not_a_num 0.0
-/* TODO: reactivate. */
+/* TODO TODO TODO TODO: reactivate. */
 /* const fl not_a_num = std::sqrt(fl(-1)); // FIXME? check  */
+
+template <class T1, class T2>
+struct gpair{
+    T1 first;
+    T2 second;
+    __host__ __device__
+    gpair();
+    __host__ __device__
+    gpair(T1 f, T2 s) : first(f), second(s){};
+};
 
 typedef std::size_t sz;
 typedef unsigned short atmidx; //dkoes - to reduce size of smina format
 typedef std::pair<fl, fl> pr;
-
-
 
 struct vec {
 	fl data[3];
@@ -271,7 +279,7 @@ struct mat {
 
 typedef gvector<vec> gvecv;
 typedef std::vector<vec> vecv;
-typedef std::pair<vec, vec> vecp;
+typedef gpair<vec, vec> vecp;
 typedef std::vector<fl> flv;
 typedef std::vector<pr> prv;
 typedef std::vector<sz> szv;

@@ -66,17 +66,14 @@ qt angle_to_quaternion(const vec& rotation); // rotation == angle * axis
 vec quaternion_to_angle(const qt& q);
 mat quaternion_to_r3(const qt& q);
 
-__host__ __device__
 inline fl quaternion_norm_sqr(const qt& q) { // equivalent to sqr(boost::math::abs(const qt&))
 	return sqr(q.R_component_1()) + sqr(q.R_component_2()) + sqr(q.R_component_3()) + sqr(q.R_component_4());
 }
 
-__host__ __device__
 inline bool quaternion_is_normalized(const qt& q) { // not in the interface, used in assertions
 	return eq(quaternion_norm_sqr(q), 1) && eq(boost::math::abs(q), 1);
 }
 
-__host__ __device__
 inline void quaternion_normalize(qt& q) {
 	const fl s = quaternion_norm_sqr(q);
 	assert(eq(s, sqr(boost::math::abs(q))));
@@ -86,7 +83,6 @@ inline void quaternion_normalize(qt& q) {
 	assert(quaternion_is_normalized(q));
 }
 
-__host__ __device__
 inline void quaternion_normalize_approx(qt& q, const fl tolerance = 1e-6) {
 	const fl s = quaternion_norm_sqr(q);
 	assert(eq(s, sqr(boost::math::abs(q))));

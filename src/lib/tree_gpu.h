@@ -57,8 +57,8 @@ struct tree_gpu {
 	}	
 
     __device__ __host__    
-	void do_derivatives(const segment_node& node, flv::iterator& p, std::vector<vecp>& 
-                        force_torques, int index, const gvecv& coords,
+	void do_derivatives(const segment_node& node, flv::iterator& p,
+                        vecp *force_torques, int index, const gvecv& coords,
                         const gvecv& forces) {
 
 		vecp tmp = node.s.sum_force_and_torque(coords, forces);
@@ -79,9 +79,11 @@ struct tree_gpu {
 		d = force_torques[index].second * node.s.axis;	
 	}
 
-    __device__ __host__
+    __device__
 	void derivative(const gvecv& coords, const gvecv& forces, ligand_change& c) {
-		std::vector<vecp> force_torques(nodes.size());
+        /* TODO: NODES SIZE. Gotta configure with kern launch */
+         static __shared__ vecp force_torques[100];
+        
 		// Don't put the root's values in the force_torque array
 		vecp force_torque = root.rb.sum_force_and_torque(coords, forces);	
 		flv::iterator p = c.torsions.begin();

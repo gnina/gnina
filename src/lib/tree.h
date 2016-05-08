@@ -94,9 +94,7 @@ struct atom_frame : public frame, public atom_range {
 
     __device__ __host__
 	vecp sum_force_and_torque(const gvecv& coords, const gvecv& forces) const {
-		vecp tmp;
-		tmp.first.assign(0);
-		tmp.second.assign(0);
+		vecp tmp(vec(0,0,0), vec(0,0,0));
 		VINA_RANGE(i, begin, end) {
 			tmp.first  += forces[i];
 			tmp.second += cross_product(coords[i] - origin, forces[i]);

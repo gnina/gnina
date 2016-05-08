@@ -37,6 +37,7 @@ struct gvector : std::vector<T, gpu_managed_alloc<vec> >{
         return ((T *) this->_M_impl._M_start)[a];
     };
 
+    __device__ __host__
     const T &operator[](int a) const{
         /* TODO: heh heh */
         return ((T *) this->_M_impl._M_start)[a];
