@@ -85,6 +85,8 @@ struct atom_frame : public frame, public atom_range {
 		VINA_RANGE(i, begin, end)
 			coords[i] = local_to_lab(atoms[i].coords);
 	}
+
+    __device__ __host__
 	vecp sum_force_and_torque(const gvecv& coords, const gvecv& forces) const {
 		vecp tmp;
 		tmp.first.assign(0);

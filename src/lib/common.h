@@ -78,77 +78,94 @@ struct vec {
     /* TODO: remove. Exists so that force_energy_tup * can be
        interpretend as vec *. */
     fl pad[1];
+    __host__ __device__
 	vec() {
 #ifndef NDEBUG
 		data[0] = data[1] = data[2] = not_a_num;
 #endif
 	}
+    __host__ __device__
 	vec(fl x, fl y, fl z) {
 		data[0] = x;
 		data[1] = y;
 		data[2] = z;
 	}
+    __host__ __device__
     vec operator=(const vec& b){
         data[0] = b.data[0];
         data[1] = b.data[1];
         data[2] = b.data[2];
         return *this;
     }
-    
+
+    __host__ __device__
 	const fl& operator[](sz i) const { assert(i < 3); return data[i]; }
+    __host__ __device__
 	      fl& operator[](sz i)       { assert(i < 3); return data[i]; }
+    __host__ __device__
     fl norm_sqr() const {
 		return sqr(data[0]) + sqr(data[1]) + sqr(data[2]);
 	}
+    __host__ __device__
 	fl norm() const {
 		return std::sqrt(norm_sqr());
 	}
+    __host__ __device__
 	fl operator*(const vec& v) const {
 		return data[0] * v[0] + data[1] * v[1] + data[2] * v[2];
 	}
+    __host__ __device__
 	const vec& operator+=(const vec& v) {
 		data[0] += v[0];
 		data[1] += v[1];
 		data[2] += v[2];
 		return *this;
 	}
+    __host__ __device__
 	const vec& operator-=(const vec& v) {
 		data[0] -= v[0];
 		data[1] -= v[1];
 		data[2] -= v[2];
 		return *this;
 	}
+    __host__ __device__
 	const vec& operator+=(fl s) {
 		data[0] += s;
 		data[1] += s;
 		data[2] += s;
 		return *this;
 	}
+    __host__ __device__
 	const vec& operator-=(fl s) {
 		data[0] -= s;
 		data[1] -= s;
 		data[2] -= s;
 		return *this;
 	}
+    __host__ __device__
 	vec operator+(const vec& v) const {
 		return vec(data[0] + v[0],
 			       data[1] + v[1],
 				   data[2] + v[2]);
 	}
+    __host__ __device__
 	vec operator-(const vec& v) const {
 		return vec(data[0] - v[0],
 			       data[1] - v[1],
 				   data[2] - v[2]);
 	}
+    __host__ __device__
 	const vec& operator*=(fl s) {
 		data[0] *= s;
 		data[1] *= s;
 		data[2] *= s;
 		return *this;
 	}
+    __host__ __device__
 	void assign(fl s) {
 		data[0] = data[1] = data[2] = s;
 	}
+    __host__ __device__
 	sz size() const { return 3; }
 
 	void print(std::ostream& out) const
@@ -168,28 +185,33 @@ private:
 	}
 };
 
+__host__ __device__
 inline vec operator*(fl s, const vec& v) {
 	return vec(s * v[0], s * v[1], s * v[2]);
 }
 
+__host__ __device__
 inline vec cross_product(const vec& a, const vec& b) {
 	return vec(a[1]*b[2] - a[2]*b[1],
 		       a[2]*b[0] - a[0]*b[2],
 		       a[0]*b[1] - a[1]*b[0]);
 }
 
+__host__ __device__
 inline vec elementwise_product(const vec& a, const vec& b) {
 	return vec(a[0] * b[0],
 		       a[1] * b[1],
 			   a[2] * b[2]);
 }
 
+__host__ __device__
 inline fl vec_distance_sqr(const vec& a, const vec& b) {
 	return sqr(a[0] - b[0]) + \
 		   sqr(a[1] - b[1]) + \
 		   sqr(a[2] - b[2]);
 }
 
+__host__ __device__
 inline fl sqr(const vec& v) {
 	return sqr(v[0]) + sqr(v[1]) + sqr(v[2]);
 }
@@ -197,6 +219,7 @@ inline fl sqr(const vec& v) {
 
 struct mat {
 	fl data[9];
+    __host__ __device__
 	mat() {
 #ifndef NDEBUG
 		data[0] = data[1] = data[2] =
@@ -205,9 +228,12 @@ struct mat {
 #endif
 	}
 	// column-major
+    __host__ __device__
 	const fl& operator()(sz i, sz j) const { assert(i < 3); assert(j < 3); return data[i + 3*j]; }
+    __host__ __device__
 	      fl& operator()(sz i, sz j)       { assert(i < 3); assert(j < 3); return data[i + 3*j]; }
 
+    __host__ __device__
 	mat(fl xx, fl xy, fl xz,
 		fl yx, fl yy, fl yz,
 		fl zx, fl zy, fl zz) {
@@ -216,11 +242,13 @@ struct mat {
 		data[1] = yx; data[4] = yy; data[7] = yz;
 		data[2] = zx; data[5] = zy; data[8] = zz;
 	}
+    __host__ __device__
 	vec operator*(const vec& v) const {
 		return vec(data[0]*v[0] + data[3]*v[1] + data[6]*v[2],
                data[1]*v[0] + data[4]*v[1] + data[7]*v[2],
                data[2]*v[0] + data[5]*v[1] + data[8]*v[2]);
 	}
+    __host__ __device__
 	const mat& operator*=(fl s) {
 		VINA_FOR(i, 9)
 			data[i] *= s;

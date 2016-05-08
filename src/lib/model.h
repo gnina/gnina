@@ -213,6 +213,7 @@ struct conf_independent_inputs; // forward declaration
 struct pdbqt_initializer; // forward declaration - only declared in parse_pdbqt.cpp
 struct model_test;
 
+/* TODO: unified memory new */
 struct model {
 	void append(const model& m);
 

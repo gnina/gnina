@@ -10,7 +10,8 @@ CFLAGS += -Wno-deprecated-declarations
 INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) -I $(CUDA_INCLUDE) 
 NVCC=$(BASE)/cuda/bin/nvcc
 
-CC = $(NVCC) -std=c++11 --compiler-options="-std=c++11 $(C_PLATFORM) $(C_OPTIONS) $(CFLAGS)" $(INCFLAGS)
+# TODO: sucks
+CC = $(NVCC) -x cu -std=c++11 -gencode arch=compute_52,code=sm_52 --compiler-options="-std=c++11 $(C_PLATFORM) $(C_OPTIONS) $(CFLAGS)" $(INCFLAGS)
 
 LDFLAGS := -L$(BASE)/lib -L. -L/usr/local/lib -L$(BASE)/cuda/lib64 $(LDFLAGS)
 
