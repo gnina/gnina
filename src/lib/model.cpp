@@ -993,8 +993,8 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	set_gpu(c);
     cudaDeviceSynchronize();
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
-	e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
-			minus_forces); // adds to minus_forces
+	/* e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords, */
+	/* 		minus_forces); // adds to minus_forces */
 	VINA_FOR_IN(i, ligands)
 		e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
 				minus_forces); // adds to minus_forces

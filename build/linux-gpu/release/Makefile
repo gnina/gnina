@@ -1,20 +1,19 @@
 BASE=/usr/local/
 C_PLATFORM= -pthread  -DSMINA_GPU
 GPP=g++
-C_OPTIONS= -O3 -DNDEBUG -g   
-#C_OPTIONS= -O3 -DNDEBUG -g -flto
+C_OPTIONS= -O3 -g   
 BOOST_LIB_VERSION=
 NVCC=nvcc
-NVOPTS=-gencode arch=compute_52,code=sm_52 -O3
-OPENBABEL_INCLUDE=/usr/local/include/openbabel-2.0
-GPUOBJ = gpucode.o 
+NVOPTS=-std=c++11 -gencode arch=compute_52,code=sm_52 -O3
+OPENBABEL_INCLUDE=/usr/include/openbabel-2.0
+GPUOBJ = gpucode.o
 
 include ../../makefile_common
 
 .DEFAULT_GOAL := gpu
 
-%.o : ../../../src/lib/%.cu ../../../src/lib/*gpu.h
+%.o : ../../../src/lib/%.cu 
 	$(NVCC) $(NVOPTS) -DSMINA_GPU -o $@ -dc $<
 
 gpu: $(MAINOBJ) $(LIBOBJ) $(GPUOBJ)
-	$(NVCC)  -gencode arch=compute_52,code=sm_52 -o smina.$@ $^ $(LIBS)  -lcudart
+	$(NVCC) -gencode arch=compute_52,code=sm_52 $(LDFLAGS) -o smina.$@ $^ $(LIBS)  -lcudart
