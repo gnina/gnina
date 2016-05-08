@@ -5,6 +5,8 @@
 #include <cuda_runtime.h>
 #include <assert.h>
 #include <vector>
+/* TODO */
+#include <ostream>
 
 template <class T>
 struct gpu_managed_alloc {
@@ -42,8 +44,38 @@ struct gvector : std::vector<T, gpu_managed_alloc<vec> >{
         /* TODO: heh heh */
         return ((T *) this->_M_impl._M_start)[a];
     };
+
+    void print() const{
+        /* TODO */
+        assert(0);
+    }
+
+
+    static
+    void print(const gvector<T> &v, std::ostream o){
+        assert(0);
+    }
+    static
+    void print(gvector<T> v, std::ostream o){
+        assert(0);
+    }
+
 };
 
+class gpu_visible {
+public:
+    void *operator new(size_t len) {
+        void *ptr;
+        cudaMallocManaged(&ptr, len);
+        /* TODO */
+        assert(ptr);
+        return ptr;
+    }
+
+    void operator delete(void *ptr) {
+        cudaFree(ptr);
+    }
+};
 
 /* template <class T> */
 /* class gvec : std::vector<T, gpu_managed_alloc<vec> >{ */

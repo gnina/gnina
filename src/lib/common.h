@@ -281,6 +281,7 @@ typedef gvector<vec> gvecv;
 typedef std::vector<vec> vecv;
 typedef gpair<vec, vec> vecp;
 typedef std::vector<fl> flv;
+typedef gvector<fl> gflv;
 typedef std::vector<pr> prv;
 typedef std::vector<sz> szv;
 typedef boost::filesystem::path path;
@@ -436,7 +437,8 @@ void print(const std::vector<T>& v, std::ostream& out = std::cout) {
 
 template<typename T>
 void printnl(const T& x, std::ostream& out = std::cout) {
-	print(x, out);
+    /* TODO */
+	/* print(x, out); */
 	out << '\n';
 }
 

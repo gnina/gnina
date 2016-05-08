@@ -64,7 +64,7 @@ qt random_orientation(rng& generator) {
 		 random_normal(0, 1, generator), 
 		 random_normal(0, 1, generator), 
 		 random_normal(0, 1, generator));
-	fl nrm = boost::math::abs(q);
+	fl nrm = boost::math::abs((bqt&)q);
 	if(nrm > epsilon_fl) {
 		q /= nrm;
 		assert(quaternion_is_normalized(q));

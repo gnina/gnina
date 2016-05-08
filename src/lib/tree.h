@@ -165,15 +165,19 @@ struct segment : public axis_frame {
 		relative_axis = axis;
 		relative_origin = origin - parent.get_origin();
 	}
-	void set_conf(const frame& parent, const gatomv& atoms, gvecv& coords, flv::const_iterator& c) {
+	void set_conf(const frame& parent, const gatomv& atoms, gvecv& coords, gflv::const_iterator& c) {
 		const fl torsion = *c;
 		++c;
 		origin = parent.local_to_lab(relative_origin);
 		axis = parent.local_to_lab_direction(relative_axis);
-		qt tmp = angle_to_quaternion(axis, torsion) * parent.orientation();
-		quaternion_normalize_approx(tmp); // normalization added in 1.1.2
-		//quaternion_normalize(tmp); // normalization added in 1.1.2
-		set_orientation(tmp);
+        set_orientation(quaternion_normalize_approx(
+                            angle_to_quaternion(axis, torsion) *
+                            parent.orientation()));
+
+		/* qt tmp = angle_to_quaternion(axis, torsion) * parent.orientation(); */
+		/* quaternion_normalize_approx(tmp); // normalization added in 1.1.2 */
+		/* //quaternion_normalize(tmp); // normalization added in 1.1.2 */
+		/* set_orientation(tmp); */
 		set_coords(atoms, coords);
 	}
 
@@ -228,13 +232,13 @@ struct first_segment : public axis_frame {
 };
 
 template<typename T> // T == branch
-void branches_set_conf(std::vector<T>& b, const frame& parent, const gatomv& atoms, gvecv& coords, flv::const_iterator& c) {
+void branches_set_conf(std::vector<T>& b, const frame& parent, const gatomv& atoms, gvecv& coords, gflv::const_iterator& c) {
 	VINA_FOR_IN(i, b)
 		b[i].set_conf(parent, atoms, coords, c);
 }
 
 template<typename T> // T == branch
-void branches_derivative(const std::vector<T>& b, const vec& origin, const gvecv& coords, const gvecv& forces, vecp& out, flv::iterator& d) { // adds to out
+void branches_derivative(const std::vector<T>& b, const vec& origin, const gvecv& coords, const gvecv& forces, vecp& out, gflv::iterator& d) { // adds to out
 	VINA_FOR_IN(i, b) {
 		vecp force_torque = b[i].derivative(coords, forces, d);
 		out.first  += force_torque.first;
@@ -250,11 +254,11 @@ struct tree {
 
 	tree() {} //for serialization
 	tree(const T& node_) : node(node_) {}
-	void set_conf(const frame& parent, const gatomv& atoms, gvecv& coords, flv::const_iterator& c) {
+	void set_conf(const frame& parent, const gatomv& atoms, gvecv& coords, gflv::const_iterator& c) {
 		node.set_conf(parent, atoms, coords, c);
 		branches_set_conf(children, node, atoms, coords, c);
 	}
-	vecp derivative(const gvecv& coords, const gvecv& forces, flv::iterator& p) const {
+	vecp derivative(const gvecv& coords, const gvecv& forces, gflv::iterator& p) const {
 		vecp force_torque = node.sum_force_and_torque(coords, forces);
 		fl& d = *p; // reference
 		++p;
@@ -283,12 +287,12 @@ struct heterotree {
 	heterotree(const Node& node_) : node(node_) {}
 	void set_conf(const gatomv& atoms, gvecv& coords, const ligand_conf& c) {
 		node.set_conf(atoms, coords, c.rigid);
-		flv::const_iterator p = c.torsions.begin();
+		gflv::const_iterator p = c.torsions.begin();
 		branches_set_conf(children, node, atoms, coords, p);
 		assert(p == c.torsions.end());
 	}
 	void set_conf(const gatomv& atoms, gvecv& coords, const residue_conf& c) {
-		flv::const_iterator p = c.torsions.begin();
+		gflv::const_iterator p = c.torsions.begin();
 		node.set_conf(atoms, coords, *p);
 		++p;
 		branches_set_conf(children, node, atoms, coords, p);
@@ -296,14 +300,14 @@ struct heterotree {
 	}
 	void derivative(const gvecv& coords, const gvecv& forces, ligand_change& c) const {
 		vecp force_torque = node.sum_force_and_torque(coords, forces);
-		flv::iterator p = c.torsions.begin();
+		gflv::iterator p = c.torsions.begin();
 		branches_derivative(children, node.get_origin(), coords, forces, force_torque, p);
 		node.set_derivative(force_torque, c.rigid);
 		assert(p == c.torsions.end());
 	}
 	void derivative(const gvecv& coords, const gvecv& forces, residue_change& c) const {
 		vecp force_torque = node.sum_force_and_torque(coords, forces);
-		flv::iterator p = c.torsions.begin();
+		gflv::iterator p = c.torsions.begin();
 		fl& d = *p; // reference
 		++p;
 		branches_derivative(children, node.get_origin(), coords, forces, force_torque, p);

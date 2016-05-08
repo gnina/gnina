@@ -59,6 +59,17 @@ struct qt : float4{
         w *= r;
         return *this;
     }
+    __host__ __device__
+    qt operator /=(const fl &r){
+        x /= r;
+        y /= r;
+        z /= r;
+        w /= r;
+        return *this;
+    }
+    __host__ __device__
+    qt operator /=(const qt &r);
+
 
     operator bqt&(){
         return *(bqt *)this;
@@ -191,6 +202,34 @@ qt qt::operator*(qt r) const{
         +a*dr+b*cr-c*br+d*ar
         );
 }
+
+inline
+qt qt::operator/=(const qt& r){
+    fl &a = x;
+    fl &b = y;
+    fl &c = z;
+    fl &d = w;
+
+    const fl &ar = r.x;
+    const fl &br = r.y;
+    const fl &cr = r.z;
+    const fl &dr = r.w;
+
+    fl denominator = ar*ar+br*br+cr*cr+dr*dr;
+
+    fl at = (+a*ar+b*br+c*cr+d*dr)/denominator;
+    fl bt = (-a*br+b*ar-c*dr+d*cr)/denominator;
+    fl ct = (-a*cr+b*dr+c*ar-d*br)/denominator;
+    fl dt = (-a*dr-b*cr+c*br+d*ar)/denominator;
+
+    a = at;
+    b = bt;
+    c = ct;
+    d = dt;
+
+    return(*this);
+}
+
 
 __host__ __device__
 inline
