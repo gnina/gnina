@@ -334,9 +334,9 @@ typedef heterotree<rigid_body> flexible_body;
 typedef heterotree<first_segment> main_branch;
 
 template<typename T> // T == flexible_body || main_branch
-struct vector_mutable : public std::vector<T> {
+struct vector_mutable : public gvector<T> {
 	template<typename C>
-	void set_conf(const gatomv& atoms, gvecv& coords, const std::vector<C>& c) { // C == ligand_conf || residue_conf
+	void set_conf(const gatomv& atoms, gvecv& coords, const gvector<C>& c) { // C == ligand_conf || residue_conf
 		VINA_FOR_IN(i, (*this))
 			(*this)[i].set_conf(atoms, coords, c[i]);
 	}
@@ -347,7 +347,7 @@ struct vector_mutable : public std::vector<T> {
 		return tmp;
 	}
 	template<typename C>
-	void derivative(const gvecv& coords, const gvecv& forces, std::vector<C>& c) const { // C == ligand_change || residue_change
+	void derivative(const gvecv& coords, const gvecv& forces, gvector<C>& c) const { // C == ligand_change || residue_change
 		VINA_FOR_IN(i, (*this))
 			(*this)[i].derivative(coords, forces, c[i]);
 	}

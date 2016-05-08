@@ -210,8 +210,8 @@ public:
 	}
 
 	// ligands, flex, flex_context, atoms; also used for other_pairs
-	template<typename T>
-	void append(std::vector<T>& a, const std::vector<T>& b)
+	template<typename T, typename A>
+	void append(std::vector<T, A>& a, const std::vector<T, A>& b)
 	{ // first arg becomes aaaaaaaabbbbbbbbbbbbbbb
 		sz a_sz = a.size();
 		vector_append(a, b);
@@ -837,16 +837,17 @@ void model::sete(const conf& c)
 void model::set(const conf& c)
 {
 	ligands.set_conf(atoms, coords, c.ligands);
-	flex.set_conf(atoms, coords, c.flex);
+    /* TODO */
+	/* flex.set_conf(atoms, coords, c.flex); */
 }
 
 void model::set_gpu(const conf& c)
 {
     assert(c.ligands.size() == 1);
-	/* set_conf_kernel<<<1,1>>>(lgpu.t, atoms, coords, c.ligands[0]); */
-    lgpu.t.set_conf(atoms, coords, c.ligands[0]);
+	set_conf_kernel<<<1,1>>>(lgpu.t, atoms, coords, c.ligands[0]);
+    /* lgpu.t.set_conf(atoms, coords, c.ligands[0]); */
     /* TODO: flex */
-	flex.set_conf(atoms, coords, c.flex);
+	/* flex.set_conf(atoms, coords, c.flex); */
 }
 
 //dkoes - return the string corresponding to i'th ligand atoms pdb information
@@ -997,9 +998,9 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 		e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
 				minus_forces); // adds to minus_forces
 	// calculate derivatives
-    lgpu.t.derivative(coords, minus_forces, g.ligands[0]);
-	/* derivatives_kernel<<<1,1>>>(lgpu.t, coords, minus_forces, g.ligands[0]); */
-	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
+    /* lgpu.t.derivative(coords, minus_forces, g.ligands[0]); */
+	derivatives_kernel<<<1,1>>>(lgpu.t, coords, minus_forces, g.ligands[0]);
+	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */
 	return e;
 }
 

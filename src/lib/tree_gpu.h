@@ -32,6 +32,7 @@ struct rigid_body_node {
 struct tree_gpu {
 	rigid_body_node root;
 	gvector<segment_node> nodes;
+    vecp force_torques[32];
 
 	tree_gpu() {}	
 	tree_gpu(const heterotree<rigid_body> &ligand) : root(ligand) {
@@ -79,10 +80,9 @@ struct tree_gpu {
 		d = force_torques[index].second * node.s.axis;	
 	}
 
-    __host__
+    __device__ __host__
 	void derivative(const gvecv& coords, const gvecv& forces, ligand_change& c) {
         /* TODO: NODES SIZE. Gotta configure with kern launch */
-         static vecp force_torques[100];
         
 		// Don't put the root's values in the force_torque array
 		vecp force_torque = root.rb.sum_force_and_torque(coords, forces);	
@@ -121,17 +121,17 @@ struct tree_gpu {
 	}
 };
 
-/* static __global__ */
-/* void derivatives_kernel(tree_gpu &t, const gvecv& coords, */
-/*                         const gvecv& forces, ligand_change& c){ */
+static __global__
+void derivatives_kernel(tree_gpu &t, const gvecv& coords,
+                        const gvecv& forces, ligand_change& c){
     
-/*     t.derivative(coords, forces, c); */
-/* } */
+    t.derivative(coords, forces, c);
+}
 
-/* static __global__ */
-/* void set_conf_kernel(tree_gpu &t, const gatomv& atoms, */
-/*                      gvecv& coords, const ligand_conf& c) { */
-/*     t.set_conf(atoms, coords, c); */
-/* } */
+static __global__
+void set_conf_kernel(tree_gpu &t, const gatomv& atoms,
+                     gvecv& coords, const ligand_conf& c) {
+    t.set_conf(atoms, coords, c);
+}
 
 #endif

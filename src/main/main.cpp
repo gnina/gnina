@@ -1222,7 +1222,9 @@ int main(int argc, char* argv[])
 
 			//process input molecules one at a time
 			unsigned i = 0;
-			model m;
+            /* TODO */
+            model *_m = new model;
+            model &m = *_m;
 			while (mols.readMoleculeIntoModel(m))
 			{
 				if (settings.local_only)

@@ -338,8 +338,8 @@ inline bool not_max(fl x) {
 	return (x < 0.1 * max_fl);
 }
 
-template<typename T>
-sz vector_append(std::vector<T>& x, const std::vector<T>& y) { // return old size
+template<typename T, typename A>
+sz vector_append(std::vector<T, A>& x, const std::vector<T, A>& y) { // return old size
 	sz old_size = x.size();
 	x.insert(x.end(), y.begin(), y.end());
 	return old_size;

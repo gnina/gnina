@@ -155,7 +155,7 @@ private:
 	}
 };
 
-struct ligand_change {
+struct ligand_change : gpu_visible {
 	rigid_change rigid;
 	gflv torsions;
 	void print() const {
@@ -221,8 +221,9 @@ private:
 	}
 };
 
+/* TODO */
 struct change {
-	std::vector<ligand_change> ligands;
+	gvector<ligand_change> ligands;
 	std::vector<residue_change> flex;
 	change(const conf_size& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
 		VINA_FOR_IN(i, ligands)
@@ -308,7 +309,7 @@ struct change {
 };
 
 struct conf {
-	std::vector<ligand_conf> ligands;
+	gvector<ligand_conf> ligands;
 	std::vector<residue_conf> flex;
 	conf() {}
 	conf(const conf_size& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
