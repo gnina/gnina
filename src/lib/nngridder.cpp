@@ -17,12 +17,13 @@ static void createDefaultMap(const char *names[], vector<int>& map)
 	map.assign(smina_atom_type::NumTypes, -1);
 	const char **nameptr = names;
 	unsigned cnt = 0;
-	while(*nameptr != NULL) {
+	while (*nameptr != NULL)
+	{
 		string name(*nameptr);
 		//note that if we every start using merged atom types by default
 		//this code will have to be updated
 		smt t = string_to_smina_type(name);
-		if(t < smina_atom_type::NumTypes) //valid
+		if (t < smina_atom_type::NumTypes) //valid
 		{
 			map[t] = cnt;
 			cnt++;
@@ -40,7 +41,8 @@ static void createDefaultMap(const char *names[], vector<int>& map)
 //these were determined by evaluating how common various atoms types are
 void NNGridder::createDefaultRecMap(vector<int>& map)
 {
-	const char *names[] = {"AliphaticCarbonXSHydrophobe",
+	const char *names[] =
+	{ "AliphaticCarbonXSHydrophobe",
 			"AliphaticCarbonXSNonHydrophobe",
 			"AromaticCarbonXSHydrophobe",
 			"AromaticCarbonXSNonHydrophobe",
@@ -55,13 +57,15 @@ void NNGridder::createDefaultRecMap(vector<int>& map)
 			"OxygenXSDonorAcceptor",
 			"Phosphorus",
 			"Sulfur",
-			"Zinc", NULL};
+			"Zinc", NULL };
 
 	createDefaultMap(names, map);
 }
 
-void NNGridder::createDefaultLigMap(vector<int>& map) {
-	const char *names[] = {"AliphaticCarbonXSHydrophobe",
+void NNGridder::createDefaultLigMap(vector<int>& map)
+{
+	const char *names[] =
+	{ "AliphaticCarbonXSHydrophobe",
 			"AliphaticCarbonXSNonHydrophobe",
 			"AromaticCarbonXSHydrophobe",
 			"AromaticCarbonXSNonHydrophobe",
@@ -79,20 +83,19 @@ void NNGridder::createDefaultLigMap(vector<int>& map) {
 			"Sulfur",
 			"SulfurAcceptor",
 			"Iodine",
-			NULL};
+			NULL };
 	createDefaultMap(names, map);
 }
-
 
 //return the occupancy for atom a at point x,y,z
 float NNGridder::calcPoint(const atom& a, const vec& pt)
 {
 	double rsq = (pt - a.coords).norm_sqr();
 	double ar = xs_radius(a.sm);
-	if(binary)
+	if (binary)
 	{
 		//is point within radius?
-		if(rsq < ar*ar)
+		if (rsq < ar * ar)
 			return 1.0;
 		else
 			return 0.0;
@@ -105,47 +108,47 @@ float NNGridder::calcPoint(const atom& a, const vec& pt)
 		//derivative at the cross over point and a value and derivative of zero
 		//at 1.5*radius
 		double dist = sqrt(rsq);
-		if(dist >= ar*1.5)
+		if (dist >= ar * 1.5)
 		{
 			return 0.0;
 		}
-		else if(dist <= ar)
+		else if (dist <= ar)
 		{
 			//return gaussian
-			double h = 0.5*ar;
-			double ex = -dist*dist/(2*h*h);
+			double h = 0.5 * ar;
+			double ex = -dist * dist / (2 * h * h);
 			return exp(ex);
 		}
 		else //return quadratic
 		{
-			double h = 0.5*ar;
-			double eval = 1.0/(M_E*M_E); //e^(-2)
-			double q = dist*dist*eval/(h*h) - 6.0 *eval*dist/h + 9.0 * eval;
+			double h = 0.5 * ar;
+			double eval = 1.0 / (M_E * M_E); //e^(-2)
+			double q = dist * dist * eval / (h * h) - 6.0 * eval * dist / h
+					+ 9.0 * eval;
 			return q;
 		}
 	}
 	return 0.0;
 }
 
-
 //return the range of grid points spanned from c-r to c+r within dim
-pair<unsigned, unsigned> NNGridder::getrange(const grid_dim& dim, double c, double r)
+pair<unsigned, unsigned> NNGridder::getrange(const grid_dim& dim, double c,
+		double r)
 {
-	pair<unsigned, unsigned> ret(0,0);
-	double low = c-r-dim.begin;
-	if(low > 0)
+	pair<unsigned, unsigned> ret(0, 0);
+	double low = c - r - dim.begin;
+	if (low > 0)
 	{
-		ret.first = floor(low/resolution);
+		ret.first = floor(low / resolution);
 	}
 
-	double high = c+r-dim.begin;
-	if(high > 0) //otherwise zero
+	double high = c + r - dim.begin;
+	if (high > 0) //otherwise zero
 	{
-		ret.second = min(dim.n,(sz)ceil(high/resolution));
+		ret.second = min(dim.n, (sz) ceil(high / resolution));
 	}
 	return ret;
 }
-
 
 //set the relevant grid points for a
 //figure out what volume of the grid is relevant for this atom and for each
@@ -153,40 +156,43 @@ pair<unsigned, unsigned> NNGridder::getrange(const grid_dim& dim, double c, doub
 //to get its value
 bool NNGridder::setAtom(const atom& origa, boost::multi_array<float, 3>& grid)
 {
-  atom a = origa;
-  if(Q.real() != 0) { //apply rotation
-    vec tpt = a.coords - trans;
-    quaternion p(0,tpt[0], tpt[1], tpt[2]);
-    p = Q*p*(conj(Q)/norm(Q));
+	atom a = origa;
+	if (Q.real() != 0)
+	{ //apply rotation
+		vec tpt = a.coords - trans;
+		quaternion p(0, tpt[0], tpt[1], tpt[2]);
+		p = Q * p * (conj(Q) / norm(Q));
 
-    vec newpt(p.R_component_2(),p.R_component_3(),p.R_component_4());
-    newpt += trans;
+		vec newpt(p.R_component_2(), p.R_component_3(), p.R_component_4());
+		newpt += trans;
 
-    a.coords = newpt;
-  }
+		a.coords = newpt;
+	}
 
-	double r = xs_radius(a.sm)*radiusmultiple;
-	vector< pair<unsigned,unsigned> > ranges;
-	for(unsigned i = 0; i < 3; i++)
+	double r = xs_radius(a.sm) * radiusmultiple;
+	vector<pair<unsigned, unsigned> > ranges;
+	for (unsigned i = 0; i < 3; i++)
 	{
 		ranges.push_back(getrange(dims[i], a.coords[i], r));
 	}
 	bool isset = false; //is this atom actaully within grid?
 	//for every grid point possibly overlapped by this atom
-	for(unsigned i = ranges[0].first, iend = ranges[0].second; i < iend; i++)
+	for (unsigned i = ranges[0].first, iend = ranges[0].second; i < iend; i++)
 	{
-		for(unsigned j = ranges[1].first, jend = ranges[1].second; j < jend; j++)
+		for (unsigned j = ranges[1].first, jend = ranges[1].second; j < jend;
+				j++)
 		{
-			for(unsigned k = ranges[2].first, kend = ranges[2].second; k < kend; k++)
+			for (unsigned k = ranges[2].first, kend = ranges[2].second;
+					k < kend; k++)
 			{
-				double x = dims[0].begin+i*resolution;
-				double y = dims[1].begin+j*resolution;
-				double z= dims[2].begin+k*resolution;
-				double val = calcPoint(a, vec(x,y,z));
+				double x = dims[0].begin + i * resolution;
+				double y = dims[1].begin + j * resolution;
+				double z = dims[2].begin + k * resolution;
+				double val = calcPoint(a, vec(x, y, z));
 
-				if(binary)
+				if (binary)
 				{
-					if(val != 0)
+					if (val != 0)
 						grid[i][j][k] = 1.0; //don't add, just 1 or 0
 				}
 				else
@@ -198,7 +204,6 @@ bool NNGridder::setAtom(const atom& origa, boost::multi_array<float, 3>& grid)
 	}
 	return isset;
 }
-
 
 //output a grid the file in map format (for debug)
 void NNGridder::outputMAPGrid(ostream& out, boost::multi_array<float, 3>& grid)
@@ -244,7 +249,7 @@ string NNGridder::getIndexName(const vector<int>& map, unsigned index) const
 		}
 	}
 
-	if(ret.str().length() > 32) //there are limits on file name lengths
+	if (ret.str().length() > 32) //there are limits on file name lengths
 		return altret.str();
 	else
 		return ret.str();
@@ -259,7 +264,7 @@ static int createAtomTypeMap(const string& fname, vector<int>& map)
 {
 	map.assign(smina_atom_type::NumTypes, -1);
 
-	if(fname.size() == 0)
+	if (fname.size() == 0)
 	{
 		//default mapping
 		cerr << "Map file not specified\n";
@@ -270,31 +275,31 @@ static int createAtomTypeMap(const string& fname, vector<int>& map)
 		int cnt = 0;
 		ifstream in(fname.c_str());
 
-		if(!in)
+		if (!in)
 		{
 			cerr << "Could not open " << fname << "\n";
 			exit(-1);
 		}
 		string line;
-		while(getline(in, line))
+		while (getline(in, line))
 		{
 			vector<string> types;
 			split(types, line, is_any_of("\t \n"));
-			for(unsigned i = 0, n = types.size(); i < n; i++)
+			for (unsigned i = 0, n = types.size(); i < n; i++)
 			{
 				const string& name = types[i];
 				smt t = string_to_smina_type(name);
-				if(t < smina_atom_type::NumTypes) //valid
+				if (t < smina_atom_type::NumTypes) //valid
 				{
 					map[t] = cnt;
 				}
-				else if(name.size() > 0) //this ignores consecutive delimiters
+				else if (name.size() > 0) //this ignores consecutive delimiters
 				{
 					cerr << "Invalid atom type " << name << "\n";
 					exit(-1);
 				}
 			}
-			if(types.size() > 0)
+			if (types.size() > 0)
 				cnt++;
 		}
 		return cnt;
@@ -302,43 +307,15 @@ static int createAtomTypeMap(const string& fname, vector<int>& map)
 }
 
 
-//read a molecule (return false if unsuccessful)
-//set the ligand grid appropriately
-bool NNMolsGridder::readMolecule()
-{
-	model m;
-	if (!mols.readMoleculeIntoModel(m))
-		return false;
-
-	//clear ligand array
-	for (unsigned i = 0, n = ligandGrids.size(); i < n; i++)
-	{
-		fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
-	}
-
-	//fill in heavy atoms
-	const atomv& atoms = m.get_movable_atoms();
-	assert(atoms.size() == m.coordinates().size());
-	for (unsigned i = 0, n = atoms.size(); i < n; i++)
-	{
-		atom a = atoms[i];
-		a.coords = m.coordinates()[i]; //have to explicitly set coords
-		int pos = lmap[a.sm];
-		assert(pos < ligandGrids.size());
-		if (pos >= 0)
-			setAtom(a, ligandGrids[pos]);
-	}
-	return true;
-}
 
 //return string detailing the configuration (size.channels)
 string NNGridder::getParamString(bool outputrec, bool outputlig) const
-{
+		{
 	unsigned n = dims[0].n + 1;
 	unsigned chan = 0;
-	if(outputrec)
+	if (outputrec)
 		chan += receptorGrids.size();
-	if(outputlig)
+	if (outputlig)
 		chan += ligandGrids.size();
 	return lexical_cast<string>(n) + "." + lexical_cast<string>(chan);
 }
@@ -346,9 +323,11 @@ string NNGridder::getParamString(bool outputrec, bool outputlig) const
 //return true if grid only contains zeroes
 static bool gridIsEmpty(const multi_array<float, 3>& grid)
 {
-	for(const float *ptr = grid.data(), *end = grid.data() + grid.num_elements(); ptr != end; ptr++)
+	for (const float *ptr = grid.data(), *end = grid.data()
+			+ grid.num_elements(); ptr != end; ptr++)
 	{
-		if(*ptr != 0.0) return false;
+		if (*ptr != 0.0)
+			return false;
 	}
 	return true;
 }
@@ -359,7 +338,7 @@ void NNGridder::outputMAP(const string& base)
 	for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
 	{
 		//this is for debugging, so avoid outputting empty grids
-		if(!gridIsEmpty(receptorGrids[a]))
+		if (!gridIsEmpty(receptorGrids[a]))
 		{
 			string name = getIndexName(rmap, a);
 			string fname = base + "_rec_" + name + ".map";
@@ -369,7 +348,7 @@ void NNGridder::outputMAP(const string& base)
 	}
 	for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
 	{
-		if(!gridIsEmpty(ligandGrids[a]))
+		if (!gridIsEmpty(ligandGrids[a]))
 		{
 			string name = getIndexName(lmap, a);
 			string fname = base + "_lig_" + name + ".map";
@@ -384,101 +363,108 @@ void NNGridder::outputMAP(const string& base)
 void NNGridder::outputBIN(ostream& out, bool outputrec, bool outputlig)
 {
 	unsigned n = dims[0].n + 1;
-  if(outputrec)
-  {
-    for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
-    {
-      for (unsigned i = 0; i < n; i++)
-      {
-        for (unsigned j = 0; j < n; j++)
-        {
-          for (unsigned k = 0; k < n; k++)
-          {
-            //when you see this many loops you known you're going to generate a lot of data..
+	if (outputrec)
+	{
+		for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
+		{
+			for (unsigned i = 0; i < n; i++)
+			{
+				for (unsigned j = 0; j < n; j++)
+				{
+					for (unsigned k = 0; k < n; k++)
+					{
+						//when you see this many loops you known you're going to generate a lot of data..
 
-                out.write((char*) &receptorGrids[a][i][j][k],
-                    sizeof(float));
-            }
-          }
-        }
-    }
+						out.write((char*) &receptorGrids[a][i][j][k],
+								sizeof(float));
+					}
+				}
+			}
+		}
 	}
-  if(outputlig)
-  {
-    for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
-    {
-      for (unsigned i = 0; i < n; i++)
-      {
-        for (unsigned j = 0; j < n; j++)
-        {
-          for (unsigned k = 0; k < n; k++)
-          {
-            out.write((char*) &ligandGrids[a][i][j][k], sizeof(float));
-          }
-        }
-      }
-    }
-  }
+	if (outputlig)
+	{
+		for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
+		{
+			for (unsigned i = 0; i < n; i++)
+			{
+				for (unsigned j = 0; j < n; j++)
+				{
+					for (unsigned k = 0; k < n; k++)
+					{
+						out.write((char*) &ligandGrids[a][i][j][k],
+								sizeof(float));
+					}
+				}
+			}
+		}
+	}
 }
 
 void NNGridder::outputMem(vector<float>& out)
 {
 	unsigned n = dims[0].n + 1;
-	unsigned gsize = n*n*n;
-	out.resize(gsize*receptorGrids.size()+gsize*ligandGrids.size());
+	unsigned gsize = n * n * n;
+	out.resize(gsize * receptorGrids.size() + gsize * ligandGrids.size());
 
 	float *ptr = &out[0];
-  for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
-  {
-  	memcpy(ptr, receptorGrids[a].origin(), gsize*sizeof(float));
-  	ptr += gsize;
-  }
-  for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
-  {
-  	memcpy(ptr, ligandGrids[a].origin(), gsize*sizeof(float));
-  	ptr += gsize;
-  }
+	for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
+	{
+		memcpy(ptr, receptorGrids[a].origin(), gsize * sizeof(float));
+		ptr += gsize;
+	}
+	for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
+	{
+		memcpy(ptr, ligandGrids[a].origin(), gsize * sizeof(float));
+		ptr += gsize;
+	}
 }
-
 
 //set all the elements of a grid to zero
 void NNGridder::zeroGrids(vector<boost::multi_array<float, 3> >& grid)
 {
-	for(unsigned i = 0, n = grid.size(); i < n; i++)
+	for (unsigned i = 0, n = grid.size(); i < n; i++)
 	{
 		boost::multi_array<float, 3>& g = grid[i];
-		std::fill(g.data(),g.data()+g.num_elements(), 0.0);
+		std::fill(g.data(), g.data() + g.num_elements(), 0.0);
 	}
 }
 
+void NNGridder::setCenter(double x, double y, double z)
+{
+	trans = vec(x, y, z);
+	int numpts = round(dimension / resolution);
+	double half = dimension / 2.0;
+	dims[0].begin = x - half;
+	dims[0].end = x + half;
+	dims[0].n = numpts;
+
+	dims[1].begin = y - half;
+	dims[1].end = y + half;
+	dims[1].n = numpts;
+
+	dims[2].begin = z - half;
+	dims[2].end = z + half;
+	dims[2].n = numpts;
+}
 
 void NNGridder::setMapsAndGrids(const gridoptions& opt)
 {
-	if(opt.recmap.size() == 0)
+	if (opt.recmap.size() == 0)
 		NNGridder::createDefaultRecMap(rmap);
 	else
-		createAtomTypeMap(opt.recmap,rmap);
+		createAtomTypeMap(opt.recmap, rmap);
 
-	if(opt.ligmap.size() == 0)
+	if (opt.ligmap.size() == 0)
 		NNGridder::createDefaultLigMap(lmap);
 	else
-		createAtomTypeMap(opt.ligmap,lmap);
+		createAtomTypeMap(opt.ligmap, lmap);
 
 	//setup grids,
-	trans = vec(opt.x,opt.y,opt.z);
-	int numpts = round(opt.dim / opt.res);
-	double half = opt.dim / 2.0;
-	dims[0].begin = opt.x - half;
-	dims[0].end = opt.x + half;
-	dims[0].n = numpts;
+	dimension = opt.dim;
+	resolution = opt.res;
 
-	dims[1].begin = opt.y - half;
-	dims[1].end = opt.y + half;
-	dims[1].n = numpts;
-
-	dims[2].begin = opt.z - half;
-	dims[2].end = opt.z + half;
-	dims[2].n = numpts;
+	int numpts = round(dimension / resolution);
 	unsigned n = numpts + 1; //fencepost
 
 	receptorGrids.reserve(smina_atom_type::NumTypes);
@@ -491,10 +477,11 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 			unsigned i = rmap[at];
 			if (receptorGrids.size() <= i)
 				receptorGrids.resize(i + 1);
-			if(receptorGrids[i].num_elements() == 0)
+			if (receptorGrids[i].num_elements() == 0)
 			{
 				receptorGrids[i].resize(extents[n][n][n]);
-				fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(), 0.0);
+				fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(),
+						0.0);
 			}
 		}
 
@@ -503,55 +490,43 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 			unsigned i = lmap[at];
 			if (ligandGrids.size() <= i)
 				ligandGrids.resize(i + 1);
-			if(ligandGrids[i].num_elements() == 0)
+			if (ligandGrids[i].num_elements() == 0)
 			{
 				ligandGrids[i].resize(extents[n][n][n]);
-				fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
+				fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(),
+						0.0);
 			}
 		}
 	}
 
 	//check for empty mappings
-	for(unsigned i = 0, nr = receptorGrids.size(); i < nr; i++)
+	for (unsigned i = 0, nr = receptorGrids.size(); i < nr; i++)
 	{
-	  if(receptorGrids[i].num_elements() == 0)
-	  {
-	    cerr << "Empty slot in receptor types: " << i << ", possible duplicate?\n";
-	    receptorGrids[i].resize(extents[n][n][n]);
-      fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(), 0.0);
-	  }
+		if (receptorGrids[i].num_elements() == 0)
+		{
+			cerr << "Empty slot in receptor types: " << i
+					<< ", possible duplicate?\n";
+			receptorGrids[i].resize(extents[n][n][n]);
+			fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(),
+					0.0);
+		}
 	}
-  for(unsigned i = 0, nl = ligandGrids.size(); i < nl; i++)
-  {
-    if(ligandGrids[i].num_elements() == 0)
-    {
-      cerr << "Empty slot in ligand types: " << i << ", possible duplicate?\n";
-      ligandGrids[i].resize(extents[n][n][n]);
-      fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
-    }
-  }
+	for (unsigned i = 0, nl = ligandGrids.size(); i < nl; i++)
+	{
+		if (ligandGrids[i].num_elements() == 0)
+		{
+			cerr << "Empty slot in ligand types: " << i
+					<< ", possible duplicate?\n";
+			ligandGrids[i].resize(extents[n][n][n]);
+			fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
+		}
+	}
 
 }
 
-NNMolsGridder::NNMolsGridder(const gridoptions& opt, quaternion q)
+void NNGridder::setReceptor(const model& m)
 {
-	binary = opt.binary;
-	resolution = opt.res;
-	radiusmultiple = 1.5;
-	Q = q;
-
-	if(binary) radiusmultiple = 1.0;
-
-	setMapsAndGrids(opt);
-
-	//open receptor
-	tee log(true);
-	FlexInfo finfo(log); //dummy
-	mols.create_init_model(opt.receptorfile, "", finfo, log);
-
-	//initialize receptor
-	const model& m = mols.getInitModel();
-
+	zeroGrids(receptorGrids);
 	const atomv& atoms = m.get_fixed_atoms();
 	for (unsigned i = 0, n = atoms.size(); i < n; i++)
 	{
@@ -560,39 +535,9 @@ NNMolsGridder::NNMolsGridder(const gridoptions& opt, quaternion q)
 		if (pos >= 0)
 			setAtom(a, receptorGrids[pos]);
 	}
-
-	//set ligand file
-	mols.setInputFile(opt.ligandfile);
 }
 
-
-void NNModelGridder::initialize(const gridoptions& opt)
-{
-	binary = opt.binary;
-	resolution = opt.res;
-	radiusmultiple = 1.5;
-	Q = quaternion(1,0,0,0);
-
-	if(binary) radiusmultiple = 1.0;
-
-	setMapsAndGrids(opt);
-
-	//setRecptor needs to be called to init receptor grids
-}
-
-void NNModelGridder::setReceptor(const model& m)
-{
-	zeroGrids(receptorGrids);
-	const atomv& atoms = m.get_fixed_atoms();
-	for(unsigned i = 0, n = atoms.size(); i < n; i++) {
-		const atom& a = atoms[i];
-		int pos = rmap[a.sm];
-		if(pos >= 0)
-			setAtom(a, receptorGrids[pos]);
-	}
-}
-
-void NNModelGridder::setLigand(const model& m)
+void NNGridder::setLigand(const model& m)
 {
 	zeroGrids(ligandGrids);
 	//fill in heavy atoms
@@ -603,10 +548,91 @@ void NNModelGridder::setLigand(const model& m)
 		atom a = atoms[i];
 		a.coords = m.coordinates()[i]; //have to explicitly set coords
 		int pos = lmap[a.sm];
-		if(pos >= 0) { //ignore atom types not in map
+		if (pos >= 0)
+		{ //ignore atom types not in map
 			assert(pos < ligandGrids.size());
 			if (pos >= 0)
 				setAtom(a, ligandGrids[pos]);
 		}
 	}
+}
+
+NNMolsGridder::NNMolsGridder(const gridoptions& opt)
+{
+	initialize(opt);
+	//open receptor
+	tee log(true);
+	FlexInfo finfo(log); //dummy
+	mols.create_init_model(opt.receptorfile, "", finfo, log);
+
+	//set ligand file
+	mols.setInputFile(opt.ligandfile);
+}
+
+void NNGridder::initialize(const gridoptions& opt)
+{
+	binary = opt.binary;
+	resolution = opt.res;
+	radiusmultiple = 1.5;
+	randtranslate = opt.randtranslate;
+	randrotate = opt.randrotate;
+	Q = quaternion(1, 0, 0, 0);
+
+	if (binary)
+		radiusmultiple = 1.0;
+
+	setMapsAndGrids(opt);
+
+	//setRecptor needs to be called to init receptor grids
+}
+
+void NNGridder::setModel(const model& m)
+{
+	//compute center from ligand
+	const atomv& atoms = m.get_movable_atoms();
+	assert(atoms.size() == m.coordinates().size());
+	vec center;
+	for (unsigned i = 0, n = atoms.size(); i < n; i++)
+	{
+		center += m.coordinates()[i];
+	}
+	center /= atoms.size();
+
+	//apply random modifications
+	if (randrotate)
+	{
+		double d = rand() / double(RAND_MAX);
+		double r1 = rand() / double(RAND_MAX);
+		double r2 = rand() / double(RAND_MAX);
+		double r3 = rand() / double(RAND_MAX);
+		Q = NNGridder::quaternion(1, r1 / d, r2 / d, r3 / d);
+	}
+
+	if (randtranslate)
+	{
+		double offx = rand() / double(RAND_MAX / 2.0) - 1.0;
+		double offy = rand() / double(RAND_MAX / 2.0) - 1.0;
+		double offz = rand() / double(RAND_MAX / 2.0) - 1.0;
+		center[0] += offx * randtranslate;
+		center[1] += offy * randtranslate;
+		center[2] += offz * randtranslate;
+	}
+
+	setCenter(center[0], center[1], center[2]);
+
+	setReceptor(m);
+	setLigand(m);
+}
+
+
+//read a molecule (return false if unsuccessful)
+//set the ligand grid appropriately
+bool NNMolsGridder::readMolecule()
+{
+	model m;
+	if (!mols.readMoleculeIntoModel(m))
+		return false;
+
+	setModel(m);
+	return true;
 }

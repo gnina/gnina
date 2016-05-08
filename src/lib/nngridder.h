@@ -30,8 +30,11 @@ protected:
 	quaternion Q;
 	vec trans;
 	double resolution;
+	double dimension;
 	double radiusmultiple; //extra to consider past vdw radius
+	double randtranslate;
 	bool binary; //produce binary occupancies
+	bool randrotate;
 
 	vector<boost::multi_array<float, 3> > receptorGrids;
 	vector<boost::multi_array<float, 3> > ligandGrids;
@@ -58,10 +61,21 @@ protected:
 	//setup grid dimensions and zero-init
 	void setMapsAndGrids(const gridoptions& opt);
 
+	//set the center of the grid, must reset receptor/ligand
+	void setCenter(double x, double y, double z);
+
 	static void zeroGrids(vector<boost::multi_array<float, 3> >& grid);
+
+	void setReceptor(const model& m);
+	void setLigand(const model& m);
 public:
 
-	NNGridder(): resolution(0.5), radiusmultiple(1.5), binary(false) {}
+	NNGridder(): resolution(0.5), dimension(24), radiusmultiple(1.5), randtranslate(0), binary(false), randrotate(false) {}
+
+	void initialize(const gridoptions& opt);
+
+	//set grids (receptor and ligand)
+	void setModel(const model& m);
 
 	//return string detailing the configuration (size.channels)
 	string getParamString(bool outputrec, bool outputlig) const;
@@ -92,7 +106,7 @@ private:
 
 public:
 
-	NNMolsGridder(const gridoptions& opt, quaternion q = quaternion(1,0,0,0));
+	NNMolsGridder(const gridoptions& opt);
 
 	//read a molecule (return false if unsuccessful)
 	//set the ligand grid appropriately
@@ -100,22 +114,6 @@ public:
 
 };
 
-/* This gridder extracts ligand from model rather than reading from file */
-class NNModelGridder : public NNGridder
-{
-public:
-  typedef boost::math::quaternion<double> quaternion;
-private:
 
-public:
-
-	NNModelGridder() {}
-
-	void initialize(const gridoptions& opt);
-
-	void setReceptor(const model& m);
-	void setLigand(const model& m);
-
-};
 
 #endif

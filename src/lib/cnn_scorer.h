@@ -33,7 +33,7 @@ struct cnn_options {
 class CNNScorer {
 	typedef float Dtype;
 	caffe::shared_ptr<caffe::Net<Dtype> > net;
-	NNModelGridder grid;
+	NNGridder grid;
 	caffe::NDimDataLayer<Dtype> *ndim;
 	unsigned rotations;
 

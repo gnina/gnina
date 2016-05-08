@@ -136,6 +136,12 @@ struct vec {
 		data[2] *= s;
 		return *this;
 	}
+	const vec& operator/=(fl s) {
+		data[0] /= s;
+		data[1] /= s;
+		data[2] /= s;
+		return *this;
+	}
 	void assign(fl s) {
 		data[0] = data[1] = data[2] = s;
 	}

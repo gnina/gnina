@@ -45,9 +45,7 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	options_description outputs("Output");
 	outputs.add_options()
 	("out,o", value<std::string>(&o.outname),
-			"output file name base, combined map if outlig not specified, receptor only otherwise")
-	("outlig", value<std::string>(&o.ligoutname),
-			"output file name base for ligand only output")
+			"output file name base, combined map of both lig and receptor")
 	("map", bool_switch(&o.outmap),
 			"output AD4 map files (for debugging, out is base name)");
 
@@ -62,14 +60,6 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	("random_translation", value<fl>(&o.randtranslate),
 			"Apply random translation to input up to specified distance")
 	("random_seed", value<int>(&o.seed), "Random seed to use")
-	("center_x", value<fl>(&o.x),
-			"X coordinate of the center, if unspecified use first ligand")
-	("center_y", value<fl>(&o.y),
-			"Y coordinate of the center, if unspecified use first ligand")
-	("center_z", value<fl>(&o.z),
-			"Z coordinate of the center, if unspecified use first ligand")
-	("autocenter", value<string>(&o.centerfile),
-			"ligand to use to determine center")
 	("recmap", value<string>(&o.recmap), "Atom type mapping for receptor atoms")
 	("ligmap", value<string>(&o.ligmap), "Atom type mapping for ligand atoms");
 
@@ -124,83 +114,16 @@ int main(int argc, char *argv[])
 			exit(0);
 
 		srand(opt.seed);
-		//figure out grid center
-		if (!isfinite(opt.x + opt.y + opt.z))
-		{
-			fl dummy; //we wil set the size
-			string ligandfile = opt.ligandfile;
-			if (opt.centerfile.size() > 0)
-				ligandfile = opt.centerfile;
-			setup_autobox(ligandfile, 0, opt.x, opt.y, opt.z, dummy, dummy,
-					dummy);
-		}
-
-		//initialize random rotation (same for all)
-		NNGridder::quaternion quat(0, 0, 0, 0);
-		if (opt.randrotate)
-		{
-			double d = rand() / double(RAND_MAX);
-			double r1 = rand() / double(RAND_MAX);
-			double r2 = rand() / double(RAND_MAX);
-			double r3 = rand() / double(RAND_MAX);
-			quat = NNGridder::quaternion(1, r1 / d, r2 / d, r3 / d);
-		}
-
-		if (opt.randtranslate)
-		{
-			double offx = rand() / double(RAND_MAX / 2.0) - 1.0;
-			double offy = rand() / double(RAND_MAX / 2.0) - 1.0;
-			double offz = rand() / double(RAND_MAX / 2.0) - 1.0;
-			opt.x += offx * opt.randtranslate;
-			opt.y += offy * opt.randtranslate;
-			opt.z += offz * opt.randtranslate;
-		}
 
 		//setup receptor grid
-		NNMolsGridder gridder(opt, quat);
-		string parmstr;
-
-		if (!opt.outmap)
-		{
-			//embed grid configuration in file name
-			string outname;
-			ofstream binout;
-
-			if (opt.ligoutname.size() > 1)
-			{
-				outname = opt.outname + "."
-						+ gridder.getParamString(true, false) + ".binmap"; //receptor  only name
-
-				//want separate ligand/receptor grid files
-				//output receptor only
-				binout.open(outname.c_str());
-				if (!binout)
-				{
-					cerr << "Could not open " << outname << "\n";
-					exit(-1);
-				}
-				gridder.outputBIN(binout, true, false);
-				binout.close();
-
-				parmstr = "." + gridder.getParamString(false, true); //ligand only name
-			}
-			else
-			{
-				parmstr = "." + gridder.getParamString(true, true); //ligand and receptor name name
-			}
-		}
+		NNMolsGridder gridder(opt);
 
 		//for each ligand..
 		unsigned ligcnt = 0;
 		while (gridder.readMolecule())
 		{ //computes ligand grid
-
 			//and output
-			string base;
-			if (opt.ligoutname.size() == 0)
-				base = opt.outname + "_" + lexical_cast<string>(ligcnt);
-			else
-				base = opt.ligoutname + "_" + lexical_cast<string>(ligcnt);
+			string base = opt.outname + "_" + lexical_cast<string>(ligcnt);
 
 			if (opt.outmap)
 			{
@@ -208,14 +131,14 @@ int main(int argc, char *argv[])
 			}
 			else
 			{
-				string outname = base + parmstr + ".binmap";
+				string outname = base + "." + gridder.getParamString(true, true) + ".binmap";
 				ofstream binout(outname.c_str());
 				if (!binout)
 				{
 					cerr << "Could not open " << outname << "\n";
 					exit(-1);
 				}
-				gridder.outputBIN(binout, opt.ligoutname.size() == 0);
+				gridder.outputBIN(binout);
 			}
 			ligcnt++;
 		}
