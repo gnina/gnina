@@ -591,7 +591,7 @@ void NNGridder::setModel(const model& m)
 	//compute center from ligand
 	const atomv& atoms = m.get_movable_atoms();
 	assert(atoms.size() == m.coordinates().size());
-	vec center;
+	vec center(0,0,0);
 	for (unsigned i = 0, n = atoms.size(); i < n; i++)
 	{
 		center += m.coordinates()[i];
