@@ -848,24 +848,22 @@ int main(int argc, char* argv[])
 {
 	using namespace boost::program_options;
 	const std::string version_string =
-			"gnina "__DATE__".";
+			"Smina " __DATE__ ".  Based on AutoDock Vina 1.1.2.";
 	const std::string error_message =
-			"\n\n\
-Please report this error at http://smina.sf.net\n"
-					"Please remember to include the following in your problem report:\n\
-    * the EXACT error message,\n\
-    * your version of the program,\n\
-    * the type of computer system you are running it on,\n\
-	* all command line options,\n\
-	* configuration file (if used),\n\
-    * ligand file as PDBQT,\n\
-    * receptor file as PDBQT,\n\
-	* flexible side chains file as PDBQT (if used),\n\
-	* output file as PDBQT (if any),\n\
-    * input (if possible),\n\
-	* random seed the program used (this is printed when the program starts).\n\
-\n\
-Thank you!\n";
+        "\n\n Please report this error at http://smina.sf.net\n"
+        "Please remember to include the following in your problem report:\n"
+        "* the EXACT error message,\n"
+        "* your version of the program,\n"
+        "* the type of computer system you are running it on,\n"
+        "* all command line options,\n"
+        "* configuration file (if used),\n"
+        "* ligand file as PDBQT,\n"
+        "* receptor file as PDBQT,\n"
+        "* flexible side chains file as PDBQT (if used),\n"
+        "* output file as PDBQT (if any),\n"
+        "* input (if possible),\n"
+        "* random seed the program used (this is printed when the program starts).\n"
+        "\n Thank you!\n";
 
 	const std::string cite_message =
 "              _             \n" \
@@ -1364,6 +1362,25 @@ Thank you!\n";
 					  &log, &atomoutfile);
 	  boost::thread_group worker_threads;
 	  boost::timer time;
+		//loop over input ligands
+		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
+		{
+			doing(settings.verbosity, "Reading input", log);
+			const std::string& ligand_name = ligand_names[l];
+			mols.setInputFile(ligand_name);
+
+			//process input molecules one at a time
+			unsigned i = 0;
+            /* TODO */
+            model *_m = new model;
+            model &m = *_m;
+			while (mols.readMoleculeIntoModel(m))
+			{
+				if (settings.local_only)
+				{
+					//dkoes - for convenience get box from model
+					gd = m.movable_atoms_box(autobox_add, granularity);
+				}
 
 	  //launch worker threads to process ligands in the work queue
 	  for (int i=0; i != nthreads; i++) {

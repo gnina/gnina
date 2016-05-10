@@ -6,10 +6,12 @@ TOGNINAOBJ = tognina.o CommandLine.o
 FROMGNINAOBJ = fromgnina.o CommandLine.o 
 GNINAGRIDOBJ = gninagrid.o nngridder.o
 SERVEROBJ = server.o CommandLine.o MinimizationQuery.o QueryManager.o
+CFLAGS += -Wno-deprecated-declarations
 INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) -I $(CUDA_INCLUDE) 
 NVCC=nvcc -std=c++11 -Xcudafe "--diag_suppress=boolean_controlling_expr_is_constant"
 
-CC = ${GPP} ${C_PLATFORM} -ansi  ${C_OPTIONS} $(INCFLAGS)
+# TODO: sucks
+CC = $(NVCC) -x cu --expt-relaxed-constexpr -std=c++11 -gencode arch=compute_52,code=sm_52 --compiler-options="-std=c++11 $(C_PLATFORM) $(C_OPTIONS) $(CFLAGS)" $(INCFLAGS)
 
 LDFLAGS := -L$(BASE)/lib -L. -L/usr/local/lib -L$(BASE)/cuda/lib64 $(LDFLAGS)
 
@@ -17,14 +19,14 @@ LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -l boost_timer${BOOST
 
 .SUFFIXES: .cpp .o
 
+%.o : ../../../src/*/%.cpp 
+	$(CC) -I ../../../src/lib -o $@ -dc $< 
+
 %.o : ../../../src/lib/CommandLine2/%.cpp 
-	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
+	$(CC) -I ../../../src/lib -o $@ -dc $< 
 
 %.o : ../../../src/lib/%.cu ../../../src/lib/*gpu.h
-	$(NVCC) $(NVOPTS) -DSMINA_GPU -x cu -dc $< -o $@ 
-
-%.o : ../../../src/*/%.cpp 
-	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
+	$(NVCC) $(NVOPTS) -DSMINA_GPU -o $@ -dc $< 
 
 all: gnina tognina gninaserver libgnina.a gninagrid
 

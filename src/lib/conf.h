@@ -43,24 +43,24 @@ struct conf_size {
 	}
 };
 
-inline void torsions_set_to_null(flv& torsions) {
+inline void torsions_set_to_null(gflv& torsions) {
 	VINA_FOR_IN(i, torsions)
 		torsions[i] = 0;
 }
 
-inline void torsions_increment(flv& torsions, const flv& c, fl factor) { // new torsions are normalized
+inline void torsions_increment(gflv& torsions, const gflv& c, fl factor) { // new torsions are normalized
 	VINA_FOR_IN(i, torsions) {
 		torsions[i] += normalized_angle(factor * c[i]);
 		normalize_angle(torsions[i]);
 	}
 }
 
-inline void torsions_randomize(flv& torsions, rng& generator) {
+inline void torsions_randomize(gflv& torsions, rng& generator) {
 	VINA_FOR_IN(i, torsions)
 		torsions[i] = random_fl(-pi, pi, generator);
 }
 
-inline bool torsions_too_close(const flv& torsions1, const flv& torsions2, fl cutoff) {
+inline bool torsions_too_close(const gflv& torsions1, const gflv& torsions2, fl cutoff) {
 	assert(torsions1.size() == torsions2.size());
 	VINA_FOR_IN(i, torsions1)
 		if(std::abs(normalized_angle(torsions1[i] - torsions2[i])) > cutoff) 
@@ -68,7 +68,17 @@ inline bool torsions_too_close(const flv& torsions1, const flv& torsions2, fl cu
 	return true;
 }
 
-inline void torsions_generate(flv& torsions, fl spread, fl rp, const flv* rs, rng& generator) {
+inline void torsions_generate(gflv& torsions, fl spread, fl rp, const flv* rs, rng& generator) {
+	assert(!rs || rs->size() == torsions.size()); // if present, rs should be the same size as torsions
+	VINA_FOR_IN(i, torsions)
+		if(rs && random_fl(0, 1, generator) < rp)
+			torsions[i] = (*rs)[i];
+		else
+			torsions[i] += random_fl(-spread, spread, generator);
+}
+
+/* TODO: cloned badly */
+inline void torsions_generate(gflv& torsions, fl spread, fl rp, const gflv* rs, rng& generator) {
 	assert(!rs || rs->size() == torsions.size()); // if present, rs should be the same size as torsions
 	VINA_FOR_IN(i, torsions)
 		if(rs && random_fl(0, 1, generator) < rp)
@@ -126,7 +136,7 @@ struct rigid_conf {
 		else
 			mutate_orientation(orientation_spread, generator);
 	}
-	void apply(const vecv& in, vecv& out, sz begin, sz end) const {
+	void apply(const vecv& in, gvecv& out, sz begin, sz end) const {
 		assert(in.size() == out.size());
 		const mat m = quaternion_to_r3(orientation);
 		VINA_RANGE(i, begin, end)
@@ -145,18 +155,18 @@ private:
 	}
 };
 
-struct ligand_change {
+struct ligand_change : gpu_visible {
 	rigid_change rigid;
-	flv torsions;
+	gflv torsions;
 	void print() const {
 		rigid.print();
 		printnl(torsions);
 	}
 };
 
-struct ligand_conf {
+struct ligand_conf : gpu_visible {
 	rigid_conf rigid;
-	flv torsions;
+	gflv torsions;
 	void set_to_null() {
 		rigid.set_to_null();
 		torsions_set_to_null(torsions);
@@ -183,14 +193,14 @@ private:
 };
 
 struct residue_change {
-	flv torsions;
+	gflv torsions;
 	void print() const {
 		printnl(torsions);
 	}
 };
 
 struct residue_conf {
-	flv torsions;
+	gflv torsions;
 	void set_to_null() {
 		torsions_set_to_null(torsions);
 	}
@@ -211,8 +221,9 @@ private:
 	}
 };
 
+/* TODO */
 struct change {
-	std::vector<ligand_change> ligands;
+	gvector<ligand_change> ligands;
 	std::vector<residue_change> flex;
 	change(const conf_size& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
 		VINA_FOR_IN(i, ligands)
@@ -298,7 +309,7 @@ struct change {
 };
 
 struct conf {
-	std::vector<ligand_conf> ligands;
+	gvector<ligand_conf> ligands;
 	std::vector<residue_conf> flex;
 	conf() {}
 	conf(const conf_size& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
@@ -345,7 +356,7 @@ struct conf {
 		VINA_FOR_IN(i, ligands) {
 			ligands[i].rigid.position.assign(0);
 			ligands[i].rigid.orientation = qt_identity;
-			const flv* torsions_rs = rs ? (&rs->ligands[i].torsions) : NULL;
+			const gflv* torsions_rs = rs ? (&rs->ligands[i].torsions) : NULL;
 			torsions_generate(ligands[i].torsions, torsion_spread, rp, torsions_rs, generator);
 		}
 	}
@@ -355,7 +366,7 @@ struct conf {
 			ligands[i].rigid.generate(spread.position, spread.orientation, rp, rigid_conf_rs, generator);
 		}
 		VINA_FOR_IN(i, flex) {
-			const flv* torsions_rs = rs ? (&rs->flex[i].torsions) : NULL;
+			const gflv* torsions_rs = rs ? (&rs->flex[i].torsions) : NULL;
 			torsions_generate(flex[i].torsions, spread.torsion, rp, torsions_rs, generator);
 		}
 	}

@@ -210,8 +210,8 @@ public:
 	}
 
 	// ligands, flex, flex_context, atoms; also used for other_pairs
-	template<typename T>
-	void append(std::vector<T>& a, const std::vector<T>& b)
+	template<typename T, typename A>
+	void append(std::vector<T, A>& a, const std::vector<T, A>& b)
 	{ // first arg becomes aaaaaaaabbbbbbbbbbbbbbb
 		sz a_sz = a.size();
 		vector_append(a, b);
@@ -243,10 +243,10 @@ public:
 	}
 
 	// internal_coords, coords, minus_forces, atoms
-	template<typename T>
-	void coords_append(std::vector<T>& a, const std::vector<T>& b)
+	template<typename T, typename A>
+	void coords_append(std::vector<T, A>& a, const std::vector<T, A>& b)
 	{ // first arg becomes aaaaaaaabbbbbbbbbaab
-		std::vector<T> b_copy(b); // more straightforward to make a copy of b and transform that than to do piecewise transformations of the result
+		std::vector<T, A> b_copy(b); // more straightforward to make a copy of b and transform that than to do piecewise transformations of the result
 
 		is_a = true;
 		VINA_FOR_IN(i, a)
@@ -257,7 +257,7 @@ public:
 			update(b_copy[i]);
 
 		// interleave 
-		typedef typename std::vector<T>::const_iterator const cci;
+		typedef typename std::vector<T, A>::const_iterator const cci;
 		cci b1 = b_copy.begin();
 		cci b2 = b_copy.begin() + b_info.m_num_movable_atoms;
 		cci b3 = b_copy.end();
@@ -726,7 +726,7 @@ std::string coords_to_pdbqt_string(const vec& coords, const std::string& str)
 	return tmp;
 }
 
-void context::writePDBQT(const vecv& coords, std::ostream& out) const
+void context::writePDBQT(const gvecv& coords, std::ostream& out) const
 {
 	VINA_FOR_IN(i, pdbqttext)
 	{
@@ -759,7 +759,7 @@ void sdfcontext::dump(std::ostream& out) const
 }
 
 //output sdf format to out
-void sdfcontext::write(const vecv& coords, sz nummove, std::ostream& out) const
+void sdfcontext::write(const gvecv& coords, sz nummove, std::ostream& out) const
 {
 	const unsigned bsize = 1024;
 	char buff[bsize]; //since sprintf is just so much easier to use
@@ -820,21 +820,34 @@ void model::write_context(const context& c, std::ostream& out) const
 
 void model::seti(const conf& c)
 {
-	ligands.set_conf(atoms, internal_coords, c.ligands);
+    /* TODO */
+    assert(0);
+	/* ligands.set_conf(atoms, internal_coords, c.ligands); */
 }
 
 void model::sete(const conf& c)
 {
 	VINA_FOR_IN(i, ligands)
 		c.ligands[i].rigid.apply(internal_coords, coords, ligands[i].begin,
-				ligands[i].end);
-	flex.set_conf(atoms, coords, c.flex);
+                                 ligands[i].end);
+    /* TODO */
+	/* flex.set_conf(atoms, coords, c.flex); */
 }
 
 void model::set(const conf& c)
 {
 	ligands.set_conf(atoms, coords, c.ligands);
-	flex.set_conf(atoms, coords, c.flex);
+    /* TODO */
+	/* flex.set_conf(atoms, coords, c.flex); */
+}
+
+void model::set_gpu(const conf& c)
+{
+    assert(c.ligands.size() == 1);
+	set_conf_kernel<<<1,1>>>(lgpu.t, atoms, coords, c.ligands[0]);
+    /* lgpu.t.set_conf(atoms, coords, c.ligands[0]); */
+    /* TODO: flex */
+	/* flex.set_conf(atoms, coords, c.flex); */
 }
 
 //dkoes - return the string corresponding to i'th ligand atoms pdb information
@@ -848,6 +861,10 @@ std::string model::ligand_atom_str(sz i, sz lig) const
 	const context& cont = ligands[lig].cont;
 	for(sz c = 0, nc = cont.pdbqtsize(); c < nc; c++)
 	{
+        /* TODO: nvcc flags error here:
+           ../../../src/lib/model.cpp:862: warning: integer conversion
+           resulted in a change of sign
+        */
 		if(cont.pdbqttext[c].second.get_value_or(-1) == i)
 		{
 			pdbline = ligands[lig].cont.pdbqttext[c].first;
@@ -880,8 +897,9 @@ fl model::gyration_radius(sz ligand_number) const
 }
 
 fl model::eval_interacting_pairs(const precalculate& p, fl v,
-		const interacting_pairs& pairs, const vecv& coords) const
-		{ // clean up
+                                 const interacting_pairs& pairs,
+                                 const gvecv& coords) const
+{ // clean up
 	const fl cutoff_sqr = p.cutoff_sqr();
 	fl e = 0;
 	VINA_FOR_IN(i, pairs)
@@ -899,8 +917,9 @@ fl model::eval_interacting_pairs(const precalculate& p, fl v,
 }
 
 fl model::eval_interacting_pairs_deriv(const precalculate& p, fl v,
-		const interacting_pairs& pairs, const vecv& coords, vecv& forces) const
-		{ // adds to forces  // clean up
+                                       const interacting_pairs& pairs,
+                                       const gvecv& coords, gvecv& forces) const
+{ // adds to forces  // clean up
 	const fl cutoff_sqr = p.cutoff_sqr();
 	fl e = 0;
 	VINA_FOR_IN(i, pairs)
@@ -925,11 +944,16 @@ fl model::eval_interacting_pairs_deriv(const precalculate& p, fl v,
 }
 
 fl model::evali(const precalculate& p, const vec& v) const
-		{ // clean up
-	fl e = 0;
-	VINA_FOR_IN(i, ligands)
-		e += eval_interacting_pairs(p, v[0], ligands[i].pairs, internal_coords); // probably might was well use coords here
-	return e;
+{ // clean up
+
+    assert(0);
+    /* TODO */
+	/* fl e = 0; */
+	/* VINA_FOR_IN(i, ligands) */
+	/* 	e += eval_interacting_pairs(p, v[0], ligands[i].pairs, internal_coords); */
+    //probably might as well use coords here
+	/* return e; */
+    return 0;
 }
 
 fl model::evale(const precalculate& p, const igrid& ig, const vec& v) const
@@ -964,30 +988,28 @@ fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
 }
 
 fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
-		const conf& c, change& g, const grid& user_grid)
+                     const conf& c, change& g, const grid& user_grid)
 { // clean up
-	set(c);
-	// ig.eval_deriv uses non_cache; if it's non_cache_gpu we obtain energies
-	// and forces via scoring function evaluation in single_point_calc
+	set_gpu(c);
+    cudaDeviceSynchronize();
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
-	// this uses precalculate's eval_deriv and updates energies and forces for
-	// the movable parts of the system - ligands and flexible receptor
-	// residues (CHECK WITH DAVID)
-	// the first eval is for pairwise interactions between different molecules
-	// the second eval is intramolecular
-	e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
-			minus_forces); // adds to minus_forces
+	/* e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords, */
+	/* 		minus_forces); // adds to minus_forces */
 	VINA_FOR_IN(i, ligands)
 		e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
 				minus_forces); // adds to minus_forces
-	// calculate derivatives - resultant forces on subunits
-	ligands.derivative(coords, minus_forces, g.ligands);
-	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
+	// calculate derivatives
+    /* lgpu.t.derivative(coords, minus_forces, g.ligands[0]); */
+	derivatives_kernel<<<1,1>>>(lgpu.t, coords, minus_forces, g.ligands[0]);
+	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */
+
+    cudaDeviceSynchronize();
 	return e;
 }
 //evaluate interactiongs between all of flex (including rigid) and protein
 //will ignore grid_atoms greater than max
-fl model::eval_flex(const precalculate& p, const vec& v, const conf& c, unsigned maxGridAtom)
+fl model::eval_flex(const precalculate& p, const vec& v, const conf& c,
+                    unsigned maxGridAtom)
 {
 	set(c);
 	fl e = 0;
@@ -1028,8 +1050,7 @@ fl model::eval_flex(const precalculate& p, const vec& v, const conf& c, unsigned
 	return e;
 }
 
-fl model::eval_intramolecular(const precalculate& p, const vec& v,
-		const conf& c)
+fl model::eval_intramolecular(const precalculate& p, const vec& v, const conf& c)
 {
 	set(c);
 	fl e = 0;
@@ -1086,8 +1107,9 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
 }
 
 fl model::eval_adjusted(const scoring_function& sf, const precalculate& p,
-		const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy,
-		const grid& user_grid)
+                        const igrid& ig, const vec& v, const conf& c,
+                        fl intramolecular_energy,
+                        const grid& user_grid)
 {
 	fl e = eval(p, ig, v, c, user_grid); // sets c
 	return sf.conf_independent(*this, e - intramolecular_energy);
@@ -1248,6 +1270,15 @@ void model::print_stuff() const
 		printnl(a.coords);
 	}
 	about();
+}
+
+void model::print_counts(void) const
+{
+    std::cout
+        << "ligands :" << ligands.size() << "\n"
+        << "torsions: " << ligands.count_torsions()[0] << "\n"
+        << "lig atoms: " << coords.size() << "\n"
+        << "rec atoms(unpruned): " << grid_atoms.size() << "\n";
 }
 
 fl pairwise_clash_penalty(fl r, fl covalent_r)

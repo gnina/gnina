@@ -227,7 +227,9 @@ T block_sum(T mySum) {
 template<bool remainder> global
 void interaction_energy(const GPUNonCacheInfo dinfo,
                         unsigned remainder_offset,
-                        float slope, float v)
+                        float slope, float v,
+                        const atom_params *ligs,
+                        force_energy_tup *out)
 {
 	unsigned l = blockIdx.x;
 	unsigned r = blockDim.x - threadIdx.x - 1;
@@ -241,7 +243,7 @@ void interaction_energy(const GPUNonCacheInfo dinfo,
     
 	//now consider interaction with every possible receptor atom
 	//TODO: parallelize
-    atom_params lin = dinfo.lig_atoms[l];
+    atom_params lin = ligs[l];
     float3 xyz = lin.coords;
     
     float3 out_of_bounds_deriv = float3(0, 0, 0);
@@ -300,8 +302,8 @@ void interaction_energy(const GPUNonCacheInfo dinfo,
 	if (threadIdx.x == 0)
 	{
 		curl(this_e, (float *) &deriv, v);
-        dinfo.result[l] += force_energy_tup(deriv + out_of_bounds_deriv,
-                                            this_e + out_of_bounds_penalty);
+        out[l] += force_energy_tup(deriv + out_of_bounds_deriv,
+                                   this_e + out_of_bounds_penalty);
         /* xadd(&dinfo.result[l], force_energy_tup(deriv + out_of_bounds_deriv, */
         /*                                         this_e + out_of_bounds_penalty)); */
 	}
@@ -322,7 +324,9 @@ global void reduce_energy(force_energy_tup *result) {
 /* } */
 
 //host side of single point_calculation, energies and coords should already be initialized
-float single_point_calc(const GPUNonCacheInfo *info, force_energy_tup *out,
+float single_point_calc(const GPUNonCacheInfo *info,
+                        atom_params *ligs,
+                        force_energy_tup *out,
                         float slope, unsigned nlig_atoms,
                         unsigned nrec_atoms, float v)
 {
@@ -339,11 +343,11 @@ float single_point_calc(const GPUNonCacheInfo *info, force_energy_tup *out,
 	if (nfull_blocks)
 		interaction_energy<0>
             <<<dim3(nlig_atoms, nfull_blocks), THREADS_PER_BLOCK>>>
-            (*info, 0, slope, v);
+            (*info, 0, slope, v, ligs, out);
 	if (nthreads_remain) 
 		interaction_energy<1>
             <<<nlig_atoms,nthreads_remain>>>
-            (*info, nrec_atoms - nthreads_remain, slope, v);
+            (*info, nrec_atoms - nthreads_remain, slope, v, ligs, out);
     
 	//get total energy
 	reduce_energy<<<1, nlig_atoms>>>(out);
@@ -351,7 +355,5 @@ float single_point_calc(const GPUNonCacheInfo *info, force_energy_tup *out,
 	/* cudaStreamSynchronize(0); */
     abort_on_gpu_err();
     
-	force_energy_tup reduced;
-	cudaMemcpy(&reduced, out, sizeof(reduced), cudaMemcpyDeviceToHost);
-	return reduced.energy;
+	return out[0].energy;
 }

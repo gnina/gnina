@@ -1,7 +1,2 @@
-# BIN='~/git/gnina_clone/build/linux-gpu/debug/smina.gpu'
-# ARGS='-r receptor.pdb -l MP5.pdb --autobox_ligand MES.pdb --gpu'
-
-# $BIN $ARGS
-
-./smina.gpu -r receptor.pdb -l MP5.pdb --autobox_ligand MES.pdb --minimize --gpu
+./smina.gpu -r cox2.pdb -l cox2_low.sdf --autobox_ligand cox2_box.pdb --minimize --gpu
 

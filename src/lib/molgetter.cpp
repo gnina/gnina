@@ -154,6 +154,8 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 			}
 
 			m.append(tmp.m);
+            /* TODO: move */
+			m.lgpu = m.ligands[0];
 			return true;
 		}
 		catch (boost::archive::archive_exception& e)
@@ -168,6 +170,7 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 			return false; //can only read one
 		m.append(parse_ligand_pdbqt(lpath));
 		pdbqtdone = true;
+		m.lgpu = m.ligands[0];
 		return true;
 	}
 		break;
@@ -193,6 +196,7 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 				tmp.initialize(nr.mobility_matrix());
 
 				m.append(tmp.m);
+				m.lgpu = m.ligands[0];
 				return true;
 			}
 			catch (parse_error& e)
