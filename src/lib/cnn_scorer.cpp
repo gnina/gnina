@@ -145,7 +145,7 @@ float CNNScorer::score(const model& m)
 		{
 			const Dtype* out = outblob->cpu_data();
 			score += out[i];
-			cout << out[i] << "\n";
+			cout << "#Rotate " << out[i] << "\n";
 			cnt++;
 		}
 	}

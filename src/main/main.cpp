@@ -1253,9 +1253,6 @@ Thank you!\n";
 		bool output_produced = !settings.score_only;
 		bool receptor_needed = !settings.randomize_only;
 
-		if (cnnopts.cnn_scoring) //don't want to have to regrid receptor each time
-			search_box_needed = true;
-
 		if (receptor_needed)
 		{
 			if (vm.count("receptor") <= 0)
