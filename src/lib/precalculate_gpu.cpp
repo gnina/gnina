@@ -1,7 +1,7 @@
 #include "precalculate_gpu.h"
 #include "gpucode.h"
 
-//evaluates splines at t1/t2 and r, properly swapping result
+//evaluates splines at t1/t2 and r, properly swaping result
 component_pair precalculate_gpu::evaldata(smt t1, smt t2, fl r) const {
     if (t1 <= t2)
     {

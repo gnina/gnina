@@ -1006,6 +1006,7 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
     cudaDeviceSynchronize();
 	return e;
 }
+
 //evaluate interactiongs between all of flex (including rigid) and protein
 //will ignore grid_atoms greater than max
 fl model::eval_flex(const precalculate& p, const vec& v, const conf& c,
