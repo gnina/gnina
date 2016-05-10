@@ -5,6 +5,9 @@
 #include <utility>
 #include <vector>
 
+#include <boost/thread/locks.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/condition_variable.hpp>
 #include "caffe/blob.hpp"
 #include "caffe/data_transformer.hpp"
 #include "caffe/internal_thread.hpp"
@@ -24,7 +27,7 @@ class NDimDataLayer : public BasePrefetchingDataLayer<Dtype> {
  public:
   explicit NDimDataLayer(const LayerParameter& param)
       : BasePrefetchingDataLayer<Dtype>(param), actives_pos_(0),
-        decoys_pos_(0), all_pos_(0), example_size(0), num_rotations(0), current_rotation(0) {}
+        decoys_pos_(0), all_pos_(0), example_size(0), num_rotations(0), current_rotation(0),data_avail(0) {}
   virtual ~NDimDataLayer();
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -32,6 +35,11 @@ class NDimDataLayer : public BasePrefetchingDataLayer<Dtype> {
   virtual inline const char* type() const { return "NDimData"; }
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int ExactNumTopBlobs() const { return 2; }
+
+  virtual inline vector<Dtype>& getMemoryData() { return memdata; }
+  virtual void memoryIsSet(); //safe to read memory data now
+
+  virtual inline void resetRotation() { current_rotation = 0; }
 
  protected:
   shared_ptr<Caffe::RNG> prefetch_rng_;
@@ -50,6 +58,11 @@ class NDimDataLayer : public BasePrefetchingDataLayer<Dtype> {
   unsigned num_rotations;
   unsigned current_rotation;
   vector<int> top_shape;
+
+  vector<Dtype> memdata; //if inmemory is set, get data from here
+  int data_avail; //can be more than 1 if rotating
+  boost::mutex mem_mutex; //for guarding condition variable
+  boost::condition_variable mem_cond;
 
 };
 

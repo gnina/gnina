@@ -11,18 +11,26 @@ namespace caffe {
 template <typename Dtype>
 void MemoryDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
      const vector<Blob<Dtype>*>& top) {
-  batch_size_ = this->layer_param_.memory_data_param().batch_size();
-  channels_ = this->layer_param_.memory_data_param().channels();
-  height_ = this->layer_param_.memory_data_param().height();
-  width_ = this->layer_param_.memory_data_param().width();
-  size_ = channels_ * height_ * width_;
-  CHECK_GT(batch_size_ * size_, 0) <<
-      "batch_size, channels, height, and width must be specified and"
-      " positive in memory_data_param";
-  vector<int> label_shape(1, batch_size_);
-  top[0]->Reshape(batch_size_, channels_, height_, width_);
-  top[1]->Reshape(label_shape);
-  added_data_.Reshape(batch_size_, channels_, height_, width_);
+  int batchsz = this->layer_param_.memory_data_param().batch_size();
+  BlobShape sh =  this->layer_param_.memory_data_param().shape();
+
+  shape_.clear();
+  shape_.push_back(batchsz);
+  size_ = batchsz;
+  for (int i = 0, n = sh.dim_size(); i < n; ++i) {
+    shape_.push_back(sh.dim(i));
+    size_ *= sh.dim(i);
+  }
+
+  CHECK_GT(size_, 0) <<
+      "size must be positive in memory_data_parm";
+
+  vector<int> label_shape(1, batchsz);
+  top[0]->Reshape(shape_);
+  CHECK_GT(top.size(), 0) << "memory_data should have at least a data output";
+  if(top.size() > 1)
+	  top[1]->Reshape(label_shape);
+  added_data_.Reshape(shape_);
   added_label_.Reshape(label_shape);
   data_ = NULL;
   labels_ = NULL;
@@ -36,9 +44,11 @@ void MemoryDataLayer<Dtype>::AddDatumVector(const vector<Datum>& datum_vector) {
       "Can't add data until current data has been consumed.";
   size_t num = datum_vector.size();
   CHECK_GT(num, 0) << "There is no datum to add.";
-  CHECK_EQ(num % batch_size_, 0) <<
+  CHECK_EQ(num % shape_[0], 0) <<
       "The added data must be a multiple of the batch size.";
-  added_data_.Reshape(num, channels_, height_, width_);
+  vector<int> added_shape = shape_;
+  added_shape[0] = num;
+  added_data_.Reshape(added_shape);
   added_label_.Reshape(num, 1, 1, 1);
   // Apply data transformations (mirror, scale, crop...)
   this->data_transformer_->Transform(datum_vector, &added_data_);
@@ -61,9 +71,11 @@ void MemoryDataLayer<Dtype>::AddMatVector(const vector<cv::Mat>& mat_vector,
   CHECK(!has_new_data_) <<
       "Can't add mat until current data has been consumed.";
   CHECK_GT(num, 0) << "There is no mat to add";
-  CHECK_EQ(num % batch_size_, 0) <<
+  CHECK_EQ(num % shape_[0], 0) <<
       "The added data must be a multiple of the batch size.";
-  added_data_.Reshape(num, channels_, height_, width_);
+  vector<int> added_shape = shape_;
+  added_shape[0] = num;
+  added_data_.Reshape(added_shape);
   added_label_.Reshape(num, 1, 1, 1);
   // Apply data transformations (mirror, scale, crop...)
   this->data_transformer_->Transform(mat_vector, &added_data_);
@@ -83,7 +95,7 @@ template <typename Dtype>
 void MemoryDataLayer<Dtype>::Reset(Dtype* data, Dtype* labels, int n) {
   CHECK(data);
   CHECK(labels);
-  CHECK_EQ(n % batch_size_, 0) << "n must be a multiple of batch size";
+  CHECK_EQ(n % shape_[0], 0) << "n must be a multiple of batch size";
   // Warn with transformation parameters since a memory array is meant to
   // be generic and no transformations are done with Reset().
   if (this->layer_param_.has_transform_param()) {
@@ -99,20 +111,23 @@ template <typename Dtype>
 void MemoryDataLayer<Dtype>::set_batch_size(int new_size) {
   CHECK(!has_new_data_) <<
       "Can't change batch_size until current data has been consumed.";
-  batch_size_ = new_size;
-  added_data_.Reshape(batch_size_, channels_, height_, width_);
-  added_label_.Reshape(batch_size_, 1, 1, 1);
+  shape_[0] = new_size;
+  added_data_.Reshape(shape_);
+  added_label_.Reshape(new_size, 1, 1, 1);
 }
 
 template <typename Dtype>
 void MemoryDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
   CHECK(data_) << "MemoryDataLayer needs to be initalized by calling Reset";
-  top[0]->Reshape(batch_size_, channels_, height_, width_);
-  top[1]->Reshape(batch_size_, 1, 1, 1);
+  top[0]->Reshape(shape_);
   top[0]->set_cpu_data(data_ + pos_ * size_);
-  top[1]->set_cpu_data(labels_ + pos_);
-  pos_ = (pos_ + batch_size_) % n_;
+
+  if(top.size() > 1) {
+	  top[1]->Reshape(shape_[0], 1, 1, 1);
+  	  top[1]->set_cpu_data(labels_ + pos_);
+  }
+  pos_ = (pos_ + shape_[0]) % n_;
   if (pos_ == 0)
     has_new_data_ = false;
 }

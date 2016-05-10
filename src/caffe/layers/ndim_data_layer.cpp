@@ -47,62 +47,69 @@ void NDimDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   const bool balanced  = this->layer_param_.ndim_data_param().balanced();
   num_rotations = this->layer_param_.ndim_data_param().rotate();
   all_pos_ = actives_pos_ = decoys_pos_ = 0;
-  // Read the file with filenames and labels
-  const string& source = this->layer_param_.ndim_data_param().source();
-  LOG(INFO) << "Opening file " << source;
-  std::ifstream infile(source.c_str());
-  string line, fname;
-  vector<std::string> binmaps;
-
-  while (getline(infile, line)) {
-    stringstream example(line);
-    int label = 0;
-    //first the label
-    example >> label;
-    //then all binmaps for the example
-    binmaps.clear();
-
-    while(example >> fname) {
-      if(fname.length() > 0 && fname[0] == '#')
-        break; //ignore rest of line
-      binmaps.push_back(fname);
-    }
-
-    if(binmaps.size() == 0) //ignore empty lines
-      continue;
-      
-    all_.push_back(make_pair(binmaps,label));
-    if(label) actives_.push_back(binmaps);
-    else decoys_.push_back(binmaps);
-  }
-
-  if (this->layer_param_.ndim_data_param().shuffle()) {
-    // randomly shuffle data
-    LOG(INFO) << "Shuffling data";
-    const unsigned int prefetch_rng_seed = caffe_rng_rand();
-    prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
-    Shuffle();
-  }
-  LOG(INFO) << "A total of " << all_.size() << " examples.";
-
-  // Check if we would need to randomly skip a few data points
-  if (this->layer_param_.ndim_data_param().rand_skip()) {
-    unsigned int skip = caffe_rng_rand() %
-        this->layer_param_.ndim_data_param().rand_skip();
-    LOG(INFO) << "Skipping first " << skip << " data points.";
-    CHECK_GT(all_.size(), skip) << "Not enough points to skip";
-    all_pos_ = skip;
-    actives_pos_ = skip % actives_.size();
-    decoys_pos_ = skip % decoys_.size();
-
-  }
 
   //shape must come from parameters
   const int batch_size = this->layer_param_.ndim_data_param().batch_size();
   CHECK_GT(batch_size, 0) << "Positive batch size required";
 
-  if(balanced) {
-    CHECK_GT(batch_size, 1) << "Batch size must be > 1 with balanced option.";
+  if(!this->layer_param_.ndim_data_param().inmemory())
+  {
+		// Read the file with filenames and labels
+		const string& source = this->layer_param_.ndim_data_param().source();
+
+		LOG(INFO) << "Opening file " << source;
+		std::ifstream infile(source.c_str());
+		CHECK((bool)infile) << "Could not load " << source;
+
+
+		string line, fname;
+		vector<std::string> binmaps;
+
+		while (getline(infile, line)) {
+			stringstream example(line);
+			int label = 0;
+			//first the label
+			example >> label;
+			//then all binmaps for the example
+			binmaps.clear();
+
+			while(example >> fname) {
+				if(fname.length() > 0 && fname[0] == '#')
+					break; //ignore rest of line
+				binmaps.push_back(fname);
+			}
+
+			if(binmaps.size() == 0) //ignore empty lines
+				continue;
+
+			all_.push_back(make_pair(binmaps,label));
+			if(label) actives_.push_back(binmaps);
+			else decoys_.push_back(binmaps);
+		}
+
+		if (this->layer_param_.ndim_data_param().shuffle()) {
+			// randomly shuffle data
+			LOG(INFO) << "Shuffling data";
+			const unsigned int prefetch_rng_seed = caffe_rng_rand();
+			prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
+			Shuffle();
+		}
+		LOG(INFO) << "A total of " << all_.size() << " examples.";
+
+		// Check if we would need to randomly skip a few data points
+		if (this->layer_param_.ndim_data_param().rand_skip()) {
+			unsigned int skip = caffe_rng_rand() %
+					this->layer_param_.ndim_data_param().rand_skip();
+			LOG(INFO) << "Skipping first " << skip << " data points.";
+			CHECK_GT(all_.size(), skip) << "Not enough points to skip";
+			all_pos_ = skip;
+			actives_pos_ = skip % actives_.size();
+			decoys_pos_ = skip % decoys_.size();
+		}
+
+		if(balanced) {
+			CHECK_GT(batch_size, 1) << "Batch size must be > 1 with balanced option.";
+		}
   }
 
   vector<int> example_shape = blob2vec(this->layer_param_.ndim_data_param().shape());
@@ -305,6 +312,17 @@ void NDimDataLayer<Dtype>::rotate_data(Dtype *data, unsigned rot) {
 }
 
 
+template <typename Dtype>
+void NDimDataLayer<Dtype>::memoryIsSet()
+{
+	boost::unique_lock<boost::mutex> lock(mem_mutex);
+	if(num_rotations > 0) //generate all rotations
+		data_avail += num_rotations;
+	else
+		data_avail++;
+	mem_cond.notify_one();
+}
+
 // This function is called on prefetch thread
 template <typename Dtype>
 void NDimDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
@@ -312,6 +330,7 @@ void NDimDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
   batch_timer.Start();
   string root_folder = this->layer_param_.ndim_data_param().root_folder();
   const bool balanced  = this->layer_param_.ndim_data_param().balanced();
+  const bool inmem = this->layer_param_.ndim_data_param().inmemory();
 
   CHECK(batch->data_.count());
   CHECK(this->transformed_data_.count());
@@ -324,72 +343,93 @@ void NDimDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
   Dtype* prefetch_data = batch->data_.mutable_cpu_data();
   Dtype* prefetch_label = batch->label_.mutable_cpu_data();
 
-  if(balanced) { //load equally from actives/decoys
-    unsigned nactives = batch_size/2;
+  if(inmem) {
+  	boost::unique_lock<boost::mutex> lock(mem_mutex);
+  	while(data_avail == 0)
+  	{
+  		mem_cond.wait(lock);
+  	}
+  	data_avail--;
 
-    int item_id = 0;
-    unsigned asz = actives_.size();
-    for (item_id = 0; item_id < nactives; ++item_id) {
-      offind[0] = item_id;
-      int offset = batch->data_.offset(offind);
-      load_data_from_files(prefetch_data+offset, root_folder, actives_[actives_pos_]);
-      prefetch_label[item_id] = 1;
+  	//memory is now available
+  	CHECK_EQ(batch->data_.count(), memdata.size()) << "Mismatch in ndim memory size";
+  	memcpy(prefetch_data, &memdata[0], memdata.size()*sizeof(float));
 
-      actives_pos_++;
-      if(actives_pos_ >= asz) {
-        DLOG(INFO) << "Restarting actives data prefetching from start.";
-        actives_pos_ = 0;
-        if (this->layer_param_.ndim_data_param().shuffle()) {
-          shuffle(actives_.begin(), actives_.end(), static_cast<caffe::rng_t*>(prefetch_rng_->generator()));
-        }
-        if (num_rotations > 0) {
-          current_rotation = (current_rotation+1)%num_rotations;
-        }
-      }
-    }
-    unsigned dsz = decoys_.size();
-    for (; item_id < batch_size; ++item_id) {
-      offind[0] = item_id;
-      int offset = batch->data_.offset(offind);
-      load_data_from_files(prefetch_data+offset, root_folder, decoys_[decoys_pos_]);
-      prefetch_label[item_id] = 0;
-
-      decoys_pos_++;
-      if(decoys_pos_ >= dsz) {
-        DLOG(INFO) << "Restarting decoys data prefetching from start.";
-        decoys_pos_ = 0;
-        if (this->layer_param_.ndim_data_param().shuffle()) {
-          shuffle(decoys_.begin(), decoys_.end(), static_cast<caffe::rng_t*>(prefetch_rng_->generator()));
-        }
-        if (num_rotations > 0) {
-          current_rotation = (current_rotation+1)%num_rotations;
-        }
-      }
+    if(current_rotation > 0) {
+      rotate_data(prefetch_data, current_rotation);
     }
 
-  } else {
-    //load from all
-    unsigned sz = all_.size();
-    for (int item_id = 0; item_id < batch_size; ++item_id) {
-      offind[0] = item_id;
-      int offset = batch->data_.offset(offind);
-      load_data_from_files(prefetch_data+offset, root_folder, all_[all_pos_].first);
-      prefetch_label[item_id] = all_[all_pos_].second;
-
-      all_pos_++;
-      if(all_pos_ >= sz) {
-        DLOG(INFO) << "Restarting data prefetching from start.";
-        all_pos_ = 0;
-        if (this->layer_param_.ndim_data_param().shuffle()) {
-          shuffle(all_.begin(), all_.end(), static_cast<caffe::rng_t*>(prefetch_rng_->generator()));
-        }
-        if (num_rotations > 0) {
-          current_rotation = (current_rotation+1)%num_rotations;
-        }
-      }
-    }
+		if (num_rotations > 0) {
+			current_rotation = (current_rotation+1)%num_rotations;
+		}
   }
+  else {
+		if(balanced) { //load equally from actives/decoys
+			unsigned nactives = batch_size/2;
 
+			int item_id = 0;
+			unsigned asz = actives_.size();
+			for (item_id = 0; item_id < nactives; ++item_id) {
+				offind[0] = item_id;
+				int offset = batch->data_.offset(offind);
+				load_data_from_files(prefetch_data+offset, root_folder, actives_[actives_pos_]);
+				prefetch_label[item_id] = 1;
+
+				actives_pos_++;
+				if(actives_pos_ >= asz) {
+					DLOG(INFO) << "Restarting actives data prefetching from start.";
+					actives_pos_ = 0;
+					if (this->layer_param_.ndim_data_param().shuffle()) {
+						shuffle(actives_.begin(), actives_.end(), static_cast<caffe::rng_t*>(prefetch_rng_->generator()));
+					}
+					if (num_rotations > 0) {
+						current_rotation = (current_rotation+1)%num_rotations;
+					}
+				}
+			}
+			unsigned dsz = decoys_.size();
+			for (; item_id < batch_size; ++item_id) {
+				offind[0] = item_id;
+				int offset = batch->data_.offset(offind);
+				load_data_from_files(prefetch_data+offset, root_folder, decoys_[decoys_pos_]);
+				prefetch_label[item_id] = 0;
+
+				decoys_pos_++;
+				if(decoys_pos_ >= dsz) {
+					DLOG(INFO) << "Restarting decoys data prefetching from start.";
+					decoys_pos_ = 0;
+					if (this->layer_param_.ndim_data_param().shuffle()) {
+						shuffle(decoys_.begin(), decoys_.end(), static_cast<caffe::rng_t*>(prefetch_rng_->generator()));
+					}
+					if (num_rotations > 0) {
+						current_rotation = (current_rotation+1)%num_rotations;
+					}
+				}
+			}
+
+		} else {
+			//load from all
+			unsigned sz = all_.size();
+			for (int item_id = 0; item_id < batch_size; ++item_id) {
+				offind[0] = item_id;
+				int offset = batch->data_.offset(offind);
+				load_data_from_files(prefetch_data+offset, root_folder, all_[all_pos_].first);
+				prefetch_label[item_id] = all_[all_pos_].second;
+
+				all_pos_++;
+				if(all_pos_ >= sz) {
+					DLOG(INFO) << "Restarting data prefetching from start.";
+					all_pos_ = 0;
+					if (this->layer_param_.ndim_data_param().shuffle()) {
+						shuffle(all_.begin(), all_.end(), static_cast<caffe::rng_t*>(prefetch_rng_->generator()));
+					}
+					if (num_rotations > 0) {
+						current_rotation = (current_rotation+1)%num_rotations;
+					}
+				}
+			}
+		}
+  }
 
   batch_timer.Stop();
   DLOG(INFO) << "Prefetch batch: " << batch_timer.MilliSeconds() << " ms.";

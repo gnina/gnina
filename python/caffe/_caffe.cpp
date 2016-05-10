@@ -116,8 +116,8 @@ void Net_SetInputArrays(Net<Dtype>* net, bp::object data_obj,
       reinterpret_cast<PyArrayObject*>(data_obj.ptr());
   PyArrayObject* labels_arr =
       reinterpret_cast<PyArrayObject*>(labels_obj.ptr());
-  CheckContiguousArray(data_arr, "data array", md_layer->channels(),
-      md_layer->height(), md_layer->width());
+  CheckContiguousArray(data_arr, "data array", md_layer->shape()[1],
+      md_layer->shape()[2], md_layer->shape()[3]);
   CheckContiguousArray(labels_arr, "labels array", 1, 1, 1);
   if (PyArray_DIMS(data_arr)[0] != PyArray_DIMS(labels_arr)[0]) {
     throw std::runtime_error("data and labels must have the same first"
@@ -212,6 +212,9 @@ BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(SolveOverloads, Solve, 0, 1);
 BOOST_PYTHON_MODULE(_caffe) {
   // below, we prepend an underscore to methods that will be replaced
   // in Python
+
+  bp::scope().attr("__version__") = AS_STRING(CAFFE_VERSION);
+
   // Caffe utility functions
   bp::def("set_mode_cpu", &set_mode_cpu);
   bp::def("set_mode_gpu", &set_mode_gpu);
@@ -252,6 +255,7 @@ BOOST_PYTHON_MODULE(_caffe) {
     .def("_set_input_arrays", &Net_SetInputArrays,
         bp::with_custodian_and_ward<1, 2, bp::with_custodian_and_ward<1, 3> >())
     .def("save", &Net_Save);
+  bp::register_ptr_to_python<shared_ptr<Net<Dtype> > >();
 
   bp::class_<Blob<Dtype>, shared_ptr<Blob<Dtype> >, boost::noncopyable>(
     "Blob", bp::no_init)
@@ -271,6 +275,7 @@ BOOST_PYTHON_MODULE(_caffe) {
           NdarrayCallPolicies()))
     .add_property("diff",     bp::make_function(&Blob<Dtype>::mutable_cpu_diff,
           NdarrayCallPolicies()));
+  bp::register_ptr_to_python<shared_ptr<Blob<Dtype> > >();
 
   bp::class_<Layer<Dtype>, shared_ptr<PythonLayer<Dtype> >,
     boost::noncopyable>("Layer", bp::init<const LayerParameter&>())
@@ -298,6 +303,8 @@ BOOST_PYTHON_MODULE(_caffe) {
     .def("get_base_lr", &Solver<Dtype>::get_base_lr)
     .def("set_base_lr", &Solver<Dtype>::set_base_lr)
     ;
+
+  bp::register_ptr_to_python<shared_ptr<Solver<Dtype> > >();
 
   bp::class_<SGDSolver<Dtype>, bp::bases<Solver<Dtype> >,
     shared_ptr<SGDSolver<Dtype> >, boost::noncopyable>(
