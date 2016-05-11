@@ -5,7 +5,7 @@ C_OPTIONS= -O3 -g
 BOOST_LIB_VERSION=
 NVCC=nvcc
 NVOPTS=-std=c++11 -gencode arch=compute_52,code=sm_52 -O3
-OPENBABEL_INCLUDE=/usr/include/openbabel-2.0
+OPENBABEL_INCLUDE=/usr/local/include/openbabel-2.0
 GPUOBJ = gpucode.o
 
 include ../../makefile_common

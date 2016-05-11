@@ -4,7 +4,6 @@
 
 #ifndef __GPUCODE_H
 #define __GPUCODE_H
-//everything is guarded by SMINA_GPU
 // CUDA runtime
 #include <cuda_runtime.h>
 #include <vector>

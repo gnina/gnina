@@ -26,7 +26,7 @@ LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -l boost_timer${BOOST
 	$(CC) -I ../../../src/lib -o $@ -dc $< 
 
 %.o : ../../../src/lib/%.cu ../../../src/lib/*gpu.h
-	$(NVCC) $(NVOPTS) -DSMINA_GPU -o $@ -dc $< 
+	$(NVCC) $(NVOPTS) -o $@ -dc $< 
 
 all: gnina tognina gninaserver libgnina.a gninagrid
 
