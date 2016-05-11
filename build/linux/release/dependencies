@@ -7,6 +7,7 @@
 ./GninaConverter.o: ../../../src/lib/file.h
 ./GninaConverter.o: ../../../src/lib/common.h
 ./GninaConverter.o: ../../../src/lib/macros.h
+./GninaConverter.o: ../../../src/lib/gpu_mem.h
 ./GninaConverter.o: ../../../src/lib/tree.h
 ./GninaConverter.o: ../../../src/lib/conf.h
 ./GninaConverter.o: ../../../src/lib/quaternion.h
@@ -16,6 +17,7 @@
 ./GninaConverter.o: ../../../src/lib/atom_type.h
 ./GninaConverter.o: ../../../src/lib/atom_constants.h
 ./GninaConverter.o: ../../../src/lib/triangular_matrix_index.h
+./GninaConverter.o: ../../../src/lib/tree_gpu.h
 ./GninaConverter.o: ../../../src/lib/matrix.h
 ./GninaConverter.o: ../../../src/lib/precalculate.h
 ./GninaConverter.o: ../../../src/lib/scoring_function.h
@@ -182,6 +184,7 @@
 ./PDBQTUtilities.o: ../../../src/lib/file.h
 ./PDBQTUtilities.o: ../../../src/lib/common.h
 ./PDBQTUtilities.o: ../../../src/lib/macros.h
+./PDBQTUtilities.o: ../../../src/lib/gpu_mem.h
 ./PDBQTUtilities.o: ../../../src/lib/tree.h
 ./PDBQTUtilities.o: ../../../src/lib/conf.h
 ./PDBQTUtilities.o: ../../../src/lib/quaternion.h
@@ -191,6 +194,7 @@
 ./PDBQTUtilities.o: ../../../src/lib/atom_type.h
 ./PDBQTUtilities.o: ../../../src/lib/atom_constants.h
 ./PDBQTUtilities.o: ../../../src/lib/triangular_matrix_index.h
+./PDBQTUtilities.o: ../../../src/lib/tree_gpu.h
 ./PDBQTUtilities.o: ../../../src/lib/matrix.h
 ./PDBQTUtilities.o: ../../../src/lib/precalculate.h
 ./PDBQTUtilities.o: ../../../src/lib/scoring_function.h
@@ -349,8 +353,12 @@
 ./PDBQTUtilities.o: ../../../src/lib/curl.h
 ./PDBQTUtilities.o: ../../../src/lib/convert_substring.h
 ./PDBQTUtilities.o: ../../../src/lib/parse_error.h
+./atom_constants.o: ../../../src/lib/atom_constants.h
+./atom_constants.o: ../../../src/lib/common.h
+./atom_constants.o: ../../../src/lib/macros.h
+./atom_constants.o: ../../../src/lib/gpu_mem.h
 ./box.o: ../../../src/lib/box.h ../../../src/lib/common.h
-./box.o: ../../../src/lib/macros.h
+./box.o: ../../../src/lib/macros.h ../../../src/lib/gpu_mem.h
 ./box.o: ../../../src/lib/obmolopener.h
 ./builtinscoring.o: ../../../src/lib/builtinscoring.h
 ./builtinscoring.o: ../../../src/lib/custom_terms.h
@@ -359,6 +367,7 @@
 ./builtinscoring.o: ../../../src/lib/file.h
 ./builtinscoring.o: ../../../src/lib/common.h
 ./builtinscoring.o: ../../../src/lib/macros.h
+./builtinscoring.o: ../../../src/lib/gpu_mem.h
 ./builtinscoring.o: ../../../src/lib/tree.h
 ./builtinscoring.o: ../../../src/lib/conf.h
 ./builtinscoring.o: ../../../src/lib/quaternion.h
@@ -368,6 +377,7 @@
 ./builtinscoring.o: ../../../src/lib/atom_type.h
 ./builtinscoring.o: ../../../src/lib/atom_constants.h
 ./builtinscoring.o: ../../../src/lib/triangular_matrix_index.h
+./builtinscoring.o: ../../../src/lib/tree_gpu.h
 ./builtinscoring.o: ../../../src/lib/matrix.h
 ./builtinscoring.o: ../../../src/lib/precalculate.h
 ./builtinscoring.o: ../../../src/lib/scoring_function.h
@@ -528,7 +538,8 @@
 ./builtinscoring.o: ../../../src/lib/everything.h
 ./cache.o: ../../../src/lib/cache.h ../../../src/lib/igrid.h
 ./cache.o: ../../../src/lib/common.h ../../../src/lib/macros.h
-./cache.o: ../../../src/lib/grid.h ../../../src/lib/array3d.h
+./cache.o: ../../../src/lib/gpu_mem.h ../../../src/lib/grid.h
+./cache.o: ../../../src/lib/array3d.h
 ./cache.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
 ./cache.o: ../../../src/lib/result_components.h
 ./cache.o: ../../../src/lib/atom_base.h
@@ -539,7 +550,9 @@
 ./cache.o: ../../../src/lib/file.h ../../../src/lib/tree.h
 ./cache.o: ../../../src/lib/conf.h
 ./cache.o: ../../../src/lib/quaternion.h
-./cache.o: ../../../src/lib/random.h ../../../src/lib/matrix.h
+./cache.o: ../../../src/lib/random.h
+./cache.o: ../../../src/lib/tree_gpu.h
+./cache.o: ../../../src/lib/matrix.h
 ./cache.o: ../../../src/lib/precalculate.h
 ./cache.o: ../../../src/lib/scoring_function.h
 ./cache.o: ../../../src/lib/splines.h
@@ -695,6 +708,7 @@
 ./coords.o: ../../../src/lib/quaternion.h
 ./coords.o: ../../../src/lib/common.h
 ./coords.o: ../../../src/lib/macros.h
+./coords.o: ../../../src/lib/gpu_mem.h
 ./coords.o: ../../../src/lib/random.h ../../../src/lib/atom.h
 ./coords.o: ../../../src/lib/atom_base.h
 ./coords.o: ../../../src/lib/atom_type.h
@@ -706,6 +720,7 @@
 ./custom_terms.o: ../../../src/lib/file.h
 ./custom_terms.o: ../../../src/lib/common.h
 ./custom_terms.o: ../../../src/lib/macros.h
+./custom_terms.o: ../../../src/lib/gpu_mem.h
 ./custom_terms.o: ../../../src/lib/tree.h
 ./custom_terms.o: ../../../src/lib/conf.h
 ./custom_terms.o: ../../../src/lib/quaternion.h
@@ -715,6 +730,7 @@
 ./custom_terms.o: ../../../src/lib/atom_type.h
 ./custom_terms.o: ../../../src/lib/atom_constants.h
 ./custom_terms.o: ../../../src/lib/triangular_matrix_index.h
+./custom_terms.o: ../../../src/lib/tree_gpu.h
 ./custom_terms.o: ../../../src/lib/matrix.h
 ./custom_terms.o: ../../../src/lib/precalculate.h
 ./custom_terms.o: ../../../src/lib/scoring_function.h
@@ -879,6 +895,7 @@
 ./everything.o: ../../../src/lib/file.h
 ./everything.o: ../../../src/lib/common.h
 ./everything.o: ../../../src/lib/macros.h
+./everything.o: ../../../src/lib/gpu_mem.h
 ./everything.o: ../../../src/lib/tree.h
 ./everything.o: ../../../src/lib/conf.h
 ./everything.o: ../../../src/lib/quaternion.h
@@ -888,6 +905,7 @@
 ./everything.o: ../../../src/lib/atom_type.h
 ./everything.o: ../../../src/lib/atom_constants.h
 ./everything.o: ../../../src/lib/triangular_matrix_index.h
+./everything.o: ../../../src/lib/tree_gpu.h
 ./everything.o: ../../../src/lib/matrix.h
 ./everything.o: ../../../src/lib/precalculate.h
 ./everything.o: ../../../src/lib/scoring_function.h
@@ -1048,10 +1066,12 @@
 ./flexinfo.o: ../../../src/lib/flexinfo.h
 ./flexinfo.o: ../../../src/lib/obmolopener.h
 ./flexinfo.o: ../../../src/lib/box.h ../../../src/lib/common.h
-./flexinfo.o: ../../../src/lib/macros.h ../../../src/lib/tee.h
-./flexinfo.o: ../../../src/lib/file.h
+./flexinfo.o: ../../../src/lib/macros.h
+./flexinfo.o: ../../../src/lib/gpu_mem.h
+./flexinfo.o: ../../../src/lib/tee.h ../../../src/lib/file.h
 ./grid.o: ../../../src/lib/grid.h ../../../src/lib/array3d.h
 ./grid.o: ../../../src/lib/common.h ../../../src/lib/macros.h
+./grid.o: ../../../src/lib/gpu_mem.h
 ./grid.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
 ./grid.o: ../../../src/lib/result_components.h
 ./grid.o: ../../../src/lib/atom_base.h
@@ -1061,13 +1081,15 @@
 ./grid.o: ../../../src/lib/atom.h
 ./model.o: ../../../src/lib/model.h ../../../src/lib/file.h
 ./model.o: ../../../src/lib/common.h ../../../src/lib/macros.h
-./model.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
+./model.o: ../../../src/lib/gpu_mem.h ../../../src/lib/tree.h
+./model.o: ../../../src/lib/conf.h
 ./model.o: ../../../src/lib/quaternion.h
 ./model.o: ../../../src/lib/random.h ../../../src/lib/atom.h
 ./model.o: ../../../src/lib/atom_base.h
 ./model.o: ../../../src/lib/atom_type.h
 ./model.o: ../../../src/lib/atom_constants.h
 ./model.o: ../../../src/lib/triangular_matrix_index.h
+./model.o: ../../../src/lib/tree_gpu.h
 ./model.o: ../../../src/lib/matrix.h
 ./model.o: ../../../src/lib/precalculate.h
 ./model.o: ../../../src/lib/scoring_function.h
@@ -1227,6 +1249,7 @@
 ./molgetter.o: ../../../src/lib/file.h
 ./molgetter.o: ../../../src/lib/common.h
 ./molgetter.o: ../../../src/lib/macros.h
+./molgetter.o: ../../../src/lib/gpu_mem.h
 ./molgetter.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
 ./molgetter.o: ../../../src/lib/quaternion.h
 ./molgetter.o: ../../../src/lib/random.h
@@ -1235,6 +1258,7 @@
 ./molgetter.o: ../../../src/lib/atom_type.h
 ./molgetter.o: ../../../src/lib/atom_constants.h
 ./molgetter.o: ../../../src/lib/triangular_matrix_index.h
+./molgetter.o: ../../../src/lib/tree_gpu.h
 ./molgetter.o: ../../../src/lib/matrix.h
 ./molgetter.o: ../../../src/lib/precalculate.h
 ./molgetter.o: ../../../src/lib/scoring_function.h
@@ -1406,6 +1430,7 @@
 ./monte_carlo.o: ../../../src/lib/file.h
 ./monte_carlo.o: ../../../src/lib/common.h
 ./monte_carlo.o: ../../../src/lib/macros.h
+./monte_carlo.o: ../../../src/lib/gpu_mem.h
 ./monte_carlo.o: ../../../src/lib/tree.h
 ./monte_carlo.o: ../../../src/lib/conf.h
 ./monte_carlo.o: ../../../src/lib/quaternion.h
@@ -1415,6 +1440,7 @@
 ./monte_carlo.o: ../../../src/lib/atom_type.h
 ./monte_carlo.o: ../../../src/lib/atom_constants.h
 ./monte_carlo.o: ../../../src/lib/triangular_matrix_index.h
+./monte_carlo.o: ../../../src/lib/tree_gpu.h
 ./monte_carlo.o: ../../../src/lib/matrix.h
 ./monte_carlo.o: ../../../src/lib/precalculate.h
 ./monte_carlo.o: ../../../src/lib/scoring_function.h
@@ -1577,7 +1603,8 @@
 ./monte_carlo.o: ../../../src/lib/quasi_newton.h
 ./mutate.o: ../../../src/lib/mutate.h ../../../src/lib/model.h
 ./mutate.o: ../../../src/lib/file.h ../../../src/lib/common.h
-./mutate.o: ../../../src/lib/macros.h ../../../src/lib/tree.h
+./mutate.o: ../../../src/lib/macros.h
+./mutate.o: ../../../src/lib/gpu_mem.h ../../../src/lib/tree.h
 ./mutate.o: ../../../src/lib/conf.h
 ./mutate.o: ../../../src/lib/quaternion.h
 ./mutate.o: ../../../src/lib/random.h ../../../src/lib/atom.h
@@ -1585,6 +1612,7 @@
 ./mutate.o: ../../../src/lib/atom_type.h
 ./mutate.o: ../../../src/lib/atom_constants.h
 ./mutate.o: ../../../src/lib/triangular_matrix_index.h
+./mutate.o: ../../../src/lib/tree_gpu.h
 ./mutate.o: ../../../src/lib/matrix.h
 ./mutate.o: ../../../src/lib/precalculate.h
 ./mutate.o: ../../../src/lib/scoring_function.h
@@ -1745,6 +1773,7 @@
 ./naive_non_cache.o: ../../../src/lib/igrid.h
 ./naive_non_cache.o: ../../../src/lib/common.h
 ./naive_non_cache.o: ../../../src/lib/macros.h
+./naive_non_cache.o: ../../../src/lib/gpu_mem.h
 ./naive_non_cache.o: ../../../src/lib/grid.h
 ./naive_non_cache.o: ../../../src/lib/array3d.h
 ./naive_non_cache.o: ../../../src/lib/grid_dim.h
@@ -1761,6 +1790,7 @@
 ./naive_non_cache.o: ../../../src/lib/conf.h
 ./naive_non_cache.o: ../../../src/lib/quaternion.h
 ./naive_non_cache.o: ../../../src/lib/random.h
+./naive_non_cache.o: ../../../src/lib/tree_gpu.h
 ./naive_non_cache.o: ../../../src/lib/matrix.h
 ./naive_non_cache.o: ../../../src/lib/precalculate.h
 ./naive_non_cache.o: ../../../src/lib/scoring_function.h
@@ -1915,6 +1945,7 @@
 ./non_cache.o: ../../../src/lib/igrid.h
 ./non_cache.o: ../../../src/lib/common.h
 ./non_cache.o: ../../../src/lib/macros.h
+./non_cache.o: ../../../src/lib/gpu_mem.h
 ./non_cache.o: ../../../src/lib/grid.h
 ./non_cache.o: ../../../src/lib/array3d.h
 ./non_cache.o: ../../../src/lib/grid_dim.h
@@ -1931,6 +1962,7 @@
 ./non_cache.o: ../../../src/lib/conf.h
 ./non_cache.o: ../../../src/lib/quaternion.h
 ./non_cache.o: ../../../src/lib/random.h
+./non_cache.o: ../../../src/lib/tree_gpu.h
 ./non_cache.o: ../../../src/lib/matrix.h
 ./non_cache.o: ../../../src/lib/precalculate.h
 ./non_cache.o: ../../../src/lib/scoring_function.h
@@ -2082,13 +2114,195 @@
 ./non_cache.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./non_cache.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
 ./non_cache.o: ../../../src/lib/brick.h
+./non_cache.o: ../../../src/lib/loop_timer.h
+./non_cache_gpu.o: ../../../src/lib/non_cache_gpu.h
+./non_cache_gpu.o: ../../../src/lib/non_cache.h
+./non_cache_gpu.o: ../../../src/lib/igrid.h
+./non_cache_gpu.o: ../../../src/lib/common.h
+./non_cache_gpu.o: ../../../src/lib/macros.h
+./non_cache_gpu.o: ../../../src/lib/gpu_mem.h
+./non_cache_gpu.o: ../../../src/lib/grid.h
+./non_cache_gpu.o: ../../../src/lib/array3d.h
+./non_cache_gpu.o: ../../../src/lib/grid_dim.h
+./non_cache_gpu.o: ../../../src/lib/curl.h
+./non_cache_gpu.o: ../../../src/lib/result_components.h
+./non_cache_gpu.o: ../../../src/lib/atom_base.h
+./non_cache_gpu.o: ../../../src/lib/atom_type.h
+./non_cache_gpu.o: ../../../src/lib/atom_constants.h
+./non_cache_gpu.o: ../../../src/lib/triangular_matrix_index.h
+./non_cache_gpu.o: ../../../src/lib/atom.h
+./non_cache_gpu.o: ../../../src/lib/szv_grid.h
+./non_cache_gpu.o: ../../../src/lib/model.h
+./non_cache_gpu.o: ../../../src/lib/file.h
+./non_cache_gpu.o: ../../../src/lib/tree.h
+./non_cache_gpu.o: ../../../src/lib/conf.h
+./non_cache_gpu.o: ../../../src/lib/quaternion.h
+./non_cache_gpu.o: ../../../src/lib/random.h
+./non_cache_gpu.o: ../../../src/lib/tree_gpu.h
+./non_cache_gpu.o: ../../../src/lib/matrix.h
+./non_cache_gpu.o: ../../../src/lib/precalculate.h
+./non_cache_gpu.o: ../../../src/lib/scoring_function.h
+./non_cache_gpu.o: ../../../src/lib/splines.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/Core
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/util/Macros.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/util/MKL_support.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/util/Constants.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/util/ForwardDeclarations.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/util/Meta.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/util/XprHelper.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/util/StaticAssert.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/util/Memory.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/NumTraits.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/MathFunctions.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/GenericPacketMath.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/arch/Default/Settings.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Functors.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/DenseCoeffsBase.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/DenseBase.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/plugins/BlockMethods.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/MatrixBase.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/plugins/CommonCwiseUnaryOps.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/plugins/CommonCwiseBinaryOps.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/plugins/MatrixCwiseUnaryOps.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/plugins/MatrixCwiseBinaryOps.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/EigenBase.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Assign.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/util/BlasUtil.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/DenseStorage.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/NestByValue.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/ForceAlignedAccess.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/ReturnByValue.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/NoAlias.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/PlainObjectBase.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Matrix.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Array.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/CwiseBinaryOp.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/CwiseUnaryOp.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/CwiseNullaryOp.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/CwiseUnaryView.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/SelfCwiseBinaryOp.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Dot.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/StableNorm.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/MapBase.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Stride.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Map.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Block.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/VectorBlock.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Transpose.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/DiagonalMatrix.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Diagonal.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/DiagonalProduct.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/PermutationMatrix.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Transpositions.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Redux.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Visitor.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Fuzzy.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/IO.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Swap.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/CommaInitializer.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Flagged.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/ProductBase.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/GeneralProduct.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/TriangularMatrix.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/SelfAdjointView.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/products/GeneralBlockPanelKernel.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/products/Parallelizer.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/products/CoeffBasedProduct.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/products/GeneralMatrixVector.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/products/GeneralMatrixMatrix.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/SolveTriangular.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/products/GeneralMatrixMatrixTriangular.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/products/SelfadjointMatrixVector.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/products/SelfadjointMatrixMatrix.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/products/SelfadjointProduct.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/products/SelfadjointRank2Update.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/products/TriangularMatrixVector.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/products/TriangularMatrixMatrix.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/products/TriangularSolverMatrix.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/products/TriangularSolverVector.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/BandMatrix.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/BooleanRedux.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Select.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/VectorwiseOp.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Random.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Replicate.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/Reverse.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/ArrayBase.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/plugins/ArrayCwiseUnaryOps.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/plugins/ArrayCwiseBinaryOps.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/ArrayWrapper.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/GlobalFunctions.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Core/util/ReenableStupidWarnings.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/Dense
+./non_cache_gpu.o: ../../../src/lib/Eigen/Core
+./non_cache_gpu.o: ../../../src/lib/Eigen/LU
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/misc/Solve.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/misc/Kernel.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/misc/Image.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/LU/FullPivLU.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/LU/PartialPivLU.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/LU/Determinant.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/LU/Inverse.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/Cholesky
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Cholesky/LLT.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Cholesky/LDLT.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/QR
+./non_cache_gpu.o: ../../../src/lib/Eigen/Jacobi
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Jacobi/Jacobi.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/Householder
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Householder/Householder.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Householder/HouseholderSequence.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Householder/BlockHouseholder.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/QR/HouseholderQR.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/QR/FullPivHouseholderQR.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/QR/ColPivHouseholderQR.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/SVD
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/SVD/JacobiSVD.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/SVD/UpperBidiagonalization.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/Geometry
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Geometry/OrthoMethods.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Geometry/EulerAngles.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Geometry/Homogeneous.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Geometry/RotationBase.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Geometry/Rotation2D.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Geometry/Quaternion.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Geometry/AngleAxis.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Geometry/Transform.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Geometry/Translation.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Geometry/Scaling.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Geometry/Hyperplane.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Geometry/ParametrizedLine.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Geometry/AlignedBox.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Geometry/Umeyama.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/Eigenvalues
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/Tridiagonalization.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/RealSchur.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/./HessenbergDecomposition.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/EigenSolver.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/./RealSchur.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/SelfAdjointEigenSolver.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/./Tridiagonalization.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/GeneralizedSelfAdjointEigenSolver.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/HessenbergDecomposition.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexSchur.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
+./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
+./non_cache_gpu.o: ../../../src/lib/brick.h
+./non_cache_gpu.o: ../../../src/lib/precalculate_gpu.h
+./non_cache_gpu.o: ../../../src/lib/gpucode.h
+./non_cache_gpu.o: ../../../src/lib/gpu_math.h
+./non_cache_gpu.o: ../../../src/lib/loop_timer.h
 ./obmolopener.o: ../../../src/lib/obmolopener.h
 ./obmolopener.o: ../../../src/lib/file.h
 ./obmolopener.o: ../../../src/lib/common.h
 ./obmolopener.o: ../../../src/lib/macros.h
+./obmolopener.o: ../../../src/lib/gpu_mem.h
 ./parallel_mc.o: ../../../src/lib/parallel.h
 ./parallel_mc.o: ../../../src/lib/common.h
 ./parallel_mc.o: ../../../src/lib/macros.h
+./parallel_mc.o: ../../../src/lib/gpu_mem.h
 ./parallel_mc.o: ../../../src/lib/parallel_mc.h
 ./parallel_mc.o: ../../../src/lib/monte_carlo.h
 ./parallel_mc.o: ../../../src/lib/ssd.h
@@ -2103,6 +2317,7 @@
 ./parallel_mc.o: ../../../src/lib/atom_type.h
 ./parallel_mc.o: ../../../src/lib/atom_constants.h
 ./parallel_mc.o: ../../../src/lib/triangular_matrix_index.h
+./parallel_mc.o: ../../../src/lib/tree_gpu.h
 ./parallel_mc.o: ../../../src/lib/matrix.h
 ./parallel_mc.o: ../../../src/lib/precalculate.h
 ./parallel_mc.o: ../../../src/lib/scoring_function.h
@@ -2269,6 +2484,7 @@
 ./parse_pdbqt.o: ../../../src/lib/file.h
 ./parse_pdbqt.o: ../../../src/lib/common.h
 ./parse_pdbqt.o: ../../../src/lib/macros.h
+./parse_pdbqt.o: ../../../src/lib/gpu_mem.h
 ./parse_pdbqt.o: ../../../src/lib/tree.h
 ./parse_pdbqt.o: ../../../src/lib/conf.h
 ./parse_pdbqt.o: ../../../src/lib/quaternion.h
@@ -2278,6 +2494,7 @@
 ./parse_pdbqt.o: ../../../src/lib/atom_type.h
 ./parse_pdbqt.o: ../../../src/lib/atom_constants.h
 ./parse_pdbqt.o: ../../../src/lib/triangular_matrix_index.h
+./parse_pdbqt.o: ../../../src/lib/tree_gpu.h
 ./parse_pdbqt.o: ../../../src/lib/matrix.h
 ./parse_pdbqt.o: ../../../src/lib/precalculate.h
 ./parse_pdbqt.o: ../../../src/lib/scoring_function.h
@@ -2438,194 +2655,187 @@
 ./parse_pdbqt.o: ../../../src/lib/parse_error.h
 ./parse_pdbqt.o: ../../../src/lib/parsing.h
 ./pdb.o: ../../../src/lib/pdb.h ../../../src/lib/common.h
-./pdb.o: ../../../src/lib/macros.h
+./pdb.o: ../../../src/lib/macros.h ../../../src/lib/gpu_mem.h
 ./pdb.o: ../../../src/lib/parse_error.h
 ./pdb.o: ../../../src/lib/file.h
 ./pdb.o: ../../../src/lib/convert_substring.h
-./quasi_newton.o: ../../../src/lib/quasi_newton.h
-./quasi_newton.o: ../../../src/lib/model.h
-./quasi_newton.o: ../../../src/lib/file.h
-./quasi_newton.o: ../../../src/lib/common.h
-./quasi_newton.o: ../../../src/lib/macros.h
-./quasi_newton.o: ../../../src/lib/tree.h
-./quasi_newton.o: ../../../src/lib/conf.h
-./quasi_newton.o: ../../../src/lib/quaternion.h
-./quasi_newton.o: ../../../src/lib/random.h
-./quasi_newton.o: ../../../src/lib/atom.h
-./quasi_newton.o: ../../../src/lib/atom_base.h
-./quasi_newton.o: ../../../src/lib/atom_type.h
-./quasi_newton.o: ../../../src/lib/atom_constants.h
-./quasi_newton.o: ../../../src/lib/triangular_matrix_index.h
-./quasi_newton.o: ../../../src/lib/matrix.h
-./quasi_newton.o: ../../../src/lib/precalculate.h
-./quasi_newton.o: ../../../src/lib/scoring_function.h
-./quasi_newton.o: ../../../src/lib/result_components.h
-./quasi_newton.o: ../../../src/lib/splines.h
-./quasi_newton.o: ../../../src/lib/Eigen/Core
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/util/Macros.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/util/MKL_support.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/util/Constants.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/util/ForwardDeclarations.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/util/Meta.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/util/XprHelper.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/util/StaticAssert.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/util/Memory.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/NumTraits.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/MathFunctions.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/GenericPacketMath.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/arch/Default/Settings.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Functors.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/DenseCoeffsBase.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/DenseBase.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/plugins/BlockMethods.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/MatrixBase.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/plugins/CommonCwiseUnaryOps.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/plugins/CommonCwiseBinaryOps.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/plugins/MatrixCwiseUnaryOps.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/plugins/MatrixCwiseBinaryOps.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/EigenBase.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Assign.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/util/BlasUtil.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/DenseStorage.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/NestByValue.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/ForceAlignedAccess.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/ReturnByValue.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/NoAlias.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/PlainObjectBase.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Matrix.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Array.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/CwiseBinaryOp.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/CwiseUnaryOp.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/CwiseNullaryOp.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/CwiseUnaryView.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/SelfCwiseBinaryOp.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Dot.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/StableNorm.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/MapBase.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Stride.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Map.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Block.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/VectorBlock.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Transpose.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/DiagonalMatrix.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Diagonal.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/DiagonalProduct.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/PermutationMatrix.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Transpositions.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Redux.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Visitor.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Fuzzy.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/IO.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Swap.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/CommaInitializer.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Flagged.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/ProductBase.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/GeneralProduct.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/TriangularMatrix.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/SelfAdjointView.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/products/GeneralBlockPanelKernel.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/products/Parallelizer.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/products/CoeffBasedProduct.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/products/GeneralMatrixVector.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/products/GeneralMatrixMatrix.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/SolveTriangular.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/products/GeneralMatrixMatrixTriangular.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/products/SelfadjointMatrixVector.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/products/SelfadjointMatrixMatrix.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/products/SelfadjointProduct.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/products/SelfadjointRank2Update.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/products/TriangularMatrixVector.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/products/TriangularMatrixMatrix.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/products/TriangularSolverMatrix.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/products/TriangularSolverVector.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/BandMatrix.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/BooleanRedux.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Select.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/VectorwiseOp.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Random.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Replicate.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/Reverse.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/ArrayBase.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/plugins/ArrayCwiseUnaryOps.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/plugins/ArrayCwiseBinaryOps.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/ArrayWrapper.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/GlobalFunctions.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Core/util/ReenableStupidWarnings.h
-./quasi_newton.o: ../../../src/lib/Eigen/Dense
-./quasi_newton.o: ../../../src/lib/Eigen/Core
-./quasi_newton.o: ../../../src/lib/Eigen/LU
-./quasi_newton.o: ../../../src/lib/Eigen/src/misc/Solve.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/misc/Kernel.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/misc/Image.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/LU/FullPivLU.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/LU/PartialPivLU.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/LU/Determinant.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/LU/Inverse.h
-./quasi_newton.o: ../../../src/lib/Eigen/Cholesky
-./quasi_newton.o: ../../../src/lib/Eigen/src/Cholesky/LLT.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Cholesky/LDLT.h
-./quasi_newton.o: ../../../src/lib/Eigen/QR
-./quasi_newton.o: ../../../src/lib/Eigen/Jacobi
-./quasi_newton.o: ../../../src/lib/Eigen/src/Jacobi/Jacobi.h
-./quasi_newton.o: ../../../src/lib/Eigen/Householder
-./quasi_newton.o: ../../../src/lib/Eigen/src/Householder/Householder.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Householder/HouseholderSequence.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Householder/BlockHouseholder.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/QR/HouseholderQR.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/QR/FullPivHouseholderQR.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/QR/ColPivHouseholderQR.h
-./quasi_newton.o: ../../../src/lib/Eigen/SVD
-./quasi_newton.o: ../../../src/lib/Eigen/src/SVD/JacobiSVD.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/SVD/UpperBidiagonalization.h
-./quasi_newton.o: ../../../src/lib/Eigen/Geometry
-./quasi_newton.o: ../../../src/lib/Eigen/src/Geometry/OrthoMethods.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Geometry/EulerAngles.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Geometry/Homogeneous.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Geometry/RotationBase.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Geometry/Rotation2D.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Geometry/Quaternion.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Geometry/AngleAxis.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Geometry/Transform.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Geometry/Translation.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Geometry/Scaling.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Geometry/Hyperplane.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Geometry/ParametrizedLine.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Geometry/AlignedBox.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Geometry/Umeyama.h
-./quasi_newton.o: ../../../src/lib/Eigen/Eigenvalues
-./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/Tridiagonalization.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/RealSchur.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/./HessenbergDecomposition.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/EigenSolver.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/./RealSchur.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/SelfAdjointEigenSolver.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/./Tridiagonalization.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/GeneralizedSelfAdjointEigenSolver.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/HessenbergDecomposition.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexSchur.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
-./quasi_newton.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
-./quasi_newton.o: ../../../src/lib/igrid.h
-./quasi_newton.o: ../../../src/lib/grid.h
-./quasi_newton.o: ../../../src/lib/array3d.h
-./quasi_newton.o: ../../../src/lib/grid_dim.h
-./quasi_newton.o: ../../../src/lib/curl.h
-./quasi_newton.o: ../../../src/lib/bfgs.h
+./precalculate_gpu.o: ../../../src/lib/precalculate_gpu.h
+./precalculate_gpu.o: ../../../src/lib/precalculate.h
+./precalculate_gpu.o: ../../../src/lib/scoring_function.h
+./precalculate_gpu.o: ../../../src/lib/atom_type.h
+./precalculate_gpu.o: ../../../src/lib/atom_constants.h
+./precalculate_gpu.o: ../../../src/lib/common.h
+./precalculate_gpu.o: ../../../src/lib/macros.h
+./precalculate_gpu.o: ../../../src/lib/gpu_mem.h
+./precalculate_gpu.o: ../../../src/lib/triangular_matrix_index.h
+./precalculate_gpu.o: ../../../src/lib/result_components.h
+./precalculate_gpu.o: ../../../src/lib/atom_base.h
+./precalculate_gpu.o: ../../../src/lib/matrix.h
+./precalculate_gpu.o: ../../../src/lib/splines.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/Core
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/util/Macros.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/util/MKL_support.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/util/Constants.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/util/ForwardDeclarations.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/util/Meta.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/util/XprHelper.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/util/StaticAssert.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/util/Memory.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/NumTraits.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/MathFunctions.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/GenericPacketMath.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/arch/Default/Settings.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Functors.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/DenseCoeffsBase.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/DenseBase.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/plugins/BlockMethods.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/MatrixBase.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/plugins/CommonCwiseUnaryOps.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/plugins/CommonCwiseBinaryOps.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/plugins/MatrixCwiseUnaryOps.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/plugins/MatrixCwiseBinaryOps.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/EigenBase.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Assign.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/util/BlasUtil.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/DenseStorage.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/NestByValue.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/ForceAlignedAccess.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/ReturnByValue.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/NoAlias.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/PlainObjectBase.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Matrix.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Array.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/CwiseBinaryOp.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/CwiseUnaryOp.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/CwiseNullaryOp.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/CwiseUnaryView.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/SelfCwiseBinaryOp.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Dot.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/StableNorm.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/MapBase.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Stride.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Map.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Block.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/VectorBlock.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Transpose.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/DiagonalMatrix.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Diagonal.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/DiagonalProduct.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/PermutationMatrix.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Transpositions.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Redux.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Visitor.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Fuzzy.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/IO.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Swap.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/CommaInitializer.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Flagged.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/ProductBase.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/GeneralProduct.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/TriangularMatrix.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/SelfAdjointView.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/products/GeneralBlockPanelKernel.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/products/Parallelizer.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/products/CoeffBasedProduct.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/products/GeneralMatrixVector.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/products/GeneralMatrixMatrix.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/SolveTriangular.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/products/GeneralMatrixMatrixTriangular.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/products/SelfadjointMatrixVector.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/products/SelfadjointMatrixMatrix.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/products/SelfadjointProduct.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/products/SelfadjointRank2Update.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/products/TriangularMatrixVector.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/products/TriangularMatrixMatrix.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/products/TriangularSolverMatrix.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/products/TriangularSolverVector.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/BandMatrix.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/BooleanRedux.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Select.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/VectorwiseOp.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Random.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Replicate.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/Reverse.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/ArrayBase.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/plugins/ArrayCwiseUnaryOps.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/plugins/ArrayCwiseBinaryOps.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/ArrayWrapper.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/GlobalFunctions.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Core/util/ReenableStupidWarnings.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/Dense
+./precalculate_gpu.o: ../../../src/lib/Eigen/Core
+./precalculate_gpu.o: ../../../src/lib/Eigen/LU
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/misc/Solve.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/misc/Kernel.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/misc/Image.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/LU/FullPivLU.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/LU/PartialPivLU.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/LU/Determinant.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/LU/Inverse.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/Cholesky
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Cholesky/LLT.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Cholesky/LDLT.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/QR
+./precalculate_gpu.o: ../../../src/lib/Eigen/Jacobi
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Jacobi/Jacobi.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/Householder
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Householder/Householder.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Householder/HouseholderSequence.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Householder/BlockHouseholder.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/QR/HouseholderQR.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/QR/FullPivHouseholderQR.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/QR/ColPivHouseholderQR.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/SVD
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/SVD/JacobiSVD.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/SVD/UpperBidiagonalization.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/Geometry
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Geometry/OrthoMethods.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Geometry/EulerAngles.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Geometry/Homogeneous.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Geometry/RotationBase.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Geometry/Rotation2D.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Geometry/Quaternion.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Geometry/AngleAxis.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Geometry/Transform.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Geometry/Translation.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Geometry/Scaling.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Geometry/Hyperplane.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Geometry/ParametrizedLine.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Geometry/AlignedBox.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Geometry/Umeyama.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/Eigenvalues
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/Tridiagonalization.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/RealSchur.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/./HessenbergDecomposition.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/EigenSolver.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/./RealSchur.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/SelfAdjointEigenSolver.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/./Tridiagonalization.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/GeneralizedSelfAdjointEigenSolver.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/HessenbergDecomposition.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexSchur.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
+./precalculate_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
+./precalculate_gpu.o: ../../../src/lib/gpucode.h
+./precalculate_gpu.o: ../../../src/lib/gpu_math.h
 ./quaternion.o: ../../../src/lib/quaternion.h
 ./quaternion.o: ../../../src/lib/common.h
 ./quaternion.o: ../../../src/lib/macros.h
+./quaternion.o: ../../../src/lib/gpu_mem.h
 ./quaternion.o: ../../../src/lib/random.h
 ./random.o: ../../../src/lib/random.h
 ./random.o: ../../../src/lib/common.h
 ./random.o: ../../../src/lib/macros.h
+./random.o: ../../../src/lib/gpu_mem.h
 ./random.o: ../../../src/lib/my_pid.h
 ./result_info.o: ../../../src/lib/result_info.h
 ./result_info.o: ../../../src/lib/model.h
 ./result_info.o: ../../../src/lib/file.h
 ./result_info.o: ../../../src/lib/common.h
 ./result_info.o: ../../../src/lib/macros.h
+./result_info.o: ../../../src/lib/gpu_mem.h
 ./result_info.o: ../../../src/lib/tree.h
 ./result_info.o: ../../../src/lib/conf.h
 ./result_info.o: ../../../src/lib/quaternion.h
@@ -2635,6 +2845,7 @@
 ./result_info.o: ../../../src/lib/atom_type.h
 ./result_info.o: ../../../src/lib/atom_constants.h
 ./result_info.o: ../../../src/lib/triangular_matrix_index.h
+./result_info.o: ../../../src/lib/tree_gpu.h
 ./result_info.o: ../../../src/lib/matrix.h
 ./result_info.o: ../../../src/lib/precalculate.h
 ./result_info.o: ../../../src/lib/scoring_function.h
@@ -2795,14 +3006,15 @@
 ./result_info.o: ../../../src/lib/terms.h
 ./ssd.o: ../../../src/lib/ssd.h ../../../src/lib/model.h
 ./ssd.o: ../../../src/lib/file.h ../../../src/lib/common.h
-./ssd.o: ../../../src/lib/macros.h ../../../src/lib/tree.h
-./ssd.o: ../../../src/lib/conf.h ../../../src/lib/quaternion.h
+./ssd.o: ../../../src/lib/macros.h ../../../src/lib/gpu_mem.h
+./ssd.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
+./ssd.o: ../../../src/lib/quaternion.h
 ./ssd.o: ../../../src/lib/random.h ../../../src/lib/atom.h
 ./ssd.o: ../../../src/lib/atom_base.h
 ./ssd.o: ../../../src/lib/atom_type.h
 ./ssd.o: ../../../src/lib/atom_constants.h
 ./ssd.o: ../../../src/lib/triangular_matrix_index.h
-./ssd.o: ../../../src/lib/matrix.h
+./ssd.o: ../../../src/lib/tree_gpu.h ../../../src/lib/matrix.h
 ./ssd.o: ../../../src/lib/precalculate.h
 ./ssd.o: ../../../src/lib/scoring_function.h
 ./ssd.o: ../../../src/lib/result_components.h
@@ -2959,6 +3171,7 @@
 ./szv_grid.o: ../../../src/lib/model.h ../../../src/lib/file.h
 ./szv_grid.o: ../../../src/lib/common.h
 ./szv_grid.o: ../../../src/lib/macros.h
+./szv_grid.o: ../../../src/lib/gpu_mem.h
 ./szv_grid.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
 ./szv_grid.o: ../../../src/lib/quaternion.h
 ./szv_grid.o: ../../../src/lib/random.h
@@ -2967,6 +3180,7 @@
 ./szv_grid.o: ../../../src/lib/atom_type.h
 ./szv_grid.o: ../../../src/lib/atom_constants.h
 ./szv_grid.o: ../../../src/lib/triangular_matrix_index.h
+./szv_grid.o: ../../../src/lib/tree_gpu.h
 ./szv_grid.o: ../../../src/lib/matrix.h
 ./szv_grid.o: ../../../src/lib/precalculate.h
 ./szv_grid.o: ../../../src/lib/scoring_function.h
@@ -3124,7 +3338,8 @@
 ./szv_grid.o: ../../../src/lib/curl.h ../../../src/lib/brick.h
 ./terms.o: ../../../src/lib/terms.h ../../../src/lib/model.h
 ./terms.o: ../../../src/lib/file.h ../../../src/lib/common.h
-./terms.o: ../../../src/lib/macros.h ../../../src/lib/tree.h
+./terms.o: ../../../src/lib/macros.h
+./terms.o: ../../../src/lib/gpu_mem.h ../../../src/lib/tree.h
 ./terms.o: ../../../src/lib/conf.h
 ./terms.o: ../../../src/lib/quaternion.h
 ./terms.o: ../../../src/lib/random.h ../../../src/lib/atom.h
@@ -3132,6 +3347,7 @@
 ./terms.o: ../../../src/lib/atom_type.h
 ./terms.o: ../../../src/lib/atom_constants.h
 ./terms.o: ../../../src/lib/triangular_matrix_index.h
+./terms.o: ../../../src/lib/tree_gpu.h
 ./terms.o: ../../../src/lib/matrix.h
 ./terms.o: ../../../src/lib/precalculate.h
 ./terms.o: ../../../src/lib/scoring_function.h
@@ -3293,6 +3509,7 @@
 ./weighted_terms.o: ../../../src/lib/file.h
 ./weighted_terms.o: ../../../src/lib/common.h
 ./weighted_terms.o: ../../../src/lib/macros.h
+./weighted_terms.o: ../../../src/lib/gpu_mem.h
 ./weighted_terms.o: ../../../src/lib/tree.h
 ./weighted_terms.o: ../../../src/lib/conf.h
 ./weighted_terms.o: ../../../src/lib/quaternion.h
@@ -3302,6 +3519,7 @@
 ./weighted_terms.o: ../../../src/lib/atom_type.h
 ./weighted_terms.o: ../../../src/lib/atom_constants.h
 ./weighted_terms.o: ../../../src/lib/triangular_matrix_index.h
+./weighted_terms.o: ../../../src/lib/tree_gpu.h
 ./weighted_terms.o: ../../../src/lib/matrix.h
 ./weighted_terms.o: ../../../src/lib/precalculate.h
 ./weighted_terms.o: ../../../src/lib/scoring_function.h
@@ -3458,22 +3676,22 @@
 ./weighted_terms.o: ../../../src/lib/array3d.h
 ./weighted_terms.o: ../../../src/lib/grid_dim.h
 ./weighted_terms.o: ../../../src/lib/curl.h
-./main.o: ../../../src/lib/file.h ../../../src/lib/common.h
-./main.o: ../../../src/lib/macros.h ../../../src/lib/cache.h
-./main.o: ../../../src/lib/igrid.h ../../../src/lib/grid.h
-./main.o: ../../../src/lib/array3d.h
-./main.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
-./main.o: ../../../src/lib/result_components.h
+./main.o: ../../../src/lib/parse_pdbqt.h
+./main.o: ../../../src/lib/model.h ../../../src/lib/file.h
+./main.o: ../../../src/lib/common.h ../../../src/lib/macros.h
+./main.o: ../../../src/lib/gpu_mem.h ../../../src/lib/tree.h
+./main.o: ../../../src/lib/conf.h
+./main.o: ../../../src/lib/quaternion.h
+./main.o: ../../../src/lib/random.h ../../../src/lib/atom.h
 ./main.o: ../../../src/lib/atom_base.h
 ./main.o: ../../../src/lib/atom_type.h
 ./main.o: ../../../src/lib/atom_constants.h
 ./main.o: ../../../src/lib/triangular_matrix_index.h
-./main.o: ../../../src/lib/atom.h ../../../src/lib/model.h
-./main.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
-./main.o: ../../../src/lib/quaternion.h
-./main.o: ../../../src/lib/random.h ../../../src/lib/matrix.h
+./main.o: ../../../src/lib/tree_gpu.h
+./main.o: ../../../src/lib/matrix.h
 ./main.o: ../../../src/lib/precalculate.h
 ./main.o: ../../../src/lib/scoring_function.h
+./main.o: ../../../src/lib/result_components.h
 ./main.o: ../../../src/lib/splines.h
 ./main.o: ../../../src/lib/Eigen/Core
 ./main.o: ../../../src/lib/Eigen/src/Core/util/DisableStupidWarnings.h
@@ -3621,11 +3839,18 @@
 ./main.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
 ./main.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./main.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
+./main.o: ../../../src/lib/igrid.h ../../../src/lib/grid.h
+./main.o: ../../../src/lib/array3d.h
+./main.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
+./main.o: ../../../src/lib/cache.h
 ./main.o: ../../../src/lib/non_cache.h
 ./main.o: ../../../src/lib/szv_grid.h
 ./main.o: ../../../src/lib/brick.h
 ./main.o: ../../../src/lib/naive_non_cache.h
 ./main.o: ../../../src/lib/non_cache_gpu.h
+./main.o: ../../../src/lib/precalculate_gpu.h
+./main.o: ../../../src/lib/gpucode.h
+./main.o: ../../../src/lib/gpu_math.h
 ./main.o: ../../../src/lib/parse_error.h
 ./main.o: ../../../src/lib/everything.h
 ./main.o: ../../../src/lib/terms.h ../../../src/lib/int_pow.h
@@ -3635,8 +3860,6 @@
 ./main.o: ../../../src/lib/custom_terms.h
 ./main.o: ../../../src/lib/coords.h
 ./main.o: ../../../src/lib/obmolopener.h
-./main.o: ../../../src/lib/gpucode.h
-./main.o: ../../../src/lib/precalculate_gpu.h
 ./main.o: ../../../src/lib/molgetter.h
 ./main.o: ../../../src/lib/flexinfo.h ../../../src/lib/box.h
 ./main.o: ../../../src/lib/result_info.h
@@ -3645,6 +3868,7 @@
 ./MinimizationQuery.o: ../../../src/gninaserver/Reorienter.h
 ./MinimizationQuery.o: ../../../src/lib/common.h
 ./MinimizationQuery.o: ../../../src/lib/macros.h
+./MinimizationQuery.o: ../../../src/lib/gpu_mem.h
 ./MinimizationQuery.o: ../../../src/lib/parsing.h
 ./MinimizationQuery.o: ../../../src/lib/parse_pdbqt.h
 ./MinimizationQuery.o: ../../../src/lib/model.h
@@ -3658,6 +3882,7 @@
 ./MinimizationQuery.o: ../../../src/lib/atom_type.h
 ./MinimizationQuery.o: ../../../src/lib/atom_constants.h
 ./MinimizationQuery.o: ../../../src/lib/triangular_matrix_index.h
+./MinimizationQuery.o: ../../../src/lib/tree_gpu.h
 ./MinimizationQuery.o: ../../../src/lib/matrix.h
 ./MinimizationQuery.o: ../../../src/lib/precalculate.h
 ./MinimizationQuery.o: ../../../src/lib/scoring_function.h
@@ -3832,6 +4057,7 @@
 ./QueryManager.o: ../../../src/gninaserver/Reorienter.h
 ./QueryManager.o: ../../../src/lib/common.h
 ./QueryManager.o: ../../../src/lib/macros.h
+./QueryManager.o: ../../../src/lib/gpu_mem.h
 ./QueryManager.o: ../../../src/lib/parsing.h
 ./QueryManager.o: ../../../src/lib/parse_pdbqt.h
 ./QueryManager.o: ../../../src/lib/model.h
@@ -3845,6 +4071,7 @@
 ./QueryManager.o: ../../../src/lib/atom_type.h
 ./QueryManager.o: ../../../src/lib/atom_constants.h
 ./QueryManager.o: ../../../src/lib/triangular_matrix_index.h
+./QueryManager.o: ../../../src/lib/tree_gpu.h
 ./QueryManager.o: ../../../src/lib/matrix.h
 ./QueryManager.o: ../../../src/lib/precalculate.h
 ./QueryManager.o: ../../../src/lib/scoring_function.h
@@ -4018,6 +4245,7 @@
 ./server.o: ../../../src/gninaserver/Reorienter.h
 ./server.o: ../../../src/lib/common.h
 ./server.o: ../../../src/lib/macros.h
+./server.o: ../../../src/lib/gpu_mem.h
 ./server.o: ../../../src/lib/parsing.h
 ./server.o: ../../../src/lib/parse_pdbqt.h
 ./server.o: ../../../src/lib/model.h
@@ -4031,6 +4259,7 @@
 ./server.o: ../../../src/lib/atom_type.h
 ./server.o: ../../../src/lib/atom_constants.h
 ./server.o: ../../../src/lib/triangular_matrix_index.h
+./server.o: ../../../src/lib/tree_gpu.h
 ./server.o: ../../../src/lib/matrix.h
 ./server.o: ../../../src/lib/precalculate.h
 ./server.o: ../../../src/lib/scoring_function.h
@@ -4205,6 +4434,7 @@
 ./tognina.o: ../../../src/lib/file.h
 ./tognina.o: ../../../src/lib/common.h
 ./tognina.o: ../../../src/lib/macros.h
+./tognina.o: ../../../src/lib/gpu_mem.h
 ./tognina.o: ../../../src/lib/tree.h
 ./tognina.o: ../../../src/lib/conf.h
 ./tognina.o: ../../../src/lib/quaternion.h
@@ -4214,6 +4444,7 @@
 ./tognina.o: ../../../src/lib/atom_type.h
 ./tognina.o: ../../../src/lib/atom_constants.h
 ./tognina.o: ../../../src/lib/triangular_matrix_index.h
+./tognina.o: ../../../src/lib/tree_gpu.h
 ./tognina.o: ../../../src/lib/matrix.h
 ./tognina.o: ../../../src/lib/precalculate.h
 ./tognina.o: ../../../src/lib/scoring_function.h
@@ -4377,6 +4608,7 @@
 ./gninagrid.o: ../../../src/lib/atom_constants.h
 ./gninagrid.o: ../../../src/lib/common.h
 ./gninagrid.o: ../../../src/lib/macros.h
+./gninagrid.o: ../../../src/lib/gpu_mem.h
 ./gninagrid.o: ../../../src/lib/triangular_matrix_index.h
 ./gninagrid.o: ../../../src/lib/box.h
 ./gninagrid.o: ../../../src/lib/molgetter.h
@@ -4388,6 +4620,7 @@
 ./gninagrid.o: ../../../src/lib/random.h
 ./gninagrid.o: ../../../src/lib/atom.h
 ./gninagrid.o: ../../../src/lib/atom_base.h
+./gninagrid.o: ../../../src/lib/tree_gpu.h
 ./gninagrid.o: ../../../src/lib/matrix.h
 ./gninagrid.o: ../../../src/lib/precalculate.h
 ./gninagrid.o: ../../../src/lib/scoring_function.h
@@ -4554,6 +4787,7 @@
 ./nngridder.o: ../../../src/lib/atom_constants.h
 ./nngridder.o: ../../../src/lib/common.h
 ./nngridder.o: ../../../src/lib/macros.h
+./nngridder.o: ../../../src/lib/gpu_mem.h
 ./nngridder.o: ../../../src/lib/triangular_matrix_index.h
 ./nngridder.o: ../../../src/lib/box.h
 ./nngridder.o: ../../../src/lib/molgetter.h
@@ -4565,6 +4799,7 @@
 ./nngridder.o: ../../../src/lib/random.h
 ./nngridder.o: ../../../src/lib/atom.h
 ./nngridder.o: ../../../src/lib/atom_base.h
+./nngridder.o: ../../../src/lib/tree_gpu.h
 ./nngridder.o: ../../../src/lib/matrix.h
 ./nngridder.o: ../../../src/lib/precalculate.h
 ./nngridder.o: ../../../src/lib/scoring_function.h

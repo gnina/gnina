@@ -14,8 +14,8 @@ include ../../makefile_common
 .DEFAULT_GOAL := gpu
 
 %.o : ../../../src/lib/%.cu 
-		$(NVCC) $(NVOPTS) -DSMINA_GPU -o $@ -dc $<
+		$(NVCC) $(NVOPTS) -o $@ -dc $<
 
 gpu: $(MAINOBJ) $(LIBOBJ) $(GPUOBJ)
-		$(NVCC) -gencode arch=compute_52,code=sm_52 $(LDFLAGS) -o smina.$@ $^ $(LIBS)  -lcudart
+		$(NVCC) -gencode arch=compute_52,code=sm_52 $(LDFLAGS) -o gnina $^ $(LIBS)  -lcudart
 

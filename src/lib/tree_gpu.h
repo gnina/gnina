@@ -7,131 +7,178 @@
 #include <queue>
 
 struct segment_node {
-	segment s;
-	int child_range[2];
-	segment_node() {}
-	segment_node(const tree<segment>& subtree, int& index) {
-		s = subtree.node;
-		child_range[0] = index;
-		child_range[1] = index + subtree.children.size()-1;
-		index = child_range[1] + 1;
-	}
-};
+	//a segment is a rigid collection of atoms with an orientation
+	//from an axis in a torsion tree
+	vec relative_axis;
+	vec relative_origin;
+	vec axis;
+	vec origin;
+	qt orientation_q;
+	mat orientation_m;
+	sz begin;
+	sz end;
+	int parent; //location of parent in node array, -1 if root
 
-struct rigid_body_node {
-	rigid_body rb;
-	int child_range[2];
-	rigid_body_node() {}
-	rigid_body_node(const heterotree<rigid_body>& root) {
-		rb = root.node;
-		child_range[0] = 0;
-		child_range[1] = root.children.size()-1;
+	segment_node() :
+			parent(-1), begin(0), end(0){
+	}
+
+	segment_node(const segment& node,int p) :
+			relative_axis(node.relative_axis), relative_origin(node.relative_origin), axis(
+					node.axis), origin(node.origin), orientation_q(node.orientation_q), orientation_m(
+					node.orientation_m), begin(node.begin), end(node.end), parent(p){
+
+	}
+
+	segment_node(const rigid_body& node) : //root node
+			relative_axis(0, 0, 0), relative_origin(0, 0, 0), axis(0, 0, 0), origin(
+					node.origin), orientation_q(node.orientation_q), orientation_m(
+					node.orientation_m), begin(node.begin), end(node.end), parent(-1){
+
+	}
+
+	__device__
+	vecp sum_force_and_torque(const gvecv& coords, const gvecv& forces) const {
+		vecp tmp(vec(0,0,0), vec(0,0,0));
+		VINA_RANGE(i, begin, end) {
+			tmp.first  += forces[i];
+			tmp.second += cross_product(coords[i] - origin, forces[i]);
+		}
+		return tmp;
+	}
+
+	__device__
+	vec local_to_lab_direction(const vec& local_direction) const{
+		vec tmp;
+		tmp = orientation_m * local_direction;
+		return tmp;
+	}
+
+	__device__
+	vec local_to_lab(const vec& local_coords) const{
+		vec tmp;
+		tmp = origin + orientation_m * local_coords;
+		return tmp;
+	}
+
+	__device__
+	void set_coords(const gatomv& atoms, gvecv& coords) const{
+		VINA_RANGE(i, begin, end)
+			coords[i] = local_to_lab(atoms[i].coords);
+	}
+
+	__device__
+	void set_orientation(const qt& q) { // does not normalize the orientation
+		orientation_q = q;
+		orientation_m = quaternion_to_r3(orientation_q);
 	}
 };
 
 struct tree_gpu {
-	rigid_body_node root;
-	gvector<segment_node> nodes;
-    vecp force_torques[32];
 
-	tree_gpu() {}	
-	tree_gpu(const heterotree<rigid_body> &ligand) : root(ligand) {
-		// Does BFS starting from the root to construct a 
-		// flat tree representation in which each node contains
-		// the relevant information for its segment as well as
-		// the starting and ending array indices associated
-		// with its children
-		int index = root.child_range[1] + 1;
-		std::queue<const tree<segment> *> tree_traversal;
-		for (int i=0; i<index; i++) {
-			tree_traversal.push(&ligand.children[i]);
-		}
-		while (!tree_traversal.empty()) {
-			const tree<segment> *next_node = tree_traversal.front();
-			tree_traversal.pop();
-			nodes.push_back(segment_node(*next_node,index));
-			int num_children = next_node->children.size();
-			for (int i=0; i<num_children; i++) {
-				tree_traversal.push(&next_node->children[i]);
-			}
-		}
-	}	
+	segment_node *device_nodes;
+	vecp *force_torques;
+	unsigned num_nodes;
 
-    __device__ __host__    
-	void do_derivatives(const segment_node& node, fl *&p,
-                        vecp *force_torques, int index, const gvecv& coords,
-                        const gvecv& forces) {
-
-		vecp tmp = node.s.sum_force_and_torque(coords, forces);
-
-		fl& d = *p;
-		++p;
-		for (int i=node.child_range[0]; i<=node.child_range[1]; i++) {
-			do_derivatives(nodes[i], p, force_torques, i, coords, forces);
-			vecp child_result = force_torques[i];
-			tmp.first += child_result.first;
-			vec r = nodes[i].s.get_origin() - node.s.get_origin();
-			tmp.second += cross_product(r, child_result.first) + 
-				child_result.second;
-		}
-		force_torques[index].first = tmp.first;
-		force_torques[index].second = tmp.second;
-
-		d = force_torques[index].second * node.s.axis;	
+	tree_gpu() :
+			device_nodes(NULL), force_torques(NULL), num_nodes(0) {
 	}
 
-    __device__ __host__
-	void derivative(const gvecv& coords, const gvecv& forces, ligand_change& c) {
-        /* TODO: NODES SIZE. Gotta configure with kern launch */
-        
-		// Don't put the root's values in the force_torque array
-		vecp force_torque = root.rb.sum_force_and_torque(coords, forces);	
-		fl *p = &c.torsions[0];
-		for (int i=0; i<=root.child_range[1]; i++) {
-			// Recursively calculate derivatives for the children using
-			// DFS in order to properly update the torsions array
-			do_derivatives(nodes[i], p, force_torques, i, coords, forces);
-			vec r = nodes[i].s.get_origin() - root.rb.get_origin();
-			vecp child_result = force_torques[i];
-			force_torque.first += child_result.first;
-			force_torque.second += cross_product(r, child_result.first) + 
-				child_result.second;
-		}
-		c.rigid.position = force_torque.first;
-		c.rigid.orientation = force_torque.second;
-	}
+	void do_dfs(int parent, const branch& branch, std::vector<segment_node>& nodes) {
+		segment_node node(branch.node, parent);
+		unsigned index = nodes.size();
+		nodes.push_back(node);
 
-    __device__ __host__    
-	void do_confs(segment_node& node, int my_index,
-                  const frame& parent, const gatomv& atoms, 
-                  gvecv& coords, const fl *&c) {
-		node.s.set_conf(parent, atoms, coords, c);
-		for (int i=node.child_range[0]; i<=node.child_range[1]; i++) {
-			do_confs(nodes[i], i, nodes[my_index].s, atoms, coords, c);
+		VINA_FOR_IN(i, branch.children) {
+			do_dfs(index, branch.children[i], nodes);
 		}
 	}
 
-    __device__ __host__
-	void set_conf(const gatomv& atoms, gvecv& coords, const ligand_conf& c) {
-		root.rb.set_conf(atoms, coords, c.rigid);
-		const fl* p = &c.torsions[0];
-		for (int i=0; i<=root.child_range[1]; i++) {
-			do_confs(nodes[i], i, root.rb, atoms, coords, p);
-		}		
+	tree_gpu(const heterotree<rigid_body> &ligand){
+		//populate nodes in DFS order from ligand, where node zero is the root
+		std::vector<segment_node> nodes;
+		segment_node root(ligand.node);
+		nodes.push_back(root);
+
+		VINA_FOR_IN(i, ligand.children) {
+			do_dfs(0,ligand.children[i], nodes);
+		}
+
+		num_nodes = nodes.size();
+		//allocate device memory and copy
+		//nodes
+		cudaMalloc(&device_nodes, sizeof(segment_node)*nodes.size());
+		cudaMemcpy(device_nodes, &nodes[0], sizeof(segment_node)*nodes.size(), cudaMemcpyHostToDevice);
+
+		//forcetorques
+		cudaMalloc(&force_torques, sizeof(vecp)*nodes.size());
+		cudaMemset(force_torques, 0, sizeof(vecp)*nodes.size());
+
+	}
+
+	__device__
+	void derivative(const gvecv& coords,const gvecv& forces,ligand_change& c){
+
+		assert(c.torsions.size() == num_nodes-1);
+		//calculate each segments individual force/torque
+		for(unsigned i = 0; i < num_nodes; i++) {
+			force_torques[i] = device_nodes[i].sum_force_and_torque(coords, forces);
+		}
+
+		//have each child add its contribution to its parents force_torque
+		for(unsigned i = num_nodes-1; i > 0; i--) {
+			unsigned parent = device_nodes[i].parent;
+			const vecp& ft = force_torques[i];
+			force_torques[parent].first += ft.first;
+
+			const segment_node& pnode = device_nodes[parent];
+			const segment_node& cnode = device_nodes[i];
+
+			vec r = cnode.origin - pnode.origin;
+			force_torques[parent].second += cross_product(r, ft.first)+ft.second;
+
+			//set torsions
+			c.torsions[i-1] = ft.second * cnode.axis;
+		}
+
+		c.rigid.position = force_torques[0].first;
+		c.rigid.orientation = force_torques[0].second;
+	}
+
+	__device__
+	void set_conf(const gatomv& atoms, gvecv& coords, const ligand_conf& c){
+		assert(c.torsions.size() == num_nodes-1);
+
+		segment_node& root = device_nodes[0];
+		root.origin = c.rigid.position;
+		root.set_orientation(c.rigid.orientation);
+		root.set_coords(atoms, coords);
+
+		for(unsigned i = 1; i < num_nodes; i++) {
+			segment_node& node = device_nodes[i];
+			segment_node& parent = device_nodes[node.parent];
+			fl torsion = c.torsions[i-1];
+			node.origin = parent.local_to_lab(node.relative_origin);
+			node.axis = parent.local_to_lab_direction(node.relative_axis);
+			node.set_orientation(
+					quaternion_normalize_approx(
+							angle_to_quaternion(node.axis, torsion) * parent.orientation_q));
+			node.set_coords(atoms, coords);
+		}
 	}
 };
 
 static __global__
 void derivatives_kernel(tree_gpu &t, const gvecv& coords,
-                        const gvecv& forces, ligand_change& c){
-    
-    t.derivative(coords, forces, c);
+		const gvecv& forces, ligand_change& c){
+
+	t.derivative(coords, forces, c);
 }
 
 static __global__
 void set_conf_kernel(tree_gpu &t, const gatomv& atoms,
-                     gvecv& coords, const ligand_conf& c) {
-    t.set_conf(atoms, coords, c);
+		gvecv& coords, const ligand_conf& c){
+	t.set_conf(atoms, coords, c);
 }
 
 #endif
