@@ -224,7 +224,7 @@ private:
 /* TODO */
 struct change {
 	gvector<ligand_change> ligands;
-	std::vector<residue_change> flex;
+	gvector<residue_change> flex;
 	change(const conf_size& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
 		VINA_FOR_IN(i, ligands)
 			ligands[i].torsions.resize(s.ligands[i], 0);

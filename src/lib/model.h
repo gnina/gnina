@@ -319,6 +319,9 @@ struct model : gpu_visible {
                    const conf& c, fl intramolecular_energy, const grid& user_grid);
 
 
+	fl eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
+	                     const conf& c, change& g, const grid& user_grid);
+
 	fl rmsd_lower_bound(const model& m) const; // uses coords
 	fl rmsd_upper_bound(const model& m) const; // uses coords
 	fl rmsd_ligands_upper_bound(const model& m) const; // uses coords
