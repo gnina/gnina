@@ -987,22 +987,14 @@ fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
 	return e;
 }
 
-static void printmf(const gvecv& v)
-{
-	for(unsigned i = 0, n = v.size(); i < n; i++)
-	{
-		std::cout << v[i].data[0] << "," << v[i].data[1] << "," << v[i].data[2] << ":" << v[i].pad[0] << " ";
-	}
-	std::cout << "\n";
-}
-
 fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
                      const conf& c, change& g, const grid& user_grid)
 { // clean up
 	set_gpu(c);
-    cudaDeviceSynchronize();
+	cudaDeviceSynchronize();
+
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
-	printmf(minus_forces);
+
 	/* e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords, */
 	/* 		minus_forces); // adds to minus_forces */
 	VINA_FOR_IN(i, ligands)
@@ -1011,9 +1003,9 @@ fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
 	// calculate derivatives
     /* lgpu.t.derivative(coords, minus_forces, g.ligands[0]); */
 	derivatives_kernel<<<1,1>>>(lgpu.t, coords, minus_forces, g.ligands[0]);
-	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */
+  cudaDeviceSynchronize();
 
-    cudaDeviceSynchronize();
+	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */
 	return e;
 }
 
@@ -1022,7 +1014,6 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 { // clean up
 	set(c);
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
-	printmf(minus_forces);
 
 	e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
 			minus_forces); // adds to minus_forces
@@ -1032,6 +1023,7 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	// calculate derivatives
 	ligands.derivative(coords, minus_forces, g.ligands);
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
+
 	return e;
 }
 

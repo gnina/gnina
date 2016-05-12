@@ -133,7 +133,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		x_new = x;
 		x_new.increment(p, alpha);
 		f1 = f(x_new, g_new);
-		//std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << "\n";
+		//std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
 		if (alpha < alamin) //convergence
 		{
 			x_new = x;
