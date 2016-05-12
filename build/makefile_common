@@ -10,8 +10,7 @@ CFLAGS += -Wno-deprecated-declarations
 INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) -I $(CUDA_INCLUDE) 
 NVCC=$(BASE)/cuda/bin/nvcc
 
-# TODO: sucks
-CC = $(NVCC) -x cu --expt-relaxed-constexpr -std=c++11 -gencode arch=compute_52,code=sm_52 --compiler-options="-std=c++11 $(C_PLATFORM) $(C_OPTIONS) $(CFLAGS)" $(INCFLAGS)
+CC = $(NVCC)  $(NVOPTS) --compiler-options="-std=c++11 $(C_PLATFORM) $(C_OPTIONS) $(CFLAGS)" $(INCFLAGS)
 
 LDFLAGS := -L$(BASE)/lib -L. -L/usr/local/lib -L$(BASE)/cuda/lib64 $(LDFLAGS)
 
@@ -20,13 +19,14 @@ LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -l boost_timer${BOOST
 .SUFFIXES: .cpp .o
 
 %.o : ../../../src/*/%.cpp 
-	$(CC) -I ../../../src/lib -o $@ -dc $< 
+	$(CC) -x cu -I ../../../src/lib -o $@ -dc $< 
 
 %.o : ../../../src/lib/CommandLine2/%.cpp 
-	$(CC) -I ../../../src/lib -o $@ -dc $< 
+	$(CC) -x cu -I ../../../src/lib -o $@ -dc $< 
 
 %.o : ../../../src/lib/%.cu ../../../src/lib/*gpu.h
 	$(NVCC) $(NVOPTS) -o $@ -dc $< 
+
 
 all: gnina tognina gninaserver libgnina.a gninagrid
 

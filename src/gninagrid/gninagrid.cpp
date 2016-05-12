@@ -175,7 +175,7 @@ int main(int argc, char *argv[])
 
 	srand(opt.seed);
 	//figure out grid center
-	if(!isfinite(opt.x + opt.y + opt.z))
+	if(!::isfinite(opt.x + opt.y + opt.z))
 	{
 		fl dummy; //we wil set the size
 		string ligandfile = opt.ligandfile;

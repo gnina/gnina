@@ -208,11 +208,14 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 				continue;
 			}
 		}
+
 		return false; //no valid molecules read
 	}
 	case NONE:
 		return true; //nolig
 		break;
 	}
+#ifndef __NVCC__
 	return false; //shouldn't get here
+#endif
 }

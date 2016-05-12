@@ -271,8 +271,10 @@ struct change {
 			if(index < res.torsions.size()) return res.torsions[index];
 			index -= res.torsions.size();
 		}
-		VINA_CHECK(false); 
+		VINA_CHECK(false);
+#ifndef __NVCC__
 		return 0; // shouldn't happen, placating the compiler
+#endif
 	}
 	fl& operator()(sz index) {
 		VINA_FOR_IN(i, ligands) {
@@ -289,8 +291,10 @@ struct change {
 			if(index < res.torsions.size()) return res.torsions[index];
 			index -= res.torsions.size();
 		}
-		VINA_CHECK(false); 
+		VINA_CHECK(false);
+#ifndef __NVCC__
 		return ligands[0].rigid.position[0]; // shouldn't happen, placating the compiler
+#endif
 	}
 	sz num_floats() const {
 		sz tmp = 0;
@@ -404,7 +408,9 @@ struct conf {
 			index -= res.torsions.size();
 		}
 		VINA_CHECK(false);
+#ifndef __NVCC__
 		return 0; // shouldn't happen, placating the compiler
+#endif
 	}
 
 private:
