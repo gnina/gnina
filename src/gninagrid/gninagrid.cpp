@@ -67,6 +67,7 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	info.add_options()
 	("help", bool_switch(&o.help), "display usage summary")
 	("version", bool_switch(&o.version), "display program version")
+	("time", bool_switch(&o.timeit), "display time to grid")
 	("verbosity", value<int>(&o.verbosity)->default_value(1),
 			"Adjust the verbosity of the output, default: 1");
 	options_description desc;
@@ -120,7 +121,7 @@ int main(int argc, char *argv[])
 
 		//for each ligand..
 		unsigned ligcnt = 0;
-		while (gridder.readMolecule())
+		while (gridder.readMolecule(opt.timeit))
 		{ //computes ligand grid
 			//and output
 			string base = opt.outname + "_" + lexical_cast<string>(ligcnt);

@@ -9,6 +9,7 @@
 
 #include "nngridder.h"
 #include <cmath>
+#include <boost/timer/timer.hpp>
 
 using namespace boost;
 
@@ -88,10 +89,9 @@ void NNGridder::createDefaultLigMap(vector<int>& map)
 }
 
 //return the occupancy for atom a at point x,y,z
-float NNGridder::calcPoint(const atom& a, const vec& pt)
+float NNGridder::calcPoint(const vec& coords, double ar, const vec& pt)
 {
-	double rsq = (pt - a.coords).norm_sqr();
-	double ar = xs_radius(a.sm);
+	double rsq = (pt - coords).norm_sqr();
 	if (binary)
 	{
 		//is point within radius?
@@ -108,7 +108,7 @@ float NNGridder::calcPoint(const atom& a, const vec& pt)
 		//derivative at the cross over point and a value and derivative of zero
 		//at 1.5*radius
 		double dist = sqrt(rsq);
-		if (dist >= ar * 1.5)
+		if (dist >= ar * radiusmultiple)
 		{
 			return 0.0;
 		}
@@ -154,26 +154,30 @@ pair<unsigned, unsigned> NNGridder::getrange(const grid_dim& dim, double c,
 //figure out what volume of the grid is relevant for this atom and for each
 //grid point in this volume, convert it into world coordinates and call calcpoint
 //to get its value
-bool NNGridder::setAtom(const atom& origa, boost::multi_array<float, 3>& grid)
+bool NNGridder::setAtom(const vec& acoords, double radius, boost::multi_array<float, 3>& grid)
 {
-	atom a = origa;
+	vec coords;
 	if (Q.real() != 0)
 	{ //apply rotation
-		vec tpt = a.coords - trans;
+		vec tpt = acoords - trans;
 		quaternion p(0, tpt[0], tpt[1], tpt[2]);
 		p = Q * p * (conj(Q) / norm(Q));
 
 		vec newpt(p.R_component_2(), p.R_component_3(), p.R_component_4());
 		newpt += trans;
 
-		a.coords = newpt;
+		coords = newpt;
+	}
+	else
+	{
+		coords = acoords;
 	}
 
-	double r = xs_radius(a.sm) * radiusmultiple;
+	double r = radius * radiusmultiple;
 	vector<pair<unsigned, unsigned> > ranges;
 	for (unsigned i = 0; i < 3; i++)
 	{
-		ranges.push_back(getrange(dims[i], a.coords[i], r));
+		ranges.push_back(getrange(dims[i], coords[i], r));
 	}
 	bool isset = false; //is this atom actaully within grid?
 	//for every grid point possibly overlapped by this atom
@@ -188,7 +192,7 @@ bool NNGridder::setAtom(const atom& origa, boost::multi_array<float, 3>& grid)
 				double x = dims[0].begin + i * resolution;
 				double y = dims[1].begin + j * resolution;
 				double z = dims[2].begin + k * resolution;
-				double val = calcPoint(a, vec(x, y, z));
+				double val = calcPoint(coords, radius, vec(x, y, z));
 
 				if (binary)
 				{
@@ -524,36 +528,16 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 
 }
 
-void NNGridder::setReceptor(const model& m)
+//overwrite grids with densities from atoms represented by coords/gridindex/radii
+void NNGridder::setAtoms(const vector<vec>& coords, const vector<short>& gridindex,
+		const vector<float>& radii, vector<boost::multi_array<float, 3> >& grids)
 {
-	zeroGrids(receptorGrids);
-	const atomv& atoms = m.get_fixed_atoms();
-	for (unsigned i = 0, n = atoms.size(); i < n; i++)
+	zeroGrids(grids);
+	for (unsigned i = 0, n = coords.size(); i < n; i++)
 	{
-		const atom& a = atoms[i];
-		int pos = rmap[a.sm];
+		int pos = gridindex[i];
 		if (pos >= 0)
-			setAtom(a, receptorGrids[pos]);
-	}
-}
-
-void NNGridder::setLigand(const model& m)
-{
-	zeroGrids(ligandGrids);
-	//fill in heavy atoms
-	const atomv& atoms = m.get_movable_atoms();
-	assert(atoms.size() == m.coordinates().size());
-	for (unsigned i = 0, n = atoms.size(); i < n; i++)
-	{
-		atom a = atoms[i];
-		a.coords = m.coordinates()[i]; //have to explicitly set coords
-		int pos = lmap[a.sm];
-		if (pos >= 0)
-		{ //ignore atom types not in map
-			assert(pos < ligandGrids.size());
-			if (pos >= 0)
-				setAtom(a, ligandGrids[pos]);
-		}
+			setAtom(coords[i], radii[i], grids[pos]);
 	}
 }
 
@@ -586,7 +570,7 @@ void NNGridder::initialize(const gridoptions& opt)
 	//setRecptor needs to be called to init receptor grids
 }
 
-void NNGridder::setModel(const model& m)
+void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 {
 	//compute center from ligand
 	const atomv& atoms = m.get_movable_atoms();
@@ -620,19 +604,61 @@ void NNGridder::setModel(const model& m)
 
 	setCenter(center[0], center[1], center[2]);
 
-	setReceptor(m);
-	setLigand(m);
+	//set constant arrays if needed
+	if(recCoords.size() == 0 || reinitrec)
+	{
+		const atomv& atoms = m.get_fixed_atoms();
+		recCoords.resize(0); recCoords.reserve(atoms.size());
+		recWhichGrid.resize(0); recWhichGrid.reserve(atoms.size());
+		recRadii.resize(0); recRadii.reserve(atoms.size());
+
+		for (unsigned i = 0, n = atoms.size(); i < n; i++)
+		{
+			const atom& a = atoms[i];
+			if(rmap[a.sm] >= 0) {
+				recWhichGrid.push_back(rmap[a.sm]);
+				recRadii.push_back(xs_radius(a.sm));
+				recCoords.push_back(a.coords);
+			}
+		}
+	}
+
+
+	if(ligRadii.size() == 0 || reinitlig)
+	{
+		const atomv& atoms = m.get_movable_atoms();
+		assert(atoms.size() == m.coordinates().size());
+		ligRadii.resize(atoms.size());
+		ligWhichGrid.resize(atoms.size());
+		//we can't omit stupid atoms since they are included in the coordinates
+		for (unsigned i = 0, n = atoms.size(); i < n; i++)
+		{
+			atom a = atoms[i];
+			ligWhichGrid[i] = lmap[a.sm];
+			ligRadii[i] = xs_radius(a.sm);
+		}
+	}
+
+	setAtoms(recCoords, recWhichGrid, recRadii, receptorGrids);
+	setAtoms(m.coordinates(), ligWhichGrid, ligRadii, ligandGrids);
 }
 
 
 //read a molecule (return false if unsuccessful)
 //set the ligand grid appropriately
-bool NNMolsGridder::readMolecule()
+bool NNMolsGridder::readMolecule(bool timeit)
 {
 	model m;
 	if (!mols.readMoleculeIntoModel(m))
 		return false;
 
-	setModel(m);
+	timer::cpu_timer t;
+	setModel(m, true);
+
+	if(timeit)
+	{
+		cout << "Grid Time: " << t.elapsed().wall << "\n";
+
+	}
 	return true;
 }

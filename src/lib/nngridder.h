@@ -41,14 +41,23 @@ protected:
 	vector<int> rmap; //map atom types to position in grid vectors
 	vector<int> lmap;
 
+	vector<vec> recCoords; //these don't change
+	vector<float> recRadii; //nor do these
+	vector<short> recWhichGrid; // the atom type based grid index
+	vector<float> ligRadii;
+	vector<short> ligWhichGrid; //only change if ligand changes
+
 	pair<unsigned, unsigned> getrange(const grid_dim& dim, double c, double r);
 
 	//return the density value for atom a at the provided point
-	float calcPoint(const atom& a, const vec& pt);
+	float calcPoint(const vec& coords, double ar, const vec& pt);
 
 	//set the relevant grid points for a
 	//return false if atom not in grid
-	bool setAtom(const atom& a, boost::multi_array<float, 3>& grid);
+	bool setAtom(const vec& coords, double radius, boost::multi_array<float, 3>& grid);
+
+	//set the relevant grid points for passed info
+	void setAtoms(const vector<vec>& coords, const vector<short>& gridindex, const vector<float>& radii, vector<boost::multi_array<float, 3> >& grids);
 
 	//output a grid the file in map format (for debug)
 	void outputMAPGrid(ostream& out, boost::multi_array<float, 3>& grid);
@@ -66,8 +75,6 @@ protected:
 
 	static void zeroGrids(vector<boost::multi_array<float, 3> >& grid);
 
-	void setReceptor(const model& m);
-	void setLigand(const model& m);
 public:
 
 	NNGridder(): resolution(0.5), dimension(24), radiusmultiple(1.5), randtranslate(0), binary(false), randrotate(false) {}
@@ -75,7 +82,8 @@ public:
 	void initialize(const gridoptions& opt);
 
 	//set grids (receptor and ligand)
-	void setModel(const model& m);
+	//reinits should be set to true if have different molecule than previously scene
+	void setModel(const model& m, bool reinitlig=false, bool reinitrec=false);
 
 	//return string detailing the configuration (size.channels)
 	string getParamString(bool outputrec, bool outputlig) const;
@@ -110,7 +118,7 @@ public:
 
 	//read a molecule (return false if unsuccessful)
 	//set the ligand grid appropriately
-	bool readMolecule();
+	bool readMolecule(bool timeit);
 
 };
 

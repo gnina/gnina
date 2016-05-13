@@ -22,12 +22,13 @@ struct gridoptions
 	bool randrotate;
 	bool help;
 	bool version;
+	bool timeit;
 	bool outmap;
 	bool binary;
 	gridoptions() :
 			dim(24), res(0.5), verbosity(1), seed((int)time(NULL)),
 			randrotate(false), randtranslate(0.0),
-			help(false), version(false), outmap(false), binary(false)
+			help(false), version(false), timeit(false), outmap(false), binary(false)
 	{
 	}
 };

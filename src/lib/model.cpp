@@ -1060,7 +1060,6 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
 		}
 	}
 
-
 // flex-flex
 	VINA_FOR_IN(i, other_pairs)
 	{
