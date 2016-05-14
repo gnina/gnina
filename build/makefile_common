@@ -1,6 +1,6 @@
 BOOST_INCLUDE = usr/include/boost
 CUDA_INCLUDE = $(BASE)/cuda/include
-LIBOBJ = atom_constants.o box.o builtinscoring.o cache.o cnn_scorer.o coords.o  custom_terms.o everything.o flexinfo.o grid.o gpucode.o  szv_grid.o model.o monte_carlo.o mutate.o my_pid.o naive_non_cache.o nngridder.o non_cache.o obmolopener.o parallel_mc.o parse_pdbqt.o pdb.o quasi_newton.o quaternion.o random.o ssd.o terms.o weighted_terms.o molgetter.o result_info.o PDBQTUtilities.o GninaConverter.o precalculate_gpu.o non_cache_gpu.o
+LIBOBJ = atom_constants.o box.o builtinscoring.o cache.o cnn_scorer.o coords.o  custom_terms.o everything.o flexinfo.o grid.o gpucode.o  szv_grid.o model.o monte_carlo.o mutate.o my_pid.o naive_non_cache.o nngridder.o nngridder_gpu.o non_cache.o obmolopener.o parallel_mc.o parse_pdbqt.o pdb.o quasi_newton.o quaternion.o random.o ssd.o terms.o weighted_terms.o molgetter.o result_info.o PDBQTUtilities.o GninaConverter.o precalculate_gpu.o non_cache_gpu.o
 MAINOBJ = main.o
 TOGNINAOBJ = tognina.o CommandLine.o 
 FROMGNINAOBJ = fromgnina.o CommandLine.o 
@@ -24,7 +24,7 @@ LIBS = -l caffe -l openbabel -l protobuf -l glog -l boost_iostreams${BOOST_LIB_V
 	$(CC) $(CFLAGS) -I ../../../src/lib -o $@ -c $< 
 	
 %.o : ../../../src/lib/%.cu ../../../src/lib/*gpu.h
-	$(NVCC) $(NVOPTS) -DSMINA_GPU -o $@ -c $< 
+	$(NVCC) $(NVOPTS) $(INCFLAGS) -o $@ -c $< 
 	
 all: gnina tognina gninaserver libgnina.a gninagrid
 

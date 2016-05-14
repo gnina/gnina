@@ -38,13 +38,13 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 
 	options_description inputs("Input");
 	inputs.add_options()
-	("receptor,r", value<std::string>(&o.receptorfile),
+	("receptor,r", value<std::string>(&o.receptorfile)->required(),
 			"receptor file")
-	("ligand,l", value<std::string>(&o.ligandfile), "ligand(s)");
+	("ligand,l", value<std::string>(&o.ligandfile)->required(), "ligand(s)");
 
 	options_description outputs("Output");
 	outputs.add_options()
-	("out,o", value<std::string>(&o.outname),
+	("out,o", value<std::string>(&o.outname)->required(),
 			"output file name base, combined map of both lig and receptor")
 	("map", bool_switch(&o.outmap),
 			"output AD4 map files (for debugging, out is base name)");
@@ -61,7 +61,8 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 			"Apply random translation to input up to specified distance")
 	("random_seed", value<int>(&o.seed), "Random seed to use")
 	("recmap", value<string>(&o.recmap), "Atom type mapping for receptor atoms")
-	("ligmap", value<string>(&o.ligmap), "Atom type mapping for ligand atoms");
+	("ligmap", value<string>(&o.ligmap), "Atom type mapping for ligand atoms")
+	("gpu", bool_switch(&o.gpu), "Use GPU to compute grids");
 
 	options_description info("Information (optional)");
 	info.add_options()
@@ -81,24 +82,25 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 						command_line_style::default_style
 								^ command_line_style::allow_guessing)
 						.positional(positional).run(), vm);
+
+		//process informational
+		if (o.help)
+		{
+			cout << desc << '\n';
+			return false;
+		}
+		if (o.version)
+		{
+			cout << "gnina " __DATE__ << '\n';
+			return false;
+		}
+
 		notify(vm);
 	} catch (boost::program_options::error& e)
 	{
 		std::cerr << "Command line parse error: " << e.what() << '\n'
 				<< "\nCorrect usage:\n" << desc << '\n';
 		exit(-1);
-	}
-
-	//process informational
-	if (o.help)
-	{
-		cout << desc << '\n';
-		return false;
-	}
-	if (o.version)
-	{
-		cout << "gnina " __DATE__ << '\n';
-		return false;
 	}
 
 	return true;

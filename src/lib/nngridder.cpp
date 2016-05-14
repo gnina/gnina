@@ -10,6 +10,14 @@
 #include "nngridder.h"
 #include <cmath>
 #include <boost/timer/timer.hpp>
+#include <cuda_runtime.h>
+
+#define CUDA_CHECK(condition) \
+  /* Code block avoids redefinition of cudaError_t error */ \
+  do { \
+    cudaError_t error = condition; \
+    if(error != cudaSuccess) { cerr << " " << cudaGetErrorString(error); exit(1); } \
+  } while (0)
 
 using namespace boost;
 
@@ -434,6 +442,56 @@ void NNGridder::zeroGrids(vector<boost::multi_array<float, 3> >& grid)
 	}
 }
 
+//copy gpu grid to passed cpu grid
+//TODO: rearchitect to use flat grids on the cpu?
+void NNGridder::cudaCopyGrids(vector<boost::multi_array<float, 3> >& grid, float* gpu_grid)
+{
+	for(unsigned i = 0, n = grid.size(); i < n; i++)
+	{
+		float *cpu = grid[i].data();
+		unsigned sz = grid[i].num_elements();
+		CUDA_CHECK(cudaMemcpy(cpu, gpu_grid, sz*sizeof(float),cudaMemcpyDeviceToHost));
+		gpu_grid += sz;
+	}
+}
+
+bool NNGridder::compareGrids(boost::multi_array<float, 3>& g1, boost::multi_array<float, 3>& g2, const char *name, int index)
+{
+	if(g1.size() != g2.size())
+	{
+		cerr << "Invalid initialize grid size " << name << index << "\n";
+		return false;
+	}
+	for(unsigned i = 0, I = g1.size(); i < I; i++)
+	{
+		if(g1[i].size() != g2[i].size())
+		{
+			cerr << "Invalid secondary grid size " << name << index << "\n";
+			return false;
+		}
+		for(unsigned j = 0, J = g1[i].size(); j < J; j++)
+		{
+			if(g1[i][j].size() != g2[i][j].size())
+			{
+				cerr << "Invalid tertiary grid size " << name << index << "\n";
+				return false;
+			}
+			for(unsigned k = 0, K = g1[i][j].size(); k < K; k++)
+			{
+				float diff = g1[i][j][k] - g2[i][j][k];
+				if(fabs(diff) < 0.0001)
+				{
+					cerr << "Values differ " << g1[i][j][k] <<  " != " << g2[i][j][k] << " " << name << index << "\n";
+					return false;
+				}
+			}
+		}
+	}
+	return true;
+}
+
+
+
 void NNGridder::setCenter(double x, double y, double z)
 {
 	trans = vec(x, y, z);
@@ -541,6 +599,8 @@ void NNGridder::setAtoms(const vector<vec>& coords, const vector<short>& gridind
 	}
 }
 
+
+
 NNMolsGridder::NNMolsGridder(const gridoptions& opt)
 {
 	initialize(opt);
@@ -560,6 +620,7 @@ void NNGridder::initialize(const gridoptions& opt)
 	radiusmultiple = 1.5;
 	randtranslate = opt.randtranslate;
 	randrotate = opt.randrotate;
+	gpu = opt.gpu;
 	Q = quaternion(1, 0, 0, 0);
 
 	if (binary)
@@ -567,7 +628,53 @@ void NNGridder::initialize(const gridoptions& opt)
 
 	setMapsAndGrids(opt);
 
-	//setRecptor needs to be called to init receptor grids
+	if(gpu)
+	{
+		//allocate gpu memory for grids
+		unsigned nrgrids = receptorGrids.size();
+		unsigned nlgrids = ligandGrids.size();
+		assert(nrgrids > 0);
+		assert(nlgrids > 0);
+		unsigned n = receptorGrids[0].num_elements();
+		CUDA_CHECK(cudaMalloc(&gpu_receptorGrids, nrgrids*n*sizeof(float)));
+		CUDA_CHECK(cudaMalloc(&gpu_ligandGrids, nlgrids*n*sizeof(float)));
+	}
+}
+
+//allocate (if neccessary) and copy recCoords,radii, and whichgrid
+//assumes cpu version is set
+void NNGridder::setRecGPU()
+{
+	if(gpu_receptorCoords == NULL) {
+		assert(sizeof(vec) == sizeof(float3));
+		CUDA_CHECK(cudaMalloc(&gpu_receptorCoords, recCoords.size()*sizeof(float3)));
+		CUDA_CHECK(cudaMemcpy(&gpu_receptorCoords, &recCoords[0], recCoords.size()*sizeof(float3),cudaMemcpyHostToDevice));
+	}
+	if(gpu_recRadii == NULL) {
+		CUDA_CHECK(cudaMalloc(&gpu_recRadii, recRadii.size()*sizeof(float3)));
+		CUDA_CHECK(cudaMemcpy(&gpu_recRadii, &recRadii[0], recRadii.size()*sizeof(float3),cudaMemcpyHostToDevice));
+	}
+	if(gpu_recWhichGrid == NULL) {
+		CUDA_CHECK(cudaMalloc(&gpu_recWhichGrid, recWhichGrid.size()*sizeof(float3)));
+		CUDA_CHECK(cudaMemcpy(&gpu_recWhichGrid, &recWhichGrid[0], recWhichGrid.size()*sizeof(float3),cudaMemcpyHostToDevice));
+	}
+}
+
+void NNGridder::setLigGPU()
+{
+	if(gpu_ligandCoords == NULL) {
+		assert(sizeof(vec) == sizeof(float3));
+		CUDA_CHECK(cudaMalloc(&gpu_ligandCoords, ligRadii.size()*sizeof(float3)));
+		//ligand coordinates
+	}
+	if(gpu_ligRadii == NULL) {
+		CUDA_CHECK(cudaMalloc(&gpu_ligRadii, ligRadii.size()*sizeof(float3)));
+		CUDA_CHECK(cudaMemcpy(&gpu_ligRadii, &ligRadii[0], ligRadii.size()*sizeof(float3),cudaMemcpyHostToDevice));
+	}
+	if(gpu_ligWhichGrid == NULL) {
+		CUDA_CHECK(cudaMalloc(&gpu_ligWhichGrid, ligWhichGrid.size()*sizeof(float3)));
+		CUDA_CHECK(cudaMemcpy(&gpu_ligWhichGrid, &ligWhichGrid[0], ligWhichGrid.size()*sizeof(float3),cudaMemcpyHostToDevice));
+	}
 }
 
 void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
@@ -621,6 +728,9 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 				recCoords.push_back(a.coords);
 			}
 		}
+
+		if(gpu) setRecGPU();
+
 	}
 
 
@@ -637,10 +747,49 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 			ligWhichGrid[i] = lmap[a.sm];
 			ligRadii[i] = xs_radius(a.sm);
 		}
+
+		if(gpu) setLigGPU();
 	}
 
-	setAtoms(recCoords, recWhichGrid, recRadii, receptorGrids);
-	setAtoms(m.coordinates(), ligWhichGrid, ligRadii, ligandGrids);
+	if(gpu)
+	{
+		unsigned nlatoms = m.coordinates().size();
+		CUDA_CHECK(cudaMemcpy(&gpu_ligandCoords, &m.coordinates()[0], nlatoms*sizeof(float3),cudaMemcpyHostToDevice));
+
+		setAtomsGPU(recCoords.size(),gpu_receptorCoords, gpu_recWhichGrid, gpu_recRadii, receptorGrids.size(), gpu_receptorGrids);
+		cudaCopyGrids(receptorGrids, gpu_receptorGrids);
+
+		setAtomsGPU(nlatoms, gpu_ligandCoords, gpu_ligWhichGrid, gpu_ligRadii, ligandGrids.size(), gpu_ligandGrids);
+		cudaCopyGrids(ligandGrids, gpu_ligandGrids);
+
+		cudaDeviceSynchronize();
+	}
+	else
+	{
+		setAtoms(recCoords, recWhichGrid, recRadii, receptorGrids);
+		setAtoms(m.coordinates(), ligWhichGrid, ligRadii, ligandGrids);
+	}
+}
+
+bool NNGridder::cpuSetModelCheck(const model& m, bool reinitlig, bool reinitrec)
+{
+	vector<boost::multi_array<float, 3> > savedRGrid = receptorGrids;
+	vector<boost::multi_array<float, 3> > savedLGrid = ligandGrids;
+
+	bool savedgpu = gpu;
+	gpu = false;
+	setModel(m, reinitlig, reinitrec);
+
+	gpu = savedgpu;
+
+	for(unsigned i = 0, n = receptorGrids.size(); i < n; i++)
+	{
+		compareGrids(receptorGrids[i], savedRGrid[i], "receptor", i);
+	}
+	for(unsigned i = 0, n = ligandGrids.size(); i < n; i++)
+	{
+		compareGrids(ligandGrids[i], savedLGrid[i], "ligand", i);
+	}
 }
 
 
@@ -658,6 +807,8 @@ bool NNMolsGridder::readMolecule(bool timeit)
 	if(timeit)
 	{
 		cout << "Grid Time: " << t.elapsed().wall << "\n";
+		//DEBUG CODE BELOW
+		if(gpu) cpuSetModelCheck(m, true);
 
 	}
 	return true;

@@ -10,7 +10,8 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/math/quaternion.hpp>
-
+#include <cuda.h>
+#include <vector_types.h>
 #include "atom_type.h"
 #include "box.h"
 #include "gridoptions.h"
@@ -35,6 +36,7 @@ protected:
 	double randtranslate;
 	bool binary; //produce binary occupancies
 	bool randrotate;
+	bool gpu; //use gpu
 
 	vector<boost::multi_array<float, 3> > receptorGrids;
 	vector<boost::multi_array<float, 3> > ligandGrids;
@@ -42,10 +44,27 @@ protected:
 	vector<int> lmap;
 
 	vector<vec> recCoords; //these don't change
-	vector<float> recRadii; //nor do these
+	vector<float> recRadii; //nor do these, note for complex type maps the same
 	vector<short> recWhichGrid; // the atom type based grid index
+
 	vector<float> ligRadii;
 	vector<short> ligWhichGrid; //only change if ligand changes
+
+
+	//gpu data structures, these all point to device mem
+	float *gpu_receptorGrids;
+	float *gpu_ligandGrids;
+
+	float3 *gpu_receptorCoords;
+	float *gpu_recRadii;
+	short *gpu_recWhichGrid;
+
+	float3 *gpu_ligandCoords;
+	float *gpu_ligRadii;
+	short *gpu_ligWhichGrid;
+
+	void setRecGPU();
+	void setLigGPU();
 
 	pair<unsigned, unsigned> getrange(const grid_dim& dim, double c, double r);
 
@@ -58,6 +77,9 @@ protected:
 
 	//set the relevant grid points for passed info
 	void setAtoms(const vector<vec>& coords, const vector<short>& gridindex, const vector<float>& radii, vector<boost::multi_array<float, 3> >& grids);
+
+	//GPU accelerated version
+	void setAtomsGPU(unsigned natoms, float3 *coords, short *gridindex, float *radii, unsigned ngrids, float *grids);
 
 	//output a grid the file in map format (for debug)
 	void outputMAPGrid(ostream& out, boost::multi_array<float, 3>& grid);
@@ -74,10 +96,20 @@ protected:
 	void setCenter(double x, double y, double z);
 
 	static void zeroGrids(vector<boost::multi_array<float, 3> >& grid);
+	static void cudaCopyGrids(vector<boost::multi_array<float, 3> >& grid, float* gpu_grid);
+
+	//for debugging
+	static bool compareGrids(boost::multi_array<float, 3>& g1, boost::multi_array<float, 3>& g2, const char *name, int index);
+
 
 public:
 
-	NNGridder(): resolution(0.5), dimension(24), radiusmultiple(1.5), randtranslate(0), binary(false), randrotate(false) {}
+	NNGridder(): resolution(0.5), dimension(24), radiusmultiple(1.5),
+			randtranslate(0), binary(false), randrotate(false), gpu(false),
+			gpu_receptorGrids(NULL), gpu_ligandGrids(NULL),
+			gpu_receptorCoords(NULL), gpu_recRadii(NULL), gpu_recWhichGrid(NULL),
+			gpu_ligandCoords(NULL), gpu_ligRadii(NULL), gpu_ligWhichGrid(NULL)
+			{}
 
 	void initialize(const gridoptions& opt);
 
@@ -102,6 +134,9 @@ public:
 	static void createDefaultLigMap(vector<int>& map);
 
 	unsigned nchannels() const { return receptorGrids.size() + ligandGrids.size(); }
+
+	//for debugging, run non-gpu code and compre to values in current grids
+	bool cpuSetModelCheck(const model& m, bool reinitlig=false, bool reinitrec=false);
 };
 
 /* This gridder uses a MolGetter to read molecules */
