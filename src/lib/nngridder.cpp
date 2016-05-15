@@ -147,7 +147,7 @@ pair<unsigned, unsigned> NNGridder::getrange(const grid_dim& dim, double c,
 	double high = c + r - dim.begin;
 	if (high > 0) //otherwise zero
 	{
-		ret.second = min(dim.n, (sz) ceil(high / resolution));
+		ret.second = min(dim.n+1, (sz) ceil(high / resolution));
 	}
 	return ret;
 }

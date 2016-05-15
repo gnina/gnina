@@ -30,11 +30,9 @@ __global__ void binary_set(float3 origin, int dim, float resolution, int n, floa
 	//figure out what grid point we are 
 	unsigned xi = threadIdx.x + blockIdx.x*blockDim.x;
 	unsigned yi = threadIdx.y + blockIdx.y*blockDim.y;
-	unsigned zi = threadIdx.z + blockIdx.y*blockDim.z;
+	unsigned zi = threadIdx.z + blockIdx.z*blockDim.z;
 			
-	printf("%d %d %d %d\n",xi,yi,zi,dim);
-
-	if(xi < dim || yi < dim || zi < dim)
+	if(xi >= dim || yi >= dim || zi >= dim)
 		return;	//bail if we're off-grid, this should not be common
 	
 	unsigned gsize = dim*dim*dim;
@@ -45,7 +43,6 @@ __global__ void binary_set(float3 origin, int dim, float resolution, int n, floa
 	
 	//TODO: evaluate setting to zero here
 	
-	printf("%f %f %f\n",x,y,z);
 	//iterate over all atoms
 	for(unsigned i = 0; i < n; i++)
 	{
@@ -55,12 +52,13 @@ __global__ void binary_set(float3 origin, int dim, float resolution, int n, floa
 			float r = radii[i];
 			r *= r; //square radius
 			float d = sqDistance(coord, x,y,z);
+			
 			if(d < r)
 			{
 				//set gridpoint to 1
 				unsigned goffset = which*gsize;
 				unsigned off = (xi*dim+yi)*dim+zi;
-				printf("%d %d\n",goffset,off);
+				//printf("%f,%f,%f %d,%d,%d  %d  %d %d\n",x,y,z, xi,yi,zi, which, goffset,off);
 				grids[goffset+off] = 1.0;
 			}
 		}
