@@ -20,7 +20,7 @@ struct cnn_options {
 	std::string cnn_weights; //weights for model
 	std::string cnn_recmap; //optional file specifying receptor atom typing to channel map
 	std::string cnn_ligmap; //optional file specifying ligand atom typing to channel map
-	double resolution; //this isn't specified in model file, so be careful about straying from default
+	fl resolution; //this isn't specified in model file, so be careful about straying from default
 	unsigned cnn_rotations; //do we want to score multiple orientations?
 	bool cnn_scoring; //if true, do cnn_scoring of final pose
 

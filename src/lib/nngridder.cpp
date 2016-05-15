@@ -12,12 +12,6 @@
 #include <boost/timer/timer.hpp>
 #include <cuda_runtime.h>
 
-#define CUDA_CHECK(condition) \
-  /* Code block avoids redefinition of cudaError_t error */ \
-  do { \
-    cudaError_t error = condition; \
-    if(error != cudaSuccess) { cerr << " " << cudaGetErrorString(error); exit(1); } \
-  } while (0)
 
 using namespace boost;
 
@@ -479,9 +473,9 @@ bool NNGridder::compareGrids(boost::multi_array<float, 3>& g1, boost::multi_arra
 			for(unsigned k = 0, K = g1[i][j].size(); k < K; k++)
 			{
 				float diff = g1[i][j][k] - g2[i][j][k];
-				if(fabs(diff) < 0.0001)
+				if(fabs(diff) > 0.0001)
 				{
-					cerr << "Values differ " << g1[i][j][k] <<  " != " << g2[i][j][k] << " " << name << index << "\n";
+					cerr << "Values differ " << g1[i][j][k] <<  " != " << g2[i][j][k] << " " << name << index << " " << i <<","<<j<<","<<k <<"\n";
 					return false;
 				}
 			}
@@ -621,7 +615,7 @@ void NNGridder::initialize(const gridoptions& opt)
 	randtranslate = opt.randtranslate;
 	randrotate = opt.randrotate;
 	gpu = opt.gpu;
-	Q = quaternion(1, 0, 0, 0);
+	Q = quaternion(0, 0, 0, 0);
 
 	if (binary)
 		radiusmultiple = 1.0;
@@ -648,15 +642,15 @@ void NNGridder::setRecGPU()
 	if(gpu_receptorCoords == NULL) {
 		assert(sizeof(vec) == sizeof(float3));
 		CUDA_CHECK(cudaMalloc(&gpu_receptorCoords, recCoords.size()*sizeof(float3)));
-		CUDA_CHECK(cudaMemcpy(&gpu_receptorCoords, &recCoords[0], recCoords.size()*sizeof(float3),cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(gpu_receptorCoords, &recCoords[0], recCoords.size()*sizeof(float3),cudaMemcpyHostToDevice));
 	}
 	if(gpu_recRadii == NULL) {
 		CUDA_CHECK(cudaMalloc(&gpu_recRadii, recRadii.size()*sizeof(float3)));
-		CUDA_CHECK(cudaMemcpy(&gpu_recRadii, &recRadii[0], recRadii.size()*sizeof(float3),cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(gpu_recRadii, &recRadii[0], recRadii.size()*sizeof(float3),cudaMemcpyHostToDevice));
 	}
 	if(gpu_recWhichGrid == NULL) {
 		CUDA_CHECK(cudaMalloc(&gpu_recWhichGrid, recWhichGrid.size()*sizeof(float3)));
-		CUDA_CHECK(cudaMemcpy(&gpu_recWhichGrid, &recWhichGrid[0], recWhichGrid.size()*sizeof(float3),cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(gpu_recWhichGrid, &recWhichGrid[0], recWhichGrid.size()*sizeof(float3),cudaMemcpyHostToDevice));
 	}
 }
 
@@ -669,11 +663,11 @@ void NNGridder::setLigGPU()
 	}
 	if(gpu_ligRadii == NULL) {
 		CUDA_CHECK(cudaMalloc(&gpu_ligRadii, ligRadii.size()*sizeof(float3)));
-		CUDA_CHECK(cudaMemcpy(&gpu_ligRadii, &ligRadii[0], ligRadii.size()*sizeof(float3),cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(gpu_ligRadii, &ligRadii[0], ligRadii.size()*sizeof(float3),cudaMemcpyHostToDevice));
 	}
 	if(gpu_ligWhichGrid == NULL) {
 		CUDA_CHECK(cudaMalloc(&gpu_ligWhichGrid, ligWhichGrid.size()*sizeof(float3)));
-		CUDA_CHECK(cudaMemcpy(&gpu_ligWhichGrid, &ligWhichGrid[0], ligWhichGrid.size()*sizeof(float3),cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(gpu_ligWhichGrid, &ligWhichGrid[0], ligWhichGrid.size()*sizeof(float3),cudaMemcpyHostToDevice));
 	}
 }
 
@@ -753,8 +747,14 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 
 	if(gpu)
 	{
+		if(Q.real() != 0)
+		{
+			cerr << "Rotations not supported with GPU\n";
+			exit(1);
+		}
+
 		unsigned nlatoms = m.coordinates().size();
-		CUDA_CHECK(cudaMemcpy(&gpu_ligandCoords, &m.coordinates()[0], nlatoms*sizeof(float3),cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(gpu_ligandCoords, &m.coordinates()[0], nlatoms*sizeof(float3),cudaMemcpyHostToDevice));
 
 		setAtomsGPU(recCoords.size(),gpu_receptorCoords, gpu_recWhichGrid, gpu_recRadii, receptorGrids.size(), gpu_receptorGrids);
 		cudaCopyGrids(receptorGrids, gpu_receptorGrids);
@@ -762,7 +762,7 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 		setAtomsGPU(nlatoms, gpu_ligandCoords, gpu_ligWhichGrid, gpu_ligRadii, ligandGrids.size(), gpu_ligandGrids);
 		cudaCopyGrids(ligandGrids, gpu_ligandGrids);
 
-		cudaDeviceSynchronize();
+		CUDA_CHECK(cudaDeviceSynchronize());
 	}
 	else
 	{
