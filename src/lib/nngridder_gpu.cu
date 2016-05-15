@@ -25,7 +25,7 @@ __device__ float sqDistance(float3 pt, float x, float y, float z)
 //gridindex is which grid they belong in
 //radii are atom radii
 //grids are the output and are assumed to be zeroed
-__global__ void binary_set(float3 origin, int dim, float resolution, int n, float3 *coords, short *gridindex, float *radii, float *grids) 
+template<bool Binary> __global__ void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, float3 *coords, short *gridindex, float *radii, float *grids) 
 {
 	//figure out what grid point we are 
 	unsigned xi = threadIdx.x + blockIdx.x*blockDim.x;
@@ -50,16 +50,51 @@ __global__ void binary_set(float3 origin, int dim, float resolution, int n, floa
 		short which = gridindex[i];
 		if(which >= 0) { //because of hydrogens on ligands
 			float r = radii[i];
-			r *= r; //square radius
+			float rsq  = r*r;
 			float d = sqDistance(coord, x,y,z);
 			
-			if(d < r)
+			if(Binary)
 			{
-				//set gridpoint to 1
-				unsigned goffset = which*gsize;
-				unsigned off = (xi*dim+yi)*dim+zi;
-				//printf("%f,%f,%f %d,%d,%d  %d  %d %d\n",x,y,z, xi,yi,zi, which, goffset,off);
-				grids[goffset+off] = 1.0;
+				if(d < rsq)
+				{
+					//set gridpoint to 1
+					unsigned goffset = which*gsize;
+					unsigned off = (xi*dim+yi)*dim+zi;
+					//printf("%f,%f,%f %d,%d,%d  %d  %d %d\n",x,y,z, xi,yi,zi, which, goffset,off);
+					grids[goffset+off] = 1.0;
+				}
+			}
+			else
+			{
+				//for non binary we want a gaussian were 2 std occurs at the radius
+				//after which which switch to a quadratic
+				//the quadratic is to fit to have both the same value and first order
+				//derivative at the cross over point and a value and derivative of zero
+				//at 1.5*radius
+				//TODO: figure if we can do the math without sqrt
+				double dist = sqrt(d);
+				if (dist < r * rmult)
+				{
+					unsigned goffset = which*gsize;
+					unsigned off = (xi*dim+yi)*dim+zi;
+					unsigned gpos = goffset+off;
+					
+					if (dist <= r)
+					{
+						//return gaussian
+						double h = 0.5 * r;
+						double ex = -dist * dist / (2 * h * h);
+						grids[gpos] += exp(ex);
+					}
+					else //return quadratic
+					{
+						double h = 0.5 * r;
+						double eval = 1.0 / (M_E * M_E); //e^(-2)
+						double q = dist * dist * eval / (h * h) - 6.0 * eval * dist / h
+								+ 9.0 * eval;
+						grids[gpos] += q;
+					}
+				}
 			}
 		}
 	}
@@ -80,12 +115,12 @@ void NNGridder::setAtomsGPU(unsigned natoms, float3 *coords, short *gridindex, f
 	CUDA_CHECK(cudaMemset(grids, 0, ngrids*dim*dim*dim*sizeof(float))); //TODO: see if faster to do in kernel
 	if(binary)
 	{
-		binary_set<<<blocks,threads>>>(origin, dim, resolution, natoms, coords, gridindex, radii, grids);
+		gpu_grid_set<true><<<blocks,threads>>>(origin, dim, resolution, radiusmultiple, natoms, coords, gridindex, radii, grids);
 		CUDA_CHECK(cudaPeekAtLastError() );
 	}
 	else 
 	{
-		cerr << " non binary not gpu implemented yet" << "\n";
-		exit(1);
+		gpu_grid_set<false><<<blocks,threads>>>(origin, dim, resolution, radiusmultiple, natoms, coords, gridindex, radii, grids);
+		CUDA_CHECK(cudaPeekAtLastError() );
 	}
 }
