@@ -755,6 +755,7 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 
 		unsigned nlatoms = m.coordinates().size();
 		CUDA_CHECK(cudaMemcpy(gpu_ligandCoords, &m.coordinates()[0], nlatoms*sizeof(float3),cudaMemcpyHostToDevice));
+		//cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 1024*1024*4);
 
 		setAtomsGPU(recCoords.size(),gpu_receptorCoords, gpu_recWhichGrid, gpu_recRadii, receptorGrids.size(), gpu_receptorGrids);
 		cudaCopyGrids(receptorGrids, gpu_receptorGrids);
