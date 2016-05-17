@@ -6,6 +6,6 @@ GPP=g++
 C_OPTIONS= -O3 -DNDEBUG -g   
 #C_OPTIONS= -O3 -DNDEBUG -g -flto
 BOOST_LIB_VERSION=
-NVOPTS=-gencode arch=compute_50,code=sm_50 -O3  -gencode arch=compute_35,code=sm_35
+NVOPTS=-gencode arch=compute_50,code=sm_50 -O3 -g -gencode arch=compute_35,code=sm_35
 OPENBABEL_INCLUDE=/usr/local/include/openbabel-2.0
 include ../../makefile_common

@@ -156,7 +156,7 @@ pair<unsigned, unsigned> NNGridder::getrange(const grid_dim& dim, double c,
 //figure out what volume of the grid is relevant for this atom and for each
 //grid point in this volume, convert it into world coordinates and call calcpoint
 //to get its value
-bool NNGridder::setAtom(const vec& acoords, double radius, boost::multi_array<float, 3>& grid)
+bool NNGridder::setAtom(const vec& acoords, double radius, Grid& grid)
 {
 	vec coords;
 	if (Q.real() != 0)
@@ -212,7 +212,7 @@ bool NNGridder::setAtom(const vec& acoords, double radius, boost::multi_array<fl
 }
 
 //output a grid the file in map format (for debug)
-void NNGridder::outputMAPGrid(ostream& out, boost::multi_array<float, 3>& grid)
+void NNGridder::outputMAPGrid(ostream& out, Grid& grid)
 {
 	unsigned max = dims[0].n + 1;
 	out.precision(5);
@@ -327,7 +327,7 @@ string NNGridder::getParamString(bool outputrec, bool outputlig) const
 }
 
 //return true if grid only contains zeroes
-static bool gridIsEmpty(const multi_array<float, 3>& grid)
+static bool gridIsEmpty(const NNGridder::Grid& grid)
 {
 	for (const float *ptr = grid.data(), *end = grid.data()
 			+ grid.num_elements(); ptr != end; ptr++)
@@ -427,29 +427,29 @@ void NNGridder::outputMem(vector<float>& out)
 }
 
 //set all the elements of a grid to zero
-void NNGridder::zeroGrids(vector<boost::multi_array<float, 3> >& grid)
+void NNGridder::zeroGrids(vector<Grid>& grid)
 {
 	for (unsigned i = 0, n = grid.size(); i < n; i++)
 	{
-		boost::multi_array<float, 3>& g = grid[i];
+		Grid& g = grid[i];
 		std::fill(g.data(), g.data() + g.num_elements(), 0.0);
 	}
 }
 
 //copy gpu grid to passed cpu grid
 //TODO: rearchitect to use flat grids on the cpu?
-void NNGridder::cudaCopyGrids(vector<boost::multi_array<float, 3> >& grid, float* gpu_grid)
+void NNGridder::cudaCopyGrids(vector<Grid>& grid, float* gpu_grid)
 {
 	for(unsigned i = 0, n = grid.size(); i < n; i++)
 	{
 		float *cpu = grid[i].data();
 		unsigned sz = grid[i].num_elements();
-		CUDA_CHECK(cudaMemcpy(cpu, gpu_grid, sz*sizeof(float),cudaMemcpyDeviceToHost));
+		CUDA_CHECK(cudaMemcpyAsync(cpu, gpu_grid, sz*sizeof(float),cudaMemcpyDeviceToHost));
 		gpu_grid += sz;
 	}
 }
 
-bool NNGridder::compareGrids(boost::multi_array<float, 3>& g1, boost::multi_array<float, 3>& g2, const char *name, int index)
+bool NNGridder::compareGrids(Grid& g1, Grid& g2, const char *name, int index)
 {
 	if(g1.size() != g2.size())
 	{
@@ -582,7 +582,7 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 
 //overwrite grids with densities from atoms represented by coords/gridindex/radii
 void NNGridder::setAtoms(const vector<vec>& coords, const vector<short>& gridindex,
-		const vector<float>& radii, vector<boost::multi_array<float, 3> >& grids)
+		const vector<float>& radii, vector<Grid>& grids)
 {
 	zeroGrids(grids);
 	for (unsigned i = 0, n = coords.size(); i < n; i++)
@@ -774,8 +774,8 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 
 bool NNGridder::cpuSetModelCheck(const model& m, bool reinitlig, bool reinitrec)
 {
-	vector<boost::multi_array<float, 3> > savedRGrid = receptorGrids;
-	vector<boost::multi_array<float, 3> > savedLGrid = ligandGrids;
+	vector<Grid> savedRGrid = receptorGrids;
+	vector<Grid> savedLGrid = ligandGrids;
 
 	bool savedgpu = gpu;
 	gpu = false;

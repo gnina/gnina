@@ -155,26 +155,24 @@ template<bool Binary> __device__ void set_atoms(float3 origin, int dim, float re
 				//derivative at the cross over point and a value and derivative of zero
 				//at 1.5*radius
 				//TODO: figure if we can do the math without sqrt
-				double dist = sqrt(d);
+				float dist = sqrtf(d);
 				if (dist < r * rmult)
 				{
 					unsigned goffset = which*gsize;
 					unsigned off = (xi*dim+yi)*dim+zi;
 					unsigned gpos = goffset+off;
+					float h = 0.5 * r;
 
 					if (dist <= r)
 					{
 						//return gaussian
-						double h = 0.5 * r;
-						double ex = -dist * dist / (2 * h * h);
+						float ex = -dist * dist / (2 * h * h);
 						grids[gpos] += exp(ex);
 					}
 					else //return quadratic
 					{
-						double h = 0.5 * r;
-						double eval = 1.0 / (M_E * M_E); //e^(-2)
-						double q = dist * dist * eval / (h * h) - 6.0 * eval * dist / h
-						+ 9.0 * eval;
+						float eval = 1.0 / (M_E * M_E); //e^(-2)
+						float q = dist * dist * eval / (h * h) - 6.0 * eval * dist / h + 9.0 * eval;
 						grids[gpos] += q;
 					}
 				}
@@ -209,22 +207,7 @@ unsigned atomOverlapsBlock(unsigned aindex,float3 origin,float resolution,
 	float3 center = coords[aindex];
 
 	//does atom overlap box?
-	if(center.x - r > endx)
-		return 0;
-	if(center.x + r < startx)
-		return 0;
-
-	if(center.y - r > endy)
-		return 0;
-	if(center.y + r < starty)
-		return 0;
-
-	if(center.z - r > endz)
-		return 0;
-	if(center.z + r < startz)
-		return 0;
-
-	return 1;
+	return !((center.x - r > endx) || (center.x + r < startx) || (center.y - r > endy) || (center.y + r < starty) || (center.z - r > endz) || (center.z + r < startz));
 }
 
 __device__
@@ -248,7 +231,9 @@ bool scanValid(unsigned idx,uint *scanresult)
 //gridindex is which grid they belong in
 //radii are atom radii
 //grids are the output and are assumed to be zeroed
-template<bool Binary> __global__ void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, float3 *coords, short *gridindex, float *radii, float *grids)
+template<bool Binary> __global__ 
+__launch_bounds__(THREADSPERBLOCK, 64)
+void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, float3 *coords, short *gridindex, float *radii, float *grids)
 {
 	unsigned tIndex = ((threadIdx.z*BLOCKDIM) + threadIdx.y)*BLOCKDIM+threadIdx.x;
 
@@ -284,6 +269,7 @@ template<bool Binary> __global__ void gpu_grid_set(float3 origin, int dim, float
 	}
 }
 
+
 void NNGridder::setAtomsGPU(unsigned natoms,float3 *coords,short *gridindex,
 		float *radii,unsigned ngrids,float *grids)
 {
@@ -295,7 +281,9 @@ void NNGridder::setAtomsGPU(unsigned natoms,float3 *coords,short *gridindex,
 	unsigned blocksperside = ceil(dim / float(BLOCKDIM));
 	dim3 blocks(blocksperside, blocksperside, blocksperside);
 
-	CUDA_CHECK(cudaMemset(grids, 0, ngrids * dim * dim * dim * sizeof(float)));	//TODO: see if faster to do in kernel
+	unsigned gsize = ngrids * dim * dim * dim;
+	CUDA_CHECK(cudaMemset(grids, 0, gsize * sizeof(float)));	//TODO: see if faster to do in kernel - it isn't, but this still may not be fastest
+	
 	if(binary){
 		gpu_grid_set<true><<<blocks,threads>>>(origin, dim, resolution, 1.0, natoms, coords, gridindex, radii, grids);
 		CUDA_CHECK (cudaPeekAtLastError() );

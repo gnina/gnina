@@ -11,6 +11,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/math/quaternion.hpp>
 #include <cuda.h>
+#include <thrust/system/cuda/experimental/pinned_allocator.h>
 #include <vector_types.h>
 #include "atom_type.h"
 #include "box.h"
@@ -24,9 +25,61 @@ using namespace std;
  */
 class NNGridder
 {
+  //modeled from thurst, but with destroy method to make boost happy
+  class float_pinned_allocator
+  {
+    public:
+      typedef float              value_type;
+      typedef float*             pointer;
+      typedef const float*       const_pointer;
+      typedef float&             reference;
+      typedef const float&       const_reference;
+      typedef std::size_t    size_type;
+      typedef std::ptrdiff_t difference_type;
+
+      pointer address(reference r) { return &r; }
+      const_pointer address(const_reference r) { return &r; }
+
+      //allocate to pinned memory
+      pointer allocate(size_type cnt, const_pointer = 0)
+      {
+        if(cnt > this->max_size())
+        {
+          throw std::bad_alloc();
+        }
+
+        pointer result(0);
+        cudaError_t error = cudaMallocHost(reinterpret_cast<void**>(&result), cnt * sizeof(value_type));
+
+        if(error)
+        {
+          throw std::bad_alloc();
+        }
+
+        return result;
+      }
+
+      void deallocate(pointer p, size_type cnt)
+      {
+        cudaFreeHost(p);
+
+      }
+
+      size_type max_size() const
+      {
+        return (std::numeric_limits<size_type>::max)() / sizeof(float);
+      }
+
+      void destroy(float *p) {} //don't need to destruct a float
+
+  }; // end pinned_allocator
 public:
   typedef boost::math::quaternion<double> quaternion;
+	typedef boost::multi_array<float, 3, float_pinned_allocator>  Grid;
+
 protected:
+
+
 	grid_dims dims; //this is a cube
 	quaternion Q;
 	vec trans;
@@ -38,8 +91,8 @@ protected:
 	bool randrotate;
 	bool gpu; //use gpu
 
-	vector<boost::multi_array<float, 3> > receptorGrids;
-	vector<boost::multi_array<float, 3> > ligandGrids;
+	vector<Grid> receptorGrids;
+	vector<Grid> ligandGrids;
 	vector<int> rmap; //map atom types to position in grid vectors
 	vector<int> lmap;
 
@@ -73,16 +126,16 @@ protected:
 
 	//set the relevant grid points for a
 	//return false if atom not in grid
-	bool setAtom(const vec& coords, double radius, boost::multi_array<float, 3>& grid);
+	bool setAtom(const vec& coords, double radius, Grid& grid);
 
 	//set the relevant grid points for passed info
-	void setAtoms(const vector<vec>& coords, const vector<short>& gridindex, const vector<float>& radii, vector<boost::multi_array<float, 3> >& grids);
+	void setAtoms(const vector<vec>& coords, const vector<short>& gridindex, const vector<float>& radii, vector<Grid>& grids);
 
 	//GPU accelerated version
 	void setAtomsGPU(unsigned natoms, float3 *coords, short *gridindex, float *radii, unsigned ngrids, float *grids);
 
 	//output a grid the file in map format (for debug)
-	void outputMAPGrid(ostream& out, boost::multi_array<float, 3>& grid);
+	void outputMAPGrid(ostream& out, Grid& grid);
 
 	//return a string representation of the atom type(s) represented by index
 	//in map - this isn't particularly efficient, but is only for debug purposes
@@ -95,11 +148,11 @@ protected:
 	//set the center of the grid, must reset receptor/ligand
 	void setCenter(double x, double y, double z);
 
-	static void zeroGrids(vector<boost::multi_array<float, 3> >& grid);
-	static void cudaCopyGrids(vector<boost::multi_array<float, 3> >& grid, float* gpu_grid);
+	static void zeroGrids(vector<Grid>& grid);
+	static void cudaCopyGrids(vector<Grid>& grid, float* gpu_grid);
 
 	//for debugging
-	static bool compareGrids(boost::multi_array<float, 3>& g1, boost::multi_array<float, 3>& g2, const char *name, int index);
+	static bool compareGrids(Grid& g1, Grid& g2, const char *name, int index);
 
 
 public:
