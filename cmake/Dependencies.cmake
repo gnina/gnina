@@ -6,6 +6,11 @@ find_package(Boost 1.46 REQUIRED COMPONENTS system thread filesystem iostreams)
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 list(APPEND Caffe_LINKER_LIBS ${Boost_LIBRARIES} )
 
+# find and setup openbabel
+find_package(OpenBabel2 REQUIRED)
+include_directories(${OPENBABEL2_INCLUDE_DIR})
+list(APPEND Caffe_LINKER_LIBS  ${OPENBABEL2_LIBRARIES} )
+
 # ---[ Threads
 find_package(Threads REQUIRED)
 list(APPEND Caffe_LINKER_LIBS ${CMAKE_THREAD_LIBS_INIT})

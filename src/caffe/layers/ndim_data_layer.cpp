@@ -316,10 +316,16 @@ template <typename Dtype>
 void NDimDataLayer<Dtype>::memoryIsSet()
 {
 	boost::unique_lock<boost::mutex> lock(mem_mutex);
-	if(num_rotations > 0) //generate all rotations
-		data_avail += num_rotations;
-	else
-		data_avail++;
+	unsigned batch_size = top_shape[0];
+	unsigned add = 1;
+
+	if(num_rotations > 0) {
+		CHECK_LE(batch_size, num_rotations);
+		CHECK_EQ(num_rotations % batch_size, 0);
+		add = num_rotations/batch_size;
+	}
+	data_avail += add;
+
 	mem_cond.notify_one();
 }
 
@@ -352,16 +358,21 @@ void NDimDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
   	data_avail--;
 
   	//memory is now available
-  	CHECK_EQ(batch->data_.count(), memdata.size()) << "Mismatch in ndim memory size";
-  	memcpy(prefetch_data, &memdata[0], memdata.size()*sizeof(float));
+  	CHECK_EQ(batch->data_.count() % memdata.size() , 0) << "Mismatch in ndim memory size";
+  	unsigned batchsz = batch->data_.count() / memdata.size();
 
-    if(current_rotation > 0) {
-      rotate_data(prefetch_data, current_rotation);
-    }
+  	for(unsigned b = 0; b < batchsz; b++) {
+  		Dtype *outdata = prefetch_data+b*memdata.size();
+			memcpy(outdata, &memdata[0], memdata.size()*sizeof(float));
 
-		if (num_rotations > 0) {
-			current_rotation = (current_rotation+1)%num_rotations;
-		}
+			if(current_rotation > 0) {
+				rotate_data(outdata, current_rotation);
+			}
+
+			if (num_rotations > 0) {
+				current_rotation = (current_rotation+1)%num_rotations;
+			}
+  	}
   }
   else {
 		if(balanced) { //load equally from actives/decoys

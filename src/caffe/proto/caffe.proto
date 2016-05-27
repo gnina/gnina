@@ -386,6 +386,7 @@ message LayerParameter {
   optional LogParameter log_param = 134;
   optional LRNParameter lrn_param = 118;
   optional MemoryDataParameter memory_data_param = 119;
+  optional MolGridDataParameter molgrid_data_param = 151;
   optional MVNParameter mvn_param = 120;
   optional NDimDataParameter ndim_data_param = 150;  
   optional PoolingParameter pooling_param = 121;
@@ -798,6 +799,50 @@ message ImageDataParameter {
   optional bool mirror = 6 [default = false];
   optional string root_folder = 12 [default = ""];
 } 
+
+message MolGridDataParameter {
+  // Specify the data source. This is a text file containing the label and location of receptor/ligand structures
+  optional string source = 1;
+  // Specify the batch size.
+  optional uint32 batch_size = 2 [default = 1];
+  // Dimension of cube
+  optional float dimension = 3;
+  // Resolution in Angstroms
+  optional float resolution = 4;
+  // The rand_skip variable is for the data layer to skip a few data points
+  // to avoid all asynchronous sgd clients to start at the same point. The skip
+  // point would be set as rand_skip * rand(0,1). Note that rand_skip should not
+  // be larger than the number of keys in the database.
+  optional uint32 rand_skip = 5 [default = 0];
+  //add hydrogens to molecule with openbabel
+  optional bool addH = 6 [default = true];
+  // Whether or not inputs should be shuffled  at every epoch.
+  optional bool shuffle = 8 [default = true];
+  // Whether every batch should have a balanced number of true/false examples
+  optional bool balanced = 9 [default = true];
+  //perform consistency checks on input data (all finite numbers)
+  optional bool check = 10 [default = false];
+  //path to prepend to receptor/ligand files
+  optional string root_folder = 12 [default = ""];
+  //if > 0, then apply this many distinct axial rotations (max 24)
+  //to the data to expand the input set; note that with balanced the rotation
+  //will be cycled with every pass through the actives, even if not all decoys have
+  //been sampled
+  optional uint32 rotate = 13 [default = 0];
+  //randomly rotate each input file; a new rotation is applied each epoch
+  optional bool random_rotation = 14 [default = false];
+  //randomly translate each input by up this amount; new translation applied each epoch
+  optional uint32 random_translate = 15 [default = 0];
+  //output binary grids instead of densities
+  optional bool binary_occupancy = 16 [default = false];
+  //path to recmap file to override default
+  optional string recmap = 17 [default = ""];
+  //lig map
+  optional string ligmap = 18 [default = ""];
+  //ignore files, input will be provided programmatically, e.g. through gnina
+  optional bool inmemory = 19 [default = false];
+  
+}
 
 message NDimDataParameter {
   // Specify the data source. This is a text file containing the label and location of multi dimensional data
