@@ -96,7 +96,7 @@ sharedMemExclusiveScan(int threadIndex, uint* sInput, uint* sOutput)
 
 //return squared distance between pt and (x,y,z)
 __device__
-float sqDistance(float3 pt,float x,float y,float z){
+float sqDistance(float4 pt,float x,float y,float z){
 	float ret;
 	float tmp = pt.x - x;
 	ret = tmp * tmp;
@@ -108,7 +108,7 @@ float sqDistance(float3 pt,float x,float y,float z){
 }
 
 //go through the n atoms referenced in atomIndices and set a grid point
-template<bool Binary> __device__ void set_atoms(float3 origin, int dim, float resolution, float rmult, unsigned n, float3 *coords, short *gridindex, float *radii, float *grids)
+template<bool Binary> __device__ void set_atoms(float3 origin, int dim, float resolution, float rmult, unsigned n, float4 *ainfos, short *gridindex, float *grids)
 {
 	//figure out what grid point we are 
 	unsigned xi = threadIdx.x + blockIdx.x*blockDim.x;
@@ -128,11 +128,11 @@ template<bool Binary> __device__ void set_atoms(float3 origin, int dim, float re
 	for(unsigned ai = 0; ai < n; ai++)
 	{
 		unsigned i = atomIndices[ai];
-		float3 coord = coords[i];
+		float4 coord = ainfos[i];
 		short which = gridindex[i];
 
 		if(which >= 0){ //because of hydrogens on ligands
-			float r = radii[i];
+			float r = ainfos[i].w;
 			float rsq = r*r;
 			float d = sqDistance(coord, x,y,z);
 
@@ -184,7 +184,7 @@ template<bool Binary> __device__ void set_atoms(float3 origin, int dim, float re
 //return 1 if atom potentially overlaps block, 0 otherwise
 __device__
 unsigned atomOverlapsBlock(unsigned aindex,float3 origin,float resolution,
-		float3 *coords,float *radii,short *gridindex,float rmult)
+		float4 *ainfos,short *gridindex,float rmult)
 {
 
 	if(gridindex[aindex] < 0)
@@ -203,8 +203,8 @@ unsigned atomOverlapsBlock(unsigned aindex,float3 origin,float resolution,
 	float endy = starty + resolution * BLOCKDIM;
 	float endz = startz + resolution * BLOCKDIM;
 
-	float r = radii[aindex] * rmult;
-	float3 center = coords[aindex];
+	float r = ainfos[aindex].w * rmult;
+	float4 center = ainfos[aindex];
 
 	//does atom overlap box?
 	return !((center.x - r > endx) || (center.x + r < startx) || (center.y - r > endy) || (center.y + r < starty) || (center.z - r > endz) || (center.z + r < startz));
@@ -233,7 +233,7 @@ bool scanValid(unsigned idx,uint *scanresult)
 //grids are the output and are assumed to be zeroed
 template<bool Binary> __global__ 
 __launch_bounds__(THREADSPERBLOCK, 64)
-void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, float3 *coords, short *gridindex, float *radii, float *grids)
+void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, float4 *ainfos, short *gridindex, float *grids)
 {
 	unsigned tIndex = ((threadIdx.z*BLOCKDIM) + threadIdx.y)*BLOCKDIM+threadIdx.x;
 
@@ -243,7 +243,7 @@ void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, 
 		//first parallelize over atoms to figure out if they might overlap this block
 		unsigned aindex = atomoffset+tIndex;
 		if(aindex < n)
-			atomMask[tIndex] = atomOverlapsBlock(aindex, origin, resolution, coords, radii, gridindex, rmult);
+			atomMask[tIndex] = atomOverlapsBlock(aindex, origin, resolution, ainfos, gridindex, rmult);
 		else
 			atomMask[tIndex] = 0;
 
@@ -264,14 +264,14 @@ void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, 
 
 		unsigned nAtoms = scanOutput[THREADSPERBLOCK-1] + atomMask[THREADSPERBLOCK-1];
 		//atomIndex is now a list of nAtoms atom indices
-		set_atoms<Binary>(origin, dim, resolution, rmult, nAtoms, coords, gridindex, radii, grids);
+		set_atoms<Binary>(origin, dim, resolution, rmult, nAtoms, ainfos, gridindex, grids);
 		__syncthreads();//everyone needs to finish before we muck with atomIndices again
 	}
 }
 
 
-void NNGridder::setAtomsGPU(unsigned natoms,float3 *coords,short *gridindex,
-		float *radii,unsigned ngrids,float *grids)
+void NNGridder::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
+		unsigned ngrids,float *grids)
 {
 	//each thread is responsible for a grid point location and will handle all atom types
 	//each block is 8x8x8=512 threads
@@ -285,12 +285,12 @@ void NNGridder::setAtomsGPU(unsigned natoms,float3 *coords,short *gridindex,
 	CUDA_CHECK(cudaMemset(grids, 0, gsize * sizeof(float)));	//TODO: see if faster to do in kernel - it isn't, but this still may not be fastest
 	
 	if(binary){
-		gpu_grid_set<true><<<blocks,threads>>>(origin, dim, resolution, 1.0, natoms, coords, gridindex, radii, grids);
+		gpu_grid_set<true><<<blocks,threads>>>(origin, dim, resolution, 1.0, natoms, ainfos, gridindex, grids);
 		CUDA_CHECK (cudaPeekAtLastError() );
 	}
 	else
 	{
-		gpu_grid_set<false><<<blocks,threads>>>(origin, dim, resolution, radiusmultiple, natoms, coords, gridindex, radii, grids);
+		gpu_grid_set<false><<<blocks,threads>>>(origin, dim, resolution, radiusmultiple, natoms, ainfos, gridindex, grids);
 		CUDA_CHECK(cudaPeekAtLastError() );
 	}
 }

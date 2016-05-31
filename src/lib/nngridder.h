@@ -17,6 +17,7 @@
 #include "box.h"
 #include "gridoptions.h"
 #include "molgetter.h"
+#include "gridmaker.h"
 
 using namespace std;
 
@@ -91,13 +92,13 @@ protected:
 	bool randrotate;
 	bool gpu; //use gpu
 
+	GridMaker gmaker;
 	vector<Grid> receptorGrids;
 	vector<Grid> ligandGrids;
 	vector<int> rmap; //map atom types to position in grid vectors
 	vector<int> lmap;
 
-	vector<vec> recCoords; //these don't change
-	vector<float> recRadii; //nor do these, note for complex type maps the same
+	vector<float4> recAInfo; //these don't change
 	vector<short> recWhichGrid; // the atom type based grid index
 
 	vector<float> ligRadii;
@@ -108,12 +109,10 @@ protected:
 	float *gpu_receptorGrids;
 	float *gpu_ligandGrids;
 
-	float3 *gpu_receptorCoords;
-	float *gpu_recRadii;
+	float4 *gpu_receptorAInfo;
 	short *gpu_recWhichGrid;
 
-	float3 *gpu_ligandCoords;
-	float *gpu_ligRadii;
+	float4 *gpu_ligandAInfo;
 	short *gpu_ligWhichGrid;
 
 	void setRecGPU();
@@ -121,18 +120,8 @@ protected:
 
 	pair<unsigned, unsigned> getrange(const grid_dim& dim, double c, double r);
 
-	//return the density value for atom a at the provided point
-	float calcPoint(const vec& coords, double ar, const vec& pt);
-
-	//set the relevant grid points for a
-	//return false if atom not in grid
-	bool setAtom(const vec& coords, double radius, Grid& grid);
-
-	//set the relevant grid points for passed info
-	void setAtoms(const vector<vec>& coords, const vector<short>& gridindex, const vector<float>& radii, vector<Grid>& grids);
-
 	//GPU accelerated version
-	void setAtomsGPU(unsigned natoms, float3 *coords, short *gridindex, float *radii, unsigned ngrids, float *grids);
+	void setAtomsGPU(unsigned natoms, float4 *ainfos, short *gridindex, unsigned ngrids, float *grids);
 
 	//output a grid the file in map format (for debug)
 	void outputMAPGrid(ostream& out, Grid& grid);
@@ -148,7 +137,6 @@ protected:
 	//set the center of the grid, must reset receptor/ligand
 	void setCenter(double x, double y, double z);
 
-	static void zeroGrids(vector<Grid>& grid);
 	static void cudaCopyGrids(vector<Grid>& grid, float* gpu_grid);
 
 	//for debugging
@@ -160,8 +148,8 @@ public:
 	NNGridder(): resolution(0.5), dimension(24), radiusmultiple(1.5),
 			randtranslate(0), binary(false), randrotate(false), gpu(false),
 			gpu_receptorGrids(NULL), gpu_ligandGrids(NULL),
-			gpu_receptorCoords(NULL), gpu_recRadii(NULL), gpu_recWhichGrid(NULL),
-			gpu_ligandCoords(NULL), gpu_ligRadii(NULL), gpu_ligWhichGrid(NULL)
+			gpu_receptorAInfo(NULL), gpu_recWhichGrid(NULL),
+			gpu_ligandAInfo(NULL), gpu_ligWhichGrid(NULL)
 			{}
 
 	void initialize(const gridoptions& opt);

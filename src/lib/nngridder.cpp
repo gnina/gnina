@@ -90,126 +90,7 @@ void NNGridder::createDefaultLigMap(vector<int>& map)
 	createDefaultMap(names, map);
 }
 
-//return the occupancy for atom a at point x,y,z
-float NNGridder::calcPoint(const vec& coords, double ar, const vec& pt)
-{
-	double rsq = (pt - coords).norm_sqr();
-	if (binary)
-	{
-		//is point within radius?
-		if (rsq < ar * ar)
-			return 1.0;
-		else
-			return 0.0;
-	}
-	else
-	{
-		//for non binary we want a gaussian were 2 std occurs at the radius
-		//after which which switch to a quadratic
-		//the quadratic is to fit to have both the same value and first order
-		//derivative at the cross over point and a value and derivative of zero
-		//at 1.5*radius
-		double dist = sqrt(rsq);
-		if (dist >= ar * radiusmultiple)
-		{
-			return 0.0;
-		}
-		else if (dist <= ar)
-		{
-			//return gaussian
-			double h = 0.5 * ar;
-			double ex = -dist * dist / (2 * h * h);
-			return exp(ex);
-		}
-		else //return quadratic
-		{
-			double h = 0.5 * ar;
-			double eval = 1.0 / (M_E * M_E); //e^(-2)
-			double q = dist * dist * eval / (h * h) - 6.0 * eval * dist / h
-					+ 9.0 * eval;
-			return q;
-		}
-	}
-	return 0.0;
-}
 
-//return the range of grid points spanned from c-r to c+r within dim
-pair<unsigned, unsigned> NNGridder::getrange(const grid_dim& dim, double c,
-		double r)
-{
-	pair<unsigned, unsigned> ret(0, 0);
-	double low = c - r - dim.begin;
-	if (low > 0)
-	{
-		ret.first = floor(low / resolution);
-	}
-
-	double high = c + r - dim.begin;
-	if (high > 0) //otherwise zero
-	{
-		ret.second = min(dim.n+1, (sz) ceil(high / resolution));
-	}
-	return ret;
-}
-
-//set the relevant grid points for a
-//figure out what volume of the grid is relevant for this atom and for each
-//grid point in this volume, convert it into world coordinates and call calcpoint
-//to get its value
-bool NNGridder::setAtom(const vec& acoords, double radius, Grid& grid)
-{
-	vec coords;
-	if (Q.real() != 0)
-	{ //apply rotation
-		vec tpt = acoords - trans;
-		quaternion p(0, tpt[0], tpt[1], tpt[2]);
-		p = Q * p * (conj(Q) / norm(Q));
-
-		vec newpt(p.R_component_2(), p.R_component_3(), p.R_component_4());
-		newpt += trans;
-
-		coords = newpt;
-	}
-	else
-	{
-		coords = acoords;
-	}
-
-	double r = radius * radiusmultiple;
-	vector<pair<unsigned, unsigned> > ranges;
-	for (unsigned i = 0; i < 3; i++)
-	{
-		ranges.push_back(getrange(dims[i], coords[i], r));
-	}
-	bool isset = false; //is this atom actaully within grid?
-	//for every grid point possibly overlapped by this atom
-	for (unsigned i = ranges[0].first, iend = ranges[0].second; i < iend; i++)
-	{
-		for (unsigned j = ranges[1].first, jend = ranges[1].second; j < jend;
-				j++)
-		{
-			for (unsigned k = ranges[2].first, kend = ranges[2].second;
-					k < kend; k++)
-			{
-				double x = dims[0].begin + i * resolution;
-				double y = dims[1].begin + j * resolution;
-				double z = dims[2].begin + k * resolution;
-				double val = calcPoint(coords, radius, vec(x, y, z));
-
-				if (binary)
-				{
-					if (val != 0)
-						grid[i][j][k] = 1.0; //don't add, just 1 or 0
-				}
-				else
-					grid[i][j][k] += val;
-
-				isset = true;
-			}
-		}
-	}
-	return isset;
-}
 
 //output a grid the file in map format (for debug)
 void NNGridder::outputMAPGrid(ostream& out, Grid& grid)
@@ -426,16 +307,6 @@ void NNGridder::outputMem(vector<float>& out)
 	}
 }
 
-//set all the elements of a grid to zero
-void NNGridder::zeroGrids(vector<Grid>& grid)
-{
-	for (unsigned i = 0, n = grid.size(); i < n; i++)
-	{
-		Grid& g = grid[i];
-		std::fill(g.data(), g.data() + g.num_elements(), 0.0);
-	}
-}
-
 //copy gpu grid to passed cpu grid
 //TODO: rearchitect to use flat grids on the cpu?
 void NNGridder::cudaCopyGrids(vector<Grid>& grid, float* gpu_grid)
@@ -488,6 +359,8 @@ bool NNGridder::compareGrids(Grid& g1, Grid& g2, const char *name, int index)
 
 void NNGridder::setCenter(double x, double y, double z)
 {
+	gmaker.setCenter(x,y,z);
+
 	trans = vec(x, y, z);
 	int numpts = round(dimension / resolution);
 	double half = dimension / 2.0;
@@ -536,8 +409,7 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 			if (receptorGrids[i].num_elements() == 0)
 			{
 				receptorGrids[i].resize(extents[n][n][n]);
-				fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(),
-						0.0);
+				fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(), 0.0);
 			}
 		}
 
@@ -549,8 +421,7 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 			if (ligandGrids[i].num_elements() == 0)
 			{
 				ligandGrids[i].resize(extents[n][n][n]);
-				fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(),
-						0.0);
+				fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
 			}
 		}
 	}
@@ -563,8 +434,7 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 			cerr << "Empty slot in receptor types: " << i
 					<< ", possible duplicate?\n";
 			receptorGrids[i].resize(extents[n][n][n]);
-			fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(),
-					0.0);
+			fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(), 0.0);
 		}
 	}
 	for (unsigned i = 0, nl = ligandGrids.size(); i < nl; i++)
@@ -578,19 +448,6 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 		}
 	}
 
-}
-
-//overwrite grids with densities from atoms represented by coords/gridindex/radii
-void NNGridder::setAtoms(const vector<vec>& coords, const vector<short>& gridindex,
-		const vector<float>& radii, vector<Grid>& grids)
-{
-	zeroGrids(grids);
-	for (unsigned i = 0, n = coords.size(); i < n; i++)
-	{
-		int pos = gridindex[i];
-		if (pos >= 0)
-			setAtom(coords[i], radii[i], grids[pos]);
-	}
 }
 
 
@@ -617,6 +474,8 @@ void NNGridder::initialize(const gridoptions& opt)
 	gpu = opt.gpu;
 	Q = quaternion(0, 0, 0, 0);
 
+	gmaker.initialize(resolution, opt.dim, radiusmultiple, binary);
+
 	if (binary)
 		radiusmultiple = 1.0;
 
@@ -639,15 +498,12 @@ void NNGridder::initialize(const gridoptions& opt)
 //assumes cpu version is set
 void NNGridder::setRecGPU()
 {
-	if(gpu_receptorCoords == NULL) {
+	if(gpu_receptorAInfo == NULL) {
 		assert(sizeof(vec) == sizeof(float3));
-		CUDA_CHECK(cudaMalloc(&gpu_receptorCoords, recCoords.size()*sizeof(float3)));
-		CUDA_CHECK(cudaMemcpy(gpu_receptorCoords, &recCoords[0], recCoords.size()*sizeof(float3),cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMalloc(&gpu_receptorAInfo, recAInfo.size()*sizeof(float4)));
+		CUDA_CHECK(cudaMemcpy(gpu_receptorAInfo, &recAInfo[0], recAInfo.size()*sizeof(float4),cudaMemcpyHostToDevice));
 	}
-	if(gpu_recRadii == NULL) {
-		CUDA_CHECK(cudaMalloc(&gpu_recRadii, recRadii.size()*sizeof(float3)));
-		CUDA_CHECK(cudaMemcpy(gpu_recRadii, &recRadii[0], recRadii.size()*sizeof(float3),cudaMemcpyHostToDevice));
-	}
+
 	if(gpu_recWhichGrid == NULL) {
 		CUDA_CHECK(cudaMalloc(&gpu_recWhichGrid, recWhichGrid.size()*sizeof(float3)));
 		CUDA_CHECK(cudaMemcpy(gpu_recWhichGrid, &recWhichGrid[0], recWhichGrid.size()*sizeof(float3),cudaMemcpyHostToDevice));
@@ -656,18 +512,14 @@ void NNGridder::setRecGPU()
 
 void NNGridder::setLigGPU()
 {
-	if(gpu_ligandCoords == NULL) {
-		assert(sizeof(vec) == sizeof(float3));
-		CUDA_CHECK(cudaMalloc(&gpu_ligandCoords, ligRadii.size()*sizeof(float3)));
+	if(gpu_ligandAInfo == NULL) {
+		CUDA_CHECK(cudaMalloc(&gpu_ligandAInfo, ligWhichGrid.size()*sizeof(float4)));
 		//ligand coordinates
 	}
-	if(gpu_ligRadii == NULL) {
-		CUDA_CHECK(cudaMalloc(&gpu_ligRadii, ligRadii.size()*sizeof(float3)));
-		CUDA_CHECK(cudaMemcpy(gpu_ligRadii, &ligRadii[0], ligRadii.size()*sizeof(float3),cudaMemcpyHostToDevice));
-	}
+
 	if(gpu_ligWhichGrid == NULL) {
-		CUDA_CHECK(cudaMalloc(&gpu_ligWhichGrid, ligWhichGrid.size()*sizeof(float3)));
-		CUDA_CHECK(cudaMemcpy(gpu_ligWhichGrid, &ligWhichGrid[0], ligWhichGrid.size()*sizeof(float3),cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMalloc(&gpu_ligWhichGrid, ligWhichGrid.size()*sizeof(short)));
+		CUDA_CHECK(cudaMemcpy(gpu_ligWhichGrid, &ligWhichGrid[0], ligWhichGrid.size()*sizeof(short),cudaMemcpyHostToDevice));
 	}
 }
 
@@ -706,20 +558,19 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 	setCenter(center[0], center[1], center[2]);
 
 	//set constant arrays if needed
-	if(recCoords.size() == 0 || reinitrec)
+	if(recAInfo.size() == 0 || reinitrec)
 	{
 		const atomv& atoms = m.get_fixed_atoms();
-		recCoords.resize(0); recCoords.reserve(atoms.size());
+		recAInfo.resize(0); recAInfo.reserve(atoms.size());
 		recWhichGrid.resize(0); recWhichGrid.reserve(atoms.size());
-		recRadii.resize(0); recRadii.reserve(atoms.size());
 
 		for (unsigned i = 0, n = atoms.size(); i < n; i++)
 		{
 			const atom& a = atoms[i];
 			if(rmap[a.sm] >= 0) {
+				float4 ai = {a.coords[0], a.coords[1], a.coords[2], xs_radius(a.sm)};
 				recWhichGrid.push_back(rmap[a.sm]);
-				recRadii.push_back(xs_radius(a.sm));
-				recCoords.push_back(a.coords);
+				recAInfo.push_back(ai);
 			}
 		}
 
@@ -745,6 +596,14 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 		if(gpu) setLigGPU();
 	}
 
+	const vecv& coords = m.coordinates();
+	vector<float4> ainfo; ainfo.reserve(coords.size());
+	for(unsigned i = 0, na = coords.size(); i < na; i++)
+	{
+		float4 ai = {coords[i][0],coords[i][1],coords[i][2],ligRadii[i]};
+		ainfo.push_back(ai);
+	}
+
 	if(gpu)
 	{
 		if(Q.real() != 0)
@@ -754,21 +613,23 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 		}
 
 		unsigned nlatoms = m.coordinates().size();
-		CUDA_CHECK(cudaMemcpy(gpu_ligandCoords, &m.coordinates()[0], nlatoms*sizeof(float3),cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(gpu_ligandAInfo, &ainfo[0], nlatoms*sizeof(float4),cudaMemcpyHostToDevice));
 		//cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 1024*1024*4);
 
-		setAtomsGPU(recCoords.size(),gpu_receptorCoords, gpu_recWhichGrid, gpu_recRadii, receptorGrids.size(), gpu_receptorGrids);
+		setAtomsGPU(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, receptorGrids.size(), gpu_receptorGrids);
 		cudaCopyGrids(receptorGrids, gpu_receptorGrids);
 
-		setAtomsGPU(nlatoms, gpu_ligandCoords, gpu_ligWhichGrid, gpu_ligRadii, ligandGrids.size(), gpu_ligandGrids);
+		setAtomsGPU(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, ligandGrids.size(), gpu_ligandGrids);
 		cudaCopyGrids(ligandGrids, gpu_ligandGrids);
 
 		CUDA_CHECK(cudaDeviceSynchronize());
 	}
 	else
 	{
-		setAtoms(recCoords, recWhichGrid, recRadii, receptorGrids);
-		setAtoms(m.coordinates(), ligWhichGrid, ligRadii, ligandGrids);
+		//put in to gridmaker format
+
+		gmaker.setAtomsCPU(recAInfo, recWhichGrid, Q, receptorGrids);
+		gmaker.setAtomsCPU(ainfo, ligWhichGrid,  Q, ligandGrids);
 	}
 }
 

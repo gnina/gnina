@@ -24,6 +24,9 @@
 #define VINA_ATOM_CONSTANTS_H
 
 #include "common.h"
+#include <openbabel/atom.h>
+#include <openbabel/mol.h>
+#include <openbabel/obiter.h>
 
 // based on SY_TYPE_* but includes H
 const sz EL_TYPE_H    =  0;
@@ -347,7 +350,8 @@ inline fl ad_depth(smt t) {
 
 
 
-
+//take atom's neighborhood into account when setting atom type
+//IMPORTANT: make sure this is conistent with obatom_to_smina_type
 inline smt adjust_smina_type(smt t, bool Hbonded, bool heteroBonded)
 {
 	using namespace smina_atom_type;
@@ -375,6 +379,46 @@ inline smt adjust_smina_type(smt t, bool Hbonded, bool heteroBonded)
 		return t;
 	}
 
+}
+
+//return smina atom type of provided atom; this duplicates
+//the parsing code and above adjust_smina_type code, but including it here
+//let's us to atom typing without a link dependency
+//IMPORTANT: make sure this is consistent with adjust_smina_type and pdbqt parsing
+inline smt obatom_to_smina_type(OpenBabel::OBAtom& atom)
+{
+	//from pdbqt format
+	const char *element_name = OpenBabel::etab.GetSymbol(atom.GetAtomicNum());
+  char element_name_final[3];
+  element_name_final[2] = '\0';
+
+  if (atom.IsHydrogen()) {element_name_final[0]='H'; element_name_final[1]='D';}
+  else if ((atom.IsCarbon()) && (atom.IsAromatic())) {element_name_final[0]='A'; element_name_final[1]=' ';}
+  else if (atom.IsOxygen())  {element_name_final[0]='O'; element_name_final[1]='A';}
+  else if ((atom.IsNitrogen()) && (atom.IsHbondAcceptor())) {element_name_final[0]='N'; element_name_final[1]='A';}
+  else if ((atom.IsSulfur()) && (atom.IsHbondAcceptor())) {element_name_final[0]='S'; element_name_final[1]='A';}
+  else
+  {
+    if (!isalnum(element_name[0])) {element_name_final[0]=' ';}
+    else element_name_final[0]=element_name[0];
+    if (!isalnum(element_name[1])) {element_name_final[1]=' ';}
+    else element_name_final[1]=element_name[1];
+  }
+
+  smt atype = string_to_smina_type(element_name);
+
+  bool hbonded =false;
+  bool heteroBonded = false;
+
+  FOR_NBORS_OF_ATOM(neigh, atom)
+  {
+  	if(neigh->IsHydrogen())
+  		hbonded = true;
+  	else if(!neigh->IsCarbon())
+  		heteroBonded = true; //hetero anything that is not hydrogen and not carbon
+  }
+
+  return adjust_smina_type(atype, hbonded, heteroBonded);
 }
 
 #endif
