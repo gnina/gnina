@@ -120,8 +120,6 @@ protected:
 
 	pair<unsigned, unsigned> getrange(const grid_dim& dim, double c, double r);
 
-	//GPU accelerated version
-	void setAtomsGPU(unsigned natoms, float4 *ainfos, short *gridindex, unsigned ngrids, float *grids);
 
 	//output a grid the file in map format (for debug)
 	void outputMAPGrid(ostream& out, Grid& grid);
@@ -198,13 +196,6 @@ public:
 
 };
 
-
-#define CUDA_CHECK(condition) \
-  /* Code block avoids redefinition of cudaError_t error */ \
-  do { \
-    cudaError_t error = condition; \
-    if(error != cudaSuccess) { cerr << " " << cudaGetErrorString(error) << ": " << __FILE__ << ":" << __LINE__ << "\n"; exit(1); } \
-  } while (0)
 
 
 #endif

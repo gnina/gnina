@@ -13,6 +13,13 @@
 #include <cuda_runtime.h>
 
 
+#define CUDA_CHECK(condition) \
+  /* Code block avoids redefinition of cudaError_t error */ \
+  do { \
+    cudaError_t error = condition; \
+    if(error != cudaSuccess) { cerr << " " << cudaGetErrorString(error) << ": " << __FILE__ << ":" << __LINE__ << "\n"; exit(1); } \
+  } while (0)
+
 using namespace boost;
 
 static void createDefaultMap(const char *names[], vector<int>& map)
@@ -616,10 +623,10 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 		CUDA_CHECK(cudaMemcpy(gpu_ligandAInfo, &ainfo[0], nlatoms*sizeof(float4),cudaMemcpyHostToDevice));
 		//cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 1024*1024*4);
 
-		setAtomsGPU(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, receptorGrids.size(), gpu_receptorGrids);
+		gmaker.setAtomsGPU(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, receptorGrids.size(), gpu_receptorGrids);
 		cudaCopyGrids(receptorGrids, gpu_receptorGrids);
 
-		setAtomsGPU(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, ligandGrids.size(), gpu_ligandGrids);
+		gmaker.setAtomsGPU(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, ligandGrids.size(), gpu_ligandGrids);
 		cudaCopyGrids(ligandGrids, gpu_ligandGrids);
 
 		CUDA_CHECK(cudaDeviceSynchronize());

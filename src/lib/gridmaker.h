@@ -15,6 +15,8 @@
 #include <cuda.h>
 #include <thrust/system/cuda/experimental/pinned_allocator.h>
 #include <vector_types.h>
+#include <boost/array.hpp>
+#include <boost/math/quaternion.hpp>
 
 using namespace std;
 
@@ -206,7 +208,8 @@ public:
 	}
 
 
-	//GPU accelerated version
+	//GPU accelerated version, defined in cu file
+	//pointers must point to GPU memory
 	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, unsigned ngrids, float *grids);
 };
 
