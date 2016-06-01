@@ -30,7 +30,7 @@ class GridMaker {
 	bool binary;
 
 public:
-	typedef boost::math::quaternion<double> quaternion;
+	typedef boost::math::quaternion<float> quaternion;
 
 
 	GridMaker(float res=0, float d=0, float rm = 1.5, bool b = false):
@@ -64,15 +64,21 @@ public:
     dims[2].second = z + half;
 	}
 
-	template<typename Grids>
-	void zeroGridsCPU(Grids& grids)
+	template<typename Grid>
+	void zeroGridsCPU(vector<Grid>& grids)
 	{
 		for (unsigned i = 0, n = grids.size(); i < n; i++)
 		{
 			std::fill(grids[i].data(), grids[i].data() + grids[i].num_elements(), 0.0);
 		}
 	}
-
+  
+  template<typename Grids>
+  void zeroGridsCPU(Grids& grids)
+  {
+      std::fill(grids.data(), grids.data() + grids.num_elements(), 0.0);
+  }
+  
 	pair<unsigned, unsigned> getrange(const pair<float, float>& d, double c, double r)
 	{
 	  pair<unsigned, unsigned> ret(0, 0);
@@ -210,7 +216,9 @@ public:
 
 	//GPU accelerated version, defined in cu file
 	//pointers must point to GPU memory
-	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, unsigned ngrids, float *grids);
+	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, unsigned ngrids, float *grids);
 };
+
+
 
 #endif /* _GRIDMAKER_H_ */

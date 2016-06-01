@@ -1,6 +1,7 @@
 #include "gridmaker.h"
 
 #include <boost/timer/timer.hpp>
+#include <stdio.h>
 
 // GPU routines for gridmaker
 
@@ -192,9 +193,11 @@ template<bool Binary> __device__ void set_atoms(float3 origin, int dim, float re
 	}
 }
 
+
+
 //return 1 if atom potentially overlaps block, 0 otherwise
 __device__
-unsigned atomOverlapsBlock(unsigned aindex,float3 origin,float resolution,
+unsigned atomOverlapsBlock(unsigned aindex,float3 origin, float resolution,
 		float4 *ainfos,short *gridindex,float rmult)
 {
 
@@ -253,6 +256,7 @@ void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, 
 	{
 		//first parallelize over atoms to figure out if they might overlap this block
 		unsigned aindex = atomoffset+tIndex;
+		
 		if(aindex < n)
 			atomMask[tIndex] = atomOverlapsBlock(aindex, origin, resolution, ainfos, gridindex, rmult);
 		else
@@ -281,7 +285,72 @@ void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, 
 }
 
 
-void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, unsigned ngrids,float *grids)
+
+//multiply two quaternions
+__inline__ __device__
+float4 quaternion_mult(float4 q1, float4 q2) {
+	float a = q1.w;
+	float b = q1.x;
+	float c = q1.y;
+	float d = q1.z;
+	
+	float ar = q2.w;
+	float br = q2.x;
+	float cr = q2.y;
+	float dr = q2.z;
+	
+  float at = +a*ar-b*br-c*cr-d*dr;
+  float bt = +a*br+b*ar+c*dr-d*cr;    //(a*br+ar*b)+(c*dr-cr*d);
+  float ct = +a*cr-b*dr+c*ar+d*br;    //(a*cr+ar*c)+(d*br-dr*b);
+  float dt = +a*dr+b*cr-c*br+d*ar;    //(a*dr+ar*d)+(b*cr-br*c);
+  
+  return make_float4(bt,ct,dt,at);
+}
+
+//multiply quaternion by scalar
+__inline__ __device__
+float4 quaternion_scalar(float4 q, float s)
+{
+	return make_float4(q.x*s, q.y*s,q.z*s,q.w*s);
+}
+
+//conjugate
+__inline__ __device__
+float4 quaternion_conj(float4 q)
+{
+	return make_float4(-q.x,-q.y,-q.z,q.w);
+}
+
+//return c rotated by Q, leave w (radius) of coord alone
+//this uses the formulat q*v*q^-1, which is simple, but not as computationally
+//efficient as precomputing the rotation matrix and using that
+__inline__ __device__
+float4 applyQ(float4 coord, float3 center, float4 Q) 
+{
+	//apply rotation
+	float4 p = make_float4(coord.x-center.x, coord.y-center.y, coord.z-center.z, 0);
+	//
+	float4 conjQ = quaternion_conj(Q);
+	float normQ = quaternion_mult(Q,conjQ).w;
+	float4 nconj = quaternion_scalar(conjQ, 1.0/normQ);
+	p = quaternion_mult(quaternion_mult(Q,p), nconj);
+	
+	return make_float4(p.x+center.x, p.y+center.y, p.z+center.z,coord.w); 
+}
+
+//apply quaternion Q to coordinates in ainfos
+__global__ 
+void gpu_coord_rotate(float3 center, float4 Q, int n, float4 *ainfos)
+{
+	unsigned aindex = blockIdx.x*blockDim.x+threadIdx.x;
+	if(aindex < n) {
+		float4 ai = ainfos[aindex];
+		float4 rotated = applyQ(ai, center, Q); 
+		ainfos[aindex] = rotated;
+	}
+}
+
+void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, quaternion Q, unsigned ngrids,float *grids)
 {
 	//each thread is responsible for a grid point location and will handle all atom types
 	//each block is 8x8x8=512 threads
@@ -293,8 +362,13 @@ void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, uns
 	unsigned gsize = ngrids * dim * dim * dim;
 	CUDA_CHECK(cudaMemset(grids, 0, gsize * sizeof(float)));	//TODO: see if faster to do in kernel - it isn't, but this still may not be fastest
 	
+	if(Q.R_component_1() != 0) { 
+		unsigned natomblocks = (natoms+THREADSPERBLOCK-1)/THREADSPERBLOCK;
+		float4 q = make_float4(Q.R_component_2(),Q.R_component_3(),Q.R_component_4(),Q.R_component_1()); //w is R1
+		gpu_coord_rotate<<<natomblocks,THREADSPERBLOCK>>>(center, q, natoms, ainfos);
+	}
 	if(binary){
-		gpu_grid_set<true><<<blocks,threads>>>(origin, dim, resolution, 1.0, natoms, ainfos, gridindex, grids);
+		gpu_grid_set<true><<<blocks,threads>>>(origin, dim, resolution, radiusmultiple, natoms, ainfos, gridindex, grids);
 		CUDA_CHECK (cudaPeekAtLastError() );
 	}
 	else

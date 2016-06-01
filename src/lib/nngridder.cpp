@@ -613,20 +613,14 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 
 	if(gpu)
 	{
-		if(Q.real() != 0)
-		{
-			cerr << "Rotations not supported with GPU\n";
-			exit(1);
-		}
-
 		unsigned nlatoms = m.coordinates().size();
 		CUDA_CHECK(cudaMemcpy(gpu_ligandAInfo, &ainfo[0], nlatoms*sizeof(float4),cudaMemcpyHostToDevice));
 		//cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 1024*1024*4);
 
-		gmaker.setAtomsGPU(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, receptorGrids.size(), gpu_receptorGrids);
+		gmaker.setAtomsGPU(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);
 		cudaCopyGrids(receptorGrids, gpu_receptorGrids);
 
-		gmaker.setAtomsGPU(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, ligandGrids.size(), gpu_ligandGrids);
+		gmaker.setAtomsGPU(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, Q, ligandGrids.size(), gpu_ligandGrids);
 		cudaCopyGrids(ligandGrids, gpu_ligandGrids);
 
 		CUDA_CHECK(cudaDeviceSynchronize());
@@ -647,7 +641,10 @@ bool NNGridder::cpuSetModelCheck(const model& m, bool reinitlig, bool reinitrec)
 
 	bool savedgpu = gpu;
 	gpu = false;
+	bool saverandrotate = randrotate;
+	randrotate = false; //keep current Q, don't have a convenient way to chekc rand translate
 	setModel(m, reinitlig, reinitrec);
+	randrotate = saverandrotate;
 
 	gpu = savedgpu;
 
