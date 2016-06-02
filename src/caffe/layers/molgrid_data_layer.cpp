@@ -22,6 +22,7 @@
 #include <openbabel/mol.h>
 #include <openbabel/obconversion.h>
 #include <openbabel/obiter.h>
+#include <boost/timer/timer.hpp>
 
 
 //allocate and initialize atom type data
@@ -45,6 +46,33 @@ namespace caffe {
 template <typename Dtype>
 MolGridDataLayer<Dtype>::~MolGridDataLayer<Dtype>() {
   //this->StopInternalThread();
+
+  if(gpu_gridatoms) {
+    cudaFree(gpu_gridatoms);
+    gpu_gridatoms = NULL;
+  }
+  if(gpu_gridwhich) {
+    cudaFree(gpu_gridwhich);
+    gpu_gridwhich = NULL;
+  }
+}
+
+//ensure gpu memory is of sufficient size
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::allocateGPUMem(unsigned sz)
+{
+  if(sz > gpu_alloc_size) {
+    //deallocate
+    if(gpu_gridatoms) {
+      cudaFree(gpu_gridatoms);
+    }
+    if(gpu_gridwhich) {
+      cudaFree(gpu_gridwhich);
+    }
+    //allocate larger
+    CUDA_CHECK(cudaMalloc(&gpu_gridatoms, sz*sizeof(float4)));
+    CUDA_CHECK(cudaMalloc(&gpu_gridwhich, sz*sizeof(short)));
+  }
 }
 
 
@@ -180,6 +208,8 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     root_folder = root_folder + "/"; //make sure we have trailing slash
 
   if(binary) radiusmultiple = 1.0;
+
+  gmaker.initialize(resolution, dimension, radiusmultiple, binary);
 
   dim = round(dimension/resolution)+1; //number of grid points on a size
   numgridpoints = dim*dim*dim;
@@ -355,12 +385,20 @@ template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>& atommap,
     unsigned mapoffset, mol_info& minfo)
 {
+  //OpenBabel is SLOW, especially for the receptor, so we cache the result
+  //if this gets too annoying, can add support for precalculated atom type files
+  //or spawn a thread for openbabel
+  //but since this gets amortized across many hits to the same example, not a high priority
   using namespace OpenBabel;
   //read mol from file and set mol info (atom coords and grid positions)
   //types are mapped using atommap values plus offset
   OpenBabel::OBConversion conv;
   OBMol mol;
   CHECK(conv.ReadFile(&mol, root_folder + file)) << "Could not read " << file;
+
+  if(this->layer_param_.molgrid_data_param().addh()) {
+    mol.AddHydrogens();
+  }
 
   minfo.atoms.clear(); minfo.atoms.reserve(mol.NumHvyAtoms());
   minfo.whichGrid.clear(); minfo.whichGrid.reserve(mol.NumHvyAtoms());
@@ -374,166 +412,22 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
     if(index >= 0)
     {
       cnt++;
-      atom_info ainfo;
-      ainfo.coord[0] = a->x();
-      ainfo.coord[1] = a->y();
-      ainfo.coord[2]  = a->z();
-      ainfo.radius = xs_radius(t);
+      float4 ainfo;
+      ainfo.x = a->x();
+      ainfo.y = a->y();
+      ainfo.z  = a->z();
+      ainfo.w = xs_radius(t);
 
       minfo.atoms.push_back(ainfo);
       minfo.whichGrid.push_back(index+mapoffset);
-      center += ainfo.coord;
+      center += vec(a->x(),a->y(),a->z());
     }
   }
   center /= cnt;
 
-  minfo.setCenter(dimension, center);
+  minfo.center = center;
 
 }
-
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::zeroGrids(Grids& grids)
-{
-  std::fill(grids.data(), grids.data() + grids.num_elements(), 0.0);
-}
-
-
-
-//return the range of grid points spanned from c-r to c+r within dim
-template <typename Dtype>
-pair<unsigned, unsigned>
-MolGridDataLayer<Dtype>::getrange(const pair<float, float>& d, double c,
-    double r)
-{
-  pair<unsigned, unsigned> ret(0, 0);
-  double low = c - r - d.first;
-  if (low > 0)
-  {
-    ret.first = floor(low / resolution);
-  }
-
-  double high = c + r - d.first;
-  if (high > 0) //otherwise zero
-  {
-    ret.second = std::min(dim, (unsigned) ceil(high / resolution));
-  }
-  return ret;
-}
-
-
-//return the occupancy for atom a at point x,y,z
-template <typename Dtype>
-Dtype MolGridDataLayer<Dtype>::calcPoint(const vec& coords, double ar, const vec& pt)
-{
-  Dtype rsq = (pt - coords).norm_sqr();
-  if (binary)
-  {
-    //is point within radius?
-    if (rsq < ar * ar)
-      return 1.0;
-    else
-      return 0.0;
-  }
-  else
-  {
-    //for non binary we want a gaussian were 2 std occurs at the radius
-    //after which which switch to a quadratic
-    //the quadratic is to fit to have both the same value and first order
-    //derivative at the cross over point and a value and derivative of zero
-    //at 1.5*radius
-    double dist = sqrt(rsq);
-    if (dist >= ar * radiusmultiple)
-    {
-      return 0.0;
-    }
-    else if (dist <= ar)
-    {
-      //return gaussian
-      Dtype h = 0.5 * ar;
-      Dtype ex = -dist * dist / (2 * h * h);
-      return exp(ex);
-    }
-    else //return quadratic
-    {
-      Dtype h = 0.5 * ar;
-      Dtype eval = 1.0 / (M_E * M_E); //e^(-2)
-      Dtype q = dist * dist * eval / (h * h) - 6.0 * eval * dist / h
-          + 9.0 * eval;
-      return q;
-    }
-  }
-  return 0.0;
-}
-
-//set the relevant grid points for a
-//return false if atom not in grid
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::set_atom(const mol_info& mol, const atom_info& atom, int whichgrid, const quaternion& Q, Grids& grids)
-{
-  vec coords;
-  if (Q.real() != 0)
-  { //apply rotation
-    vec tpt = atom.coord - mol.center;
-    quaternion p(0, tpt[0], tpt[1], tpt[2]);
-    p = Q * p * (conj(Q) / norm(Q));
-
-    vec newpt(p.R_component_2(), p.R_component_3(), p.R_component_4());
-    newpt += mol.center;
-
-    coords = newpt;
-  }
-  else
-  {
-    coords = atom.coord;
-  }
-
-  double r = atom.radius * radiusmultiple;
-  vector<pair<unsigned, unsigned> > ranges;
-  for (unsigned i = 0; i < 3; i++)
-  {
-    ranges.push_back(getrange(mol.dims[i], coords[i], r));
-  }
-  //for every grid point possibly overlapped by this atom
-  for (unsigned i = ranges[0].first, iend = ranges[0].second; i < iend; i++)
-  {
-    for (unsigned j = ranges[1].first, jend = ranges[1].second; j < jend;
-        j++)
-    {
-      for (unsigned k = ranges[2].first, kend = ranges[2].second;
-          k < kend; k++)
-      {
-        Dtype x = mol.dims[0].first + i * resolution;
-        Dtype y = mol.dims[1].first + j * resolution;
-        Dtype z = mol.dims[2].first + k * resolution;
-        Dtype val = calcPoint(coords, atom.radius, vec(x, y, z));
-
-        if (binary)
-        {
-          if (val != 0)
-            grids[whichgrid][i][j][k] = 1.0; //don't add, just 1 or 0
-        }
-        else
-          grids[whichgrid][i][j][k] += val;
-
-      }
-    }
-  }
-}
-
-//set the relevant grid points for passed info
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::set_atoms(const mol_info& mol, const quaternion& Q, Grids& grids)
-{
-  zeroGrids(grids);
-  assert(mol.atoms.size() == mol.whichGrid.size());
-  for (unsigned i = 0, n = mol.atoms.size(); i < n; i++)
-  {
-    int pos = mol.whichGrid[i];
-    if (pos >= 0)
-      set_atom(mol, mol.atoms[i], pos, Q, grids);
-  }
-}
-
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid(Dtype *data, MolGridDataLayer<Dtype>::example ex, bool gpu)
@@ -584,15 +478,22 @@ void MolGridDataLayer<Dtype>::set_grid(Dtype *data, MolGridDataLayer<Dtype>::exa
     Q *= axial_quaternion();
   }
 
+  gmaker.setCenter(gridatoms.center[0], gridatoms.center[1], gridatoms.center[2]);
+  
   //compute grid from atom info arrays
   if(gpu)
   {
-    abort();
+    unsigned natoms = gridatoms.atoms.size();
+    allocateGPUMem(natoms);
+    CUDA_CHECK(cudaMemcpy(gpu_gridatoms, &gridatoms.atoms[0], natoms*sizeof(float4),cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(gpu_gridwhich, &gridatoms.whichGrid[0], natoms*sizeof(short),cudaMemcpyHostToDevice));
+
+    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, Q, numReceptorTypes+numLigandTypes, data);
   }
   else
   {
     Grids grids(data, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
-    set_atoms(gridatoms, Q, grids);
+    gmaker.setAtomsCPU(gridatoms.atoms, gridatoms.whichGrid,Q, grids);
   }
 }
 
@@ -603,6 +504,7 @@ void MolGridDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 {
   forward(bottom, top, false);
 }
+
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu)
@@ -623,6 +525,12 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     abort();
   }
   else {
+    Dtype *data = NULL;
+    if(gpu)
+      data = top[0]->mutable_gpu_data();
+    else
+      data = top[0]->mutable_cpu_data();
+
     if(balanced) { //load equally from actives/decoys
       unsigned nactives = batch_size/2;
 
@@ -632,7 +540,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         int offset = item_id*example_size;
         labels.push_back(1.0);
 
-        set_grid(top[0]->mutable_cpu_data()+offset, actives_[actives_pos_], gpu);
+        set_grid(data+offset, actives_[actives_pos_], gpu);
 
         actives_pos_++;
         if(actives_pos_ >= asz) {
@@ -652,7 +560,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         int offset = item_id*example_size;
         labels.push_back(0.0);
 
-        set_grid(top[0]->mutable_cpu_data()+offset, decoys_[decoys_pos_], gpu);
+        set_grid(data+offset, decoys_[decoys_pos_], gpu);
 
         decoys_pos_++;
         if(decoys_pos_ >= dsz) {
@@ -674,7 +582,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         int offset = item_id*example_size;
         labels.push_back(all_[all_pos_].label);
 
-        set_grid(top[0]->mutable_cpu_data()+offset, all_[all_pos_], gpu);
+        set_grid(data+offset, all_[all_pos_], gpu);
 
         all_pos_++;
         if(all_pos_ >= sz) {

@@ -318,6 +318,10 @@ int time() {
   // Do a clean forward and backward pass, so that memory allocation are done
   // and future iterations will be more stable.
   LOG(INFO) << "Performing Forward";
+
+  Timer fb_timer;
+  fb_timer.Start();
+
   // Note that for the speed benchmark, we will assume that the network does
   // not take any input blobs.
   float initial_loss;
@@ -325,6 +329,8 @@ int time() {
   LOG(INFO) << "Initial loss: " << initial_loss;
   LOG(INFO) << "Performing Backward";
   caffe_net.Backward();
+
+  LOG(INFO) << "Forward/Backward Time: " << fb_timer.MilliSeconds() << " ms.";
 
   const vector<shared_ptr<Layer<float> > >& layers = caffe_net.layers();
   const vector<vector<Blob<float>*> >& bottom_vecs = caffe_net.bottom_vecs();

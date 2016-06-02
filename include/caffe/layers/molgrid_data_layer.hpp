@@ -20,6 +20,7 @@
 #include "caffe/proto/caffe.pb.h"
 
 #include "gnina/src/lib/atom_constants.h"
+#include "gnina/src/lib/gridmaker.h"
 
 namespace caffe {
 
@@ -37,7 +38,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
         example_size(0),balanced(false),inmem(false),data_avail(0),
 				resolution(0.5), dimension(23.5), radiusmultiple(1.5), randtranslate(0),
 				binary(false), randrotate(false), dim(0), numgridpoints(0),
-				numReceptorTypes(0),numLigandTypes(0) {}
+				numReceptorTypes(0),numLigandTypes(0), gpu_alloc_size(0),
+				gpu_gridatoms(NULL), gpu_gridwhich(NULL) {}
   virtual ~MolGridDataLayer();
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -46,19 +48,19 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int ExactNumTopBlobs() const { return 2; }
 
-  virtual inline vector<Dtype>& getMemoryData() { return memdata; }
-  virtual void memoryIsSet(); //safe to read memory data now
-
   virtual inline void resetRotation() { current_rotation = 0; }
 
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
-//  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
-//      const vector<Blob<Dtype>*>& top);
+  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
 
+  //set in memory buffer
+  template<Atom>
+  void setMemory(vector<Atom>& receptor, vector<Atom>& ligand);
  protected:
 
-  typedef typename boost::math::quaternion<Dtype> quaternion;
+  typedef GridMaker::quaternion quaternion;
   typedef typename boost::multi_array_ref<Dtype, 4>  Grids;
 
   struct example
@@ -84,13 +86,10 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   vector<int> top_shape;
   bool balanced;
   bool inmem;
-
-  vector<Dtype> memdata; //if inmemory is set, get data from here
-  int data_avail; //can be more than 1 if rotating
-  boost::mutex mem_mutex; //for guarding condition variable
-  boost::condition_variable mem_cond;
+  vector<Dtype> labels;
 
   //grid stuff
+  GridMaker gmaker;
   double resolution;
   double dimension;
   double radiusmultiple; //extra to consider past vdw radius
@@ -101,61 +100,38 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   unsigned dim; //grid points on one side
   unsigned numgridpoints; //dim*dim*dim
 
-	vector<int> rmap; //map atom types to position in grid vectors
-	vector<int> lmap;
-	unsigned numReceptorTypes;
-	unsigned numLigandTypes;
+  vector<int> rmap; //map atom types to position in grid vectors
+  vector<int> lmap;
+  unsigned numReceptorTypes;
+  unsigned numLigandTypes;
 
 
-	vector<Dtype> labels;
+  unsigned gpu_alloc_size;
+  float4 *gpu_gridatoms;
+  short *gpu_gridwhich;
 
-	struct atom_info {
-	  //the thought is this will map to a float4 on the gpu
-	  vec coord;
-	  float radius;
-	};
+  void allocateGPUMem(unsigned sz);
 
-	struct mol_info {
-	  vector<atom_info> atoms;
-	  vector<short> whichGrid; //separate for better memory layout on gpu
-	  vec center; //precalculate centroid, includes any random translation
-	  boost::array< pair<float, float>, 3> dims;
+  struct mol_info {
+    vector<float4> atoms;
+    vector<short> whichGrid; //separate for better memory layout on gpu
+    vec center; //precalculate centroid, includes any random translation
+    boost::array< pair<float, float>, 3> dims;
 
-	  mol_info() { center[0] = center[1] = center[2] = 0;}
+    mol_info() { center[0] = center[1] = center[2] = 0;}
 
-	  void append(const mol_info& a)
-	  {
-	    atoms.insert(atoms.end(), a.atoms.begin(), a.atoms.end());
-	    whichGrid.insert(whichGrid.end(), a.whichGrid.begin(), a.whichGrid.end());
-	  }
+    void append(const mol_info& a)
+    {
+      atoms.insert(atoms.end(), a.atoms.begin(), a.atoms.end());
+      whichGrid.insert(whichGrid.end(), a.whichGrid.begin(), a.whichGrid.end());
+    }
+  };
 
-	  void setCenter(Dtype dimension, const vec& c)
-	  {
-	    center = c;
-	    Dtype half = dimension/2.0;
-	    for(unsigned i = 0; i < 3; i++)
-	    {
-	      dims[i].first = c[i] - half;
-	      dims[i].second = c[i] + half;
-	    }
-	  }
-	};
-
-	boost::unordered_map<string, mol_info> molcache;
-
-	Dtype calcPoint(const vec& coords, double ar, const vec& pt);
-
-	pair<unsigned, unsigned> getrange(const pair<float, float>& dim, double c, double r);
-  static void zeroGrids(Grids& grids);
-  //set the relevant grid points for atom
-  void set_atom(const mol_info& mol, const atom_info& atom, int whichgrid, const quaternion& Q, Grids& grids);
-
-  //set the relevant grid points for passed info
-  void set_atoms(const mol_info& mol, const quaternion& Q, Grids& grids);
+  boost::unordered_map<string, mol_info> molcache;
 
 
-	quaternion axial_quaternion();
-	void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
+  quaternion axial_quaternion();
+  void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
   void set_grid(Dtype *grid, example ex, bool gpu);
 
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
