@@ -216,9 +216,10 @@ public:
 
 	//GPU accelerated version, defined in cu file
 	//pointers must point to GPU memory
-	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, unsigned ngrids, float *grids);
+	template<typename Dtype>
+	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, unsigned ngrids, Dtype *grids);
+
+
 };
-
-
 
 #endif /* _GRIDMAKER_H_ */

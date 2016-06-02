@@ -120,7 +120,7 @@ float sqDistance(float4 pt,float x,float y,float z){
 }
 
 //go through the n atoms referenced in atomIndices and set a grid point
-template<bool Binary> __device__ void set_atoms(float3 origin, int dim, float resolution, float rmult, unsigned n, float4 *ainfos, short *gridindex, float *grids)
+template<bool Binary, typename Dtype> __device__ void set_atoms(float3 origin, int dim, float resolution, float rmult, unsigned n, float4 *ainfos, short *gridindex, Dtype *grids)
 {
 	//figure out what grid point we are 
 	unsigned xi = threadIdx.x + blockIdx.x*blockDim.x;
@@ -245,9 +245,9 @@ bool scanValid(unsigned idx,uint *scanresult)
 //gridindex is which grid they belong in
 //radii are atom radii
 //grids are the output and are assumed to be zeroed
-template<bool Binary> __global__ 
+template<bool Binary, typename Dtype> __global__ 
 __launch_bounds__(THREADSPERBLOCK, 64)
-void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, float4 *ainfos, short *gridindex, float *grids)
+void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, float4 *ainfos, short *gridindex, Dtype *grids)
 {
 	unsigned tIndex = ((threadIdx.z*BLOCKDIM) + threadIdx.y)*BLOCKDIM+threadIdx.x;
 
@@ -279,7 +279,7 @@ void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, 
 
 		unsigned nAtoms = scanOutput[THREADSPERBLOCK-1] + atomMask[THREADSPERBLOCK-1];
 		//atomIndex is now a list of nAtoms atom indices
-		set_atoms<Binary>(origin, dim, resolution, rmult, nAtoms, ainfos, gridindex, grids);
+		set_atoms<Binary, Dtype>(origin, dim, resolution, rmult, nAtoms, ainfos, gridindex, grids);
 		__syncthreads();//everyone needs to finish before we muck with atomIndices again
 	}
 }
@@ -350,7 +350,8 @@ void gpu_coord_rotate(float3 center, float4 Q, int n, float4 *ainfos)
 	}
 }
 
-void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, quaternion Q, unsigned ngrids,float *grids)
+template<typename Dtype>
+void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, quaternion Q, unsigned ngrids,Dtype *grids)
 {
 	//each thread is responsible for a grid point location and will handle all atom types
 	//each block is 8x8x8=512 threads
@@ -377,3 +378,10 @@ void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, qua
 		CUDA_CHECK(cudaPeekAtLastError() );
 	}
 }
+
+//instantiations
+template
+void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, quaternion Q, unsigned ngrids,float *grids);
+template
+void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, quaternion Q, unsigned ngrids,double *grids);
+
