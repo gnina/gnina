@@ -9,7 +9,7 @@
 #define SRC_LIB_CNN_SCORER_H_
 
 #include "caffe/caffe.hpp"
-#include "caffe/layers/ndim_data_layer.hpp"
+#include "caffe/layers/molgrid_data_layer.hpp"
 
 #include "nngridder.h"
 #include "model.h"
@@ -33,12 +33,12 @@ struct cnn_options {
 class CNNScorer {
 	typedef float Dtype;
 	caffe::shared_ptr<caffe::Net<Dtype> > net;
-	NNGridder grid;
-	caffe::NDimDataLayer<Dtype> *ndim;
+	caffe::MolGridDataLayer<Dtype> *mgrid;
 	unsigned rotations;
+	bool random_rotate;
 
 public:
-	CNNScorer(): ndim(NULL), rotations(0) {}
+	CNNScorer(): mgrid(NULL), rotations(0), random_rotate(false) {}
 	virtual ~CNNScorer() {}
 
 	CNNScorer(const cnn_options& cnnopts, const vec& center, const model& m);

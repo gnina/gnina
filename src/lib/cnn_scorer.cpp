@@ -39,12 +39,12 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		param.mutable_state()->set_phase(TEST);
 		LayerParameter *first = param.mutable_layer(0);
 		//must be ndim
-		NDimDataParameter *ndimparam = first->mutable_ndim_data_param();
-		if (ndimparam == NULL)
+		MolGridDataParameter *mgridparam = first->mutable_molgrid_data_param();
+		if (mgridparam == NULL)
 		{
-			throw usage_error("First layer of model must be NDimData.");
+			throw usage_error("First layer of model must be MolGridData.");
 		}
-		ndimparam->set_inmemory(true);
+		mgridparam->set_inmemory(true);
 
 		//set batch size to 1
 		unsigned bsize = 1;
@@ -53,12 +53,10 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		{
 			//let user specify rotations
 			unsigned nrot = min(24U, cnnopts.cnn_rotations);
-			ndimparam->set_rotate(nrot);
+			mgridparam->set_rotate(nrot);
 			//BUT it turns out this isn't actually faster
 			//bsize = nrot;
 		}
-
-		ndimparam->set_batch_size(bsize);
 
 		net.reset(new Net<float>(param));
 
@@ -67,7 +65,7 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 
 		//check that network matches our expectations
 
-		//the first layer must be NDimData
+		//the first layer must be MolGridLayer
 		const vector<shared_ptr<Layer<Dtype> > >& layers = net->layers();
 
 		//we also need an output layer
@@ -76,10 +74,10 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 			throw usage_error("No layers in model!");
 		}
 
-		ndim = dynamic_cast<NDimDataLayer<Dtype>*>(layers[0].get());
-		if (ndim == NULL)
+		mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(layers[0].get());
+		if (mgrid == NULL)
 		{
-			throw usage_error("First layer of model must be NDimData.");
+			throw usage_error("First layer of model must be MolGridDataLayer.");
 		}
 
 		if (!net->has_blob("output"))
@@ -91,27 +89,6 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 			throw usage_error(
 					"Model output layer does not have exactly two outputs.");
 		}
-
-		//initialize receptor part of grid
-		BlobShape shape = ndim->layer_param().ndim_data_param().shape();
-		if (shape.dim_size() != 4)
-		{
-			throw usage_error(
-					"Input data layer does not have correct number of dimensions.");
-		}
-		unsigned nchannels = shape.dim(0);
-		unsigned dim = shape.dim(1);
-		if (dim != shape.dim(2) || dim != shape.dim(3))
-		{
-			throw usage_error(
-					"Input data layer does not have cubic dimensions.");
-		}
-
-		gridoptions gopt;
-		gopt.res = cnnopts.resolution;
-		gopt.dim = round((dim - 1) * gopt.res);
-
-		grid.initialize(gopt);
 	}
 
 }
@@ -121,33 +98,24 @@ float CNNScorer::score(const model& m)
 {
 	if (!initialized())
 		return -1.0;
-	grid.setModel(m);
 
-	grid.outputMem(ndim->getMemoryData());
-	ndim->memoryIsSet();
+	mgrid->setReceptor<atom>(m.get_fixed_atoms());
+	mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
 
 	double score = 0.0;
 	const shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
 
-	unsigned num = 1;
-	if (rotations > 0)
-	{
-		num = (rotations / (outblob->count() / 2));
-	}
-
+	cout << "Rotations " << rotations << "\n";
 	unsigned cnt = 0;
-	for (unsigned r = 0; r < num; r++)
+	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{
 		net->Forward(); //do all rotations at once if requested
 
-		//take average of all rotations if requested
-		for (unsigned i = 1, n = outblob->count(); i < n; i += 2)
-		{
-			const Dtype* out = outblob->cpu_data();
-			score += out[i];
-			cout << "#Rotate " << out[i] << "\n";
-			cnt++;
-		}
+		const Dtype* out = outblob->cpu_data();
+		score += out[1];
+		cout << "#Rotate " << out[1] << "\n";
+		cnt++;
+
 	}
 
 	return score / cnt;

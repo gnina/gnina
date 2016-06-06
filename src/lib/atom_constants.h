@@ -389,23 +389,15 @@ inline smt obatom_to_smina_type(OpenBabel::OBAtom& atom)
 {
 	//from pdbqt format
 	const char *element_name = OpenBabel::etab.GetSymbol(atom.GetAtomicNum());
-  char element_name_final[3];
-  element_name_final[2] = '\0';
+	std::string ename(element_name);
 
-  if (atom.IsHydrogen()) {element_name_final[0]='H'; element_name_final[1]='D';}
-  else if ((atom.IsCarbon()) && (atom.IsAromatic())) {element_name_final[0]='A'; element_name_final[1]=' ';}
-  else if (atom.IsOxygen())  {element_name_final[0]='O'; element_name_final[1]='A';}
-  else if ((atom.IsNitrogen()) && (atom.IsHbondAcceptor())) {element_name_final[0]='N'; element_name_final[1]='A';}
-  else if ((atom.IsSulfur()) && (atom.IsHbondAcceptor())) {element_name_final[0]='S'; element_name_final[1]='A';}
-  else
-  {
-    if (!isalnum(element_name[0])) {element_name_final[0]=' ';}
-    else element_name_final[0]=element_name[0];
-    if (!isalnum(element_name[1])) {element_name_final[1]=' ';}
-    else element_name_final[1]=element_name[1];
-  }
+  if (atom.IsHydrogen()) ename = "HD";
+  else if ((atom.IsCarbon()) && (atom.IsAromatic())) ename = "A";
+  else if (atom.IsOxygen()) ename = "OA";
+  else if ((atom.IsNitrogen()) && (atom.IsHbondAcceptor())) ename = "NA";
+  else if ((atom.IsSulfur()) && (atom.IsHbondAcceptor())) ename = "SA";
 
-  smt atype = string_to_smina_type(element_name);
+  smt atype = string_to_smina_type(ename);
 
   bool hbonded =false;
   bool heteroBonded = false;
