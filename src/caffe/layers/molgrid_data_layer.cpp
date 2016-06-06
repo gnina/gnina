@@ -151,10 +151,10 @@ static unsigned createDefaultRecMap(vector<int>& map)
       "Iron",
       "Magnesium",
       "Nitrogen",
-      "NitrogenXSAcceptor",
-      "NitrogenXSDonor",
-      "NitrogenXSDonorAcceptor",
-      "OxygenXSAcceptor",
+      "NitrogenXSAcceptor",//8
+      "NitrogenXSDonor",  // 9
+      "NitrogenXSDonorAcceptor", // 10
+      "OxygenXSAcceptor", //11
       "OxygenXSDonorAcceptor",
       "Phosphorus",
       "Sulfur",
@@ -363,24 +363,6 @@ typename MolGridDataLayer<Dtype>::quaternion MolGridDataLayer<Dtype>::axial_quat
 }
 
 
-
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::memoryIsSet()
-{
-  boost::unique_lock<boost::mutex> lock(mem_mutex);
-  unsigned batch_size = top_shape[0];
-  unsigned add = 1;
-
-  if(num_rotations > 0) {
-    CHECK_LE(batch_size, num_rotations);
-    CHECK_EQ(num_rotations % batch_size, 0);
-    add = num_rotations/batch_size;
-  }
-  data_avail += add;
-
-  mem_cond.notify_one();
-}
-
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>& atommap,
     unsigned mapoffset, mol_info& minfo)
@@ -409,6 +391,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
   {
     smt t = obatom_to_smina_type(*a);
     int index = atommap[t];
+
     if(index >= 0)
     {
       cnt++;
@@ -430,7 +413,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
 }
 
 template <typename Dtype>
-void MolGridDataLayer<Dtype>::set_grid(Dtype *data, MolGridDataLayer<Dtype>::example ex, bool gpu)
+void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dtype>::example& ex, bool gpu)
 {
   //output grid values for provided example
   //cache atom info
@@ -442,14 +425,29 @@ void MolGridDataLayer<Dtype>::set_grid(Dtype *data, MolGridDataLayer<Dtype>::exa
   {
     set_mol_info(ex.ligand, lmap, numReceptorTypes, molcache[ex.ligand]);
   }
+
+  set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], gpu);
+
+}
+
+
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer<Dtype>::mol_info& recatoms, const MolGridDataLayer<Dtype>::mol_info& ligatoms, bool gpu)
+{
   mol_info gridatoms; //includes receptor and ligand
-  gridatoms.append(molcache[ex.receptor]);
-
-  const mol_info linfo = molcache[ex.ligand];
-  gridatoms.append(linfo);
+  gridatoms.append(recatoms);
+  gridatoms.append(ligatoms);
   //set center to ligand center
-  gridatoms.center = linfo.center;
+  gridatoms.center = ligatoms.center;
 
+  for(unsigned i = 0, n = gridatoms.atoms.size(); i < n; i++)
+  {
+/*    if(gridatoms.whichGrid[i] >= 0) {
+      cout << std::setprecision(2) << std::fixed;
+      cout << "ATOM " << gridatoms.atoms[i].x << "," << gridatoms.atoms[i].y << "," << gridatoms.atoms[i].z << "," << gridatoms.atoms[i].w << " " << gridatoms.whichGrid[i] << "\n";
+    }
+    */
+  }
   //figure out transformation
   quaternion Q(1,0,0,0);
   if(current_rotation == 0 && !randrotate)
@@ -464,21 +462,22 @@ void MolGridDataLayer<Dtype>::set_grid(Dtype *data, MolGridDataLayer<Dtype>::exa
     Q = quaternion(1, r1 / d, r2 / d, r3 / d);
   }
 
+  vec center(gridatoms.center);
   if (randtranslate)
   {
     double offx = ((*rng)() - rng->min()) / double(rng->max()/2.0)-1.0;
     double offy = ((*rng)() - rng->min()) / double(rng->max()/2.0)-1.0;
     double offz = ((*rng)() - rng->min()) / double(rng->max()/2.0)-1.0;
-    gridatoms.center[0] += offx * randtranslate;
-    gridatoms.center[1] += offy * randtranslate;
-    gridatoms.center[2] += offz * randtranslate;
+    center[0] += offx * randtranslate;
+    center[1] += offy * randtranslate;
+    center[2] += offz * randtranslate;
   }
 
   if(current_rotation > 0) {
     Q *= axial_quaternion();
   }
 
-  gmaker.setCenter(gridatoms.center[0], gridatoms.center[1], gridatoms.center[2]);
+  gmaker.setCenter(center[0], center[1], center[2]);
   
   //compute grid from atom info arrays
   if(gpu)
@@ -509,28 +508,25 @@ void MolGridDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu)
 {
+  Dtype *data = NULL;
+  if(gpu)
+    data = top[0]->mutable_gpu_data();
+  else
+    data = top[0]->mutable_cpu_data();
+
   labels.resize(0);
   unsigned batch_size = top_shape[0];
   //if in memory must be set programmatically
   if(inmem) {
-    boost::unique_lock<boost::mutex> lock(mem_mutex);
-    while(data_avail == 0)
-    {
-      mem_cond.wait(lock);
-    }
-    data_avail--;
-
+    CHECK_GT(mem_rec.atoms.size(),0) << "Receptor not set in MolGridDataLayer";
+    CHECK_GT(mem_lig.atoms.size(),0) << "Ligand not set in MolGridDataLayer";
     //memory is now available
-    //TODO - something
-    abort();
+    set_grid_minfo(data, mem_rec, mem_lig, gpu);
+    if (num_rotations > 0) {
+      current_rotation = (current_rotation+1)%num_rotations;
+    }
   }
   else {
-    Dtype *data = NULL;
-    if(gpu)
-      data = top[0]->mutable_gpu_data();
-    else
-      data = top[0]->mutable_cpu_data();
-
     if(balanced) { //load equally from actives/decoys
       unsigned nactives = batch_size/2;
 
@@ -540,7 +536,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         int offset = item_id*example_size;
         labels.push_back(1.0);
 
-        set_grid(data+offset, actives_[actives_pos_], gpu);
+        set_grid_ex(data+offset, actives_[actives_pos_], gpu);
 
         actives_pos_++;
         if(actives_pos_ >= asz) {
@@ -560,7 +556,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         int offset = item_id*example_size;
         labels.push_back(0.0);
 
-        set_grid(data+offset, decoys_[decoys_pos_], gpu);
+        set_grid_ex(data+offset, decoys_[decoys_pos_], gpu);
 
         decoys_pos_++;
         if(decoys_pos_ >= dsz) {
@@ -582,7 +578,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         int offset = item_id*example_size;
         labels.push_back(all_[all_pos_].label);
 
-        set_grid(data+offset, all_[all_pos_], gpu);
+        set_grid_ex(data+offset, all_[all_pos_], gpu);
 
         all_pos_++;
         if(all_pos_ >= sz) {
