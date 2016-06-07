@@ -36,8 +36,8 @@ int main(int argc, char *argv[])
 {
 	OpenBabel::obErrorLog.StopLogging();
 
-	if(argc != 3) {
-		cerr << "Need input and output file." << "\n";
+	if(argc < 2) {
+		cerr << "Need input (and output) file." << "\n";
 		exit(-1);
 	}
 
@@ -45,30 +45,60 @@ int main(int argc, char *argv[])
 	obmol_opener opener;
 	opener.openForInput(conv, argv[1]);
 
-	OBMol mol;
-	conv.Read(&mol); //single molecule
-
-	if(mol.NumAtoms() == 0) {
-		cerr << "Problem reading molecule " << argv[1] << "\n";
-		exit(1);
-	}
-	mol.AddHydrogens();
-
-	ofstream out(argv[2]);
-	if(!out) {
-		cerr << "Error opening output file " << argv[2] << "\n";
-		exit(1);
-	}
-	if(!algorithm::ends_with(argv[2],".gninatypes"))
+	if(argc >= 3)
 	{
-		cerr << "Warning: output file lacks .gninatypes suffix.\n";
+		ofstream out(argv[2]);
+		if(!out) {
+			cerr << "Error opening output file " << argv[2] << "\n";
+			exit(1);
+		}
+		if(!algorithm::ends_with(argv[2],".gninatypes"))
+		{
+			cerr << "Warning: output file lacks .gninatypes suffix.\n";
+		}
+
+		OBMol mol;
+		conv.Read(&mol); //single molecule
+		if(mol.NumAtoms() == 0) {
+			cerr << "Problem reading molecule " << argv[1] << "\n";
+			exit(1);
+		}
+		mol.AddHydrogens();
+
+	  FOR_ATOMS_OF_MOL(a, mol)
+	  {
+	    smt t = obatom_to_smina_type(*a);
+	    atom_info ainfo(a->x(), a->y(), a->z(), t);
+	    out.write((char*)&ainfo, sizeof(ainfo));
+	  }
+	}
+	else
+	{
+		//if only input file is specified, auto generate output file name and
+		//also handle multiple molecules
+		filesystem::path p(argv[1]);
+		if(algorithm::ends_with(argv[1],".gz"))
+			p = p.stem(); //strip .gz
+		//strip extension
+		p = p.stem();
+
+		OBMol mol;
+		int cnt = 0;
+		while(conv.Read(&mol)) {
+			mol.AddHydrogens();
+			string outname = p.string() + "_" + lexical_cast<string>(cnt) + ".gninatypes";
+			ofstream out(outname.c_str());
+
+		  FOR_ATOMS_OF_MOL(a, mol)
+		  {
+		    smt t = obatom_to_smina_type(*a);
+		    atom_info ainfo(a->x(), a->y(), a->z(), t);
+		    out.write((char*)&ainfo, sizeof(ainfo));
+		  }
+		  out.close();
+		  cnt++;
+		}
 	}
 
-  FOR_ATOMS_OF_MOL(a, mol)
-  {
-    smt t = obatom_to_smina_type(*a);
-    atom_info ainfo(a->x(), a->y(), a->z(), t);
-    out.write((char*)&ainfo, sizeof(ainfo));
-  }
 
 }
