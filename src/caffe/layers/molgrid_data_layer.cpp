@@ -256,45 +256,85 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
     unsigned mapoffset, mol_info& minfo)
 {
   //OpenBabel is SLOW, especially for the receptor, so we cache the result
-  //if this gets too annoying, can add support for precalculated atom type files
-  //or spawn a thread for openbabel
+  //if this gets too annoying, can add support for spawning a thread for openbabel
   //but since this gets amortized across many hits to the same example, not a high priority
   using namespace OpenBabel;
+
+
+  vec center(0,0,0);
+  minfo.atoms.clear();
+  minfo.whichGrid.clear();
+
+  //also, implemented a custom gninatypes files to precalc this info
+  if(boost::algorithm::ends_with(file,".gninatypes"))
+  {
+    struct info {
+      float x,y,z;
+      int type;
+    } atom;
+
+    ifstream in(file.c_str());
+    CHECK(in) << "Could not read " << file;
+
+    int cnt = 0;
+    while(in.read((char*)&atom, sizeof(atom)))
+    {
+      smt t = (smt)atom.type;
+      int index = atommap[t];
+
+      if(index >= 0)
+      {
+        cnt++;
+        float4 ainfo;
+        ainfo.x = atom.x;
+        ainfo.y = atom.y;
+        ainfo.z  = atom.z;
+        ainfo.w = xs_radius(t);
+
+        minfo.atoms.push_back(ainfo);
+        minfo.whichGrid.push_back(index+mapoffset);
+        center += vec(atom.x,atom.y,atom.z);
+      }
+    }
+    center /= cnt;
+  }
+  else
+  {
   //read mol from file and set mol info (atom coords and grid positions)
   //types are mapped using atommap values plus offset
-  OpenBabel::OBConversion conv;
-  OBMol mol;
-  CHECK(conv.ReadFile(&mol, root_folder + file)) << "Could not read " << file;
+    OpenBabel::OBConversion conv;
+    OBMol mol;
+    CHECK(conv.ReadFile(&mol, root_folder + file)) << "Could not read " << file;
 
-  if(this->layer_param_.molgrid_data_param().addh()) {
-    mol.AddHydrogens();
-  }
-
-  minfo.atoms.clear(); minfo.atoms.reserve(mol.NumHvyAtoms());
-  minfo.whichGrid.clear(); minfo.whichGrid.reserve(mol.NumHvyAtoms());
-  vec center(0,0,0);
-
-  int cnt = 0;
-  FOR_ATOMS_OF_MOL(a, mol)
-  {
-    smt t = obatom_to_smina_type(*a);
-    int index = atommap[t];
-
-    if(index >= 0)
-    {
-      cnt++;
-      float4 ainfo;
-      ainfo.x = a->x();
-      ainfo.y = a->y();
-      ainfo.z  = a->z();
-      ainfo.w = xs_radius(t);
-
-      minfo.atoms.push_back(ainfo);
-      minfo.whichGrid.push_back(index+mapoffset);
-      center += vec(a->x(),a->y(),a->z());
+    if(this->layer_param_.molgrid_data_param().addh()) {
+      mol.AddHydrogens();
     }
+
+    minfo.atoms.reserve(mol.NumHvyAtoms());
+    minfo.whichGrid.reserve(mol.NumHvyAtoms());
+
+    int cnt = 0;
+    FOR_ATOMS_OF_MOL(a, mol)
+    {
+      smt t = obatom_to_smina_type(*a);
+      int index = atommap[t];
+
+      if(index >= 0)
+      {
+        cnt++;
+        float4 ainfo;
+        ainfo.x = a->x();
+        ainfo.y = a->y();
+        ainfo.z  = a->z();
+        ainfo.w = xs_radius(t);
+
+        minfo.atoms.push_back(ainfo);
+        minfo.whichGrid.push_back(index+mapoffset);
+        center += vec(a->x(),a->y(),a->z());
+      }
+    }
+    center /= cnt;
   }
-  center /= cnt;
 
   minfo.center = center;
 
