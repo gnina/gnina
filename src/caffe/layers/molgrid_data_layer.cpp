@@ -440,14 +440,6 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
   //set center to ligand center
   gridatoms.center = ligatoms.center;
 
-  for(unsigned i = 0, n = gridatoms.atoms.size(); i < n; i++)
-  {
-/*    if(gridatoms.whichGrid[i] >= 0) {
-      cout << std::setprecision(2) << std::fixed;
-      cout << "ATOM " << gridatoms.atoms[i].x << "," << gridatoms.atoms[i].y << "," << gridatoms.atoms[i].z << "," << gridatoms.atoms[i].w << " " << gridatoms.whichGrid[i] << "\n";
-    }
-    */
-  }
   //figure out transformation
   quaternion Q(1,0,0,0);
   if(current_rotation == 0 && !randrotate)
