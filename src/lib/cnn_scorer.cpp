@@ -105,7 +105,6 @@ float CNNScorer::score(const model& m)
 	double score = 0.0;
 	const shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
 
-	cout << "Rotations " << rotations << "\n";
 	unsigned cnt = 0;
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{

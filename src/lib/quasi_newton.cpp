@@ -22,6 +22,7 @@
 
 #include "quasi_newton.h"
 #include "bfgs.h"
+#include <boost/timer/timer.hpp>
 
 struct quasi_newton_aux {
 	model* m;
@@ -29,7 +30,9 @@ struct quasi_newton_aux {
 	const igrid* ig;
 	const vec v;
 	const grid* user_grid;
+
 	quasi_newton_aux(model* m_, const precalculate* p_, const igrid* ig_, const vec& v_, const grid* user_grid_) : m(m_), p(p_), ig(ig_), v(v_), user_grid(user_grid_) {}
+
 	fl operator()(const conf& c, change& g) {
 		const fl tmp = m->eval_deriv(*p, *ig, v, c, g, *user_grid);
 		return tmp;

@@ -168,10 +168,6 @@ public:
 	//set vector to full set of grids
 	void outputMem(vector<float>& out);
 
-	//initialize default receptor/ligand maps
-	static void createDefaultRecMap(vector<int>& map);
-	static void createDefaultLigMap(vector<int>& map);
-
 	unsigned nchannels() const { return receptorGrids.size() + ligandGrids.size(); }
 
 	//for debugging, run non-gpu code and compre to values in current grids
