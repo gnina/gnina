@@ -7,7 +7,7 @@ FROMGNINAOBJ = fromgnina.o CommandLine.o
 GNINAGRIDOBJ = gninagrid.o 
 GNINATYPEROBJ = gninatyper.o
 SERVEROBJ = server.o CommandLine.o MinimizationQuery.o QueryManager.o
-INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) -I $(CUDA_INCLUDE) 
+INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) -I $(CUDA_INCLUDE)  -I ../../../..
 NVCC=$(BASE)/cuda/bin/nvcc
 
 CC = ${GPP} ${C_PLATFORM} -ansi  ${C_OPTIONS} $(INCFLAGS)

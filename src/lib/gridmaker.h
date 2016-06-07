@@ -19,6 +19,10 @@
 #include <boost/math/quaternion.hpp>
 #include <boost/algorithm/string.hpp>
 
+#ifndef VINA_ATOM_CONSTANTS_H
+#include "gnina/src/lib/atom_constants.h"
+#endif
+
 using namespace std;
 
 class GridMaker {
