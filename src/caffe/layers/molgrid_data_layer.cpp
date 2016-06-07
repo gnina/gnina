@@ -76,118 +76,6 @@ void MolGridDataLayer<Dtype>::allocateGPUMem(unsigned sz)
 }
 
 
-
-//create a mapping from atom type ids to a unique id given a file specifying
-//what types we care about (anything missing is ignored); if multiple types are
-//on the same line, they are merged, if the file isn't specified, use default mapping
-//return total number of types
-//map is indexed by smina_atom_type, maps to -1 if type should be ignored
-static unsigned createAtomTypeMap(const string& fname, vector<int>& map)
-{
-	using namespace std;
-	using namespace boost::algorithm;
-  map.assign(smina_atom_type::NumTypes, -1);
-  CHECK(fname.size() > 0) <<  "Map file not specified\n";
-
-	unsigned cnt = 0;
-	ifstream in(fname.c_str());
-
-	CHECK(in) << "Could not open " << fname << "\n";
-
-	string line;
-	while (getline(in, line))
-	{
-		vector<string> types;
-		split(types, line, is_any_of("\t \n"));
-		for (unsigned i = 0, n = types.size(); i < n; i++)
-		{
-			const string& name = types[i];
-			smt t = string_to_smina_type(name);
-			if (t < smina_atom_type::NumTypes) //valid
-			{
-				map[t] = cnt;
-			}
-			else if (name.size() > 0) //this ignores consecutive delimiters
-			{
-				cerr << "Invalid atom type " << name << "\n";
-				exit(-1);
-			}
-		}
-		if (types.size() > 0)
-			cnt++;
-	}
-	return cnt;
-}
-
-static unsigned createDefaultMap(const char *names[], vector<int>& map)
-{
-  map.assign(smina_atom_type::NumTypes, -1);
-  const char **nameptr = names;
-  unsigned cnt = 0;
-  while (*nameptr != NULL)
-  {
-    string name(*nameptr);
-    //note that if we every start using merged atom types by default
-    //this code will have to be updated
-    smt t = string_to_smina_type(name);
-    CHECK_LT(t, smina_atom_type::NumTypes) << "Invalid atom type " << name << "\n";
-    map[t] = cnt;
-    cnt++;
-    nameptr++;
-  }
-  return cnt;
-}
-
-//initialize default receptor/ligand maps
-//these were determined by evaluating how common various atoms types are
-static unsigned createDefaultRecMap(vector<int>& map)
-{
-  const char *names[] =
-  { "AliphaticCarbonXSHydrophobe",
-      "AliphaticCarbonXSNonHydrophobe",
-      "AromaticCarbonXSHydrophobe",
-      "AromaticCarbonXSNonHydrophobe",
-      "Calcium",
-      "Iron",
-      "Magnesium",
-      "Nitrogen",
-      "NitrogenXSAcceptor",//8
-      "NitrogenXSDonor",  // 9
-      "NitrogenXSDonorAcceptor", // 10
-      "OxygenXSAcceptor", //11
-      "OxygenXSDonorAcceptor",
-      "Phosphorus",
-      "Sulfur",
-      "Zinc", NULL };
-
-  return createDefaultMap(names, map);
-}
-
-static unsigned createDefaultLigMap(vector<int>& map)
-{
-  const char *names[] =
-  { "AliphaticCarbonXSHydrophobe",
-      "AliphaticCarbonXSNonHydrophobe",
-      "AromaticCarbonXSHydrophobe",
-      "AromaticCarbonXSNonHydrophobe",
-      "Bromine",
-      "Chlorine",
-      "Fluorine",
-      "Nitrogen",
-      "NitrogenXSAcceptor",
-      "NitrogenXSDonor",
-      "NitrogenXSDonorAcceptor",
-      "Oxygen",
-      "OxygenXSAcceptor",
-      "OxygenXSDonorAcceptor",
-      "Phosphorus",
-      "Sulfur",
-      "SulfurAcceptor",
-      "Iodine",
-      NULL };
-  return createDefaultMap(names, map);
-}
-
 //read in structure input and atom type maps
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
@@ -278,14 +166,14 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   string ligmap =  this->layer_param_.molgrid_data_param().ligmap();
 
   if (recmap.size() == 0)
-    numReceptorTypes = createDefaultRecMap(rmap);
+    numReceptorTypes = GridMaker::createDefaultRecMap(rmap);
   else
-    numReceptorTypes = createAtomTypeMap(recmap, rmap);
+    numReceptorTypes = GridMaker::createAtomTypeMap(recmap, rmap);
 
   if (ligmap.size() == 0)
-    numLigandTypes = createDefaultLigMap(lmap);
+    numLigandTypes = GridMaker::createDefaultLigMap(lmap);
   else
-    numLigandTypes = createAtomTypeMap(ligmap, lmap);
+    numLigandTypes = GridMaker::createAtomTypeMap(ligmap, lmap);
 
 
   //setup shape of layer
