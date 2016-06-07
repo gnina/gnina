@@ -5,6 +5,7 @@ MAINOBJ = main.o
 TOGNINAOBJ = tognina.o CommandLine.o 
 FROMGNINAOBJ = fromgnina.o CommandLine.o 
 GNINAGRIDOBJ = gninagrid.o 
+GNINATYPEROBJ = gninatyper.o
 SERVEROBJ = server.o CommandLine.o MinimizationQuery.o QueryManager.o
 INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) -I $(CUDA_INCLUDE) 
 NVCC=$(BASE)/cuda/bin/nvcc
@@ -26,7 +27,7 @@ LIBS = -l caffe -l openbabel -l protobuf -l glog -l boost_iostreams${BOOST_LIB_V
 %.o : ../../../src/lib/%.cu ../../../src/lib/*gpu.h
 	$(NVCC) $(NVOPTS) $(INCFLAGS) -o $@ -c $< 
 	
-all: gnina tognina gninaserver libgnina.a gninagrid
+all: gnina tognina gninaserver libgnina.a gninagrid gninatyper
 
 include dependencies
 
@@ -45,6 +46,10 @@ fromgnina: $(FROMGNINAOBJ) $(LIBOBJ)
 gninagrid: $(GNINAGRIDOBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"    	
+	
+gninatyper: $(GNINATYPEROBJ) $(LIBOBJ)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+	@echo "Done" 
 	
 gninaserver: $(SERVEROBJ) $(LIBOBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
