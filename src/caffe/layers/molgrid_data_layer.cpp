@@ -131,6 +131,9 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       //ligand
       ex >> ligname;
 
+      if(root_folder.length() > 0) recname = root_folder + recname;
+      if(root_folder.length() > 0) ligname = root_folder + ligname;
+
       example lineex(label, recname, ligname);
       all_.push_back(lineex);
 
