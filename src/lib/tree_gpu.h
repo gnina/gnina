@@ -119,7 +119,7 @@ struct tree_gpu {
 	__device__
 	void derivative(const gvecv& coords,const gvecv& forces,ligand_change& c){
 
-		assert(c.torsions.size() == num_nodes-1);
+		// assert(c.torsions.size() == num_nodes-1);
 		//calculate each segments individual force/torque
 		for(unsigned i = 0; i < num_nodes; i++) {
 			force_torques[i] = device_nodes[i].sum_force_and_torque(coords, forces);
@@ -147,7 +147,7 @@ struct tree_gpu {
 
 	__device__
 	void set_conf(const gatomv& atoms, gvecv& coords, const ligand_conf& c){
-		assert(c.torsions.size() == num_nodes-1);
+		// assert(c.torsions.size() == num_nodes-1);
 
 		segment_node& root = device_nodes[0];
 		root.origin = c.rigid.position;

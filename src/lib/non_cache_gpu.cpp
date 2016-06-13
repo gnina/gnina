@@ -108,7 +108,7 @@ fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
   unsigned nlig_atoms = m.num_movable_atoms();
     
   force_energy_tup *forces = (force_energy_tup *) &m.minus_forces[0];
-  memset(forces, 0, nlig_atoms * sizeof(*forces));
+  cudaMemset(forces, 0, sizeof(force_energy_tup)*m.minus_forces.size());
 
   //this will calculate the per-atom energies and forces; curl ignored
   double e = single_point_calc(&info, (atom_params *) &m.coords[0], forces, slope,

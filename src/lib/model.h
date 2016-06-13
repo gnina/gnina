@@ -186,14 +186,13 @@ struct ligand : public flexible_body, atom_range {
 };
 
 
-struct ligand_gpu {
+struct ligand_gpu : gpu_visible {
 	unsigned degrees_of_freedom;
 	interacting_pairs pairs;
-	context cont;
 	tree_gpu t;
 	ligand_gpu() : degrees_of_freedom(0) {}
 	ligand_gpu(ligand& l) : degrees_of_freedom(l.degrees_of_freedom),
-                            pairs(l.pairs), cont(l.cont), t(l) {}
+                            pairs(l.pairs), t(l) {}
 };
 
 struct residue : public main_branch {
@@ -213,7 +212,7 @@ struct conf_independent_inputs; // forward declaration
 struct pdbqt_initializer; // forward declaration - only declared in parse_pdbqt.cpp
 struct model_test;
 
-struct model : gpu_visible {
+struct model {
 	void append(const model& m);
 
 	sz num_movable_atoms() const { return m_num_movable_atoms; }
@@ -374,10 +373,11 @@ struct model : gpu_visible {
 	const atomv& get_fixed_atoms() const { return grid_atoms; }
 	const gatomv& get_movable_atoms() const { return atoms; }
 
-	model() : m_num_movable_atoms(0) {};
+	model() : m_num_movable_atoms(0), lgpu(NULL) {lgpu = new ligand_gpu;};
+	~model() {delete lgpu;};
     /* TODO:protect */
 	gvecv coords;
-    ligand_gpu lgpu;
+    ligand_gpu* lgpu;
     vector_mutable<ligand> ligands;
 
 private:

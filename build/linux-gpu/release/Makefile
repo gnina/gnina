@@ -16,4 +16,4 @@ include ../../makefile_common
 	$(NVCC) $(NVOPTS) -DSMINA_GPU -o $@ -dc $<
 
 gpu: $(MAINOBJ) $(LIBOBJ) $(GPUOBJ)
-	$(NVCC) -gencode arch=compute_52,code=sm_52 $(LDFLAGS) -o smina.$@ $^ $(LIBS)  -lcudart
+	$(NVCC) -gencode arch=compute_52,code=sm_52 $(LDFLAGS) -o gnina.$@ $^ $(LIBS)  -lcudart

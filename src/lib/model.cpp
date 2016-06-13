@@ -844,7 +844,7 @@ void model::set(const conf& c)
 void model::set_gpu(const conf& c)
 {
     assert(c.ligands.size() == 1);
-	set_conf_kernel<<<1,1>>>(lgpu.t, atoms, coords, c.ligands[0]);
+	set_conf_kernel<<<1,1>>>(lgpu->t, atoms, coords, c.ligands[0]);
     /* lgpu.t.set_conf(atoms, coords, c.ligands[0]); */
     /* TODO: flex */
 	/* flex.set_conf(atoms, coords, c.flex); */
@@ -1002,7 +1002,7 @@ fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
 				minus_forces); // adds to minus_forces
 	// calculate derivatives
     /* lgpu.t.derivative(coords, minus_forces, g.ligands[0]); */
-	derivatives_kernel<<<1,1>>>(lgpu.t, coords, minus_forces, g.ligands[0]);
+	derivatives_kernel<<<1,1>>>(lgpu->t, coords, minus_forces, g.ligands[0]);
   cudaDeviceSynchronize();
 
 	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */
