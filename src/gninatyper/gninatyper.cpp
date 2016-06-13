@@ -78,9 +78,9 @@ int main(int argc, char *argv[])
 		//also handle multiple molecules
 		filesystem::path p(argv[1]);
 		if(algorithm::ends_with(argv[1],".gz"))
-			p = p.stem(); //strip .gz
+			p.replace_extension("");
 		//strip extension
-		p = p.stem();
+		p.replace_extension("");
 
 		OBMol mol;
 		int cnt = 0;
