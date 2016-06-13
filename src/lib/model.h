@@ -373,11 +373,11 @@ struct model {
 	const atomv& get_fixed_atoms() const { return grid_atoms; }
 	const gatomv& get_movable_atoms() const { return atoms; }
 
-	model() : m_num_movable_atoms(0), lgpu(NULL) {lgpu = new ligand_gpu;};
-	~model() {delete lgpu;};
+	model() : m_num_movable_atoms(0), lgpu(new ligand_gpu()) {};
+	~model() { };
     /* TODO:protect */
 	gvecv coords;
-    ligand_gpu* lgpu;
+    boost::shared_ptr<ligand_gpu> lgpu;
     vector_mutable<ligand> ligands;
 
 private:
