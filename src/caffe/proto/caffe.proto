@@ -832,7 +832,7 @@ message MolGridDataParameter {
   //randomly rotate each input file; a new rotation is applied each epoch
   optional bool random_rotation = 14 [default = false];
   //randomly translate each input by up this amount; new translation applied each epoch
-  optional uint32 random_translate = 15 [default = 0];
+  optional float random_translate = 15 [default = 0];
   //output binary grids instead of densities
   optional bool binary_occupancy = 16 [default = false];
   //path to recmap file to override default
