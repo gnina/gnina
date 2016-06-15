@@ -844,7 +844,7 @@ void model::set(const conf& c)
 void model::set_gpu(const conf& c)
 {
     assert(c.ligands.size() == 1);
-	set_conf_kernel<<<1,1>>>(lgpu->t, atoms, coords_gpu, c.ligands[0]);
+	set_conf_kernel<<<1,1>>>(lgpu->t, atom_coords_gpu, coords_gpu, c.ligands[0]);
     /* TODO: flex */
 	/* flex.set_conf(atoms, coords, c.flex); */
 }
@@ -1001,7 +1001,7 @@ fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
 				minus_forces); // adds to minus_forces
 	// calculate derivatives
     /* lgpu.t.derivative(coords, minus_forces, g.ligands[0]); */
-	derivatives_kernel<<<1,1>>>(lgpu->t, coords, minus_forces, g.ligands[0]);
+	derivatives_kernel<<<1,1>>>(lgpu->t, coords_gpu, minus_forces_gpu, g.ligands[0]);
   cudaDeviceSynchronize();
 
 	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */
@@ -1347,14 +1347,23 @@ void model::copy_to_gpu()
 	if(atom_coords_gpu) {
 		cudaFree(atom_coords_gpu);
 	}
+	if(minus_forces_gpu) {
+		cudaFree(minus_forces_gpu);
+	}
+
 	cudaMalloc(&coords_gpu, sizeof(vec)*coords.size());
 	cudaMalloc(&atom_coords_gpu, sizeof(vec)*atoms.size());
+	cudaMalloc(&minus_forces_gpu, sizeof(vec)*minus_forces.size());
+
 	cudaMemcpy(coords_gpu, &coords[0], coords.size()*sizeof(vec), cudaMemcpyHostToDevice);
 	std::vector<vec> acoords(atoms.size());
 	for(unsigned i = 0, n = atoms.size(); i < n; i++) {
 		acoords[i] = atoms[i].coords;
 	}
 	cudaMemcpy(atom_coords_gpu, &acoords[0], sizeof(vec)*atoms.size(), cudaMemcpyHostToDevice);
+	//minus_forces gets initialized in eval_deriv
+
+
 }
 
 //copy back relevant data from gpu buffers

@@ -38,7 +38,7 @@ struct segment_node {
 	}
 
 	__device__
-	vecp sum_force_and_torque(const gvecv& coords, const gvecv& forces) const {
+	vecp sum_force_and_torque(const vec *coords, const vec *forces) const {
 		vecp tmp(vec(0,0,0), vec(0,0,0));
 		VINA_RANGE(i, begin, end) {
 			tmp.first  += forces[i];
@@ -117,7 +117,7 @@ struct tree_gpu {
 	}
 
 	__device__
-	void derivative(const gvecv& coords,const gvecv& forces,ligand_change& c){
+	void derivative(const vec *coords,const vec* forces,ligand_change& c){
 
 		// assert(c.torsions.size() == num_nodes-1);
 		//calculate each segments individual force/torque
@@ -169,8 +169,8 @@ struct tree_gpu {
 };
 
 static __global__
-void derivatives_kernel(tree_gpu &t, const gvecv& coords,
-		const gvecv& forces, ligand_change& c){
+void derivatives_kernel(tree_gpu &t, const vec * coords,
+		const vec* forces, ligand_change& c){
 
 	t.derivative(coords, forces, c);
 }

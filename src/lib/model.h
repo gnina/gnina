@@ -378,13 +378,14 @@ struct model {
 	//copy back relevant data from gpu buffers
 	void copy_from_gpu();
 
-	model() : m_num_movable_atoms(0), lgpu(new ligand_gpu()), coords_gpu(NULL), atom_coords_gpu(NULL) {};
+	model() : m_num_movable_atoms(0), lgpu(new ligand_gpu()), coords_gpu(NULL), atom_coords_gpu(NULL), minus_forces_gpu(NULL) {};
 	~model() { };
     /* TODO:protect */
   gvecv coords;
   
   vec *coords_gpu;
   vec *atom_coords_gpu;
+  vec *minus_forces_gpu;
 
   boost::shared_ptr<ligand_gpu> lgpu;
   vector_mutable<ligand> ligands;

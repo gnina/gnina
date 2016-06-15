@@ -32,7 +32,7 @@ struct __align__(sizeof(float4)) force_energy_tup{
   float3 minus_force;
   float energy;
 
-  __host__ __device__ force_energy_tup(void);
+  __host__ __device__ force_energy_tup(void): minus_force(0,0,0), energy(0) {}
   __host__ __device__ force_energy_tup(float3 f, float e)
     : minus_force(f), energy(e){};
 

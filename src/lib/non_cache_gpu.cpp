@@ -2,7 +2,6 @@
 #include "loop_timer.h"
 #include "gpu_math.h"
 
-force_energy_tup::force_energy_tup(void){};
 
 non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
                              const grid_dims& gd_,
@@ -60,7 +59,9 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
     unsigned index = recatomids[i];
     const vec& c = m.grid_atoms[index].coords;
     atom_params *a = &hrec_atoms[i];
-    a->coords = c;
+    a->coords.x = c[0];
+    a->coords.y = c[1];
+    a->coords.z = c[2];
     a->charge = m.grid_atoms[index].charge;
         
     hrectypes[i] = m.grid_atoms[index].get();
@@ -107,7 +108,7 @@ fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
 
   unsigned nlig_atoms = m.num_movable_atoms();
     
-  force_energy_tup *forces = (force_energy_tup *) &m.minus_forces[0];
+  force_energy_tup *forces = (force_energy_tup *) m.minus_forces_gpu;
   cudaMemset(forces, 0, sizeof(force_energy_tup)*m.minus_forces.size());
 
   //this will calculate the per-atom energies and forces; curl ignored

@@ -6,7 +6,7 @@ GPP=g++
 C_OPTIONS= -O3 -DNDEBUG -g   
 #C_OPTIONS= -O3 -DNDEBUG -g -flto
 BOOST_LIB_VERSION=
-NVOPTS=--expt-relaxed-constexpr -std=c++11 -gencode arch=compute_52,code=sm_52 -O3 -Xcompiler -Wno-unreachable-code -gencode arch=compute_35,code=sm_35
+NVOPTS=--expt-relaxed-constexpr -w -std=c++11 -gencode arch=compute_52,code=sm_52 -O3 -Xcompiler -Wno-unreachable-code -gencode arch=compute_35,code=sm_35
 OPENBABEL_INCLUDE=/usr/local/include/openbabel-2.0
 
 include ../../makefile_common
