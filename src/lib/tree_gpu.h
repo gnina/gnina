@@ -62,9 +62,9 @@ struct segment_node {
 	}
 
 	__device__
-	void set_coords(const gatomv& atoms, gvecv& coords) const{
+	void set_coords(const vec *atom_coords, vec *coords) const{
 		VINA_RANGE(i, begin, end)
-			coords[i] = local_to_lab(atoms[i].coords);
+			coords[i] = local_to_lab(atom_coords[i]);
 	}
 
 	__device__
@@ -146,13 +146,13 @@ struct tree_gpu {
 	}
 
 	__device__
-	void set_conf(const gatomv& atoms, gvecv& coords, const ligand_conf& c){
+	void set_conf(const vec *atom_coords, vec *coords, const ligand_conf& c){
 		// assert(c.torsions.size() == num_nodes-1);
 
 		segment_node& root = device_nodes[0];
 		root.origin = c.rigid.position;
 		root.set_orientation(c.rigid.orientation);
-		root.set_coords(atoms, coords);
+		root.set_coords(atom_coords, coords);
 
 		for(unsigned i = 1; i < num_nodes; i++) {
 			segment_node& node = device_nodes[i];
@@ -163,7 +163,7 @@ struct tree_gpu {
 			node.set_orientation(
 					quaternion_normalize_approx(
 							angle_to_quaternion(node.axis, torsion) * parent.orientation_q));
-			node.set_coords(atoms, coords);
+			node.set_coords(atom_coords, coords);
 		}
 	}
 };
@@ -176,9 +176,9 @@ void derivatives_kernel(tree_gpu &t, const gvecv& coords,
 }
 
 static __global__
-void set_conf_kernel(tree_gpu &t, const gatomv& atoms,
-		gvecv& coords, const ligand_conf& c){
-	t.set_conf(atoms, coords, c);
+void set_conf_kernel(tree_gpu &t, const vec *atom_coords,
+		vec *coords, const ligand_conf& c){
+	t.set_conf(atom_coords, coords, c);
 }
 
 #endif

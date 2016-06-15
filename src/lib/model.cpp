@@ -844,8 +844,7 @@ void model::set(const conf& c)
 void model::set_gpu(const conf& c)
 {
     assert(c.ligands.size() == 1);
-	set_conf_kernel<<<1,1>>>(lgpu->t, atoms, coords, c.ligands[0]);
-    /* lgpu.t.set_conf(atoms, coords, c.ligands[0]); */
+	set_conf_kernel<<<1,1>>>(lgpu->t, atoms, coords_gpu, c.ligands[0]);
     /* TODO: flex */
 	/* flex.set_conf(atoms, coords, c.flex); */
 }
@@ -1336,5 +1335,33 @@ fl model::clash_penalty() const
 		e += clash_penalty_aux(ligands[i].pairs);
 	e += clash_penalty_aux(other_pairs);
 	return e;
+}
+
+//copy relevant data to gpu buffers
+void model::copy_to_gpu()
+{
+	//TODO: only re-malloc if need larger size
+	if(coords_gpu) {
+		cudaFree(coords_gpu);
+	}
+	if(atom_coords_gpu) {
+		cudaFree(atom_coords_gpu);
+	}
+	cudaMalloc(&coords_gpu, sizeof(vec)*coords.size());
+	cudaMalloc(&atom_coords_gpu, sizeof(vec)*atoms.size());
+	cudaMemcpy(coords_gpu, &coords[0], coords.size()*sizeof(vec), cudaMemcpyHostToDevice);
+	std::vector<vec> acoords(atoms.size());
+	for(unsigned i = 0, n = atoms.size(); i < n; i++) {
+		acoords[i] = atoms[i].coords;
+	}
+	cudaMemcpy(atom_coords_gpu, &acoords[0], sizeof(vec)*atoms.size(), cudaMemcpyHostToDevice);
+}
+
+//copy back relevant data from gpu buffers
+void model::copy_from_gpu()
+{
+	assert(coords_gpu);
+	cudaMemcpy(&coords[0], coords_gpu, coords.size()*sizeof(vec), cudaMemcpyDeviceToHost);
+
 }
 

@@ -50,6 +50,11 @@ struct quasi_newton_aux_gpu {
 	quasi_newton_aux_gpu(model* m_,const precalculate* p_,const non_cache_gpu* ig_,
 			const vec& v_,const grid* user_grid_) :
 			m(m_), p(p_), ig(ig_), v(v_), user_grid(user_grid_){
+		m->copy_to_gpu();
+	}
+
+	~quasi_newton_aux_gpu() {
+		m->copy_from_gpu();
 	}
 
 	fl operator()(const conf& c,change& g){

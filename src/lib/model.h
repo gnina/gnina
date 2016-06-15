@@ -373,12 +373,21 @@ struct model {
 	const atomv& get_fixed_atoms() const { return grid_atoms; }
 	const gatomv& get_movable_atoms() const { return atoms; }
 
-	model() : m_num_movable_atoms(0), lgpu(new ligand_gpu()) {};
+	//copy relevant data to gpu buffers
+	void copy_to_gpu();
+	//copy back relevant data from gpu buffers
+	void copy_from_gpu();
+
+	model() : m_num_movable_atoms(0), lgpu(new ligand_gpu()), coords_gpu(NULL), atom_coords_gpu(NULL) {};
 	~model() { };
     /* TODO:protect */
-	gvecv coords;
-    boost::shared_ptr<ligand_gpu> lgpu;
-    vector_mutable<ligand> ligands;
+  gvecv coords;
+  
+  vec *coords_gpu;
+  vec *atom_coords_gpu;
+
+  boost::shared_ptr<ligand_gpu> lgpu;
+  vector_mutable<ligand> ligands;
 
 private:
 	//my, aren't we friendly!

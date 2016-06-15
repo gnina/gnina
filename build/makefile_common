@@ -6,11 +6,12 @@ TOGNINAOBJ = tognina.o CommandLine.o
 FROMGNINAOBJ = fromgnina.o CommandLine.o 
 GNINAGRIDOBJ = gninagrid.o nngridder.o
 SERVEROBJ = server.o CommandLine.o MinimizationQuery.o QueryManager.o
-CFLAGS += -Wno-deprecated-declarations
+CFLAGS += -Wno-deprecated-declarations -std=c++11
 INCFLAGS = -I $(BOOST_INCLUDE) -I $(OPENBABEL_INCLUDE) -I $(CUDA_INCLUDE) 
 NVCC=$(BASE)/cuda/bin/nvcc
 
 CC = $(NVCC)  $(NVOPTS) --compiler-options="-std=c++11 $(C_PLATFORM) $(C_OPTIONS) $(CFLAGS)" $(INCFLAGS)
+#CC = g++ -std=c++11 $(C_PLATFORM) $(C_OPTIONS) $(CFLAGS) $(INCFLAGS)
 
 LDFLAGS := -L$(BASE)/lib -L. -L/usr/local/lib -L$(BASE)/cuda/lib64 $(LDFLAGS)
 
@@ -25,7 +26,7 @@ LIBS = -l openbabel -l boost_iostreams${BOOST_LIB_VERSION} -l boost_timer${BOOST
 	$(CC) -x cu -I ../../../src/lib -o $@ -dc $< 
 
 %.o : ../../../src/lib/%.cu ../../../src/lib/*gpu.h
-	$(NVCC) $(NVOPTS) -o $@ -dc $< 
+	$(NVCC) $(NVOPTS)  -o $@ -dc $< 
 
 
 all: gnina tognina gninaserver libgnina.a gninagrid
