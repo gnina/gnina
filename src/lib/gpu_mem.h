@@ -35,7 +35,7 @@ template <class T>
 struct gvector : std::vector<T, gpu_managed_alloc<vec> >{
     gvector() : std::vector<T, gpu_managed_alloc<vec> >(){};
     gvector(std::size_t s) : std::vector<T, gpu_managed_alloc<vec> >(s){}
-    
+
     __device__ __host__
     T &operator[](int a){
         /* TODO: heh heh */

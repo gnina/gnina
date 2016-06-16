@@ -126,7 +126,7 @@ struct sdfcontext {
 
 	void dump(std::ostream& out) const;
   //output sdf with provided coords
-	void write(const gvecv& coords, sz nummove, std::ostream& out) const;
+	void write(const vecv& coords, sz nummove, std::ostream& out) const;
 	bool valid() const {return atoms.size() > 0; }
 	sz size() const {return atoms.size(); }
 	template<class Archive>
@@ -147,8 +147,8 @@ struct context {
 	pdbqtcontext pdbqttext;
 	sdfcontext sdftext;
 
-	void writePDBQT(const gvecv& coords, std::ostream& out) const;
-	void writeSDF(const gvecv& coords, sz nummove, std::ostream& out)
+	void writePDBQT(const vecv& coords, std::ostream& out) const;
+	void writeSDF(const vecv& coords, sz nummove, std::ostream& out)
     const { sdftext.write(coords, nummove, out); }
 	void update(const appender& transform);
 	void set(sz pdbqtindex, sz sdfindex, sz atomindex, bool inf = false);
@@ -346,7 +346,7 @@ struct model {
 		return tmp;
 	}
 
-	gvecv& coordinates() { //return reference to all coords
+	vecv& coordinates() { //return reference to all coords
 		return coords;
 	}
 
@@ -371,7 +371,7 @@ struct model {
 	fl clash_penalty() const;
 
 	const atomv& get_fixed_atoms() const { return grid_atoms; }
-	const gatomv& get_movable_atoms() const { return atoms; }
+	const atomv& get_movable_atoms() const { return atoms; }
 
 	//copy relevant data to gpu buffers
 	void copy_to_gpu();
@@ -381,7 +381,7 @@ struct model {
 	model() : m_num_movable_atoms(0), lgpu(new ligand_gpu()), coords_gpu(NULL), atom_coords_gpu(NULL), minus_forces_gpu(NULL) {};
 	~model() { };
     /* TODO:protect */
-  gvecv coords;
+  vecv coords;
   
   vec *coords_gpu;
   vec *atom_coords_gpu;
@@ -441,20 +441,20 @@ private:
 	fl clash_penalty_aux(const interacting_pairs& pairs) const;
 
 	fl eval_interacting_pairs(const precalculate& p, fl v,
-                            const interacting_pairs& pairs, const gvecv& coords) const;
+                            const interacting_pairs& pairs, const vecv& coords) const;
 	fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
                                   const interacting_pairs& pairs,
-                                  const gvecv& coords, gvecv& forces) const;
+                                  const vecv& coords, vecv& forces) const;
 
 	vecv internal_coords;
     /* TODO:reprivate */
 	/* vecv coords; */
   //I believe this contains the accumulated directional deltas for each
   //atom
-	gvecv minus_forces; 
+	vecv minus_forces;
 
 	atomv grid_atoms;
-	gatomv atoms; // movable, inflex
+	atomv atoms; // movable, inflex
 
 	vector_mutable<residue> flex;
 	context flex_context;

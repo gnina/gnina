@@ -289,7 +289,7 @@ bool NNGridder::readMolecule()
 	}
 
 	//fill in heavy atoms
-	const gatomv& atoms = m.get_movable_atoms();
+	const atomv& atoms = m.get_movable_atoms();
 	assert(atoms.size() == m.coordinates().size());
 	for (unsigned i = 0, n = atoms.size(); i < n; i++)
 	{

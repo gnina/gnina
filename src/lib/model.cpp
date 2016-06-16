@@ -726,7 +726,7 @@ std::string coords_to_pdbqt_string(const vec& coords, const std::string& str)
 	return tmp;
 }
 
-void context::writePDBQT(const gvecv& coords, std::ostream& out) const
+void context::writePDBQT(const vecv& coords, std::ostream& out) const
 {
 	VINA_FOR_IN(i, pdbqttext)
 	{
@@ -759,7 +759,7 @@ void sdfcontext::dump(std::ostream& out) const
 }
 
 //output sdf format to out
-void sdfcontext::write(const gvecv& coords, sz nummove, std::ostream& out) const
+void sdfcontext::write(const vecv& coords, sz nummove, std::ostream& out) const
 {
 	const unsigned bsize = 1024;
 	char buff[bsize]; //since sprintf is just so much easier to use
@@ -897,7 +897,7 @@ fl model::gyration_radius(sz ligand_number) const
 
 fl model::eval_interacting_pairs(const precalculate& p, fl v,
                                  const interacting_pairs& pairs,
-                                 const gvecv& coords) const
+                                 const vecv& coords) const
 { // clean up
 	const fl cutoff_sqr = p.cutoff_sqr();
 	fl e = 0;
@@ -917,7 +917,7 @@ fl model::eval_interacting_pairs(const precalculate& p, fl v,
 
 fl model::eval_interacting_pairs_deriv(const precalculate& p, fl v,
                                        const interacting_pairs& pairs,
-                                       const gvecv& coords, gvecv& forces) const
+                                       const vecv& coords, vecv& forces) const
 { // adds to forces  // clean up
 	const fl cutoff_sqr = p.cutoff_sqr();
 	fl e = 0;
