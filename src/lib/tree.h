@@ -436,6 +436,11 @@ struct vector_mutable: public std::vector<T> {
 		VINA_FOR_IN(i, (*this))
 			(*this)[i].set_conf(atoms, coords, c[i]);
 	}
+	template<typename C>
+        void set_conf(const atomv& atoms,vecv& coords,const gvector<C>& c){ // C == ligand_conf || residue_conf
+	                VINA_FOR_IN(i, (*this))
+			                        (*this)[i].set_conf(atoms, coords, c[i]);
+	}	
 	szv count_torsions() const{
 		szv tmp(this->size(), 0);
 		VINA_FOR_IN(i, (*this))

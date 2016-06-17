@@ -148,12 +148,12 @@ struct tree_gpu {
 	__device__
 	void set_conf(const vec *atom_coords, vec *coords, const ligand_conf& c){
 		// assert(c.torsions.size() == num_nodes-1);
-
 		segment_node& root = device_nodes[0];
 		root.origin = c.rigid.position;
-		root.set_orientation(c.rigid.orientation);
-		root.set_coords(atom_coords, coords);
 
+		root.set_orientation(c.rigid.orientation);
+
+		root.set_coords(atom_coords, coords);
 		for(unsigned i = 1; i < num_nodes; i++) {
 			segment_node& node = device_nodes[i];
 			segment_node& parent = device_nodes[node.parent];
@@ -169,16 +169,15 @@ struct tree_gpu {
 };
 
 static __global__
-void derivatives_kernel(tree_gpu &t, const vec * coords,
+void derivatives_kernel(tree_gpu *t, const vec * coords,
 		const vec* forces, ligand_change& c){
-
-	t.derivative(coords, forces, c);
+	t->derivative(coords, forces, c);
 }
 
 static __global__
-void set_conf_kernel(tree_gpu &t, const vec *atom_coords,
+void set_conf_kernel(tree_gpu *t, const vec *atom_coords,
 		vec *coords, const ligand_conf& c){
-	t.set_conf(atom_coords, coords, c);
+	t->set_conf(atom_coords, coords, c);
 }
 
 #endif

@@ -339,7 +339,7 @@ struct change {
 };
 
 struct conf {
-	std::vector<ligand_conf> ligands;
+	gvector<ligand_conf> ligands;
 	std::vector<residue_conf> flex;
 	conf() {}
 	conf(const conf_size& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
