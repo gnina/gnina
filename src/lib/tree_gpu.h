@@ -116,6 +116,15 @@ struct tree_gpu {
 
 	}
 
+	//given a gpu point, deallocate all the memory
+	static void deallocate(tree_gpu *t) {
+		tree_gpu cpu;
+		cudaMemcpy(&cpu, t, sizeof(tree_gpu), cudaMemcpyDeviceToHost);
+		cudaFree(cpu.device_nodes);
+		cudaFree(cpu.force_torques);
+		cudaFree(t);
+	}
+
 	__device__
 	void derivative(const vec *coords,const vec* forces,ligand_change& c){
 
@@ -168,16 +177,6 @@ struct tree_gpu {
 	}
 };
 
-static __global__
-void derivatives_kernel(tree_gpu *t, const vec * coords,
-		const vec* forces, ligand_change& c){
-	t->derivative(coords, forces, c);
-}
 
-static __global__
-void set_conf_kernel(tree_gpu *t, const vec *atom_coords,
-		vec *coords, const ligand_conf& c){
-	t->set_conf(atom_coords, coords, c);
-}
 
 #endif

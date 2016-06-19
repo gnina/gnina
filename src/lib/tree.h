@@ -447,8 +447,8 @@ struct vector_mutable: public std::vector<T> {
 			::count_torsions((*this)[i], tmp[i]);
 		return tmp;
 	}
-	template<typename C>
-	void derivative(const vecv& coords,const vecv& forces,std::vector<C>& c) const{ // C == ligand_change || residue_change
+	template<typename VC>
+	void derivative(const vecv& coords,const vecv& forces,VC& c) const{ // C == vector of ligand_change || residue_change
 		VINA_FOR_IN(i, (*this))
 			(*this)[i].derivative(coords, forces, c[i]);
 	}

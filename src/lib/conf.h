@@ -249,7 +249,7 @@ private:
 
 /* TODO */
 struct change {
-	std::vector<ligand_change> ligands;
+	gvector<ligand_change> ligands;
 	std::vector<residue_change> flex;
 	change(const conf_size& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
 		VINA_FOR_IN(i, ligands)

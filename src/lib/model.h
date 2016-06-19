@@ -186,14 +186,6 @@ struct ligand : public flexible_body, atom_range {
 };
 
 
-struct ligand_gpu : gpu_visible {
-	unsigned degrees_of_freedom;
-	interacting_pairs pairs;
-	tree_gpu t;
-	ligand_gpu() : degrees_of_freedom(0) {}
-	ligand_gpu(ligand& l) : degrees_of_freedom(l.degrees_of_freedom),
-                            pairs(l.pairs), t(l) {}
-};
 
 struct residue : public main_branch {
 	residue() {} //serialization
@@ -282,7 +274,6 @@ struct model {
 	void seti(const conf& c);
 	void sete(const conf& c);
 	void set (const conf& c);
-    void set_gpu(const conf& c);
 
 	std::string ligand_atom_str(sz i, sz lig=0) const;
 	fl gyration_radius(sz ligand_number) const; // uses coords
@@ -378,7 +369,7 @@ struct model {
 	//copy back relevant data from gpu buffers
 	void copy_from_gpu();
 
-	model() : m_num_movable_atoms(0), lgpu(new ligand_gpu()), coords_gpu(NULL), atom_coords_gpu(NULL), minus_forces_gpu(NULL) {};
+	model() : m_num_movable_atoms(0), coords_gpu(NULL), atom_coords_gpu(NULL), minus_forces_gpu(NULL), treegpu(NULL), interacting_pairs_gpu(NULL) {};
 	~model() { };
     /* TODO:protect */
   vecv coords;
@@ -386,8 +377,9 @@ struct model {
   vec *coords_gpu;
   vec *atom_coords_gpu;
   vec *minus_forces_gpu;
+  tree_gpu *treegpu;
+  interacting_pair *interacting_pairs_gpu;
 
-  boost::shared_ptr<ligand_gpu> lgpu;
   vector_mutable<ligand> ligands;
 
 private:

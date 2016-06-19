@@ -841,14 +841,6 @@ void model::set(const conf& c)
 	/* flex.set_conf(atoms, coords, c.flex); */
 }
 
-void model::set_gpu(const conf& c)
-{
-    assert(c.ligands.size() == 1);
-    cudaDeviceSynchronize();
-	set_conf_kernel<<<1,1>>>(&lgpu->t, atom_coords_gpu, coords_gpu, c.ligands[0]);
-    /* TODO: flex */
-	/* flex.set_conf(atoms, coords, c.flex); */
-}
 
 //dkoes - return the string corresponding to i'th ligand atoms pdb information
 //which is serial+name
@@ -987,22 +979,35 @@ fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
 	return e;
 }
 
+
+static __global__
+void derivatives_kernel(tree_gpu *t, const vec * coords,
+		const vec* forces, ligand_change& c){
+	t->derivative(coords, forces, c);
+}
+
+static __global__
+void set_conf_kernel(tree_gpu *t, const vec *atom_coords,
+		vec *coords, const ligand_conf& c){
+		t->set_conf(atom_coords, coords, c);
+}
+
+
 fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
                      const conf& c, change& g, const grid& user_grid)
 { // clean up
-	set_gpu(c);
-	cudaDeviceSynchronize();
+  assert(c.ligands.size() == 1);
+  set_conf_kernel<<<1,1>>>(treegpu, atom_coords_gpu, coords_gpu, c.ligands[0]);
 
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
 
-	/* e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords, */
-	/* 		minus_forces); // adds to minus_forces */
-	VINA_FOR_IN(i, ligands)
-		e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
-				minus_forces); // adds to minus_forces
+	//TODO TODO TODO: gpu parallelize intra
+//	VINA_FOR_IN(i, ligands)
+//		e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,	minus_forces); // adds to minus_forces
+
 	// calculate derivatives
     /* lgpu.t.derivative(coords, minus_forces, g.ligands[0]); */
-	derivatives_kernel<<<1,1>>>(&lgpu->t, coords_gpu, minus_forces_gpu, g.ligands[0]);
+	derivatives_kernel<<<1,1>>>(treegpu, coords_gpu, minus_forces_gpu, g.ligands[0]);
   cudaDeviceSynchronize();
 
 	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */
@@ -1342,14 +1347,22 @@ fl model::clash_penalty() const
 void model::copy_to_gpu()
 {
 	//TODO: only re-malloc if need larger size
+	//eventual have allocate_gpu and deallocate_gpu methods distinct from copy
 	if(coords_gpu) {
 		cudaFree(coords_gpu);
+		coords_gpu = NULL;
 	}
 	if(atom_coords_gpu) {
 		cudaFree(atom_coords_gpu);
+		atom_coords_gpu = NULL;
 	}
 	if(minus_forces_gpu) {
 		cudaFree(minus_forces_gpu);
+		minus_forces_gpu = NULL;
+	}
+	if(treegpu) {
+		tree_gpu::deallocate(treegpu);
+		treegpu = NULL;
 	}
 
 	cudaMalloc(&coords_gpu, sizeof(vec)*coords.size());
@@ -1364,6 +1377,12 @@ void model::copy_to_gpu()
 	cudaMemcpy(atom_coords_gpu, &acoords[0], sizeof(vec)*atoms.size(), cudaMemcpyHostToDevice);
 	//minus_forces gets initialized in eval_deriv
 
+	//setup tree
+	tree_gpu tg(ligands[0]);
+	cudaMalloc(&treegpu, sizeof(tree_gpu));
+	cudaMemcpy(treegpu, &tg, sizeof(tree_gpu),cudaMemcpyHostToDevice);
+
+	//TODO interacting pairs
 
 }
 
