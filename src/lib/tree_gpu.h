@@ -126,7 +126,7 @@ struct tree_gpu {
 	}
 
 	__device__
-	void derivative(const vec *coords,const vec* forces,ligand_change& c){
+	void derivative(const vec *coords,const vec* forces, float *c){
 
 		// assert(c.torsions.size() == num_nodes-1);
 		//calculate each segments individual force/torque
@@ -147,11 +147,16 @@ struct tree_gpu {
 			force_torques[parent].second += cross_product(r, ft.first)+ft.second;
 
 			//set torsions
-			c.torsions[i-1] = ft.second * cnode.axis;
+			c[6+i-1] = ft.second * cnode.axis;
 		}
 
-		c.rigid.position = force_torques[0].first;
-		c.rigid.orientation = force_torques[0].second;
+		c[0] = force_torques[0].first[0];
+		c[1] = force_torques[0].first[1];
+		c[2] = force_torques[0].first[2];
+
+		c[3] = force_torques[0].second[0];
+		c[4] = force_torques[0].second[1];
+		c[5] = force_torques[0].second[2];
 	}
 
 	__device__

@@ -35,6 +35,8 @@
 #include "igrid.h"
 #include "grid_dim.h"
 #include "grid.h"
+#include "conf_gpu.h"
+
 
 struct interacting_pair {
 	smt t1;
@@ -310,7 +312,7 @@ struct model {
 
 
 	fl eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
-	                     const conf& c, change& g, const grid& user_grid);
+	                     const conf& c, change_gpu& g, const grid& user_grid);
 
 	fl rmsd_lower_bound(const model& m) const; // uses coords
 	fl rmsd_upper_bound(const model& m) const; // uses coords

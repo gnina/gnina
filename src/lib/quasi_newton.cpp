@@ -23,7 +23,19 @@
 #include "quasi_newton.h"
 #include "bfgs.h"
 #include "non_cache_gpu.h"
+#include "conf_gpu.h"
 
+
+void conf::increment(const change_gpu& c, fl factor) {
+	///TEMPORARY function that will go away when conf_gpu exists
+	std::vector<float> vals;
+	c.get_data(vals);
+	ligand_change lc;
+	lc.rigid.position = vec(vals[0],vals[1],vals[2]);
+	lc.rigid.orientation = vec(vals[3],vals[4],vals[5]);
+	lc.torsions.insert(lc.torsions.end(),vals.begin()+6,vals.end());
+	ligands[0].increment(lc, factor);
+}
 
 struct quasi_newton_aux {
 	model* m;
@@ -57,7 +69,7 @@ struct quasi_newton_aux_gpu {
 		m->copy_from_gpu();
 	}
 
-	fl operator()(const conf& c,change& g){
+	fl operator()(const conf& c,change_gpu& g){
 		return m->eval_deriv_gpu(*p, *ig, v, c, g, *user_grid);
 	}
 };
@@ -69,7 +81,8 @@ void quasi_newton::operator()(model& m,const precalculate& p,const igrid& ig,
 	const non_cache_gpu* gpu = dynamic_cast<const non_cache_gpu*>(&ig);
 	if(gpu) {
 		quasi_newton_aux_gpu aux(&m, &p, gpu, v, &user_grid);
-		fl res = bfgs(aux, out.c, g, average_required_improvement, params);
+		change_gpu gchange(g);
+		fl res = bfgs(aux, out.c, gchange, average_required_improvement, params);
 		out.e = res;
 	} else {
 		quasi_newton_aux aux(&m, &p, &ig, v, &user_grid);

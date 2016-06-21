@@ -24,6 +24,7 @@
 								<option id="gnu.cpp.compiler.option.preprocessor.def.722055201" name="Defined symbols (-D)" superClass="gnu.cpp.compiler.option.preprocessor.def" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="__device__"/>
 									<listOptionValue builtIn="false" value="__host__"/>
+									<listOptionValue builtIn="false" value="__global__"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.1225610161" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
 							</tool>

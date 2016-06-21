@@ -982,7 +982,7 @@ fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
 
 static __global__
 void derivatives_kernel(tree_gpu *t, const vec * coords,
-		const vec* forces, ligand_change& c){
+		const vec* forces, float *c){
 	t->derivative(coords, forces, c);
 }
 
@@ -994,7 +994,7 @@ void set_conf_kernel(tree_gpu *t, const vec *atom_coords,
 
 
 fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
-                     const conf& c, change& g, const grid& user_grid)
+                     const conf& c, change_gpu& g, const grid& user_grid)
 { // clean up
   assert(c.ligands.size() == 1);
   set_conf_kernel<<<1,1>>>(treegpu, atom_coords_gpu, coords_gpu, c.ligands[0]);
@@ -1006,9 +1006,7 @@ fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
 //		e += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,	minus_forces); // adds to minus_forces
 
 	// calculate derivatives
-    /* lgpu.t.derivative(coords, minus_forces, g.ligands[0]); */
-	derivatives_kernel<<<1,1>>>(treegpu, coords_gpu, minus_forces_gpu, g.ligands[0]);
-  cudaDeviceSynchronize();
+	derivatives_kernel<<<1,1>>>(treegpu, coords_gpu, minus_forces_gpu, g.change_values);
 
 	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */
 	return e;

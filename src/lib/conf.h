@@ -28,6 +28,8 @@
 #include "quaternion.h"
 #include "random.h"
 
+struct change_gpu;
+
 struct scale {
 	fl position;
 	fl orientation;
@@ -360,6 +362,9 @@ struct conf {
 		VINA_FOR_IN(i, flex)
 			flex[i].increment(c.flex[i],    factor);
 	}
+
+	void increment(const change_gpu& c, fl factor);
+
 	bool internal_too_close(const conf& c, fl torsions_cutoff) const {
 		assert(ligands.size() == c.ligands.size());
 		VINA_FOR_IN(i, ligands)
