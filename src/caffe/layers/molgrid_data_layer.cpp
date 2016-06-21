@@ -91,6 +91,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   binary = this->layer_param_.molgrid_data_param().binary_occupancy();
   randtranslate = this->layer_param_.molgrid_data_param().random_translate();
   randrotate = this->layer_param_.molgrid_data_param().random_rotation();
+  radiusmultiple = this->layer_param_.molgrid_data_param().radius_multiple();
 
   if(root_folder.length() > 0 && root_folder[root_folder.length()-1] != '/')
     root_folder = root_folder + "/"; //make sure we have trailing slash
