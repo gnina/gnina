@@ -80,6 +80,8 @@ void quasi_newton::operator()(model& m,const precalculate& p,const igrid& ig,
 
 	const non_cache_gpu* gpu = dynamic_cast<const non_cache_gpu*>(&ig);
 	if(gpu) {
+		m.initialize_gpu();
+		assert(m.gpu_initialized());
 		quasi_newton_aux_gpu aux(&m, &p, gpu, v, &user_grid);
 		change_gpu gchange(g);
 		fl res = bfgs(aux, out.c, gchange, average_required_improvement, params);

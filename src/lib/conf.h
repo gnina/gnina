@@ -183,7 +183,7 @@ private:
 	}
 };
 
-struct ligand_change : gpu_visible {
+struct ligand_change {
 	rigid_change rigid;
 	gflv torsions;
 	void print() const {
@@ -211,6 +211,13 @@ struct ligand_conf : gpu_visible {
 		rigid.print();
 		printnl(torsions);
 	}
+
+	__device__ __host__
+	ligand_conf(const ligand_conf& rhs): rigid(rhs.rigid), torsions(rhs.torsions) {
+
+	}
+
+	ligand_conf() {}
 private:
 	friend class boost::serialization::access;
 	template<class Archive>
@@ -251,7 +258,7 @@ private:
 
 /* TODO */
 struct change {
-	gvector<ligand_change> ligands;
+	std::vector<ligand_change> ligands;
 	std::vector<residue_change> flex;
 	change(const conf_size& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
 		VINA_FOR_IN(i, ligands)

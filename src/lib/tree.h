@@ -305,17 +305,6 @@ void branches_derivative(const std::vector<T>& b,const vec& origin,
 	}
 }
 
-template<typename T> // T == branch
-void branches_derivative(const std::vector<T>& b,const vec& origin,
-		const gvecv& coords,const gvecv& forces,vecp& out,gflv::iterator& d){ // adds to out
-	VINA_FOR_IN(i, b){
-		vecp force_torque = b[i].derivative(coords, forces, d);
-		out.first += force_torque.first;
-		vec r;
-		r = b[i].node.get_origin() - origin;
-		out.second += cross_product(r, force_torque.first) + force_torque.second;
-	}
-}
 
 template<typename T> // T == segment
 struct tree {

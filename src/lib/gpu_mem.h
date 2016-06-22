@@ -8,20 +8,29 @@
 /* TODO */
 #include <ostream>
 
+// CUDA: various checks for different function calls.
+#define CUDA_CHECK(condition) \
+  /* Code block avoids redefinition of cudaError_t error */ \
+  do { \
+    cudaError_t error = condition; \
+    if(error != cudaSuccess) { std::cerr << " " << cudaGetErrorString(error); abort(); } \
+  } while (0)
+
+
 template <class T>
 struct gpu_managed_alloc {
     typedef T value_type;
     gpu_managed_alloc(){};
     template <class U> gpu_managed_alloc(const gpu_managed_alloc<U>& other){}
     T* allocate(std::size_t n){
-        T *ret;
-        cudaMallocManaged(&ret, sizeof(T) * n);
+        T *ret = NULL;
+        CUDA_CHECK(cudaMallocManaged(&ret, sizeof(T) * n));
         /* TODO: proper exceptions */
         assert(ret);
         return ret;
     };
     void deallocate(T* p, std::size_t n){
-        cudaFree(p);
+        CUDA_CHECK(cudaFree(p));
     };
 };
 template <class T, class U>
@@ -48,45 +57,23 @@ struct gvector : std::vector<T, gpu_managed_alloc<vec> >{
         return ((T *) this->_M_impl._M_start)[a];
     };
 
-    void print() const{
-        /* TODO */
-        assert(0);
-    }
-
-
-    static
-    void print(const gvector<T> &v, std::ostream o){
-        assert(0);
-    }
-    static
-    void print(gvector<T> v, std::ostream o){
-        assert(0);
-    }
-
 };
 
 class gpu_visible {
 public:
     void *operator new(size_t len) {
-        void *ptr;
-        cudaMallocManaged(&ptr, len);
+        void *ptr = NULL;
+        CUDA_CHECK(cudaMallocManaged(&ptr, len));
         /* TODO */
         assert(ptr);
         return ptr;
     }
 
     void operator delete(void *ptr) {
-        cudaFree(ptr);
+        CUDA_CHECK(cudaFree(ptr));
     }
 };
 
-/* template <class T> */
-/* class gvec : std::vector<T, gpu_managed_alloc<vec> >{ */
-/*     __device__ __host__ */
-/*     int &operator[](int a){ */
-/*         /\* TODO: heh heh *\/ */
-/*         return ((int *) _M_impl._M_start)[a]; */
-/*     }; */
-/* } */
+
 
 #endif

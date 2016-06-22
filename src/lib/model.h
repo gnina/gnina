@@ -366,21 +366,47 @@ struct model {
 	const atomv& get_fixed_atoms() const { return grid_atoms; }
 	const atomv& get_movable_atoms() const { return atoms; }
 
+	//allocate gpu memory, model must be setup
+	//also copies over data that does not change during minimization
+	//if model changes, must re-initialize
+	void initialize_gpu();
+
+	bool gpu_initialized() { return gdata.coords_gpu != NULL; } //true if good to go
+	//deallocate gpu memory
+	void deallocate_gpu();
+
 	//copy relevant data to gpu buffers
 	void copy_to_gpu();
 	//copy back relevant data from gpu buffers
 	void copy_from_gpu();
 
-	model() : m_num_movable_atoms(0), coords_gpu(NULL), atom_coords_gpu(NULL), minus_forces_gpu(NULL), treegpu(NULL), interacting_pairs_gpu(NULL) {};
-	~model() { };
+	model() : m_num_movable_atoms(0) {};
+	~model() { deallocate_gpu(); };
     /* TODO:protect */
   vecv coords;
   
-  vec *coords_gpu;
-  vec *atom_coords_gpu;
-  vec *minus_forces_gpu;
-  tree_gpu *treegpu;
-  interacting_pair *interacting_pairs_gpu;
+  struct gpu_data {
+  	//put all pointers to gpu data into a struct, so we can override copying behavior
+		vec *coords_gpu;
+		vec *atom_coords_gpu;
+		vec *minus_forces_gpu;
+		tree_gpu *treegpu;
+		interacting_pair *interacting_pairs_gpu;
+
+		gpu_data(): coords_gpu(NULL), atom_coords_gpu(NULL), minus_forces_gpu(NULL), treegpu(NULL), interacting_pairs_gpu(NULL) {}
+		//do NOT allow pointers to be copied - must explicitly initialize
+		gpu_data(const gpu_data& g): coords_gpu(NULL), atom_coords_gpu(NULL), minus_forces_gpu(NULL), treegpu(NULL), interacting_pairs_gpu(NULL) {}
+
+		gpu_data& operator=(const gpu_data& g) {
+			//TODO: this is ugly, but we really only want to allocate gpu memory when we truly need it
+			//for sanity's sake, eventually make this do the right thing (and probably wrap other gpu functions into this class)
+			coords_gpu = NULL;
+			atom_coords_gpu = NULL;
+			minus_forces_gpu = NULL;
+			treegpu = NULL;
+			interacting_pairs_gpu = NULL;
+		}
+  } gdata;
 
   vector_mutable<ligand> ligands;
 
@@ -439,6 +465,8 @@ private:
 	fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
                                   const interacting_pairs& pairs,
                                   const vecv& coords, vecv& forces) const;
+
+	fl eval_interacting_pairs_deriv_gpu(const precalculate& p, fl v) const;
 
 	vecv internal_coords;
     /* TODO:reprivate */

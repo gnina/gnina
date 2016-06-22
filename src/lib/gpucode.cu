@@ -75,7 +75,7 @@ void evaluate_splines_host(const GPUSplineInfo& spInfo,
 }
 
 device
-float eval_deriv_gpu(const GPUNonCacheInfo dinfo, unsigned t,
+float eval_deriv_gpu(const GPUNonCacheInfo& dinfo, unsigned t,
                      float charge, unsigned rt, float rcharge, float r2, float& dor)
 {
 	float r = sqrt(r2);
