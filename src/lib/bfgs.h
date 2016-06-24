@@ -240,7 +240,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	Conf x_orig(x);
 
 	Change p(g);
-
+	std::cout << std::setprecision(8);
 //	std::ofstream fout("minout.sdf");
 	VINA_U_FOR(step, params.maxiters)
 	{

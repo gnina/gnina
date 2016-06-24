@@ -96,9 +96,6 @@ fl non_cache_gpu::eval(const model& m, fl v) const
 //sets m.minus_forces and returns total energy
 fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
 {
-  static loop_timer t;
-  t.resume();
-    
   //clear energies
   if(user_grid.initialized())
   {
@@ -115,6 +112,5 @@ fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
   double e = single_point_calc(&info, m.gdata.coords, forces, slope,
                                info.nlig_atoms, info.nrec_atoms, v);
 
-  t.stop();
   return e;
 }

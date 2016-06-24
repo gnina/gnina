@@ -27,7 +27,7 @@
 #include <boost/unordered_map.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include "non_cache_gpu.h"
-
+#include "loop_timer.h"
 
 
 namespace smina_atom_type
@@ -951,12 +951,7 @@ fl model::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v) co
 	const fl cutoff_sqr = info.cutoff_sq;
 	cudaMemset(gdata.scratch, 0, sizeof(float));
 
-	if(gdata.pairs_size < CUDA_THREADS_PER_BLOCK) {
-		eval_intra_kernel<<<1,gdata.pairs_size>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch);
-
-	} else { //multiple blocks, unlikely
-		eval_intra_kernel<<<CUDA_GET_BLOCKS(gdata.pairs_size, CUDA_THREADS_PER_BLOCK),1>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch);
-	}
+	eval_intra_kernel<<<1,1>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch);
 
 	cudaDeviceSynchronize();
 	float e = 0;
@@ -1026,6 +1021,9 @@ fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
                      const conf& c, change_gpu& g, const grid& user_grid)
 {
   assert(c.ligands.size() == 1);
+  static loop_timer t;
+  t.resume();
+
 
   const non_cache_gpu *ncgpu = dynamic_cast<const non_cache_gpu*>(&ig);
   assert(ncgpu);
@@ -1036,14 +1034,13 @@ fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
 
 	//TODO TODO TODO: gpu parallelize intra
 	fl ie = eval_interacting_pairs_deriv_gpu(ncgpu->get_info(), v[0]); // adds to minus_forces
-	std::cout << std::setprecision(8);
-	std::cout << "Inter " << e << "   Intra " << ie << "\n";
 	e += ie;
 	// calculate derivatives
 	derivatives_kernel<<<1,1>>>(gdata.treegpu, (vec*)gdata.coords, (vec*)gdata.minus_forces, g.change_values);
 
 	cudaDeviceSynchronize(); //TODO: remove this once unified memory is gone and all calculations are on gpu
 
+  t.stop();
 	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */
 	return e;
 }
@@ -1051,6 +1048,10 @@ fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
 fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 		const conf& c, change& g, const grid& user_grid)
 { // clean up
+	  static loop_timer t;
+	    t.resume();
+
+
 	set(c);
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
 
@@ -1065,7 +1066,7 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	// calculate derivatives
 	ligands.derivative(coords, minus_forces, g.ligands);
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
-
+t.stop();
 	return e;
 }
 

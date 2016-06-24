@@ -109,10 +109,6 @@ bool non_cache::within(const model& m, fl margin) const
 
 fl non_cache::eval_deriv(model& m, fl v, const grid& user_grid) const
 { // clean up
-
-    static loop_timer t;
-    t.resume();
-    
 	fl e = 0;
 	const fl cutoff_sqr = p->cutoff_sqr();
 
@@ -191,7 +187,6 @@ fl non_cache::eval_deriv(model& m, fl v, const grid& user_grid) const
 		e += this_e + out_of_bounds_penalty;
 	}
 
-    t.stop();
 	return e;
 }
 

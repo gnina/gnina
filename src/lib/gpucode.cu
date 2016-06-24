@@ -365,7 +365,8 @@ __global__
 void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
 		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr, float v, force_energy_tup *out, float *e) {
 
-	for(unsigned i = threadIdx.x; i < npairs; i += CUDA_THREADS_PER_BLOCK) {
+	float total = 0.0;
+	for(unsigned i = 0; i < npairs; i += 1) {
 
 		const interacting_pair& ip = pairs[i];
 		float3 r = atoms[ip.b].coords - atoms[ip.a].coords;
@@ -381,22 +382,17 @@ void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
 			deriv = r * dor;
 			curl(energy, (float*)&deriv, v);
 
-			atomicAdd(&out[ip.b].minus_force.x, deriv.x);
-			atomicAdd(&out[ip.b].minus_force.y, deriv.y);
-			atomicAdd(&out[ip.b].minus_force.z, deriv.z);
+			out[ip.b].minus_force.x += deriv.x;
+			out[ip.b].minus_force.y += deriv.y;
+			out[ip.b].minus_force.z += deriv.z;
 
-			atomicAdd(&out[ip.a].minus_force.x, -deriv.x);
-			atomicAdd(&out[ip.a].minus_force.y, -deriv.y);
-			atomicAdd(&out[ip.a].minus_force.z, -deriv.z);
-
-			atomicAdd(e, energy); //can't use blocksum unless we have multiple of 32 threads
-			/*float this_e = block_sum<float>(energy);
-			if (threadIdx.x == 0)
-			{
-				printf("Intra %f\n",this_e);
-				*e += this_e;
-			}*/
+			out[ip.a].minus_force.x -= deriv.x;
+			out[ip.a].minus_force.y -= deriv.y;
+			out[ip.a].minus_force.z -= deriv.z;
+	
+			total += energy; 
 		}
 	}
+	*e = total;
 }
 
