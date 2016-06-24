@@ -6,6 +6,7 @@
 #include <vector>
 #include <queue>
 #include "conf_gpu.h"
+#include "gpu_util.h"
 
 struct segment_node {
 	//a segment is a rigid collection of atoms with an orientation

@@ -75,7 +75,5 @@ private:
 
 typedef std::vector<atom> atomv;
 
-/* TODO: clean */
-#include "gpu_mem.h"
 
 #endif

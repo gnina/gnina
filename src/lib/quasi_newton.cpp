@@ -26,17 +26,6 @@
 #include "conf_gpu.h"
 
 
-void conf::increment(const change_gpu& c, fl factor) {
-	///TEMPORARY function that will go away when conf_gpu exists
-	std::vector<float> vals;
-	c.get_data(vals);
-	ligand_change lc;
-	lc.rigid.position = vec(vals[0],vals[1],vals[2]);
-	lc.rigid.orientation = vec(vals[3],vals[4],vals[5]);
-	lc.torsions.insert(lc.torsions.end(),vals.begin()+6,vals.end());
-	ligands[0].increment(lc, factor);
-}
-
 struct quasi_newton_aux {
 	model* m;
 	const precalculate* p;

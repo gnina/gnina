@@ -50,19 +50,8 @@ inline void torsions_set_to_null(flv& torsions) {
 		torsions[i] = 0;
 }
 
-inline void torsions_set_to_null(gflv& torsions) {
-	VINA_FOR_IN(i, torsions)
-		torsions[i] = 0;
-}
 
 inline void torsions_increment(flv& torsions, const flv& c, fl factor) { // new torsions are normalized
-	VINA_FOR_IN(i, torsions) {
-		torsions[i] += normalized_angle(factor * c[i]);
-		normalize_angle(torsions[i]);
-	}
-}
-
-inline void torsions_increment(gflv& torsions, const gflv& c, fl factor) { // new torsions are normalized
 	VINA_FOR_IN(i, torsions) {
 		torsions[i] += normalized_angle(factor * c[i]);
 		normalize_angle(torsions[i]);
@@ -74,23 +63,10 @@ inline void torsions_randomize(flv& torsions, rng& generator) {
 		torsions[i] = random_fl(-pi, pi, generator);
 }
 
-inline void torsions_randomize(gflv& torsions, rng& generator) {
-	VINA_FOR_IN(i, torsions)
-		torsions[i] = random_fl(-pi, pi, generator);
-}
-
 inline bool torsions_too_close(const flv& torsions1, const flv& torsions2, fl cutoff) {
 	assert(torsions1.size() == torsions2.size());
 	VINA_FOR_IN(i, torsions1)
 		if(std::abs(normalized_angle(torsions1[i] - torsions2[i])) > cutoff) 
-			return false;
-	return true;
-}
-
-inline bool torsions_too_close(const gflv& torsions1, const gflv& torsions2, fl cutoff) {
-	assert(torsions1.size() == torsions2.size());
-	VINA_FOR_IN(i, torsions1)
-		if(std::abs(normalized_angle(torsions1[i] - torsions2[i])) > cutoff)
 			return false;
 	return true;
 }
@@ -105,14 +81,6 @@ inline void torsions_generate(flv& torsions, fl spread, fl rp, const flv* rs, rn
 			torsions[i] += random_fl(-spread, spread, generator);
 }
 
-inline void torsions_generate(gflv& torsions, fl spread, fl rp, const gflv* rs, rng& generator) {
-	assert(!rs || rs->size() == torsions.size()); // if present, rs should be the same size as torsions
-	VINA_FOR_IN(i, torsions)
-		if(rs && random_fl(0, 1, generator) < rp)
-			torsions[i] = (*rs)[i];
-		else
-			torsions[i] += random_fl(-spread, spread, generator);
-}
 
 
 struct rigid_change {
@@ -185,16 +153,16 @@ private:
 
 struct ligand_change {
 	rigid_change rigid;
-	gflv torsions;
+	flv torsions;
 	void print() const {
 		rigid.print();
 		printnl(torsions);
 	}
 };
 
-struct ligand_conf : gpu_visible {
+struct ligand_conf  {
 	rigid_conf rigid;
-	gflv torsions;
+	flv torsions;
 	void set_to_null() {
 		rigid.set_to_null();
 		torsions_set_to_null(torsions);
@@ -348,7 +316,7 @@ struct change {
 };
 
 struct conf {
-	gvector<ligand_conf> ligands;
+	std::vector<ligand_conf> ligands;
 	std::vector<residue_conf> flex;
 	conf() {}
 	conf(const conf_size& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
@@ -369,8 +337,6 @@ struct conf {
 		VINA_FOR_IN(i, flex)
 			flex[i].increment(c.flex[i],    factor);
 	}
-
-	void increment(const change_gpu& c, fl factor);
 
 	bool internal_too_close(const conf& c, fl torsions_cutoff) const {
 		assert(ligands.size() == c.ligands.size());
@@ -398,7 +364,7 @@ struct conf {
 		VINA_FOR_IN(i, ligands) {
 			ligands[i].rigid.position.assign(0);
 			ligands[i].rigid.orientation = qt_identity;
-			const gflv* torsions_rs = rs ? (&rs->ligands[i].torsions) : NULL;
+			const flv* torsions_rs = rs ? (&rs->ligands[i].torsions) : NULL;
 			torsions_generate(ligands[i].torsions, torsion_spread, rp, torsions_rs, generator);
 		}
 	}

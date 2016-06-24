@@ -169,6 +169,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 	{
 		x_new = x;
 		x_new.increment(p, alpha);
+
 		f1 = f(x_new, g_new);
 
 		//std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
@@ -275,7 +276,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 			alpha = fast_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
 
 		if(alpha == 0) {
-			std::cout << "alpha 0\n";
+			//std::cout << "alpha 0\n";
 			break; //line direction was wrong, give up
 		}
 

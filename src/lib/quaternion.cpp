@@ -89,6 +89,7 @@ vec quaternion_difference(const qt& b, const qt& a) { // rotation that needs to 
 }
 
 void print(const qt& q, std::ostream& out) { // print as an angle
-	print(quaternion_to_angle(q), out);
+	out << "(" << q.x << "," << q.y << "," << q.z << "," << q.w << ")";
+	//print(quaternion_to_angle(q), out);
 }
 

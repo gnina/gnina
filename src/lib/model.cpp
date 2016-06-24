@@ -921,6 +921,7 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	t.resume();
 
 	set(c);
+
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
 
 	e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
