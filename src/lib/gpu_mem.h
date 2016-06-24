@@ -8,13 +8,7 @@
 /* TODO */
 #include <ostream>
 
-// CUDA: various checks for different function calls.
-#define CUDA_CHECK(condition) \
-  /* Code block avoids redefinition of cudaError_t error */ \
-  do { \
-    cudaError_t error = condition; \
-    if(error != cudaSuccess) { std::cerr << " " << cudaGetErrorString(error); abort(); } \
-  } while (0)
+#include "gpu_util.h"
 
 
 template <class T>

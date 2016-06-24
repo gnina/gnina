@@ -36,26 +36,8 @@
 #include "grid_dim.h"
 #include "grid.h"
 #include "conf_gpu.h"
-
-
-struct interacting_pair {
-	smt t1;
-	smt t2;
-	sz a;
-	sz b;
-	interacting_pair(): t1(smina_atom_type::Hydrogen),
-                      t2(smina_atom_type::Hydrogen), a(0), b(0) {}
-	interacting_pair(smt t1_, smt t2_, sz a_, sz b_) : t1(t1_), t2(t2_), a(a_), b(b_) {}
-
-	friend class boost::serialization::access;
-	template<class Archive>
-	void serialize(Archive& ar, const unsigned version) {
-		ar & t1;
-		ar & t2;
-		ar & a;
-		ar & b;
-	}
-};
+#include "gpucode.h"
+#include "interacting_pairs.h"
 
 typedef std::vector<interacting_pair> interacting_pairs;
 
@@ -371,7 +353,7 @@ struct model {
 	//if model changes, must re-initialize
 	void initialize_gpu();
 
-	bool gpu_initialized() { return gdata.coords_gpu != NULL; } //true if good to go
+	bool gpu_initialized() { return gdata.coords != NULL; } //true if good to go
 	//deallocate gpu memory
 	void deallocate_gpu();
 
@@ -387,24 +369,36 @@ struct model {
   
   struct gpu_data {
   	//put all pointers to gpu data into a struct, so we can override copying behavior
-		vec *coords_gpu;
-		vec *atom_coords_gpu;
-		vec *minus_forces_gpu;
+		atom_params *coords;
+		vec *atom_coords;
+		force_energy_tup *minus_forces;
 		tree_gpu *treegpu;
-		interacting_pair *interacting_pairs_gpu;
+		interacting_pair *interacting_pairs;
+		float *scratch; //single value for returning total energy
 
-		gpu_data(): coords_gpu(NULL), atom_coords_gpu(NULL), minus_forces_gpu(NULL), treegpu(NULL), interacting_pairs_gpu(NULL) {}
+		unsigned coords_size;
+		unsigned atom_coords_size;
+		unsigned forces_size;
+		unsigned pairs_size;
+
+		gpu_data(): coords(NULL), atom_coords(NULL), minus_forces(NULL),
+				treegpu(NULL), interacting_pairs(NULL), scratch(NULL), coords_size(0),
+				atom_coords_size(0), forces_size(0), pairs_size(0) {}
 		//do NOT allow pointers to be copied - must explicitly initialize
-		gpu_data(const gpu_data& g): coords_gpu(NULL), atom_coords_gpu(NULL), minus_forces_gpu(NULL), treegpu(NULL), interacting_pairs_gpu(NULL) {}
+		gpu_data(const gpu_data& g): coords(NULL), atom_coords(NULL),
+				minus_forces(NULL), treegpu(NULL), interacting_pairs(NULL), scratch(NULL),
+				coords_size(0), atom_coords_size(0), forces_size(0), pairs_size(0) {}
 
 		gpu_data& operator=(const gpu_data& g) {
 			//TODO: this is ugly, but we really only want to allocate gpu memory when we truly need it
 			//for sanity's sake, eventually make this do the right thing (and probably wrap other gpu functions into this class)
-			coords_gpu = NULL;
-			atom_coords_gpu = NULL;
-			minus_forces_gpu = NULL;
+			coords = NULL;
+			atom_coords = NULL;
+			minus_forces = NULL;
 			treegpu = NULL;
-			interacting_pairs_gpu = NULL;
+			interacting_pairs = NULL;
+			scratch = NULL;
+			coords_size = atom_coords_size = forces_size = pairs_size = 0;
 		}
   } gdata;
 
@@ -466,7 +460,7 @@ private:
                                   const interacting_pairs& pairs,
                                   const vecv& coords, vecv& forces) const;
 
-	fl eval_interacting_pairs_deriv_gpu(const precalculate& p, fl v) const;
+	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v) const;
 
 	vecv internal_coords;
     /* TODO:reprivate */

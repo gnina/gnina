@@ -40,7 +40,7 @@ public:
 	//sets m.minus_forces and returns total energy
 	virtual fl eval_deriv(model& m, fl v, const grid& user_grid) const;
 
-	const GPUNonCacheInfo * get_info() const { return &info; }
+	const GPUNonCacheInfo& get_info() const { return info; }
 };
 
 #endif

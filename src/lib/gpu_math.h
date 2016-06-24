@@ -49,6 +49,11 @@ float3 __shfl_down(const float3 &a, int delta) {
 #endif
 
 __host__ __device__ __inline__ static
+float dot(float3 a, float3 b) {
+	return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+__host__ __device__ __inline__ static
 float &get(float3 &a, int b){
     return
            b == 0 ? a.x :

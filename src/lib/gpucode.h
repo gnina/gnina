@@ -8,6 +8,7 @@
 #include <cuda_runtime.h>
 #include <vector>
 #include "gpu_math.h"
+#include "interacting_pairs.h"
 
 struct GPUSplineInfo
 {
@@ -65,6 +66,9 @@ void evaluate_splines_host(const GPUSplineInfo& spInfo, float r,
 float single_point_calc(const GPUNonCacheInfo *dinfo, atom_params *lig,
                         force_energy_tup *out, float slope,
                         unsigned nlig_atoms, unsigned nrec_atoms, float v);
+__global__
+void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
+		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr, float v, force_energy_tup *out, float *e);
 
 
 #endif
