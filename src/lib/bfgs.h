@@ -109,14 +109,29 @@ fl fast_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 	return alpha;
 }
 
-template<typename Conf>
-fl compute_lambdamin(const change& p, const Conf& x, sz n)
+fl compute_lambdamin(const change& p, const conf& x, sz n)
 {
 	fl test = 0;
 	//compue lambdamin
 	for (sz i = 0; i < n; i++)
 	{
 		fl temp = fabs(p(i)) / std::max(fabs(x(i)), 1.0f);
+		if (temp > test)
+			test = temp;
+	}
+	return test;
+}
+
+inline fl compute_lambdamin(const change_gpu& p, const conf_gpu& x, sz n)
+{
+	std::vector<float> pvec, xvec;
+	p.get_data(pvec);
+	x.get_data(xvec);
+	fl test = 0;
+	//compue lambdamin
+	for (sz i = 0; i < n; i++)
+	{
+		fl temp = fabs(pvec[i]) / std::max(fabs(xvec[i]), 1.0f);
 		if (temp > test)
 			test = temp;
 	}
@@ -155,7 +170,8 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		x_new = x;
 		x_new.increment(p, alpha);
 		f1 = f(x_new, g_new);
-		std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
+
+		//std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
 		if (alpha < alamin) //convergence
 		{
 			x_new = x;
@@ -240,7 +256,8 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	Conf x_orig(x);
 
 	Change p(g);
-	std::cout << std::setprecision(8);
+//	std::cout << std::setprecision(8);
+//	std::cout << "f0 " << f0 << "\n";
 //	std::ofstream fout("minout.sdf");
 	VINA_U_FOR(step, params.maxiters)
 	{
@@ -257,8 +274,10 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		else
 			alpha = fast_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
 
-		if(alpha == 0)
+		if(alpha == 0) {
+			std::cout << "alpha 0\n";
 			break; //line direction was wrong, give up
+		}
 
 		Change y(g_new);
 		subtract_change(y, g, n);
@@ -280,10 +299,11 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		g = g_new; // dkoes - check the convergence of the new gradient
 
 		fl gradnormsq = scalar_product(g, g, n);
-		std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+//		std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
 
 		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
 		{
+			//std::cout << "gradnormsq " << gradnormsq << "\n";
 			break; // breaks for nans too // FIXME !!??
 		}
 
@@ -303,6 +323,8 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		x = x_orig;
 		g = g_orig;
 	}
+//	std::cout << "final f0 " << f0 << "\n";
+
 	return f0;
 }
 

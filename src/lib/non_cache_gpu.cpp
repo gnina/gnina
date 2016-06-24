@@ -36,10 +36,6 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
   info.gridbegins = float3(gd[0].begin, gd[1].begin, gd[2].begin);
   info.gridends = float3(gd[0].end, gd[1].end, gd[2].end);
 
-  assert(gd[0].n > 0);
-  assert(gd[1].n > 0);
-  assert(gd[2].n > 0);
-
   //figure out all possibly relevant receptor atoms
   szv recatomids;
   gcache.compute_relevant(gd_, recatomids);

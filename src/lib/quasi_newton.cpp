@@ -69,7 +69,7 @@ struct quasi_newton_aux_gpu {
 		m->copy_from_gpu();
 	}
 
-	fl operator()(const conf& c,change_gpu& g){
+	fl operator()(const conf_gpu& c,change_gpu& g){
 		return m->eval_deriv_gpu(*p, *ig, v, c, g, *user_grid);
 	}
 };
@@ -84,7 +84,9 @@ void quasi_newton::operator()(model& m,const precalculate& p,const igrid& ig,
 		assert(m.gpu_initialized());
 		quasi_newton_aux_gpu aux(&m, &p, gpu, v, &user_grid);
 		change_gpu gchange(g);
-		fl res = bfgs(aux, out.c, gchange, average_required_improvement, params);
+		conf_gpu gconf(out.c);
+		fl res = bfgs(aux, gconf, gchange, average_required_improvement, params);
+		gconf.set_cpu(out.c);
 		out.e = res;
 	} else {
 		quasi_newton_aux aux(&m, &p, &ig, v, &user_grid);

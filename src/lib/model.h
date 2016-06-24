@@ -294,7 +294,7 @@ struct model {
 
 
 	fl eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
-	                     const conf& c, change_gpu& g, const grid& user_grid);
+	                     const conf_gpu& c, change_gpu& g, const grid& user_grid);
 
 	fl rmsd_lower_bound(const model& m) const; // uses coords
 	fl rmsd_upper_bound(const model& m) const; // uses coords

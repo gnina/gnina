@@ -8,6 +8,7 @@
 ./GninaConverter.o: ../../../src/lib/common.h
 ./GninaConverter.o: ../../../src/lib/macros.h
 ./GninaConverter.o: ../../../src/lib/gpu_mem.h
+./GninaConverter.o: ../../../src/lib/gpu_util.h
 ./GninaConverter.o: ../../../src/lib/tree.h
 ./GninaConverter.o: ../../../src/lib/conf.h
 ./GninaConverter.o: ../../../src/lib/quaternion.h
@@ -174,6 +175,10 @@
 ./GninaConverter.o: ../../../src/lib/array3d.h
 ./GninaConverter.o: ../../../src/lib/grid_dim.h
 ./GninaConverter.o: ../../../src/lib/curl.h
+./GninaConverter.o: ../../../src/lib/conf_gpu.h
+./GninaConverter.o: ../../../src/lib/gpucode.h
+./GninaConverter.o: ../../../src/lib/gpu_math.h
+./GninaConverter.o: ../../../src/lib/interacting_pairs.h
 ./GninaConverter.o: ../../../src/lib/convert_substring.h
 ./GninaConverter.o: ../../../src/lib/parse_error.h
 ./GninaConverter.o: ../../../src/lib/PDBQTUtilities.h
@@ -185,6 +190,7 @@
 ./PDBQTUtilities.o: ../../../src/lib/common.h
 ./PDBQTUtilities.o: ../../../src/lib/macros.h
 ./PDBQTUtilities.o: ../../../src/lib/gpu_mem.h
+./PDBQTUtilities.o: ../../../src/lib/gpu_util.h
 ./PDBQTUtilities.o: ../../../src/lib/tree.h
 ./PDBQTUtilities.o: ../../../src/lib/conf.h
 ./PDBQTUtilities.o: ../../../src/lib/quaternion.h
@@ -351,14 +357,20 @@
 ./PDBQTUtilities.o: ../../../src/lib/array3d.h
 ./PDBQTUtilities.o: ../../../src/lib/grid_dim.h
 ./PDBQTUtilities.o: ../../../src/lib/curl.h
+./PDBQTUtilities.o: ../../../src/lib/conf_gpu.h
+./PDBQTUtilities.o: ../../../src/lib/gpucode.h
+./PDBQTUtilities.o: ../../../src/lib/gpu_math.h
+./PDBQTUtilities.o: ../../../src/lib/interacting_pairs.h
 ./PDBQTUtilities.o: ../../../src/lib/convert_substring.h
 ./PDBQTUtilities.o: ../../../src/lib/parse_error.h
 ./atom_constants.o: ../../../src/lib/atom_constants.h
 ./atom_constants.o: ../../../src/lib/common.h
 ./atom_constants.o: ../../../src/lib/macros.h
 ./atom_constants.o: ../../../src/lib/gpu_mem.h
+./atom_constants.o: ../../../src/lib/gpu_util.h
 ./box.o: ../../../src/lib/box.h ../../../src/lib/common.h
 ./box.o: ../../../src/lib/macros.h ../../../src/lib/gpu_mem.h
+./box.o: ../../../src/lib/gpu_util.h
 ./box.o: ../../../src/lib/obmolopener.h
 ./builtinscoring.o: ../../../src/lib/builtinscoring.h
 ./builtinscoring.o: ../../../src/lib/custom_terms.h
@@ -368,6 +380,7 @@
 ./builtinscoring.o: ../../../src/lib/common.h
 ./builtinscoring.o: ../../../src/lib/macros.h
 ./builtinscoring.o: ../../../src/lib/gpu_mem.h
+./builtinscoring.o: ../../../src/lib/gpu_util.h
 ./builtinscoring.o: ../../../src/lib/tree.h
 ./builtinscoring.o: ../../../src/lib/conf.h
 ./builtinscoring.o: ../../../src/lib/quaternion.h
@@ -534,11 +547,16 @@
 ./builtinscoring.o: ../../../src/lib/array3d.h
 ./builtinscoring.o: ../../../src/lib/grid_dim.h
 ./builtinscoring.o: ../../../src/lib/curl.h
+./builtinscoring.o: ../../../src/lib/conf_gpu.h
+./builtinscoring.o: ../../../src/lib/gpucode.h
+./builtinscoring.o: ../../../src/lib/gpu_math.h
+./builtinscoring.o: ../../../src/lib/interacting_pairs.h
 ./builtinscoring.o: ../../../src/lib/int_pow.h
 ./builtinscoring.o: ../../../src/lib/everything.h
 ./cache.o: ../../../src/lib/cache.h ../../../src/lib/igrid.h
 ./cache.o: ../../../src/lib/common.h ../../../src/lib/macros.h
-./cache.o: ../../../src/lib/gpu_mem.h ../../../src/lib/grid.h
+./cache.o: ../../../src/lib/gpu_mem.h
+./cache.o: ../../../src/lib/gpu_util.h ../../../src/lib/grid.h
 ./cache.o: ../../../src/lib/array3d.h
 ./cache.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
 ./cache.o: ../../../src/lib/result_components.h
@@ -702,6 +720,10 @@
 ./cache.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
 ./cache.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./cache.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
+./cache.o: ../../../src/lib/conf_gpu.h
+./cache.o: ../../../src/lib/gpucode.h
+./cache.o: ../../../src/lib/gpu_math.h
+./cache.o: ../../../src/lib/interacting_pairs.h
 ./cache.o: ../../../src/lib/szv_grid.h
 ./cache.o: ../../../src/lib/brick.h
 ./coords.o: ../../../src/lib/coords.h ../../../src/lib/conf.h
@@ -709,6 +731,7 @@
 ./coords.o: ../../../src/lib/common.h
 ./coords.o: ../../../src/lib/macros.h
 ./coords.o: ../../../src/lib/gpu_mem.h
+./coords.o: ../../../src/lib/gpu_util.h
 ./coords.o: ../../../src/lib/random.h ../../../src/lib/atom.h
 ./coords.o: ../../../src/lib/atom_base.h
 ./coords.o: ../../../src/lib/atom_type.h
@@ -721,6 +744,7 @@
 ./custom_terms.o: ../../../src/lib/common.h
 ./custom_terms.o: ../../../src/lib/macros.h
 ./custom_terms.o: ../../../src/lib/gpu_mem.h
+./custom_terms.o: ../../../src/lib/gpu_util.h
 ./custom_terms.o: ../../../src/lib/tree.h
 ./custom_terms.o: ../../../src/lib/conf.h
 ./custom_terms.o: ../../../src/lib/quaternion.h
@@ -887,6 +911,10 @@
 ./custom_terms.o: ../../../src/lib/array3d.h
 ./custom_terms.o: ../../../src/lib/grid_dim.h
 ./custom_terms.o: ../../../src/lib/curl.h
+./custom_terms.o: ../../../src/lib/conf_gpu.h
+./custom_terms.o: ../../../src/lib/gpucode.h
+./custom_terms.o: ../../../src/lib/gpu_math.h
+./custom_terms.o: ../../../src/lib/interacting_pairs.h
 ./custom_terms.o: ../../../src/lib/int_pow.h
 ./custom_terms.o: ../../../src/lib/everything.h
 ./everything.o: ../../../src/lib/everything.h
@@ -896,6 +924,7 @@
 ./everything.o: ../../../src/lib/common.h
 ./everything.o: ../../../src/lib/macros.h
 ./everything.o: ../../../src/lib/gpu_mem.h
+./everything.o: ../../../src/lib/gpu_util.h
 ./everything.o: ../../../src/lib/tree.h
 ./everything.o: ../../../src/lib/conf.h
 ./everything.o: ../../../src/lib/quaternion.h
@@ -1062,16 +1091,22 @@
 ./everything.o: ../../../src/lib/array3d.h
 ./everything.o: ../../../src/lib/grid_dim.h
 ./everything.o: ../../../src/lib/curl.h
+./everything.o: ../../../src/lib/conf_gpu.h
+./everything.o: ../../../src/lib/gpucode.h
+./everything.o: ../../../src/lib/gpu_math.h
+./everything.o: ../../../src/lib/interacting_pairs.h
 ./everything.o: ../../../src/lib/int_pow.h
 ./flexinfo.o: ../../../src/lib/flexinfo.h
 ./flexinfo.o: ../../../src/lib/obmolopener.h
 ./flexinfo.o: ../../../src/lib/box.h ../../../src/lib/common.h
 ./flexinfo.o: ../../../src/lib/macros.h
 ./flexinfo.o: ../../../src/lib/gpu_mem.h
+./flexinfo.o: ../../../src/lib/gpu_util.h
 ./flexinfo.o: ../../../src/lib/tee.h ../../../src/lib/file.h
 ./grid.o: ../../../src/lib/grid.h ../../../src/lib/array3d.h
 ./grid.o: ../../../src/lib/common.h ../../../src/lib/macros.h
 ./grid.o: ../../../src/lib/gpu_mem.h
+./grid.o: ../../../src/lib/gpu_util.h
 ./grid.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
 ./grid.o: ../../../src/lib/result_components.h
 ./grid.o: ../../../src/lib/atom_base.h
@@ -1081,7 +1116,8 @@
 ./grid.o: ../../../src/lib/atom.h
 ./model.o: ../../../src/lib/model.h ../../../src/lib/file.h
 ./model.o: ../../../src/lib/common.h ../../../src/lib/macros.h
-./model.o: ../../../src/lib/gpu_mem.h ../../../src/lib/tree.h
+./model.o: ../../../src/lib/gpu_mem.h
+./model.o: ../../../src/lib/gpu_util.h ../../../src/lib/tree.h
 ./model.o: ../../../src/lib/conf.h
 ./model.o: ../../../src/lib/quaternion.h
 ./model.o: ../../../src/lib/random.h ../../../src/lib/atom.h
@@ -1244,12 +1280,23 @@
 ./model.o: ../../../src/lib/igrid.h ../../../src/lib/grid.h
 ./model.o: ../../../src/lib/array3d.h
 ./model.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
+./model.o: ../../../src/lib/conf_gpu.h
+./model.o: ../../../src/lib/gpucode.h
+./model.o: ../../../src/lib/gpu_math.h
+./model.o: ../../../src/lib/interacting_pairs.h
+./model.o: ../../../src/lib/non_cache_gpu.h
+./model.o: ../../../src/lib/non_cache.h
+./model.o: ../../../src/lib/szv_grid.h
+./model.o: ../../../src/lib/brick.h
+./model.o: ../../../src/lib/precalculate_gpu.h
+./model.o: ../../../src/lib/loop_timer.h
 ./molgetter.o: ../../../src/lib/molgetter.h
 ./molgetter.o: ../../../src/lib/model.h
 ./molgetter.o: ../../../src/lib/file.h
 ./molgetter.o: ../../../src/lib/common.h
 ./molgetter.o: ../../../src/lib/macros.h
 ./molgetter.o: ../../../src/lib/gpu_mem.h
+./molgetter.o: ../../../src/lib/gpu_util.h
 ./molgetter.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
 ./molgetter.o: ../../../src/lib/quaternion.h
 ./molgetter.o: ../../../src/lib/random.h
@@ -1415,6 +1462,10 @@
 ./molgetter.o: ../../../src/lib/array3d.h
 ./molgetter.o: ../../../src/lib/grid_dim.h
 ./molgetter.o: ../../../src/lib/curl.h
+./molgetter.o: ../../../src/lib/conf_gpu.h
+./molgetter.o: ../../../src/lib/gpucode.h
+./molgetter.o: ../../../src/lib/gpu_math.h
+./molgetter.o: ../../../src/lib/interacting_pairs.h
 ./molgetter.o: ../../../src/lib/obmolopener.h
 ./molgetter.o: ../../../src/lib/flexinfo.h
 ./molgetter.o: ../../../src/lib/box.h ../../../src/lib/tee.h
@@ -1431,6 +1482,7 @@
 ./monte_carlo.o: ../../../src/lib/common.h
 ./monte_carlo.o: ../../../src/lib/macros.h
 ./monte_carlo.o: ../../../src/lib/gpu_mem.h
+./monte_carlo.o: ../../../src/lib/gpu_util.h
 ./monte_carlo.o: ../../../src/lib/tree.h
 ./monte_carlo.o: ../../../src/lib/conf.h
 ./monte_carlo.o: ../../../src/lib/quaternion.h
@@ -1597,6 +1649,10 @@
 ./monte_carlo.o: ../../../src/lib/array3d.h
 ./monte_carlo.o: ../../../src/lib/grid_dim.h
 ./monte_carlo.o: ../../../src/lib/curl.h
+./monte_carlo.o: ../../../src/lib/conf_gpu.h
+./monte_carlo.o: ../../../src/lib/gpucode.h
+./monte_carlo.o: ../../../src/lib/gpu_math.h
+./monte_carlo.o: ../../../src/lib/interacting_pairs.h
 ./monte_carlo.o: ../../../src/lib/incrementable.h
 ./monte_carlo.o: ../../../src/lib/coords.h
 ./monte_carlo.o: ../../../src/lib/mutate.h
@@ -1604,8 +1660,9 @@
 ./mutate.o: ../../../src/lib/mutate.h ../../../src/lib/model.h
 ./mutate.o: ../../../src/lib/file.h ../../../src/lib/common.h
 ./mutate.o: ../../../src/lib/macros.h
-./mutate.o: ../../../src/lib/gpu_mem.h ../../../src/lib/tree.h
-./mutate.o: ../../../src/lib/conf.h
+./mutate.o: ../../../src/lib/gpu_mem.h
+./mutate.o: ../../../src/lib/gpu_util.h
+./mutate.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
 ./mutate.o: ../../../src/lib/quaternion.h
 ./mutate.o: ../../../src/lib/random.h ../../../src/lib/atom.h
 ./mutate.o: ../../../src/lib/atom_base.h
@@ -1768,12 +1825,17 @@
 ./mutate.o: ../../../src/lib/array3d.h
 ./mutate.o: ../../../src/lib/grid_dim.h
 ./mutate.o: ../../../src/lib/curl.h
+./mutate.o: ../../../src/lib/conf_gpu.h
+./mutate.o: ../../../src/lib/gpucode.h
+./mutate.o: ../../../src/lib/gpu_math.h
+./mutate.o: ../../../src/lib/interacting_pairs.h
 ./my_pid.o: ../../../src/lib/my_pid.h
 ./naive_non_cache.o: ../../../src/lib/naive_non_cache.h
 ./naive_non_cache.o: ../../../src/lib/igrid.h
 ./naive_non_cache.o: ../../../src/lib/common.h
 ./naive_non_cache.o: ../../../src/lib/macros.h
 ./naive_non_cache.o: ../../../src/lib/gpu_mem.h
+./naive_non_cache.o: ../../../src/lib/gpu_util.h
 ./naive_non_cache.o: ../../../src/lib/grid.h
 ./naive_non_cache.o: ../../../src/lib/array3d.h
 ./naive_non_cache.o: ../../../src/lib/grid_dim.h
@@ -1941,11 +2003,16 @@
 ./naive_non_cache.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
 ./naive_non_cache.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./naive_non_cache.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
+./naive_non_cache.o: ../../../src/lib/conf_gpu.h
+./naive_non_cache.o: ../../../src/lib/gpucode.h
+./naive_non_cache.o: ../../../src/lib/gpu_math.h
+./naive_non_cache.o: ../../../src/lib/interacting_pairs.h
 ./non_cache.o: ../../../src/lib/non_cache.h
 ./non_cache.o: ../../../src/lib/igrid.h
 ./non_cache.o: ../../../src/lib/common.h
 ./non_cache.o: ../../../src/lib/macros.h
 ./non_cache.o: ../../../src/lib/gpu_mem.h
+./non_cache.o: ../../../src/lib/gpu_util.h
 ./non_cache.o: ../../../src/lib/grid.h
 ./non_cache.o: ../../../src/lib/array3d.h
 ./non_cache.o: ../../../src/lib/grid_dim.h
@@ -2113,6 +2180,10 @@
 ./non_cache.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
 ./non_cache.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./non_cache.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
+./non_cache.o: ../../../src/lib/conf_gpu.h
+./non_cache.o: ../../../src/lib/gpucode.h
+./non_cache.o: ../../../src/lib/gpu_math.h
+./non_cache.o: ../../../src/lib/interacting_pairs.h
 ./non_cache.o: ../../../src/lib/brick.h
 ./non_cache.o: ../../../src/lib/loop_timer.h
 ./non_cache_gpu.o: ../../../src/lib/non_cache_gpu.h
@@ -2121,6 +2192,7 @@
 ./non_cache_gpu.o: ../../../src/lib/common.h
 ./non_cache_gpu.o: ../../../src/lib/macros.h
 ./non_cache_gpu.o: ../../../src/lib/gpu_mem.h
+./non_cache_gpu.o: ../../../src/lib/gpu_util.h
 ./non_cache_gpu.o: ../../../src/lib/grid.h
 ./non_cache_gpu.o: ../../../src/lib/array3d.h
 ./non_cache_gpu.o: ../../../src/lib/grid_dim.h
@@ -2289,20 +2361,24 @@
 ./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/ComplexEigenSolver.h
 ./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/./ComplexSchur.h
 ./non_cache_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
-./non_cache_gpu.o: ../../../src/lib/brick.h
-./non_cache_gpu.o: ../../../src/lib/precalculate_gpu.h
+./non_cache_gpu.o: ../../../src/lib/conf_gpu.h
 ./non_cache_gpu.o: ../../../src/lib/gpucode.h
 ./non_cache_gpu.o: ../../../src/lib/gpu_math.h
+./non_cache_gpu.o: ../../../src/lib/interacting_pairs.h
+./non_cache_gpu.o: ../../../src/lib/brick.h
+./non_cache_gpu.o: ../../../src/lib/precalculate_gpu.h
 ./non_cache_gpu.o: ../../../src/lib/loop_timer.h
 ./obmolopener.o: ../../../src/lib/obmolopener.h
 ./obmolopener.o: ../../../src/lib/file.h
 ./obmolopener.o: ../../../src/lib/common.h
 ./obmolopener.o: ../../../src/lib/macros.h
 ./obmolopener.o: ../../../src/lib/gpu_mem.h
+./obmolopener.o: ../../../src/lib/gpu_util.h
 ./parallel_mc.o: ../../../src/lib/parallel.h
 ./parallel_mc.o: ../../../src/lib/common.h
 ./parallel_mc.o: ../../../src/lib/macros.h
 ./parallel_mc.o: ../../../src/lib/gpu_mem.h
+./parallel_mc.o: ../../../src/lib/gpu_util.h
 ./parallel_mc.o: ../../../src/lib/parallel_mc.h
 ./parallel_mc.o: ../../../src/lib/monte_carlo.h
 ./parallel_mc.o: ../../../src/lib/ssd.h
@@ -2474,6 +2550,10 @@
 ./parallel_mc.o: ../../../src/lib/array3d.h
 ./parallel_mc.o: ../../../src/lib/grid_dim.h
 ./parallel_mc.o: ../../../src/lib/curl.h
+./parallel_mc.o: ../../../src/lib/conf_gpu.h
+./parallel_mc.o: ../../../src/lib/gpucode.h
+./parallel_mc.o: ../../../src/lib/gpu_math.h
+./parallel_mc.o: ../../../src/lib/interacting_pairs.h
 ./parallel_mc.o: ../../../src/lib/incrementable.h
 ./parallel_mc.o: ../../../src/lib/coords.h
 ./parallel_mc.o: ../../../src/lib/parallel_progress.h
@@ -2485,6 +2565,7 @@
 ./parse_pdbqt.o: ../../../src/lib/common.h
 ./parse_pdbqt.o: ../../../src/lib/macros.h
 ./parse_pdbqt.o: ../../../src/lib/gpu_mem.h
+./parse_pdbqt.o: ../../../src/lib/gpu_util.h
 ./parse_pdbqt.o: ../../../src/lib/tree.h
 ./parse_pdbqt.o: ../../../src/lib/conf.h
 ./parse_pdbqt.o: ../../../src/lib/quaternion.h
@@ -2651,11 +2732,16 @@
 ./parse_pdbqt.o: ../../../src/lib/array3d.h
 ./parse_pdbqt.o: ../../../src/lib/grid_dim.h
 ./parse_pdbqt.o: ../../../src/lib/curl.h
+./parse_pdbqt.o: ../../../src/lib/conf_gpu.h
+./parse_pdbqt.o: ../../../src/lib/gpucode.h
+./parse_pdbqt.o: ../../../src/lib/gpu_math.h
+./parse_pdbqt.o: ../../../src/lib/interacting_pairs.h
 ./parse_pdbqt.o: ../../../src/lib/convert_substring.h
 ./parse_pdbqt.o: ../../../src/lib/parse_error.h
 ./parse_pdbqt.o: ../../../src/lib/parsing.h
 ./pdb.o: ../../../src/lib/pdb.h ../../../src/lib/common.h
 ./pdb.o: ../../../src/lib/macros.h ../../../src/lib/gpu_mem.h
+./pdb.o: ../../../src/lib/gpu_util.h
 ./pdb.o: ../../../src/lib/parse_error.h
 ./pdb.o: ../../../src/lib/file.h
 ./pdb.o: ../../../src/lib/convert_substring.h
@@ -2667,6 +2753,7 @@
 ./precalculate_gpu.o: ../../../src/lib/common.h
 ./precalculate_gpu.o: ../../../src/lib/macros.h
 ./precalculate_gpu.o: ../../../src/lib/gpu_mem.h
+./precalculate_gpu.o: ../../../src/lib/gpu_util.h
 ./precalculate_gpu.o: ../../../src/lib/triangular_matrix_index.h
 ./precalculate_gpu.o: ../../../src/lib/result_components.h
 ./precalculate_gpu.o: ../../../src/lib/atom_base.h
@@ -2820,12 +2907,14 @@
 ./precalculate_gpu.o: ../../../src/lib/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
 ./precalculate_gpu.o: ../../../src/lib/gpucode.h
 ./precalculate_gpu.o: ../../../src/lib/gpu_math.h
+./precalculate_gpu.o: ../../../src/lib/interacting_pairs.h
 ./quasi_newton.o: ../../../src/lib/quasi_newton.h
 ./quasi_newton.o: ../../../src/lib/model.h
 ./quasi_newton.o: ../../../src/lib/file.h
 ./quasi_newton.o: ../../../src/lib/common.h
 ./quasi_newton.o: ../../../src/lib/macros.h
 ./quasi_newton.o: ../../../src/lib/gpu_mem.h
+./quasi_newton.o: ../../../src/lib/gpu_util.h
 ./quasi_newton.o: ../../../src/lib/tree.h
 ./quasi_newton.o: ../../../src/lib/conf.h
 ./quasi_newton.o: ../../../src/lib/quaternion.h
@@ -2992,23 +3081,27 @@
 ./quasi_newton.o: ../../../src/lib/array3d.h
 ./quasi_newton.o: ../../../src/lib/grid_dim.h
 ./quasi_newton.o: ../../../src/lib/curl.h
+./quasi_newton.o: ../../../src/lib/conf_gpu.h
+./quasi_newton.o: ../../../src/lib/gpucode.h
+./quasi_newton.o: ../../../src/lib/gpu_math.h
+./quasi_newton.o: ../../../src/lib/interacting_pairs.h
 ./quasi_newton.o: ../../../src/lib/bfgs.h
 ./quasi_newton.o: ../../../src/lib/non_cache_gpu.h
 ./quasi_newton.o: ../../../src/lib/non_cache.h
 ./quasi_newton.o: ../../../src/lib/szv_grid.h
 ./quasi_newton.o: ../../../src/lib/brick.h
 ./quasi_newton.o: ../../../src/lib/precalculate_gpu.h
-./quasi_newton.o: ../../../src/lib/gpucode.h
-./quasi_newton.o: ../../../src/lib/gpu_math.h
 ./quaternion.o: ../../../src/lib/quaternion.h
 ./quaternion.o: ../../../src/lib/common.h
 ./quaternion.o: ../../../src/lib/macros.h
 ./quaternion.o: ../../../src/lib/gpu_mem.h
+./quaternion.o: ../../../src/lib/gpu_util.h
 ./quaternion.o: ../../../src/lib/random.h
 ./random.o: ../../../src/lib/random.h
 ./random.o: ../../../src/lib/common.h
 ./random.o: ../../../src/lib/macros.h
 ./random.o: ../../../src/lib/gpu_mem.h
+./random.o: ../../../src/lib/gpu_util.h
 ./random.o: ../../../src/lib/my_pid.h
 ./result_info.o: ../../../src/lib/result_info.h
 ./result_info.o: ../../../src/lib/model.h
@@ -3016,6 +3109,7 @@
 ./result_info.o: ../../../src/lib/common.h
 ./result_info.o: ../../../src/lib/macros.h
 ./result_info.o: ../../../src/lib/gpu_mem.h
+./result_info.o: ../../../src/lib/gpu_util.h
 ./result_info.o: ../../../src/lib/tree.h
 ./result_info.o: ../../../src/lib/conf.h
 ./result_info.o: ../../../src/lib/quaternion.h
@@ -3182,13 +3276,17 @@
 ./result_info.o: ../../../src/lib/array3d.h
 ./result_info.o: ../../../src/lib/grid_dim.h
 ./result_info.o: ../../../src/lib/curl.h
+./result_info.o: ../../../src/lib/conf_gpu.h
+./result_info.o: ../../../src/lib/gpucode.h
+./result_info.o: ../../../src/lib/gpu_math.h
+./result_info.o: ../../../src/lib/interacting_pairs.h
 ./result_info.o: ../../../src/lib/weighted_terms.h
 ./result_info.o: ../../../src/lib/terms.h
 ./ssd.o: ../../../src/lib/ssd.h ../../../src/lib/model.h
 ./ssd.o: ../../../src/lib/file.h ../../../src/lib/common.h
 ./ssd.o: ../../../src/lib/macros.h ../../../src/lib/gpu_mem.h
-./ssd.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
-./ssd.o: ../../../src/lib/quaternion.h
+./ssd.o: ../../../src/lib/gpu_util.h ../../../src/lib/tree.h
+./ssd.o: ../../../src/lib/conf.h ../../../src/lib/quaternion.h
 ./ssd.o: ../../../src/lib/random.h ../../../src/lib/atom.h
 ./ssd.o: ../../../src/lib/atom_base.h
 ./ssd.o: ../../../src/lib/atom_type.h
@@ -3347,11 +3445,16 @@
 ./ssd.o: ../../../src/lib/igrid.h ../../../src/lib/grid.h
 ./ssd.o: ../../../src/lib/array3d.h
 ./ssd.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
+./ssd.o: ../../../src/lib/conf_gpu.h
+./ssd.o: ../../../src/lib/gpucode.h
+./ssd.o: ../../../src/lib/gpu_math.h
+./ssd.o: ../../../src/lib/interacting_pairs.h
 ./szv_grid.o: ../../../src/lib/szv_grid.h
 ./szv_grid.o: ../../../src/lib/model.h ../../../src/lib/file.h
 ./szv_grid.o: ../../../src/lib/common.h
 ./szv_grid.o: ../../../src/lib/macros.h
 ./szv_grid.o: ../../../src/lib/gpu_mem.h
+./szv_grid.o: ../../../src/lib/gpu_util.h
 ./szv_grid.o: ../../../src/lib/tree.h ../../../src/lib/conf.h
 ./szv_grid.o: ../../../src/lib/quaternion.h
 ./szv_grid.o: ../../../src/lib/random.h
@@ -3515,11 +3618,17 @@
 ./szv_grid.o: ../../../src/lib/igrid.h ../../../src/lib/grid.h
 ./szv_grid.o: ../../../src/lib/array3d.h
 ./szv_grid.o: ../../../src/lib/grid_dim.h
-./szv_grid.o: ../../../src/lib/curl.h ../../../src/lib/brick.h
+./szv_grid.o: ../../../src/lib/curl.h
+./szv_grid.o: ../../../src/lib/conf_gpu.h
+./szv_grid.o: ../../../src/lib/gpucode.h
+./szv_grid.o: ../../../src/lib/gpu_math.h
+./szv_grid.o: ../../../src/lib/interacting_pairs.h
+./szv_grid.o: ../../../src/lib/brick.h
 ./terms.o: ../../../src/lib/terms.h ../../../src/lib/model.h
 ./terms.o: ../../../src/lib/file.h ../../../src/lib/common.h
 ./terms.o: ../../../src/lib/macros.h
-./terms.o: ../../../src/lib/gpu_mem.h ../../../src/lib/tree.h
+./terms.o: ../../../src/lib/gpu_mem.h
+./terms.o: ../../../src/lib/gpu_util.h ../../../src/lib/tree.h
 ./terms.o: ../../../src/lib/conf.h
 ./terms.o: ../../../src/lib/quaternion.h
 ./terms.o: ../../../src/lib/random.h ../../../src/lib/atom.h
@@ -3682,6 +3791,10 @@
 ./terms.o: ../../../src/lib/igrid.h ../../../src/lib/grid.h
 ./terms.o: ../../../src/lib/array3d.h
 ./terms.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
+./terms.o: ../../../src/lib/conf_gpu.h
+./terms.o: ../../../src/lib/gpucode.h
+./terms.o: ../../../src/lib/gpu_math.h
+./terms.o: ../../../src/lib/interacting_pairs.h
 ./terms.o: ../../../src/lib/brick.h
 ./weighted_terms.o: ../../../src/lib/weighted_terms.h
 ./weighted_terms.o: ../../../src/lib/terms.h
@@ -3690,6 +3803,7 @@
 ./weighted_terms.o: ../../../src/lib/common.h
 ./weighted_terms.o: ../../../src/lib/macros.h
 ./weighted_terms.o: ../../../src/lib/gpu_mem.h
+./weighted_terms.o: ../../../src/lib/gpu_util.h
 ./weighted_terms.o: ../../../src/lib/tree.h
 ./weighted_terms.o: ../../../src/lib/conf.h
 ./weighted_terms.o: ../../../src/lib/quaternion.h
@@ -3856,10 +3970,15 @@
 ./weighted_terms.o: ../../../src/lib/array3d.h
 ./weighted_terms.o: ../../../src/lib/grid_dim.h
 ./weighted_terms.o: ../../../src/lib/curl.h
+./weighted_terms.o: ../../../src/lib/conf_gpu.h
+./weighted_terms.o: ../../../src/lib/gpucode.h
+./weighted_terms.o: ../../../src/lib/gpu_math.h
+./weighted_terms.o: ../../../src/lib/interacting_pairs.h
 ./main.o: ../../../src/lib/parse_pdbqt.h
 ./main.o: ../../../src/lib/model.h ../../../src/lib/file.h
 ./main.o: ../../../src/lib/common.h ../../../src/lib/macros.h
-./main.o: ../../../src/lib/gpu_mem.h ../../../src/lib/tree.h
+./main.o: ../../../src/lib/gpu_mem.h
+./main.o: ../../../src/lib/gpu_util.h ../../../src/lib/tree.h
 ./main.o: ../../../src/lib/conf.h
 ./main.o: ../../../src/lib/quaternion.h
 ./main.o: ../../../src/lib/random.h ../../../src/lib/atom.h
@@ -4022,6 +4141,10 @@
 ./main.o: ../../../src/lib/igrid.h ../../../src/lib/grid.h
 ./main.o: ../../../src/lib/array3d.h
 ./main.o: ../../../src/lib/grid_dim.h ../../../src/lib/curl.h
+./main.o: ../../../src/lib/conf_gpu.h
+./main.o: ../../../src/lib/gpucode.h
+./main.o: ../../../src/lib/gpu_math.h
+./main.o: ../../../src/lib/interacting_pairs.h
 ./main.o: ../../../src/lib/cache.h
 ./main.o: ../../../src/lib/non_cache.h
 ./main.o: ../../../src/lib/szv_grid.h
@@ -4029,8 +4152,6 @@
 ./main.o: ../../../src/lib/naive_non_cache.h
 ./main.o: ../../../src/lib/non_cache_gpu.h
 ./main.o: ../../../src/lib/precalculate_gpu.h
-./main.o: ../../../src/lib/gpucode.h
-./main.o: ../../../src/lib/gpu_math.h
 ./main.o: ../../../src/lib/parse_error.h
 ./main.o: ../../../src/lib/everything.h
 ./main.o: ../../../src/lib/terms.h ../../../src/lib/int_pow.h
@@ -4049,6 +4170,7 @@
 ./MinimizationQuery.o: ../../../src/lib/common.h
 ./MinimizationQuery.o: ../../../src/lib/macros.h
 ./MinimizationQuery.o: ../../../src/lib/gpu_mem.h
+./MinimizationQuery.o: ../../../src/lib/gpu_util.h
 ./MinimizationQuery.o: ../../../src/lib/parsing.h
 ./MinimizationQuery.o: ../../../src/lib/parse_pdbqt.h
 ./MinimizationQuery.o: ../../../src/lib/model.h
@@ -4219,6 +4341,10 @@
 ./MinimizationQuery.o: ../../../src/lib/array3d.h
 ./MinimizationQuery.o: ../../../src/lib/grid_dim.h
 ./MinimizationQuery.o: ../../../src/lib/curl.h
+./MinimizationQuery.o: ../../../src/lib/conf_gpu.h
+./MinimizationQuery.o: ../../../src/lib/gpucode.h
+./MinimizationQuery.o: ../../../src/lib/gpu_math.h
+./MinimizationQuery.o: ../../../src/lib/interacting_pairs.h
 ./MinimizationQuery.o: ../../../src/lib/convert_substring.h
 ./MinimizationQuery.o: ../../../src/lib/parse_error.h
 ./MinimizationQuery.o: ../../../src/gninaserver/server_common.h
@@ -4238,6 +4364,7 @@
 ./QueryManager.o: ../../../src/lib/common.h
 ./QueryManager.o: ../../../src/lib/macros.h
 ./QueryManager.o: ../../../src/lib/gpu_mem.h
+./QueryManager.o: ../../../src/lib/gpu_util.h
 ./QueryManager.o: ../../../src/lib/parsing.h
 ./QueryManager.o: ../../../src/lib/parse_pdbqt.h
 ./QueryManager.o: ../../../src/lib/model.h
@@ -4408,6 +4535,10 @@
 ./QueryManager.o: ../../../src/lib/array3d.h
 ./QueryManager.o: ../../../src/lib/grid_dim.h
 ./QueryManager.o: ../../../src/lib/curl.h
+./QueryManager.o: ../../../src/lib/conf_gpu.h
+./QueryManager.o: ../../../src/lib/gpucode.h
+./QueryManager.o: ../../../src/lib/gpu_math.h
+./QueryManager.o: ../../../src/lib/interacting_pairs.h
 ./QueryManager.o: ../../../src/lib/convert_substring.h
 ./QueryManager.o: ../../../src/lib/parse_error.h
 ./QueryManager.o: ../../../src/gninaserver/server_common.h
@@ -4426,6 +4557,7 @@
 ./server.o: ../../../src/lib/common.h
 ./server.o: ../../../src/lib/macros.h
 ./server.o: ../../../src/lib/gpu_mem.h
+./server.o: ../../../src/lib/gpu_util.h
 ./server.o: ../../../src/lib/parsing.h
 ./server.o: ../../../src/lib/parse_pdbqt.h
 ./server.o: ../../../src/lib/model.h
@@ -4596,6 +4728,10 @@
 ./server.o: ../../../src/lib/array3d.h
 ./server.o: ../../../src/lib/grid_dim.h
 ./server.o: ../../../src/lib/curl.h
+./server.o: ../../../src/lib/conf_gpu.h
+./server.o: ../../../src/lib/gpucode.h
+./server.o: ../../../src/lib/gpu_math.h
+./server.o: ../../../src/lib/interacting_pairs.h
 ./server.o: ../../../src/lib/convert_substring.h
 ./server.o: ../../../src/lib/parse_error.h
 ./server.o: ../../../src/lib/custom_terms.h
@@ -4615,6 +4751,7 @@
 ./tognina.o: ../../../src/lib/common.h
 ./tognina.o: ../../../src/lib/macros.h
 ./tognina.o: ../../../src/lib/gpu_mem.h
+./tognina.o: ../../../src/lib/gpu_util.h
 ./tognina.o: ../../../src/lib/tree.h
 ./tognina.o: ../../../src/lib/conf.h
 ./tognina.o: ../../../src/lib/quaternion.h
@@ -4781,6 +4918,10 @@
 ./tognina.o: ../../../src/lib/array3d.h
 ./tognina.o: ../../../src/lib/grid_dim.h
 ./tognina.o: ../../../src/lib/curl.h
+./tognina.o: ../../../src/lib/conf_gpu.h
+./tognina.o: ../../../src/lib/gpucode.h
+./tognina.o: ../../../src/lib/gpu_math.h
+./tognina.o: ../../../src/lib/interacting_pairs.h
 ./tognina.o: ../../../src/lib/convert_substring.h
 ./tognina.o: ../../../src/lib/parse_error.h
 ./tognina.o: ../../../src/lib/PDBQTUtilities.h
@@ -4789,6 +4930,7 @@
 ./gninagrid.o: ../../../src/lib/common.h
 ./gninagrid.o: ../../../src/lib/macros.h
 ./gninagrid.o: ../../../src/lib/gpu_mem.h
+./gninagrid.o: ../../../src/lib/gpu_util.h
 ./gninagrid.o: ../../../src/lib/triangular_matrix_index.h
 ./gninagrid.o: ../../../src/lib/box.h
 ./gninagrid.o: ../../../src/lib/molgetter.h
@@ -4957,6 +5099,10 @@
 ./gninagrid.o: ../../../src/lib/array3d.h
 ./gninagrid.o: ../../../src/lib/grid_dim.h
 ./gninagrid.o: ../../../src/lib/curl.h
+./gninagrid.o: ../../../src/lib/conf_gpu.h
+./gninagrid.o: ../../../src/lib/gpucode.h
+./gninagrid.o: ../../../src/lib/gpu_math.h
+./gninagrid.o: ../../../src/lib/interacting_pairs.h
 ./gninagrid.o: ../../../src/lib/obmolopener.h
 ./gninagrid.o: ../../../src/lib/flexinfo.h
 ./gninagrid.o: ../../../src/lib/tee.h
@@ -4968,6 +5114,7 @@
 ./nngridder.o: ../../../src/lib/common.h
 ./nngridder.o: ../../../src/lib/macros.h
 ./nngridder.o: ../../../src/lib/gpu_mem.h
+./nngridder.o: ../../../src/lib/gpu_util.h
 ./nngridder.o: ../../../src/lib/triangular_matrix_index.h
 ./nngridder.o: ../../../src/lib/box.h
 ./nngridder.o: ../../../src/lib/molgetter.h
@@ -5136,6 +5283,10 @@
 ./nngridder.o: ../../../src/lib/array3d.h
 ./nngridder.o: ../../../src/lib/grid_dim.h
 ./nngridder.o: ../../../src/lib/curl.h
+./nngridder.o: ../../../src/lib/conf_gpu.h
+./nngridder.o: ../../../src/lib/gpucode.h
+./nngridder.o: ../../../src/lib/gpu_math.h
+./nngridder.o: ../../../src/lib/interacting_pairs.h
 ./nngridder.o: ../../../src/lib/obmolopener.h
 ./nngridder.o: ../../../src/lib/flexinfo.h
 ./nngridder.o: ../../../src/lib/tee.h

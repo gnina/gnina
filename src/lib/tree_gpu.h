@@ -5,6 +5,7 @@
 #include "atom.h"
 #include <vector>
 #include <queue>
+#include "conf_gpu.h"
 
 struct segment_node {
 	//a segment is a rigid collection of atoms with an orientation
@@ -70,6 +71,11 @@ struct segment_node {
 	__device__
 	void set_orientation(const qt& q) { // does not normalize the orientation
 		orientation_q = q;
+		orientation_m = quaternion_to_r3(orientation_q);
+	}
+	__device__
+	void set_orientation(float x, float y, float z, float w) { // does not normalize the orientation
+		orientation_q = qt(x,y,z,w);
 		orientation_m = quaternion_to_r3(orientation_q);
 	}
 };
@@ -160,18 +166,19 @@ struct tree_gpu {
 	}
 
 	__device__
-	void set_conf(const vec *atom_coords, vec *coords, const ligand_conf& c){
+	void set_conf(const vec *atom_coords, vec *coords, const conf_info *c){
 		// assert(c.torsions.size() == num_nodes-1);
 		segment_node& root = device_nodes[0];
-		root.origin = c.rigid.position;
+		for(unsigned i = 0; i < 3; i++)
+			root.origin[i] = c->position[i];
 
-		root.set_orientation(c.rigid.orientation);
+		root.set_orientation(c->orientation[0],c->orientation[1],c->orientation[2],c->orientation[3]);
 
 		root.set_coords(atom_coords, coords);
 		for(unsigned i = 1; i < num_nodes; i++) {
 			segment_node& node = device_nodes[i];
 			segment_node& parent = device_nodes[node.parent];
-			fl torsion = c.torsions[i-1];
+			fl torsion = c->torsions[i-1];
 			node.origin = parent.local_to_lab(node.relative_origin);
 			node.axis = parent.local_to_lab_direction(node.relative_axis);
 			node.set_orientation(
