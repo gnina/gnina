@@ -41,6 +41,7 @@ class MemoryDataLayer : public BaseDataLayer<Dtype> {
 
   int batch_size() { return shape_[0]; }
   const vector<int>& shape() const { return shape_; }
+  void set_shape(const vector<int>& sh) { shape_ = sh; }
 
  protected:
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,

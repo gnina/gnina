@@ -69,9 +69,12 @@ TYPED_TEST(MemoryDataLayerTest, TestSetup) {
   LayerParameter layer_param;
   MemoryDataParameter* md_param = layer_param.mutable_memory_data_param();
   md_param->set_batch_size(this->batch_size_);
-  md_param->set_channels(this->channels_);
-  md_param->set_height(this->height_);
-  md_param->set_width(this->width_);
+
+  BlobShape* blob_shape = md_param->mutable_shape();
+  blob_shape->add_dim(this->channels_);
+  blob_shape->add_dim(this->height_);
+  blob_shape->add_dim(this->width_);
+
   shared_ptr<Layer<Dtype> > layer(
       new MemoryDataLayer<Dtype>(layer_param));
   layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
@@ -92,9 +95,11 @@ TYPED_TEST(MemoryDataLayerTest, TestForward) {
   LayerParameter layer_param;
   MemoryDataParameter* md_param = layer_param.mutable_memory_data_param();
   md_param->set_batch_size(this->batch_size_);
-  md_param->set_channels(this->channels_);
-  md_param->set_height(this->height_);
-  md_param->set_width(this->width_);
+  BlobShape* blob_shape = md_param->mutable_shape();
+  blob_shape->add_dim(this->channels_);
+  blob_shape->add_dim(this->height_);
+  blob_shape->add_dim(this->width_);
+
   shared_ptr<MemoryDataLayer<Dtype> > layer(
       new MemoryDataLayer<Dtype>(layer_param));
   layer->DataLayerSetUp(this->blob_bottom_vec_, this->blob_top_vec_);
@@ -122,9 +127,11 @@ TYPED_TEST(MemoryDataLayerTest, AddDatumVectorDefaultTransform) {
   LayerParameter param;
   MemoryDataParameter* memory_data_param = param.mutable_memory_data_param();
   memory_data_param->set_batch_size(this->batch_size_);
-  memory_data_param->set_channels(this->channels_);
-  memory_data_param->set_height(this->height_);
-  memory_data_param->set_width(this->width_);
+  BlobShape* blob_shape = memory_data_param->mutable_shape();
+  blob_shape->add_dim(this->channels_);
+  blob_shape->add_dim(this->height_);
+  blob_shape->add_dim(this->width_);
+
   MemoryDataLayer<Dtype> layer(param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   // We add batch_size*num_iter items, then for each iteration
@@ -175,9 +182,11 @@ TYPED_TEST(MemoryDataLayerTest, AddMatVectorDefaultTransform) {
   LayerParameter param;
   MemoryDataParameter* memory_data_param = param.mutable_memory_data_param();
   memory_data_param->set_batch_size(this->batch_size_);
-  memory_data_param->set_channels(this->channels_);
-  memory_data_param->set_height(this->height_);
-  memory_data_param->set_width(this->width_);
+  BlobShape* blob_shape = memory_data_param->mutable_shape();
+  blob_shape->add_dim(this->channels_);
+  blob_shape->add_dim(this->height_);
+  blob_shape->add_dim(this->width_);
+
   MemoryDataLayer<Dtype> layer(param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   // We add batch_size*num_iter items, then for each iteration
@@ -221,9 +230,11 @@ TYPED_TEST(MemoryDataLayerTest, TestSetBatchSize) {
   LayerParameter param;
   MemoryDataParameter* memory_data_param = param.mutable_memory_data_param();
   memory_data_param->set_batch_size(this->batch_size_);
-  memory_data_param->set_channels(this->channels_);
-  memory_data_param->set_height(this->height_);
-  memory_data_param->set_width(this->width_);
+  BlobShape* blob_shape = memory_data_param->mutable_shape();
+  blob_shape->add_dim(this->channels_);
+  blob_shape->add_dim(this->height_);
+  blob_shape->add_dim(this->width_); 
+  
   MemoryDataLayer<Dtype> layer(param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   // first add data as usual

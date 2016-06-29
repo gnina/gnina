@@ -16,7 +16,7 @@ void MemoryDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   shape_.clear();
   shape_.push_back(batchsz);
-  size_ = batchsz;
+  size_ = 1; //size of single example
   for (int i = 0, n = sh.dim_size(); i < n; ++i) {
     shape_.push_back(sh.dim(i));
     size_ *= sh.dim(i);
