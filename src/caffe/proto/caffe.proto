@@ -841,7 +841,8 @@ message MolGridDataParameter {
   optional string ligmap = 18 [default = ""];
   //ignore files, input will be provided programmatically, e.g. through gnina
   optional bool inmemory = 19 [default = false];
-  
+  //specify radius multiple
+  optional float radius_multiple = 20 [default = 1.5];
 }
 
 message NDimDataParameter {
