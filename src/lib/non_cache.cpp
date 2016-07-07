@@ -118,8 +118,6 @@ fl non_cache::eval_deriv(model& m, fl v, const grid& user_grid) const
 
 	sz n = num_atom_types();
 
-
-
 	VINA_FOR(i, m.num_movable_atoms())
 	{
 		fl this_e = 0;
@@ -168,7 +166,6 @@ fl non_cache::eval_deriv(model& m, fl v, const grid& user_grid) const
 			vec r_ba;
 			r_ba = adjusted_a_coords - b.coords;
 			fl r2 = sqr(r_ba);
-
 			if (r2 < cutoff_sqr)
 			{
 				//dkoes - the "derivative" value returned by eval_deriv
@@ -190,7 +187,6 @@ fl non_cache::eval_deriv(model& m, fl v, const grid& user_grid) const
 		m.minus_forces[i] = deriv + out_of_bounds_deriv;
 		e += this_e + out_of_bounds_penalty;
 	}
-
     t.stop();
 	return e;
 }

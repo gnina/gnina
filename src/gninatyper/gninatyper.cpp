@@ -14,6 +14,7 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/unordered_map.hpp>
 #include <openbabel/oberror.h>
 
 #include "atom_type.h"
@@ -81,12 +82,16 @@ int main(int argc, char *argv[])
 			p.replace_extension("");
 		//strip extension
 		p.replace_extension("");
-
+		boost::unordered_map<string, int> molcnts;
 		OBMol mol;
 		int cnt = 0;
 		while(conv.Read(&mol)) {
 			mol.AddHydrogens();
-			string outname = p.string() + "_" + lexical_cast<string>(cnt) + ".gninatypes";
+			string name(mol.GetTitle());
+			if(name.length() == 0) name = p.string();
+			if(molcnts.count(name) == 0) molcnts[name] = 0;
+			string outname = name + "_" + lexical_cast<string>(molcnts[name]) + ".gninatypes";
+			molcnts[name]++;
 			ofstream out(outname.c_str());
 
 		  FOR_ATOMS_OF_MOL(a, mol)
