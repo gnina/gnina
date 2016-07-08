@@ -21,6 +21,7 @@
  */
 
 #include "quasi_newton.h"
+#include "conf_gpu.h"
 #include "bfgs.h"
 #include "non_cache_gpu.h"
 

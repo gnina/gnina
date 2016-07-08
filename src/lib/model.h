@@ -30,6 +30,7 @@
 #include "file.h"
 #include "tree.h"
 #include "tree_gpu.h"
+#include "conf_gpu.h"
 #include "matrix.h"
 #include "precalculate.h"
 #include "igrid.h"

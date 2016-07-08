@@ -24,7 +24,7 @@
 #define VINA_BFGS_H
 
 #include "matrix.h"
-#include "conf.h"
+#include "conf_gpu.h"
 #include <numeric>
 
 void minus_mat_vec_product(const flmat& m, const change& in, change& out)
