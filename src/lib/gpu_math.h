@@ -33,6 +33,11 @@ struct gfloat3 : float3{
         z = b[2];
         return *this;
     }
+
+	__host__ __device__ __inline__
+	float3 operator-(const float3 &a) {
+		return make_float3(-a.x, -a.y, -a.z);
+	}
 };
 
 #define float3 gfloat3

@@ -11,6 +11,7 @@
 
 #define THREADS_PER_BLOCK 1024
 #define warpSize 32
+#define DBUG 0
 
 __global__
 void evaluate_splines(float **splines, float r, float fraction, float cutoff,
@@ -202,6 +203,41 @@ __device__  __forceinline__ T block_sum(T mySum) {
 	return mySum;
 }
 
+__device__
+void eval_intra_st(const GPUSplineInfo * spinfo, const atom_params * atoms,
+		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr,
+		float v, float *st_e) {
+
+	float total = 0.0;
+	for (unsigned i = 0; i < npairs; i += 1) {
+
+		const interacting_pair& ip = pairs[i];
+		float3 r = atoms[ip.b].coords - atoms[ip.a].coords;
+		float r2 = dot(r, r);
+		if (r2 < cutoff_sqr) {
+			float3 deriv = float3(0, 0, 0);
+			float dor;
+			unsigned t1 = ip.t1;
+			unsigned t2 = ip.t2;
+			float energy = eval_deriv_gpu(spinfo, t1, atoms[ip.a].charge, t2,
+					atoms[ip.b].charge, r2, dor);
+			deriv = r * dor;
+			curl(energy, (float*) &deriv, v);
+
+			// st_out[ip.b].minus_force.x += deriv.x;
+			// st_out[ip.b].minus_force.y += deriv.y;
+			// st_out[ip.b].minus_force.z += deriv.z;
+// 
+			// st_out[ip.a].minus_force.x -= deriv.x;
+			// st_out[ip.a].minus_force.y -= deriv.y;
+			// st_out[ip.a].minus_force.z -= deriv.z;
+
+			total += energy;
+		}
+	}
+	*st_e = total;
+}
+
 //calculates the energies of all ligand-prot interactions and combines the results
 //into energies and minus forces
 //needs enough shared memory for derivatives and energies of single ligand atom
@@ -325,16 +361,28 @@ float single_point_calc(const GPUNonCacheInfo *info, atom_params *ligs,
 	return ret.energy;
 }
 
-/* evaluate contribution of interacting pairs, add to forces and place total energy in e (which must be zero initialized) */
+/* evaluate contribution of interacting pairs, add to forces and place total */
+/* energy in e (which must be zero initialized). N.B. currently assumes natoms */
+/* is the number of ligand atoms. */
 __global__
 void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
 		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr,
-		float v, force_energy_tup *out, float *e) {
+		float v, force_energy_tup *out, float *e, unsigned nlig_atoms) {
+	// set shared memory buffer to 0...current implementation is fundamentally
+	// flawed because it requires shared memory approaching the default limit 
+	// for practically feasible numbers of ligand atoms.
+	extern __shared__ float3 temp_forces[];
+	int idx = threadIdx.x;
+	for (int i=idx; i < nlig_atoms * nlig_atoms; i += blockDim.x) {
+		temp_forces[i] = float3(0, 0, 0);
+	}
+	__syncthreads();
 
-	float total = 0.0;
-	for (unsigned i = 0; i < npairs; i += 1) {
-
-		const interacting_pair& ip = pairs[i];
+	// evaluate one interacting pair, store forces in shared memory buffer, 
+	// do warp reduction on energy.
+	float energy = 0;
+	if (idx < npairs) {
+		const interacting_pair& ip = pairs[idx];
 		float3 r = atoms[ip.b].coords - atoms[ip.a].coords;
 		float r2 = dot(r, r);
 		if (r2 < cutoff_sqr) {
@@ -342,22 +390,39 @@ void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
 			float dor;
 			unsigned t1 = ip.t1;
 			unsigned t2 = ip.t2;
-			float energy = eval_deriv_gpu(spinfo, t1, atoms[ip.a].charge, t2,
+			energy = eval_deriv_gpu(spinfo, t1, atoms[ip.a].charge, t2,
 					atoms[ip.b].charge, r2, dor);
 			deriv = r * dor;
 			curl(energy, (float*) &deriv, v);
+			// smoke it if you've got it
+			temp_forces[ip.b * nlig_atoms + ip.a] = deriv;
+			temp_forces[ip.a * nlig_atoms + ip.b] = -deriv;
+		}
+	}	
 
-			out[ip.b].minus_force.x += deriv.x;
-			out[ip.b].minus_force.y += deriv.y;
-			out[ip.b].minus_force.z += deriv.z;
+	float e_tot = block_sum<float>(energy);
+	if (idx == 0) {
+		*e = e_tot;	
+	}
+	
+	if (idx < nlig_atoms) {
+		for (int i=0; i < nlig_atoms; i++) {
+			out[idx].minus_force.x += temp_forces[idx * nlig_atoms + i].x;
+			out[idx].minus_force.y += temp_forces[idx * nlig_atoms + i].y;
+			out[idx].minus_force.z += temp_forces[idx * nlig_atoms + i].z;
+		}	
+	}
 
-			out[ip.a].minus_force.x -= deriv.x;
-			out[ip.a].minus_force.y -= deriv.y;
-			out[ip.a].minus_force.z -= deriv.z;
-
-			total += energy;
+	/* Again! With a single thread and _feeling_ */ 
+	if (DBUG == 1) {
+		if (idx == 0) {
+			float st_e = 0;
+			eval_intra_st(spinfo, atoms, pairs, npairs, cutoff_sqr, v, &st_e);
+			float e_diff = (st_e - e_tot) < 0 ? -(st_e - e_tot) : (st_e - e_tot);
+			if (e_diff > 1) {
+				printf("Energies differ by %f\n", e_diff);
+			}
 		}
 	}
-	*e = total;
 }
 

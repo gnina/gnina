@@ -827,8 +827,9 @@ fl model::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
 	const fl cutoff_sqr = info.cutoff_sq;
 	cudaMemset(gdata.scratch, 0, sizeof(float));
 
-	eval_intra_kernel<<<1,1>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch);
+	eval_intra_kernel<<<1,ROUND_TO_WARP(ligands[0].pairs.size()),info.nlig_atoms*info.nlig_atoms*sizeof(float)*3>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch, info.nlig_atoms);
 
+	// Shouldn't need the synchronize unless UM is still being used somewhere...
 	cudaDeviceSynchronize();
 	float e = 0;
 	cudaMemcpy(&e, gdata.scratch, sizeof(float), cudaMemcpyDeviceToHost);

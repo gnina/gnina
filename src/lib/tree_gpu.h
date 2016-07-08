@@ -5,7 +5,6 @@
 #include "atom.h"
 #include <vector>
 #include <queue>
-#include "conf_gpu.h"
 #include "gpu_util.h"
 
 struct segment_node {

@@ -35,7 +35,6 @@
 #include "igrid.h"
 #include "grid_dim.h"
 #include "grid.h"
-#include "conf_gpu.h"
 #include "gpucode.h"
 #include "interacting_pairs.h"
 

@@ -23,7 +23,6 @@
 #include "quasi_newton.h"
 #include "bfgs.h"
 #include "non_cache_gpu.h"
-#include "conf_gpu.h"
 
 
 struct quasi_newton_aux {
