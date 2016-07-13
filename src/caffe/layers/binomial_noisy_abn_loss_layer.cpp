@@ -81,22 +81,25 @@ void BinomialNoisyABNLossLayer<Dtype>::Backward_cpu(
       Dtype prob = bottom_data[i * dim + 1];
       Dtype diff = 0;
       if(label == 0) {
-	if(theta1 == 0 && prob == 1)
-          diff = 0;
-	else
+        if(theta1 == 0 && prob == 1)
+         diff = 0;
+        else
           diff = theta1*prob/( (1-theta0)*(1-prob) + theta1*prob );
-      } else if(label == 1) {
-	if(theta0 == 0 && prob == 0)
-	  diff = 1;
-	else
-          diff = (1-theta1)*prob/ ( (1-theta1)*prob+theta0*(1-prob));
-      } else {
+      }
+      else if(label == 1) {
+        if(theta0 == 0 && prob == 0)
+        diff = 1;
+        else
+        diff = (1-theta1)*prob/ ( (1-theta1)*prob+theta0*(1-prob));
+      }
+      else {
         LOG(FATAL) << this->type() << " Require binary labels.";
       }
       diff = diff - prob;
-      bottom_diff[i * dim + label] = scale * diff;
-    }
-  }
+      bottom_diff[i * dim + 1 ] = -scale * diff;
+      bottom_diff[i * dim ] = scale*diff;
+    } //for
+  } //if
 }
 
 INSTANTIATE_CLASS(BinomialNoisyABNLossLayer);
