@@ -29,6 +29,13 @@
 #include "non_cache_gpu.h"
 #include "loop_timer.h"
 
+// Expected this to be 
+// max_atoms = sqrt(shared_mem_capacity-warp_reduction_needs/sizeof(float3)) + 1
+// but the cutoff is significantly lower than that. 
+// Found via testing when the allocation fails.
+#define MAX_ATOMS 64
+#define MAX_THREADS 1024
+
 namespace smina_atom_type {
 info data[NumTypes] = { { }, };
 
@@ -824,14 +831,39 @@ fl model::eval_interacting_pairs_deriv(const precalculate& p, fl v,
 //evaluates interacting pairs (which is all of them) on the gpu
 fl model::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
 		fl v) const { // adds to forces  // clean up
+
+	float e = 0;
+	// If there aren't any pairs, just return.
+	if (ligands[0].pairs.size() == 0) {
+		return e;
+	}
+
 	const fl cutoff_sqr = info.cutoff_sq;
 	cudaMemset(gdata.scratch, 0, sizeof(float));
 
-	eval_intra_kernel<<<1,ROUND_TO_WARP(ligands[0].pairs.size()),info.nlig_atoms*info.nlig_atoms*sizeof(float)*3>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch, info.nlig_atoms);
+	// The current algorithm parallelizes across the pairs and then the ligand
+	// atoms, so launch the maximum number of threads you'll need. There's a
+	// reduction across the energy too, so round to the warp size at launch.
+	unsigned nthreads = ligands[0].pairs.size() < info.nlig_atoms ? info.nlig_atoms : ligands[0].pairs.size(); 
 
-	// Shouldn't need the synchronize unless UM is still being used somewhere...
-	cudaDeviceSynchronize();
-	float e = 0;
+	// If it's small enough to do in shared memory, do it there.
+	if (info.nlig_atoms < MAX_ATOMS && nthreads < MAX_THREADS) {
+		eval_intra_shared<<<1,ROUND_TO_WARP(nthreads),info.nlig_atoms*info.nlig_atoms*sizeof(float3)>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch, info.nlig_atoms);
+	}
+	// Otherwise, do in global memory. This includes values that exceed the
+	// maximum number of threads per block, so chunk as needed.
+	else {
+		float3* temp_forces;
+		cudaMalloc(&temp_forces, info.nlig_atoms*info.nlig_atoms*sizeof(float3));
+		cudaMemset(temp_forces, 0, info.nlig_atoms*info.nlig_atoms*sizeof(float3));
+		unsigned full_blocks = ROUND_TO_WARP(nthreads) / MAX_THREADS;
+		unsigned threads_remain = ROUND_TO_WARP(nthreads) % MAX_THREADS;
+		if (full_blocks) 
+			eval_intra_global<<<full_blocks,MAX_THREADS>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch, info.nlig_atoms, temp_forces);
+		if (threads_remain)
+			eval_intra_global<<<1,ROUND_TO_WARP(threads_remain)>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch, info.nlig_atoms, temp_forces);
+	}
+
 	cudaMemcpy(&e, gdata.scratch, sizeof(float), cudaMemcpyDeviceToHost);
 	return e;
 }
@@ -899,7 +931,6 @@ fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
 
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
 
-	//TODO TODO TODO: gpu parallelize intra
 	fl ie = eval_interacting_pairs_deriv_gpu(ncgpu->get_info(), v[0]); // adds to minus_forces
 
 	CUDA_CHECK(
@@ -908,8 +939,6 @@ fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
 	e += ie;
 	// calculate derivatives
 	derivatives_kernel<<<1,1>>>(gdata.treegpu, (vec*)gdata.coords, (vec*)gdata.minus_forces, g.change_values);
-
-	cudaDeviceSynchronize(); //TODO: remove this once unified memory is gone and all calculations are on gpu
 
 	t.stop();
 	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */

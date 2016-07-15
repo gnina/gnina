@@ -87,7 +87,6 @@ struct change_gpu {
 		CUDA_CHECK(
 				cudaMemcpy(change_values, src.change_values, sizeof(float) * n,
 						cudaMemcpyDeviceToDevice));
-		cudaDeviceSynchronize(); //TODO: should be unnecessary once unified mem is gone
 	}
 
 	~change_gpu() {
@@ -188,8 +187,6 @@ struct change_gpu {
 		CUDA_CHECK(
 				cudaMemcpy(change_values, &d[0], n * sizeof(float),
 						cudaMemcpyHostToDevice));
-		cudaDeviceSynchronize();
-
 	}
 
 	void print() const {
@@ -298,7 +295,6 @@ struct conf_gpu {
 		CUDA_CHECK(
 				cudaMemcpy(cinfo, src.cinfo, sizeof(float) * n,
 						cudaMemcpyDeviceToDevice));
-		cudaDeviceSynchronize(); //TODO: should be unnecessary once unified mem is gone
 	}
 
 	~conf_gpu() {
@@ -347,8 +343,6 @@ struct conf_gpu {
 		CUDA_CHECK(
 				cudaMemcpy(cinfo, &d[0], n * sizeof(float),
 						cudaMemcpyHostToDevice));
-		cudaDeviceSynchronize();
-
 	}
 
 	void print() const {

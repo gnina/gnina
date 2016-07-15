@@ -11,7 +11,6 @@
 
 #define THREADS_PER_BLOCK 1024
 #define warpSize 32
-#define DBUG 0
 
 __global__
 void evaluate_splines(float **splines, float r, float fraction, float cutoff,
@@ -362,24 +361,18 @@ float single_point_calc(const GPUNonCacheInfo *info, atom_params *ligs,
 }
 
 /* evaluate contribution of interacting pairs, add to forces and place total */
-/* energy in e (which must be zero initialized). N.B. currently assumes natoms */
-/* is the number of ligand atoms. */
-__global__
-void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
+/* energy in e (which must be zero initialized). NB: currently assumes natoms */
+/* is the number of ligand atoms - might need to change if receptor residues */
+/* are included */
+__device__
+void eval_intra(const GPUSplineInfo * spinfo, const atom_params * atoms,
 		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr,
-		float v, force_energy_tup *out, float *e, unsigned nlig_atoms) {
-	// set shared memory buffer to 0...current implementation is fundamentally
-	// flawed because it requires shared memory approaching the default limit 
-	// for practically feasible numbers of ligand atoms.
-	extern __shared__ float3 temp_forces[];
-	int idx = threadIdx.x;
-	for (int i=idx; i < nlig_atoms * nlig_atoms; i += blockDim.x) {
-		temp_forces[i] = float3(0, 0, 0);
-	}
-	__syncthreads();
+		float v, force_energy_tup *out, float *e, unsigned nlig_atoms, float3
+		*temp_forces) {
 
-	// evaluate one interacting pair, store forces in shared memory buffer, 
-	// do warp reduction on energy.
+	// evaluate one interacting pair, stash forces in buffer, 
+	// do warp reduction on energy, reduce forces per atom
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	float energy = 0;
 	if (idx < npairs) {
 		const interacting_pair& ip = pairs[idx];
@@ -402,7 +395,7 @@ void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
 
 	float e_tot = block_sum<float>(energy);
 	if (idx == 0) {
-		*e = e_tot;	
+		atomicAdd(e, e_tot);
 	}
 	
 	if (idx < nlig_atoms) {
@@ -412,17 +405,29 @@ void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
 			out[idx].minus_force.z += temp_forces[idx * nlig_atoms + i].z;
 		}	
 	}
-
-	/* Again! With a single thread and _feeling_ */ 
-	if (DBUG == 1) {
-		if (idx == 0) {
-			float st_e = 0;
-			eval_intra_st(spinfo, atoms, pairs, npairs, cutoff_sqr, v, &st_e);
-			float e_diff = (st_e - e_tot) < 0 ? -(st_e - e_tot) : (st_e - e_tot);
-			if (e_diff > 1) {
-				printf("Energies differ by %f\n", e_diff);
-			}
-		}
-	}
 }
 
+__global__
+void eval_intra_shared(const GPUSplineInfo *spinfo, const atom_params *atoms,
+		const interacting_pair *pairs, unsigned npairs, float cutoff_sqr,
+		float v, force_energy_tup *out, float *e, unsigned nlig_atoms) {
+	// set shared memory buffer to 0
+	extern __shared__ float3 temp_forces[];
+	for (int i=threadIdx.x; i < nlig_atoms * nlig_atoms; i += blockDim.x) {
+		temp_forces[i] = float3(0, 0, 0);
+	}
+	__syncthreads();
+
+	eval_intra(spinfo, atoms, pairs, npairs, cutoff_sqr,
+		v, out, e, nlig_atoms, temp_forces);
+}
+
+__global__
+void eval_intra_global(const GPUSplineInfo *spinfo, const atom_params *atoms,
+		const interacting_pair *pairs, unsigned npairs, float cutoff_sqr,
+		float v, force_energy_tup *out, float *e, unsigned nlig_atoms, float3*
+		temp_forces) {
+
+	eval_intra(spinfo, atoms, pairs, npairs, cutoff_sqr,
+		v, out, e, nlig_atoms, temp_forces);
+}
