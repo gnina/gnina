@@ -29,10 +29,7 @@
 #include "non_cache_gpu.h"
 #include "loop_timer.h"
 
-// Expected this to be 
 // max_atoms = sqrt(shared_mem_capacity-warp_reduction_needs/sizeof(float3)) + 1
-// but the cutoff is significantly lower than that. 
-// Found via testing when the allocation fails.
 #define MAX_ATOMS 64
 #define MAX_THREADS 1024
 

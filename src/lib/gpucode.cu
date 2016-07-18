@@ -394,9 +394,14 @@ void eval_intra(const GPUSplineInfo * spinfo, const atom_params * atoms,
 		}
 	}	
 
+	// The adds below need to be atomics because multiple blocks may be
+	// attempting to add into them at once. If this approach were actually
+	// going to be utilized, it would be worth thinking about making the shared
+	// memory version execute without these atomics since it doesn't need them,
+	// or launching the blocks sequentially instead.
 	float e_tot = block_sum<float>(energy);
 	if (idx == 0) {
-		*e += e_tot;
+		atomicAdd(e, e_tot);
 	}
 	
 	if (idx < nlig_atoms) {
@@ -406,9 +411,9 @@ void eval_intra(const GPUSplineInfo * spinfo, const atom_params * atoms,
 			float z = temp_forces[idx * nlig_atoms + i].z;
 			if (x==0 && y==0 && z==0)
 				num_zeros++;
-			out[idx].minus_force.x += x;
-			out[idx].minus_force.y += y;
-			out[idx].minus_force.z += z;
+			atomicAdd(&out[idx].minus_force.x, x);
+			atomicAdd(&out[idx].minus_force.y, y);
+			atomicAdd(&out[idx].minus_force.z, z);
 		}	
 	}
 
