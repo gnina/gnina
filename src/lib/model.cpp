@@ -838,27 +838,12 @@ fl model::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
 	const fl cutoff_sqr = info.cutoff_sq;
 	cudaMemset(gdata.scratch, 0, sizeof(float));
 
-	// The current algorithm parallelizes across the pairs and then the ligand
-	// atoms, so launch the maximum number of threads you'll need. There's a
-	// reduction across the energy too, so round to the warp size at launch.
-	unsigned nthreads = ligands[0].pairs.size() < info.nlig_atoms ? info.nlig_atoms : ligands[0].pairs.size(); 
+	if(gdata.pairs_size < CUDA_THREADS_PER_BLOCK) {
+		eval_intra_kernel<<<1,gdata.pairs_size>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch);
 
-	// If it's small enough to do in shared memory, do it there.
-	if (info.nlig_atoms < MAX_ATOMS && nthreads < MAX_THREADS) {
-		eval_intra_shared<<<1,ROUND_TO_WARP(nthreads),info.nlig_atoms*info.nlig_atoms*sizeof(float3)>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch, info.nlig_atoms);
-	}
-	// Otherwise, do in global memory. This includes values that exceed the
-	// maximum number of threads per block, so chunk as needed.
-	else {
-		float3* temp_forces;
-		cudaMalloc(&temp_forces, info.nlig_atoms*info.nlig_atoms*sizeof(float3));
-		cudaMemset(temp_forces, 0, info.nlig_atoms*info.nlig_atoms*sizeof(float3));
-		unsigned full_blocks = ROUND_TO_WARP(nthreads) / MAX_THREADS;
-		unsigned threads_remain = ROUND_TO_WARP(nthreads) % MAX_THREADS;
-		if (full_blocks) 
-			eval_intra_global<<<full_blocks,MAX_THREADS>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch, info.nlig_atoms, temp_forces);
-		if (threads_remain)
-			eval_intra_global<<<1,ROUND_TO_WARP(threads_remain)>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch, info.nlig_atoms, temp_forces);
+	} 
+	else { 
+		eval_intra_kernel<<<CUDA_GET_BLOCKS(gdata.pairs_size, CUDA_THREADS_PER_BLOCK), CUDA_THREADS_PER_BLOCK>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch);
 	}
 
 	cudaMemcpy(&e, gdata.scratch, sizeof(float), cudaMemcpyDeviceToHost);

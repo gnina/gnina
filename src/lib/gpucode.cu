@@ -361,91 +361,44 @@ float single_point_calc(const GPUNonCacheInfo *info, atom_params *ligs,
 }
 
 /* evaluate contribution of interacting pairs, add to forces and place total */
-/* energy in e (which must be zero initialized). NB: currently assumes natoms */
-/* is the number of ligand atoms - might need to change if receptor residues */
-/* are included */
-__device__
-void eval_intra(const GPUSplineInfo * spinfo, const atom_params * atoms,
-		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr,
-		float v, force_energy_tup *out, float *e, unsigned nlig_atoms, float3
-		*temp_forces) {
+/* energy in e (which must be zero initialized). */
 
-	// evaluate one interacting pair, stash forces in buffer, 
-	// do warp reduction on energy, reduce forces per atom
-	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	float num_zeros = 0;
-	float energy = 0;
-	if (idx < npairs) {
-		const interacting_pair& ip = pairs[idx];
+__global__
+void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
+		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr, float v, force_energy_tup *out, float *e) {
+
+	for(unsigned i = blockDim.x * blockIdx.x + threadIdx.x; i < npairs; i +=
+			CUDA_THREADS_PER_BLOCK * gridDim.x) {
+
+		const interacting_pair& ip = pairs[i];
 		float3 r = atoms[ip.b].coords - atoms[ip.a].coords;
-		float r2 = dot(r, r);
-		if (r2 < cutoff_sqr) {
-			float3 deriv = float3(0, 0, 0);
+		float r2 = dot(r,r);
+		if (r2 < cutoff_sqr)
+		{
+			float3 deriv = float3(0,0,0);
 			float dor;
 			unsigned t1 = ip.t1;
 			unsigned t2 = ip.t2;
-			energy = eval_deriv_gpu(spinfo, t1, atoms[ip.a].charge, t2,
+			float energy = eval_deriv_gpu(spinfo, t1, atoms[ip.a].charge, t2,
 					atoms[ip.b].charge, r2, dor);
 			deriv = r * dor;
-			curl(energy, (float*) &deriv, v);
-			// smoke it if you've got it
-			temp_forces[ip.b * nlig_atoms + ip.a] = deriv;
-			temp_forces[ip.a * nlig_atoms + ip.b] = -deriv;
+			curl(energy, (float*)&deriv, v);
+
+			atomicAdd(&out[ip.b].minus_force.x, deriv.x);
+			atomicAdd(&out[ip.b].minus_force.y, deriv.y);
+			atomicAdd(&out[ip.b].minus_force.z, deriv.z);
+
+			atomicAdd(&out[ip.a].minus_force.x, -deriv.x);
+			atomicAdd(&out[ip.a].minus_force.y, -deriv.y);
+			atomicAdd(&out[ip.a].minus_force.z, -deriv.z);
+
+			atomicAdd(e, energy); //can't use blocksum unless we have multiple of 32 threads
+			/*float this_e = block_sum<float>(energy);
+			if (threadIdx.x == 0)
+			{
+				printf("Intra %f\n",this_e);
+				*e += this_e;
+			}*/
 		}
-	}	
-
-	// The adds below need to be atomics because multiple blocks may be
-	// attempting to add into them at once. If this approach were actually
-	// going to be utilized, it would be worth thinking about making the shared
-	// memory version execute without these atomics since it doesn't need them,
-	// or launching the blocks sequentially instead.
-	float e_tot = block_sum<float>(energy);
-	if (idx == 0) {
-		atomicAdd(e, e_tot);
 	}
-	
-	if (idx < nlig_atoms) {
-		for (int i=0; i < nlig_atoms; i++) {
-			float x = temp_forces[idx * nlig_atoms + i].x;
-			float y = temp_forces[idx * nlig_atoms + i].y;
-			float z = temp_forces[idx * nlig_atoms + i].z;
-			if (x==0 && y==0 && z==0)
-				num_zeros++;
-			atomicAdd(&out[idx].minus_force.x, x);
-			atomicAdd(&out[idx].minus_force.y, y);
-			atomicAdd(&out[idx].minus_force.z, z);
-		}	
-	}
-
-	float total_zeros = block_sum<float>(num_zeros);
-	if (idx == 0) {
-		printf("Average zeros per row is %f\n", total_zeros/float(nlig_atoms));
-		printf("Total zeros is %f and matrix dimension is %u\n", total_zeros,
-				nlig_atoms);
-	}
-}
-
-__global__
-void eval_intra_shared(const GPUSplineInfo *spinfo, const atom_params *atoms,
-		const interacting_pair *pairs, unsigned npairs, float cutoff_sqr,
-		float v, force_energy_tup *out, float *e, unsigned nlig_atoms) {
-	// set shared memory buffer to 0
-	extern __shared__ float3 temp_forces[];
-	for (int i=threadIdx.x; i < nlig_atoms * nlig_atoms; i += blockDim.x) {
-		temp_forces[i] = float3(0, 0, 0);
-	}
-	__syncthreads();
-
-	eval_intra(spinfo, atoms, pairs, npairs, cutoff_sqr,
-		v, out, e, nlig_atoms, temp_forces);
-}
-
-__global__
-void eval_intra_global(const GPUSplineInfo *spinfo, const atom_params *atoms,
-		const interacting_pair *pairs, unsigned npairs, float cutoff_sqr,
-		float v, force_energy_tup *out, float *e, unsigned nlig_atoms, float3*
-		temp_forces) {
-
-	eval_intra(spinfo, atoms, pairs, npairs, cutoff_sqr,
-		v, out, e, nlig_atoms, temp_forces);
 }

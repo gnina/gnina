@@ -67,11 +67,7 @@ float single_point_calc(const GPUNonCacheInfo *dinfo, atom_params *lig,
                         force_energy_tup *out, float slope,
                         unsigned nlig_atoms, unsigned nrec_atoms, float v);
 __global__
-void eval_intra_shared(const GPUSplineInfo * spinfo, const atom_params * atoms,
-		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr, float v, force_energy_tup *out, float *e, unsigned nlig_atoms);
-
-__global__
-void eval_intra_global(const GPUSplineInfo * spinfo, const atom_params * atoms,
-		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr, float v, force_energy_tup *out, float *e, unsigned nlig_atoms, float3* temp_forces);
+void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
+		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr, float v, force_energy_tup *out, float *e);
 
 #endif
