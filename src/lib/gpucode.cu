@@ -373,6 +373,7 @@ void eval_intra(const GPUSplineInfo * spinfo, const atom_params * atoms,
 	// evaluate one interacting pair, stash forces in buffer, 
 	// do warp reduction on energy, reduce forces per atom
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	float num_zeros = 0;
 	float energy = 0;
 	if (idx < npairs) {
 		const interacting_pair& ip = pairs[idx];
@@ -395,15 +396,27 @@ void eval_intra(const GPUSplineInfo * spinfo, const atom_params * atoms,
 
 	float e_tot = block_sum<float>(energy);
 	if (idx == 0) {
-		atomicAdd(e, e_tot);
+		*e += e_tot;
 	}
 	
 	if (idx < nlig_atoms) {
 		for (int i=0; i < nlig_atoms; i++) {
-			out[idx].minus_force.x += temp_forces[idx * nlig_atoms + i].x;
-			out[idx].minus_force.y += temp_forces[idx * nlig_atoms + i].y;
-			out[idx].minus_force.z += temp_forces[idx * nlig_atoms + i].z;
+			float x = temp_forces[idx * nlig_atoms + i].x;
+			float y = temp_forces[idx * nlig_atoms + i].y;
+			float z = temp_forces[idx * nlig_atoms + i].z;
+			if (x==0 && y==0 && z==0)
+				num_zeros++;
+			out[idx].minus_force.x += x;
+			out[idx].minus_force.y += y;
+			out[idx].minus_force.z += z;
 		}	
+	}
+
+	float total_zeros = block_sum<float>(num_zeros);
+	if (idx == 0) {
+		printf("Average zeros per row is %f\n", total_zeros/float(nlig_atoms));
+		printf("Total zeros is %f and matrix dimension is %u\n", total_zeros,
+				nlig_atoms);
 	}
 }
 
