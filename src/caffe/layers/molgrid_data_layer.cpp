@@ -125,6 +125,8 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     while (getline(infile, line)) {
       stringstream ex(line);
       int label = 0;
+      ligname = string();
+      recname = string();
       //first the label
       ex >> label;
       //receptor
