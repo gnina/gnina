@@ -1,19 +1,10 @@
 BASE=/usr/local/
-C_PLATFORM= -pthread  -DSMINA_GPU
-GPP=g++
-C_OPTIONS= -O3 -g   
+C_PLATFORM=  -DSMINA_GPU
+C_OPTIONS= -O3 -g -DNDEBUG -flto=jobserver -fno-fat-lto-objects -fuse-linker-plugin
 BOOST_LIB_VERSION=
-NVCC=nvcc
-NVOPTS=-std=c++11 -gencode arch=compute_52,code=sm_52 -O3
-OPENBABEL_INCLUDE=/usr/local/include/openbabel-2.0
-GPUOBJ = gpucode.o
+NVOPTS= -O3 -g -lineinfo -DNDEBUG
+
+.DEFAULT_GOAL := gnina.gpu
 
 include ../../makefile_common
 
-.DEFAULT_GOAL := gpu
-
-%.o : ../../../src/lib/%.cu 
-	$(NVCC) $(NVOPTS) -DSMINA_GPU -o $@ -dc $<
-
-gpu: $(MAINOBJ) $(LIBOBJ) $(GPUOBJ)
-	$(NVCC) -gencode arch=compute_52,code=sm_52 $(LDFLAGS) -o gnina.$@ $^ $(LIBS)  -lcudart

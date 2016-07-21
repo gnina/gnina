@@ -115,7 +115,8 @@ fl compute_lambdamin(const change& p, const conf& x, sz n)
 	//compue lambdamin
 	for (sz i = 0; i < n; i++)
 	{
-		fl temp = fabs(p(i)) / std::max(fabs(x(i)), 1.0f);
+		//static_assert(std::is_same<decltype(std::fabs(1.0f)),float>::value,"Not a float.\n");
+		fl temp = std::fabs(p(i)) / std::max(std::fabs(x(i)), 1.0f);
 		if (temp > test)
 			test = temp;
 	}
@@ -131,7 +132,7 @@ inline fl compute_lambdamin(const change_gpu& p, const conf_gpu& x, sz n)
 	//compue lambdamin
 	for (sz i = 0; i < n; i++)
 	{
-		fl temp = fabs(pvec[i]) / std::max(fabs(xvec[i]), 1.0f);
+		fl temp = std::fabs(pvec[i]) / std::max(std::fabs(xvec[i]), 1.0f);
 		if (temp > test)
 			test = temp;
 	}
@@ -291,7 +292,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		{
 			//dkoes - use the progress in reducing the function value as an indication of when to stop
 			fl diff = prevf0 - f0;
-			if (fabs(diff) < 1e-5) //arbitrary cutoff
+			if (std::fabs(diff) < 1e-5) //arbitrary cutoff
 			{
 				break;
 			}

@@ -44,6 +44,8 @@
 #include "macros.h"
 #include "math.h"
 
+#include <cuda_runtime.h>
+
 typedef float fl;
 
 
