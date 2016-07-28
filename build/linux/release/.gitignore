@@ -1,4 +1,4 @@
-*.o
+objs
 gnina
 gninagrid
 gninaserver
