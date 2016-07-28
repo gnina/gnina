@@ -60,7 +60,7 @@ class szv_grid_cache
 	mutable cache_type cache;
 	const model& m;
 	fl cutoff_sqr;
-	static const fl granularity = 3.0; //good balance of cache locality and avoiding redundant computation
+	static constexpr fl granularity = 3.0; //good balance of cache locality and avoiding redundant computation
 public:
 	szv_grid_cache(const model& m_, fl cut) :
 			m(m_), cutoff_sqr(cut)

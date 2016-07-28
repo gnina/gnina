@@ -154,6 +154,7 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 			}
 
 			m.append(tmp.m);
+
 			return true;
 		}
 		catch (boost::archive::archive_exception& e)
@@ -204,11 +205,14 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 				continue;
 			}
 		}
+
 		return false; //no valid molecules read
 	}
 	case NONE:
 		return true; //nolig
 		break;
 	}
+#ifndef __NVCC__
 	return false; //shouldn't get here
+#endif
 }

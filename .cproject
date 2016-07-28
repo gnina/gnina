@@ -1,134 +1,169 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <?fileVersion 4.0.0?><cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
 	<storageModule moduleId="org.eclipse.cdt.core.settings">
-		<cconfiguration id="cdt.managedbuild.toolchain.gnu.base.728438783">
-			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="cdt.managedbuild.toolchain.gnu.base.728438783" moduleId="org.eclipse.cdt.core.settings" name="Release">
+		<cconfiguration id="com.nvidia.cuda.ide.toolchain.seven_five.1481903621">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.nvidia.cuda.ide.toolchain.seven_five.1481903621" moduleId="org.eclipse.cdt.core.settings" name="Release">
 				<externalSettings/>
 				<extensions>
-					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="com.nvidia.cuda.ide.cubin" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="com.nvidia.cuda.ide.elf" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="com.nvidia.cuda.ide.macho" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="nvcc.errorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.VCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
-					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration buildProperties="" description="" id="cdt.managedbuild.toolchain.gnu.base.728438783" name="Release" parent="org.eclipse.cdt.build.core.emptycfg">
-					<folderInfo id="cdt.managedbuild.toolchain.gnu.base.728438783.405404515" name="/" resourcePath="">
-						<toolChain id="cdt.managedbuild.toolchain.gnu.base.399312205" name="Linux GCC" superClass="cdt.managedbuild.toolchain.gnu.base">
-							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="cdt.managedbuild.target.gnu.platform.base.1289729744" name="Debug Platform" osList="linux,hpux,aix,qnx" superClass="cdt.managedbuild.target.gnu.platform.base"/>
-							<builder buildPath="${workspace_loc:/gnina/build/linux/release}" id="cdt.managedbuild.target.gnu.builder.base.54942627" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="cdt.managedbuild.target.gnu.builder.base"/>
-							<tool id="cdt.managedbuild.tool.gnu.archiver.base.388110852" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.base"/>
-							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.base.1841518498" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.base">
-								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.1225610161" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
+				<configuration buildProperties="" description="" id="com.nvidia.cuda.ide.toolchain.seven_five.1481903621" name="Release" parent="org.eclipse.cdt.build.core.emptycfg">
+					<folderInfo id="com.nvidia.cuda.ide.toolchain.seven_five.1481903621.744822439" name="/" resourcePath="">
+						<toolChain id="com.nvidia.cuda.ide.toolchain.seven_five.143455188" name="CUDA Toolkit 7.5" superClass="com.nvidia.cuda.ide.toolchain.seven_five">
+							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.1516347428" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
+							<builder buildPath="${workspace_loc:/gnina}/build/linux/release" id="com.nvidia.cuda.ide.builder.2129072999" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="CUDA Toolkit 7.5 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
+							<tool id="nvcc.compiler.base.782625047" name="NVCC Compiler" superClass="nvcc.compiler.base">
+								<option id="nvcc.compiler.pic.1703103617" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic"/>
+								<option id="nvcc.compiler.include.paths.190353215" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
+									<listOptionValue builtIn="false" value="/usr/local/include"/>
+									<listOptionValue builtIn="false" value="/usr/include"/>
+								</option>
+								<inputType id="nvcc.compiler.input.cu.1995357219" superClass="nvcc.compiler.input.cu"/>
+								<inputType id="nvcc.compiler.input.cpp.500981434" superClass="nvcc.compiler.input.cpp"/>
+								<inputType id="nvcc.compiler.input.c.52251566" superClass="nvcc.compiler.input.c"/>
 							</tool>
-							<tool id="cdt.managedbuild.tool.gnu.c.compiler.base.1720000445" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.base">
-								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.831998935" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
-							</tool>
-							<tool id="cdt.managedbuild.tool.gnu.c.linker.base.629317722" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.base"/>
-							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.base.1228301253" name="GCC C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.base">
-								<inputType id="cdt.managedbuild.tool.gnu.cpp.linker.input.59534982" superClass="cdt.managedbuild.tool.gnu.cpp.linker.input">
+							<tool id="nvcc.linker.base.1687035230" name="NVCC Linker" superClass="nvcc.linker.base">
+								<inputType id="nvcc.linker.input.1593402155" superClass="nvcc.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
 								</inputType>
 							</tool>
-							<tool id="cdt.managedbuild.tool.gnu.assembler.base.1591673423" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.base">
-								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1824284002" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+							<tool id="nvcc.archiver.base.1954259652" name="NVCC Archiver" superClass="nvcc.archiver.base"/>
+							<tool id="com.nvidia.host.assembler.1619341" name="Host Assembler" superClass="com.nvidia.host.assembler">
+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.954659499" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>
 						</toolChain>
 					</folderInfo>
 				</configuration>
 			</storageModule>
+			<storageModule moduleId="com.nvidia.cuda.ide.build.project.ICudaProjectConfiguration"/>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 			<storageModule moduleId="com.nvidia.cuda.ide.build.project.ICudaProjectConfiguration"/>
 		</cconfiguration>
-		<cconfiguration id="cdt.managedbuild.toolchain.gnu.base.728438783.1294959482">
-			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="cdt.managedbuild.toolchain.gnu.base.728438783.1294959482" moduleId="org.eclipse.cdt.core.settings" name="Debug">
+		<cconfiguration id="com.nvidia.cuda.ide.toolchain.seven_five.1481903621.1028240163">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.nvidia.cuda.ide.toolchain.seven_five.1481903621.1028240163" moduleId="org.eclipse.cdt.core.settings" name="Debug">
 				<externalSettings/>
 				<extensions>
-					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="com.nvidia.cuda.ide.cubin" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="com.nvidia.cuda.ide.elf" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="com.nvidia.cuda.ide.macho" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="nvcc.errorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.VCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
-					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration buildProperties="" description="" id="cdt.managedbuild.toolchain.gnu.base.728438783.1294959482" name="Debug" parent="org.eclipse.cdt.build.core.emptycfg">
-					<folderInfo id="cdt.managedbuild.toolchain.gnu.base.728438783.1294959482." name="/" resourcePath="">
-						<toolChain id="cdt.managedbuild.toolchain.gnu.base.1579732873" name="Linux GCC" superClass="cdt.managedbuild.toolchain.gnu.base">
-							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="cdt.managedbuild.target.gnu.platform.base.300897818" name="Debug Platform" osList="linux,hpux,aix,qnx" superClass="cdt.managedbuild.target.gnu.platform.base"/>
-							<builder buildPath="${workspace_loc:/gnina/build/linux/debug}" id="cdt.managedbuild.target.gnu.builder.base.1201767339" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" superClass="cdt.managedbuild.target.gnu.builder.base"/>
-							<tool id="cdt.managedbuild.tool.gnu.archiver.base.981762849" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.base"/>
-							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.base.438630418" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.base">
-								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.1762093127" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
+				<configuration buildProperties="" description="" id="com.nvidia.cuda.ide.toolchain.seven_five.1481903621.1028240163" name="Debug" parent="org.eclipse.cdt.build.core.emptycfg">
+					<folderInfo id="com.nvidia.cuda.ide.toolchain.seven_five.1481903621.1028240163." name="/" resourcePath="">
+						<toolChain id="com.nvidia.cuda.ide.toolchain.seven_five.77552102" name="CUDA Toolkit 7.5" superClass="com.nvidia.cuda.ide.toolchain.seven_five">
+							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.1503845344" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
+							<builder buildPath="${workspace_loc:/gnina}/build/linux/debug" id="com.nvidia.cuda.ide.builder.1253571683" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="CUDA Toolkit 7.5 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
+							<tool id="nvcc.compiler.base.72217331" name="NVCC Compiler" superClass="nvcc.compiler.base">
+								<option id="nvcc.compiler.pic.1356514694" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic"/>
+								<option id="nvcc.compiler.include.paths.751545790" superClass="nvcc.compiler.include.paths" valueType="includePath">
+									<listOptionValue builtIn="false" value="/usr/local/include"/>
+									<listOptionValue builtIn="false" value="/usr/include"/>
+								</option>
+								<inputType id="nvcc.compiler.input.cu.1997366415" superClass="nvcc.compiler.input.cu"/>
+								<inputType id="nvcc.compiler.input.cpp.1201441581" superClass="nvcc.compiler.input.cpp"/>
+								<inputType id="nvcc.compiler.input.c.1576764967" superClass="nvcc.compiler.input.c"/>
 							</tool>
-							<tool id="cdt.managedbuild.tool.gnu.c.compiler.base.1925562744" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.base">
-								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.213946875" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
-							</tool>
-							<tool id="cdt.managedbuild.tool.gnu.c.linker.base.19940568" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.base"/>
-							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.base.1746855438" name="GCC C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.base">
-								<inputType id="cdt.managedbuild.tool.gnu.cpp.linker.input.35333427" superClass="cdt.managedbuild.tool.gnu.cpp.linker.input">
+							<tool id="nvcc.linker.base.1137654877" name="NVCC Linker" superClass="nvcc.linker.base">
+								<inputType id="nvcc.linker.input.827676451" superClass="nvcc.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
 								</inputType>
 							</tool>
-							<tool id="cdt.managedbuild.tool.gnu.assembler.base.1597342652" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.base">
-								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.201180071" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+							<tool id="nvcc.archiver.base.943031152" name="NVCC Archiver" superClass="nvcc.archiver.base"/>
+							<tool id="com.nvidia.host.assembler.1259982807" name="Host Assembler" superClass="com.nvidia.host.assembler">
+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1166476352" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>
 						</toolChain>
 					</folderInfo>
 				</configuration>
 			</storageModule>
+			<storageModule moduleId="com.nvidia.cuda.ide.build.project.ICudaProjectConfiguration"/>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 		</cconfiguration>
 	</storageModule>
 	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-		<project id="gnina.null.619867776" name="gnina"/>
+		<project id="gnina.null.1874991306" name="gnina"/>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
 		<configuration configurationName="Default">
 			<resource resourceType="PROJECT" workspacePath="/gnina"/>
 		</configuration>
-		<configuration configurationName="Release">
-			<resource resourceType="PROJECT" workspacePath="/gnina"/>
-		</configuration>
-		<configuration configurationName="Debug"/>
 	</storageModule>
 	<storageModule moduleId="scannerConfiguration">
 		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.2032454106.1871998158;cdt.managedbuild.toolchain.gnu.base.2032454106.1871998158.;cdt.managedbuild.tool.gnu.cpp.compiler.base.980829112;cdt.managedbuild.tool.gnu.cpp.compiler.input.1126365497">
-			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.make.core.GCCStandardMakePerFileProfile"/>
-		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.2032454106.1871998158;cdt.managedbuild.toolchain.gnu.base.2032454106.1871998158.;cdt.managedbuild.tool.gnu.c.compiler.base.440985974;cdt.managedbuild.tool.gnu.c.compiler.input.1592050343">
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.2032454106;cdt.managedbuild.toolchain.gnu.base.2032454106.1917943431;cdt.managedbuild.tool.gnu.cpp.compiler.base.1589642915;cdt.managedbuild.tool.gnu.cpp.compiler.input.1223040138">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.128709192;cdt.managedbuild.toolchain.gnu.base.128709192.1154603725;cdt.managedbuild.tool.gnu.c.compiler.base.320871794;cdt.managedbuild.tool.gnu.c.compiler.input.1239149254">
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.2032454106.1871998158;cdt.managedbuild.toolchain.gnu.base.2032454106.1871998158.;cdt.managedbuild.tool.gnu.c.compiler.base.440985974;cdt.managedbuild.tool.gnu.c.compiler.input.1592050343">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
 		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.2032454106.1019405903;cdt.managedbuild.toolchain.gnu.base.2032454106.1019405903.;cdt.managedbuild.tool.gnu.c.compiler.base.175701275;cdt.managedbuild.tool.gnu.c.compiler.input.1048428335">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.2032454106.1019405903;cdt.managedbuild.toolchain.gnu.base.2032454106.1019405903.;cdt.managedbuild.tool.gnu.cpp.compiler.base.28711977;cdt.managedbuild.tool.gnu.cpp.compiler.input.511024947">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.toolchain.seven_five.1481903621.1028240163;com.nvidia.cuda.ide.toolchain.seven_five.1481903621.1028240163.;nvcc.compiler.base.72217331;nvcc.compiler.input.cu.1997366415">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.2032454106.1871998158;cdt.managedbuild.toolchain.gnu.base.2032454106.1871998158.;cdt.managedbuild.tool.gnu.cpp.compiler.base.980829112;cdt.managedbuild.tool.gnu.cpp.compiler.input.1126365497">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.make.core.GCCStandardMakePerFileProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.toolchain.seven_five.1481903621;com.nvidia.cuda.ide.toolchain.seven_five.1481903621.744822439;nvcc.compiler.base.782625047;nvcc.compiler.input.cu.1995357219">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
+		</scannerConfigBuildInfo>
 		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.128709192;cdt.managedbuild.toolchain.gnu.base.128709192.1154603725;cdt.managedbuild.tool.gnu.cpp.compiler.base.1644846255;cdt.managedbuild.tool.gnu.cpp.compiler.input.2066662961">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.728438783;cdt.managedbuild.toolchain.gnu.base.728438783.405404515;cdt.managedbuild.tool.gnu.cpp.compiler.base.1841518498;cdt.managedbuild.tool.gnu.cpp.compiler.input.1225610161">
-			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.2032454106;cdt.managedbuild.toolchain.gnu.base.2032454106.1917943431;cdt.managedbuild.tool.gnu.cpp.compiler.base.1589642915;cdt.managedbuild.tool.gnu.cpp.compiler.input.1223040138">
-			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.2032454106.1019405903;cdt.managedbuild.toolchain.gnu.base.2032454106.1019405903.;cdt.managedbuild.tool.gnu.cpp.compiler.base.28711977;cdt.managedbuild.tool.gnu.cpp.compiler.input.511024947">
-			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.toolchain.seven_five.1481903621;com.nvidia.cuda.ide.toolchain.seven_five.1481903621.744822439;nvcc.compiler.base.782625047;nvcc.compiler.input.cpp.500981434">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
 		</scannerConfigBuildInfo>
 		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.2032454106;cdt.managedbuild.toolchain.gnu.base.2032454106.1917943431;cdt.managedbuild.tool.gnu.c.compiler.base.1066453932;cdt.managedbuild.tool.gnu.c.compiler.input.348287525">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.toolchain.seven_five.1481903621;com.nvidia.cuda.ide.toolchain.seven_five.1481903621.744822439;nvcc.compiler.base.782625047;nvcc.compiler.input.c.52251566">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.128709192;cdt.managedbuild.toolchain.gnu.base.128709192.1154603725;cdt.managedbuild.tool.gnu.c.compiler.base.320871794;cdt.managedbuild.tool.gnu.c.compiler.input.1239149254">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.728438783.1294959482;cdt.managedbuild.toolchain.gnu.base.728438783.1294959482.;cdt.managedbuild.tool.gnu.c.compiler.base.1925562744;cdt.managedbuild.tool.gnu.c.compiler.input.213946875">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.toolchain.seven_five.1481903621.1028240163;com.nvidia.cuda.ide.toolchain.seven_five.1481903621.1028240163.;nvcc.compiler.base.72217331;nvcc.compiler.input.c.1576764967">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.728438783;cdt.managedbuild.toolchain.gnu.base.728438783.405404515;cdt.managedbuild.tool.gnu.cpp.compiler.base.1841518498;cdt.managedbuild.tool.gnu.cpp.compiler.input.1225610161">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
 		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.728438783;cdt.managedbuild.toolchain.gnu.base.728438783.405404515;cdt.managedbuild.tool.gnu.c.compiler.base.1720000445;cdt.managedbuild.tool.gnu.c.compiler.input.831998935">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.728438783.1294959482;cdt.managedbuild.toolchain.gnu.base.728438783.1294959482.;cdt.managedbuild.tool.gnu.cpp.compiler.base.438630418;cdt.managedbuild.tool.gnu.cpp.compiler.input.1762093127">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.toolchain.seven_five.1481903621.1028240163;com.nvidia.cuda.ide.toolchain.seven_five.1481903621.1028240163.;nvcc.compiler.base.72217331;nvcc.compiler.input.cpp.1201441581">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
 		</scannerConfigBuildInfo>
 	</storageModule>
 </cproject>

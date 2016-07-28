@@ -33,6 +33,7 @@ struct gfloat3 : float3{
         z = b[2];
         return *this;
     }
+
 };
 
 #define float3 gfloat3
@@ -47,6 +48,16 @@ float3 __shfl_down(const float3 &a, int delta) {
 }
 
 #endif
+
+__host__ __device__ __inline__ static
+float3 operator-(const float3 &a) {
+	return float3(-a.x, -a.y, -a.z);
+}
+
+__host__ __device__ __inline__ static
+float dot(float3 a, float3 b) {
+	return a.x * b.x + a.y * b.y + a.z * b.z;
+}
 
 __host__ __device__ __inline__ static
 float &get(float3 &a, int b){

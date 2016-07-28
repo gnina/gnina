@@ -282,7 +282,10 @@ struct pdbqt_initializer {
 
 		m.internal_coords.resize(m.coords.size(), zero_vec); // FIXME
 
-		m.minus_forces = m.coords;
+        /* TODO */
+		/* m.minus_forces = m.coords; */
+        m.minus_forces.resize(m.coords.size());
+    
 		m.m_num_movable_atoms = nrp.atoms.size();
 
 		if(is_ligand) {

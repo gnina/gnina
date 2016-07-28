@@ -75,4 +75,5 @@ private:
 
 typedef std::vector<atom> atomv;
 
+
 #endif

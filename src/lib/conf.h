@@ -28,6 +28,8 @@
 #include "quaternion.h"
 #include "random.h"
 
+struct change_gpu;
+
 struct scale {
 	fl position;
 	fl orientation;
@@ -47,6 +49,7 @@ inline void torsions_set_to_null(flv& torsions) {
 	VINA_FOR_IN(i, torsions)
 		torsions[i] = 0;
 }
+
 
 inline void torsions_increment(flv& torsions, const flv& c, fl factor) { // new torsions are normalized
 	VINA_FOR_IN(i, torsions) {
@@ -68,6 +71,7 @@ inline bool torsions_too_close(const flv& torsions1, const flv& torsions2, fl cu
 	return true;
 }
 
+
 inline void torsions_generate(flv& torsions, fl spread, fl rp, const flv* rs, rng& generator) {
 	assert(!rs || rs->size() == torsions.size()); // if present, rs should be the same size as torsions
 	VINA_FOR_IN(i, torsions)
@@ -76,6 +80,8 @@ inline void torsions_generate(flv& torsions, fl spread, fl rp, const flv* rs, rn
 		else
 			torsions[i] += random_fl(-spread, spread, generator);
 }
+
+
 
 struct rigid_change {
 	vec position;
@@ -154,7 +160,7 @@ struct ligand_change {
 	}
 };
 
-struct ligand_conf {
+struct ligand_conf  {
 	rigid_conf rigid;
 	flv torsions;
 	void set_to_null() {
@@ -173,6 +179,13 @@ struct ligand_conf {
 		rigid.print();
 		printnl(torsions);
 	}
+
+	__device__ __host__
+	ligand_conf(const ligand_conf& rhs): rigid(rhs.rigid), torsions(rhs.torsions) {
+
+	}
+
+	ligand_conf() {}
 private:
 	friend class boost::serialization::access;
 	template<class Archive>
@@ -211,6 +224,7 @@ private:
 	}
 };
 
+/* TODO */
 struct change {
 	std::vector<ligand_change> ligands;
 	std::vector<residue_change> flex;
@@ -260,8 +274,10 @@ struct change {
 			if(index < res.torsions.size()) return res.torsions[index];
 			index -= res.torsions.size();
 		}
-		VINA_CHECK(false); 
+		VINA_CHECK(false);
+#ifndef __NVCC__
 		return 0; // shouldn't happen, placating the compiler
+#endif
 	}
 	fl& operator()(sz index) {
 		VINA_FOR_IN(i, ligands) {
@@ -278,8 +294,10 @@ struct change {
 			if(index < res.torsions.size()) return res.torsions[index];
 			index -= res.torsions.size();
 		}
-		VINA_CHECK(false); 
+		VINA_CHECK(false);
+#ifndef __NVCC__
 		return ligands[0].rigid.position[0]; // shouldn't happen, placating the compiler
+#endif
 	}
 	sz num_floats() const {
 		sz tmp = 0;
@@ -317,8 +335,9 @@ struct conf {
 		VINA_FOR_IN(i, ligands)
 			ligands[i].increment(c.ligands[i], factor);
 		VINA_FOR_IN(i, flex)
-			flex[i]   .increment(c.flex[i],    factor);
+			flex[i].increment(c.flex[i],    factor);
 	}
+
 	bool internal_too_close(const conf& c, fl torsions_cutoff) const {
 		assert(ligands.size() == c.ligands.size());
 		VINA_FOR_IN(i, ligands)
@@ -393,7 +412,9 @@ struct conf {
 			index -= res.torsions.size();
 		}
 		VINA_CHECK(false);
+#ifndef __NVCC__
 		return 0; // shouldn't happen, placating the compiler
+#endif
 	}
 
 private:

@@ -66,7 +66,7 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		//check that network matches our expectations
 
 		//the first layer must be MolGridLayer
-		const vector<shared_ptr<Layer<Dtype> > >& layers = net->layers();
+		const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
 
 		//we also need an output layer
 		if (layers.size() < 1)
@@ -103,7 +103,7 @@ float CNNScorer::score(const model& m)
 	mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
 
 	double score = 0.0;
-	const shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
+	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
 
 	unsigned cnt = 0;
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)

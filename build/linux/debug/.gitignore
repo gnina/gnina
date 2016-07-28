@@ -1,7 +1,8 @@
-/smina
-/vina_split
 *.o
-libsmina.a
-server
-smina.static
-tosmina
+gnina
+gninagrid
+gninaserver
+gninatyper
+libgnina.a
+tognina
+gnina.static

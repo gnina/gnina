@@ -67,6 +67,7 @@ struct user_settings
 	int verbosity;
 	int cpu;
 	int device; //gpu number
+
 	int exhaustiveness;
 	bool score_only;
 	bool randomize_only;
@@ -226,6 +227,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 	fl rmsd = 0;
 	const vec authentic_v(settings.forcecap, settings.forcecap,
 			settings.forcecap); //small cap restricts initial movement from clash
+
 	if (settings.score_only)
 	{
 		fl intramolecular_energy = m.eval_intramolecular(exact_prec,
@@ -271,6 +273,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log << '\n';
 
 		results.push_back(result_info(e, cnnscore, -1, m));
+
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
 	}
@@ -310,6 +313,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
 			log.endl();
 		}
+
 		if (!nc.within(m))
 			log
 			<< "WARNING: not all movable atoms are within the search space\n";
@@ -317,6 +321,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		m.set(out.c);
 		done(settings.verbosity, log);
 		results.push_back(result_info(e, cnnscore, rmsd, m));
+
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
 	}
@@ -383,6 +388,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 			//dkoes - setup result_info
 			results.push_back(result_info(out_cont[i].e, cnnscore, -1, m));
+
 			if (compute_atominfo)
 				results.back().setAtomValues(m, &sf);
 
@@ -487,6 +493,7 @@ void main_procedure(model& m, precalculate& prec,
 		{
 			bool cache_needed = !(settings.score_only || settings.randomize_only
 					|| settings.local_only);
+
 			if (cache_needed)
 				doing(settings.verbosity, "Analyzing the binding site", log);
 			cache c("scoring_function_version001", gd, slope);
@@ -726,7 +733,6 @@ static void initializeCUDA(int device)
 		exit(-1);
 	}
 
-
 	error = cudaGetDevice(&device);
 
 	if (error != cudaSuccess)
@@ -938,14 +944,15 @@ void thread_a_writing(boost::lockfree::queue<writer_job>* writerq,
 	}
 }
 
+
 int main(int argc, char* argv[])
 {
 	using namespace boost::program_options;
 	const std::string version_string =
-			"gnina "__DATE__".";
+			"gnina " __DATE__ ".";
 	const std::string error_message =
 			"\n\n\
-Please report this error at http://smina.sf.net\n"
+Please report this error at https://github.com/gnina/gnina/issues\n"
 					"Please remember to include the following in your problem report:\n\
     * the EXACT error message,\n\
     * your version of the program,\n\
@@ -1011,7 +1018,6 @@ Thank you!\n";
 		bool no_lig = false;
 
 		cnn_options cnnopts;
-
 		user_settings settings;
 		minimization_params minparms;
 		ApproxType approx = LinearApprox;
@@ -1101,7 +1107,6 @@ Thank you!\n";
 				"Print all available terms with default parameterizations")
 		("print_atom_types", bool_switch(&print_atom_types),
 				"Print all available atom types");
-
 		options_description hidden("Hidden options for internal testing");
 		hidden.add_options()
 		("verbosity", value<int>(&settings.verbosity)->default_value(1),
@@ -1233,6 +1238,7 @@ Thank you!\n";
 		{
 			if (!vm.count("force_cap"))
 				settings.forcecap = 10; //nice and soft
+
 			if (minparms.maxiters == 0)
 				minparms.maxiters = 10000; //will presumably converge
 			settings.local_only = true;

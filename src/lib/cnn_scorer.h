@@ -43,7 +43,7 @@ public:
 
 	CNNScorer(const cnn_options& cnnopts, const vec& center, const model& m);
 
-	bool initialized() const { return net; }
+	bool initialized() const { return net.get(); }
 
 	float score(const model& m);
 

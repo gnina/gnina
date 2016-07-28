@@ -24,11 +24,10 @@
 #define VINA_BFGS_H
 
 #include "matrix.h"
+#include "conf_gpu.h"
 #include <numeric>
-typedef triangular_matrix<fl> flmat;
 
-template<typename Change>
-void minus_mat_vec_product(const flmat& m, const Change& in, Change& out)
+void minus_mat_vec_product(const flmat& m, const change& in, change& out)
 {
 	sz n = m.dim();
 	VINA_FOR(i, n)
@@ -40,8 +39,13 @@ void minus_mat_vec_product(const flmat& m, const Change& in, Change& out)
 	}
 }
 
-template<typename Change>
-inline fl scalar_product(const Change& a, const Change& b, sz n)
+
+void minus_mat_vec_product(const flmat& m, const change_gpu& in, change_gpu& out)
+{
+	in.minus_mat_vec_product(m, out);
+}
+
+inline fl scalar_product(const change& a, const change& b, sz n)
 {
 	fl tmp = 0;
 	VINA_FOR(i, n)
@@ -49,14 +53,19 @@ inline fl scalar_product(const Change& a, const Change& b, sz n)
 	return tmp;
 }
 
-template<typename Change>
-inline bool bfgs_update(flmat& h, const Change& p, const Change& y,
+inline fl scalar_product(const change_gpu& a, const change_gpu& b, sz n)
+{
+	return a.dot(b);
+}
+
+
+inline bool bfgs_update(flmat& h, const change& p, const change& y,
 		const fl alpha)
 {
 	const fl yp = scalar_product(y, p, h.dim());
 	if (alpha * yp < epsilon_fl)
 		return false; // FIXME?
-	Change minus_hy(y);
+	change minus_hy(y);
 	minus_mat_vec_product(h, y, minus_hy);
 	const fl yhy = -scalar_product(y, minus_hy, h.dim());
 	const fl r = 1 / (alpha * yp); // 1 / (s^T * y) , where s = alpha * p // FIXME   ... < epsilon
@@ -67,6 +76,12 @@ inline bool bfgs_update(flmat& h, const Change& p, const Change& y,
 					+ minus_hy(j) * p(i)) +
 					+alpha * alpha * (r * r * yhy + r) * p(i) * p(j); // s * s == alpha * alpha * p * p
 	return true;
+}
+
+inline bool bfgs_update(flmat& h, const change_gpu& p, const change_gpu& y,
+		const fl alpha)
+{
+	return change_gpu::bfgs_update(h, p, y, alpha);
 }
 
 //dkoes - this is the line search method used by vina,
@@ -94,6 +109,36 @@ fl fast_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 	return alpha;
 }
 
+fl compute_lambdamin(const change& p, const conf& x, sz n)
+{
+	fl test = 0;
+	//compue lambdamin
+	for (sz i = 0; i < n; i++)
+	{
+		//static_assert(std::is_same<decltype(std::fabs(1.0f)),float>::value,"Not a float.\n");
+		fl temp = std::fabs(p(i)) / std::max(std::fabs(x(i)), 1.0f);
+		if (temp > test)
+			test = temp;
+	}
+	return test;
+}
+
+inline fl compute_lambdamin(const change_gpu& p, const conf_gpu& x, sz n)
+{
+	std::vector<float> pvec, xvec;
+	p.get_data(pvec);
+	x.get_data(xvec);
+	fl test = 0;
+	//compue lambdamin
+	for (sz i = 0; i < n; i++)
+	{
+		fl temp = std::fabs(pvec[i]) / std::max(std::fabs(xvec[i]), 1.0f);
+		if (temp > test)
+			test = temp;
+	}
+	return test;
+}
+
 //dkoes - this line search is modeled after lnsrch in numerical recipes, it puts
 //a bit of effort into calculating a good scaling factor, and ensures that alpha
 //will actually result in a smaller value
@@ -117,14 +162,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		g_new.clear(); //dkoes - set gradient to zero
 		return 0;
 	}
-	test = 0;
-	//compue lambdamin
-	for (i = 0; i < n; i++)
-	{
-		temp = fabs(p(i)) / std::max(fabs(x(i)), 1.0);
-		if (temp > test)
-			test = temp;
-	}
+	test = compute_lambdamin(p, x, n);
 
 	alamin = std::numeric_limits<float>::epsilon() / test;
 	alpha = FIRST; //single newton step
@@ -132,8 +170,10 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 	{
 		x_new = x;
 		x_new.increment(p, alpha);
+
 		f1 = f(x_new, g_new);
-		//std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << "\n";
+
+		//std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
 		if (alpha < alamin) //convergence
 		{
 			x_new = x;
@@ -190,21 +230,19 @@ inline void set_diagonal(flmat& m, fl x)
 		m(i, i) = x;
 }
 
-template<typename Change>
-void subtract_change(Change& b, const Change& a, sz n)
+void subtract_change(change& b, const change& a, sz n)
 { // b -= a
 	VINA_FOR(i, n)
 		b(i) -= a(i);
 }
 
-//F template argument
-//quasi_newton_aux: calls eval_deriv on model to calculate forces
-//
-//Conf template argument
-//conf type (conf.h) stores conformer in terms of torsions
-//
-//Change template argument
-//change type (conf.h) basically same as conf, but stores deltas
+void subtract_change(change_gpu& b, const change_gpu& a, sz n)
+{ // b -= a
+	b.sub(a);
+}
+
+
+
 template<typename F, typename Conf, typename Change>
 fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		const minimization_params& params)
@@ -212,17 +250,16 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	sz n = g.num_floats();
 	flmat h(n, 0);
 	set_diagonal(h, 1);
-
 	Change g_new(g);
 	Conf x_new(x);
 	fl f0 = f(x, g);
-
 	fl f_orig = f0;
 	Change g_orig(g);
 	Conf x_orig(x);
 
 	Change p(g);
-
+//	std::cout << std::setprecision(8);
+//	std::cout << "f0 " << f0 << "\n";
 //	std::ofstream fout("minout.sdf");
 	VINA_U_FOR(step, params.maxiters)
 	{
@@ -239,8 +276,10 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		else
 			alpha = fast_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
 
-		if(alpha == 0)
+		if(alpha == 0) {
+			//std::cout << "alpha 0\n";
 			break; //line direction was wrong, give up
+		}
 
 		Change y(g_new);
 		subtract_change(y, g, n);
@@ -253,7 +292,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		{
 			//dkoes - use the progress in reducing the function value as an indication of when to stop
 			fl diff = prevf0 - f0;
-			if (fabs(diff) < 1e-5) //arbitrary cutoff
+			if (std::fabs(diff) < 1e-5) //arbitrary cutoff
 			{
 				break;
 			}
@@ -262,10 +301,11 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		g = g_new; // dkoes - check the convergence of the new gradient
 
 		fl gradnormsq = scalar_product(g, g, n);
-		//std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+//		std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
 
 		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
 		{
+			//std::cout << "gradnormsq " << gradnormsq << "\n";
 			break; // breaks for nans too // FIXME !!??
 		}
 
@@ -285,111 +325,10 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		x = x_orig;
 		g = g_orig;
 	}
+//	std::cout << "final f0 " << f0 << "\n";
+
 	return f0;
 }
 
-//set g = g_new + B*g
-template<typename Change>
-void conjugate_update(Change& s, fl B, const Change& g_new, sz n)
-{
-	VINA_FOR(i, n)
-	{
-		s(i) = -g_new(i) + B*s(i);
-	}
-}
-
-//dkoes - conjugate gradient method, from
-//http://en.wikipedia.org/wiki/Nonlinear_conjugate_gradient_method
-//This does not do nearly as well either in terms of convergence or performance.
-//This may be partly due to an inadequate line search method or a buggy
-//implementation, but I don't feel compelled to invest any more time into it.
-template<typename F, typename Conf, typename Change>
-fl conjgrad(F& f, Conf& x, Change& g, const fl average_required_improvement,
-		const minimization_params& params)
-{ // x is I/O, final value is returned
-	sz n = g.num_floats();
-
-	Change g_new(g);
-	Conf x_new(x);
-	fl f0 = f(x, g);
-
-	fl f_orig = f0;
-	Change g_orig(g);
-	Conf x_orig(x);
-	Change s(g);
-	s.invert();
-
-	VINA_U_FOR(step, params.maxiters)
-	{
-		fl f1 = 0;
-		fl alpha;
-
-		//update position with line search and calculate new gradient
-		//WARNING: NR says this method isn't accurate enought
-		alpha = accurate_line_search(f, n, x, g, f0, s, x_new, g_new, f1);
-
-		//compute B, multiplier of previous gradient
-
-		fl denom = scalar_product(g, g, n);
-
-		if(!(denom >= 1e-5*1e-5))
-		{
-			break; //very small gradient, consider ourselves converged
-		}
-
-		if(alpha == 0) {
-			//line direction wrong, giveup
-			break;
-		}
-
-		//use Polak-Ribiere:
-		/*
-		Change y(g_new);
-		subtract_change(y, g, n);
-		fl numerator = scalar_product(g_new, y, n);
-		fl B = numerator/denom;
-		*/
-		//use Fletcher-REeves
-		fl numerator = scalar_product(g_new, g_new, n);
-		fl B = numerator/denom;
-		B = std::max((fl)0.0, B);
-
-		//update direction
-		//s = -g_new + s*B
-		conjugate_update(s, B, g_new, n);
-
-		fl prevf0 = f0;
-		f0 = f1;
-		x = x_new;
-		g = g_new;
-
-		if (params.early_term)
-		{
-			//dkoes - use the
-			//progress in reducing the function value as an indication of when to stop
-			fl diff = prevf0 - f0;
-			if (fabs(diff) < 1e-5) //arbitrary cutoff
-			{
-				break;
-			}
-		}
-
-		//check convergence of new gradient
-		fl gradnormsq = scalar_product(g, g, n);
-		if (!(gradnormsq >= 1e-5 * 1e-5))
-		{
-			break; // breaks for nans too // FIXME !!??
-		}
-
-	}
-
-	if (!(f0 <= f_orig))
-	{ // succeeds for nans too
-		f0 = f_orig;
-		x = x_orig;
-		g = g_orig;
-	}
-	return f0;
-}
 
 #endif
