@@ -6,3 +6,4 @@ gninatyper
 libgnina.a
 tognina
 gnina.static
+*.o
