@@ -11,6 +11,7 @@
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/stream.hpp>
+#include <boost/timer/timer.hpp>
 #include <boost/iostreams/device/null.hpp>
 
 using namespace OpenBabel;
@@ -35,6 +36,7 @@ obmol_opener::~obmol_opener()
 void obmol_opener::openForInput(OBConversion& conv, const std::string& name)
 {
 	OBFormat *format = conv.FormatFromExt(name);
+
 	if (!format || !conv.SetInFormat(format))
 	{
 		throw file_error(path(name), true);
@@ -60,6 +62,7 @@ void obmol_opener::openForInput(OBConversion& conv, const std::string& name)
 		throw file_error(path(name), true);
 	}
 	conv.SetInStream((std::istream*) inmol);
+
 }
 
 void obmol_opener::obmol_opener::openForOutput(OBConversion& outconv, const std::string& outname)

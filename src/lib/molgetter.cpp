@@ -10,6 +10,7 @@
 #include <openbabel/mol.h>
 #include <openbabel/obconversion.h>
 #include <boost/archive/binary_iarchive.hpp>
+#include <boost/timer/timer.hpp>
 #include "GninaConverter.h"
 
 
@@ -107,10 +108,11 @@ void MolGetter::setInputFile(const std::string& fname)
 		else if(fname.length() > 0)//openbabel
 		{
 			type = OB;
-			//clear in case we had previous vile
+			//clear in case we had previous file
 			infileopener.clear();
 			infileopener.openForInput(conv, fname);
 			VINA_CHECK(conv.SetOutFormat("PDBQT"));
+
 		}
 	}
 }

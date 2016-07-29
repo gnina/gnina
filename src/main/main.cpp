@@ -35,7 +35,7 @@
 #include "obmolopener.h"
 #include "gpucode.h"
 #include "precalculate_gpu.h"
-#include <boost/timer.hpp>
+#include <boost/timer/timer.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/unordered_set.hpp>
 #include "array3d.h"
@@ -217,7 +217,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		bool compute_atominfo, tee& log,
 		const terms *t, grid& user_grid, CNNScorer& cnn, std::vector<result_info>& results)
 {
-	boost::timer time;
+	boost::timer::cpu_timer time;
 
 	precalculate_exact exact_prec(sf); //use exact computations for final score
 	conf_size s = m.get_size();
@@ -403,7 +403,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 			log.endl();
 		}
 	}
-	//std::cout << "Refine time " << time.elapsed() << "\n";
+	std::cout << "Refine time " << time.elapsed().wall/1000000000.0 << "\n";
 }
 
 void load_ent_values(const grid_dims& gd, std::istream& user_in,
@@ -1231,6 +1231,7 @@ Thank you!\n";
 
 		google::InitGoogleLogging(argv[0]); //otherwise caffe spits crap out on stderr
 		google::SetStderrLogging(2);
+		OpenBabel::OBPlugin::LoadAllPlugins(); //for some reason loading on demand can be slow
 
 		set_fixed_rotable_hydrogens(!flex_hydrogens);
 
@@ -1492,7 +1493,7 @@ Thank you!\n";
 		global_state gs(&settings, prec, &minparms, &wt, &user_grid,
 				&log, &atomoutfile, cnn_scorer);
 		boost::thread_group worker_threads;
-		boost::timer time;
+		boost::timer::cpu_timer time;
 
 		if (!settings.local_only)
 			nthreads = 1; //docking is multithreaded already, don't add additional parallelism other than pipeline
@@ -1510,6 +1511,7 @@ Thank you!\n";
 				&outext,
 				&outflex, &outfext, &nligs, &ligcount_final);
 
+
 		//loop over input ligands, adding them to the work queue
 		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
 		{
@@ -1522,11 +1524,13 @@ Thank you!\n";
 			for (;;)
 			{
 				model* m = new model;
+
 				if (!mols.readMoleculeIntoModel(*m))
 				{
 					delete m;
 					break;
 				}
+
 				if (settings.local_only)
 				{
 					gd = m->movable_atoms_box(autobox_add, granularity);
@@ -1549,7 +1553,7 @@ Thank you!\n";
 		worker_threads.join_all();
 		writer_thread.join();
 
-		std::cout << "Loop time " << time.elapsed() << "\n";
+		std::cout << "Loop time " << time.elapsed().wall/1000000000.0 << "\n";
 
 	} catch (file_error& e)
 	{
