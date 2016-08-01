@@ -51,7 +51,7 @@ public:
 		dimension = d;
 		radiusmultiple = rm;
 		binary = b;
-	  dim = std::round(dimension/resolution)+1; //number of grid points on a size
+	  dim = ::round(dimension/resolution)+1; //number of grid points on a size
 	  center.x = center.y = center.z = 0;
 	}
 	//mus set center before gridding
