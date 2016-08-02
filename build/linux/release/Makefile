@@ -1,12 +1,10 @@
-BASE=/usr/local
-NVCC=/usr/local/cuda/bin/nvcc 
-LDFLAGS='-L/usr/lib -L. -L/usr/local/lib -L/usr/local/cuda/lib64'
-C_PLATFORM= -pthread 
-GPP=g++
-C_OPTIONS= -O3 -DNDEBUG -g   
-#C_OPTIONS= -O3 -DNDEBUG -g -flto
+BASE=/usr/local/
+C_PLATFORM=  -DSMINA_GPU
+C_OPTIONS= -O3 -g -DNDEBUG -flto=jobserver -fno-fat-lto-objects -fuse-linker-plugin
 BOOST_LIB_VERSION=
-NVOPTS=--expt-relaxed-constexpr -w  -gencode arch=compute_52,code=sm_52 -O3 -Xcompiler -Wno-unreachable-code -gencode arch=compute_35,code=sm_35
-OPENBABEL_INCLUDE=/usr/local/include/openbabel-2.0
+NVOPTS= -O3 -g -lineinfo -DNDEBUG
+
+.DEFAULT_GOAL := gnina
 
 include ../../makefile_common
+

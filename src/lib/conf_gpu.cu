@@ -7,6 +7,8 @@
 #include "conf_gpu.h"
 
 #define GNINA_CUDA_NUM_THREADS (512)
+#define WARPSIZE (32)
+
 #define CUDA_KERNEL_LOOP(i, n) \
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
        i < (n); \
@@ -18,6 +20,34 @@ __global__ void scalar_mult_kernel(float mult, const int n,
 	{
 		vals[index] *= mult;
 	}
+}
+
+//compute a -= b (result goes in a
+__global__ void vec_sub_kernel(const int n,
+		float *a, float *b) {
+	CUDA_KERNEL_LOOP(index, n)
+	{
+		a[index] -= b[index];
+	}
+}
+
+//compute dot(a,b) using a single warp -> call with exactly WARPSIZE threads
+__global__ void warp_dot_kernel(const int n, float *a, float *b, float *out)
+{
+	int start = blockIdx.x * blockDim.x + threadIdx.x;
+	float val = 0.0;
+	int warpSize = blockDim.x; //allow for dynamic warp sizes (in practice 16 or 32)
+	for(int i = start; i < n; i += warpSize)
+	{
+		val += a[i]*b[i];
+	}
+	//now warp reduce with shuffle
+
+	for(uint offset = warpSize/2; offset > 0; offset >>= 1)
+		val += __shfl_down(val, offset);
+
+	if(start == 0)
+		*out = val;
 }
 
 change_gpu::change_gpu(const change& src) :
@@ -46,7 +76,7 @@ change_gpu::change_gpu(const change& src) :
 		}
 	}
 	//allocate vector
-	CUDA_CHECK_GNINA(cudaMalloc(&change_values, sizeof(float) * n));
+	CUDA_CHECK_GNINA(cudaMalloc(&change_values, sizeof(float) * (n+1))); //leave scratch space for dot
 	//and init
 	assert(n == data.size());
 	CUDA_CHECK_GNINA(
@@ -65,7 +95,7 @@ change_gpu& change_gpu::operator=(const change_gpu& src) {
 		if (change_values) {
 			CUDA_CHECK_GNINA(cudaFree(change_values));
 		}
-		CUDA_CHECK_GNINA(cudaMalloc(&change_values, sizeof(float) * src.n));
+		CUDA_CHECK_GNINA(cudaMalloc(&change_values, sizeof(float) * (src.n+1))); //scratch space
 	}
 	n = src.n;
 	CUDA_CHECK_GNINA(
@@ -93,24 +123,17 @@ void change_gpu::invert() {
 //return dot product
 float change_gpu::dot(const change_gpu& rhs) const {
 	//since N is small, I think we should do a single warp of threads for this
-
-	std::vector<float> a, b;
-	get_data(a);
-	rhs.get_data(b);
-	fl tmp = 0;
-	VINA_FOR(i, n)
-		tmp += a[i] * b[i];
-	return tmp;
+	warp_dot_kernel<<<1, (n <= WARPSIZE/2 ? WARPSIZE/2 : WARPSIZE)>>>(n, change_values, rhs.change_values, &change_values[n]);
+	float gpuval = 0;
+	cudaMemcpy(&gpuval, &change_values[n], sizeof(float),cudaMemcpyDeviceToHost);
+	return gpuval;
 }
 
 //subtract rhs from this
 void change_gpu::sub(const change_gpu& rhs) {
-	std::vector<float> a, b;
-	get_data(a);
-	rhs.get_data(b);
-	VINA_FOR(i, n)
-		a[i] -= b[i];
-	set_data(a);
+
+	vec_sub_kernel<<<1, min(GNINA_CUDA_NUM_THREADS, n)>>>(n,
+				change_values, rhs.change_values);
 }
 
 void change_gpu::minus_mat_vec_product(const flmat& m, change_gpu& out) const {
@@ -150,12 +173,12 @@ bool change_gpu::bfgs_update(flmat& h, const change_gpu& p, const change_gpu& y,
 	std::vector<float> minus_hyvec;
 	minus_hy.get_data(minus_hyvec);
 
+	float coef = +alpha * alpha * (r * r * yhy + r) ;
 	VINA_FOR(i, n)
 		VINA_RANGE(j, i, n) // includes i
 			h(i, j) += alpha * r
 					* (minus_hyvec[i] * pvec[j] + minus_hyvec[j] * pvec[i])
-					+ +alpha * alpha * (r * r * yhy + r) * pvec[i]
-							* pvec[j]; // s * s == alpha * alpha * p * p	}
+					+coef * pvec[i]	* pvec[j]; // s * s == alpha * alpha * p * p	}
 	return true;
 }
 
