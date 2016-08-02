@@ -3,15 +3,18 @@ OBJD :=./objs
 BUILTIN_VARS := $(.VARIABLES)
 
 OPENBABEL_INCLUDE := /usr/local/include/openbabel-2.0
+CAFFE_INCLUDE := ~/git/caffe/.build_release/src
+GNINA_INCLUDE := ~/git/
 BOOST_INCLUDE := $(BASE)/include/boost
 CUDA_INCLUDE := $(BASE)/cuda/include
 INCFLAGS := -I $(BOOST_INCLUDE) \
 			-I $(OPENBABEL_INCLUDE) \
 			-I $(CUDA_INCLUDE) \
 			-I $(SRCD)/lib \
-			-I ~/git
+			-I $(CAFFE_INCLUDE) \
+			-I $(GNINA_INCLUDE)
 
-CC := g++
+CC := g++-5
 CFLAGS += \
 	   -std=c++11 \
 	   -Wno-deprecated-declarations \

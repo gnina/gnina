@@ -10,6 +10,7 @@
 #include "conf.h"
 #include "matrix.h"
 #include "gpu_util.h"
+#include "gpu_math.h"
 
 typedef triangular_matrix<fl> flmat;
 

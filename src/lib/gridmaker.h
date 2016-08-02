@@ -22,6 +22,7 @@
 #ifndef VINA_ATOM_CONSTANTS_H
 #include "gnina/src/lib/atom_constants.h"
 #endif
+#include "gpu_math.h"
 
 using namespace std;
 

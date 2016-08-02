@@ -11,6 +11,7 @@
 #include <cmath>
 #include <boost/timer/timer.hpp>
 #include <cuda_runtime.h>
+#include "gpu_math.h"
 
 
 #define CUDA_CHECK(condition) \
