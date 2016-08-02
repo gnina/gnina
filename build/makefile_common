@@ -8,7 +8,8 @@ CUDA_INCLUDE := $(BASE)/cuda/include
 INCFLAGS := -I $(BOOST_INCLUDE) \
 			-I $(OPENBABEL_INCLUDE) \
 			-I $(CUDA_INCLUDE) \
-			-I $(SRCD)/lib
+			-I $(SRCD)/lib \
+			-I ~/git
 
 CC := g++
 CFLAGS += \
@@ -92,7 +93,8 @@ $(OBJD)/%.o: $(SRCD)/%.cu
 
 tags: $(SRCS) Makefile
 	cd $(SRCD)
-	ctags -R
+	ctags -R *
+.PHONY : tags
 
 -include $(OBJS:.o=.d)
 
@@ -127,6 +129,8 @@ libgnina.a: $(LIBOBJ) $(GPUOBJ) device_code.o
 
 clean:
 	rm -rf *.o *.d objs
+	rm -f gnina tognina fromgnina gninagrid gninatyper gninaserver libgnina.a
+.PHONY : clean
 
 define \n
 

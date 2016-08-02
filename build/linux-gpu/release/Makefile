@@ -4,7 +4,7 @@ C_OPTIONS= -O3 -g -DNDEBUG -flto=jobserver -fno-fat-lto-objects -fuse-linker-plu
 BOOST_LIB_VERSION=
 NVOPTS= -O3 -g -lineinfo -DNDEBUG
 
-.DEFAULT_GOAL := gnina.gpu
+.DEFAULT_GOAL := gnina
 
 include ../../makefile_common
 

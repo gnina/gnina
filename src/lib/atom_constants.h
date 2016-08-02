@@ -387,6 +387,7 @@ inline smt adjust_smina_type(smt t, bool Hbonded, bool heteroBonded)
 //IMPORTANT: make sure this is consistent with adjust_smina_type and pdbqt parsing
 inline smt obatom_to_smina_type(OpenBabel::OBAtom& atom)
 {
+	using namespace OpenBabel;
 	//from pdbqt format
 	const char *element_name = OpenBabel::etab.GetSymbol(atom.GetAtomicNum());
 	std::string ename(element_name);
