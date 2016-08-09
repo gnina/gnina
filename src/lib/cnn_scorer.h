@@ -10,6 +10,7 @@
 
 #include "caffe/caffe.hpp"
 #include "caffe/layers/molgrid_data_layer.hpp"
+#include "boost/thread/mutex.hpp"
 
 #include "nngridder.h"
 #include "model.h"
@@ -36,9 +37,10 @@ class CNNScorer {
 	caffe::MolGridDataLayer<Dtype> *mgrid;
 	unsigned rotations;
 	bool random_rotate;
+	caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
 
 public:
-	CNNScorer(): mgrid(NULL), rotations(0), random_rotate(false) {}
+	CNNScorer(): mgrid(NULL), rotations(0), random_rotate(false), mtx(new boost::mutex) {}
 	virtual ~CNNScorer() {}
 
 	CNNScorer(const cnn_options& cnnopts, const vec& center, const model& m);

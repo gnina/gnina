@@ -1,6 +1,6 @@
 BASE=/usr/local/
-C_PLATFORM=  -DSMINA_GPU
-C_OPTIONS= -O3 -g -DNDEBUG -flto=jobserver -fno-fat-lto-objects -fuse-linker-plugin
+C_PLATFORM=  
+C_OPTIONS= -O3 -g -DNDEBUG 
 BOOST_LIB_VERSION=
 NVOPTS= -O3 -g -lineinfo -DNDEBUG
 

@@ -20,8 +20,10 @@ using namespace std;
 //throw error if missing required info
 CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		const model& m) :
-		rotations(cnnopts.cnn_rotations)
+		rotations(cnnopts.cnn_rotations),
+		 mtx(new boost::mutex)
 {
+
 	if (cnnopts.cnn_scoring)
 	{
 		if (cnnopts.cnn_model.size() == 0)
@@ -96,6 +98,7 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 //return score of model, assumes receptor has not changed from initialization
 float CNNScorer::score(const model& m)
 {
+	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
 		return -1.0;
 
