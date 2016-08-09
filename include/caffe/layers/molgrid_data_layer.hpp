@@ -82,6 +82,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   template<typename Atom, typename Vec3>
   void setLigand(const vector<Atom>& ligand, const vector<Vec3>& coords)
   {
+    mem_lig.atoms.clear();
+    mem_lig.whichGrid.clear();
     //ligand atoms, grid positions offset and coordinates are specified separately
     vec center(0,0,0);
     unsigned acnt = 0;
@@ -99,7 +101,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
         mem_lig.atoms.push_back(ainfo);
         mem_lig.whichGrid.push_back(lmap[t]+numReceptorTypes);
         center += coord;
-	acnt++;
+        acnt++;
       }
     }
     center /= acnt; //not ligand.size() because of hydrogens
