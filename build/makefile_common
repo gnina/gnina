@@ -3,7 +3,7 @@ OBJD :=./objs
 BUILTIN_VARS := $(.VARIABLES)
 
 OPENBABEL_INCLUDE := /usr/local/include/openbabel-2.0
-CAFFE_INCLUDE := ~/git/caffe/.build_release/src
+CAFFE_INCLUDE := /usr/local/include
 GNINA_INCLUDE := ~/git/
 BOOST_INCLUDE := $(BASE)/include/boost
 CUDA_INCLUDE := $(BASE)/cuda/include
