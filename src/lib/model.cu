@@ -884,8 +884,8 @@ void derivatives_kernel(tree_gpu *t, const vec * coords, const vec* forces,
 
 static __global__
 void set_conf_kernel(tree_gpu *t, const vec *atom_coords, vec *coords,
-		const conf_info *conf_vals) {
-	t->set_conf(atom_coords, coords, conf_vals);
+		const conf_info *conf_vals, unsigned nlig_atoms) {
+	t->set_conf(atom_coords, coords, conf_vals, nlig_atoms);
 }
 
 fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
@@ -896,7 +896,8 @@ fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
 	const non_cache_gpu *ncgpu = dynamic_cast<const non_cache_gpu*>(&ig);
 	assert(ncgpu);
 
-	set_conf_kernel<<<1,1>>>(gdata.treegpu, gdata.atom_coords, (vec*)gdata.coords, c.cinfo);
+	set_conf_kernel<<<1,ligands[0].degrees_of_freedom+1>>>(gdata.treegpu,
+			gdata.atom_coords, (vec*)gdata.coords, c.cinfo, num_movable_atoms());
 
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
 

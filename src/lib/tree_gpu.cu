@@ -43,7 +43,7 @@ void segment_node::set_orientation(float x, float y, float z, float w) { // does
 }
 
 void tree_gpu::do_dfs(int parent, const branch& branch, std::vector<segment_node>& nodes) {
-	segment_node node(branch.node, parent);
+	segment_node node(branch.node, parent, &nodes[parent]);
 	unsigned index = nodes.size();
 	nodes.push_back(node);
 
@@ -118,24 +118,43 @@ void tree_gpu::derivative(const vec *coords,const vec* forces, float *c){
 }
 
 __device__
-void tree_gpu::set_conf(const vec *atom_coords, vec *coords, const conf_info *c){
+void tree_gpu::set_conf(const vec *atom_coords, vec *coords, const conf_info
+		*c, unsigned nlig_atoms){
 	// assert(c.torsions.size() == num_nodes-1);
-	segment_node& root = device_nodes[0];
-	for(unsigned i = 0; i < 3; i++)
-		root.origin[i] = c->position[i];
+	// thread 0 has the root
+	int index = threadIdx.x;
+	segment_node& node = device_nodes[index];
+	__shared__ unsigned long long natoms;
+	//static_assert(sizeof(natoms) == 8,"Not the same size");
+	__shared__ unsigned long long current_layer;
+	__shared__ unsigned long long total_atoms;
 
-	root.set_orientation(c->orientation[0],c->orientation[1],c->orientation[2],c->orientation[3]);
-
-	root.set_coords(atom_coords, coords);
-	for(unsigned i = 1; i < num_nodes; i++) {
-		segment_node& node = device_nodes[i];
-		segment_node& parent = device_nodes[node.parent];
-		fl torsion = c->torsions[i-1];
-		node.origin = parent.local_to_lab(node.relative_origin);
-		node.axis = parent.local_to_lab_direction(node.relative_axis);
-		node.set_orientation(
-				quaternion_normalize_approx(
-						angle_to_quaternion(node.axis, torsion) * parent.orientation_q));
+	if (index == 0) {
+		for(unsigned i = 0; i < 3; i++)
+			node.origin[i] = c->position[i];
+		node.set_orientation(c->orientation[0],c->orientation[1],c->orientation[2],c->orientation[3]);
 		node.set_coords(atom_coords, coords);
+		natoms = node.end - node.begin;
+		current_layer = 0;
+		total_atoms = (unsigned long long)(nlig_atoms);
+	}
+
+	__syncthreads();
+	while (natoms < total_atoms) {
+		if (index == 0) {
+			current_layer++;
+		}
+		if (node.layer == current_layer) {
+			segment_node& parent = device_nodes[node.parent];
+			fl torsion = c->torsions[index-1];
+			node.origin = parent.local_to_lab(node.relative_origin);
+			node.axis = parent.local_to_lab_direction(node.relative_axis);
+			node.set_orientation(
+					quaternion_normalize_approx(
+							angle_to_quaternion(node.axis, torsion) * parent.orientation_q));
+			node.set_coords(atom_coords, coords);
+			atomicAdd(&natoms, (unsigned long long)(node.end - node.begin));
+		}
+		__syncthreads();
 	}
 }

@@ -21,22 +21,24 @@ struct segment_node {
 	sz begin;
 	sz end;
 	int parent; //location of parent in node array, -1 if root
+	int layer; //layer in BFS tree
 
 	segment_node() :
-			parent(-1), begin(0), end(0){
+			parent(-1), layer(0), begin(0), end(0){
 	}
 
-	segment_node(const segment& node,int p) :
+	segment_node(const segment& node,int p,segment_node* pnode) :
 			relative_axis(node.relative_axis), relative_origin(node.relative_origin), axis(
 					node.axis), origin(node.origin), orientation_q(node.orientation_q), orientation_m(
 					node.orientation_m), begin(node.begin), end(node.end), parent(p){
+		layer = pnode->layer + 1;
 
 	}
 
 	segment_node(const rigid_body& node) : //root node
 			relative_axis(0, 0, 0), relative_origin(0, 0, 0), axis(0, 0, 0), origin(
 					node.origin), orientation_q(node.orientation_q), orientation_m(
-					node.orientation_m), begin(node.begin), end(node.end), parent(-1){
+					node.orientation_m), begin(node.begin), end(node.end), parent(-1), layer(0){
 
 	}
 
@@ -80,7 +82,7 @@ struct tree_gpu {
 	void derivative(const vec *coords,const vec* forces, float *c);
 
 	__device__
-	void set_conf(const vec *atom_coords, vec *coords, const conf_info *c);
+	void set_conf(const vec *atom_coords, vec *coords, const conf_info *c, unsigned nlig_atoms);
 
 };
 
