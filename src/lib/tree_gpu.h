@@ -62,14 +62,21 @@ struct segment_node {
 
 };
 
+struct __align__(sizeof(uint2)) atom_node_indices{
+    uint atom_idx;
+    uint node_idx;
+};
+
 struct tree_gpu {
 
 	segment_node *device_nodes;
 	vecp *force_torques;
 	unsigned num_nodes;
+    atom_node_indices *atom_node_map; // atom and corresponding node indices in bfs order
+    unsigned max_atoms_per_layer; 
 
 	tree_gpu() :
-			device_nodes(NULL), force_torques(NULL), num_nodes(0) {
+			device_nodes(NULL), force_torques(NULL), num_nodes(0), atom_node_map(NULL), max_atoms_per_layer(0) {
 	}
 
 	void do_dfs(int parent, const branch& branch, std::vector<segment_node>& nodes);
