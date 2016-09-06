@@ -65,6 +65,9 @@ struct segment_node {
 struct __align__(sizeof(uint2)) atom_node_indices{
     uint atom_idx;
     uint node_idx;
+
+    __host__ __device__ atom_node_indices(void): atom_idx(0), node_idx(0) {}
+    __host__ __device__ atom_node_indices(uint ai, uint ni) : atom_idx(ai), node_idx(ni) {};
 };
 
 struct tree_gpu {
@@ -72,14 +75,15 @@ struct tree_gpu {
 	segment_node *device_nodes;
 	vecp *force_torques;
 	unsigned num_nodes;
-    atom_node_indices *atom_node_map; // atom and corresponding node indices in bfs order
+    atom_node_indices *atom_node_list; // atom and corresponding node indices in bfs order
+    unsigned *atoms_per_layer;
     unsigned max_atoms_per_layer; 
 
 	tree_gpu() :
-			device_nodes(NULL), force_torques(NULL), num_nodes(0), atom_node_map(NULL), max_atoms_per_layer(0) {
+			device_nodes(NULL), force_torques(NULL), num_nodes(0), atom_node_list(NULL), atoms_per_layer(NULL), max_atoms_per_layer(0) {
 	}
 
-	void do_dfs(int parent, const branch& branch, std::vector<segment_node>& nodes);
+	void do_dfs(int parent, const branch& branch, std::vector<segment_node>& nodes, std::vector<unsigned>& atoms_per_layer_host, std::vector<atom_node_indices>& atom_node_prelist);
 
 	tree_gpu(const heterotree<rigid_body> &ligand);
 

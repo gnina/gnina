@@ -45,47 +45,48 @@ void segment_node::set_orientation(float x, float y, float z, float w) { // does
 
 void tree_gpu::do_dfs(int parent, const branch& branch,
         std::vector<segment_node>& nodes, std::vector<unsigned>&
-        atoms_per_layer, std::vector<gpair<unsigned,unsigned>>&
-        atom_node_premap) {
+        atoms_per_layer_host, std::vector<atom_node_indices>&
+        atom_node_prelist) {
 	segment_node node(branch.node, parent, &nodes[parent]);
 	unsigned index = nodes.size();
 	nodes.push_back(node);
 
-    if (atoms_per_layer.size() - 1 < node.layer) {
-        atoms_per_layer.push_back(node.end - node.begin);
+    if (atoms_per_layer_host.size() - 1 < node.layer) {
+        atoms_per_layer_host.push_back(node.end - node.begin);
     }
     else {
-        atoms_per_layer[node.layer] += node.end - node.begin;
+        atoms_per_layer_host[node.layer] += node.end - node.begin;
     }
 
     for (unsigned i=node.begin; i<node.end; i++) {
-        atom_node_premap.push_back(atom_node_indices(i,nodes.size()-1));
+        atom_node_prelist.push_back(atom_node_indices(i,nodes.size()-1));
     }
 
 	VINA_FOR_IN(i, branch.children) {
-		do_dfs(index, branch.children[i], nodes, atoms_per_layer);
+		do_dfs(index, branch.children[i], nodes, atoms_per_layer_host,
+                atom_node_prelist);
 	}
 }
 
 tree_gpu::tree_gpu(const heterotree<rigid_body> &ligand){
 	//populate nodes in DFS order from ligand, where node zero is the root
 	std::vector<segment_node> nodes;
-    std::vector<unsigned> atoms_per_layer;
-    std::vector<atom_node_indices> atom_node_premap;
+    std::vector<unsigned> atoms_per_layer_host;
+    std::vector<atom_node_indices> atom_node_prelist;
 
 	segment_node root(ligand.node);
 	nodes.push_back(root);
-    atoms_per_layer.push_back(root.end - root.begin);
+    atoms_per_layer_host.push_back(root.end - root.begin);
     for (unsigned i=root.begin; i<root.end; i++) {
-        atom_node_premap.push_back(atom_node_indices(i,nodes.size()-1));
+        atom_node_prelist.push_back(atom_node_indices(i,nodes.size()-1));
     }
 
 	VINA_FOR_IN(i, ligand.children) {
-		do_dfs(0,ligand.children[i], nodes, atoms_per_layer, atom_node_premap);
+		do_dfs(0,ligand.children[i], nodes, atoms_per_layer_host, atom_node_prelist);
 	}
 
-    max_atoms_per_layer = *std::max_element(std::begin(atoms_per_layer),
-            std::end(atoms_per_layer));
+    max_atoms_per_layer = *std::max_element(std::begin(atoms_per_layer_host),
+            std::end(atoms_per_layer_host));
 	num_nodes = nodes.size();
 	//allocate device memory and copy
 	//nodes
@@ -97,10 +98,16 @@ tree_gpu::tree_gpu(const heterotree<rigid_body> &ligand){
 	cudaMemset(force_torques, 0, sizeof(vecp)*nodes.size());
 
     //atom and node values
-    cudaMalloc(&atom_node_map,
-            sizeof(atom_node_indices)*atom_node_premap.size());
-    cudaMemcpy(atom_node_map, &atom_node_premap,
-            sizeof(atom_node_indices)*atom_node_premap.size(),
+    cudaMalloc(&atom_node_list,
+            sizeof(atom_node_indices)*atom_node_prelist.size());
+    cudaMemcpy(atom_node_list, &atom_node_prelist,
+            sizeof(atom_node_indices)*atom_node_prelist.size(),
+            cudaMemcpyHostToDevice);
+
+    //atoms per layer
+    cudaMalloc(&atoms_per_layer, sizeof(unsigned)*atoms_per_layer_host.size());
+    cudaMemcpy(atoms_per_layer, &atoms_per_layer_host,
+            sizeof(unsigned)*atoms_per_layer_host.size(),
             cudaMemcpyHostToDevice);
 }
 
@@ -187,17 +194,16 @@ void tree_gpu::set_conf(const vec *atom_coords, vec *coords, const conf_info
 			node.set_orientation(
 					quaternion_normalize_approx(
 							angle_to_quaternion(node.axis, torsion) * parent.orientation_q));
-			node.set_coords(atom_coords, coords);
-			atomicAdd(&natoms, (unsigned long long)(node.end - node.begin));
 		}
 		__syncthreads();
-        if (index >= num_nodes) {
+        if (index >= num_nodes && index < atoms_per_layer[current_layer]) {
             // need to create a copy of the owning segment_node in order to
             // update atom coords. so we actually need the atom and node
             // indices to proceed from here.
-            uint2 idx_pair = atom_node_map[natoms + index];
-            segment_node& node = device_nodes[idx_pair.y];
-            node.coords[idx_pair.x] = local_to_lab(atom_coords[idx_pair.x]);
+            atom_node_indices idx_pair = atom_node_list[natoms + index];
+            segment_node& node = device_nodes[idx_pair.node_idx];
+            coords[idx_pair.atom_idx] =
+                node.local_to_lab(atom_coords[idx_pair.atom_idx]);
         }
         __syncthreads();
 		if (index < num_nodes && node.layer == current_layer) {
