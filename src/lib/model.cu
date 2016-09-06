@@ -896,7 +896,7 @@ fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
 	const non_cache_gpu *ncgpu = dynamic_cast<const non_cache_gpu*>(&ig);
 	assert(ncgpu);
 
-	set_conf_kernel<<<1,ligands[0].degrees_of_freedom+1+gdata.treegpu->max_atoms_per_layer>>>(gdata.treegpu,
+	set_conf_kernel<<<1,ligands[0].degrees_of_freedom+1+tree_width>>>(gdata.treegpu,
             gdata.atom_coords, (vec*)gdata.coords, c.cinfo, num_movable_atoms());
 
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
@@ -1226,6 +1226,7 @@ void model::initialize_gpu() {
 
 	//setup tree
 	tree_gpu tg(ligands[0]);
+    tree_width = tg.max_atoms_per_layer;
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(gdata.treegpu, &tg, sizeof(tree_gpu),
 					cudaMemcpyHostToDevice));

@@ -100,13 +100,13 @@ tree_gpu::tree_gpu(const heterotree<rigid_body> &ligand){
     //atom and node values
     cudaMalloc(&atom_node_list,
             sizeof(atom_node_indices)*atom_node_prelist.size());
-    cudaMemcpy(atom_node_list, &atom_node_prelist,
+    cudaMemcpy(atom_node_list, &atom_node_prelist[0],
             sizeof(atom_node_indices)*atom_node_prelist.size(),
             cudaMemcpyHostToDevice);
 
     //atoms per layer
     cudaMalloc(&atoms_per_layer, sizeof(unsigned)*atoms_per_layer_host.size());
-    cudaMemcpy(atoms_per_layer, &atoms_per_layer_host,
+    cudaMemcpy(atoms_per_layer, &atoms_per_layer_host[0],
             sizeof(unsigned)*atoms_per_layer_host.size(),
             cudaMemcpyHostToDevice);
 }
@@ -160,8 +160,10 @@ void tree_gpu::set_conf(const vec *atom_coords, vec *coords, const conf_info
 	// assert(c.torsions.size() == num_nodes-1);
 	// thread 0 has the root
 	int index = threadIdx.x;
+    segment_node* node;
+
     if (index < num_nodes)
-	    segment_node& node = device_nodes[index];
+	    node = &device_nodes[index];
 
 	__shared__ unsigned long long natoms;
 	//static_assert(sizeof(natoms) == 8,"Not the same size");
@@ -170,10 +172,10 @@ void tree_gpu::set_conf(const vec *atom_coords, vec *coords, const conf_info
 
 	if (index == 0) {
 		for(unsigned i = 0; i < 3; i++)
-			node.origin[i] = c->position[i];
-		node.set_orientation(c->orientation[0],c->orientation[1],c->orientation[2],c->orientation[3]);
-		node.set_coords(atom_coords, coords);
-		natoms = node.end - node.begin;
+			node->origin[i] = c->position[i];
+		node->set_orientation(c->orientation[0],c->orientation[1],c->orientation[2],c->orientation[3]);
+		node->set_coords(atom_coords, coords);
+		natoms = node->end - node->begin;
 		current_layer = 0;
 		total_atoms = (unsigned long long)(nlig_atoms);
 	}
@@ -186,14 +188,14 @@ void tree_gpu::set_conf(const vec *atom_coords, vec *coords, const conf_info
 		if (index == 0) {
 			current_layer++;
 		}
-		if (index < num_nodes && node.layer == current_layer) {
-			segment_node& parent = device_nodes[node.parent];
+		if (index < num_nodes && node->layer == current_layer) {
+			segment_node& parent = device_nodes[node->parent];
 			fl torsion = c->torsions[index-1];
-			node.origin = parent.local_to_lab(node.relative_origin);
-			node.axis = parent.local_to_lab_direction(node.relative_axis);
-			node.set_orientation(
+			node->origin = parent.local_to_lab(node->relative_origin);
+			node->axis = parent.local_to_lab_direction(node->relative_axis);
+			node->set_orientation(
 					quaternion_normalize_approx(
-							angle_to_quaternion(node.axis, torsion) * parent.orientation_q));
+							angle_to_quaternion(node->axis, torsion) * parent.orientation_q));
 		}
 		__syncthreads();
         if (index >= num_nodes && index < atoms_per_layer[current_layer]) {
@@ -201,13 +203,13 @@ void tree_gpu::set_conf(const vec *atom_coords, vec *coords, const conf_info
             // update atom coords. so we actually need the atom and node
             // indices to proceed from here.
             atom_node_indices idx_pair = atom_node_list[natoms + index];
-            segment_node& node = device_nodes[idx_pair.node_idx];
+            node = &device_nodes[idx_pair.node_idx];
             coords[idx_pair.atom_idx] =
-                node.local_to_lab(atom_coords[idx_pair.atom_idx]);
+                node->local_to_lab(atom_coords[idx_pair.atom_idx]);
         }
         __syncthreads();
-		if (index < num_nodes && node.layer == current_layer) {
-			atomicAdd(&natoms, (unsigned long long)(node.end - node.begin));
+		if (index < num_nodes && node->layer == current_layer) {
+			atomicAdd(&natoms, (unsigned long long)(node->end - node->begin));
         }
         __syncthreads();
 	}

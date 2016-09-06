@@ -200,6 +200,7 @@ struct model {
     return ligands[ligand_number].degrees_of_freedom; }
 	sz ligand_longest_branch(sz ligand_number) const;
 	sz ligand_length(sz ligand_number) const;
+    unsigned tree_width;
 	void get_movable_atom_types(std::vector<smt>& movingtypes) const;
 
 	void set_name(const std::string& n) { name = n; }
