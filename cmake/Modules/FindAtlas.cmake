@@ -1,3 +1,4 @@
+
 # Find the Atlas (and Lapack) libraries
 #
 # The following variables are optionally searched for defaults
