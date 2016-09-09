@@ -58,6 +58,9 @@ void tree_gpu::do_dfs(int parent, const branch& branch,
         atoms_per_layer_host[node.layer] += node.end - node.begin;
     }
 
+    if (node.layer > num_layers)
+        num_layers = node.layer;
+
     for (unsigned i=node.begin; i<node.end; i++) {
         atom_node_prelist.push_back(atom_node_indices(i,nodes.size()-1));
     }
@@ -73,6 +76,7 @@ tree_gpu::tree_gpu(const heterotree<rigid_body> &ligand){
 	std::vector<segment_node> nodes;
     std::vector<unsigned> atoms_per_layer_host;
     std::vector<atom_node_indices> atom_node_prelist;
+    num_layers = 0;
 
 	segment_node root(ligand.node);
 	nodes.push_back(root);
@@ -158,59 +162,40 @@ __device__
 void tree_gpu::set_conf(const vec *atom_coords, vec *coords, const conf_info
 		*c, unsigned nlig_atoms){
 	// assert(c.torsions.size() == num_nodes-1);
-	// thread 0 has the root
 	int index = threadIdx.x;
-    segment_node* node;
-
-    if (index < num_nodes)
-	    node = &device_nodes[index];
-
-	__shared__ unsigned long long natoms;
+    segment_node* node = NULL;
+	uint natoms;
+	uint current_layer = 0;
 	//static_assert(sizeof(natoms) == 8,"Not the same size");
-	__shared__ unsigned long long current_layer;
-	__shared__ unsigned long long total_atoms;
 
-	if (index == 0) {
+	if (index < atoms_per_layer[current_layer]) {
+        node = &device_nodes[current_layer];
 		for(unsigned i = 0; i < 3; i++)
 			node->origin[i] = c->position[i];
 		node->set_orientation(c->orientation[0],c->orientation[1],c->orientation[2],c->orientation[3]);
-		node->set_coords(atom_coords, coords);
-		natoms = node->end - node->begin;
-		current_layer = 0;
-		total_atoms = (unsigned long long)(nlig_atoms);
+        coords[index] = node->local_to_lab(atom_coords[index]);
 	}
 
+    natoms = atoms_per_layer[current_layer];
 	__syncthreads();
-	while (natoms < total_atoms) {
-        // This is really ugly...but maybe the synchronizations are nbd because
-        // at least the node-associated threads are almost certainly in the
-        // same warp?
-		if (index == 0) {
-			current_layer++;
-		}
-		if (index < num_nodes && node->layer == current_layer) {
+	while (current_layer < num_layers) {
+	    current_layer++;
+
+		if (index < atoms_per_layer[current_layer]) {
+            atom_node_indices idx_pair = atom_node_list[natoms + index];
+            node = &device_nodes[idx_pair.node_idx];
 			segment_node& parent = device_nodes[node->parent];
-			fl torsion = c->torsions[index-1];
+			fl torsion = c->torsions[idx_pair.node_idx-1];
 			node->origin = parent.local_to_lab(node->relative_origin);
 			node->axis = parent.local_to_lab_direction(node->relative_axis);
 			node->set_orientation(
 					quaternion_normalize_approx(
 							angle_to_quaternion(node->axis, torsion) * parent.orientation_q));
-		}
-		__syncthreads();
-        if (index >= num_nodes && index < atoms_per_layer[current_layer]) {
-            // need to create a copy of the owning segment_node in order to
-            // update atom coords. so we actually need the atom and node
-            // indices to proceed from here.
-            atom_node_indices idx_pair = atom_node_list[natoms + index];
-            node = &device_nodes[idx_pair.node_idx];
             coords[idx_pair.atom_idx] =
                 node->local_to_lab(atom_coords[idx_pair.atom_idx]);
-        }
-        __syncthreads();
-		if (index < num_nodes && node->layer == current_layer) {
-			atomicAdd(&natoms, (unsigned long long)(node->end - node->begin));
-        }
+		}
+
+        natoms += atoms_per_layer[current_layer];
         __syncthreads();
 	}
 }
