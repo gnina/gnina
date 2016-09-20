@@ -129,33 +129,33 @@ void tree_gpu::derivative(const vec *coords,const vec* forces, float *c){
 
 	// assert(c.torsions.size() == num_nodes-1);
 	//calculate each segments individual force/torque
-	for(unsigned i = 0; i < num_nodes; i++) {
-		force_torques[i] = device_nodes[i].sum_force_and_torque(coords, forces);
-	}
+    int index = threadIdx.x;
+    force_torques[index] = device_nodes[index].sum_force_and_torque(coords,
+            forces);
 
 	//have each child add its contribution to its parents force_torque
-	for(unsigned i = num_nodes-1; i > 0; i--) {
-		unsigned parent = device_nodes[i].parent;
-		const vecp& ft = force_torques[i];
-		force_torques[parent].first += ft.first;
+    if (index > 0) {
+        unsigned parent = device_nodes[index].parent;
+        const vecp& ft = force_torques[index];
+        atomicAdd(&force_torques[parent].first, ft.first);
+        
+        const segment_node& pnode = device_nodes[parent];
+        const segment_node& cnode = device_nodes[index];
+        
+        vec r = cnode.origin - pnode.origin;
+        atomicAdd(&force_torques[parent].second, cross_product(r,
+                    ft.first)+ft.second);
+        
+        //set torsions
+        c[6+index-1] = ft.second * cnode.axis;
+    }
 
-		const segment_node& pnode = device_nodes[parent];
-		const segment_node& cnode = device_nodes[i];
-
-		vec r = cnode.origin - pnode.origin;
-		force_torques[parent].second += cross_product(r, ft.first)+ft.second;
-
-		//set torsions
-		c[6+i-1] = ft.second * cnode.axis;
-	}
-
-	c[0] = force_torques[0].first[0];
-	c[1] = force_torques[0].first[1];
-	c[2] = force_torques[0].first[2];
-
-	c[3] = force_torques[0].second[0];
-	c[4] = force_torques[0].second[1];
-	c[5] = force_torques[0].second[2];
+    if (index < 6) {
+        if (index < 3) 
+            c[index] = force_torques[0].first[index];
+        else
+            c[index] = force_torques[0].second[index-3];
+    }
 }
 
 __device__

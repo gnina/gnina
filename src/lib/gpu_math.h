@@ -40,6 +40,12 @@ struct gfloat3 : float3{
 
 #define float3 gfloat3
 
+//Both the shuffle and atomicAdd provided below are not strictly what they say
+//they are. They are convenience functions that allow, for example, templated
+//code to work correctly even if the types are unsupported by CUDA, but they
+//work by applying hardware operations separately to individual elements of the
+//respective types.
+
 #ifdef __CUDACC__
 
 __device__ __inline__ static
@@ -50,6 +56,13 @@ float3 __shfl_down(const float3 &a, int delta) {
 }
 
 #endif
+
+// __device__ __inline__ static
+// vec atomicAdd(vec* address, vec value) {
+    // return vec(atomicAdd((fl*)*(&address[0]), value[0]),
+            // atomicAdd((fl*)*(&address[1]), value[1]),
+            // atomicAdd((fl*)*(&address[2]), value[2]));
+// }
 
 __host__ __device__ __inline__ static
 float3 operator-(const float3 &a) {
