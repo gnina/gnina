@@ -355,7 +355,7 @@ void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, qua
 {
 	//each thread is responsible for a grid point location and will handle all atom types
 	//each block is 8x8x8=512 threads
-	float3 origin = make_float3(dims[0].first, dims[1].first, dims[2].first);
+	float3 origin(dims[0].first, dims[1].first, dims[2].first); //actually a gfloat3
 	dim3 threads(BLOCKDIM, BLOCKDIM, BLOCKDIM);
 	unsigned blocksperside = ceil(dim / float(BLOCKDIM));
 	dim3 blocks(blocksperside, blocksperside, blocksperside);
