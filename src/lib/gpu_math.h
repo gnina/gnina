@@ -8,9 +8,9 @@
    float3. */
 struct gfloat3 : float3{
     __host__ __device__ __inline__
-    gfloat3(void){};
+    gfloat3(void): float3(make_float3(0,0,0)) {};
 	__host__ __device__ __inline__
-	gfloat3( float3 ) {}
+    gfloat3( float3 f): float3(f) {}
     __host__ __device__ __inline__ 
     gfloat3(float x, float y, float z) : float3(make_float3(x,y,z)){};
     
