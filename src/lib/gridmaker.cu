@@ -246,7 +246,7 @@ bool scanValid(unsigned idx,uint *scanresult)
 //radii are atom radii
 //grids are the output and are assumed to be zeroed
 template<bool Binary, typename Dtype> __global__ 
-__launch_bounds__(THREADSPERBLOCK, 64)
+//__launch_bounds__(THREADSPERBLOCK, 64)
 void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, float4 *ainfos, short *gridindex, Dtype *grids)
 {
 	unsigned tIndex = ((threadIdx.z*BLOCKDIM) + threadIdx.y)*BLOCKDIM+threadIdx.x;
@@ -359,7 +359,6 @@ void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, qua
 	dim3 threads(BLOCKDIM, BLOCKDIM, BLOCKDIM);
 	unsigned blocksperside = ceil(dim / float(BLOCKDIM));
 	dim3 blocks(blocksperside, blocksperside, blocksperside);
-
 	unsigned gsize = ngrids * dim * dim * dim;
 	CUDA_CHECK(cudaMemset(grids, 0, gsize * sizeof(float)));	//TODO: see if faster to do in kernel - it isn't, but this still may not be fastest
 	
