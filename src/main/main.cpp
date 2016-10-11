@@ -53,6 +53,8 @@
 
 #include <cuda_profiler_api.h>
 
+#include "visualize.hpp"
+
 using namespace boost::iostreams;
 using boost::filesystem::path;
 
@@ -75,6 +77,7 @@ struct user_settings
 	bool dominimize;
 	bool include_atom_info;
 	bool gpu_on;
+  bool visualize;
 
 	//reasonable defaults
 	user_settings() :
@@ -82,7 +85,7 @@ struct user_settings
 					forcecap(1000), seed(auto_seed()), verbosity(1), cpu(1), exhaustiveness(
 							10),
 					score_only(false), randomize_only(false), local_only(false),
-					dominimize(false), include_atom_info(false)
+					dominimize(false), include_atom_info(false), visualize(false)
 	{
 
 	}
@@ -1018,6 +1021,7 @@ Thank you!\n";
 		bool no_lig = false;
 
 		cnn_options cnnopts;
+    visualization_options visopts;
 		user_settings settings;
 		minimization_params minparms;
 		ApproxType approx = LinearApprox;
@@ -1131,6 +1135,20 @@ Thank you!\n";
 		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
 				"Use provided model and weights file to score final pose.");
 
+		options_description visualization("Visualization of CNN scoring");
+		visualization.add_options()
+    ("visualize", bool_switch(&settings.visualize)->default_value(false),
+        "Generate visualization of cnn scoring")
+    ("only_frags", bool_switch(&visopts.frags_only)->default_value(false),
+        "Perform only fragment removals on ligand")
+    ("only_atom", bool_switch(&visopts.atoms_only)->default_value(false), 
+        "Perform only individual removals on ligand")
+    ("rec_output", value<std::string>(&visopts.outrec),
+        "Filename for colored receptor")
+    ("lig_output", value<std::string>(&visopts.outlig), 
+        "Filename for colored ligand");
+
+
 		options_description misc("Misc (optional)");
 		misc.add_options()
 		("cpu", value<int>(&settings.cpu),
@@ -1163,9 +1181,9 @@ Thank you!\n";
 
 		options_description desc, desc_simple;
 		desc.add(inputs).add(search_area).add(outputs).add(scoremin).add(cnn).
-				add(hidden).add(misc).add(config).add(info);
+				add(visualization).add(hidden).add(misc).add(config).add(info);
 		desc_simple.add(inputs).add(search_area).add(scoremin).add(cnn).
-				add(outputs).add(misc).add(config).add(info);
+				add(visualization).add(outputs).add(misc).add(config).add(info);
 
 		variables_map vm;
 		try
@@ -1235,6 +1253,8 @@ Thank you!\n";
 
 		set_fixed_rotable_hydrogens(!flex_hydrogens);
 
+    
+    
 		if (settings.dominimize) //set default settings for minimization
 		{
 			if (!vm.count("force_cap"))
@@ -1481,6 +1501,36 @@ Thank you!\n";
 			}
 			log << "\n";
 		}
+
+    if (settings.visualize)
+    {
+      if(vm.count("rec_output") <= 0)
+      {
+        std::cerr << "Missing receptor output for visualization.\n" << "\nCorrect usage:\n" 
+            << desc_simple << '\n';
+        return 1;
+      }
+      if(vm.count("lig_output") <= 0)
+      {
+        std::cerr << "Missing ligand output for visualization.\n" << "\nCorrect usage:\n" 
+            << desc_simple << '\n';
+        return 1;
+      }
+      bool verbose = false;
+      if (settings.verbosity > 1)
+      {
+        verbose = true;
+      }
+
+      //visualize only first input ligand
+      //todo: add logic for multiple ligands
+      //todo: implement and pass atoms_only
+      ColoredMol cmol(ligand_names[0], rigid_name, cnnopts.cnn_model, cnnopts.cnn_weights, 
+          cnnopts.cnn_rotations, visopts.outrec, visopts.outlig, cnnopts, finfo, log, 
+          vec(center_x, center_y, center_z), visopts.frags_only, verbose);
+      cmol.color();
+      return 1;
+    }
 
 		boost::lockfree::queue<worker_job> wrkq(0);
 		//This should probably be a different type of queue that blocks
