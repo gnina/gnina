@@ -3,20 +3,26 @@
 #include "cnn_scorer.h"
 #include "molgetter.h"
 
-struct visualization_options
+struct vis_options
 {
+  std::string ligName;
+  std::string recName;
+  std::string outRec;
+  std::string outLig;
+
   bool frags_only;
   bool atoms_only;
   bool verbose;
 
-  std::string outrec;
-  std::string outlig;
+  float size;
+
+  vis_options(): size(23.5), frags_only(false), atoms_only(false), verbose(false) {}
 };
 
 class ColoredMol
 {
     public:
-    ColoredMol(std::string inLigName, std::string inRecName, std::string inModel, std::string inWeights, float inSize, std::string inOutRec, std::string inOutLig, const cnn_options &cnnopts, FlexInfo &finfo, tee &log, const vec &center, bool inNo_frag = false, bool inVerbose = false);
+    ColoredMol(const vis_options &visopts, const cnn_options &cnnopts, FlexInfo &finfo, tee &log, const vec &center);
     void color();
     void print();
 
@@ -29,7 +35,7 @@ class ColoredMol
     FlexInfo* finfo;
     tee* log;
     const vec* center;
-    bool no_frag, verbose;
+    bool frags_only, atoms_only,  verbose;
 
     void addHydrogens();
     float removeAndScore(std::vector<bool> removeList, bool isRec);

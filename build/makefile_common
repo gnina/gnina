@@ -1,3 +1,4 @@
+
 SRCD :=./../../../src
 OBJD :=./objs
 BUILTIN_VARS := $(.VARIABLES)
@@ -31,7 +32,6 @@ LDFLAGS := -L $(BASE)/lib \
 		   -L /usr/local/lib \
 		   -L $(BASE)/cuda/lib64 \
 		   $(LDFLAGS)
-
 LIBS := -l openbabel \
 	-l boost_iostreams${BOOST_LIB_VERSION} \
 	-l boost_timer${BOOST_LIB_VERSION} \
@@ -49,6 +49,7 @@ LIBSRC := $(wildcard $(SRCD)/lib/*.cpp)
 MAINSRC := $(wildcard $(SRCD)/main/*.cpp)
 TOGNINASRC := $(wildcard $(SRCD)/tognina/*.cpp $(SRCD)/lib/CommandLine2/*.cpp)
 FROMGNINASRC := $(wildcard $(SRCD)/fromgnina/*.cpp)
+GNINAVISSRC := $(wildcard $(SRCD)/gninavis/*.cpp)
 GNINAGRIDSRC := $(wildcard $(SRCD)/gninagrid/*.cpp)
 GNINATYPERSRC := $(wildcard $(SRCD)/gninatyper/*.cpp)
 SERVERSRC := $(wildcard $(SRCD)/gninaserver/*.cpp $(SRCD)/lib/CommandLine2/*.cpp)
@@ -58,6 +59,7 @@ SRCS := $(LIBSRC) \
 		$(MAINSRC) \
 		$(TOGNINASRC) \
 		$(FROMGNINASRC) \
+		$(GNINAVISSRC) \
 		$(GNINAGRIDSRC) \
 		$(SERVERSRC) \
 		$(GUPSRC)
@@ -66,6 +68,7 @@ LIBOBJ := $(LIBSRC:$(SRCD)/%.cpp=$(OBJD)/%.o)
 MAINOBJ := $(MAINSRC:$(SRCD)/%.cpp=$(OBJD)/%.o)
 TOGNINAOBJ := $(TOGNINASRC:$(SRCD)/%.cpp=$(OBJD)/%.o)
 FROMGNINAOBJ := $(FROMGNINASRC:$(SRCD)/%.cpp=$(OBJD)/%.o)
+GNINAVISOBJ := $(GNINAVISSRC:$(SRCD)/%.cpp=$(OBJD)/%.o)
 GNINAGRIDOBJ := $(GNINAGRIDSRC:$(SRCD)/%.cpp=$(OBJD)/%.o)
 GNINATYPEROBJ := $(GNINATYPERSRC:$(SRCD)/%.cpp=$(OBJD)/%.o)
 SERVEROBJ := $(SERVERSRC:$(SRCD)/%.cpp=$(OBJD)/%.o)
@@ -75,11 +78,12 @@ OBJS := $(LIBOBJ)  \
 		$(MAINOBJ) \
 		$(TOGNINAOBJ) \
 		$(FROMGNINAOBJ) \
+		$(GNINAVISOBJ) \
 		$(GNINAGRIDOBJ) \
 		$(SERVEROBJ) \
 		$(GPUOBJ)
 		
-all: gnina tognina gninaserver libgnina.a gninagrid
+all: gnina tognina gninaserver libgnina.a gninagrid gninavis
 
 
 $(OBJS): $(MAKEFILE_LIST)
@@ -115,6 +119,10 @@ fromgnina: $(FROMGNINAOBJ) $(LIBOBJ) $(GPUOBJ) device_code.o
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"	
 
+gninavis: $(GNINAVISOBJ) $(LIBOBJ) $(GPUOBJ) device_code.o
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+	@echo "Done"
+
 gninagrid: $(GNINAGRIDOBJ) $(LIBOBJ) $(GPUOBJ) device_code.o
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 	@echo "Done"    	
@@ -132,7 +140,7 @@ libgnina.a: $(LIBOBJ) $(GPUOBJ) device_code.o
 
 clean:
 	rm -rf *.o *.d objs
-	rm -f gnina tognina fromgnina gninagrid gninatyper gninaserver libgnina.a
+	rm -f gnina tognina fromgnina gninagrid gninatyper gninaserver gninavis libgnina.a
 .PHONY : clean
 
 define \n

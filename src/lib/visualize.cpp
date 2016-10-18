@@ -12,21 +12,23 @@
 
 using namespace OpenBabel;
 
-ColoredMol::ColoredMol (std::string inLigName, std::string inRecName, std::string inModel, std::string inWeights, float inSize, std::string inOutRec, std::string inOutLig, const cnn_options &inCnnopts, FlexInfo &inFinfo, tee &inLog, const vec &inCenter, bool inNo_frag, bool inVerbose)
+ColoredMol::ColoredMol (const vis_options &visopts, const cnn_options &cnnopts, FlexInfo &finfo, tee &log, const vec &center )
     {
-        ligName = inLigName;
-        recName = inRecName;
-        cnnmodel = inModel;
-        weights = inWeights;
-        size = inSize;
-        outRec = inOutRec;
-        outLig = inOutLig;
-        no_frag = inNo_frag;
-        verbose = inVerbose;
-        cnnopts = inCnnopts;
-        finfo = &inFinfo;
-        log = &inLog;
-        center = &inCenter;
+        ligName = visopts.ligName;
+        recName = visopts.recName;
+        cnnmodel = cnnopts.cnn_model;
+        weights = cnnopts.cnn_weights;
+        size = visopts.size;
+        outRec = visopts.outRec;
+        outLig = visopts.outLig;
+        frags_only = visopts.frags_only;
+        atoms_only = visopts.atoms_only;
+        verbose = visopts.verbose;
+        this->cnnopts = cnnopts;
+        std::cout << cnnopts.cnn_model;
+        this->finfo = &finfo;
+        this->log = &log;
+        this->center = &center;
     }
 
 void ColoredMol::color()
@@ -80,7 +82,8 @@ void ColoredMol::print()
     std::cout << "size: " << size << '\n';
     std::cout << "outRec: " << outRec << '\n';
     std::cout << "outLig: " << outLig << '\n';
-    std::cout << "no_frag: " << no_frag << '\n';
+    std::cout << "frags_only: " << frags_only << '\n';
+    std::cout << "atoms_only: " << atoms_only << '\n';
     std::cout << "verbose: " << verbose << '\n';
 }
 
