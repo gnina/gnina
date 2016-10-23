@@ -1,5 +1,6 @@
 #ifndef GPU_MATH_H
 #define GPU_MATH_H
+#include <limits>
 #include <cuda_runtime.h>
 #include "common.h"
 
@@ -63,6 +64,19 @@ float3 __shfl_down(const float3 &a, int delta) {
             // atomicAdd((fl*)*(&address[1]), value[1]),
             // atomicAdd((fl*)*(&address[2]), value[2]));
 // }
+
+static bool almostEqual(float a, float b) {
+    float absA = std::fabs(a);
+    float absB = std::fabs(b);
+    float diff = std::fabs(a-b);
+
+    if (a == b) 
+        return true;
+    elif (a == 0 || b == 0 || diff < FLT_MIN) 
+        return diff < (FLT_EPSILON * FLT_MIN);
+    else 
+        return diff / std::min((absA + absB), FLT_MAX) < FLT_EPSILON;
+}
 
 __host__ __device__ __inline__ static
 float3 operator-(const float3 &a) {
