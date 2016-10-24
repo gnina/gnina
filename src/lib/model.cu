@@ -908,7 +908,7 @@ fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
 					minus_forces.size() * sizeof(vec), cudaMemcpyDeviceToHost));
 	e += ie;
 	// calculate derivatives
-	derivatives_kernel<<<1,ligand_degrees_of_freedom+1>>>(gdata.treegpu, (vec*)gdata.coords, (vec*)gdata.minus_forces, g.change_values);
+	derivatives_kernel<<<1,ligands[0].degrees_of_freedom+1>>>(gdata.treegpu, (vec*)gdata.coords, (vec*)gdata.minus_forces, g.change_values);
 
 	t.stop();
 	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */

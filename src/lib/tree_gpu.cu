@@ -127,27 +127,31 @@ void tree_gpu::deallocate(tree_gpu *t) {
 __device__
 void tree_gpu::derivative(const vec *coords,const vec* forces, float *c){
 
-	// assert(c.torsions.size() == num_nodes-1);
 	//calculate each segments individual force/torque
     int index = threadIdx.x;
     force_torques[index] = device_nodes[index].sum_force_and_torque(coords,
             forces);
 
+    unsigned current_layer = num_layers;
 	//have each child add its contribution to its parents force_torque
-    if (index > 0) {
-        unsigned parent = device_nodes[index].parent;
-        const vecp& ft = force_torques[index];
-        atomicAdd(&force_torques[parent].first, ft.first);
-        
-        const segment_node& pnode = device_nodes[parent];
-        const segment_node& cnode = device_nodes[index];
-        
-        vec r = cnode.origin - pnode.origin;
-        atomicAdd(&force_torques[parent].second, cross_product(r,
-                    ft.first)+ft.second);
-        
-        //set torsions
-        c[6+index-1] = ft.second * cnode.axis;
+    const segment_node& cnode = device_nodes[index];
+    __syncthreads();
+    while (current_layer > 0) {
+        current_layer--;
+        if (cnode.layer == current_layer) {
+            unsigned parent = device_nodes[index].parent;
+            const segment_node& pnode = device_nodes[parent];
+            const vecp& ft = force_torques[index];
+            pseudoAtomicAdd(&force_torques[parent].first, ft.first);
+            
+            vec r = cnode.origin - pnode.origin;
+            pseudoAtomicAdd(&force_torques[parent].second, cross_product(r,
+                        ft.first)+ft.second);
+            
+            //set torsions
+            c[6+index-1] = ft.second * cnode.axis;
+        }
+        __syncthreads();
     }
 
     if (index < 6) {
@@ -166,7 +170,6 @@ void tree_gpu::set_conf(const vec *atom_coords, vec *coords, const conf_info
     segment_node* node = NULL;
 	uint natoms;
 	uint current_layer = 0;
-	//static_assert(sizeof(natoms) == 8,"Not the same size");
 
 	if (index < atoms_per_layer[current_layer]) {
         node = &device_nodes[current_layer];

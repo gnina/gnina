@@ -1,6 +1,6 @@
 #ifndef GPU_MATH_H
 #define GPU_MATH_H
-#include <limits>
+#include <float.h>
 #include <cuda_runtime.h>
 #include "common.h"
 
@@ -56,14 +56,15 @@ float3 __shfl_down(const float3 &a, int delta) {
                   __shfl_down(a.z, delta));
 }
 
-#endif
+template<class T>
+__device__ __inline__ static
+T pseudoAtomicAdd(T* address, T value) {
+    return T(atomicAdd(&((*address)[0]), value[0]),
+            atomicAdd(&((*address)[1]), value[1]),
+            atomicAdd(&((*address)[2]), value[2]));
+}
 
-// __device__ __inline__ static
-// vec atomicAdd(vec* address, vec value) {
-    // return vec(atomicAdd((fl*)*(&address[0]), value[0]),
-            // atomicAdd((fl*)*(&address[1]), value[1]),
-            // atomicAdd((fl*)*(&address[2]), value[2]));
-// }
+#endif
 
 static bool almostEqual(float a, float b) {
     float absA = std::fabs(a);
@@ -72,7 +73,7 @@ static bool almostEqual(float a, float b) {
 
     if (a == b) 
         return true;
-    elif (a == 0 || b == 0 || diff < FLT_MIN) 
+    else if (a == 0 || b == 0 || diff < FLT_MIN) 
         return diff < (FLT_EPSILON * FLT_MIN);
     else 
         return diff / std::min((absA + absB), FLT_MAX) < FLT_EPSILON;
