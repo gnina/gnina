@@ -1,5 +1,5 @@
 #include <iostream>
-#include "../lib/visualize.hpp"
+#include "visualize.hpp"
 #include "../lib/cnn_scorer.h"
 #include "../lib/tee.h"
 #include "../lib/flexinfo.h"
@@ -12,8 +12,8 @@ int main()
     int x [5] = {1, 2, 3, 4, 5};
     std::string ligName = "3gvu_lig.pdb";
     std::string recName = "3gvu_rec.pdb";
-    std::string model = "/home/josh/models/refmodel.model";
-    std::string weights = "/home/josh/models/refmodel.0_iter_10000.caffemodel";
+    std::string model = "/home/josh/models/depth3.model";
+    std::string weights = "/home/josh/models/allfolds0.5_iter_10000.caffemodel";
     float size = 23.5;
     std::string outRec = "colored_3gvu_rec.pdb";
     std::string outLig = "colored_3gvu_lig.pdb";
