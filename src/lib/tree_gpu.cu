@@ -92,6 +92,7 @@ tree_gpu::tree_gpu(const heterotree<rigid_body> &ligand){
     max_atoms_per_layer = *std::max_element(std::begin(atoms_per_layer_host),
             std::end(atoms_per_layer_host));
 	num_nodes = nodes.size();
+    num_layers++;
 	//allocate device memory and copy
 	//nodes
 	cudaMalloc(&device_nodes, sizeof(segment_node)*nodes.size());
@@ -184,7 +185,7 @@ void tree_gpu::set_conf(const vec *atom_coords, vec *coords, const conf_info
 
     natoms = atoms_per_layer[current_layer];
 	__syncthreads();
-	while (current_layer < num_layers) {
+	while (current_layer < num_layers-1) {
 	    current_layer++;
 
 		if (index < atoms_per_layer[current_layer]) {
