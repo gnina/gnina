@@ -132,12 +132,11 @@ void tree_gpu::derivative(const vec *coords,const vec* forces, float *c){
     force_torques[index] = device_nodes[index].sum_force_and_torque(coords,
             forces);
 
-    unsigned current_layer = num_layers;
+    unsigned current_layer = num_layers - 1;
 	//have each child add its contribution to its parents force_torque
     const segment_node& cnode = device_nodes[index];
     __syncthreads();
     while (current_layer > 0) {
-        current_layer--;
         if (cnode.layer == current_layer) {
             unsigned parent = device_nodes[index].parent;
             const segment_node& pnode = device_nodes[parent];
@@ -151,14 +150,18 @@ void tree_gpu::derivative(const vec *coords,const vec* forces, float *c){
             //set torsions
             c[6+index-1] = ft.second * cnode.axis;
         }
+        current_layer--;
         __syncthreads();
     }
 
-    if (index < 6) {
-        if (index < 3) 
-            c[index] = force_torques[0].first[index];
-        else
-            c[index] = force_torques[0].second[index-3];
+    if (index == 0) {
+	    c[0] = force_torques[0].first[0];
+	    c[1] = force_torques[0].first[1];
+	    c[2] = force_torques[0].first[2];
+
+	    c[3] = force_torques[0].second[0];
+	    c[4] = force_torques[0].second[1];
+	    c[5] = force_torques[0].second[2];
     }
 }
 
