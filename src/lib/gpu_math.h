@@ -1,5 +1,6 @@
 #ifndef GPU_MATH_H
 #define GPU_MATH_H
+#include <float.h>
 #include <cuda_runtime.h>
 #include "common.h"
 
@@ -8,7 +9,7 @@
    float3. */
 struct gfloat3 : float3{
     __host__ __device__ __inline__
-    gfloat3(void): float3(make_float3(0,0,0)) {};
+    gfloat3() = default;
 	__host__ __device__ __inline__
     gfloat3( float3 f): float3(f) {}
     __host__ __device__ __inline__ 
@@ -40,6 +41,12 @@ struct gfloat3 : float3{
 
 #define float3 gfloat3
 
+//Both the shuffle and atomicAdd provided below are not strictly what they say
+//they are. They are convenience functions that allow, for example, templated
+//code to work correctly even if the types are unsupported by CUDA, but they
+//work by applying hardware operations separately to individual elements of the
+//respective types.
+
 #ifdef __CUDACC__
 
 __device__ __inline__ static
@@ -49,7 +56,28 @@ float3 __shfl_down(const float3 &a, int delta) {
                   __shfl_down(a.z, delta));
 }
 
+template<class T>
+__device__ __inline__ static
+T pseudoAtomicAdd(T* address, T value) {
+    return T(atomicAdd(&((*address)[0]), value[0]),
+            atomicAdd(&((*address)[1]), value[1]),
+            atomicAdd(&((*address)[2]), value[2]));
+}
+
 #endif
+
+static bool almostEqual(float a, float b) {
+    float absA = std::fabs(a);
+    float absB = std::fabs(b);
+    float diff = std::fabs(a-b);
+
+    if (a == b) 
+        return true;
+    else if (a == 0 || b == 0 || diff < FLT_MIN) 
+        return diff < (FLT_EPSILON * FLT_MIN);
+    else 
+        return diff / std::min((absA + absB), FLT_MAX) < FLT_EPSILON;
+}
 
 __host__ __device__ __inline__ static
 float3 operator-(const float3 &a) {
