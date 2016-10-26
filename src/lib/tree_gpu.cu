@@ -142,33 +142,41 @@ void tree_gpu::derivative(const vec *coords,const vec* forces, float *c){
 
 	// assert(c.torsions.size() == num_nodes-1);
 	//calculate each segments individual force/torque
-	for(unsigned i = 0; i < num_nodes; i++) {
-		force_torques[i] = device_nodes[i].sum_force_and_torque(coords, forces);
-	}
+    int index = threadIdx.x;
+    force_torques[index] = device_nodes[index].sum_force_and_torque(coords,
+            forces);
 
+    unsigned current_layer = num_layers - 1;
 	//have each child add its contribution to its parents force_torque
-	for(unsigned i = num_nodes-1; i > 0; i--) {
-		unsigned parent = device_nodes[i].parent;
-		const vecp& ft = force_torques[i];
-		force_torques[parent].first += ft.first;
+    const segment_node& cnode = device_nodes[index];
+    __syncthreads();
+    while (current_layer > 0) {
+        if (cnode.layer == current_layer) {
+            unsigned parent = device_nodes[index].parent;
+            const segment_node& pnode = device_nodes[parent];
+            const vecp& ft = force_torques[index];
+            pseudoAtomicAdd(&force_torques[parent].first, ft.first);
+            
+            vec r = cnode.origin - pnode.origin;
+            pseudoAtomicAdd(&force_torques[parent].second, cross_product(r,
+                        ft.first)+ft.second);
+            
+            //set torsions
+            c[6+index-1] = ft.second * cnode.axis;
+        }
+        current_layer--;
+        __syncthreads();
+    }
 
-		const segment_node& pnode = device_nodes[parent];
-		const segment_node& cnode = device_nodes[i];
+    if (index == 0) {
+	    c[0] = force_torques[0].first[0];
+	    c[1] = force_torques[0].first[1];
+	    c[2] = force_torques[0].first[2];
 
-		vec r = cnode.origin - pnode.origin;
-		force_torques[parent].second += cross_product(r, ft.first)+ft.second;
-
-		//set torsions
-		c[6+i-1] = ft.second * cnode.axis;
-	}
-
-	c[0] = force_torques[0].first[0];
-	c[1] = force_torques[0].first[1];
-	c[2] = force_torques[0].first[2];
-
-	c[3] = force_torques[0].second[0];
-	c[4] = force_torques[0].second[1];
-	c[5] = force_torques[0].second[2];
+	    c[3] = force_torques[0].second[0];
+	    c[4] = force_torques[0].second[1];
+	    c[5] = force_torques[0].second[2];
+    }
 }
 
 __device__
