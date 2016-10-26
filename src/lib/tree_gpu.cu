@@ -1,5 +1,6 @@
 #include "tree_gpu.h"
 #include <algorithm>
+#include <map>
 
 __device__
 vecp segment_node::sum_force_and_torque(const vec *coords, const vec *forces) const {
@@ -45,8 +46,8 @@ void segment_node::set_orientation(float x, float y, float z, float w) { // does
 
 void tree_gpu::do_dfs(int parent, const branch& branch,
         std::vector<segment_node>& nodes, std::vector<unsigned>&
-        atoms_per_layer_host, std::vector<atom_node_indices>&
-        atom_node_prelist) {
+        atoms_per_layer_host, std::map<int,std::vector<atom_node_indices>>&
+        atom_node_map) {
 	segment_node node(branch.node, parent, &nodes[parent]);
 	unsigned index = nodes.size();
 	nodes.push_back(node);
@@ -61,13 +62,15 @@ void tree_gpu::do_dfs(int parent, const branch& branch,
     if (node.layer > num_layers)
         num_layers = node.layer;
 
-    for (unsigned i=node.begin; i<node.end; i++) {
-        atom_node_prelist.push_back(atom_node_indices(i,nodes.size()-1));
-    }
+    if (node.layer > atom_node_map.size()) 
+        atom_node_map[node.layer] = std::vector<atom_node_indices>();
+
+    for (unsigned i=node.begin; i<node.end; i++)
+        atom_node_map[node.layer].push_back(atom_node_indices(i,nodes.size()-1));
 
 	VINA_FOR_IN(i, branch.children) {
 		do_dfs(index, branch.children[i], nodes, atoms_per_layer_host,
-                atom_node_prelist);
+                atom_node_map);
 	}
 }
 
@@ -75,6 +78,9 @@ tree_gpu::tree_gpu(const heterotree<rigid_body> &ligand){
 	//populate nodes in DFS order from ligand, where node zero is the root
 	std::vector<segment_node> nodes;
     std::vector<unsigned> atoms_per_layer_host;
+    //need this temporary map to create a BFS-ordered array from a DFS
+    //traversal
+    std::map<int,std::vector<atom_node_indices>> atom_node_map; 
     std::vector<atom_node_indices> atom_node_prelist;
     num_layers = 0;
 
@@ -86,8 +92,14 @@ tree_gpu::tree_gpu(const heterotree<rigid_body> &ligand){
     }
 
 	VINA_FOR_IN(i, ligand.children) {
-		do_dfs(0,ligand.children[i], nodes, atoms_per_layer_host, atom_node_prelist);
+		do_dfs(0,ligand.children[i], nodes, atoms_per_layer_host, atom_node_map);
 	}
+
+    for (std::map<int,std::vector<atom_node_indices>>::iterator it =
+            atom_node_map.begin(); it != atom_node_map.end(); ++it) {
+        atom_node_prelist.insert(atom_node_prelist.end(), it->second.begin(),
+                it->second.end());
+    }
 
     max_atoms_per_layer = *std::max_element(std::begin(atoms_per_layer_host),
             std::end(atoms_per_layer_host));
@@ -128,42 +140,35 @@ void tree_gpu::deallocate(tree_gpu *t) {
 __device__
 void tree_gpu::derivative(const vec *coords,const vec* forces, float *c){
 
+	// assert(c.torsions.size() == num_nodes-1);
 	//calculate each segments individual force/torque
-    int index = threadIdx.x;
-    force_torques[index] = device_nodes[index].sum_force_and_torque(coords,
-            forces);
+	for(unsigned i = 0; i < num_nodes; i++) {
+		force_torques[i] = device_nodes[i].sum_force_and_torque(coords, forces);
+	}
 
-    unsigned current_layer = num_layers - 1;
 	//have each child add its contribution to its parents force_torque
-    const segment_node& cnode = device_nodes[index];
-    __syncthreads();
-    while (current_layer > 0) {
-        if (cnode.layer == current_layer) {
-            unsigned parent = device_nodes[index].parent;
-            const segment_node& pnode = device_nodes[parent];
-            const vecp& ft = force_torques[index];
-            pseudoAtomicAdd(&force_torques[parent].first, ft.first);
-            
-            vec r = cnode.origin - pnode.origin;
-            pseudoAtomicAdd(&force_torques[parent].second, cross_product(r,
-                        ft.first)+ft.second);
-            
-            //set torsions
-            c[6+index-1] = ft.second * cnode.axis;
-        }
-        current_layer--;
-        __syncthreads();
-    }
+	for(unsigned i = num_nodes-1; i > 0; i--) {
+		unsigned parent = device_nodes[i].parent;
+		const vecp& ft = force_torques[i];
+		force_torques[parent].first += ft.first;
 
-    if (index == 0) {
-	    c[0] = force_torques[0].first[0];
-	    c[1] = force_torques[0].first[1];
-	    c[2] = force_torques[0].first[2];
+		const segment_node& pnode = device_nodes[parent];
+		const segment_node& cnode = device_nodes[i];
 
-	    c[3] = force_torques[0].second[0];
-	    c[4] = force_torques[0].second[1];
-	    c[5] = force_torques[0].second[2];
-    }
+		vec r = cnode.origin - pnode.origin;
+		force_torques[parent].second += cross_product(r, ft.first)+ft.second;
+
+		//set torsions
+		c[6+i-1] = ft.second * cnode.axis;
+	}
+
+	c[0] = force_torques[0].first[0];
+	c[1] = force_torques[0].first[1];
+	c[2] = force_torques[0].first[2];
+
+	c[3] = force_torques[0].second[0];
+	c[4] = force_torques[0].second[1];
+	c[5] = force_torques[0].second[2];
 }
 
 __device__

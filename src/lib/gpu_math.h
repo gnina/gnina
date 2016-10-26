@@ -9,7 +9,7 @@
    float3. */
 struct gfloat3 : float3{
     __host__ __device__ __inline__
-    gfloat3(void): float3(make_float3(0,0,0)) {};
+    gfloat3() = default;
 	__host__ __device__ __inline__
     gfloat3( float3 f): float3(f) {}
     __host__ __device__ __inline__ 
