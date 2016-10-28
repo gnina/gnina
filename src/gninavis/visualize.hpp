@@ -5,18 +5,18 @@
 
 struct vis_options
 {
-  std::string ligName;
-  std::string recName;
-  std::string outRec;
-  std::string outLig;
+  std::string ligand_name;
+  std::string receptor_name;
+  std::string receptor_output;
+  std::string ligand_output;
 
   bool frags_only;
   bool atoms_only;
   bool verbose;
 
-  float size;
+  float box_size;
 
-  vis_options(): size(23.5), frags_only(false), atoms_only(false), verbose(false) {}
+  //vis_options(): box_size(23.5), frags_only(false), atoms_only(false), verbose(false) {}
 };
 
 class ColoredMol
@@ -27,17 +27,18 @@ class ColoredMol
     void print();
 
     private:
-    std::string ligName, recName, hRec, hLig, recPDB, cnnmodel, weights, outRec, outLig; 
+    std::string ligName, recName, hRec, hLig, recPDB, ligPDB,  cnnmodel, weights, outRec, outLig; 
     OpenBabel::OBMol ligMol, recMol, hLigMol, hRecMol;
-    float size;
+    float size, original_score;
     float cenCoords [3];
+    vis_options visopts;
     cnn_options cnnopts;
     FlexInfo* finfo;
     tee* log;
     const vec* center;
     bool frags_only, atoms_only,  verbose;
 
-    void addHydrogens();
+    void process_molecules();
     float removeAndScore(std::vector<bool> removeList, bool isRec);
     void ligCenter();
     float score(const std::string &molString, bool isRec);

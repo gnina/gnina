@@ -15,18 +15,8 @@ using namespace OpenBabel;
 
 ColoredMol::ColoredMol (const vis_options &visopts, const cnn_options &cnnopts, FlexInfo &finfo, tee &log, const vec &center )
     {
-        ligName = visopts.ligName;
-        recName = visopts.recName;
-        cnnmodel = cnnopts.cnn_model;
-        weights = cnnopts.cnn_weights;
-        size = visopts.size;
-        outRec = visopts.outRec;
-        outLig = visopts.outLig;
-        frags_only = visopts.frags_only;
-        atoms_only = visopts.atoms_only;
-        verbose = visopts.verbose;
+        this->visopts = visopts;
         this->cnnopts = cnnopts;
-        std::cout << cnnopts.cnn_model;
         this->finfo = &finfo;
         this->log = &log;
         this->center = &center;
@@ -36,7 +26,7 @@ void ColoredMol::color()
 {
     OBConversion conv;
 
-    std::string ext = boost::filesystem::extension(ligName);
+    std::string ext = boost::filesystem::extension(visopts.ligand_name);
     if(ext.compare(".pdb") == 0)
     {
         conv.SetInFormat("PDB");
@@ -47,45 +37,47 @@ void ColoredMol::color()
     }
     else
     {
-        std::cout << "File extension not supported: " << ligName << '\n';
+        std::cout << "File extension not supported: " << visopts.ligand_name << '\n';
         std::cout << "Please use .pdb or .pdbqt for ligand\n";
         exit(0);
     }
 
-    conv.ReadFile(&ligMol, ligName);
+    conv.ReadFile(&ligMol, visopts.ligand_name);
 
-    ext = boost::filesystem::extension(recName);
+    ext = boost::filesystem::extension(visopts.receptor_name);
     if(ext.compare(".pdb") == 0)
     {
       conv.SetInFormat("PDB");
     }
     else
     {
-        std::cout << "File extension not supported: " << recName << '\n';
+        std::cout << "File extension not supported: " << visopts.receptor_name << '\n';
         std::cout << "Please use .pdb for receptor\n";
         exit(0);
     }
 
-    conv.ReadFile(&recMol, recName);
+    conv.ReadFile(&recMol, visopts.receptor_name);
 
-    addHydrogens();
+    process_molecules();
     ligCenter();
 
-    //removeResidues();
+    
+    removeResidues();
     removeEachAtom();
 }
 
 void ColoredMol::print()
 {
-    std::cout << "ligName: " << ligName << '\n';
-    std::cout << "recName: " << recName << '\n';
-    std::cout << "cnnmodel: " << cnnmodel << '\n';
-    std::cout << "size: " << size << '\n';
-    std::cout << "outRec: " << outRec << '\n';
-    std::cout << "outLig: " << outLig << '\n';
-    std::cout << "frags_only: " << frags_only << '\n';
-    std::cout << "atoms_only: " << atoms_only << '\n';
-    std::cout << "verbose: " << verbose << '\n';
+    std::cout << "ligand_name: " << visopts.ligand_name << '\n';
+    std::cout << "receptor_name: " << visopts.receptor_name << '\n';
+    std::cout << "cnn_model: " << cnnopts.cnn_model << '\n';
+    std::cout << "cnn_weights: " << cnnopts.cnn_weights << '\n';
+    std::cout << "box_size: " << visopts.box_size << '\n';
+    std::cout << "receptor_output: " << visopts.receptor_output << '\n';
+    std::cout << "ligand_output: " << visopts.ligand_output << '\n';
+    std::cout << "frags_only: " << visopts.frags_only << '\n';
+    std::cout << "atoms_only: " << visopts.atoms_only << '\n';
+    std::cout << "verbose: " << visopts.verbose << '\n';
 }
 
 float ColoredMol::removeAndScore(std::vector<bool> removeList, bool isRec)
@@ -103,6 +95,7 @@ float ColoredMol::removeAndScore(std::vector<bool> removeList, bool isRec)
         mol = hLigMol;
     }
 
+    std::cout << "Removing: [";
     if(!(isRec)) //if ligand
     {
         OBAtom* atom;
@@ -110,6 +103,7 @@ float ColoredMol::removeAndScore(std::vector<bool> removeList, bool isRec)
         {
             if (removeList[i]) //index is in removeList
             {
+            std::cout << i << "| ";
             atom = mol.GetAtom(i);
             FOR_NBORS_OF_ATOM(neighbor, atom)
             {
@@ -131,6 +125,7 @@ float ColoredMol::removeAndScore(std::vector<bool> removeList, bool isRec)
             if (removeList[i])
             {
                 removeSet.insert(i);
+                std::cout << i << "| ";
             }
         }
 
@@ -140,6 +135,7 @@ float ColoredMol::removeAndScore(std::vector<bool> removeList, bool isRec)
         }
     }
 
+    std::cout << "]\n";
     std::stringstream ss;
     std::stringstream molStream(molString);
 
@@ -174,8 +170,12 @@ float ColoredMol::removeAndScore(std::vector<bool> removeList, bool isRec)
     fileOut.open(fileName.str());
     fileOut << ss.str();
     fileOut.close();
+    return scoreVal;
 }
-void ColoredMol::addHydrogens()
+
+//add hydrogens with openbabel, store PDB files for output, generate PDBQT
+//files for removal
+void ColoredMol::process_molecules()
 {
     recMol.AddHydrogens();
     ligMol.AddHydrogens();
@@ -184,10 +184,10 @@ void ColoredMol::addHydrogens()
     conv.SetInFormat("PDB");
 
     conv.SetOutFormat("PDB");
-    recPDB = conv.WriteString(&recMol); //store rec pdb to preserve residue info
+    recPDB = conv.WriteString(&recMol); //store pdb's for score output
+    ligPDB = conv.WriteString(&ligMol); 
 
-    
-    conv.SetOutFormat("PDBQT"); //use pdbqt to make passing to parse_pdbqt easier
+    conv.SetOutFormat("PDBQT"); //use pdbqt to make passing to parse_pdbqt possible
     conv.AddOption("r",OBConversion::OUTOPTIONS);
     conv.AddOption("c",OBConversion::OUTOPTIONS);
     hLig = conv.WriteString(&ligMol);
@@ -203,26 +203,19 @@ float ColoredMol::score(const std::string &molString, bool isRec)
   if( !isRec )
   {
         std::stringstream ligStream(molString);
-       // std::cout << molString << '\n';
         std::stringstream recStream(hRec);
 
         model m = parse_receptor_pdbqt("", recStream);
 
-        //MolGetter mols;
-        //mols.create_init_model(recName, "", *finfo, *log);
-
         CNNScorer cnn_scorer(cnnopts, *center, m);
-        //mols.setInputFile(ligName);
-
-        m.append(parse_ligand_stream_pdbqt(molString, ligStream));
-        //bool worked = mols.readMoleculeIntoModel(*lig);
-        //std::cout << "Worked: " << worked << '\n';
+        
+        model l = parse_ligand_stream_pdbqt(molString, ligStream);
+        m.append(l);
 
         float theScore = cnn_scorer.score(m);
         std::cout << "SCORE: " << theScore << '\n';
 
         return theScore;
-        //return 1;
   }
   else
   {
@@ -239,18 +232,18 @@ void ColoredMol::writeScores(std::vector<float> scoreList, bool isRec)
     if(isRec)
     {
         filename = outRec;
-        molString = hRec;
+        molString = recPDB;
     }
     else
     {
         filename = outLig;
-        molString = hLig;
+        molString = ligPDB;
     }
 
     std::ofstream outFile; outFile.open(filename);
 
-    outFile << "CNN MODEL: " << cnnmodel << '\n';
-    outFile << "CNN WEIGHTS: " << weights << '\n';
+    outFile << "CNN MODEL: " << cnnopts.cnn_model << '\n';
+    outFile << "CNN WEIGHTS: " << cnnopts.cnn_weights << '\n';
 
     std::stringstream molStream(molString);
     std::string line;
@@ -299,7 +292,7 @@ bool ColoredMol::inRange(std::set<int> atomList)
     float y = cenCoords[1];
     float z = cenCoords[2];
 
-    float allowedDist = size / 2;
+    float allowedDist = visopts.box_size / 2;
     int numAtoms = recMol.NumAtoms();
 
     OBAtom* atom;
@@ -455,6 +448,8 @@ void ColoredMol::removeEachAtom()
         }
 
     }
+
+    writeScores(scoreDict, false);
 
 
 }
