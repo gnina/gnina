@@ -19,10 +19,10 @@ struct vis_options
   //vis_options(): box_size(23.5), frags_only(false), atoms_only(false), verbose(false) {}
 };
 
-class ColoredMol
+class cnn_visualization
 {
     public:
-    ColoredMol(const vis_options &visopts, const cnn_options &cnnopts, FlexInfo &finfo, tee &log, const vec &center);
+    cnn_visualization(const vis_options &visopts, const cnn_options &cnnopts, FlexInfo &finfo, tee &log, const vec &center);
     void color();
     void print();
 
@@ -39,12 +39,12 @@ class ColoredMol
     bool frags_only, atoms_only,  verbose;
 
     void process_molecules();
-    float removeAndScore(std::vector<bool> removeList, bool isRec);
+    float remove_and_score(std::vector<bool> removeList, bool isRec);
     void ligCenter();
     float score(const std::string &molString, bool isRec);
-    void writeScores(std::vector<float> scoreList, bool isRec);
-    bool inRange(std::set<int> atomList);
+    void write_scores(std::vector<float> scoreList, bool isRec);
+    bool check_in_range(std::set<int> atomList);
     std::vector<float> transform(std::vector<float> inList);
-    void removeResidues();
-    void removeEachAtom();
+    void remove_residues();
+    void remove_each_atom();
 };

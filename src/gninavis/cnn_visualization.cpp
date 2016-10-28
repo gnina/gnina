@@ -13,7 +13,7 @@
 
 using namespace OpenBabel;
 
-ColoredMol::ColoredMol (const vis_options &visopts, const cnn_options &cnnopts, FlexInfo &finfo, tee &log, const vec &center )
+cnn_visualization::cnn_visualization (const vis_options &visopts, const cnn_options &cnnopts, FlexInfo &finfo, tee &log, const vec &center )
     {
         this->visopts = visopts;
         this->cnnopts = cnnopts;
@@ -22,7 +22,7 @@ ColoredMol::ColoredMol (const vis_options &visopts, const cnn_options &cnnopts, 
         this->center = &center;
     }
 
-void ColoredMol::color()
+void cnn_visualization::color()
 {
     OBConversion conv;
 
@@ -62,11 +62,11 @@ void ColoredMol::color()
     ligCenter();
 
     
-    removeResidues();
-    removeEachAtom();
+    remove_residues();
+    remove_each_atom();
 }
 
-void ColoredMol::print()
+void cnn_visualization::print()
 {
     std::cout << "ligand_name: " << visopts.ligand_name << '\n';
     std::cout << "receptor_name: " << visopts.receptor_name << '\n';
@@ -80,7 +80,7 @@ void ColoredMol::print()
     std::cout << "verbose: " << visopts.verbose << '\n';
 }
 
-float ColoredMol::removeAndScore(std::vector<bool> removeList, bool isRec)
+float cnn_visualization::remove_and_score(std::vector<bool> removeList, bool isRec)
 {
     std::string molString;
     OBMol mol;
@@ -118,7 +118,7 @@ float ColoredMol::removeAndScore(std::vector<bool> removeList, bool isRec)
     }
     else //if receptor
     {
-        //make set for inRange test
+        //make set for check_in_range test
         std::set<int> removeSet;
         for (int i = 0; i < removeList.size(); ++i)
         {
@@ -129,7 +129,7 @@ float ColoredMol::removeAndScore(std::vector<bool> removeList, bool isRec)
             }
         }
 
-       if (!(inRange(removeSet)))
+       if (!(check_in_range(removeSet)))
         {
             return 0.00;
         }
@@ -175,7 +175,7 @@ float ColoredMol::removeAndScore(std::vector<bool> removeList, bool isRec)
 
 //add hydrogens with openbabel, store PDB files for output, generate PDBQT
 //files for removal
-void ColoredMol::process_molecules()
+void cnn_visualization::process_molecules()
 {
     recMol.AddHydrogens();
     ligMol.AddHydrogens();
@@ -198,7 +198,7 @@ void ColoredMol::process_molecules()
     conv.ReadString(&hLigMol, hLig);
 }
 
-float ColoredMol::score(const std::string &molString, bool isRec)
+float cnn_visualization::score(const std::string &molString, bool isRec)
 {
   if( !isRec )
   {
@@ -225,7 +225,7 @@ float ColoredMol::score(const std::string &molString, bool isRec)
 
 }
 
-void ColoredMol::writeScores(std::vector<float> scoreList, bool isRec)
+void cnn_visualization::write_scores(std::vector<float> scoreList, bool isRec)
 {
     std::string filename;
     std::string molString;
@@ -286,7 +286,7 @@ void ColoredMol::writeScores(std::vector<float> scoreList, bool isRec)
 }
 
 
-bool ColoredMol::inRange(std::set<int> atomList)
+bool cnn_visualization::check_in_range(std::set<int> atomList)
 {
     float x = cenCoords[0];
     float y = cenCoords[1];
@@ -316,7 +316,7 @@ bool ColoredMol::inRange(std::set<int> atomList)
         return false;
 }
 
-void ColoredMol::ligCenter()
+void cnn_visualization::ligCenter()
 {
     vector3 cen = hLigMol.Center(0);
     cenCoords[0] = cen.GetX();
@@ -324,7 +324,7 @@ void ColoredMol::ligCenter()
     cenCoords[2] = cen.GetZ();
 }
 
-std::vector<float> ColoredMol::transform(std::vector<float> inList)
+std::vector<float> cnn_visualization::transform(std::vector<float> inList)
 {
     std::vector<float> outList (inList.size());
     float tempVal;
@@ -353,7 +353,7 @@ std::vector<float> ColoredMol::transform(std::vector<float> inList)
 
     return outList;
 }
-void ColoredMol::removeResidues()
+void cnn_visualization::remove_residues()
 {
     std::vector<float> scoreDict(hRecMol.NumAtoms() + 1, 0.00);
     std::string lastRes = "";
@@ -395,7 +395,7 @@ void ColoredMol::removeResidues()
                 }
             }
         }
-        float scoreVal = removeAndScore(atomList, true);
+        float scoreVal = remove_and_score(atomList, true);
 
         
         
@@ -414,10 +414,10 @@ void ColoredMol::removeResidues()
         
     }
 
-    writeScores(scoreDict, true);
+    write_scores(scoreDict, true);
 }
 
-void ColoredMol::removeEachAtom()
+void cnn_visualization::remove_each_atom()
 {
     std::vector<float> scoreDict(hLigMol.NumAtoms());
     std::stringstream ss (hLig);
@@ -440,7 +440,7 @@ void ColoredMol::removeEachAtom()
             {
                 removeList[index] = true;
 
-                scoreVal = removeAndScore(removeList, false);
+                scoreVal = remove_and_score(removeList, false);
                 removeList[index] = false;
 
                 scoreDict[index] = scoreVal;
@@ -449,7 +449,7 @@ void ColoredMol::removeEachAtom()
 
     }
 
-    writeScores(scoreDict, false);
+    write_scores(scoreDict, false);
 
 
 }

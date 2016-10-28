@@ -127,6 +127,6 @@ int main(int argc, char* argv[])
   float center_x = 0, center_y = 0, center_z = 0;
   vec center(center_x,center_y,center_z);
 
-  ColoredMol cMol = ColoredMol(visopts, cnnopts, finfo, log, center);
-  cMol.color();
+  cnn_visualization vis = cnn_visualization(visopts, cnnopts, finfo, log, center);
+  vis.color();
 }
