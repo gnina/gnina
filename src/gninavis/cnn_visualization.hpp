@@ -27,8 +27,8 @@ class cnn_visualization
     void print();
 
     private:
-    std::string ligName, recName, hRec, hLig, recPDB, ligPDB,  cnnmodel, weights, outRec, outLig; 
-    OpenBabel::OBMol ligMol, recMol, hLigMol, hRecMol;
+    std::string rec_string, lig_string, rec_pdb_string, lig_pdb_string; 
+    OpenBabel::OBMol lig_mol, rec_mol;
     float size, original_score;
     float cenCoords [3];
     vis_options visopts;

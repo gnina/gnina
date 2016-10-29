@@ -1,5 +1,5 @@
 #include <iostream>
-#include "visualize.hpp"
+#include "cnn_visualization.hpp"
 #include "../lib/cnn_scorer.h"
 #include "../lib/tee.h"
 #include "../lib/flexinfo.h"
@@ -113,8 +113,11 @@ int main(int argc, char* argv[])
             << desc << '\n';
     return 1;
   }
+  
+  google::InitGoogleLogging(argv[0]);
+  google::SetStderrLogging(2);
 
-  bool quiet = false; //maybe make option later
+  bool quiet = true; //maybe make option later
   tee log(quiet); //have to pass for cnn scoring
 
   //placeholders for FlexInfo to instantiate 

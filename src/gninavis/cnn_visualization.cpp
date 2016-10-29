@@ -4,10 +4,11 @@
 #include <openbabel/obconversion.h>
 #include <openbabel/obiter.h>
 #include <openbabel/mol.h>
-#include "visualize.hpp"
+#include "cnn_visualization.hpp"
 #include <boost/filesystem.hpp>
 #include "cnn_scorer.h"
 #include "molgetter.h"
+#include "obmolopener.h"
 #include "model.h"
 #include "parse_pdbqt.h"
 
@@ -15,55 +16,51 @@ using namespace OpenBabel;
 
 cnn_visualization::cnn_visualization (const vis_options &visopts, const cnn_options &cnnopts, FlexInfo &finfo, tee &log, const vec &center )
     {
-        this->visopts = visopts;
-        this->cnnopts = cnnopts;
-        this->finfo = &finfo;
-        this->log = &log;
-        this->center = &center;
+      this->visopts = visopts;
+      this->cnnopts = cnnopts;
+      this->finfo = &finfo;
+      this->log = &log;
+      this->center = &center;
+
+      OBConversion conv;
+      obmol_opener opener;
+
+      try
+      {
+      opener.openForInput(conv, visopts.ligand_name);
+      conv.Read(&lig_mol);
+      opener.openForInput(conv, visopts.receptor_name);
+      conv.Read(&rec_mol);
+      }
+      catch(file_error& e)
+      {
+        std::cout << "Could not open \"" << e.name.string() << "\" for reading\n";
+        exit(1);
+      }
+
     }
 
 void cnn_visualization::color()
 {
-    OBConversion conv;
-
-    std::string ext = boost::filesystem::extension(visopts.ligand_name);
-    if(ext.compare(".pdb") == 0)
+    if(visopts.verbose)
     {
-        conv.SetInFormat("PDB");
+      print();
     }
-    else if(ext.compare(".pdbqt") == 0)
-    {
-        conv.SetInFormat("PDBQT");
-    }
-    else
-    {
-        std::cout << "File extension not supported: " << visopts.ligand_name << '\n';
-        std::cout << "Please use .pdb or .pdbqt for ligand\n";
-        exit(0);
-    }
-
-    conv.ReadFile(&ligMol, visopts.ligand_name);
-
-    ext = boost::filesystem::extension(visopts.receptor_name);
-    if(ext.compare(".pdb") == 0)
-    {
-      conv.SetInFormat("PDB");
-    }
-    else
-    {
-        std::cout << "File extension not supported: " << visopts.receptor_name << '\n';
-        std::cout << "Please use .pdb for receptor\n";
-        exit(0);
-    }
-
-    conv.ReadFile(&recMol, visopts.receptor_name);
 
     process_molecules();
     ligCenter();
-
     
+    if(visopts.receptor_output.length() > 0)
+    {
+    std::cout << "Scoring residue removals:\n\n";
     remove_residues();
+    }
+
+    if(visopts.ligand_output.length() > 0)
+    {
+    std::cout << "Scoring individual atom removals:\n\n";
     remove_each_atom();
+    }
 }
 
 void cnn_visualization::print()
@@ -77,80 +74,81 @@ void cnn_visualization::print()
     std::cout << "ligand_output: " << visopts.ligand_output << '\n';
     std::cout << "frags_only: " << visopts.frags_only << '\n';
     std::cout << "atoms_only: " << visopts.atoms_only << '\n';
-    std::cout << "verbose: " << visopts.verbose << '\n';
+    std::cout << "verbose: " << visopts.verbose << "\n\n";
 }
 
-float cnn_visualization::remove_and_score(std::vector<bool> removeList, bool isRec)
+float cnn_visualization::remove_and_score(std::vector<bool> atoms_to_remove, bool isRec)
 {
-    std::string molString;
+    std::string mol_string;
     OBMol mol;
+
     if(isRec)
     {
-        molString = hRec;
-        mol = hRecMol;
+        mol_string = rec_string;
+        mol = rec_mol;
     }
     else
     {
-        molString = hLig;
-        mol = hLigMol;
+        mol_string = lig_string;
+        mol = lig_mol;
     }
 
     std::cout << "Removing: [";
-    if(!(isRec)) //if ligand
+    if(!(isRec)) //add any adjacent hydrogens
     {
-        OBAtom* atom;
-        for(int i = 0;i < removeList.size(); ++i)
+      OBAtom* atom;
+      for(int i = 0;i < atoms_to_remove.size(); ++i)
+      {
+        if (atoms_to_remove[i])
         {
-            if (removeList[i]) //index is in removeList
+          std::cout << i << "| ";
+          atom = mol.GetAtom(i);
+          FOR_NBORS_OF_ATOM(neighbor, atom)
+          {
+            if(neighbor->GetAtomicNum() == 1)
             {
-            std::cout << i << "| ";
-            atom = mol.GetAtom(i);
-            FOR_NBORS_OF_ATOM(neighbor, atom)
-            {
-                if(neighbor->GetAtomicNum() == 1)
-                {
-                    //std::cout << "adding: " << neighbor->GetIdx() << '\n';
-                    removeList[neighbor->GetIdx()] = true;
-                }
+                atoms_to_remove[neighbor->GetIdx()] = true;
             }
-            }
+          }
         }
+      }
     }
+
     else //if receptor
     {
-        //make set for check_in_range test
-        std::set<int> removeSet;
-        for (int i = 0; i < removeList.size(); ++i)
+      //make set for check_in_range test
+      std::set<int> removeSet;
+      for (int i = 0; i < atoms_to_remove.size(); ++i)
+      {
+        if (atoms_to_remove[i])
         {
-            if (removeList[i])
-            {
-                removeSet.insert(i);
-                std::cout << i << "| ";
-            }
+            removeSet.insert(i);
+            std::cout << i << "| ";
         }
+      }
 
-       if (!(check_in_range(removeSet)))
-        {
-            return 0.00;
-        }
+      if (!(check_in_range(removeSet)))
+      {
+        return 0.00;
+      }
     }
 
     std::cout << "]\n";
     std::stringstream ss;
-    std::stringstream molStream(molString);
+    std::stringstream mol_stream(mol_string);
 
     ss << "ROOT\n"; //add necessary lines for gnina parsing
 
     std::string line;
-    while(std::getline(molStream, line))
+    while(std::getline(mol_stream, line))
     {
         if((line.find("HETATM") < std::string::npos) ||
             (line.find("ATOM") < std::string::npos))
         {
-            std::string firstNumString = line.substr(7,5);
-            int firstNum = std::stoi(firstNumString);
+            std::string first_num_string = line.substr(7,5);
+            int atom_index = std::stoi(first_num_string);
 
-            if (!(removeList[firstNum])) //don't write line if in list
+            if (!(atoms_to_remove[atom_index])) //don't write line if in list
             {
                 ss << line << '\n';
             }
@@ -161,155 +159,152 @@ float cnn_visualization::remove_and_score(std::vector<bool> removeList, bool isR
     ss << "ENDROOT\n";
     ss << "TORSDOF 0\n";
 
-    float scoreVal = score(ss.str(), false);
+    float score_val = score(ss.str(), false);
+
+    //ouput modified molecules for debugging
+    /*
     static int counter = 0;
-    std::stringstream fileName;
-    fileName << "lig" << counter << ".pdbqt";
+    std::stringstream file_name;
+    file_name << "lig" << counter << ".pdbqt";
     counter++;
-    std::ofstream fileOut;
-    fileOut.open(fileName.str());
-    fileOut << ss.str();
-    fileOut.close();
+    std::ofstream file_out;
+    file_out.open(file_name.str());
+    file_out << ss.str();
+    file_out.close();
     return scoreVal;
+    */
 }
 
 //add hydrogens with openbabel, store PDB files for output, generate PDBQT
 //files for removal
 void cnn_visualization::process_molecules()
 {
-    recMol.AddHydrogens();
-    ligMol.AddHydrogens();
+    rec_mol.AddHydrogens();
+    lig_mol.AddHydrogens();
 
     OBConversion conv;
-    conv.SetInFormat("PDB");
-
     conv.SetOutFormat("PDB");
-    recPDB = conv.WriteString(&recMol); //store pdb's for score output
-    ligPDB = conv.WriteString(&ligMol); 
+
+    rec_pdb_string = conv.WriteString(&rec_mol); //store pdb's for score output
+    lig_pdb_string = conv.WriteString(&lig_mol); 
 
     conv.SetOutFormat("PDBQT"); //use pdbqt to make passing to parse_pdbqt possible
     conv.AddOption("r",OBConversion::OUTOPTIONS);
     conv.AddOption("c",OBConversion::OUTOPTIONS);
-    hLig = conv.WriteString(&ligMol);
-    hRec = conv.WriteString(&recMol);
 
-    conv.SetInFormat("PDBQT");
-    conv.ReadString(&hRecMol, hRec);
-    conv.ReadString(&hLigMol, hLig);
+    lig_string = conv.WriteString(&lig_mol);
+    rec_string = conv.WriteString(&rec_mol);
+
+    //conv.SetInFormat("PDBQT");
+    //conv.ReadString(&hRecMol, hRec);
+    //conv.ReadString(&hLigMol, hLig);
 }
 
-float cnn_visualization::score(const std::string &molString, bool isRec)
+float cnn_visualization::score(const std::string &mol_string, bool isRec)
 {
-  if( !isRec )
-  {
-        std::stringstream ligStream(molString);
-        std::stringstream recStream(hRec);
+    std::stringstream lig_stream(mol_string);
+    std::stringstream rec_stream(rec_string);
 
-        model m = parse_receptor_pdbqt("", recStream);
+    model m = parse_receptor_pdbqt("", rec_stream);
 
-        CNNScorer cnn_scorer(cnnopts, *center, m);
-        
-        model l = parse_ligand_stream_pdbqt(molString, ligStream);
-        m.append(l);
+    CNNScorer cnn_scorer(cnnopts, *center, m);
+    
+    model l = parse_ligand_stream_pdbqt(mol_string, lig_stream);
+    m.append(l);
 
-        float theScore = cnn_scorer.score(m);
-        std::cout << "SCORE: " << theScore << '\n';
+    float score_val = cnn_scorer.score(m);
+    std::cout << "SCORE: " << score_val << '\n';
 
-        return theScore;
-  }
-  else
-  {
-    std::cout << "receptor not implemented, exiting\n";
-    exit(0);
-  }
-
+    return score_val;
+    //return 1;
 }
 
-void cnn_visualization::write_scores(std::vector<float> scoreList, bool isRec)
+void cnn_visualization::write_scores(std::vector<float> scores, bool isRec)
 {
-    std::string filename;
-    std::string molString;
+    std::string file_name;
+    std::string mol_string;
     if(isRec)
     {
-        filename = outRec;
-        molString = recPDB;
+        file_name = visopts.receptor_output;
+        mol_string = rec_pdb_string;
     }
     else
     {
-        filename = outLig;
-        molString = ligPDB;
+        file_name = visopts.ligand_output;
+        mol_string = lig_pdb_string;
     }
 
-    std::ofstream outFile; outFile.open(filename);
+    std::ofstream out_file; 
+    out_file.open(file_name);
 
-    outFile << "CNN MODEL: " << cnnopts.cnn_model << '\n';
-    outFile << "CNN WEIGHTS: " << cnnopts.cnn_weights << '\n';
+    out_file << "CNN MODEL: " << cnnopts.cnn_model << '\n';
+    out_file << "CNN WEIGHTS: " << cnnopts.cnn_weights << '\n';
 
-    std::stringstream molStream(molString);
+    std::stringstream mol_stream(mol_string);
     std::string line;
-    std::string indexString;
-    int index;
-    std::stringstream scoreStream;
-    std::string scoreString;
-    while(std::getline(molStream, line))
+    std::string index_string;
+    int atom_index;
+    std::stringstream score_stream;
+    std::string score_string;
+    while(std::getline(mol_stream, line))
     {
         if ((line.find("ATOM") < std::string::npos) || 
             (line.find("HETATM") < std::string::npos))
         {
-            scoreStream.str(""); //clear stream for next score
-            indexString = line.substr(6,5);
-            index = std::stoi(indexString);
+            score_stream.str(""); //clear stream for next score
+            index_string = line.substr(6,5);
+            atom_index = std::stoi(index_string);
 
-            if ((scoreList[index] > 0.001) || (scoreList[index] < -0.001)) //ignore very small scores
+            if ((scores[atom_index] > 0.001) || (scores[atom_index] < -0.001)) //ignore very small scores
             {
-                scoreStream << std::fixed << std::setprecision(5) << scoreList[index];
-                outFile << line.substr(0,61);
-                scoreString = scoreStream.str();
-                scoreString.resize(5);
-                outFile.width(5);
-                outFile.fill('.');
-                outFile << std::right << scoreString;
-                outFile << line.substr(66) << '\n';
+                score_stream << std::fixed << std::setprecision(5) << scores[atom_index];
+                out_file << line.substr(0,61);
+                score_string = score_stream.str();
+                score_string.resize(5);
+                out_file.width(5);
+                out_file.fill('.');
+                out_file << std::right << score_string;
+                out_file << line.substr(66) << '\n';
 
             }
             else
             {
-                outFile << line << '\n';
+                out_file << line << '\n';
             }
         }
         else
         {
-            outFile << line << '\n';
+            out_file << line << '\n';
         }
 
     }
 }
 
 
-bool cnn_visualization::check_in_range(std::set<int> atomList)
+bool cnn_visualization::check_in_range(std::set<int> atoms)
 {
     float x = cenCoords[0];
     float y = cenCoords[1];
     float z = cenCoords[2];
 
-    float allowedDist = visopts.box_size / 2;
-    int numAtoms = recMol.NumAtoms();
+    float allowed_dist = visopts.box_size / 2;
+    int num_atoms = rec_mol.NumAtoms();
 
     OBAtom* atom;
-    for( auto i = atomList.begin(); i != atomList.end(); ++i)
+    for( auto i = atoms.begin(); i != atoms.end(); ++i)
     {
-        if (*i >= numAtoms)
+        if (*i >= num_atoms)
         {
             return false;
         }
 
-        atom = recMol.GetAtom(*i);
-        if(atom->GetX() < x + allowedDist)
-            if (atom->GetY() < y + allowedDist)
-                if (atom->GetZ() < z + allowedDist)
-                    if (atom->GetX() > x - allowedDist)
-                        if (atom->GetY() > y - allowedDist)
-                            if (atom->GetZ() > z - allowedDist)
+        atom = rec_mol.GetAtom(*i);
+        if(atom->GetX() < x + allowed_dist)
+            if (atom->GetY() < y + allowed_dist)
+                if (atom->GetZ() < z + allowed_dist)
+                    if (atom->GetX() > x - allowed_dist)
+                        if (atom->GetY() > y - allowed_dist)
+                            if (atom->GetZ() > z - allowed_dist)
                                 return true;
     }
 
@@ -318,7 +313,7 @@ bool cnn_visualization::check_in_range(std::set<int> atomList)
 
 void cnn_visualization::ligCenter()
 {
-    vector3 cen = hLigMol.Center(0);
+    vector3 cen = lig_mol.Center(0);
     cenCoords[0] = cen.GetX();
     cenCoords[1] = cen.GetY();
     cenCoords[2] = cen.GetZ();
@@ -355,16 +350,16 @@ std::vector<float> cnn_visualization::transform(std::vector<float> inList)
 }
 void cnn_visualization::remove_residues()
 {
-    std::vector<float> scoreDict(hRecMol.NumAtoms() + 1, 0.00);
+    std::vector<float> scores(rec_mol.NumAtoms() + 1, 0.00);
     std::string lastRes = "";
     std::string currRes;
-    std::vector<bool> atomList (hRecMol.NumAtoms() + 1, false);
+    std::vector<bool> atoms_to_remove(rec_mol.NumAtoms() + 1, false);
     std::set<std::string> resList;
 
-    std::string molString = hRec;
-    std::stringstream molStream(molString);
+    std::string mol_string = rec_string;
+    std::stringstream mol_stream(mol_string);
     std::string line;
-    while(std::getline(molStream, line))
+    while(std::getline(mol_stream, line))
     {
         if((line.find("ATOM") < std::string::npos) ||
            (line.find("HETATM") < std::string::npos))
@@ -380,9 +375,9 @@ void cnn_visualization::remove_residues()
 
     for( auto i = resList.begin(); i != resList.end(); ++i)
     {
-        molStream.clear();
-        molStream.str(molString);
-        while(std::getline(molStream, line))
+        mol_stream.clear();
+        mol_stream.str(mol_string);
+        while(std::getline(mol_stream, line))
         {
             if((line.find("ATOM") < std::string::npos) ||
                (line.find("HETATM") < std::string::npos))
@@ -391,67 +386,64 @@ void cnn_visualization::remove_residues()
                 {
                     std::string indexString = line.substr(6,5);
                     int index = std::stoi(indexString);
-                    atomList[index] = true;
+                    atoms_to_remove[index] = true;
                 }
             }
         }
-        float scoreVal = remove_and_score(atomList, true);
 
-        
-        
-        for ( auto f : atomList)
+        float score_val = remove_and_score(atoms_to_remove, true);
+
+        for ( auto f : atoms_to_remove)
         {
             if(f)
             {
-            scoreDict[f] = scoreVal;
+            scores[f] = score_val;
             }
         }
         
 
-        atomList.clear();
-        atomList = std::vector<bool>(hRecMol.NumAtoms() + 1, false);
+        atoms_to_remove.clear();
+        atoms_to_remove = std::vector<bool>(rec_mol.NumAtoms() + 1, false);
 
         
     }
 
-    write_scores(scoreDict, true);
+    write_scores(scores, true);
 }
 
 void cnn_visualization::remove_each_atom()
 {
-    std::vector<float> scoreDict(hLigMol.NumAtoms());
-    std::stringstream ss (hLig);
+    std::vector<float> scores(lig_mol.NumAtoms());
+    std::stringstream lig_stream(lig_string);
     std::string line;
 
-    std::string indexString;
-    int index;
-    std::vector<bool> removeList (hLigMol.NumAtoms() + 1);
-    float scoreVal;
+    std::string index_string;
+    int atom_index;
+    std::vector<bool> atoms_to_remove(lig_mol.NumAtoms() + 1);
+    float score_val;
 
-    while(std::getline(ss, line))
+    while(std::getline(lig_stream, line))
     {
       
         if ((line.find("ATOM") < std::string::npos) ||
             (line.find("HETATM") < std::string::npos))
         {
-            indexString = line.substr(6, 5);
-            index = std::stoi(indexString);
-            if (hLigMol.GetAtom(index)->GetAtomicNum() != 1)
+            index_string = line.substr(6, 5);
+            atom_index = std::stoi(index_string);
+            if (lig_mol.GetAtom(atom_index)->GetAtomicNum() != 1)
             {
-                removeList[index] = true;
+                atoms_to_remove[atom_index] = true;
 
-                scoreVal = remove_and_score(removeList, false);
-                removeList[index] = false;
+                score_val = remove_and_score(atoms_to_remove, false);
+                atoms_to_remove[atom_index] = false;
 
-                scoreDict[index] = scoreVal;
+                scores[atom_index] = score_val;
             }
         }
 
     }
 
-    write_scores(scoreDict, false);
-
-
+    write_scores(scores, false);
 }
 
 
