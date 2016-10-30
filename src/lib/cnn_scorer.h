@@ -47,7 +47,7 @@ public:
 
 	bool initialized() const { return net.get(); }
 
-	float score(const model& m);
+	float score(const model& m, bool quiet = false);
 
 };
 

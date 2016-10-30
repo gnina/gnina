@@ -37,7 +37,6 @@ cnn_visualization::cnn_visualization (const vis_options &visopts, const cnn_opti
         std::cout << "Could not open \"" << e.name.string() << "\" for reading\n";
         exit(1);
       }
-
     }
 
 void cnn_visualization::color()
@@ -49,6 +48,18 @@ void cnn_visualization::color()
 
     process_molecules();
     ligCenter();
+
+    std::stringstream rec_stream(rec_string);
+    unmodified_receptor = parse_receptor_pdbqt("", rec_stream);
+    CNNScorer base_scorer(cnnopts, *center, unmodified_receptor);
+
+    std::stringstream lig_stream(lig_string);
+    unmodified_ligand = parse_ligand_stream_pdbqt("", lig_stream);
+
+    unmodified_receptor.append(unmodified_ligand);
+    original_score = base_scorer.score(unmodified_receptor, true);
+    std::cout << "Original Score: " << original_score << "\n\n";
+
     
     if(visopts.receptor_output.length() > 0)
     {
@@ -77,10 +88,12 @@ void cnn_visualization::print()
     std::cout << "verbose: " << visopts.verbose << "\n\n";
 }
 
-float cnn_visualization::remove_and_score(std::vector<bool> atoms_to_remove, bool isRec)
+std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove, bool isRec)
 {
     std::string mol_string;
     OBMol mol;
+
+    std::sort(atoms_to_remove.begin(), atoms_to_remove.end()); //sort for efficient check when outputting pbdqt
 
     if(isRec)
     {
@@ -94,72 +107,55 @@ float cnn_visualization::remove_and_score(std::vector<bool> atoms_to_remove, boo
     }
 
     std::cout << "Removing: [";
-    if(!(isRec)) //add any adjacent hydrogens
-    {
-      OBAtom* atom;
-      for(int i = 0;i < atoms_to_remove.size(); ++i)
-      {
-        if (atoms_to_remove[i])
-        {
-          std::cout << i << "| ";
-          atom = mol.GetAtom(i);
-          FOR_NBORS_OF_ATOM(neighbor, atom)
-          {
-            if(neighbor->GetAtomicNum() == 1)
-            {
-                atoms_to_remove[neighbor->GetIdx()] = true;
-            }
-          }
-        }
-      }
-    }
 
-    else //if receptor
-    {
-      //make set for check_in_range test
-      std::set<int> removeSet;
-      for (int i = 0; i < atoms_to_remove.size(); ++i)
-      {
-        if (atoms_to_remove[i])
-        {
-            removeSet.insert(i);
-            std::cout << i << "| ";
-        }
-      }
-
-      if (!(check_in_range(removeSet)))
-      {
-        return 0.00;
-      }
-    }
-
-    std::cout << "]\n";
     std::stringstream ss;
     std::stringstream mol_stream(mol_string);
 
     ss << "ROOT\n"; //add necessary lines for gnina parsing
 
+
+    int* i = atoms_to_remove.data();
+    std::cout << *i;
+    bool list_ended = false;
     std::string line;
     while(std::getline(mol_stream, line))
     {
-        if((line.find("HETATM") < std::string::npos) ||
-            (line.find("ATOM") < std::string::npos))
+      if ((line.find("ATOM") < std::string::npos))
+      {
+        if(! list_ended )
         {
-            std::string first_num_string = line.substr(7,5);
-            int atom_index = std::stoi(first_num_string);
-
-            if (!(atoms_to_remove[atom_index])) //don't write line if in list
+          std::string index_string = line.substr(7,5);
+          int atom_index = std::stoi(index_string);
+          if (atom_index != *i)
+          {
+            ss << line << '\n';
+          }
+          else
+          {
+            ++i; //move to next item to check for skip
+            if(i == &atoms_to_remove.back())
             {
-                ss << line << '\n';
+              list_ended = true;
             }
-
-
+            else
+            {
+            std::cout << ", " << *i;
+            }
+          }
         }
+        else
+        {
+          ss << line << '\n';
+        }
+        
+      }
     }
     ss << "ENDROOT\n";
     ss << "TORSDOF 0\n";
 
-    float score_val = score(ss.str(), false);
+    std::cout << "]\n";
+
+    return ss.str();
 
     //ouput modified molecules for debugging
     /*
@@ -192,32 +188,66 @@ void cnn_visualization::process_molecules()
     conv.AddOption("r",OBConversion::OUTOPTIONS);
     conv.AddOption("c",OBConversion::OUTOPTIONS);
 
-    lig_string = conv.WriteString(&lig_mol);
-    rec_string = conv.WriteString(&rec_mol);
+    std::string temp_lig_string = conv.WriteString(&lig_mol);
+    std::stringstream lig_stream;
+    lig_stream << "ROOT\n";
+    lig_stream << temp_lig_string;
+    lig_stream << "ENDROOT\n" << "TORSDOF 0";
+    lig_string = lig_stream.str();
+
+    std::string temp_rec_string = conv.WriteString(&rec_mol);
+    std::stringstream rec_stream;
+    rec_stream << "ROOT\n";
+    rec_stream << temp_rec_string;
+    rec_stream << "ENDROOT\n" << "TORSDOF 0";
+    rec_string = rec_stream.str();
+
 
     //conv.SetInFormat("PDBQT");
     //conv.ReadString(&hRecMol, hRec);
     //conv.ReadString(&hLigMol, hLig);
 }
 
-float cnn_visualization::score(const std::string &mol_string, bool isRec)
+float cnn_visualization::score_modified_receptor(const std::string &modified_rec_string)
 {
-    std::stringstream lig_stream(mol_string);
-    std::stringstream rec_stream(rec_string);
+    std::stringstream rec_stream(modified_rec_string);
+    std::stringstream lig_stream(lig_string);
 
     model m = parse_receptor_pdbqt("", rec_stream);
 
     CNNScorer cnn_scorer(cnnopts, *center, m);
     
-    model l = parse_ligand_stream_pdbqt(mol_string, lig_stream);
+    model l = parse_ligand_stream_pdbqt("", lig_stream);
     m.append(l);
 
-    float score_val = cnn_scorer.score(m);
+    float score_val = cnn_scorer.score(m, true);
     std::cout << "SCORE: " << score_val << '\n';
 
     return score_val;
     //return 1;
 }
+
+float cnn_visualization::score_modified_ligand(const std::string &mol_string)
+{
+    std::stringstream lig_stream(mol_string);
+    std::stringstream rec_stream(rec_string);
+    
+    model m = parse_receptor_pdbqt("", rec_stream);
+    CNNScorer cnn_scorer(cnnopts, *center, m);
+
+    model l = parse_ligand_stream_pdbqt("", lig_stream);
+    unmodified_receptor.append(l);
+
+    m.append(l);
+
+    //float score_val = base_scorer.score(unmodified_receptor);
+    float score_val = cnn_scorer.score(m, true);
+    std::cout << "SCORE: " << score_val << '\n';
+
+    return score_val;
+    //return 1;
+}
+
 
 void cnn_visualization::write_scores(std::vector<float> scores, bool isRec)
 {
@@ -281,7 +311,7 @@ void cnn_visualization::write_scores(std::vector<float> scores, bool isRec)
 }
 
 
-bool cnn_visualization::check_in_range(std::set<int> atoms)
+bool cnn_visualization::check_in_range(std::unordered_set<int> atoms)
 {
     float x = cenCoords[0];
     float y = cenCoords[1];
@@ -295,6 +325,7 @@ bool cnn_visualization::check_in_range(std::set<int> atoms)
     {
         if (*i >= num_atoms)
         {
+            std::cout << "in range out of atoms";
             return false;
         }
 
@@ -308,7 +339,7 @@ bool cnn_visualization::check_in_range(std::set<int> atoms)
                                 return true;
     }
 
-        return false;
+    return false;
 }
 
 void cnn_visualization::ligCenter()
@@ -319,93 +350,88 @@ void cnn_visualization::ligCenter()
     cenCoords[2] = cen.GetZ();
 }
 
-std::vector<float> cnn_visualization::transform(std::vector<float> inList)
+//calculates score difference and transforms to maximize digits in b-factor
+//field
+float cnn_visualization::transform_score(float score_val)
 {
-    std::vector<float> outList (inList.size());
-    float tempVal;
-    for (int i = 0; i < inList.size(); ++i)
+    float temp;
+    temp = original_score - score_val;
+
+    if(temp < 0)
     {
-        tempVal = inList[i];
-        if(tempVal < 0)
-        {
-            tempVal = 0 - std::sqrt(std::abs(tempVal));
-        }
-        else
-        {
-            tempVal = std::sqrt(tempVal);
-        }
-
-        tempVal = tempVal * 100;
-        std::cout << inList[i] << " : " << tempVal << '\n';
-
-        outList[i] = tempVal;
+        temp = 0 - std::sqrt(std::abs(temp));
+    }
+    else
+    {
+        temp = std::sqrt(temp);
     }
 
-    for (int i = 0; i < outList.size(); ++i)
-    {
-        std::cout << outList[i] << '\n';
-    }
+    temp = temp * 100;
 
-    return outList;
+    return temp;
 }
 void cnn_visualization::remove_residues()
 {
     std::vector<float> scores(rec_mol.NumAtoms() + 1, 0.00);
-    std::string lastRes = "";
-    std::string currRes;
-    std::vector<bool> atoms_to_remove(rec_mol.NumAtoms() + 1, false);
-    std::set<std::string> resList;
+    std::string last_res = "";
+    std::string curr_res;
+    std::vector<int> atoms_to_remove;
+    std::set<std::string> res_list;
 
     std::string mol_string = rec_string;
     std::stringstream mol_stream(mol_string);
     std::string line;
     while(std::getline(mol_stream, line))
     {
-        if((line.find("ATOM") < std::string::npos) ||
-           (line.find("HETATM") < std::string::npos))
+      if ((line.find("ATOM") < std::string::npos))
         {
-            currRes = line.substr(23,4);
-            if(line.substr(23,4) != lastRes)
+            curr_res = line.substr(23,4);
+            if(line.substr(23,4) != last_res)
             {
-                resList.insert(currRes);
-                lastRes = currRes;
+                res_list.insert(curr_res);
+                last_res = curr_res;
             }
         }
     }
 
-    for( auto i = resList.begin(); i != resList.end(); ++i)
+    for( auto i = res_list.begin(); i != res_list.end(); ++i)
     {
         mol_stream.clear();
         mol_stream.str(mol_string);
         while(std::getline(mol_stream, line))
         {
-            if((line.find("ATOM") < std::string::npos) ||
-               (line.find("HETATM") < std::string::npos))
+          if ((line.find("ATOM") < std::string::npos))
+          {
+            if(line.substr(23,4).compare(*i) == 0)
             {
-                if(line.substr(23,4) == *i)
-                {
-                    std::string indexString = line.substr(6,5);
-                    int index = std::stoi(indexString);
-                    atoms_to_remove[index] = true;
-                }
+              atoms_to_remove.push_back(std::stoi(line.substr(6,5)));
             }
+          }
         }
 
-        float score_val = remove_and_score(atoms_to_remove, true);
-
-        for ( auto f : atoms_to_remove)
+        std::unordered_set<int> remove_set; //make set for check_in_range test
+        //for (int i = 0; i < atoms_to_remove.size(); ++i)
+        for(auto i: atoms_to_remove)
         {
-            if(f)
-            {
-            scores[f] = score_val;
-            }
+          remove_set.insert(i);
+        }
+        if (check_in_range(remove_set))
+        {
+          std::string modified_mol_string = modify_pdbqt(atoms_to_remove, true);
+
+          float score_val = score_modified_receptor(modified_mol_string);
+
+          for ( auto f : atoms_to_remove)
+          {
+              if(f)
+              {
+              scores[f] = transform_score(score_val);
+              }
+          }
         }
         
 
         atoms_to_remove.clear();
-        atoms_to_remove = std::vector<bool>(rec_mol.NumAtoms() + 1, false);
-
-        
     }
 
     write_scores(scores, true);
@@ -419,27 +445,36 @@ void cnn_visualization::remove_each_atom()
 
     std::string index_string;
     int atom_index;
-    std::vector<bool> atoms_to_remove(lig_mol.NumAtoms() + 1);
+    std::vector<int> atoms_to_remove; 
     float score_val;
 
     while(std::getline(lig_stream, line))
     {
-      
-        if ((line.find("ATOM") < std::string::npos) ||
-            (line.find("HETATM") < std::string::npos))
+        if ((line.find("ATOM") < std::string::npos))
         {
             index_string = line.substr(6, 5);
             atom_index = std::stoi(index_string);
-            if (lig_mol.GetAtom(atom_index)->GetAtomicNum() != 1)
+            if (lig_mol.GetAtom(atom_index)->GetAtomicNum() != 1) //dont remove hydrogens individually
             {
-                atoms_to_remove[atom_index] = true;
+                atoms_to_remove.push_back(atom_index);
+                OBAtom* atom;
+                atom = lig_mol.GetAtom(atom_index);
+                FOR_NBORS_OF_ATOM(neighbor, atom) //add any adjacent hydrogens
+                {
+                    if(neighbor->GetAtomicNum() == 1)
+                    {
+                        atoms_to_remove.push_back(neighbor->GetIdx());
+                    }
+                }
 
-                score_val = remove_and_score(atoms_to_remove, false);
-                atoms_to_remove[atom_index] = false;
+                
+                std::string modified_mol_string = modify_pdbqt(atoms_to_remove, false);
+                score_val = score_modified_ligand(modified_mol_string);
 
-                scores[atom_index] = score_val;
+                scores[atom_index] = transform_score(score_val);
             }
         }
+        atoms_to_remove.clear();
 
     }
 

@@ -1,5 +1,6 @@
 #include <openbabel/mol.h>
 #include <set>
+#include <unordered_set>
 #include "cnn_scorer.h"
 #include "molgetter.h"
 
@@ -36,15 +37,23 @@ class cnn_visualization
     FlexInfo* finfo;
     tee* log;
     const vec* center;
+    model unmodified_receptor;
+    model unmodified_ligand;
+    CNNScorer base_scorer;
     bool frags_only, atoms_only,  verbose;
 
     void process_molecules();
-    float remove_and_score(std::vector<bool> removeList, bool isRec);
+    std::string modify_pdbqt(std::vector<int> atoms_to_remove, bool isRec);
+    float score_modified_receptor(const std::string &modified_rec_string);
+    float score_modified_ligand(const std::string &modified_lig_string);
+
+    std::vector<std::string> rec_map;
+    std::vector<std::string> lig_map;
     void ligCenter();
     float score(const std::string &molString, bool isRec);
     void write_scores(std::vector<float> scoreList, bool isRec);
-    bool check_in_range(std::set<int> atomList);
-    std::vector<float> transform(std::vector<float> inList);
+    bool check_in_range(std::unordered_set<int> atomList);
+    float transform_score(float score_val);
     void remove_residues();
     void remove_each_atom();
 };

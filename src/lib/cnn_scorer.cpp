@@ -96,7 +96,7 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 }
 
 //return score of model, assumes receptor has not changed from initialization
-float CNNScorer::score(const model& m)
+float CNNScorer::score(const model& m, bool quiet)
 {
 	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
@@ -115,7 +115,10 @@ float CNNScorer::score(const model& m)
 
 		const Dtype* out = outblob->cpu_data();
 		score += out[1];
+        if(!quiet)
+        {
 		cout << "#Rotate " << out[1] << "\n";
+        }
 		cnt++;
 
 	}
