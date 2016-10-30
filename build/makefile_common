@@ -90,7 +90,7 @@ $(OBJS): $(MAKEFILE_LIST)
 
 $(OBJD)/%.o: $(SRCD)/%.cpp
 	mkdir -p $(dir $(OBJD)/$*)
-	$(CC) $(INCFLAGS) -MM -MP -MT $(OBJD)/$*.o -MF $(OBJD)/$*.d $<
+	$(CC) $(INCFLAGS) $(CFLAGS) -MM -MP -MT $(OBJD)/$*.o -MF $(OBJD)/$*.d $<
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 $(OBJD)/%.o: $(SRCD)/%.cu
