@@ -48,7 +48,6 @@ class cnn_visualization
 
     std::vector<std::string> rec_map;
     std::vector<std::string> lig_map;
-    void ligCenter();
     float score(const std::string &molString, bool isRec);
     void write_scores(std::vector<float> scoreList, bool isRec);
     bool check_in_range(std::unordered_set<int> atomList);

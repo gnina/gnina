@@ -50,7 +50,6 @@ void cnn_visualization::color()
     }
 
     process_molecules();
-    ligCenter();
 
     std::stringstream rec_stream(rec_string);
     unmodified_receptor = parse_receptor_pdbqt("", rec_stream);
@@ -193,6 +192,11 @@ void cnn_visualization::process_molecules()
     rec_stream << "ENDROOT\n" << "TORSDOF 0";
     rec_string = rec_stream.str();
 
+    vector3 cen = lig_mol.Center(0);
+    cenCoords[0] = cen.GetX();
+    cenCoords[1] = cen.GetY();
+    cenCoords[2] = cen.GetZ();
+
 }
 
 float cnn_visualization::score_modified_receptor(const std::string &modified_rec_string)
@@ -211,7 +215,6 @@ float cnn_visualization::score_modified_receptor(const std::string &modified_rec
     std::cout << "SCORE: " << score_val << '\n';
 
     return score_val;
-    //return 1;
 }
 
 float cnn_visualization::score_modified_ligand(const std::string &mol_string)
@@ -323,14 +326,6 @@ bool cnn_visualization::check_in_range(std::unordered_set<int> atoms)
     }
 
     return false;
-}
-
-void cnn_visualization::ligCenter()
-{
-    vector3 cen = lig_mol.Center(0);
-    cenCoords[0] = cen.GetX();
-    cenCoords[1] = cen.GetY();
-    cenCoords[2] = cen.GetZ();
 }
 
 //calculates score difference and transforms to maximize digits in b-factor
