@@ -39,7 +39,6 @@ class cnn_visualization
     const vec* center;
     model unmodified_receptor;
     model unmodified_ligand;
-    CNNScorer base_scorer;
     bool frags_only, atoms_only,  verbose;
 
     void process_molecules();

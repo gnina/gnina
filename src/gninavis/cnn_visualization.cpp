@@ -16,6 +16,9 @@ using namespace OpenBabel;
 
 cnn_visualization::cnn_visualization (const vis_options &visopts, const cnn_options &cnnopts, FlexInfo &finfo, tee &log, const vec &center )
     {
+
+      caffe::Caffe::SetDevice(0);
+      caffe::Caffe::set_mode(caffe::Caffe::GPU);
       this->visopts = visopts;
       this->cnnopts = cnnopts;
       this->finfo = &finfo;
@@ -55,9 +58,10 @@ void cnn_visualization::color()
 
     std::stringstream lig_stream(lig_string);
     unmodified_ligand = parse_ligand_stream_pdbqt("", lig_stream);
+    model temp_rec = unmodified_receptor;
 
-    unmodified_receptor.append(unmodified_ligand);
-    original_score = base_scorer.score(unmodified_receptor, true);
+    temp_rec.append(unmodified_ligand);
+    original_score = base_scorer.score(temp_rec, true);
     std::cout << "Original Score: " << original_score << "\n\n";
 
     
@@ -156,19 +160,6 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove, bo
     std::cout << "]\n";
 
     return ss.str();
-
-    //ouput modified molecules for debugging
-    /*
-    static int counter = 0;
-    std::stringstream file_name;
-    file_name << "lig" << counter << ".pdbqt";
-    counter++;
-    std::ofstream file_out;
-    file_out.open(file_name.str());
-    file_out << ss.str();
-    file_out.close();
-    return scoreVal;
-    */
 }
 
 //add hydrogens with openbabel, store PDB files for output, generate PDBQT
@@ -202,10 +193,6 @@ void cnn_visualization::process_molecules()
     rec_stream << "ENDROOT\n" << "TORSDOF 0";
     rec_string = rec_stream.str();
 
-
-    //conv.SetInFormat("PDBQT");
-    //conv.ReadString(&hRecMol, hRec);
-    //conv.ReadString(&hLigMol, hLig);
 }
 
 float cnn_visualization::score_modified_receptor(const std::string &modified_rec_string)
@@ -232,20 +219,16 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string)
     std::stringstream lig_stream(mol_string);
     std::stringstream rec_stream(rec_string);
     
-    model m = parse_receptor_pdbqt("", rec_stream);
-    CNNScorer cnn_scorer(cnnopts, *center, m);
+    model temp = unmodified_receptor;
+    CNNScorer cnn_scorer(cnnopts, *center, temp);
 
     model l = parse_ligand_stream_pdbqt("", lig_stream);
-    unmodified_receptor.append(l);
+    temp.append(l);
 
-    m.append(l);
-
-    //float score_val = base_scorer.score(unmodified_receptor);
-    float score_val = cnn_scorer.score(m, true);
+    float score_val = cnn_scorer.score(temp, true);
     std::cout << "SCORE: " << score_val << '\n';
 
     return score_val;
-    //return 1;
 }
 
 
@@ -480,6 +463,4 @@ void cnn_visualization::remove_each_atom()
 
     write_scores(scores, false);
 }
-
-
 
