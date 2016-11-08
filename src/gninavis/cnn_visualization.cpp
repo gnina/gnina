@@ -473,9 +473,9 @@ void cnn_visualization::remove_each_atom()
     }
 
     write_scores(write_values, false);
-    if(visopts.additivity)
+    if(visopts.additivity.length() > 0)
     {
-    print_additivity(scores, true);
+    write_additivity(scores, true);
     }
 }
 
@@ -527,7 +527,7 @@ void cnn_visualization::output_modified_string(const std::string &modified_strin
     file_out.close();
 }
 
-void cnn_visualization::print_additivity(std::vector<float> scores, bool single)
+void cnn_visualization::write_additivity(std::vector<float> scores, bool single)
 {
   float total = 0;
   for(int i = 1; i < scores.size(); ++i)
@@ -537,6 +537,8 @@ void cnn_visualization::print_additivity(std::vector<float> scores, bool single)
       total += original_score - scores[i];
     }
   }
+  std::ofstream out_file;
+  out_file.open(visopts.additivity, std::ios_base::app);
 
   if(single)
   {
@@ -546,8 +548,10 @@ void cnn_visualization::print_additivity(std::vector<float> scores, bool single)
   {
     std::cout << "SUM OF FRAGMENT REMOVALS: ";
   }
-
+  
   std::cout << total << '\n';
+  
+  out_file << visopts.ligand_name << " " << total << " " << original_score << "\n";
 }
 
 

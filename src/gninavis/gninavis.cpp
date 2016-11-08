@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
   debug.add_options()
     ("output_files", bool_switch(&visopts.output_files)->default_value(false),
                     "write every modified pdbqt file")
-    ("additivity", bool_switch(&visopts.additivity)->default_value(false),
+    ("additivity", value<std::string>(&visopts.additivity),
                     "print additivity data for ligand");
 
   options_description desc;
