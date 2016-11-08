@@ -59,7 +59,7 @@ void cnn_visualization::color()
 
     temp_rec.append(unmodified_ligand);
     original_score = base_scorer.score(temp_rec, true);
-    std::cout << "Original Score: " << original_score << "\n\n";
+    std::cout << "ORIGINAL SCORE: " << original_score << "\n\n";
 
     
     if(visopts.receptor_output.length() > 0)
@@ -221,7 +221,14 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string)
     std::stringstream rec_stream(rec_string);
     
     model temp = unmodified_receptor;
-    CNNScorer cnn_scorer(cnnopts, *center, temp);
+    static CNNScorer cnn_scorer;
+
+    static bool first = true;
+    if(first)
+    {
+    cnn_scorer = CNNScorer(cnnopts, *center, temp);
+    first = false;
+    }
 
     model l = parse_ligand_stream_pdbqt("", lig_stream);
     temp.append(l);
@@ -421,6 +428,7 @@ void cnn_visualization::remove_residues()
 void cnn_visualization::remove_each_atom()
 {
     std::vector<float> scores(lig_mol.NumAtoms(), 0);
+    std::vector<float> write_values(lig_mol.NumAtoms(), 0);
     std::stringstream lig_stream(lig_string);
     std::string line;
 
@@ -452,7 +460,8 @@ void cnn_visualization::remove_each_atom()
                 modified_mol_string = modify_pdbqt(atoms_to_remove, false);
                 score_val = score_modified_ligand(modified_mol_string);
 
-                scores[atom_index] = transform_score(score_val);
+                write_values[atom_index] = transform_score(score_val);
+                scores[atom_index] = score_val;
             }
         if(visopts.output_files)
         {
@@ -463,7 +472,11 @@ void cnn_visualization::remove_each_atom()
 
     }
 
-    write_scores(scores, false);
+    write_scores(write_values, false);
+    if(visopts.additivity)
+    {
+    print_additivity(scores, true);
+    }
 }
 
 void cnn_visualization::output_modified_string(const std::string &modified_string, const std::vector<int> &atoms_removed,
@@ -512,7 +525,30 @@ void cnn_visualization::output_modified_string(const std::string &modified_strin
     file_out << "]\n";
     file_out << modified_string;
     file_out.close();
-    
 }
+
+void cnn_visualization::print_additivity(std::vector<float> scores, bool single)
+{
+  float total = 0;
+  for(int i = 1; i < scores.size(); ++i)
+  {
+    if(lig_mol.GetAtom(i)->GetAtomicNum() != 1) //hydrogens will have score of 0
+    {
+      total += original_score - scores[i];
+    }
+  }
+
+  if(single)
+  {
+    std::cout << "SUM OF SINGLE REMOVALS: ";
+  }
+  else
+  {
+    std::cout << "SUM OF FRAGMENT REMOVALS: ";
+  }
+
+  std::cout << total << '\n';
+}
+
 
 

@@ -52,7 +52,9 @@ int main(int argc, char* argv[])
   options_description debug("Debug");
   debug.add_options()
     ("output_files", bool_switch(&visopts.output_files)->default_value(false),
-                    "write every modified pdbqt file");
+                    "write every modified pdbqt file")
+    ("additivity", bool_switch(&visopts.additivity)->default_value(false),
+                    "print additivity data for ligand");
 
   options_description desc;
   desc.add(inputs).add(cnn).add(outputs).add(options).add(debug);

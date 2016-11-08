@@ -15,6 +15,7 @@ struct vis_options
   bool atoms_only;
   bool verbose;
   bool output_files;
+  bool additivity;
 
   float box_size;
 
@@ -55,5 +56,6 @@ class cnn_visualization
     void remove_each_atom();
     void output_modified_string(const std::string &modified_string, const std::vector<int> &atoms_removed,
                                   bool receptor);
+    void print_additivity(std::vector<float> scores, bool single);
 
 };
