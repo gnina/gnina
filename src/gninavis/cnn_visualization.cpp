@@ -14,15 +14,13 @@
 
 using namespace OpenBabel;
 
-cnn_visualization::cnn_visualization (const vis_options &visopts, const cnn_options &cnnopts, FlexInfo &finfo, tee &log, const vec &center )
+cnn_visualization::cnn_visualization (const vis_options &visopts, const cnn_options &cnnopts, const vec &center )
     {
 
       caffe::Caffe::SetDevice(0);
       caffe::Caffe::set_mode(caffe::Caffe::GPU);
       this->visopts = visopts;
       this->cnnopts = cnnopts;
-      this->finfo = &finfo;
-      this->log = &log;
       this->center = &center;
 
       OBConversion conv;

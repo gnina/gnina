@@ -122,19 +122,10 @@ int main(int argc, char* argv[])
   google::InitGoogleLogging(argv[0]);
   google::SetStderrLogging(2);
 
-  bool quiet = true; //maybe make option later
-  tee log(quiet); //have to pass for cnn scoring
-
-  //placeholders for FlexInfo to instantiate 
-  std::string flex_res = "";
-  float flex_dist = -1.0;
-  std::string flexdist_ligand = "";
-  FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, log);
-  
   //placeholders for center to instantiate
   float center_x = 0, center_y = 0, center_z = 0;
   vec center(center_x,center_y,center_z);
 
-  cnn_visualization vis = cnn_visualization(visopts, cnnopts, finfo, log, center);
+  cnn_visualization vis = cnn_visualization(visopts, cnnopts, center);
   vis.color();
 }

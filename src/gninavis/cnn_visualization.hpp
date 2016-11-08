@@ -24,7 +24,7 @@ struct vis_options
 class cnn_visualization
 {
     public:
-    cnn_visualization(const vis_options &visopts, const cnn_options &cnnopts, FlexInfo &finfo, tee &log, const vec &center);
+    cnn_visualization(const vis_options &visopts, const cnn_options &cnnopts, const vec &center);
     void color();
     void print();
 
@@ -35,8 +35,6 @@ class cnn_visualization
     float cenCoords [3];
     vis_options visopts;
     cnn_options cnnopts;
-    FlexInfo* finfo;
-    tee* log;
     const vec* center;
     model unmodified_receptor;
     model unmodified_ligand;
