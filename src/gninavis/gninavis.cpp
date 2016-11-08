@@ -49,8 +49,13 @@ int main(int argc, char* argv[])
     ("verbose", bool_switch(&visopts.verbose)->default_value(false),
                   "print full output, including removed atom lists");
 
+  options_description debug("Debug");
+  debug.add_options()
+    ("output_files", bool_switch(&visopts.output_files)->default_value(false),
+                    "write every modified pdbqt file");
+
   options_description desc;
-  desc.add(inputs).add(cnn).add(outputs).add(options);
+  desc.add(inputs).add(cnn).add(outputs).add(options).add(debug);
 
   positional_options_description positional; // remains empty?
   variables_map vm;

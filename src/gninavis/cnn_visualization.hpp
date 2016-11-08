@@ -14,6 +14,7 @@ struct vis_options
   bool frags_only;
   bool atoms_only;
   bool verbose;
+  bool output_files;
 
   float box_size;
 
@@ -54,4 +55,7 @@ class cnn_visualization
     float transform_score(float score_val);
     void remove_residues();
     void remove_each_atom();
+    void output_modified_string(const std::string &modified_string, const std::vector<int> &atoms_removed,
+                                  bool receptor);
+
 };

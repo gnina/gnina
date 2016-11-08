@@ -117,8 +117,8 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove, bo
     ss << "ROOT\n"; //add necessary lines for gnina parsing
 
 
-    int* i = atoms_to_remove.data();
-    std::cout << *i;
+    int i = 0;
+    std::cout << atoms_to_remove[i];
     bool list_ended = false;
     std::string line;
     while(std::getline(mol_stream, line))
@@ -129,20 +129,20 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove, bo
         {
           std::string index_string = line.substr(7,5);
           int atom_index = std::stoi(index_string);
-          if (atom_index != *i)
+          if (atom_index != atoms_to_remove[i])
           {
             ss << line << '\n';
           }
           else
           {
-            ++i; //move to next item to check for skip
-            if(i == &atoms_to_remove.back())
+            i++; //move to next item to check for skip
+            if(i >= atoms_to_remove.size())
             {
               list_ended = true;
             }
             else
             {
-            std::cout << ", " << *i;
+            std::cout << ", " << atoms_to_remove[i];
             }
           }
         }
@@ -406,6 +406,11 @@ void cnn_visualization::remove_residues()
               scores[f] = transform_score(score_val);
               }
           }
+
+        if(visopts.output_files)
+        {
+          output_modified_string(modified_mol_string, atoms_to_remove, true);
+        }
         }
         
 
@@ -417,7 +422,7 @@ void cnn_visualization::remove_residues()
 
 void cnn_visualization::remove_each_atom()
 {
-    std::vector<float> scores(lig_mol.NumAtoms());
+    std::vector<float> scores(lig_mol.NumAtoms(), 0);
     std::stringstream lig_stream(lig_string);
     std::string line;
 
@@ -430,6 +435,7 @@ void cnn_visualization::remove_each_atom()
     {
         if ((line.find("ATOM") < std::string::npos))
         {
+            std::string modified_mol_string;
             index_string = line.substr(6, 5);
             atom_index = std::stoi(index_string);
             if (lig_mol.GetAtom(atom_index)->GetAtomicNum() != 1) //dont remove hydrogens individually
@@ -445,17 +451,70 @@ void cnn_visualization::remove_each_atom()
                     }
                 }
 
-                
-                std::string modified_mol_string = modify_pdbqt(atoms_to_remove, false);
+                modified_mol_string = modify_pdbqt(atoms_to_remove, false);
                 score_val = score_modified_ligand(modified_mol_string);
 
                 scores[atom_index] = transform_score(score_val);
             }
+        if(visopts.output_files)
+        {
+          output_modified_string(modified_mol_string, atoms_to_remove, false);
         }
         atoms_to_remove.clear();
+        }
 
     }
 
     write_scores(scores, false);
 }
+
+void cnn_visualization::output_modified_string(const std::string &modified_string, const std::vector<int> &atoms_removed,
+                                                     bool receptor)
+{
+    static bool first = true;
+    static int rec_counter=0;
+    static int lig_counter=0;
+
+    if(first)
+    {
+      ofstream original_rec_out;
+      original_rec_out.open("unmodified_receptor.pdbqt");
+      original_rec_out << rec_string;
+      original_rec_out.close();
+
+      ofstream original_lig_out;
+      original_lig_out.open("unmodified_ligand.pdbqt");
+      original_lig_out << lig_string;
+      original_lig_out.close();
+      
+      first = false;
+    }
+
+    ofstream file_out;
+    std::stringstream filename;
+    if(receptor)
+    {
+        filename << "mod_receptor_" << rec_counter++;
+    }
+    else
+    {
+        filename << "mod_ligand_" << lig_counter++;
+    }
+
+    filename << ".pdbqt";
+
+    
+    file_out.open(filename.str());
+
+    file_out << "REMARK: ATOMS REMOVED [" << atoms_removed[0];
+    for(int i = 1; i < atoms_removed.size(); ++i)
+    {
+      file_out << ", " << atoms_removed[i];
+    }
+    file_out << "]\n";
+    file_out << modified_string;
+    file_out.close();
+    
+}
+
 
