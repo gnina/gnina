@@ -377,7 +377,7 @@ inline void normalize_angle(fl& x) { // subtract or add enough 2*pi's to make x 
 	else if(x <   -pi) { // in [-3*pi,  -pi)
 		x += 2*pi;
 	}
-	assert(x >= -pi && x <= pi);
+	assert(x >= -pi && x <= pi || !(std::cerr << "x=" << x << "\n"));
 	// in [-pi, pi]
 }
 
