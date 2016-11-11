@@ -162,6 +162,10 @@ public:
 	//output an AD4 map for each grid
 	void outputMAP(const string& base);
 
+	//output an AD4 map from a multi_array
+	static void outputMAP(const string& base, const boost::multi_array<float, 4>& arr);
+	static void outputDX(const string& base, const boost::multi_array<float, 4>& arr, const model& m);
+
 	//output binary form of raw data in 3D multi-channel form (types are last)
 	void outputBIN(ostream& out, bool outputrec = true, bool outputlig = true);
 

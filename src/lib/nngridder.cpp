@@ -12,7 +12,7 @@
 #include <boost/timer/timer.hpp>
 #include <cuda_runtime.h>
 #include "gpu_math.h"
-
+#include <string>
 
 #define CUDA_CHECK(condition) \
   /* Code block avoids redefinition of cudaError_t error */ \
@@ -126,6 +126,94 @@ void NNGridder::outputMAP(const string& base)
 		}
 	}
 
+}
+
+// static version for just writing out a multi_array
+void NNGridder::outputMAP(const string& base, const multi_array<float, 4>& arr)
+{
+	// output a map per grid channel
+	for (unsigned c = 0; c < arr.shape()[0]; ++c)
+	{
+		string name = "channel" + std::to_string(c); //TODO get channel name
+		string fname = base + "_lig_" + name + ".map";
+		ofstream out(fname.c_str());
+
+		unsigned max = arr.shape()[1] + 1;
+		out.precision(5);
+		out << "GRID_PARAMETER_FILE\nGRID_DATA_FILE\nMACROMOLECULE\n";
+		out << "SPACING " << 0.5 << "\n"; //TODO get resolution
+		out << "NELEMENTS " << max - 1 << " " << max - 1 << " " << max - 1 << "\n";
+		out << "CENTER";
+		for (unsigned i = 0; i < 3; i++) //TODO get center
+		{
+			//double c = (dims[i].end + dims[i].begin) / 2.0;
+			double c = 0.0;
+			out << " " << c;
+		}
+		out << "\n";
+
+		//now coordinates - z,y,x
+		for (unsigned k = 0; k < arr.shape()[3]; ++k)
+		{
+			for (unsigned j = 0; j < arr.shape()[2]; ++j)
+			{
+				for (unsigned i = 0; i < arr.shape()[1]; ++i)
+				{
+					out << arr[c][i][j][k] << "\n";
+				}
+			}
+		}
+	}
+}
+
+void NNGridder::outputDX(const string& base, const multi_array<float, 4>& arr, const model& m)
+{
+	const atomv& atoms = m.get_movable_atoms();
+	assert(atoms.size() == m.coordinates().size());
+	vec center(0,0,0);
+	for (unsigned i = 0, n = atoms.size(); i < n; i++)
+	{
+		center += m.coordinates()[i];
+	}
+	center /= atoms.size();
+
+	// output a map per grid channel
+	for (unsigned c = 0; c < arr.shape()[0]; ++c)
+	{
+		string name = "channel" + std::to_string(c); //TODO get channel name
+		string fname = base + "_lig_" + name + ".dx";
+		ofstream out(fname.c_str());
+
+		unsigned max = arr.shape()[1] + 1;
+		out.precision(5);
+		out << "object 1 class gridpositions counts 24 24 24\n";
+		out << "origin " << center[0]-12 << " " << center[1]-12 << " " << center[2]-12 << "\n";
+		out << "delta 1 0 0\n";
+		out << "delta 0 1 0\n";
+		out << "delta 0 0 1\n";
+		out << "object 2 class gridconnections counts 24 24 24\n";
+		out << "object 3 class array type double rank 0 items [ 13824 ] data follows\n";
+
+		//now coordinates - x,y,z
+		unsigned n = 0;
+		for (unsigned i = 0; i < arr.shape()[1]; ++i)
+		{
+			for (unsigned j = 0; j < arr.shape()[2]; ++j)
+			{
+				for (unsigned k = 0; k < arr.shape()[1]; ++k)
+				{
+					out << arr[c][i][j][k];
+					++n;
+					if (n % 3 == 0)
+						out << "\n";
+					else
+						out << " ";
+				}
+			}
+		}
+
+		out << "object \"Gradient\" class field\n";
+	}
 }
 
 //output binary form of raw data in 3D multi-channel form (types are last)

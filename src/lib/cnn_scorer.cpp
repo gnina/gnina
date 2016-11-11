@@ -7,11 +7,14 @@
 
 #include "cnn_scorer.h"
 #include "gridoptions.h"
+#include "nngridder.h"
 
+#include "boost/multi_array.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/net.hpp"
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/layers/ndim_data_layer.hpp"
+#include "caffe/layers/conv_layer.hpp"
 
 using namespace caffe;
 using namespace std;
@@ -58,6 +61,10 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 			mgridparam->set_rotate(nrot);
 			//BUT it turns out this isn't actually faster
 			//bsize = nrot;
+		}
+		if (cnnopts.cnn_gradient)
+		{
+			param.set_force_backward(true);
 		}
 
 		net.reset(new Net<float>(param));
@@ -107,19 +114,28 @@ float CNNScorer::score(const model& m)
 
 	double score = 0.0;
 	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
+	const caffe::shared_ptr<Blob<Dtype> > inblob = net->blob_by_name("data");
 
 	unsigned cnt = 0;
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{
 		net->Forward(); //do all rotations at once if requested
 
+		caffe::shared_ptr<Blob<Dtype> > pooled = net->blob_by_name("unit1_pool");
+		if (true) //TODO get from cnn_opts
+		{
+			int c = 34, s = 24; //TODO get these from params
+			net->Backward();
+			boost::multi_array<float, 4> gradient(boost::extents[c][s][s][s]);
+			memcpy(gradient.origin(), pooled->cpu_diff(), c*s*s*s*sizeof(float));
+			NNGridder::outputDX("DEBUG", gradient, m);
+		}
+
 		const Dtype* out = outblob->cpu_data();
 		score += out[1];
 		cout << "#Rotate " << out[1] << "\n";
 		cnt++;
-
 	}
 
 	return score / cnt;
-
 }

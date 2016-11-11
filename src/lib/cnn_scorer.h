@@ -24,8 +24,9 @@ struct cnn_options {
 	fl resolution; //this isn't specified in model file, so be careful about straying from default
 	unsigned cnn_rotations; //do we want to score multiple orientations?
 	bool cnn_scoring; //if true, do cnn_scoring of final pose
+	bool cnn_gradient; //if true, compute CNN gradient wrt final pose
 
-	cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false) {}
+	cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), cnn_gradient(true) {}
 };
 
 /* This class evaluates protein-ligand poses according to a provided
