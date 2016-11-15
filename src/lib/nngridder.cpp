@@ -605,7 +605,7 @@ bool NNGridder::cpuSetModelCheck(const model& m, bool reinitlig, bool reinitrec)
 	bool savedgpu = gpu;
 	gpu = false;
 	bool saverandrotate = randrotate;
-	randrotate = false; //keep current Q, don't have a convenient way to chekc rand translate
+	randrotate = false; //keep current Q, don't have a convenient way to check rand translate
 	setModel(m, reinitlig, reinitrec);
 	randrotate = saverandrotate;
 

@@ -76,10 +76,9 @@ class NNGridder
   }; // end pinned_allocator
 public:
   typedef GridMaker::quaternion quaternion;
-	typedef boost::multi_array<float, 3, float_pinned_allocator>  Grid;
+	typedef boost::multi_array<float, 3, float_pinned_allocator> Grid;
 
 protected:
-
 
 	grid_dims dims; //this is a cube
 	quaternion Q;
