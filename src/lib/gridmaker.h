@@ -280,9 +280,9 @@ public:
       agrad_dist = 2.0 * dist * inv_e2 / (h * h) - 6.0 * inv_e2 / h;
     }
     // d_loss/d_atomx = d_atomdist/d_atomx * d_gridpoint/d_atomdist * d_loss/d_gridpoint
-    agrad.x += (-dist_x / dist) * agrad_dist * gval;
-    agrad.y += (-dist_y / dist) * agrad_dist * gval;
-    agrad.z += (-dist_z / dist) * agrad_dist * gval;
+    agrad.x += (-dist_x / dist) * agrad_dist * gridval;
+    agrad.y += (-dist_y / dist) * agrad_dist * gridval;
+    agrad.z += (-dist_z / dist) * agrad_dist * gridval;
   }
 
   //get the atom position gradient from relevant grid points for provided atom
