@@ -268,7 +268,7 @@ public:
     }
     else if (dist <= ar) //return gaussian derivative
     {
-      float h = 0.5 * ar
+      float h = 0.5 * ar;
       float ex = -dist2 / (2 * h * h);
       float coef = -dist / (h * h);
       agrad_dist = coef * exp(ex);
