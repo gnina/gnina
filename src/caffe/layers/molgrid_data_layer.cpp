@@ -298,7 +298,11 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         ainfo.y = atom.y;
         ainfo.z  = atom.z;
         ainfo.w = xs_radius(t);
-        float3 gradient(0.0, 0.0, 0.0);
+
+        float3 gradient;
+        gradient.x = 0.0;
+        gradient.y = 0.0;
+        gradient.z = 0.0;
 
         minfo.atoms.push_back(ainfo);
         minfo.whichGrid.push_back(index+mapoffset);
@@ -338,7 +342,11 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         ainfo.y = a->y();
         ainfo.z  = a->z();
         ainfo.w = xs_radius(t);
-        float3 gradient(0.0, 0.0, 0.0);
+
+        float3 gradient;
+        gradient.x = 0.0;
+        gradient.y = 0.0;
+        gradient.z = 0.0;
 
         minfo.atoms.push_back(ainfo);
         minfo.whichGrid.push_back(index+mapoffset);
@@ -463,7 +471,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     CHECK_GT(mem_rec.atoms.size(),0) << "Receptor not set in MolGridDataLayer";
     CHECK_GT(mem_lig.atoms.size(),0) << "Ligand not set in MolGridDataLayer";
     //memory is now available
-    set_grid_minfo(data, mem_rec, mem_lig, gpu);
+    set_grid_minfo(data, mem_rec, mem_lig, batch_transform[0], gpu); //TODO how do we know what batch position?
     if (num_rotations > 0) {
       current_rotation = (current_rotation+1)%num_rotations;
     }
@@ -478,7 +486,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         int offset = item_id*example_size;
         labels.push_back(1.0);
 
-        set_grid_ex(data+offset, actives_[actives_pos_], gpu, batch_transform[item_id]);
+        set_grid_ex(data+offset, actives_[actives_pos_], batch_transform[item_id], gpu);
 
         actives_pos_++;
         if(actives_pos_ >= asz) {
@@ -498,7 +506,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         int offset = item_id*example_size;
         labels.push_back(0.0);
 
-        set_grid_ex(data+offset, decoys_[decoys_pos_], gpu, batch_transform[item_id]);
+        set_grid_ex(data+offset, decoys_[decoys_pos_], batch_transform[item_id], gpu);
 
         decoys_pos_++;
         if(decoys_pos_ >= dsz) {
@@ -520,7 +528,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         int offset = item_id*example_size;
         labels.push_back(all_[all_pos_].label);
 
-        set_grid_ex(data+offset, all_[all_pos_], gpu, batch_transform[item_id]);
+        set_grid_ex(data+offset, all_[all_pos_], batch_transform[item_id], gpu);
 
         all_pos_++;
         if(all_pos_ >= sz) {
@@ -559,15 +567,14 @@ template <typename Dtype>
 void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom,
     bool gpu)
 {
-  const Dtype *diff = NULL;
+  Dtype *diff = NULL;
   if(gpu)
-    diff = top[0]->gpu_diff();
+    diff = top[0]->mutable_gpu_diff();
   else
-    diff = top[0]->cpu_diff();
+    diff = top[0]->mutable_cpu_diff();
 
   //propagate gradient grid onto atom positions
   unsigned batch_size = top_shape[0];
-  int item_id = 0;
   for (int item_id = 0; item_id < batch_size; ++item_id) {
 
     int offset = item_id*example_size;
