@@ -12,7 +12,7 @@
 #include "boost/multi_array.hpp"
 #include "/home/mtr22/caffe/include/caffe/layer.hpp"
 #include "/home/mtr22/caffe/include/caffe/net.hpp"
-#include "/home/mtr22/caffe/include/caffe/proto/caffe.pb.h"
+#include "/home/mtr22/caffe/build/include/caffe/proto/caffe.pb.h"
 #include "/home/mtr22/caffe/include/caffe/layers/ndim_data_layer.hpp"
 #include "/home/mtr22/caffe/include/caffe/layers/conv_layer.hpp"
 
