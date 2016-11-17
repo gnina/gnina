@@ -556,7 +556,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
-    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
   if (propagate_down[0])
     backward(top, bottom, false);
@@ -583,7 +583,7 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const ve
     mol_transform transform = batch_transform[item_id];
     gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
     gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
-        transform.mol.gradient)
+        transform.mol.gradient);
   }
 }
 
