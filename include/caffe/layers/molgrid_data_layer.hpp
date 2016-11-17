@@ -189,7 +189,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     float3 center; // translation
 
     mol_transform() { mol(); Q(0,0,0,0); center(0,0,0); }
-  }
+  };
 
   //need to remember how mols were transformed for backward pass
   vector<mol_transform> batch_transform;
