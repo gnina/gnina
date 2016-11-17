@@ -6,7 +6,7 @@
 
 
 //gridding is implemented in gridmaker
-#include "gnina/src/lib/gridmaker.cu"
+#include "/home/mtr22/gnina/src/lib/gridmaker.cu"
 
 namespace caffe {
 

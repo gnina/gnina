@@ -19,8 +19,8 @@
 #include "caffe/layers/base_data_layer.hpp"
 #include "caffe/proto/caffe.pb.h"
 
-#include "gnina/src/lib/atom_constants.h"
-#include "gnina/src/lib/gridmaker.h"
+#include "/home/mtr22/gnina/src/lib/atom_constants.h"
+#include "/home/mtr22/gnina/src/lib/gridmaker.h"
 
 namespace caffe {
 
