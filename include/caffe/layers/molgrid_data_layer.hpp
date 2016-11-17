@@ -186,9 +186,13 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   struct mol_transform {
     mol_info mol;
     quaternion Q;  // rotation
-    float3 center; // translation
+    vec center; // translation
 
-    mol_transform() { mol(); Q(0,0,0,0); center(0,0,0); }
+    mol_transform() {
+      mol = mol_info();
+      Q = quaternion(0,0,0,0);
+      center[0] = center[1] = center[2] = 0;
+    }
   };
 
   //need to remember how mols were transformed for backward pass
@@ -200,8 +204,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
   quaternion axial_quaternion();
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
-  void set_grid_ex(Dtype *grid, const example& ex, bool gpu);
-  void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms, bool gpu);
+  void set_grid_ex(Dtype *grid, const example& ex, mol_transform& transform, bool gpu);
+  void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms, mol_transform& transform, bool gpu);
 
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
   void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu);

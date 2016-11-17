@@ -401,7 +401,9 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
     transform.Q = quaternion(1, r1 / d, r2 / d, r3 / d);
   }
 
-  transform.center = float3(transform.mol.center);
+  transform.center[0] = transform.mol.center[0];
+  transform.center[1] = transform.mol.center[1];
+  transform.center[2] = transform.mol.center[2];
   if (randtranslate)
   {
     double offx = ((*rng)() - rng->min()) / double(rng->max()/2.0)-1.0;
@@ -557,7 +559,7 @@ template <typename Dtype>
 void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom,
     bool gpu)
 {
-  Dtype *diff = NULL;
+  const Dtype *diff = NULL;
   if(gpu)
     diff = top[0]->gpu_diff();
   else
