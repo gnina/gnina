@@ -54,6 +54,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
       const vector<Blob<Dtype>*>& top);
   virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
   //set in memory buffer
   template<typename Atom>
@@ -166,6 +168,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
   struct mol_info {
     vector<float4> atoms;
+    vector<float3> gradient;
     vector<short> whichGrid; //separate for better memory layout on gpu
     vec center; //precalculate centroid, includes any random translation
     boost::array< pair<float, float>, 3> dims;
@@ -176,8 +179,20 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     {
       atoms.insert(atoms.end(), a.atoms.begin(), a.atoms.end());
       whichGrid.insert(whichGrid.end(), a.whichGrid.begin(), a.whichGrid.end());
+      gradient.insert(gradient.end(), a.gradient.begin(), a.gradient.end());
     }
   };
+
+  struct mol_transform {
+    mol_info mol;
+    quaternion Q;  // rotation
+    float3 center; // translation
+
+    mol_transform() { mol(); Q(0,0,0,0); center(0,0,0); }
+  }
+
+  //need to remember how mols were transformed for backward pass
+  vector<mol_transform> batch_transform;
 
   boost::unordered_map<string, mol_info> molcache;
   mol_info mem_rec; //molecular data set programmatically with setMemory
@@ -189,6 +204,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms, bool gpu);
 
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
+  void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu);
 };
 
 

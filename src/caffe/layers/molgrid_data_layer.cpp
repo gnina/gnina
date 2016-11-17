@@ -100,7 +100,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   gmaker.initialize(resolution, dimension, radiusmultiple, binary);
 
-  dim = round(dimension/resolution)+1; //number of grid points on a size
+  dim = round(dimension/resolution)+1; //number of grid points on a side
   numgridpoints = dim*dim*dim;
   if(numgridpoints % 512 != 0)
     LOG(INFO) << "Total number of grid points (" << numgridpoints << ") is not evenly divisible by 512.";
@@ -108,6 +108,9 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   //shape must come from parameters
   const int batch_size = this->layer_param_.molgrid_data_param().batch_size();
   CHECK_GT(batch_size, 0) << "Positive batch size required";
+
+  //keep track of atoms and transformations for each example in batch
+  batch_transform = vector<mol_transform>(batch_size);
 
   if(!inmem)
   {
@@ -168,8 +171,8 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   }
 
   //initialize atom type maps
-  string recmap =  this->layer_param_.molgrid_data_param().recmap();
-  string ligmap =  this->layer_param_.molgrid_data_param().ligmap();
+  string recmap = this->layer_param_.molgrid_data_param().recmap();
+  string ligmap = this->layer_param_.molgrid_data_param().ligmap();
 
   if (recmap.size() == 0)
     numReceptorTypes = GridMaker::createDefaultRecMap(rmap);
@@ -266,7 +269,6 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
   //but since this gets amortized across many hits to the same example, not a high priority
   using namespace OpenBabel;
 
-
   vec center(0,0,0);
   minfo.atoms.clear();
   minfo.whichGrid.clear();
@@ -296,9 +298,11 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         ainfo.y = atom.y;
         ainfo.z  = atom.z;
         ainfo.w = xs_radius(t);
+        float3 gradient(0.0, 0.0, 0.0);
 
         minfo.atoms.push_back(ainfo);
         minfo.whichGrid.push_back(index+mapoffset);
+        minfo.gradient.push_back(gradient);
         center += vec(atom.x,atom.y,atom.z);
       }
     }
@@ -318,6 +322,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
 
     minfo.atoms.reserve(mol.NumHvyAtoms());
     minfo.whichGrid.reserve(mol.NumHvyAtoms());
+    minfo.gradient.reserve(mol.NumHvyAtoms());
 
     int cnt = 0;
     FOR_ATOMS_OF_MOL(a, mol)
@@ -333,9 +338,11 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         ainfo.y = a->y();
         ainfo.z  = a->z();
         ainfo.w = xs_radius(t);
+        float3 gradient(0.0, 0.0, 0.0);
 
         minfo.atoms.push_back(ainfo);
         minfo.whichGrid.push_back(index+mapoffset);
+        minfo.gradient.push_back(gradient);
         center += vec(a->x(),a->y(),a->z());
       }
     }
@@ -347,7 +354,8 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
 }
 
 template <typename Dtype>
-void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dtype>::example& ex, bool gpu)
+void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dtype>::example& ex,
+    MolGridDataLayer<Dtype>::mol_transform& transform, bool gpu)
 {
   //output grid values for provided example
   //cache atom info
@@ -360,24 +368,29 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
     set_mol_info(ex.ligand, lmap, numReceptorTypes, molcache[ex.ligand]);
   }
 
-  set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], gpu);
+  set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, gpu);
 
 }
 
 
 template <typename Dtype>
-void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer<Dtype>::mol_info& recatoms, const MolGridDataLayer<Dtype>::mol_info& ligatoms, bool gpu)
+void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer<Dtype>::mol_info& recatoms,
+  const MolGridDataLayer<Dtype>::mol_info& ligatoms, MolGridDataLayer<Dtype>::mol_transform& transform, bool gpu)
 {
-  mol_info gridatoms; //includes receptor and ligand
-  gridatoms.append(recatoms);
-  gridatoms.append(ligatoms);
+  //first clear transform from the previous batch
+  transform = mol_transform();
+
+  //include receptor and ligand atoms
+  transform.mol.append(recatoms);
+  transform.mol.append(ligatoms);
+
   //set center to ligand center
-  gridatoms.center = ligatoms.center;
+  transform.mol.center = ligatoms.center;
 
   //figure out transformation
-  quaternion Q(1,0,0,0);
+  transform.Q = quaternion(1,0,0,0);
   if(current_rotation == 0 && !randrotate)
-    Q = quaternion(0,0,0,0); //check real part to avoid mult
+    transform.Q = quaternion(0,0,0,0); //check real part to avoid mult
   rng_t* rng = caffe_rng();
   if (randrotate)
   {
@@ -385,40 +398,41 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
     double r1 = ((*rng)() - rng->min()) / double(rng->max());
     double r2 = ((*rng)() - rng->min()) / double(rng->max());
     double r3 = ((*rng)() - rng->min()) / double(rng->max());
-    Q = quaternion(1, r1 / d, r2 / d, r3 / d);
+    transform.Q = quaternion(1, r1 / d, r2 / d, r3 / d);
   }
 
-  vec center(gridatoms.center);
+  transform.center = float3(transform.mol.center);
   if (randtranslate)
   {
     double offx = ((*rng)() - rng->min()) / double(rng->max()/2.0)-1.0;
     double offy = ((*rng)() - rng->min()) / double(rng->max()/2.0)-1.0;
     double offz = ((*rng)() - rng->min()) / double(rng->max()/2.0)-1.0;
-    center[0] += offx * randtranslate;
-    center[1] += offy * randtranslate;
-    center[2] += offz * randtranslate;
+    transform.center[0] += offx * randtranslate;
+    transform.center[1] += offy * randtranslate;
+    transform.center[2] += offz * randtranslate;
   }
 
   if(current_rotation > 0) {
-    Q *= axial_quaternion();
+    transform.Q *= axial_quaternion();
   }
 
-  gmaker.setCenter(center[0], center[1], center[2]);
+  //TODO move this into gridmaker.setAtoms, have it just take the mol_transform as input
+  gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
   
   //compute grid from atom info arrays
   if(gpu)
   {
-    unsigned natoms = gridatoms.atoms.size();
+    unsigned natoms = transform.mol.atoms.size();
     allocateGPUMem(natoms);
-    CUDA_CHECK(cudaMemcpy(gpu_gridatoms, &gridatoms.atoms[0], natoms*sizeof(float4),cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(gpu_gridwhich, &gridatoms.whichGrid[0], natoms*sizeof(short),cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(gpu_gridatoms, &transform.mol.atoms[0], natoms*sizeof(float4), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(gpu_gridwhich, &transform.mol.whichGrid[0], natoms*sizeof(short), cudaMemcpyHostToDevice));
 
-    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, Q, numReceptorTypes+numLigandTypes, data);
+    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, transform.Q, numReceptorTypes+numLigandTypes, data);
   }
   else
   {
     Grids grids(data, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
-    gmaker.setAtomsCPU(gridatoms.atoms, gridatoms.whichGrid,Q, grids);
+    gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids);
   }
 }
 
@@ -462,7 +476,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         int offset = item_id*example_size;
         labels.push_back(1.0);
 
-        set_grid_ex(data+offset, actives_[actives_pos_], gpu);
+        set_grid_ex(data+offset, actives_[actives_pos_], gpu, batch_transform[item_id]);
 
         actives_pos_++;
         if(actives_pos_ >= asz) {
@@ -482,7 +496,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         int offset = item_id*example_size;
         labels.push_back(0.0);
 
-        set_grid_ex(data+offset, decoys_[decoys_pos_], gpu);
+        set_grid_ex(data+offset, decoys_[decoys_pos_], gpu, batch_transform[item_id]);
 
         decoys_pos_++;
         if(decoys_pos_ >= dsz) {
@@ -504,7 +518,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         int offset = item_id*example_size;
         labels.push_back(all_[all_pos_].label);
 
-        set_grid_ex(data+offset, all_[all_pos_], gpu);
+        set_grid_ex(data+offset, all_[all_pos_], gpu, batch_transform[item_id]);
 
         all_pos_++;
         if(all_pos_ >= sz) {
@@ -527,6 +541,41 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
   }
   //grid the examples
 
+}
+
+
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+{
+  if (propagate_down[0])
+    backward(top, bottom, false);
+}
+
+
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom,
+    bool gpu)
+{
+  Dtype *diff = NULL;
+  if(gpu)
+    diff = top[0]->gpu_diff();
+  else
+    diff = top[0]->cpu_diff();
+
+  //propagate gradient grid onto atom positions
+  unsigned batch_size = top_shape[0];
+  int item_id = 0;
+  for (int item_id = 0; item_id < batch_size; ++item_id) {
+
+    int offset = item_id*example_size;
+    Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+
+    mol_transform transform = batch_transform[item_id];
+    gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
+    gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
+        transform.mol.gradient)
+  }
 }
 
 
