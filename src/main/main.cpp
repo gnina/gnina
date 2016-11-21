@@ -1232,7 +1232,8 @@ Thank you!\n";
 		google::InitGoogleLogging(argv[0]); //otherwise caffe spits crap out on stderr
 		google::SetStderrLogging(2);
 		OpenBabel::OBPlugin::LoadAllPlugins(); //for some reason loading on demand can be slow
-
+		cnnopts.seed = settings.seed;
+		
 		set_fixed_rotable_hydrogens(!flex_hydrogens);
 
 		if (settings.dominimize) //set default settings for minimization
@@ -1425,6 +1426,7 @@ Thank you!\n";
 		if (settings.verbosity > 1 && settings.exhaustiveness < settings.cpu)
 			log
 					<< "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
+
 
 		//dkoes - parse in receptor once
 		MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, log);

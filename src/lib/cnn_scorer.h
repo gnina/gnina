@@ -24,8 +24,9 @@ struct cnn_options {
 	fl resolution; //this isn't specified in model file, so be careful about straying from default
 	unsigned cnn_rotations; //do we want to score multiple orientations?
 	bool cnn_scoring; //if true, do cnn_scoring of final pose
+	unsigned seed; //random seed
 
-	cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false) {}
+	cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), seed(0) {}
 };
 
 /* This class evaluates protein-ligand poses according to a provided
@@ -36,6 +37,7 @@ class CNNScorer {
 	caffe::shared_ptr<caffe::Net<Dtype> > net;
 	caffe::MolGridDataLayer<Dtype> *mgrid;
 	unsigned rotations;
+	unsigned seed;
 	bool random_rotate;
 	caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
 

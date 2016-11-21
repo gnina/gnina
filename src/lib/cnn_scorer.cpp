@@ -20,7 +20,7 @@ using namespace std;
 //throw error if missing required info
 CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		const model& m) :
-		rotations(cnnopts.cnn_rotations),
+		rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
 		 mtx(new boost::mutex)
 {
 
@@ -38,6 +38,7 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		//load cnn model
 		NetParameter param;
 		ReadNetParamsFromTextFileOrDie(cnnopts.cnn_model, &param);
+
 		param.mutable_state()->set_phase(TEST);
 		LayerParameter *first = param.mutable_layer(0);
 		//must be ndim
@@ -54,8 +55,9 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		if (cnnopts.cnn_rotations > 0)
 		{
 			//let user specify rotations
-			unsigned nrot = min(24U, cnnopts.cnn_rotations);
-			mgridparam->set_rotate(nrot);
+			unsigned nrot = cnnopts.cnn_rotations;
+			mgridparam->set_random_rotation(true);
+			//I think there's a bug in the axial rotations - they aren't all distinct
 			//BUT it turns out this isn't actually faster
 			//bsize = nrot;
 		}
@@ -101,13 +103,14 @@ float CNNScorer::score(const model& m)
 	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
 		return -1.0;
+	
+	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
 	mgrid->setReceptor<atom>(m.get_fixed_atoms());
 	mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
 
 	double score = 0.0;
 	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
-
 	unsigned cnt = 0;
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{
