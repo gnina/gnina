@@ -3,6 +3,8 @@
 #include <unordered_set>
 #include "cnn_scorer.h"
 #include "molgetter.h"
+#include <GraphMol/ROMol.h>
+#include <GraphMol/RWMol.h>
 
 struct vis_options
 {
@@ -51,11 +53,15 @@ class cnn_visualization
     float score(const std::string &molString, bool isRec);
     void write_scores(std::vector<float> scoreList, bool isRec);
     bool check_in_range(std::unordered_set<int> atomList);
-    float transform_score(float score_val);
+    float transform_score_diff(float diff_val);
     void remove_residues();
-    void remove_each_atom();
+    std::vector<float> remove_each_atom();
     void output_modified_string(const std::string &modified_string, const std::vector<int> &atoms_removed,
                                   bool receptor);
     void write_additivity(std::vector<float> scores, bool single);
+    std::vector<float> remove_fragments(int size);
+    void remove_ligand_atoms();
+    void add_adjacent_hydrogens(std::vector<int> &atoms_to_remove, bool isRec);
+    void print_vector(const std::vector<int> &atoms_to_remove);
 
 };

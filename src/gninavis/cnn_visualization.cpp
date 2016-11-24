@@ -11,6 +11,11 @@
 #include "obmolopener.h"
 #include "model.h"
 #include "parse_pdbqt.h"
+#include <GraphMol/Subgraphs/Subgraphs.h>
+#include <GraphMol/RDKitBase.h>
+#include <RDGeneral/Invariant.h>
+#include <GraphMol/FileParsers/FileParsers.h>
+
 
 using namespace OpenBabel;
 
@@ -64,14 +69,14 @@ void cnn_visualization::color()
     
     if(visopts.receptor_output.length() > 0)
     {
-    std::cout << "Scoring residue removals:\n\n";
+    std::cout << "Scoring receptor removals:\n\n";
     remove_residues();
     }
 
     if(visopts.ligand_output.length() > 0)
     {
-    std::cout << "Scoring individual atom removals:\n\n";
-    remove_each_atom();
+    std::cout << "Scoring ligand removals:\n\n";
+    remove_ligand_atoms();
     }
 }
 
@@ -175,6 +180,7 @@ void cnn_visualization::process_molecules()
     conv.SetOutFormat("PDBQT"); //use pdbqt to make passing to parse_pdbqt possible
     conv.AddOption("r",OBConversion::OUTOPTIONS);
     conv.AddOption("c",OBConversion::OUTOPTIONS);
+    conv.AddOption("p",OBConversion::OUTOPTIONS);
 
     std::string temp_lig_string = conv.WriteString(&lig_mol);
     std::stringstream lig_stream;
@@ -194,7 +200,6 @@ void cnn_visualization::process_molecules()
     cenCoords[0] = cen.GetX();
     cenCoords[1] = cen.GetY();
     cenCoords[2] = cen.GetZ();
-
 }
 
 float cnn_visualization::score_modified_receptor(const std::string &modified_rec_string)
@@ -278,7 +283,8 @@ void cnn_visualization::write_scores(std::vector<float> scores, bool isRec)
 
             if ((scores[atom_index] > 0.001) || (scores[atom_index] < -0.001)) //ignore very small scores
             {
-                score_stream << std::fixed << std::setprecision(5) << scores[atom_index];
+                float transformed_score = transform_score_diff(scores[atom_index]);
+                score_stream << std::fixed << std::setprecision(5) << transformed_score;
                 out_file << line.substr(0,61);
                 score_string = score_stream.str();
                 score_string.resize(5);
@@ -333,12 +339,11 @@ bool cnn_visualization::check_in_range(std::unordered_set<int> atoms)
     return false;
 }
 
-//calculates score difference and transforms to maximize digits in b-factor
+//transforms score diff to maximize digits in b-factor
 //field
-float cnn_visualization::transform_score(float score_val)
+float cnn_visualization::transform_score_diff(float diff_val)
 {
-    float temp;
-    temp = original_score - score_val;
+    float temp = diff_val;
 
     if(temp < 0)
     {
@@ -408,7 +413,7 @@ void cnn_visualization::remove_residues()
           {
               if(f)
               {
-              scores[f] = transform_score(score_val);
+              scores[f] = score_val;
               }
           }
 
@@ -425,10 +430,57 @@ void cnn_visualization::remove_residues()
     write_scores(scores, true);
 }
 
-void cnn_visualization::remove_each_atom()
+//checks all input indices for hydrogen neighbors, and appends them
+void cnn_visualization::add_adjacent_hydrogens(std::vector<int> &atoms_to_remove, bool isRec)
 {
-    std::vector<float> scores(lig_mol.NumAtoms(), 0);
-    std::vector<float> write_values(lig_mol.NumAtoms(), 0);
+    std::cout << "Before adding hydrogens: ";
+    print_vector(atoms_to_remove);
+    std::cout << '\n';
+
+    OBMol mol;
+    if(isRec)
+    {
+        mol = rec_mol;
+    }
+    else
+    {
+        mol = lig_mol;
+    }
+
+
+    int original_size = atoms_to_remove.size(); //atoms_to_remove will have atoms appended
+    for(int i = 0; i < original_size; ++i)
+    {
+        OBAtom* atom = mol.GetAtom(atoms_to_remove[i]);
+        FOR_NBORS_OF_ATOM(neighbor, atom)
+        {
+            if(neighbor->GetAtomicNum() == 1)
+            {
+                atoms_to_remove.push_back(neighbor->GetIdx() + 1);
+            }
+        }
+    }
+
+    std::cout << "After adding hydrogens: ";
+    print_vector(atoms_to_remove);
+    std::cout << '\n';
+}
+
+void cnn_visualization::print_vector(const std::vector<int> &atoms_to_remove)
+{
+    std::cout << "[" << atoms_to_remove[0];
+    for(int i = 1; i < atoms_to_remove.size(); ++i)
+    {
+        std::cout << ", " << atoms_to_remove[i];
+    }
+    std::cout << "]";
+
+}
+
+
+std::vector<float> cnn_visualization::remove_each_atom()
+{
+    std::vector<float> score_diffs(lig_mol.NumAtoms(), 0);
     std::stringstream lig_stream(lig_string);
     std::string line;
 
@@ -460,8 +512,7 @@ void cnn_visualization::remove_each_atom()
                 modified_mol_string = modify_pdbqt(atoms_to_remove, false);
                 score_val = score_modified_ligand(modified_mol_string);
 
-                write_values[atom_index] = transform_score(score_val);
-                scores[atom_index] = score_val;
+                score_diffs[atom_index] = original_score - score_val;
             }
         if(visopts.output_files)
         {
@@ -472,11 +523,18 @@ void cnn_visualization::remove_each_atom()
 
     }
 
-    write_scores(write_values, false);
     if(visopts.additivity.length() > 0)
     {
-    write_additivity(scores, true);
+        write_additivity(score_diffs, true);
     }
+
+    for(auto i = lig_mol.BeginAtoms(); i != lig_mol.EndAtoms(); ++i)
+    {
+      std::cout << (*i)->GetIdx() << ": " << (*i)->GetType() << '\n';
+    }
+
+    return score_diffs;
+    
 }
 
 void cnn_visualization::output_modified_string(const std::string &modified_string, const std::vector<int> &atoms_removed,
@@ -534,7 +592,7 @@ void cnn_visualization::write_additivity(std::vector<float> scores, bool single)
   {
     if(lig_mol.GetAtom(i)->GetAtomicNum() != 1) //hydrogens will have score of 0
     {
-      total += original_score - scores[i];
+      total += scores[i];
     }
   }
   std::ofstream out_file;
@@ -553,6 +611,117 @@ void cnn_visualization::write_additivity(std::vector<float> scores, bool single)
   
   out_file << visopts.ligand_name << " " << total << " " << original_score << "\n";
 }
+
+//wrapper for fragment and individual removals
+void cnn_visualization::remove_ligand_atoms()
+{
+    if(visopts.atoms_only)
+    {
+        std::vector<float> individual_scores = remove_each_atom();
+        write_scores(individual_scores, false);
+        return;
+    }
+
+    else if(visopts.frags_only)
+    {
+        std::vector<float> frag_scores = remove_fragments(6);
+        write_scores(frag_scores, false);
+        return;
+    }
+
+    else
+    {
+        std::vector<float> individual_scores = remove_each_atom();
+        std::vector<float> frag_scores = remove_fragments(6);
+        std::vector<float> avg_scores (individual_scores.size(), 0.00);
+
+        for(int i = 0; i != individual_scores.size(); ++i)
+        {
+          float avg = (individual_scores[i] + frag_scores[i]) / 2;
+          avg_scores[i] = avg;
+        }
+
+        write_scores(avg_scores, false);
+    }
+
+}
+
+
+std::vector<float> cnn_visualization::remove_fragments(int size)
+{
+    std::vector<float> score_diffs(lig_mol.NumAtoms(), 0.00);
+    std::vector<int> score_counts(lig_mol.NumAtoms(), 0); //used to calculate average of scores across all fragments
+
+
+
+    
+    OBConversion conv;
+    conv.SetOutFormat("MOL");
+    std::stringstream MOL_stream(conv.WriteString(&lig_mol));
+
+    std::stringstream pdb_stream(lig_pdb_string);
+    unsigned int line = 0;
+    RDKit::RWMol rdkit_mol(*(RDKit::MolDataStreamToMol(MOL_stream, line, false, true, false))); //removeHs = true
+
+
+    std::vector<int> atoms_to_remove;
+
+    
+    RDKit::INT_PATH_LIST_MAP paths = RDKit::findAllSubgraphsOfLengthsMtoN(rdkit_mol, 2, size);
+    for( auto path = paths.begin(); path != paths.end(); ++path )
+    {
+      std::list<std::vector<int>> list_of_lists = std::get<1>(*path);
+      for( auto atoms = list_of_lists.begin(); atoms != list_of_lists.end(); ++atoms )
+        {
+          std::vector<int> actual_atoms = *atoms;
+          for( int i = 0; i < actual_atoms.size(); ++i )
+          {
+            atoms_to_remove.push_back(actual_atoms[i] + 1); //RDKit is 0-indexed, PDBQT file is 1-indexed
+          }
+
+          int size_without_hydrogens = atoms_to_remove.size();
+          add_adjacent_hydrogens(atoms_to_remove, false);
+
+
+          std::string modified_ligand = modify_pdbqt(atoms_to_remove, false);
+          float score = score_modified_ligand(modified_ligand);
+          for(int i = 0; i < atoms_to_remove.size(); ++i)
+          {
+            score_diffs[atoms_to_remove[i]]+= (original_score - score) / size_without_hydrogens; //give each atom in removal equal portion of score difference
+            score_counts[atoms_to_remove[i]] += 1;
+          }
+          atoms_to_remove.clear();
+        }
+    }
+
+    std::vector<float> avg_scores(lig_mol.NumAtoms(), 0.00);
+    for(int i = 0; i < lig_mol.NumAtoms(); ++i)
+    {
+        if(score_counts[i] == 0)
+        {
+            avg_scores[i] = original_score; //no score diff for unscored values
+        }
+        else
+        {  
+            avg_scores[i] = score_diffs[i] / score_counts[i];
+            std::cout << "Symbol: " << rdkit_mol.getAtomWithIdx(i)->getSymbol() << '\n';
+            std::cout << "Index: " << i << '\n';
+            std::cout << "Agg. Score Diff: " << score_diffs[i] << '\n';
+            std::cout << "Score count: " << score_counts[i] << '\n';
+            std::cout << "Avg. Score Diff: " << avg_scores[i] << '\n';
+            std::cout << "===============" << '\n';
+        }
+    }
+    for (auto i = rdkit_mol.beginAtoms(); i != rdkit_mol.endAtoms(); ++i)
+    {
+      std::cout << (*i)->getIdx() + 1 << ": " << (*i)->getSymbol() << '\n';
+    }
+   
+
+    return avg_scores;
+
+    }
+
 
 
 

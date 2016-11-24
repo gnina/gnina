@@ -4,12 +4,14 @@ OBJD :=./objs
 BUILTIN_VARS := $(.VARIABLES)
 
 OPENBABEL_INCLUDE := /usr/local/include/openbabel-2.0
-CAFFE_INCLUDE := /usr/local/include
+RDKIT_INCLUDE := /usr/include/rdkit
+CAFFE_INCLUDE := ~/local/include
 GNINA_INCLUDE := ~/git/
 BOOST_INCLUDE := $(BASE)/include/boost
 CUDA_INCLUDE := $(BASE)/cuda/include
 INCFLAGS := -I $(BOOST_INCLUDE) \
 			-I $(OPENBABEL_INCLUDE) \
+			-I $(RDKIT_INCLUDE) \
 			-I $(CUDA_INCLUDE) \
 			-I $(SRCD)/lib \
 			-I $(CAFFE_INCLUDE) \
@@ -21,7 +23,7 @@ CFLAGS += \
 	   -Wno-deprecated-declarations \
 	   $(INCFLAGS) $(C_PLATFORM) $(C_OPTIONS)
 
-NVCC := nvcc
+NVCC := /usr/local/cuda-7.5/bin/nvcc
 NVOPTS += \
 	   -std=c++11 \
 	   -gencode arch=compute_52,code=sm_52 \
@@ -30,6 +32,7 @@ NVOPTS += \
 LDFLAGS := -L $(BASE)/lib \
 		   -L . \
 		   -L /usr/local/lib \
+		   -L /home/josh/local/lib \
 		   -L $(BASE)/cuda/lib64 \
 		   $(LDFLAGS)
 LIBS := -l openbabel \
@@ -43,6 +46,16 @@ LIBS := -l openbabel \
 	-l boost_filesystem${BOOST_LIB_VERSION} \
 	-l boost_program_options${BOOST_LIB_VERSION} \
 	-l boost_date_time${BOOST_LIB_VERSION} \
+	-l FileParsers \
+	-l SmilesParse \
+	-l SubstructMatch \
+	-l GraphMol \
+	-l RDGeometryLib \
+	-l RDGeneral \
+	-l Subgraphs \
+	-l DataStructs \
+	-l Depictor \
+	-l Subgraphs \
 	-lcudart -lglog -lcaffe -lprotobuf
 
 LIBSRC := $(wildcard $(SRCD)/lib/*.cpp)
@@ -151,3 +164,4 @@ info::
 	$(foreach v, \
 		$(filter-out $(BUILTIN_VARS) BUILTIN_VARS \n, $(.VARIABLES)), \
 		$(info $(v) = $($(v)) ${\n}))
+
