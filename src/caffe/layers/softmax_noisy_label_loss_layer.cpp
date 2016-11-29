@@ -5,11 +5,9 @@
 #include <iostream>
 #include <utility>
 
-#include "caffe/layer.hpp"
-#include "caffe/util/math_functions.hpp"
-#include "caffe/layer.hpp"
-#include "caffe/proto/caffe.pb.h"
-#include "caffe/layers/base_data_layer.hpp"
+
+#include "caffe/layers/softmax_noisy_label_loss_layer.hpp"
+#include "caffe/filler.hpp"
 
 namespace caffe {
 
