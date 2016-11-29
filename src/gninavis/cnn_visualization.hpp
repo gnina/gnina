@@ -62,6 +62,7 @@ class cnn_visualization
     std::vector<float> remove_fragments(int size);
     void remove_ligand_atoms();
     void add_adjacent_hydrogens(std::vector<int> &atoms_to_remove, bool isRec);
+    int get_openbabel_index(double x_coordinate);
     void print_vector(const std::vector<int> &atoms_to_remove);
 
 };
