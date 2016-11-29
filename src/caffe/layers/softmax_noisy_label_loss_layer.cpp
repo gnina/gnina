@@ -7,7 +7,9 @@
 
 #include "caffe/layer.hpp"
 #include "caffe/util/math_functions.hpp"
-#include "caffe/vision_layers.hpp"
+#include "caffe/layer.hpp"
+#include "caffe/proto/caffe.pb.h"
+#include "caffe/layers/base_data_layer.hpp"
 
 namespace caffe {
 
