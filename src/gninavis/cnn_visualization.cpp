@@ -478,22 +478,28 @@ void cnn_visualization::add_adjacent_hydrogens(std::vector<int> &atoms_to_remove
     if(isRec)
     {
         mol = rec_mol;
+        mol.AddHydrogens();
     }
 
     else
     {
         mol = lig_mol;
+        mol.AddHydrogens();
     }
 
     int original_size = atoms_to_remove.size(); //atoms_to_remove will have atoms appended
     for(int i = 0; i < original_size; ++i)
     {
         OBAtom* atom = mol.GetAtom(atoms_to_remove[i]);
-        FOR_NBORS_OF_ATOM(neighbor, atom)
+        OBAtom* neighbor;
+        if (atoms_to_remove[i] > 0) //an index of 0 segfaults
         {
-            if(neighbor->GetAtomicNum() == 1)
+            for (OBAtomAtomIter neighbor(atom); neighbor; ++neighbor)
             {
-                atoms_to_remove.push_back(neighbor->GetIdx());
+                if(neighbor->GetAtomicNum() == 1)
+                {
+                    atoms_to_remove.push_back(neighbor->GetIdx());
+                }
             }
         }
     }
@@ -515,7 +521,10 @@ void cnn_visualization::print_vector(const std::vector<int> &atoms_to_remove)
 //removes individual atoms, scores them, and returns the diffs
 std::vector<float> cnn_visualization::remove_each_atom()
 {
-    std::vector<float> score_diffs(lig_mol.NumAtoms(), 0);
+    OBMol lig_mol_h = lig_mol;
+    lig_mol_h.AddHydrogens(); //just in case hydrogen numbers don't add up
+
+    std::vector<float> score_diffs(lig_mol_h.NumAtoms(), 0);
     std::stringstream lig_stream(lig_string);
     std::string line;
 
@@ -686,16 +695,17 @@ void cnn_visualization::remove_ligand_atoms()
     {
         std::vector<float> individual_score_diffs = remove_each_atom();
         std::vector<float> frag_score_diffs = remove_fragments(6);
-        std::vector<float> avg_score_diffs (lig_mol.NumAtoms(), 0.00);
+
+        std::vector<float> both_score_diffs (individual_score_diffs.size(), 0.00);
 
         //average individual and fragment diffs
         for(int i = 0; i != individual_score_diffs.size(); ++i)
         {
             float avg = (individual_score_diffs[i] + frag_score_diffs[i]) / 2;
-            avg_score_diffs[i] = avg;
+            both_score_diffs[i] = avg;
         }
 
-        write_scores(avg_score_diffs, false);
+        write_scores(both_score_diffs, false);
     }
 
 }
@@ -734,8 +744,11 @@ std::vector<float> cnn_visualization::remove_fragments(int size)
 {
     OBConversion conv;
 
-    std::vector<float> score_diffs(lig_mol.NumAtoms(), 0.00);
-    std::vector<int> score_counts(lig_mol.NumAtoms(), 0); //used to calculate average of scores across all fragments
+    OBMol lig_mol_h = lig_mol;
+    lig_mol_h.AddHydrogens(); //just in case hydrogen numbers don't add up
+
+    std::vector<float> score_diffs(lig_mol_h.NumAtoms() + 1, 0.00);
+    std::vector<int> score_counts(lig_mol_h.NumAtoms() + 1, 0); //used to calculate average of scores across all fragments
     
     //PDB has parsing issues with RDKit
     conv.SetOutFormat("MOL");
@@ -812,7 +825,8 @@ std::vector<float> cnn_visualization::remove_fragments(int size)
 
             for(int i = 0; i < atoms_to_remove.size(); ++i)
             {
-                score_diffs[atoms_to_remove[i]]+= (original_score - score) / size_without_hydrogens; //give each atom in removal equal portion of score difference
+                int atom_index = atoms_to_remove[i];
+                score_diffs[atoms_to_remove[i]] += (original_score - score) / size_without_hydrogens; //give each atom in removal equal portion of score difference
                 score_counts[atoms_to_remove[i]] += 1;
             }
 
@@ -850,6 +864,5 @@ std::vector<float> cnn_visualization::remove_fragments(int size)
 
     std::cout << '\n';
     return avg_score_diffs;
-
     }
 
