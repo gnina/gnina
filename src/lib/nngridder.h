@@ -124,6 +124,9 @@ protected:
 	//output a grid the file in map format (for debug)
 	void outputMAPGrid(ostream& out, Grid& grid);
 
+  //output a grid the file in dx format (for debug)
+  void outputDXGrid(ostream& out, Grid& grid);
+
 	//return a string representation of the atom type(s) represented by index
 	//in map - this isn't particularly efficient, but is only for debug purposes
 	string getIndexName(const vector<int>& map, unsigned index) const;
@@ -161,6 +164,9 @@ public:
 
 	//output an AD4 map for each grid
 	void outputMAP(const string& base);
+
+  //output an dx map for each grid
+  void outputDX(const string& base);
 
 	//output binary form of raw data in 3D multi-channel form (types are last)
 	void outputBIN(ostream& out, bool outputrec = true, bool outputlig = true);

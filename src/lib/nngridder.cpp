@@ -54,6 +54,41 @@ void NNGridder::outputMAPGrid(ostream& out, Grid& grid)
 	}
 }
 
+//output a grid the file in dx format (for debug)
+void NNGridder::outputDXGrid(ostream& out, Grid& grid)
+{
+  unsigned n = dims[0].n+1;
+  out.precision(5);
+  setprecision(5);
+  out << fixed;
+  out << "object 1 class gridpositions counts " << n << " " << n << " " << " " << n << "\n";
+  out << "origin";
+  for (unsigned i = 0; i < 3; i++)
+  {
+    double c = (dims[i].end + dims[i].begin) / 2.0;
+    out << " " << c;
+  }
+  out << "\n";
+  out << "delta " << resolution << " 0 0\ndelta 0 " << resolution << " 0\ndelta 0 0 " << resolution << "\n";
+  out << "object 2 class gridconnections counts " << n << " " << n << " " << " " << n << "\n";
+  out << "object 3 class array type double rank 0 items [ " << n*n*n << "] data follows\n";
+  //now coordinates - z,y,x
+  unsigned total = 0;
+  for (unsigned k = 0; k < n; k++)
+  {
+    for (unsigned j = 0; j < n; j++)
+    {
+      for (unsigned i = 0; i < n; i++)
+      {
+        out << grid[i][j][k];
+        total++;
+        if(total % 3 == 0) out << "\n";
+        else out << " ";
+      }
+    }
+  }
+}
+
 //return a string representation of the atom type(s) represented by index
 //in map - this isn't particularly efficient, but is only for debug purposes
 string NNGridder::getIndexName(const vector<int>& map, unsigned index) const
@@ -125,6 +160,33 @@ void NNGridder::outputMAP(const string& base)
 			outputMAPGrid(out, ligandGrids[a]);
 		}
 	}
+
+}
+
+//output an AD4 map for each grid
+void NNGridder::outputDX(const string& base)
+{
+  for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
+  {
+    //this is for debugging, so avoid outputting empty grids
+    if (!gridIsEmpty(receptorGrids[a]))
+    {
+      string name = getIndexName(rmap, a);
+      string fname = base + "_rec_" + name + ".dx";
+      ofstream out(fname.c_str());
+      outputDXGrid(out, receptorGrids[a]);
+    }
+  }
+  for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
+  {
+    if (!gridIsEmpty(ligandGrids[a]))
+    {
+      string name = getIndexName(lmap, a);
+      string fname = base + "_lig_" + name + ".dx";
+      ofstream out(fname.c_str());
+      outputDXGrid(out, ligandGrids[a]);
+    }
+  }
 
 }
 

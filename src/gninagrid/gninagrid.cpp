@@ -47,7 +47,9 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	("out,o", value<std::string>(&o.outname)->required(),
 			"output file name base, combined map of both lig and receptor")
 	("map", bool_switch(&o.outmap),
-			"output AD4 map files (for debugging, out is base name)");
+			"output AD4 map files (for debugging, out is base name)")
+  ("dx", bool_switch(&o.outdx),
+      "output DX map files (for debugging, out is base name)");
 
 	options_description options("Options");
 	options.add_options()
@@ -131,6 +133,10 @@ int main(int argc, char *argv[])
 			if (opt.outmap)
 			{
 				gridder.outputMAP(base);
+			}
+			else if(opt.outdx)
+			{
+			  gridder.outputDX(base);
 			}
 			else
 			{

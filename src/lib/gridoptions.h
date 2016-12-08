@@ -24,6 +24,7 @@ struct gridoptions
 	bool version;
 	bool timeit;
 	bool outmap;
+	bool outdx; //unfortunately mutually exclusive with outmap
 	bool binary;
 	bool gpu;
 	gridoptions() :
