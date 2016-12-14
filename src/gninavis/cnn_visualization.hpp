@@ -18,6 +18,9 @@ struct vis_options
   bool atoms_only;
   bool verbose;
   bool output_files;
+  bool skip_bound_check;
+  
+  int gpu;
 
   float box_size;
 

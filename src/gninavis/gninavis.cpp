@@ -47,15 +47,18 @@ int main(int argc, char* argv[])
     ("atoms_only", bool_switch(&visopts.atoms_only)->default_value(false),
                   "only run individual removal on ligand")
     ("verbose", bool_switch(&visopts.verbose)->default_value(false),
-                  "print full output, including removed atom lists");
+                  "print full output, including removed atom lists")
+    ("gpu", value<int>(&visopts.gpu)->default_value(-1),
+                    "gpu id for accelerated scoring");
 
   options_description debug("Debug");
   debug.add_options()
     ("output_files", bool_switch(&visopts.output_files)->default_value(false),
                     "write every modified pdbqt file")
     ("additivity", value<std::string>(&visopts.additivity),
-                    "print additivity data for ligand");
-
+                    "print additivity data for ligand")
+    ("skip_bound_check", bool_switch(&visopts.skip_bound_check)->default_value(false),
+                    "score all residues, regardless of proximity to ligand");
   options_description desc;
   desc.add(inputs).add(cnn).add(outputs).add(options).add(debug);
 

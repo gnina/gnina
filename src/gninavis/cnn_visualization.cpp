@@ -22,27 +22,31 @@ using namespace OpenBabel;
 
 cnn_visualization::cnn_visualization (const vis_options &visopts, const cnn_options &cnnopts, const vec &center )
 {
-      caffe::Caffe::SetDevice(0);
-      caffe::Caffe::set_mode(caffe::Caffe::GPU);
-      this->visopts = visopts;
-      this->cnnopts = cnnopts;
-      this->center = &center;
+    if(visopts.gpu > -1)
+    {
+        caffe::Caffe::SetDevice(visopts.gpu);
+        caffe::Caffe::set_mode(caffe::Caffe::GPU);
+    }
 
-      OBConversion conv;
-      obmol_opener opener;
+    this->visopts = visopts;
+    this->cnnopts = cnnopts;
+    this->center = &center;
 
-      try
-      {
-      opener.openForInput(conv, visopts.ligand_name);
-      conv.Read(&lig_mol);
-      opener.openForInput(conv, visopts.receptor_name);
-      conv.Read(&rec_mol);
-      }
-      catch(file_error& e)
-      {
+    OBConversion conv;
+    obmol_opener opener;
+
+    try
+    {
+        opener.openForInput(conv, visopts.ligand_name);
+        conv.Read(&lig_mol);
+        opener.openForInput(conv, visopts.receptor_name);
+        conv.Read(&rec_mol);
+    }
+    catch(file_error& e)
+    {
         std::cout << "Could not open \"" << e.name.string() << "\" for reading\n";
         exit(1);
-      }
+    }
 }
 
 void cnn_visualization::color()
@@ -66,7 +70,6 @@ void cnn_visualization::color()
     original_score = base_scorer.score(temp_rec, true);
     std::cout << "Original score: " << original_score << "\n\n";
 
-    
     if(visopts.receptor_output.length() > 0)
     {
     remove_residues();
@@ -170,18 +173,14 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove, bo
     return ss.str();
 }
 
-//add hydrogens with openbabel, store PDB files for output, generate PDBQT
+//add hydrogens with openbabel, generate PDBQT
 //files for removal
 void cnn_visualization::process_molecules()
 {
     rec_mol.AddHydrogens();
-    lig_mol.AddHydrogens(true, false, 7.4);
+    lig_mol.AddHydrogens(true, false, 7.4); //add only polar hydrogens
 
     OBConversion conv;
-    conv.SetOutFormat("PDB");
-
-    rec_pdb_string = conv.WriteString(&rec_mol); //store pdb's for score output
-    lig_pdb_string = conv.WriteString(&lig_mol); 
 
     conv.AddOption("r",OBConversion::OUTOPTIONS); //treat as rigid
     conv.AddOption("c",OBConversion::OUTOPTIONS); //combine rotatable portions of molecule
@@ -272,12 +271,12 @@ void cnn_visualization::write_scores(const std::vector<float> score_diffs, bool 
     if(isRec)
     {
         file_name = visopts.receptor_output;
-        mol_string = rec_pdb_string;
+        mol_string = rec_string;
     }
     else
     {
         file_name = visopts.ligand_output;
-        mol_string = lig_pdb_string;
+        mol_string = lig_string;
     }
 
     std::ofstream out_file; 
@@ -435,14 +434,21 @@ void cnn_visualization::remove_residues()
             }
         }
 
-        //make set for check_in_range test
-        std::unordered_set<int> remove_set;
-        for(auto i: atoms_to_remove)
+        bool remove = true;
+
+        if(!visopts.skip_bound_check)
         {
-            remove_set.insert(i);
+            //make set for check_in_range test
+            std::unordered_set<int> remove_set;
+            for(auto i: atoms_to_remove)
+            {
+                remove_set.insert(i);
+            }
+
+            remove = check_in_range(remove_set);
         }
 
-        if(check_in_range(remove_set))
+        if(remove)
         {
             std::string modified_mol_string = modify_pdbqt(atoms_to_remove, true);
 
@@ -617,11 +623,11 @@ void cnn_visualization::output_modified_string(const std::string &modified_strin
 
     if (receptor)
     {
-        filename << "mod_receptor_" << rec_counter++;
+        filename << "mod_receptor_" << atoms_removed[0];
     }
     else
     {
-        filename << "mod_ligand_" << lig_counter++;
+        filename << "mod_ligand_" << atoms_removed[0];
     }
 
     filename << ".pdbqt";
@@ -754,7 +760,6 @@ std::vector<float> cnn_visualization::remove_fragments(int size)
     conv.SetOutFormat("MOL");
     std::stringstream MOL_stream(conv.WriteString(&lig_mol));
 
-    std::stringstream pdb_stream(lig_pdb_string);
     unsigned int line = 0;
 
     RDKit::RWMol rdkit_mol(*(RDKit::MolDataStreamToMol(MOL_stream, line, false, true, false))); //removeHs = true
