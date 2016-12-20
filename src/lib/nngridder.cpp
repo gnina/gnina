@@ -65,20 +65,19 @@ void NNGridder::outputDXGrid(ostream& out, Grid& grid)
   out << "origin";
   for (unsigned i = 0; i < 3; i++)
   {
-    double c = (dims[i].end + dims[i].begin) / 2.0;
-    out << " " << c;
+    out << " " << dims[i].begin;
   }
   out << "\n";
   out << "delta " << resolution << " 0 0\ndelta 0 " << resolution << " 0\ndelta 0 0 " << resolution << "\n";
   out << "object 2 class gridconnections counts " << n << " " << n << " " << " " << n << "\n";
   out << "object 3 class array type double rank 0 items [ " << n*n*n << "] data follows\n";
-  //now coordinates - z,y,x
+  //now coordinates - x,y,z
   unsigned total = 0;
-  for (unsigned k = 0; k < n; k++)
+  for (unsigned i = 0; i < n; i++)
   {
     for (unsigned j = 0; j < n; j++)
     {
-      for (unsigned i = 0; i < n; i++)
+      for (unsigned k = 0; k < n; k++)
       {
         out << grid[i][j][k];
         total++;
