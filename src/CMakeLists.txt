@@ -1,12 +1,10 @@
 
 find_package(CUDA REQUIRED)
-find_package(OpenBabel2 REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options system iostreams timer thread serialization filesystem date_time regex)
 
 add_compile_options(-std=c++11)
 list(APPEND CUDA_NVCC_FLAGS -std=c++11)
-
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
   list(APPEND CUDA_NVCC_FLAGS -O3)
