@@ -53,4 +53,4 @@ target_link_libraries(gninatyper  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2
 cuda_add_executable(tognina tognina/tognina.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
 
-
+install(TARGETS gnina gninagrid gninatyper fromgnina tognina DESTINATION bin)

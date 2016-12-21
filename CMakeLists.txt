@@ -9,4 +9,5 @@ endif()
 include(caffe/cmake/Utils.cmake)
 include(caffe/cmake/Cuda.cmake)
 add_subdirectory(caffe)
+
 add_subdirectory(src)

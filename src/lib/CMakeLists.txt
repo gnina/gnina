@@ -45,9 +45,10 @@ include_directories(${CUDA_INCLUDE_DIRS})
 include_directories(${OPENBABEL2_INCLUDE_DIRS})
 include_directories(${EIGEN3_INCLUDE_DIR})
 
-cuda_add_library(gninalib SHARED ${LIB_SRCS} OPTIONS ${NVCC_FLAGS_EXTRA} --shared)
+cuda_add_library(gninalib ${LIB_SRCS} OPTIONS ${NVCC_FLAGS_EXTRA} --shared)
 set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
 target_link_libraries(gninalib caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
+install(TARGETS gninalib DESTINATION lib)
 
 #cuda_add_library(gninalib_static STATIC ${LIB_SRCS} OPTIONS ${NVCC_FLAGS_EXTRA})
 #set_target_properties(gninalib_static PROPERTIES OUTPUT_NAME gnina)

@@ -15,3 +15,4 @@ server.cpp
 cuda_add_executable(gninaserver ${SERVER_SRCS})
 target_link_libraries(gninaserver caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
 
+install(TARGETS gninaserver DESTINATION bin)
