@@ -20,7 +20,7 @@
 #include <boost/algorithm/string.hpp>
 
 #ifndef VINA_ATOM_CONSTANTS_H
-#include "gnina/src/lib/atom_constants.h"
+#include "gninasrc/lib/atom_constants.h"
 #endif
 #include "gpu_math.h"
 

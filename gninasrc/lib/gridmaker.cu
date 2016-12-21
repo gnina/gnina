@@ -12,14 +12,14 @@
 #define WARP_SIZE (1U << LOG2_WARP_SIZE)
 
 
-
+#ifndef CUDA_CHECK
 #define CUDA_CHECK(condition) \
   /* Code block avoids redefinition of cudaError_t error */ \
   do { \
     cudaError_t error = condition; \
     if(error != cudaSuccess) { cerr << " " << cudaGetErrorString(error) << ": " << __FILE__ << ":" << __LINE__ << "\n"; exit(1); } \
   } while (0)
-
+#endif
 
 __shared__ uint scanOutput[THREADSPERBLOCK];
 __shared__ uint atomIndices[THREADSPERBLOCK];

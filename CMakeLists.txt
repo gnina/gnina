@@ -14,6 +14,9 @@ endif()
 
 include(caffe/cmake/Utils.cmake)
 include(caffe/cmake/Cuda.cmake)
+#our version of caffe needs to pull in headers from gnina
+include_directories(.) 
 add_subdirectory(caffe)
-
-add_subdirectory(src)
+include_directories(${CMAKE_BINARY_DIR}/caffe/include/)
+include_directories(caffe/include)
+add_subdirectory(gninasrc)
