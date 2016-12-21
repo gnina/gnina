@@ -4,7 +4,7 @@ endif()
 
 # Known NVIDIA GPU achitectures Caffe can be compiled for.
 # This list will be used for CUDA_ARCH_NAME = All option
-set(Caffe_known_gpu_archs "30 35 50 52")
+set(Caffe_known_gpu_archs "35 50 52 61")
 
 ################################################################################################
 # A function for automatic detection of GPUs installed  (if autodetection is enabled)
@@ -267,7 +267,7 @@ endif()
 
 # disable some nvcc diagnostic that apears in boost, glog, glags, opencv, etc.
 foreach(diag cc_clobber_ignored integer_sign_change useless_using_declaration set_but_not_used)
-  list(APPEND CUDA_NVCC_FLAGS -isystem ${PROTOBUF_INCLUDE_DIR} -Xcudafe --diag_suppress=${diag})
+  list(APPEND CUDA_NVCC_FLAGS -Xcudafe "--diag_suppress=${diag}")
 endforeach()
 
 # setting default testing device
