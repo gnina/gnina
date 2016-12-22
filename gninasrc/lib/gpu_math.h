@@ -1,7 +1,9 @@
 #ifndef GPU_MATH_H
 #define GPU_MATH_H
 #include <float.h>
+
 #include <cuda_runtime.h>
+
 #include "common.h"
 
 /* This exists solely to provide constructor and [] operator
@@ -66,7 +68,7 @@ T pseudoAtomicAdd(T* address, T value) {
 
 #endif
 
-static bool almostEqual(float a, float b) {
+inline bool almostEqual(float a, float b) {
     float absA = std::fabs(a);
     float absB = std::fabs(b);
     float diff = std::fabs(a-b);

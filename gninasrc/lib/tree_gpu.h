@@ -84,7 +84,7 @@ struct tree_gpu {
 			device_nodes(NULL), force_torques(NULL), num_nodes(0), num_layers(0), atom_node_list(NULL), atoms_per_layer(NULL), max_atoms_per_layer(0) {
 	}
 
-	void do_dfs(int parent, const branch& branch, std::vector<segment_node>& nodes, std::vector<unsigned>& atoms_per_layer_host, std::map<int,std::vector<atom_node_indices>>& atom_node_map);
+	void do_dfs(int parent, const branch& branch, std::vector<segment_node>& nodes, std::vector<unsigned>& atoms_per_layer_host, std::map<int,std::vector<atom_node_indices> >& atom_node_map);
 
 	tree_gpu(const heterotree<rigid_body> &ligand);
 
