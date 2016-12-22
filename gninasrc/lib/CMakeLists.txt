@@ -41,10 +41,6 @@ precalculate_gpu.cu
 tree_gpu.cu
 )
 
-include_directories(${CUDA_INCLUDE_DIRS})
-include_directories(${OPENBABEL2_INCLUDE_DIRS})
-include_directories(${EIGEN3_INCLUDE_DIR})
-
 cuda_add_library(gninalib ${LIB_SRCS} OPTIONS ${NVCC_FLAGS_EXTRA} --shared)
 set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
 target_link_libraries(gninalib caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
