@@ -231,7 +231,7 @@ bool MinimizationQuery::thread_safe_read(vector<LigandData>& ligands)
 			return false; //give up
 		}
 	}
-	return io_strm;
+	return !!io_strm;
 }
 
 //read chunks of ligands, minimize them, and store the result
