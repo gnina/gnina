@@ -12,6 +12,8 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "")
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+
 include(caffe/cmake/Utils.cmake)
 include(caffe/cmake/Cuda.cmake)
 #our version of caffe needs to pull in headers from gnina
