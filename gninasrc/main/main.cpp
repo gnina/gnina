@@ -1231,7 +1231,9 @@ Thank you!\n";
 
 		google::InitGoogleLogging(argv[0]); //otherwise caffe spits crap out on stderr
 		google::SetStderrLogging(2);
+#if (OB_VERSION > OB_VERSION_CHECK(2, 3, 2))
 		OpenBabel::OBPlugin::LoadAllPlugins(); //for some reason loading on demand can be slow
+#endif
 		cnnopts.seed = settings.seed;
 		
 		set_fixed_rotable_hydrogens(!flex_hydrogens);
