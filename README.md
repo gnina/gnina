@@ -1,8 +1,6 @@
-gnina is not smina/vina
-
 gnina (pronounced NEE-na) is a fork of smina, which is a fork of AutoDock Vina.
 
-gnina is **not** recommended for production use (*yet*) in molecular modeling tasks.  However, it is suitable as a platform for researching structure-based deep learning appraoches.
+gnina is **not** recommended for production use (*yet*) in molecular modeling tasks.  However, it *is* suitable as a platform for researching structure-based deep learning appraoches as described in [our paper](https://arxiv.org/abs/1612.02751).  
 
 To install (Ubuntu 16.04):
 ```
