@@ -12,6 +12,11 @@
 #include "caffe/net.hpp"
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/layers/ndim_data_layer.hpp"
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/text_format.h>
+
+#include "cnn_data.h"
 
 using namespace caffe;
 using namespace std;
@@ -26,18 +31,21 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 
 	if (cnnopts.cnn_scoring)
 	{
-		if (cnnopts.cnn_model.size() == 0)
-		{
-			throw usage_error("Missing model for cnn scoring.");
-		}
-		if (cnnopts.cnn_weights.size() == 0)
-		{
-			throw usage_error("Missing weights for cnn scoring.");
-		}
+		NetParameter param;
 
 		//load cnn model
-		NetParameter param;
-		ReadNetParamsFromTextFileOrDie(cnnopts.cnn_model, &param);
+		if (cnnopts.cnn_model.size() == 0)
+		{
+			google::protobuf::io::ArrayInputStream  modeldata(cnn_default_model, strlen(cnn_default_model));
+			bool success = google::protobuf::TextFormat::Parse(&modeldata, &param);
+			if(!success)
+				throw usage_error("Error with default cnn model.");
+			UpgradeNetAsNeeded("default",&param);
+		}
+		else
+		{
+			ReadNetParamsFromTextFileOrDie(cnnopts.cnn_model, &param);
+		}
 
 		param.mutable_state()->set_phase(TEST);
 		LayerParameter *first = param.mutable_layer(0);
@@ -65,7 +73,22 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		net.reset(new Net<float>(param));
 
 		//load weights
-		net->CopyTrainedLayersFrom(cnnopts.cnn_weights);
+		if (cnnopts.cnn_weights.size() == 0)
+		{
+			NetParameter wparam;
+			google::protobuf::io::ArrayInputStream  weightdata(cnn_default_weights, cnn_default_weights_len);
+			google::protobuf::io::CodedInputStream strm(&weightdata);
+			strm.SetTotalBytesLimit(INT_MAX, 536870912);
+			bool success = wparam.ParseFromCodedStream(&strm);
+			if(!success)
+				throw usage_error("Error with default weights.");
+
+			net->CopyTrainedLayersFrom(wparam);
+		}
+		else
+		{
+			net->CopyTrainedLayersFrom(cnnopts.cnn_weights);
+		}
 
 		//check that network matches our expectations
 

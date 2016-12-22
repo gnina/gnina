@@ -1117,9 +1117,9 @@ Thank you!\n";
 		options_description cnn("Convolutional neural net (CNN) scoring");
 		cnn.add_options()
 		("cnn_model", value<std::string>(&cnnopts.cnn_model),
-				"caffe cnn model file")
+				"caffe cnn model file; if not specified a default model will be used")
 		("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
-				"caffe cnn weights file (*.caffemodel)")
+				"caffe cnn weights file (*.caffemodel); if not specified default weights (trained on the default model) will be used")
 		("cnn_recmap", value<std::string>(&cnnopts.cnn_recmap),
 				"receptor atom type to channel mapping")
 		("cnn_ligmap", value<std::string>(&cnnopts.cnn_ligmap),
@@ -1129,7 +1129,7 @@ Thank you!\n";
 		("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
 				"evaluate multiple rotations of pose (max 24)")
 		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
-				"Use provided model and weights file to score final pose.");
+				"Use a convolutional neural network to score final pose.");
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
