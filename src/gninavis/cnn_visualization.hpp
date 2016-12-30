@@ -61,7 +61,7 @@ class cnn_visualization
     std::vector<float> remove_each_atom();
     void output_modified_string(const std::string &modified_string, const std::vector<int> &atoms_removed,
                                   bool receptor);
-    void write_additivity(std::vector<float> scores, bool single);
+    void write_additivity(std::vector<float> single_score_diffs, std::vector<float> frag_score_diffs);
     std::vector<float> remove_fragments(int size);
     void remove_ligand_atoms();
     void add_adjacent_hydrogens(std::vector<int> &atoms_to_remove, bool isRec);

@@ -17,7 +17,6 @@
 #include <GraphMol/FileParsers/FileParsers.h>
 #include <GraphMol/MolOps.h>
 
-
 using namespace OpenBabel;
 
 cnn_visualization::cnn_visualization (const vis_options &visopts, const cnn_options &cnnopts, const vec &center )
@@ -577,11 +576,6 @@ std::vector<float> cnn_visualization::remove_each_atom()
         }
     }
 
-    if (visopts.additivity.length() > 0)
-    {
-        write_additivity(score_diffs, true);
-    }
-
     if (visopts.verbose)
     {
         //print index:type for debugging
@@ -648,14 +642,37 @@ void cnn_visualization::output_modified_string(const std::string &modified_strin
 
 //writes sum of score differences for each atom along with original score to
 //file for analysis
-void cnn_visualization::write_additivity(std::vector<float> scores, bool single)
+void cnn_visualization::write_additivity(std::vector<float> single_score_diffs, std::vector<float> frag_score_diffs)
 {
-    float total = 0;
-    for (int i = 1; i < scores.size(); ++i)
+    float single_total = 0;
+    float frag_total = 0;
+    int num_atoms = lig_mol.NumAtoms();
+
+    if(!visopts.frags_only)
     {
-        if(lig_mol.GetAtom(i)->GetAtomicNum() != 1) //hydrogens will have score of 0
-        {   
-            total += scores[i];
+        for (int i = 1; i < single_score_diffs.size(); ++i)
+        {
+            if(i <= num_atoms)
+            {
+                if (lig_mol.GetAtom(i)->GetAtomicNum() != 1) //hydrogens will have score of 0
+                {
+                    single_total += single_score_diffs[i];
+                }
+            }
+        }
+    }
+
+    if(!visopts.atoms_only)
+    {
+        for (int i = 1; i < frag_score_diffs.size(); ++i)
+        {
+            if(i <= num_atoms)
+            {
+                if(lig_mol.GetAtom(i)->GetAtomicNum() != 1) //hydrogens will have score of 0
+                {
+                    frag_total += frag_score_diffs[i];
+                }
+            }
         }
     }
 
@@ -664,43 +681,46 @@ void cnn_visualization::write_additivity(std::vector<float> scores, bool single)
 
     if (visopts.verbose)
     {
-        if (single)
-        {
-            std::cout << "SUM OF SINGLE REMOVALS: ";
-        }
-        else
-        {
-            std::cout << "SUM OF FRAGMENT REMOVALS: ";
-        }
-        
-        std::cout << total << '\n';
+            std::cout << "ORIGINAL SCORE: " << original_score << '\n';
+
+            if(!visopts.frags_only)
+            {
+                std::cout << "SUM OF SINGLE REMOVALS: " << single_total << '\n';
+            }
+            if(!visopts.atoms_only)
+            {
+                std::cout << "SUM OF FRAGMENT REMOVALS: " << frag_total << '\n';
+            }
     }
-  
-  out_file << visopts.ligand_name << " " << total << " " << original_score << "\n";
+
+  out_file << visopts.ligand_name  << " " << original_score \
+      << " " << single_total \
+      << " " << frag_total \
+      << "\n";
 
 }
 
 //wrapper for fragment and individual removals
 void cnn_visualization::remove_ligand_atoms()
 {
+    std::vector <float> individual_score_diffs;
+    std::vector <float> frag_score_diffs;
     if (visopts.atoms_only)
     {
-        std::vector<float> individual_scores = remove_each_atom();
-        write_scores(individual_scores, false);
-        return;
+        individual_score_diffs = remove_each_atom();
+        write_scores(individual_score_diffs, false);
     }
 
     else if (visopts.frags_only)
     {
-        std::vector<float> frag_scores = remove_fragments(6);
-        write_scores(frag_scores, false);
-        return;
+        frag_score_diffs = remove_fragments(6);
+        write_scores(frag_score_diffs, false);
     }
 
     else
     {
-        std::vector<float> individual_score_diffs = remove_each_atom();
-        std::vector<float> frag_score_diffs = remove_fragments(6);
+        individual_score_diffs = remove_each_atom();
+        frag_score_diffs = remove_fragments(6);
 
         std::vector<float> both_score_diffs (individual_score_diffs.size(), 0.00);
 
@@ -712,7 +732,16 @@ void cnn_visualization::remove_ligand_atoms()
         }
 
         write_scores(both_score_diffs, false);
+
     }
+
+    std::cout << "before check" << '\n';
+    if(visopts.additivity.length() > 0)
+        {
+            std::cout << "triggered" << '\n';
+            write_additivity(individual_score_diffs, frag_score_diffs);
+        }
+
 
 }
 
