@@ -27,6 +27,7 @@ include_directories(../Eigen)
 #lib
 set(LIB_SRCS
 lib/atom_constants.cpp
+lib/bfgs.cu
 lib/box.cpp
 lib/builtinscoring.cpp
 lib/cache.cpp
@@ -51,7 +52,7 @@ lib/parse_pdbqt.cpp
 lib/pdb.cpp
 lib/PDBQTUtilities.cpp
 lib/quasi_newton.cpp
-lib/quaternion.cpp
+lib/quaternion.cu
 lib/random.cpp
 lib/result_info.cpp
 lib/ssd.cpp

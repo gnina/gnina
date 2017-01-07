@@ -27,7 +27,7 @@
 #include "conf_gpu.h"
 #include <numeric>
 
-void minus_mat_vec_product(const flmat& m, const change& in, change& out)
+inline void minus_mat_vec_product(const flmat& m, const change& in, change& out)
 {
 	sz n = m.dim();
 	VINA_FOR(i, n)
@@ -40,7 +40,7 @@ void minus_mat_vec_product(const flmat& m, const change& in, change& out)
 }
 
 
-void minus_mat_vec_product(const flmat& m, const change_gpu& in, change_gpu& out)
+inline void minus_mat_vec_product(const flmat_gpu& m, const change_gpu& in, change_gpu& out)
 {
 	in.minus_mat_vec_product(m, out);
 }
@@ -78,11 +78,8 @@ inline bool bfgs_update(flmat& h, const change& p, const change& y,
 	return true;
 }
 
-inline bool bfgs_update(flmat& h, const change_gpu& p, const change_gpu& y,
-		const fl alpha)
-{
-	return change_gpu::bfgs_update(h, p, y, alpha);
-}
+void bfgs_update(const flmat_gpu& h, const change_gpu& p, const change_gpu& y,
+		const fl alpha);
 
 //dkoes - this is the line search method used by vina,
 //it is simple and fast, but may return an inappropriately large alpha
@@ -109,10 +106,10 @@ fl fast_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 	return alpha;
 }
 
-fl compute_lambdamin(const change& p, const conf& x, sz n)
+inline fl compute_lambdamin(const change& p, const conf& x, sz n)
 {
 	fl test = 0;
-	//compue lambdamin
+	//compute lambdamin
 	for (sz i = 0; i < n; i++)
 	{
 		//static_assert(std::is_same<decltype(std::fabs(1.0f)),float>::value,"Not a float.\n");
@@ -123,21 +120,7 @@ fl compute_lambdamin(const change& p, const conf& x, sz n)
 	return test;
 }
 
-inline fl compute_lambdamin(const change_gpu& p, const conf_gpu& x, sz n)
-{
-	std::vector<float> pvec, xvec;
-	p.get_data(pvec);
-	x.get_data(xvec);
-	fl test = 0;
-	//compue lambdamin
-	for (sz i = 0; i < n; i++)
-	{
-		fl temp = std::fabs(pvec[i]) / std::max(std::fabs(xvec[i]), 1.0f);
-		if (temp > test)
-			test = temp;
-	}
-	return test;
-}
+fl compute_lambdamin(const change_gpu& p, const conf_gpu& x, sz n);
 
 //dkoes - this line search is modeled after lnsrch in numerical recipes, it puts
 //a bit of effort into calculating a good scaling factor, and ensures that alpha
@@ -147,8 +130,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		const Change& p, Conf& x_new, Change& g_new, fl& f1)
 { // returns alpha
 	fl a, alpha, alpha2 = 0, alamin, b, disc, f2 = 0;
-	fl rhs1, rhs2, slope = 0, sum = 0, temp, test, tmplam;
-	int i;
+	fl rhs1, rhs2, slope = 0, sum = 0, test, tmplam;
 	const fl ALF = 1.0e-4;
 	const fl FIRST = 1.0;
 	sum = scalar_product(p, p, n);
@@ -230,18 +212,18 @@ inline void set_diagonal(flmat& m, fl x)
 		m(i, i) = x;
 }
 
-void subtract_change(change& b, const change& a, sz n)
+void set_diagonal(const flmat_gpu& m, fl x);
+
+inline void subtract_change(change& b, const change& a, sz n)
 { // b -= a
 	VINA_FOR(i, n)
 		b(i) -= a(i);
 }
 
-void subtract_change(change_gpu& b, const change_gpu& a, sz n)
+inline void subtract_change(change_gpu& b, const change_gpu& a, sz n)
 { // b -= a
 	b.sub(a);
 }
-
-
 
 template<typename F, typename Conf, typename Change>
 fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
@@ -250,6 +232,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	sz n = g.num_floats();
 	flmat h(n, 0);
 	set_diagonal(h, 1);
+
 	Change g_new(g);
 	Conf x_new(x);
 	fl f0 = f(x, g);
@@ -282,6 +265,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		}
 
 		Change y(g_new);
+        // Update line direction
 		subtract_change(y, g, n);
 
 		fl prevf0 = f0;
@@ -330,5 +314,90 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	return f0;
 }
 
+template<typename F>
+fl bfgs(F& f, conf_gpu& x, change_gpu& g, const fl average_required_improvement,
+		const minimization_params& params) {
+    sz n = g.num_floats();
+
+    // Initialize and copy Hessian
+    flmat_gpu h(n);
+
+    // Initialize and copy additional conf and change objects
+	change_gpu g_new(g);
+	conf_gpu x_new(x);
+    //TODO: change model::eval_deriv_gpu so it doesn't memcpy at the end
+	fl f0 = f(x, g);
+	fl f_orig = f0;
+	change_gpu g_orig(g);
+	conf_gpu x_orig(x);
+
+	change_gpu p(g);
+    // For now, keep everything on the GPU but control is maintained on CPU
+    // which launches the relevant kernels...maybe this will change
+	VINA_U_FOR(step, params.maxiters)
+	{
+		minus_mat_vec_product(h, g, p);
+        // f1 is the returned energy for the next iteration of eval_deriv_gpu
+		fl f1 = 0;
+		fl alpha;
+
+		if (params.type == minimization_params::BFGSAccurateLineSearch)
+			alpha = accurate_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
+		else
+			alpha = fast_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
+
+		if(alpha == 0) {
+			break;
+		}
+
+		change_gpu y(g_new);
+        // Update line direction
+		subtract_change(y, g, n);
+
+		fl prevf0 = f0;
+		f0 = f1;
+		x = x_new;
+
+		if (params.early_term)
+		{
+			fl diff = prevf0 - f0;
+			if (std::fabs(diff) < 1e-5) 
+			{
+				break;
+			}
+		}
+
+		g = g_new; 
+
+		fl gradnormsq = scalar_product(g, g, n);
+//		std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+
+		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
+		{
+			//std::cout << "gradnormsq " << gradnormsq << "\n";
+			break; // breaks for nans too // FIXME !!??
+		}
+
+		if (step == 0)
+		{
+			const fl yy = scalar_product(y, y, n);
+			if (std::abs(yy) > epsilon_fl)
+				set_diagonal(h, alpha * scalar_product(y, p, n) / yy);
+		}
+        // bfgs_update used to return a bool, but the value of that bool never
+        // got checked anyway
+		bfgs_update(h, p, y, alpha);
+	}
+
+	if (!(f0 <= f_orig))
+	{ // succeeds for nans too
+		f0 = f_orig;
+		x = x_orig;
+		g = g_orig;
+	}
+//	std::cout << "final f0 " << f0 << "\n";
+    CUDA_CHECK_GNINA(cudaFree(h.m_data));
+	return f0;
+}
 
 #endif

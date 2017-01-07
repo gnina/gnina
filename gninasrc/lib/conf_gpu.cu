@@ -50,6 +50,16 @@ __global__ void warp_dot_kernel(const int n, float *a, float *b, float *out)
 		*out = val;
 }
 
+__global__ void minus_mat_vec_product_kernel(const int n, flmat_gpu m, float*
+        in, float* out) {
+    VINA_FOR(i,n) {
+        fl sum = 0;
+        VINA_FOR(j,n)
+            sum += m(m.index_permissive(i,j)) * in[j];
+        out[i] = -sum;
+    }
+}
+
 change_gpu::change_gpu(const change& src) :
 		change_values(NULL), n(0) {
 	std::vector<float> data;
@@ -136,50 +146,13 @@ void change_gpu::sub(const change_gpu& rhs) {
 				change_values, rhs.change_values);
 }
 
-void change_gpu::minus_mat_vec_product(const flmat& m, change_gpu& out) const {
-	std::vector<float> a;
-	std::vector<float> b(n, 0);
-	get_data(a);
-	VINA_FOR(i, n) {
-		fl sum = 0;
-		VINA_FOR(j, n)
-			sum += m(m.index_permissive(i, j)) * a[j];
-		b[i] = -sum;
-	}
-	out.set_data(b);
+void change_gpu::minus_mat_vec_product(const flmat_gpu& m, change_gpu& out) const {
+    minus_mat_vec_product_kernel<<<1,1>>>(n, m, change_values,
+            out.change_values);
 }
 
 sz change_gpu::num_floats() const {
 	return n;
-}
-
-bool change_gpu::bfgs_update(flmat& h, const change_gpu& p, const change_gpu& y,
-		const fl alpha) {
-	//perform bfgs update, eventually h will be gpu allocated
-	std::vector<float> pvec;
-	p.get_data(pvec);
-
-	const fl yp = y.dot(p);
-	if (alpha * yp < epsilon_fl)
-		return false; // FIXME?
-
-	change_gpu minus_hy(y);
-	y.minus_mat_vec_product(h, minus_hy);
-
-	const fl yhy = -y.dot(minus_hy);
-	const fl r = 1 / (alpha * yp); // 1 / (s^T * y) , where s = alpha * p // FIXME   ... < epsilon
-	const sz n = p.num_floats();
-
-	std::vector<float> minus_hyvec;
-	minus_hy.get_data(minus_hyvec);
-
-	float coef = +alpha * alpha * (r * r * yhy + r) ;
-	VINA_FOR(i, n)
-		VINA_RANGE(j, i, n) // includes i
-			h(i, j) += alpha * r
-					* (minus_hyvec[i] * pvec[j] + minus_hyvec[j] * pvec[i])
-					+coef * pvec[i]	* pvec[j]; // s * s == alpha * alpha * p * p	}
-	return true;
 }
 
 //for debugging
@@ -296,32 +269,31 @@ conf_gpu::~conf_gpu() {
 	CUDA_CHECK_GNINA(cudaFree(cinfo));
 }
 
-void conf_gpu::increment(const change_gpu& c, fl factor) {
-	std::vector<float> changevals, confvals;
-	c.get_data(changevals);
-	get_data(confvals);
-
+__global__ void increment_kernel(float* x, float* c, fl factor, int n) {
 	//position
 	for(unsigned i = 0; i < 3; i++) {
-		confvals[i] += changevals[i]*factor;
+		x[i] += c[i]*factor;
 	}
 
 	//rotation
-	qt orientation(confvals[3],confvals[4],confvals[5],confvals[6]);
-	vec rotation(factor * changevals[3], factor * changevals[4], factor * changevals[5]);
+	qt orientation(x[3],x[4],x[5],x[6]);
+	vec rotation(factor * c[3], factor * c[4], factor *
+            c[5]);
 	quaternion_increment(orientation, rotation);
-	confvals[3] = orientation.R_component_1();
-	confvals[4] = orientation.R_component_2();
-	confvals[5] = orientation.R_component_3();
-	confvals[6] = orientation.R_component_4();
+	x[3] = orientation.R_component_1();
+	x[4] = orientation.R_component_2();
+	x[5] = orientation.R_component_3();
+	x[6] = orientation.R_component_4();
 
 	//torsions
 	for(unsigned i = 7; i < n; i++) {
-		confvals[i] += normalized_angle(factor*changevals[i-1]);
-		normalize_angle(confvals[i]);
+		x[i] += normalized_angle(factor*c[i-1]);
+		normalize_angle(x[i]);
 	}
+}
 
-	set_data(confvals);
+void conf_gpu::increment(const change_gpu& c, fl factor) {
+    increment_kernel<<<1,1>>>(cinfo->values, c.change_values, factor, n);
 }
 
 //for debugging (mostly)

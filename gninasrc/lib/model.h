@@ -404,6 +404,7 @@ struct model {
 			interacting_pairs = NULL;
 			scratch = NULL;
 			coords_size = atom_coords_size = forces_size = pairs_size = 0;
+            return *this;
 		}
   } gdata;
 

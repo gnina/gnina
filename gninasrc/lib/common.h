@@ -120,10 +120,16 @@ struct vec {
         /* TODO: oleg was using sqr */
 		return sqr(data[0]) + sqr(data[1]) + sqr(data[2]);
 	}
-    __host__ __device__
+#ifndef __CUDA_ARCH__
 	fl norm() const {
 		return std::sqrt(norm_sqr());
 	}
+#else
+    __device__
+    float norm() const {
+        return sqrtf(norm_sqr());
+    }
+#endif
     __host__ __device__
 	fl operator*(const vec& v) const {
 		return data[0] * v[0] + data[1] * v[1] + data[2] * v[2];
@@ -314,11 +320,21 @@ inline sz fl_to_sz(fl x, sz max_sz) { // return a value in [0, max_sz]
 
 const fl fl_tolerance = fl(0.001);
 
-inline bool eq(fl a, fl b) {
-	return std::abs(a - b) < fl_tolerance; 
+#ifndef __CUDA_ARCH__
+    __host__ inline bool eq(fl a, fl b) {
+    	return std::abs(a - b) < fl_tolerance; 
+    }
+#else
+__device__ inline bool eq(float a, float b) {
+	return fabsf(a - b) < fl_tolerance; 
 }
 
-inline bool eq(const vec& a, const vec& b) {
+__device__ inline bool eq(double a, double b) {
+	return fabs(a - b) < fl_tolerance; 
+}
+#endif
+
+__host__ __device__ inline bool eq(const vec& a, const vec& b) {
 	return eq(a[0], b[0]) && eq(a[1], b[1]) && eq(a[2], b[2]);
 }
 
@@ -359,7 +375,8 @@ sz find_min(const std::vector<T>& v) { // returns v.size() i.e. 0 for empty vect
 	return tmp;
 }
 
-inline void normalize_angle(fl& x) { // subtract or add enough 2*pi's to make x be in [-pi, pi]
+#ifndef __CUDA_ARCH__
+__host__ inline void normalize_angle(fl& x) { // subtract or add enough 2*pi's to make x be in [-pi, pi]
 	if     (x >  3*pi) { // very large
 		fl n = ( x - pi) / (2*pi); // how many 2*pi's do you want to subtract?
 		x -= 2*pi*std::ceil(n); // ceil can be very slow, but this should not be called often
@@ -379,8 +396,29 @@ inline void normalize_angle(fl& x) { // subtract or add enough 2*pi's to make x 
 	assert(x >= -pi && x <= pi || !(std::cerr << "x=" << x << "\n"));
 	// in [-pi, pi]
 }
+#else
+__device__ inline void normalize_angle(fl& x) { 
+	if     (x >  3*pi) { 
+		fl n = ( x - pi) / (2*pi); 
+		x -= 2*pi*ceilf(n); 
+		normalize_angle(x);
+	}
+	else if(x < -3*pi) { 
+		fl n = (-x - pi) / (2*pi); 
+		x += 2*pi*ceilf(n); 
+		normalize_angle(x);
+	}
+	else if(x >    pi) { 
+		x -= 2*pi;
+	}
+	else if(x <   -pi) { 
+		x += 2*pi;
+	}
+    //TODO: put the assert back?
+}
+#endif
 
-inline fl normalized_angle(fl x) {
+__host__ __device__ inline fl normalized_angle(fl x) {
 	normalize_angle(x);
 	return x;
 }

@@ -25,6 +25,8 @@
 
 #include <vector>
 #include "triangular_matrix_index.h"
+#include <cuda_runtime.h>
+#include "gpu_util.h"
 
 // these 4 lines are used 3 times verbatim - defining a temp macro to ease the pain
 #define VINA_MATRIX_DEFINE_OPERATORS \
@@ -79,6 +81,9 @@ public:
 };
 
 template<typename T>
+class triangular_matrix_gpu;
+
+template<typename T>
 class triangular_matrix {
 	std::vector<T> m_data;
 	sz m_dim;
@@ -89,7 +94,39 @@ public:
 	triangular_matrix(sz n, const T& filler_val) : m_data(n*(n+1)/2, filler_val), m_dim(n) {} 
 	VINA_MATRIX_DEFINE_OPERATORS // temp macro defined above
 	sz dim() const { return m_dim; }
+    friend triangular_matrix_gpu<T>;
 };
+
+typedef triangular_matrix<fl> flmat;
+
+template<typename T>
+struct triangular_matrix_gpu {
+	T* m_data;
+	sz m_dim;
+
+	__device__ sz index(sz i, sz j) const { return triangular_matrix_index(m_dim, i, j); }
+	__device__ sz index_permissive(sz i, sz j) const { return (i < j) ? index(i, j) : index(j, i); }
+	triangular_matrix_gpu(sz n) : m_data(NULL), m_dim(n) {
+	    triangular_matrix<T> cpu_matrix(n, 0);
+	    set_diagonal(cpu_matrix, 1);
+        CUDA_CHECK_GNINA(cudaMalloc(&m_data, sizeof(T)*cpu_matrix.m_data.size()));
+        CUDA_CHECK_GNINA(cudaMemcpy(m_data, &cpu_matrix.m_data[0], sizeof(T) * cpu_matrix.m_data.size(), cudaMemcpyHostToDevice));
+    } 
+
+	__device__ const T& operator()(sz i) const { return m_data[i]; } \
+	__device__ T& operator()(sz i)       { return m_data[i]; } \
+	__device__ const T& operator()(sz i, sz j) const { return m_data[index(i, j)]; } \
+	__device__ T& operator()(sz i, sz j)       { return m_data[index(i, j)]; } 
+
+	__device__ sz dim() const { return m_dim; }
+    ~triangular_matrix_gpu() {}
+    // this is a problem when passing the matrix by value - copies get a copy
+    // of the pointer member, and then when they go out of scope that memory
+    // gets freed.
+        // CUDA_CHECK_GNINA(cudaFree(m_data));
+};
+
+typedef triangular_matrix_gpu<fl> flmat_gpu;
 
 template<typename T>
 class strictly_triangular_matrix {

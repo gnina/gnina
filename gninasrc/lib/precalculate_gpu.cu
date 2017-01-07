@@ -14,18 +14,18 @@ component_pair precalculate_gpu::evaldata(smt t1,smt t2,fl r) const{
 	}
 
 	//DEAD CODE below - using the gpu for this small calculation is very inefficient
-	std::vector<float> vals, derivs;
-	if(t1 <= t2){
-		evaluate_splines(data(t1, t2), r, vals, derivs);
-		return component_pair(result_components(vals), result_components(derivs));
-	} else{
-		evaluate_splines(data(t2, t1), r, vals, derivs);
-		component_pair ret = component_pair(result_components(vals),
-				result_components(derivs));
-		ret.first.swapOrder();
-		ret.second.swapOrder();
-		return ret;
-	}
+	// std::vector<float> vals, derivs;
+	// if(t1 <= t2){
+		// evaluate_splines(data(t1, t2), r, vals, derivs);
+		// return component_pair(result_components(vals), result_components(derivs));
+	// } else{
+		// evaluate_splines(data(t2, t1), r, vals, derivs);
+		// component_pair ret = component_pair(result_components(vals),
+				// result_components(derivs));
+		// ret.first.swapOrder();
+		// ret.second.swapOrder();
+		// return ret;
+	// }
 }
 
 void precalculate_gpu::evaluate_splines(const GPUSplineInfo& spInfo,float r,
@@ -106,7 +106,6 @@ precalculate_gpu::precalculate_gpu(const scoring_function& sf,fl factor_) : // s
 			setup_points(points, (smt) t1, (smt) t2, m_cutoff, n, sf);
 			std::vector<void *> deviceMem;
 			float fraction = 0, cutoff = 0;
-			float **splines = NULL;
 			for(sz i = 0, n = points.size(); i < n; i++){
 				//the size of points is the number of components
 				Spline spline;

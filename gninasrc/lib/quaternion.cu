@@ -29,7 +29,7 @@ bool eq(const qt& a, const qt& b) { // elementwise approximate equality - may re
 		   eq(a.R_component_4(), b.R_component_4());
 }
 
-qt angle_to_quaternion(const vec& rotation) {
+__host__ __device__ qt angle_to_quaternion(const vec& rotation) {
 	//fl angle = tvmet::norm2(rotation); 
 	fl angle = rotation.norm(); 
 	if(angle > epsilon_fl) {
@@ -38,7 +38,8 @@ qt angle_to_quaternion(const vec& rotation) {
 		vec axis = (1/angle) * rotation;
 		return angle_to_quaternion(axis, angle);
 	}
-	return qt_identity;
+    //TODO: should be qt_identity, temporarily changing for device compatibility
+	return qt(1,0,0,0);
 }
 
 vec quaternion_to_angle(const qt& q) {
@@ -74,7 +75,7 @@ qt random_orientation(rng& generator) {
 		return random_orientation(generator); // this call should almost never happen
 }
 
-void quaternion_increment(qt& q, const vec& rotation) {
+__host__ __device__ void quaternion_increment(qt& q, const vec& rotation) {
 	assert(quaternion_is_normalized(q));
 	q = angle_to_quaternion(rotation) * q;
 	quaternion_normalize_approx(q); // normalization added in 1.1.2

@@ -112,22 +112,28 @@ BOOST_SERIALIZATION_SPLIT_FREE(bqt)
 bool eq(const qt& a, const qt& b); // elementwise approximate equality - may return false for equivalent rotations
 const qt qt_identity(1, 0, 0, 0);
 /* qt angle_to_quaternion(const vec& axis, fl angle); // axis is assumed to be a unit vector */
-qt angle_to_quaternion(const vec& rotation); // rotation == angle * axis
+__host__ __device__ qt angle_to_quaternion(const vec& rotation); // rotation == angle * axis
 vec quaternion_to_angle(const qt& q);
 qt random_orientation(rng& generator);
-void quaternion_increment(qt& q, const vec& rotation);
+__host__ __device__ void quaternion_increment(qt& q, const vec& rotation);
 vec quaternion_difference(const qt& b, const qt& a); // rotation that needs to be applied to convert a to b
 void print(const qt& q, std::ostream& out = std::cout); // print as an
                                                         // angle
-
 __host__ __device__
 inline fl quaternion_norm_sqr(const qt& q) { // equivalent to sqr(boost::math::abs(const qt&))
 	return sqr(q.R_component_1()) + sqr(q.R_component_2()) + sqr(q.R_component_3()) + sqr(q.R_component_4());
 }
 
+#ifndef __CUDA_ARCH__
 inline bool quaternion_is_normalized(const qt& q) { // not in the interface, used in assertions
 	return eq(quaternion_norm_sqr(q), 1) && eq(boost::math::abs((bqt&) q), 1);
 }
+#else
+// could write a second check with norm4df if we're worried?
+__device__ inline bool quaternion_is_normalized(const qt& q) { 
+	return eq(quaternion_norm_sqr(q), 1);
+}
+#endif
 
 inline void quaternion_normalize(qt& q) {
 	const fl s = quaternion_norm_sqr(q);
@@ -185,8 +191,8 @@ qt angle_to_quaternion(const vec& axis, fl angle) { // axis is assumed to be a u
 	//assert(eq(tvmet::norm2(axis), 1));
 	/* assert(eq(axis.norm(), 1)); */
 	g_normalize_angle(angle); // this is probably only necessary if angles can be very big
-	fl c = cos(angle/2);
-	fl s = sin(angle/2);
+	fl c = cosf(angle/2);
+	fl s = sinf(angle/2);
 	return qt(c, s*axis[0], s*axis[1], s*axis[2]);
 }
 

@@ -146,7 +146,9 @@ public:
 	      return q;
 	    }
 	  }
-	  return 0.0;
+      //this was here, not sure why, giving "statement unreachable" compiler
+      //warning and you know how much I love placating the compiler
+	  //return 0.0;
 	}
 
 

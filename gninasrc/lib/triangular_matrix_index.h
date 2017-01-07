@@ -24,8 +24,9 @@
 #define VINA_TRIANGULAR_MATRIX_INDEX_H
 
 #include "common.h"
+#include <cuda_runtime.h>
 
-inline sz triangular_matrix_index(sz n, sz i, sz j) {
+__host__ __device__ inline sz triangular_matrix_index(sz n, sz i, sz j) {
 	assert(j < n);
 	assert(i <= j); 
 
@@ -46,7 +47,7 @@ inline std::pair<sz,sz> triangular_matrix_index_to_coords(sz n, sz index) {
 	abort();
 }
 
-inline sz triangular_matrix_index_permissive(sz n, sz i, sz j) {
+ __host__ __device__ inline sz triangular_matrix_index_permissive(sz n, sz i, sz j) {
 	return (i <= j) ? triangular_matrix_index(n, i, j)
 		            : triangular_matrix_index(n, j, i);
 }

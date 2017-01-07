@@ -12,8 +12,6 @@
 #include "gpu_util.h"
 #include "gpu_math.h"
 
-typedef triangular_matrix<fl> flmat;
-
 /* change is a single GPU allocated array of floats.
  * The first six are the position and orientation and the remaining
  * are torsions.  The class itself is allocated on the CPU (at least for now)
@@ -39,12 +37,9 @@ struct change_gpu {
 
 	void sub(const change_gpu& rhs);
 
-	void minus_mat_vec_product(const flmat& m, change_gpu& out) const;
+	void minus_mat_vec_product(const flmat_gpu& m, change_gpu& out) const;
 
 	sz num_floats() const;
-
-	static bool bfgs_update(flmat& h, const change_gpu& p, const change_gpu& y,
-		const fl alpha);
 
 	void get_data(std::vector<float>& d) const;
 
