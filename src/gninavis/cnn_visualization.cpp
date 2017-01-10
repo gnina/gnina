@@ -735,10 +735,8 @@ void cnn_visualization::remove_ligand_atoms()
 
     }
 
-    std::cout << "before check" << '\n';
     if(visopts.additivity.length() > 0)
         {
-            std::cout << "triggered" << '\n';
             write_additivity(individual_score_diffs, frag_score_diffs);
         }
 
