@@ -8,8 +8,8 @@
 #ifndef SRC_LIB_CNN_SCORER_H_
 #define SRC_LIB_CNN_SCORER_H_
 
-#include "/home/mtr22/caffe/include/caffe/caffe.hpp"
-#include "/home/mtr22/caffe/include/caffe/layers/molgrid_data_layer.hpp"
+#include "caffe/caffe.hpp"
+#include "caffe/layers/molgrid_data_layer.hpp"
 #include "boost/thread/mutex.hpp"
 
 #include "nngridder.h"

@@ -7,7 +7,7 @@ CAFFE_INCLUDE := /usr/local/include
 GNINA_INCLUDE := ~/git/
 BOOST_INCLUDE := $(BASE)/include/boost
 CUDA_INCLUDE := $(BASE)/cuda/include
-INCFLAGS := -I $(BOOST_INCLUDE) \
+INCFLAGS := -I /home/mtr22/caffe/build/install/include/ -I $(BOOST_INCLUDE) \
 			-I $(OPENBABEL_INCLUDE) \
 			-I $(CUDA_INCLUDE) \
 			-I $(SRCD)/lib \
@@ -26,7 +26,7 @@ NVOPTS += \
 	   -gencode arch=compute_52,code=sm_52 \
 	   $(INCFLAGS)
 
-LDFLAGS := -L $(BASE)/lib \
+LDFLAGS := -L /home/mtr22/caffe/build/install/lib/ -L $(BASE)/lib \
 		   -L . \
 		   -L /usr/local/lib \
 		   -L $(BASE)/cuda/lib64 \

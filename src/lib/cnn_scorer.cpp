@@ -10,11 +10,10 @@
 #include "nngridder.h"
 
 #include "boost/multi_array.hpp"
-#include "/home/mtr22/caffe/include/caffe/layer.hpp"
-#include "/home/mtr22/caffe/include/caffe/net.hpp"
-#include "/home/mtr22/caffe/build/include/caffe/proto/caffe.pb.h"
-#include "/home/mtr22/caffe/include/caffe/layers/ndim_data_layer.hpp"
-#include "/home/mtr22/caffe/include/caffe/layers/conv_layer.hpp"
+#include "caffe/layer.hpp"
+#include "caffe/net.hpp"
+#include "caffe/proto/caffe.pb.h"
+#include "caffe/layers/ndim_data_layer.hpp"
 
 using namespace caffe;
 using namespace std;
@@ -133,7 +132,6 @@ float CNNScorer::score(const model& m)
 
 		const Dtype* out = outblob->cpu_data();
 		score += out[1];
-		cout << "#Rotate " << out[1] << "\n";
 		cnt++;
 	}
 
