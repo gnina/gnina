@@ -34,11 +34,13 @@ void set_diagonal(const flmat_gpu& m, fl x)
 
 __global__ void bfgs_update_aux(const sz n, const fl alpha, const fl r, float coef,
         flmat_gpu h, float* pvec, float* minus_hyvec) {
-	VINA_FOR(i, n)
-		VINA_RANGE(j, i, n) // includes i
-			h(i, j) += alpha * r
-					* (minus_hyvec[i] * pvec[j] + minus_hyvec[j] * pvec[i])
-					+coef * pvec[i]	* pvec[j]; // s * s == alpha * alpha * p * p	}
+    int i = threadIdx.x;
+    int j = blockIdx.x;
+    if (j >= i) {
+        h(i, j) += alpha * r
+        		* (minus_hyvec[i] * pvec[j] + minus_hyvec[j] * pvec[i])
+        		+coef * pvec[i]	* pvec[j]; // s * s == alpha * alpha * p * p	}
+    }
 }
 
 void bfgs_update(const flmat_gpu& h, const change_gpu& p, const
@@ -55,7 +57,7 @@ void bfgs_update(const flmat_gpu& h, const change_gpu& p, const
 	const sz n = p.num_floats();
 
 	float coef = +alpha * alpha * (r * r * yhy + r) ;
-    bfgs_update_aux<<<1,1>>>(n, alpha, r, coef, h, p.change_values, minus_hy.change_values);
+    bfgs_update_aux<<<n,n>>>(n, alpha, r, coef, h, p.change_values, minus_hy.change_values);
 	return;
 }
 

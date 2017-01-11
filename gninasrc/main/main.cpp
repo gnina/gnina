@@ -1557,6 +1557,9 @@ Thank you!\n";
 		worker_threads.join_all();
 		writer_thread.join();
 
+        cudaDeviceSynchronize();
+		cudaProfilerStop();
+
 		std::cout << "Loop time " << time.elapsed().wall/1000000000.0 << "\n";
 
 	} catch (file_error& e)

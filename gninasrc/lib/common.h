@@ -86,7 +86,15 @@ typedef std::size_t sz;
 typedef unsigned short atmidx; //dkoes - to reduce size of smina format
 typedef std::pair<fl, fl> pr;
 
-struct vec {
+// TODO: remove alignment. Exists so that vec operations in tree_gpu.cu can
+// coalesce reads and writes.
+#if defined(__CUDACC__)
+#define CUDA_ALIGN(n) __align__(n)
+#else
+#define CUDA_ALIGN(n) alignas(n)
+#endif
+
+struct CUDA_ALIGN(4 * sizeof(float)) vec {
 	fl data[3];
     /* TODO: remove. Exists so that force_energy_tup * can be
        interpretend as vec *. */
@@ -103,13 +111,6 @@ struct vec {
 		data[1] = y;
 		data[2] = z;
 	}
-    __host__ __device__
-    vec operator=(const vec& b){
-        data[0] = b.data[0];
-        data[1] = b.data[1];
-        data[2] = b.data[2];
-        return *this;
-    }
 
     __host__ __device__
 	const fl& operator[](sz i) const { assert(i < 3); return data[i]; }

@@ -52,12 +52,11 @@ __global__ void warp_dot_kernel(const int n, float *a, float *b, float *out)
 
 __global__ void minus_mat_vec_product_kernel(const int n, flmat_gpu m, float*
         in, float* out) {
-    VINA_FOR(i,n) {
-        fl sum = 0;
-        VINA_FOR(j,n)
-            sum += m(m.index_permissive(i,j)) * in[j];
-        out[i] = -sum;
-    }
+    int idx = threadIdx.x;
+    fl sum = 0;
+    VINA_FOR(j,n)
+        sum += m(m.index_permissive(idx,j)) * in[j];
+    out[idx] = -sum;
 }
 
 change_gpu::change_gpu(const change& src) :
@@ -147,7 +146,7 @@ void change_gpu::sub(const change_gpu& rhs) {
 }
 
 void change_gpu::minus_mat_vec_product(const flmat_gpu& m, change_gpu& out) const {
-    minus_mat_vec_product_kernel<<<1,1>>>(n, m, change_values,
+    minus_mat_vec_product_kernel<<<1,n>>>(n, m, change_values,
             out.change_values);
 }
 

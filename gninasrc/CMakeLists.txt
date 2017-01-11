@@ -9,7 +9,7 @@ elseif("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
 endif()
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
-  list(APPEND CUDA_NVCC_FLAGS -g)
+  list(APPEND CUDA_NVCC_FLAGS -g -lineinfo)
 endif()
 
 set(CUDA_SEPARABLE_COMPILATION "ON")
