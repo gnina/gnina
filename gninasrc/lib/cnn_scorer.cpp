@@ -69,6 +69,10 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 			//BUT it turns out this isn't actually faster
 			//bsize = nrot;
 		}
+		if (cnnopts.cnn_gradient)
+		{
+			param.set_force_backward(true);
+		}
 
 		net.reset(new Net<float>(param));
 
@@ -126,7 +130,7 @@ float CNNScorer::score(const model& m)
 	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
 		return -1.0;
-	
+
 	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
 	mgrid->setReceptor<atom>(m.get_fixed_atoms());
@@ -134,18 +138,18 @@ float CNNScorer::score(const model& m)
 
 	double score = 0.0;
 	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
+
 	unsigned cnt = 0;
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{
-		net->Forward(); //do all rotations at once if requested
+		net->Forward();
+		if (false) //TODO get from cnn_opts
+			net->Backward();		
 
 		const Dtype* out = outblob->cpu_data();
 		score += out[1];
-		cout << "#Rotate " << out[1] << "\n";
 		cnt++;
-
 	}
 
 	return score / cnt;
-
 }

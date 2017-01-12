@@ -80,7 +80,6 @@ public:
 
 protected:
 
-
 	grid_dims dims; //this is a cube
 	quaternion Q;
 	vec trans;
