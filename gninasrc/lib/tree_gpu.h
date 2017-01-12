@@ -9,15 +9,58 @@
 #include "conf_gpu.h"
 #include "gpu_math.h"
 
+struct gfloat4 : float4{
+    __host__ __device__
+    gfloat4() = default;
+    __host__ __device__
+    gfloat4(float x, float y, float z, float w) : float4{x,y,z,w}{}
+    __host__ __device__
+    gfloat4(const vec &v) : float4{v[0], v[1], v[2], 0}{}
+    __host__ __device__
+    gfloat4(const float3 &v) : float4{v[0], v[1], v[2], 0}{}
+
+    __host__ __device__
+    operator vec() const{
+        return vec(x, y, z);
+    }
+    
+    __host__ __device__
+    float& operator[](int b){
+        return b == 0 ? x :
+               b == 1 ? y :
+               b == 2 ? z :
+               w;
+    };
+    
+    __host__ __device__
+    const float& operator[](int b) const{
+        return b == 0 ? x :
+               b == 1 ? y :
+               b == 2 ? z :
+               w;
+    };
+};
+
+typedef gpair<gfloat4, gfloat4> gfloat4p;
+
+struct gpu_mat{
+    gfloat4 vecs[3];
+
+    __host__ __device__
+    gpu_mat() = default;
+    __host__ __device__
+    gpu_mat(const mat &m);
+};
+
 struct segment_node {
 	//a segment is a rigid collection of atoms with an orientation
 	//from an axis in a torsion tree
-	vec relative_axis;
-	vec relative_origin;
-	vec axis;
-	vec origin;
+	gfloat4 relative_axis;
+	gfloat4 relative_origin;
+	gfloat4 axis;
+	gfloat4 origin;
 	qt orientation_q;
-	mat orientation_m;
+	gpu_mat orientation_m;
 	sz begin;
 	sz end;
 	int parent; //location of parent in node array, -1 if root
@@ -27,32 +70,21 @@ struct segment_node {
 			parent(-1), layer(0), begin(0), end(0){
 	}
 
-	segment_node(const segment& node,int p,segment_node* pnode) :
-			relative_axis(node.relative_axis), relative_origin(node.relative_origin), axis(
-					node.axis), origin(node.origin), orientation_q(node.orientation_q), orientation_m(
-					node.orientation_m), begin(node.begin), end(node.end), parent(p){
-		layer = pnode->layer + 1;
-
-	}
-
-	segment_node(const rigid_body& node) : //root node
-			relative_axis(0, 0, 0), relative_origin(0, 0, 0), axis(0, 0, 0), origin(
-					node.origin), orientation_q(node.orientation_q), orientation_m(
-					node.orientation_m), begin(node.begin), end(node.end), parent(-1), layer(0){
-
-	}
+	segment_node(const segment& node,int p,segment_node* pnode);
+	segment_node(const rigid_body& node);
 
 	__device__
-	vecp sum_force_and_torque(const vec *coords, const vec *forces) const;
+	gfloat4p sum_force_and_torque(const gfloat4 *coords, const gfloat4 *forces) const;
 
 	__device__
-	vec local_to_lab_direction(const vec& local_direction) const;
+	gfloat4 local_to_lab_direction(const gfloat4& local_direction) const;
+
+    template <typename VecT>
+    __device__
+    VecT local_to_lab(const VecT& local_coords) const;
 
 	__device__
-	vec local_to_lab(const vec& local_coords) const;
-
-	__device__
-	void set_coords(const vec *atom_coords, vec *coords) const;
+	void set_coords(const gfloat4 *atom_coords, gfloat4 *coords) const;
 
 	__device__
 	void set_orientation(const qt& q);
@@ -73,29 +105,37 @@ struct __align__(sizeof(uint2)) atom_node_indices{
 struct tree_gpu {
 
 	segment_node *device_nodes;
-	vecp *force_torques;
+	gfloat4p *force_torques;
 	unsigned num_nodes;
     unsigned num_layers;
-    atom_node_indices *atom_node_list; // atom and corresponding node indices in bfs order
-    unsigned *atoms_per_layer;
-    unsigned max_atoms_per_layer; 
 
-	tree_gpu() :
-			device_nodes(NULL), force_torques(NULL), num_nodes(0), num_layers(0), atom_node_list(NULL), atoms_per_layer(NULL), max_atoms_per_layer(0) {
-	}
+    uint *owners;
 
-	void do_dfs(int parent, const branch& branch, std::vector<segment_node>& nodes, std::vector<unsigned>& atoms_per_layer_host, std::map<int,std::vector<atom_node_indices> >& atom_node_map);
-
-	tree_gpu(const heterotree<rigid_body> &ligand);
+    tree_gpu() = default;
+	tree_gpu(const heterotree<rigid_body> &ligand, vec *atom_coords);
 
 	static void deallocate(tree_gpu *t);
 
-	__device__
+    __device__
 	void derivative(const vec *coords,const vec* forces, float *c);
+    __device__
+	void set_conf(const vec *atom_coords, vec *coords,
+                  const conf_info *c);
+
+    struct __align__(sizeof(float4)) marked_coord{
+        float3 coords;
+        uint owner_idx;
+    };
+
+private:
+    void do_dfs(int parent, const branch& branch, 
+                std::vector<segment_node> &nodes);
 
 	__device__
-	void set_conf(const vec *atom_coords, vec *coords, const conf_info *c, unsigned nlig_atoms);
-
+	void _derivative(const gfloat4 *coords,const gfloat4* forces, float *c);
+	__device__
+	void _set_conf(const marked_coord *atom_coords, gfloat4 *coords,
+                   const conf_info *c);
 };
 
 #endif

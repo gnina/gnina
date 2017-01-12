@@ -26,6 +26,10 @@
 #include "matrix.h"
 #include "conf_gpu.h"
 #include <numeric>
+#include <cuda_runtime.h>
+
+//TODO: remove?
+#include "quasi_newton.h"
 
 inline void minus_mat_vec_product(const flmat& m, const change& in, change& out)
 {
@@ -40,22 +44,12 @@ inline void minus_mat_vec_product(const flmat& m, const change& in, change& out)
 }
 
 
-inline void minus_mat_vec_product(const flmat_gpu& m, const change_gpu& in, change_gpu& out)
-{
-	in.minus_mat_vec_product(m, out);
-}
-
 inline fl scalar_product(const change& a, const change& b, sz n)
 {
 	fl tmp = 0;
 	VINA_FOR(i, n)
 		tmp += a(i) * b(i);
 	return tmp;
-}
-
-inline fl scalar_product(const change_gpu& a, const change_gpu& b, sz n)
-{
-	return a.dot(b);
 }
 
 
@@ -120,8 +114,6 @@ inline fl compute_lambdamin(const change& p, const conf& x, sz n)
 	return test;
 }
 
-fl compute_lambdamin(const change_gpu& p, const conf_gpu& x, sz n);
-
 //dkoes - this line search is modeled after lnsrch in numerical recipes, it puts
 //a bit of effort into calculating a good scaling factor, and ensures that alpha
 //will actually result in a smaller value
@@ -130,11 +122,9 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		const Change& p, Conf& x_new, Change& g_new, fl& f1)
 { // returns alpha
 	fl a, alpha, alpha2 = 0, alamin, b, disc, f2 = 0;
-	fl rhs1, rhs2, slope = 0, sum = 0, test, tmplam;
+	fl rhs1, rhs2, slope = 0, test, tmplam;
 	const fl ALF = 1.0e-4;
 	const fl FIRST = 1.0;
-	sum = scalar_product(p, p, n);
-	sum = sqrt(sum);
 
 	slope = scalar_product(g, p, n);
 	if (slope >= 0)
@@ -146,7 +136,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 	}
 	test = compute_lambdamin(p, x, n);
 
-	alamin = std::numeric_limits<float>::epsilon() / test;
+	alamin = epsilon_fl / test;
 	alpha = FIRST; //single newton step
 	for (;;) //always try full newton step first
 	{
@@ -206,6 +196,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 	}
 }
 
+
 inline void set_diagonal(flmat& m, fl x)
 {
 	VINA_FOR(i, m.dim())
@@ -218,11 +209,6 @@ inline void subtract_change(change& b, const change& a, sz n)
 { // b -= a
 	VINA_FOR(i, n)
 		b(i) -= a(i);
-}
-
-inline void subtract_change(change_gpu& b, const change_gpu& a, sz n)
-{ // b -= a
-	b.sub(a);
 }
 
 template<typename F, typename Conf, typename Change>
@@ -314,6 +300,15 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	return f0;
 }
 
+__global__
+void bfgs_gpu(quasi_newton_aux_gpu f,
+              conf_gpu& x, conf_gpu& x_orig, conf_gpu &x_new,
+              change_gpu& g, change_gpu& g_orig, conf_gpu &g_new,
+              change_gpu& p, change_gpu& y, flmat_gpu h,
+              const fl average_required_improvement,
+              const minimization_params& params,
+              float* out_energy)
+
 template<typename F>
 fl bfgs(F& f, conf_gpu& x, change_gpu& g, const fl average_required_improvement,
 		const minimization_params& params) {
@@ -323,81 +318,30 @@ fl bfgs(F& f, conf_gpu& x, change_gpu& g, const fl average_required_improvement,
     flmat_gpu h(n);
 
     // Initialize and copy additional conf and change objects
-	change_gpu g_new(g);
-	conf_gpu x_new(x);
-    //TODO: change model::eval_deriv_gpu so it doesn't memcpy at the end
-	fl f0 = f(x, g);
-	fl f_orig = f0;
-	change_gpu g_orig(g);
-	conf_gpu x_orig(x);
+    // TODO: don't need to pass g/x_orig
+	change_gpu* g_orig = new change_gpu(g);
+	change_gpu* g_new = new change_gpu(g);
+    
+	conf_gpu* x_orig = new conf_gpu(x);
+	conf_gpu* x_new = new conf_gpu(x);
 
-	change_gpu p(g);
-    // For now, keep everything on the GPU but control is maintained on CPU
-    // which launches the relevant kernels...maybe this will change
-	VINA_U_FOR(step, params.maxiters)
-	{
-		minus_mat_vec_product(h, g, p);
-        // f1 is the returned energy for the next iteration of eval_deriv_gpu
-		fl f1 = 0;
-		fl alpha;
+	change_gpu* p = new change_gpu(g);
+    change_gpu* y = new change_gpu(g);
+    // Caches get cleared after a kernel exits, so we want to keep a ligand
+    // running on the GPU until it's finished since a given iteration will
+    // reuse values computed in the previous iteration
+    float* f0;
+    float out_energy;
 
-		if (params.type == minimization_params::BFGSAccurateLineSearch)
-			alpha = accurate_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
-		else
-			alpha = fast_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
-
-		if(alpha == 0) {
-			break;
-		}
-
-		change_gpu y(g_new);
-        // Update line direction
-		subtract_change(y, g, n);
-
-		fl prevf0 = f0;
-		f0 = f1;
-		x = x_new;
-
-		if (params.early_term)
-		{
-			fl diff = prevf0 - f0;
-			if (std::fabs(diff) < 1e-5) 
-			{
-				break;
-			}
-		}
-
-		g = g_new; 
-
-		fl gradnormsq = scalar_product(g, g, n);
-//		std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
-
-		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
-		{
-			//std::cout << "gradnormsq " << gradnormsq << "\n";
-			break; // breaks for nans too // FIXME !!??
-		}
-
-		if (step == 0)
-		{
-			const fl yy = scalar_product(y, y, n);
-			if (std::abs(yy) > epsilon_fl)
-				set_diagonal(h, alpha * scalar_product(y, p, n) / yy);
-		}
-        // bfgs_update used to return a bool, but the value of that bool never
-        // got checked anyway
-		bfgs_update(h, p, y, alpha);
-	}
-
-	if (!(f0 <= f_orig))
-	{ // succeeds for nans too
-		f0 = f_orig;
-		x = x_orig;
-		g = g_orig;
-	}
-//	std::cout << "final f0 " << f0 << "\n";
-    CUDA_CHECK_GNINA(cudaFree(h.m_data));
-	return f0;
+    CUDA_CHECK_GNINA(cudaMalloc(&f0, sizeof(float)));
+    bfgs_gpu<<<1,1>>>(f,
+                      *x, *x_orig, *x_new,
+                      *g, *g_orig, *g_new,
+                      *p, *y, h,
+                      average_required_improvement, params, f0);
+    CUDA_CHECK_GNINA(cudaMemcpy(&out_energy,
+                                f0, sizeof(float), cudaMemcpyDeviceToHost));
+	return out_energy;
 }
 
 #endif

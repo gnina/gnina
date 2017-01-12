@@ -119,11 +119,9 @@ struct triangular_matrix_gpu {
 	__device__ T& operator()(sz i, sz j)       { return m_data[index(i, j)]; } 
 
 	__device__ sz dim() const { return m_dim; }
-    ~triangular_matrix_gpu() {}
-    // this is a problem when passing the matrix by value - copies get a copy
-    // of the pointer member, and then when they go out of scope that memory
-    // gets freed.
-        // CUDA_CHECK_GNINA(cudaFree(m_data));
+    ~triangular_matrix_gpu() {
+        CUDA_CHECK_GNINA(cudaFree(m_data));
+    }
 };
 
 typedef triangular_matrix_gpu<fl> flmat_gpu;

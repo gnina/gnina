@@ -1,8 +1,3 @@
-/* dkoes
- * This file contains all the standalone gpu kernels.  There is (hopefully)
- * a nicer way to organize this, but I'm currently slightly flummoxed as to
- * how to cleaning mix object-oriented cpu and gpu code.
- */
 #include <thrust/reduce.h>
 #include <thrust/device_ptr.h>
 #include <stdio.h>
@@ -242,10 +237,10 @@ void eval_intra_st(const GPUSplineInfo * spinfo, const atom_params * atoms,
 //needs enough shared memory for derivatives and energies of single ligand atom
 //roffset specifies how far into the receptor atoms we are
 template<bool remainder> __global__
-void interaction_energy(
-		const GPUNonCacheInfo dinfo, //intentionally copying from host to device
-		unsigned remainder_offset, float slope, float v,
-		const atom_params *ligs, force_energy_tup *out) {
+void interaction_energy(const GPUNonCacheInfo dinfo, //intentionally copying from host to device
+                        unsigned remainder_offset, float slope, float v,
+                        const atom_params *ligs, force_energy_tup *out)
+{
 	unsigned l = blockIdx.x;
 	unsigned r = blockDim.x - threadIdx.x - 1;
 	unsigned roffset =
@@ -306,6 +301,8 @@ void interaction_energy(
 	float3 deriv = block_sum<float3>(rec_deriv);
 	if (threadIdx.x == 0) {
 		curl(this_e, (float *) &deriv, v);
+        //TODO: this should be atomic. Won't see errors from it until more
+        //than 1 block can run at a time and num rec atoms >= 2048.
 		out[l] += force_energy_tup(deriv + out_of_bounds_deriv,
 				this_e + out_of_bounds_penalty);
 	}
@@ -328,12 +325,15 @@ __global__ void reduce_energy(force_energy_tup *result, int n) {
 
 /* } */
 
-//host side of single point_calculation, energies and coords should already be initialized
-float single_point_calc(const GPUNonCacheInfo *info, atom_params *ligs,
-		force_energy_tup *out, float slope, unsigned nlig_atoms,
-		unsigned nrec_atoms, float v) {
+__device__
+float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
+                        force_energy_tup *out, float v)
+{
 	/* Assumed by warp_sum */
 	assert(THREADS_PER_BLOCK <= 1024);
+    float slope = info.slope;
+    unsigned nlig_atoms = info.nlig_atoms;
+    unsigned nrec_atoms = info.nrec_atoms;
 
 	//this will calculate the per-atom energies and forces.
 	//there is one execution stream for the blocks with
@@ -344,20 +344,18 @@ float single_point_calc(const GPUNonCacheInfo *info, atom_params *ligs,
 
 	if (nfull_blocks)
 		interaction_energy<0> <<<dim3(nlig_atoms, nfull_blocks),
-				THREADS_PER_BLOCK>>>(*info, 0, slope, v, ligs, out);
+				THREADS_PER_BLOCK>>>(info, 0, slope, v, ligs, out);
 	if (nthreads_remain)
-		interaction_energy<1> <<<nlig_atoms, nthreads_remain>>>(*info,
+		interaction_energy<1> <<<nlig_atoms, nthreads_remain>>>(info,
 				nrec_atoms - nthreads_remain, slope, v, ligs, out);
 
 	//get total energy
 	reduce_energy<<<1, ROUND_TO_WARP(nlig_atoms)>>>(out, nlig_atoms);
-	cudaThreadSynchronize();
+	/* cudaThreadSynchronize(); */
 	/* cudaStreamSynchronize(0); */
-	abort_on_gpu_err();
+	/* abort_on_gpu_err(); */
 
-	force_energy_tup ret;
-	cudaMemcpy(&ret, out, sizeof(force_energy_tup), cudaMemcpyDeviceToHost);
-	return ret.energy;
+	return out->energy;
 }
 
 /* evaluate contribution of interacting pairs, add to forces and place total */
@@ -365,7 +363,10 @@ float single_point_calc(const GPUNonCacheInfo *info, atom_params *ligs,
 
 __global__
 void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
-		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr, float v, force_energy_tup *out, float *e) {
+                       const interacting_pair* pairs, unsigned npairs,
+                       float cutoff_sqr, float v, force_energy_tup *out,
+                       float *e)
+{
 
 	for(unsigned i = blockDim.x * blockIdx.x + threadIdx.x; i < npairs; i +=
 			CUDA_THREADS_PER_BLOCK * gridDim.x) {

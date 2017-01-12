@@ -24,6 +24,8 @@
 #define VINA_QUASI_NEWTON_H
 
 #include "model.h"
+#include "conf_gpu.h"
+#include "non_cache_gpu.h"
 
 class quasi_newton {
 	minimization_params params;
@@ -32,6 +34,26 @@ public:
 	quasi_newton(const minimization_params& p) : params(p), average_required_improvement(0.0) {}
 	// clean up
 	void operator()(model& m, const precalculate& p, const igrid& ig, output_type& out, change& g, const vec& v, const grid& user_grid) const; // g must have correct size
+};
+
+struct quasi_newton_aux_gpu {
+    model* m;
+	gpu_data gdata;
+	const GPUNonCacheInfo ig;
+	const vec v;
+	quasi_newton_aux_gpu(gpu_data& gdata_,const GPUNonCacheInfo& ig_,
+			const vec& v_, model* m_) :
+			gdata(gdata_), ig(ig_), v(v_), m(m_) {
+		gdata.copy_to_gpu(*m);
+	}
+
+	~quasi_newton_aux_gpu() {
+		gdata.copy_from_gpu(*m);
+	}
+
+	fl operator()(const conf_gpu& c,change_gpu& g){
+		return gdata.eval_deriv_gpu(ig, v, c, g);
+	}
 };
 
 #endif

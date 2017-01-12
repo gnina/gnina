@@ -29,13 +29,13 @@ struct change_gpu {
 
 	~change_gpu();
 
-	void clear();
+	__host__ __device__ void clear();
 
 	void invert();
 
-	float dot(const change_gpu& rhs) const;
+	__device__ float dot(const change_gpu& rhs) const;
 
-	void sub(const change_gpu& rhs);
+	__device__ void sub(const change_gpu& rhs);
 
 	void minus_mat_vec_product(const flmat_gpu& m, change_gpu& out) const;
 
@@ -46,6 +46,9 @@ struct change_gpu {
 	void set_data(std::vector<float>& d) const;
 
 	void print() const;
+
+    void* operator new(size_t count);
+    void operator delete(void* ptr) noexcept;
 };
 
 union conf_info {
@@ -72,13 +75,16 @@ struct conf_gpu {
 
 	~conf_gpu();
 
-	void increment(const change_gpu& c, fl factor);
+	__device__ void increment(const change_gpu& c, fl factor);
 
 	void get_data(std::vector<float>& d) const;
 
 	void set_data(std::vector<float>& d) const;
 
 	void print() const;
+
+    void* operator new(size_t count);
+    void operator delete(void* ptr) noexcept;
 
 };
 

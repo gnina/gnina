@@ -11,6 +11,7 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
 {
   const model& m = gcache.getModel();
   info.cutoff_sq = p->cutoff_sqr();
+  info.slope = slope;
 
   m.print_counts();
 
@@ -88,25 +89,3 @@ fl non_cache_gpu::eval(const model& m, fl v) const
   abort(); //not implemented
 }
 
-//evaluate the model on the gpu, v is the curl amount
-//sets m.minus_forces and returns total energy
-fl non_cache_gpu::eval_deriv(model& m, fl v, const grid& user_grid) const
-{
-  //clear energies
-  if(user_grid.initialized())
-  {
-    std::cerr << "usergrid not supported in gpu code yet\n";
-    exit(-1);
-  }
-
-  unsigned nlig_atoms = m.num_movable_atoms();
-    
-  force_energy_tup *forces = m.gdata.minus_forces;
-  cudaMemset(forces, 0, sizeof(force_energy_tup)*m.minus_forces.size());
-
-  //this will calculate the per-atom energies and forces; curl ignored
-  double e = single_point_calc(&info, m.gdata.coords, forces, slope,
-                               info.nlig_atoms, info.nrec_atoms, v);
-
-  return e;
-}

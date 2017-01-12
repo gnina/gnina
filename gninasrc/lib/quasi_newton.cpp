@@ -21,10 +21,7 @@
  */
 
 #include "quasi_newton.h"
-#include "conf_gpu.h"
 #include "bfgs.h"
-#include "non_cache_gpu.h"
-
 
 struct quasi_newton_aux {
 	model* m;
@@ -42,28 +39,6 @@ struct quasi_newton_aux {
 	}
 };
 
-struct quasi_newton_aux_gpu {
-	model* m;
-	const precalculate* p;
-	const non_cache_gpu* ig;
-	const vec v;
-	const grid* user_grid;
-	quasi_newton_aux_gpu(model* m_,const precalculate* p_,const non_cache_gpu* ig_,
-			const vec& v_,const grid* user_grid_) :
-			m(m_), p(p_), ig(ig_), v(v_), user_grid(user_grid_){
-		m->copy_to_gpu();
-	}
-
-	~quasi_newton_aux_gpu() {
-		m->copy_from_gpu();
-	}
-
-	fl operator()(const conf_gpu& c,change_gpu& g){
-		return m->eval_deriv_gpu(*p, *ig, v, c, g, *user_grid);
-	}
-};
-
-
 void quasi_newton::operator()(model& m,const precalculate& p,const igrid& ig,
 		output_type& out,change& g,const vec& v,const grid& user_grid) const{ // g must have correct size
 
@@ -71,9 +46,14 @@ void quasi_newton::operator()(model& m,const precalculate& p,const igrid& ig,
 	if(gpu) {
 		m.initialize_gpu();
 		assert(m.gpu_initialized());
-		quasi_newton_aux_gpu aux(&m, &p, gpu, v, &user_grid);
-		change_gpu gchange(g);
-		conf_gpu gconf(out.c);
+        if(user_grid.initialized())
+        {
+          std::cerr << "usergrid not supported in gpu code yet\n";
+          exit(-1);
+        }
+		quasi_newton_aux_gpu aux(&m, m.gdata, gpu->get_info(), v);
+		change_gpu gchange = new change_gpu(g);
+		conf_gpu gconf = new conf_gpu(out.c);
 		fl res = bfgs(aux, gconf, gchange, average_required_improvement, params);
 		gconf.set_cpu(out.c);
 		out.e = res;

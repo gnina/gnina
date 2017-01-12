@@ -13,6 +13,7 @@ static inline void abort_on_gpu_err(void){
     }
 }
 
+#ifndef __CUDA_ARCH__
 // CUDA: various checks for different function calls.
 #define CUDA_CHECK_GNINA(condition) \
   /* Code block avoids redefinition of cudaError_t error */ \
@@ -20,6 +21,10 @@ static inline void abort_on_gpu_err(void){
     cudaError_t error = condition; \
     if(error != cudaSuccess) { std::cerr << " " << cudaGetErrorString(error); abort(); } \
   } while (0)
+#else
+// TODO: probably don't want to make API calls on the device.
+#define CUDA_CHECK_GNINA(condition) condition
+#endif
 
 
 #define CUDA_THREADS_PER_BLOCK (512)
@@ -30,7 +35,7 @@ inline int CUDA_GET_BLOCKS(const int N, const int nthreads) {
 }
 
 //round N up to a multiple of 32
-inline int ROUND_TO_WARP(int N) {
+__host__ __device__ inline int ROUND_TO_WARP(int N) {
 	if(N % 32) {
 		return ((N/32)+1)*32;
 	}

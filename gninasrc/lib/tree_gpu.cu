@@ -3,31 +3,129 @@
 #include <map>
 
 __device__
-vecp segment_node::sum_force_and_torque(const vec *coords, const vec *forces) const {
-	vecp tmp(vec(0,0,0), vec(0,0,0));
-	VINA_RANGE(i, begin, end) {
-		tmp.first  += forces[i];
-		tmp.second += cross_product(coords[i] - origin, forces[i]);
-	}
-	return tmp;
+gfloat4 pseudoAtomicAdd(gfloat4* address, gfloat4 value) {
+    return gfloat4(atomicAdd(&((*address)[0]), value[0]),
+                   atomicAdd(&((*address)[1]), value[1]),
+                   atomicAdd(&((*address)[2]), value[2]),
+                   0);
+}
+
+__host__ __device__
+gpu_mat::gpu_mat(const mat &m) :
+    vecs{gfloat4(m.data[0], m.data[1], m.data[2], 0),
+         gfloat4(m.data[3], m.data[4], m.data[5], 0),
+         gfloat4(m.data[6], m.data[7], m.data[8], 0)}{}
+
+__host__ __device__
+gfloat4 operator*(const gpu_mat &m, const gfloat4&_v){
+    gfloat4 v = _v;
+    return
+    gfloat4(m.vecs[0][0] * v[0] + m.vecs[1][0] * v[1] + m.vecs[2][0] * v[2], 
+            m.vecs[0][1] * v[0] + m.vecs[1][1] * v[1] + m.vecs[2][1] * v[2],
+            m.vecs[0][2] * v[0] + m.vecs[1][2] * v[1] + m.vecs[2][2] * v[2],
+            0);
+}
+
+__host__ __device__
+gfloat4 operator*(const gpu_mat &m, const float3&v){
+    return
+    gfloat4(m.vecs[0][0] * v[0] + m.vecs[1][0] * v[1] + m.vecs[2][0] * v[2], 
+            m.vecs[0][1] * v[0] + m.vecs[1][1] * v[1] + m.vecs[2][1] * v[2],
+            m.vecs[0][2] * v[0] + m.vecs[1][2] * v[1] + m.vecs[2][2] * v[2],
+            0);
+}
+
+inline __host__ __device__ gfloat4 operator-(gfloat4 a, gfloat4 b)
+{
+    return gfloat4(a.x - b.x, a.y - b.y, a.z - b.z,  0);
+}
+
+inline __host__ __device__ gfloat4 operator+(gfloat4 a, gfloat4 b)
+{
+    return gfloat4(a.x + b.x, a.y + b.y, a.z + b.z,  0);
+}
+
+inline __host__ __device__ gfloat4 &operator+=(gfloat4 &a, gfloat4 b)
+{
+    a = a + b;
+    return a;
+}
+
+inline __host__ __device__ gfloat4 operator*(gfloat4 a, float s)
+{
+    return gfloat4(a.x * s, a.y * s, a.z * s,  0);
+}
+
+inline __host__ __device__ float operator*(gfloat4 a, gfloat4 b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+
+/* inline __host__ __device__ gfloat4 operator-(gfloat4 a, gfloat4 b) */
+/* { */
+/*     return gfloat4(a.x - b.x, a.y - b.y, a.z - b.z,  a.w - b.w); */
+/* } */
+
+/* inline __host__ __device__ gfloat4 operator+(gfloat4 a, gfloat4 b) */
+/* { */
+/*     return gfloat4(a.x + b.x, a.y + b.y, a.z + b.z,  a.w + b.w); */
+/* } */
+
+/* inline __host__ __device__ gfloat4 &operator+=(gfloat4 &a, gfloat4 b) */
+/* { */
+/*     a = a + b; */
+/*     return a; */
+/* } */
+
+/* inline __host__ __device__ gfloat4 operator*(gfloat4 a, float s) */
+/* { */
+/*     return gfloat4(a.x * s, a.y * s, a.z * s,  a.w * s); */
+/* } */
+
+/* inline __host__ __device__ float operator*(gfloat4 a, gfloat4 b) */
+/* { */
+/*     return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w; */
+/* } */
+
+
+segment_node::segment_node(const segment& node,int p,segment_node* pnode) :
+    relative_axis(node.relative_axis),
+    relative_origin(node.relative_origin),
+    axis(node.axis),
+    origin(node.origin),
+    orientation_q(node.orientation_q),
+    orientation_m(node.orientation_m),
+    begin(node.begin),
+    end(node.end),
+    parent(p),
+    layer(pnode->layer + 1){}
+
+segment_node::segment_node(const rigid_body& node) : //root node
+    relative_axis(0,0,0,0), relative_origin(0,0,0,0),
+    axis(0,0,0,0), origin(node.origin),
+    orientation_q(node.orientation_q), orientation_m(node.orientation_m),
+    begin(node.begin), end(node.end), parent(-1), layer(0){
+
 }
 
 __device__
-vec segment_node::local_to_lab_direction(const vec& local_direction) const{
-	vec tmp;
+gfloat4 segment_node::local_to_lab_direction(const gfloat4& local_direction) const{
+	gfloat4 tmp;
 	tmp = orientation_m * local_direction;
 	return tmp;
 }
 
+template <typename VecT>
 __device__
-vec segment_node::local_to_lab(const vec& local_coords) const{
-	vec tmp;
+VecT segment_node::local_to_lab(const VecT& local_coords) const{
+	VecT tmp;
 	tmp = origin + orientation_m * local_coords;
 	return tmp;
 }
 
 __device__
-void segment_node::set_coords(const vec *atom_coords, vec *coords) const{
+void segment_node::set_coords(const gfloat4 *atom_coords, gfloat4 *coords) const{
 	VINA_RANGE(i, begin, end)
 		coords[i] = local_to_lab(atom_coords[i]);
 }
@@ -45,87 +143,66 @@ void segment_node::set_orientation(float x, float y, float z, float w) { // does
 }
 
 void tree_gpu::do_dfs(int parent, const branch& branch,
-        std::vector<segment_node>& nodes, std::vector<unsigned>&
-        atoms_per_layer_host, std::map<int,std::vector<atom_node_indices>>&
-        atom_node_map) {
+                      std::vector<segment_node> &nodes){
 	segment_node node(branch.node, parent, &nodes[parent]);
 	unsigned index = nodes.size();
 	nodes.push_back(node);
-
-    if (atoms_per_layer_host.size() - 1 < node.layer) {
-        atoms_per_layer_host.push_back(node.end - node.begin);
-    }
-    else {
-        atoms_per_layer_host[node.layer] += node.end - node.begin;
-    }
-
-    if (node.layer > num_layers)
-        num_layers = node.layer;
-
-    if (node.layer > atom_node_map.size()) 
-        atom_node_map[node.layer] = std::vector<atom_node_indices>();
-
-    for (unsigned i=node.begin; i<node.end; i++)
-        atom_node_map[node.layer].push_back(atom_node_indices(i,nodes.size()-1));
-
 	VINA_FOR_IN(i, branch.children) {
-		do_dfs(index, branch.children[i], nodes, atoms_per_layer_host,
-                atom_node_map);
+		do_dfs(index, branch.children[i], nodes);
 	}
 }
 
-tree_gpu::tree_gpu(const heterotree<rigid_body> &ligand){
+struct __align__(sizeof(float4)) marked_coord{
+    float3 coords;
+    uint owner_idx;
+};
+
+tree_gpu::tree_gpu(const heterotree<rigid_body> &ligand, vec *atom_coords){
 	//populate nodes in DFS order from ligand, where node zero is the root
 	std::vector<segment_node> nodes;
-    std::vector<unsigned> atoms_per_layer_host;
-    //need this temporary map to create a BFS-ordered array from a DFS
-    //traversal
-    std::map<int,std::vector<atom_node_indices>> atom_node_map; 
-    std::vector<atom_node_indices> atom_node_prelist;
-    num_layers = 0;
-
-	segment_node root(ligand.node);
-	nodes.push_back(root);
-    atoms_per_layer_host.push_back(root.end - root.begin);
-    for (unsigned i=root.begin; i<root.end; i++) {
-        atom_node_prelist.push_back(atom_node_indices(i,nodes.size()-1));
-    }
+    
+	nodes.push_back(segment_node(ligand.node));
 
 	VINA_FOR_IN(i, ligand.children) {
-		do_dfs(0,ligand.children[i], nodes, atoms_per_layer_host, atom_node_map);
+		do_dfs(0,ligand.children[i], nodes);
 	}
 
-    for (std::map<int,std::vector<atom_node_indices>>::iterator it =
-            atom_node_map.begin(); it != atom_node_map.end(); ++it) {
-        atom_node_prelist.insert(atom_node_prelist.end(), it->second.begin(),
-                it->second.end());
+    uint natoms = 0;
+    uint max_layer = 0;
+    for(auto n : nodes){
+        natoms += n.end - n.begin;
+        //TODO: just BFS-order the nodes
+        max_layer = std::max((uint) n.layer, max_layer);
     }
+    
+    marked_coord *atoms = (marked_coord *) atom_coords;
+    uint cpu_owners[natoms];
+    for(int i = 0; i < nodes.size(); i++)
+        for(int ai = nodes[i].begin; ai < nodes[i].end; ai++)
+            cpu_owners[ai] = atoms[ai].owner_idx = i;
 
-    max_atoms_per_layer = *std::max_element(std::begin(atoms_per_layer_host),
-            std::end(atoms_per_layer_host));
 	num_nodes = nodes.size();
-    num_layers++;
-	//allocate device memory and copy
-	//nodes
+    num_layers = max_layer + 1;
+    
 	cudaMalloc(&device_nodes, sizeof(segment_node)*nodes.size());
 	cudaMemcpy(device_nodes, &nodes[0], sizeof(segment_node)*nodes.size(), cudaMemcpyHostToDevice);
 
-	//forcetorques
-	cudaMalloc(&force_torques, sizeof(vecp)*nodes.size());
-	cudaMemset(force_torques, 0, sizeof(vecp)*nodes.size());
+	cudaMalloc(&force_torques, sizeof(gfloat4p)*nodes.size());
+	cudaMemset(force_torques, 0, sizeof(gfloat4p)*nodes.size());
 
-    //atom and node values
-    cudaMalloc(&atom_node_list,
-            sizeof(atom_node_indices)*atom_node_prelist.size());
-    cudaMemcpy(atom_node_list, &atom_node_prelist[0],
-            sizeof(atom_node_indices)*atom_node_prelist.size(),
-            cudaMemcpyHostToDevice);
+    cudaMalloc(&owners, sizeof(uint) * natoms);
+    cudaMemcpy(owners, cpu_owners, sizeof(uint) * natoms, cudaMemcpyHostToDevice);
 
-    //atoms per layer
-    cudaMalloc(&atoms_per_layer, sizeof(unsigned)*atoms_per_layer_host.size());
-    cudaMemcpy(atoms_per_layer, &atoms_per_layer_host[0],
-            sizeof(unsigned)*atoms_per_layer_host.size(),
-            cudaMemcpyHostToDevice);
+
+    /* assert(num_nodes == ligand.count_torsions() + 1); */
+    
+    for(uint &o : cpu_owners){
+        segment_node &n = nodes[o];
+        assert(&o >= &cpu_owners[n.begin] &&
+               &o < &cpu_owners[n.end]);
+        assert(o < nodes.size());
+        
+    }
 }
 
 //given a gpu point, deallocate all the memory
@@ -139,83 +216,126 @@ void tree_gpu::deallocate(tree_gpu *t) {
 
 __device__
 void tree_gpu::derivative(const vec *coords,const vec* forces, float *c){
+    _derivative((gfloat4 *) coords, (gfloat4 *) forces, c);
+}
 
+__device__
+void tree_gpu::_derivative(const gfloat4 *coords,const gfloat4* forces, float *c){
 	// assert(c.torsions.size() == num_nodes-1);
+	
 	//calculate each segments individual force/torque
-    int index = threadIdx.x;
-    force_torques[index] = device_nodes[index].sum_force_and_torque(coords,
-            forces);
+    uint tid = threadIdx.x;
+    uint nid = owners[tid];
+    segment_node &owner = device_nodes[nid];
 
-    unsigned current_layer = num_layers - 1;
-	//have each child add its contribution to its parents force_torque
-    const segment_node& cnode = device_nodes[index];
+    if(tid < num_nodes)
+        force_torques[tid] = gfloat4p(gfloat4(0,0,0,0), gfloat4(0,0,0,0));
     __syncthreads();
-    while (current_layer > 0) {
-        if (cnode.layer == current_layer) {
-            unsigned parent = device_nodes[index].parent;
-            const segment_node& pnode = device_nodes[parent];
-            const vecp& ft = force_torques[index];
-            pseudoAtomicAdd(&force_torques[parent].first, ft.first);
-            
-            vec r = cnode.origin - pnode.origin;
-            pseudoAtomicAdd(&force_torques[parent].second, cross_product(r,
-                        ft.first)+ft.second);
-            
-            //set torsions
-            c[6+index-1] = ft.second * cnode.axis;
-        }
-        current_layer--;
-        __syncthreads();
+    
+    pseudoAtomicAdd(&force_torques[nid].first, forces[tid]);
+    pseudoAtomicAdd(&force_torques[nid].second,
+                    cross_product(coords[tid] - owner.origin, forces[tid]));
+
+
+	//have each child add its contribution to its parents force_torque
+    uint layer = 0;
+    uint parent_id;
+    gfloat4 axis;
+    gfloat4 origin;
+    gfloat4 parent_origin;
+    gfloat4p ft;
+    
+    if(tid && tid < num_nodes){
+        segment_node &n = device_nodes[tid];
+        parent_id = n.parent;
+        parent_origin = device_nodes[parent_id].origin;
+        layer = n.layer;
+        axis = n.axis;
+        origin = n.origin;
     }
+    
+    for(uint l = num_layers - 1; l > 0; l--){
+        __syncthreads();
+        if(l != layer)
+            continue;
+        ft = force_torques[tid];
+        gfloat4 r = origin - parent_origin;
+        
+        pseudoAtomicAdd(&force_torques[parent_id].first, ft.first);
+        pseudoAtomicAdd(&force_torques[parent_id].second,
+                        ::operator+(cross_product(r, ft.first), ft.second));
+    }
+    
+    if(tid && tid < num_nodes)
+        c[6 + tid - 1] = ft.second * axis;
+    else if(tid == 0) {
+        ft = force_torques[0];
+	    c[0] = ft.first[0];
+	    c[1] = ft.first[1];
+	    c[2] = ft.first[2];
 
-    if (index == 0) {
-	    c[0] = force_torques[0].first[0];
-	    c[1] = force_torques[0].first[1];
-	    c[2] = force_torques[0].first[2];
-
-	    c[3] = force_torques[0].second[0];
-	    c[4] = force_torques[0].second[1];
-	    c[5] = force_torques[0].second[2];
+	    c[3] = ft.second[0];
+	    c[4] = ft.second[1];
+	    c[5] = ft.second[2];
     }
 }
 
 __device__
-void tree_gpu::set_conf(const vec *atom_coords, vec *coords, const conf_info
-		*c, unsigned nlig_atoms){
-	// assert(c.torsions.size() == num_nodes-1);
-	int index = threadIdx.x;
-    segment_node* node = NULL;
-	uint natoms;
-	uint current_layer = 0;
+gfloat4p segment_node::sum_force_and_torque(const gfloat4 *coords, const gfloat4 *forces) const {
+	gfloat4p tmp(gfloat4(0, 0, 0, 0), gfloat4(0, 0, 0, 0));
+	VINA_RANGE(i, begin, end) {
+		tmp.first  += forces[i];
+		tmp.second += cross_product(coords[i] - origin, forces[i]);
+	}
+	return tmp;
+}
 
-	if (index < atoms_per_layer[current_layer]) {
-        node = &device_nodes[current_layer];
+__device__
+void tree_gpu::set_conf(const vec *atom_coords, vec *coords,
+                        const conf_info *c){
+    _set_conf((marked_coord *) atom_coords, (gfloat4 *) coords, c);
+}
+
+
+__device__
+void tree_gpu::_set_conf(const marked_coord *atom_coords, gfloat4 *coords,
+                         const conf_info *c){
+    
+	uint tid = threadIdx.x;
+    segment_node &n = device_nodes[tid];
+    marked_coord a = atom_coords[tid];
+
+    uint layer = 0;
+    segment_node *parent = NULL;
+    fl torsion = 0;
+
+    
+    if(tid == 0){
 		for(unsigned i = 0; i < 3; i++)
-			node->origin[i] = c->position[i];
-		node->set_orientation(c->orientation[0],c->orientation[1],c->orientation[2],c->orientation[3]);
-        coords[index] = node->local_to_lab(atom_coords[index]);
-	}
+			n.origin[i] = c->position[i];
+		n.set_orientation(c->orientation[0], c->orientation[1],
+                          c->orientation[2], c->orientation[3]);
+    }else if(tid < num_nodes){
+        layer = n.layer;
+        parent = &device_nodes[n.parent];
+        torsion = c->torsions[tid - 1];
+    }
 
-    natoms = atoms_per_layer[current_layer];
-	__syncthreads();
-	while (current_layer < num_layers-1) {
-	    current_layer++;
-
-		if (index < atoms_per_layer[current_layer]) {
-            atom_node_indices idx_pair = atom_node_list[natoms + index];
-            node = &device_nodes[idx_pair.node_idx];
-			segment_node& parent = device_nodes[node->parent];
-			fl torsion = c->torsions[idx_pair.node_idx-1];
-			node->origin = parent.local_to_lab(node->relative_origin);
-			node->axis = parent.local_to_lab_direction(node->relative_axis);
-			node->set_orientation(
-					quaternion_normalize_approx(
-							angle_to_quaternion(node->axis, torsion) * parent.orientation_q));
-            coords[idx_pair.atom_idx] =
-                node->local_to_lab(atom_coords[idx_pair.atom_idx]);
-		}
-
-        natoms += atoms_per_layer[current_layer];
+    for(uint i = 1; i < num_layers; i++){
         __syncthreads();
-	}
+        if(layer != i)
+            continue;
+        n.origin = parent->local_to_lab(n.relative_origin);
+        n.axis = parent->local_to_lab_direction(n.relative_axis);
+        n.set_orientation(
+            quaternion_normalize_approx(
+                angle_to_quaternion(n.axis, torsion) * parent->orientation_q));
+    }
+    __syncthreads();
+
+    assert(owners[tid] == a.owner_idx);
+    assert(tid >= device_nodes[a.owner_idx].begin &&
+           tid < device_nodes[a.owner_idx].end);
+
+    coords[tid] = device_nodes[a.owner_idx].local_to_lab(a.coords);
 }
