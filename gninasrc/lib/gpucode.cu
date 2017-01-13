@@ -354,6 +354,7 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
 	/* cudaThreadSynchronize(); */
 	/* cudaStreamSynchronize(0); */
 	/* abort_on_gpu_err(); */
+    cudaDeviceSynchronize();
 
 	return out->energy;
 }

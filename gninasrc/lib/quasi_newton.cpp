@@ -51,11 +51,11 @@ void quasi_newton::operator()(model& m,const precalculate& p,const igrid& ig,
           std::cerr << "usergrid not supported in gpu code yet\n";
           exit(-1);
         }
-		quasi_newton_aux_gpu aux(&m, m.gdata, gpu->get_info(), v);
-		change_gpu gchange = new change_gpu(g);
-		conf_gpu gconf = new conf_gpu(out.c);
-		fl res = bfgs(aux, gconf, gchange, average_required_improvement, params);
-		gconf.set_cpu(out.c);
+		quasi_newton_aux_gpu aux(m.gdata, gpu->get_info(), v, &m);
+		change_gpu* gchange = new change_gpu(g);
+		conf_gpu* gconf = new conf_gpu(out.c);
+		fl res = bfgs(aux, *gconf, *gchange, average_required_improvement, params);
+		gconf->set_cpu(out.c);
 		out.e = res;
 	} else {
 		quasi_newton_aux aux(&m, &p, &ig, v, &user_grid);

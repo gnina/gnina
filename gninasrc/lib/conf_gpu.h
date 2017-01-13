@@ -25,6 +25,7 @@ struct change_gpu {
 
 	change_gpu(const change_gpu& src);
 
+    __host__ __device__
 	change_gpu& operator=(const change_gpu& src);
 
 	~change_gpu();
@@ -37,8 +38,10 @@ struct change_gpu {
 
 	__device__ void sub(const change_gpu& rhs);
 
+    __device__
 	void minus_mat_vec_product(const flmat_gpu& m, change_gpu& out) const;
 
+    __host__ __device__
 	sz num_floats() const;
 
 	void get_data(std::vector<float>& d) const;
@@ -71,6 +74,7 @@ struct conf_gpu {
 
 	conf_gpu(const conf_gpu& src);
 
+    __host__ __device__
 	conf_gpu& operator=(const conf_gpu& src);
 
 	~conf_gpu();

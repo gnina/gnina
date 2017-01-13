@@ -824,7 +824,7 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
 	}
 
 	const fl cutoff_sqr = info.cutoff_sq;
-	cudaMemset(scratch, 0, sizeof(float));
+	memset(scratch, 0, sizeof(float));
 
 	if(pairs_size < CUDA_THREADS_PER_BLOCK) {
 		eval_intra_kernel<<<1,pairs_size>>>(info.splineInfo, coords,
@@ -839,8 +839,7 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
                     scratch);
 	}
 
-	cudaMemcpy(&e, scratch, sizeof(float), cudaMemcpyDeviceToHost);
-	return e;
+	return scratch[0];
 }
 
 fl model::evali(const precalculate& p, const vec& v) const { // clean up
@@ -902,8 +901,7 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
 
 	set_conf_kernel<<<1,info.nlig_atoms>>>(treegpu,
                                            atom_coords, (vec*)coords, c.cinfo);
-    CUDA_CHECK_GNINA(cudaMemset(minus_forces, 0,
-                                sizeof(force_energy_tup) * info.nlig_atoms));
+    memset(minus_forces, 0, sizeof(force_energy_tup) * info.nlig_atoms);
     fl e = single_point_calc(info, coords, minus_forces, v[1]); 
 
 	fl ie = eval_interacting_pairs_deriv_gpu(info, v[0]); // adds to minus_forces

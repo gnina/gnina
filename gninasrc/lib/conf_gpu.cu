@@ -14,8 +14,7 @@
        i < (n); \
        i += blockDim.x * gridDim.x)
 
-__global__ void scalar_mult_kernel(float mult, const int n,
-		float *vals) {
+__global__ void scalar_mult_kernel(float mult, const int n, float *vals) {
 	CUDA_KERNEL_LOOP(index, n)
 	{
 		vals[index] *= mult;
@@ -23,8 +22,7 @@ __global__ void scalar_mult_kernel(float mult, const int n,
 }
 
 //compute a -= b (result goes in a
-__global__ void vec_sub_kernel(const int n,
-		float *a, float *b) {
+__global__ void vec_sub_kernel(const int n, float *a, float *b) {
 	CUDA_KERNEL_LOOP(index, n)
 	{
 		a[index] -= b[index];
@@ -50,8 +48,9 @@ __global__ void warp_dot_kernel(const int n, float *a, float *b, float *out)
 		*out = val;
 }
 
-__global__ void minus_mat_vec_product_kernel(const int n, flmat_gpu m, float*
-        in, float* out) {
+__global__
+void minus_mat_vec_product_kernel(const int n, const flmat_gpu &m,
+                                  float*in, float* out) {
     int idx = threadIdx.x;
     fl sum = 0;
     VINA_FOR(j,n)
@@ -99,7 +98,9 @@ change_gpu::change_gpu(const change_gpu& src) :
 	*this = src;
 }
 
+__device__ __host__
 change_gpu& change_gpu::operator=(const change_gpu& src) {
+#ifndef __CUDA_ARCH__    
 	if (change_values == NULL || n < src.n) {
 		if (change_values) {
 			CUDA_CHECK_GNINA(cudaFree(change_values));
@@ -110,14 +111,21 @@ change_gpu& change_gpu::operator=(const change_gpu& src) {
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(change_values, src.change_values, sizeof(float) * n,
 					cudaMemcpyDeviceToDevice));
+#else
+    assert(change_values && n >= src.n);
+    n = src.n;
+    memcpy(change_values, src.change_values, sizeof(float) * n);
+#endif
+    
 	return *this;
 }
 
 void* change_gpu::operator new(size_t count) {
     void* ptr;
-    CUDA_CHECK_GNINA(cudaMallocManaged(&ptr, count, cudaMemAttachHost));
-    CUDA_CHECK_GNINA(cudaStreamAttachMemAsync(cudaStreamPerThread, ptr,
-                count));
+    /* CUDA_CHECK_GNINA(cudaMallocManaged(&ptr, count, cudaMemAttachHost)); */
+    /* CUDA_CHECK_GNINA(cudaStreamAttachMemAsync(cudaStreamPerThread, ptr, */
+    /*             count)); */
+    ptr = malloc(count);
     return ptr;
 }
 
@@ -132,7 +140,7 @@ change_gpu::~change_gpu() {
 
 //dkoes - zeros out all differences
 __host__ __device__ void change_gpu::clear() {
-	CUDA_CHECK_GNINA(cudaMemset(change_values, 0, sizeof(float) * n));
+	memset(change_values, 0, sizeof(float) * n);
 }
 
 //dkoes - multiply by -1
@@ -150,16 +158,17 @@ __device__ float change_gpu::dot(const change_gpu& rhs) const {
 
 //subtract rhs from this
 __device__ void change_gpu::sub(const change_gpu& rhs) {
-
 	vec_sub_kernel<<<1, min(GNINA_CUDA_NUM_THREADS, n)>>>(n,
 				change_values, rhs.change_values);
 }
 
+__device__
 void change_gpu::minus_mat_vec_product(const flmat_gpu& m, change_gpu& out) const {
     minus_mat_vec_product_kernel<<<1,n>>>(n, m, change_values,
-            out.change_values);
+                                          out.change_values);
 }
 
+__host__ __device__
 sz change_gpu::num_floats() const {
 	return n;
 }
@@ -259,7 +268,9 @@ conf_gpu::conf_gpu(const conf_gpu& src) :
 	*this = src;
 }
 
+__host__ __device__
 conf_gpu& conf_gpu::operator=(const conf_gpu& src) {
+#ifndef __CUDA_ARCH__
 	if (cinfo == NULL || n < src.n) {
 		if (cinfo) {
 			CUDA_CHECK_GNINA(cudaFree(cinfo));
@@ -270,14 +281,21 @@ conf_gpu& conf_gpu::operator=(const conf_gpu& src) {
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(cinfo, src.cinfo, sizeof(float) * n,
 					cudaMemcpyDeviceToDevice));
+#else
+    assert(cinfo && n >= src.n);
+	n = src.n;
+    memcpy(cinfo, src.cinfo, sizeof(float) * n);
+#endif
+    
 	return *this;
 }
 
 void* conf_gpu::operator new(size_t count) {
     void* ptr;
-    CUDA_CHECK_GNINA(cudaMallocManaged(&ptr, count, cudaMemAttachHost));
-    CUDA_CHECK_GNINA(cudaStreamAttachMemAsync(cudaStreamPerThread, ptr,
-                count));
+    /* CUDA_CHECK_GNINA(cudaMallocManaged(&ptr, count, cudaMemAttachHost)); */
+    /* CUDA_CHECK_GNINA(cudaStreamAttachMemAsync(cudaStreamPerThread, ptr, */
+    /*             count)); */
+    ptr = malloc(count);
     return ptr;
 }
 

@@ -300,48 +300,9 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	return f0;
 }
 
-__global__
-void bfgs_gpu(quasi_newton_aux_gpu f,
-              conf_gpu& x, conf_gpu& x_orig, conf_gpu &x_new,
-              change_gpu& g, change_gpu& g_orig, conf_gpu &g_new,
-              change_gpu& p, change_gpu& y, flmat_gpu h,
-              const fl average_required_improvement,
-              const minimization_params& params,
-              float* out_energy)
+fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
+        change_gpu& g, const fl average_required_improvement,
+		const minimization_params& params);
 
-template<typename F>
-fl bfgs(F& f, conf_gpu& x, change_gpu& g, const fl average_required_improvement,
-		const minimization_params& params) {
-    sz n = g.num_floats();
-
-    // Initialize and copy Hessian
-    flmat_gpu h(n);
-
-    // Initialize and copy additional conf and change objects
-    // TODO: don't need to pass g/x_orig
-	change_gpu* g_orig = new change_gpu(g);
-	change_gpu* g_new = new change_gpu(g);
-    
-	conf_gpu* x_orig = new conf_gpu(x);
-	conf_gpu* x_new = new conf_gpu(x);
-
-	change_gpu* p = new change_gpu(g);
-    change_gpu* y = new change_gpu(g);
-    // Caches get cleared after a kernel exits, so we want to keep a ligand
-    // running on the GPU until it's finished since a given iteration will
-    // reuse values computed in the previous iteration
-    float* f0;
-    float out_energy;
-
-    CUDA_CHECK_GNINA(cudaMalloc(&f0, sizeof(float)));
-    bfgs_gpu<<<1,1>>>(f,
-                      *x, *x_orig, *x_new,
-                      *g, *g_orig, *g_new,
-                      *p, *y, h,
-                      average_required_improvement, params, f0);
-    CUDA_CHECK_GNINA(cudaMemcpy(&out_energy,
-                                f0, sizeof(float), cudaMemcpyDeviceToHost));
-	return out_energy;
-}
 
 #endif

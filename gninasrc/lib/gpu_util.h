@@ -30,6 +30,7 @@ static inline void abort_on_gpu_err(void){
 #define CUDA_THREADS_PER_BLOCK (512)
 
 // CUDA: number of blocks for N threads with nthreads per block
+__host__ __device__
 inline int CUDA_GET_BLOCKS(const int N, const int nthreads) {
   return (N + nthreads - 1) / nthreads;
 }

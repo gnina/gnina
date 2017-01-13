@@ -38,7 +38,6 @@ public:
 	fl eval(const model& m, fl v) const;
 	//evaluate the model on the gpu, v is the curl amount
 	//sets m.minus_forces and returns total energy
-	virtual fl eval_deriv(model& m, fl v, const grid& user_grid) const;
 
 	const GPUNonCacheInfo& get_info() const { return info; }
 };

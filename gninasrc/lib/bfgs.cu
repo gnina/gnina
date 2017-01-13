@@ -1,30 +1,22 @@
 #include "quasi_newton.h"
 #include "conf_gpu.h"
 #include "matrix.h"
+#include "bfgs.h"
 
 #include <cuda_runtime.h>
-
-__global__ void lambdamin_kernel(fl& test, fl* pvalues, fl* xvalues, sz n) {
-	for (sz i = 0; i < n; i++)
-	{
-		fl temp = fabsf(pvalues[i]) / fmaxf(fabsf(xvalues[i]), 1.0f);
-		if (temp > test)
-			test = temp;
-	}
-}
 
 __device__ fl compute_lambdamin(const change_gpu& p, const conf_gpu& x, sz n)
 
 {
-	fl test;
-    //TODO: duh
-    lambdamin_kernel<<<1,1>>>(test, p.change_values, x.cinfo->values, n);
-	return test;
-}
-
-__global__ void set_diagonal_kernel(flmat_gpu m, fl x) {
-	VINA_FOR(i, m.dim())
-		m(i, i) = x;
+    fl test = 0;
+	for (sz i = 0; i < n; i++)
+	{
+		fl temp = fabsf(p.change_values[i]) / fmaxf(fabsf(x.cinfo->values[i]),
+                                                    1.0f);
+		if (temp > test)
+			test = temp;
+	}
+    return test;
 }
 
 //TODO: operator -=
@@ -35,9 +27,10 @@ void subtract_change(change_gpu& b, const change_gpu& a, sz n)
 }
 
 __device__
-void set_diagonal(const flmat_gpu& m, fl x)
+void set_diagonal(flmat_gpu& m, fl x)
 {
-    set_diagonal_kernel<<<1,1>>>(m,x);
+    VINA_FOR(i, m.dim())
+		m(i, i) = x;
 }
 
 __device__ inline fl scalar_product(const change_gpu& a, const change_gpu& b, sz n)
@@ -132,24 +125,27 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
 	}
 }
 
-__global__ void bfgs_update_aux(const sz n, const fl alpha, const fl r, float coef,
-        flmat_gpu h, float* pvec, float* minus_hyvec) {
-    int i = threadIdx.x;
-    int j = blockIdx.x;
-    if (j >= i) {
-        h(i, j) += alpha * r
-        		* (minus_hyvec[i] * pvec[j] + minus_hyvec[j] * pvec[i])
-        		+coef * pvec[i]	* pvec[j]; // s * s == alpha * alpha * p * p	}
-    }
-}
+/* __global__ */
+/* void bfgs_update_aux(const sz n, const fl alpha, const fl r, float coef, */
+/*                      flmat_gpu &h, float* pvec, float* minus_hyvec) { */
+/*     int i = threadIdx.x; */
+/*     int j = blockIdx.x; */
+/*     if (j >= i) { */
+/*         h(i, j) += alpha * r */
+/*         		* (minus_hyvec[i] * pvec[j] + minus_hyvec[j] * pvec[i]) */
+/*         		+coef * pvec[i]	* pvec[j]; // s * s == alpha * alpha * p * p	} */
+/*     } */
+/* } */
 
-void bfgs_update(const flmat_gpu& h, const change_gpu& p, const
-        change_gpu& y, const fl alpha) {
+__device__
+void bfgs_update(flmat_gpu& h, const change_gpu& p,
+                 const change_gpu& y, const fl alpha,
+                 change_gpu &minus_hy) {
 	const fl yp = y.dot(p);
 	if (alpha * yp < epsilon_fl)
 		return; // FIXME?
 
-	change_gpu minus_hy(y);
+    minus_hy = y;
 	y.minus_mat_vec_product(h, minus_hy);
 
 	const fl yhy = -y.dot(minus_hy);
@@ -157,7 +153,20 @@ void bfgs_update(const flmat_gpu& h, const change_gpu& p, const
 	const sz n = p.num_floats();
 
 	float coef = +alpha * alpha * (r * r * yhy + r) ;
-    bfgs_update_aux<<<n,n>>>(n, alpha, r, coef, h, p.change_values, minus_hy.change_values);
+
+    float *minus_hyvec = minus_hy.change_values;
+    float *pvec = p.change_values;
+	VINA_FOR(i, n)
+		VINA_RANGE(j, i, n) // includes i
+            h(i, j) += alpha * r *
+                       (minus_hyvec[i] * pvec[j] + minus_hyvec[j] * pvec[i])
+                       + coef * pvec[i]	* pvec[j];
+    // s * s == alpha * alpha * p * p	} *
+
+
+    //TODO: spurious(?) compiler complaints about passing pointer to local memory
+    /* bfgs_update_aux<<<n,n>>>(n, alpha, r, coef, h,
+    /*                          p.change_values, minus_hy.change_values); */
 	return;
 }
 
@@ -165,7 +174,7 @@ __global__
 void bfgs_gpu(quasi_newton_aux_gpu f,
               conf_gpu& x, conf_gpu& x_orig, conf_gpu &x_new,
               change_gpu& g, change_gpu& g_orig, change_gpu &g_new,
-              change_gpu& p, change_gpu& y, flmat_gpu h,
+              change_gpu& p, change_gpu& y, flmat_gpu h, change_gpu &minus_hy,
               const fl average_required_improvement,
               const minimization_params& params,
               float* out_energy)
@@ -218,7 +227,7 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
 		}
         // bfgs_update used to return a bool, but the value of that bool never
         // got checked anyway
-		bfgs_update(h, p, y, alpha);
+		bfgs_update(h, p, y, alpha, minus_hy);
 	}
 	if (!(f0 <= f_orig))
 	{ // succeeds for nans too
@@ -229,3 +238,40 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
     *out_energy = f0;
 }
 
+fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
+        change_gpu& g, const fl average_required_improvement,
+		const minimization_params& params) {
+    sz n = g.num_floats();
+
+    // Initialize and copy Hessian
+    flmat_gpu h(n);
+
+    // Initialize and copy additional conf and change objects
+    // TODO: don't need to pass g/x_orig
+	change_gpu* g_orig = new change_gpu(g);
+	change_gpu* g_new = new change_gpu(g);
+    
+	conf_gpu* x_orig = new conf_gpu(x);
+	conf_gpu* x_new = new conf_gpu(x);
+
+	change_gpu* p = new change_gpu(g);
+    change_gpu* y = new change_gpu(g);
+
+    // TODO: only using g for the constructor
+    change_gpu* minus_hy = new change_gpu(g);
+    // Caches get cleared after a kernel exits, so we want to keep a ligand
+    // running on the GPU until it's finished since a given iteration will
+    // reuse values computed in the previous iteration
+    float* f0;
+    float out_energy;
+
+    CUDA_CHECK_GNINA(cudaMalloc(&f0, sizeof(float)));
+    bfgs_gpu<<<1,1>>>(f,
+                      x, *x_orig, *x_new,
+                      g, *g_orig, *g_new,
+                      *p, *y, h, *minus_hy,
+                      average_required_improvement, params, f0);
+    CUDA_CHECK_GNINA(cudaMemcpy(&out_energy,
+                                f0, sizeof(float), cudaMemcpyDeviceToHost));
+	return out_energy;
+}

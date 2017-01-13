@@ -37,10 +37,10 @@ public:
 };
 
 struct quasi_newton_aux_gpu {
-    model* m;
 	gpu_data gdata;
 	const GPUNonCacheInfo ig;
 	const vec v;
+    model* m;
 	quasi_newton_aux_gpu(gpu_data& gdata_,const GPUNonCacheInfo& ig_,
 			const vec& v_, model* m_) :
 			gdata(gdata_), ig(ig_), v(v_), m(m_) {
@@ -51,6 +51,7 @@ struct quasi_newton_aux_gpu {
 		gdata.copy_from_gpu(*m);
 	}
 
+    __device__
 	fl operator()(const conf_gpu& c,change_gpu& g){
 		return gdata.eval_deriv_gpu(ig, v, c, g);
 	}
