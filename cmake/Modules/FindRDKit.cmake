@@ -51,22 +51,27 @@ else()
   endif()
 
   if(NOT RDKIT_LIBRARIES)
-    message("SEARCHING FOR RDKIT...")
     find_library(FILEPARSERS_LIB NAMES FileParsers
       PATHS
-        /home/jeh176/git/rdkit/lib
         ${RDBASE}/lib
-        #        $ENV{RDKIT_LIB_DIR}
-        #$ENV{RDKIT_LIB_PATH}
-        #$ENV{RDKIT_LIBRARIES}
-        #$ENV{RDKIT_BASE}/lib
-        #$ENV{RDBASE}/lib
-        #/usr/local/rdkit/lib
-        #~/rdkit/lib
-        #$ENV{LD_LIBRARY_PATH}
+        $ENV{RDKIT_LIB_DIR}
+        $ENV{RDKIT_LIB_PATH}
+        $ENV{RDKIT_LIBRARIES}
+        $ENV{RDKIT_BASE}/lib
+        $ENV{RDBASE}/lib
+        /usr/local/rdkit/lib
+        ~/rdkit/lib
+        $ENV{LD_LIBRARY_PATH}
+
+       #ignore default path, so search starts with above paths
+       NO_DEFAULT_PATH
     )
+
+    #run with default paths this time
+    find_library(FILEPARSERS_LIB NAMES FileParsers)
+
     if(FILEPARSERS_LIB)
-       set(FILEPARSERS_LIB /home/jeh176/git/rdkit/lib/libFileParsers.so)
+       #set(FILEPARSERS_LIB /home/jeh176/git/rdkit/lib/libFileParsers.so)
        GET_FILENAME_COMPONENT(RDKIT_LIBRARY_DIR ${FILEPARSERS_LIB} PATH)
        message(STATUS "Found RDKit libraries at ${RDKIT_LIBRARY_DIR}")
 
