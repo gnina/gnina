@@ -36,7 +36,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
       : BaseDataLayer<Dtype>(param), actives_pos_(0),
         decoys_pos_(0), all_pos_(0), num_rotations(0), current_rotation(0),
         example_size(0),balanced(false),inmem(false),
-				resolution(0.5), dimension(23.5), radiusmultiple(1.5), randtranslate(0),
+				resolution(0.5), dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0),
 				binary(false), randrotate(false), dim(0), numgridpoints(0),
 				numReceptorTypes(0),numLigandTypes(0), gpu_alloc_size(0),
 				gpu_gridatoms(NULL), gpu_gridwhich(NULL) {}
@@ -145,6 +145,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   double resolution;
   double dimension;
   double radiusmultiple; //extra to consider past vdw radius
+  double fixedradius;
   double randtranslate;
   bool binary; //produce binary occupancies
   bool randrotate;

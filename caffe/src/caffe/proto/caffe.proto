@@ -852,6 +852,8 @@ message MolGridDataParameter {
   optional bool inmemory = 19 [default = false];
   //specify radius multiple
   optional float radius_multiple = 20 [default = 1.5];
+  //if nonzero, set all atomic radii to this value
+  optional float fixed_radius = 21 [default = 0.0];
 }
 
 message NDimDataParameter {

@@ -92,6 +92,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   randtranslate = this->layer_param_.molgrid_data_param().random_translate();
   randrotate = this->layer_param_.molgrid_data_param().random_rotation();
   radiusmultiple = this->layer_param_.molgrid_data_param().radius_multiple();
+  fixedradius = this->layer_param_.molgrid_data_param().fixed_radius();
 
   if(root_folder.length() > 0 && root_folder[root_folder.length()-1] != '/')
     root_folder = root_folder + "/"; //make sure we have trailing slash
@@ -295,7 +296,10 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         ainfo.x = atom.x;
         ainfo.y = atom.y;
         ainfo.z  = atom.z;
-        ainfo.w = xs_radius(t);
+        if(fixedradius <= 0)
+        	ainfo.w = xs_radius(t);
+        else
+        	ainfo.w = fixedradius;
 
         minfo.atoms.push_back(ainfo);
         minfo.whichGrid.push_back(index+mapoffset);
@@ -332,7 +336,10 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         ainfo.x = a->x();
         ainfo.y = a->y();
         ainfo.z  = a->z();
-        ainfo.w = xs_radius(t);
+        if(fixedradius <= 0)
+        	ainfo.w = xs_radius(t);
+        else
+        	ainfo.w = fixedradius;
 
         minfo.atoms.push_back(ainfo);
         minfo.whichGrid.push_back(index+mapoffset);

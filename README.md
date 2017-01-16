@@ -22,3 +22,5 @@ mkdir build
 cd build
 cmake ..
 ```
+
+If you are building for systems with different GPUs, include `-DCUDA_ARCH_NAME=All`.  
