@@ -54,6 +54,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
       const vector<Blob<Dtype>*>& top);
   virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
   //set in memory buffer
   template<typename Atom>
@@ -62,6 +64,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     //make this a template mostly so I don't have to pull in gnina atom class
     mem_rec.atoms.clear();
     mem_rec.whichGrid.clear();
+    mem_rec.gradient.clear();
 
     //receptor atoms
     for(unsigned i = 0, n = receptor.size(); i < n; i++)
@@ -73,8 +76,13 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
       ainfo.y = a.coords[1];
       ainfo.z = a.coords[2];
       ainfo.w = xs_radius(t);
+      float3 gradient;
+      gradient.x = 0.0;
+      gradient.y = 0.0;
+      gradient.z = 0.0;
       mem_rec.atoms.push_back(ainfo);
       mem_rec.whichGrid.push_back(rmap[t]);
+      mem_rec.gradient.push_back(gradient);
     }
   }
 
@@ -84,6 +92,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   {
     mem_lig.atoms.clear();
     mem_lig.whichGrid.clear();
+    mem_lig.gradient.clear();
+
     //ligand atoms, grid positions offset and coordinates are specified separately
     vec center(0,0,0);
     unsigned acnt = 0;
@@ -98,8 +108,13 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
         ainfo.y = coord[1];
         ainfo.z = coord[2];
         ainfo.w = xs_radius(t);
+        float3 gradient;
+        gradient.x = 0.0;
+        gradient.y = 0.0;
+        gradient.z = 0.0;
         mem_lig.atoms.push_back(ainfo);
         mem_lig.whichGrid.push_back(lmap[t]+numReceptorTypes);
+        mem_lig.gradient.push_back(gradient);
         center += coord;
         acnt++;
       }
@@ -167,6 +182,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   struct mol_info {
     vector<float4> atoms;
     vector<short> whichGrid; //separate for better memory layout on gpu
+    vector<float3> gradient;
     vec center; //precalculate centroid, includes any random translation
     boost::array< pair<float, float>, 3> dims;
 
@@ -176,19 +192,36 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     {
       atoms.insert(atoms.end(), a.atoms.begin(), a.atoms.end());
       whichGrid.insert(whichGrid.end(), a.whichGrid.begin(), a.whichGrid.end());
+      gradient.insert(gradient.end(), a.gradient.begin(), a.gradient.end());
     }
   };
 
+  struct mol_transform {
+    mol_info mol;
+    quaternion Q;  // rotation
+    vec center; // translation
+
+    mol_transform() {
+      mol = mol_info();
+      Q = quaternion(0,0,0,0);
+      center[0] = center[1] = center[2] = 0;
+    }
+  };
+
+  //need to remember how mols were transformed for backward pass
+  vector<mol_transform> batch_transform;
+
   boost::unordered_map<string, mol_info> molcache;
-  mol_info mem_rec; //molecular data set programmatically with setMemory
-  mol_info mem_lig; //molecular data set programmatically with setMemory
+  mol_info mem_rec; //molecular data set programmatically with setReceptor
+  mol_info mem_lig; //molecular data set programmatically with setLigand
 
   quaternion axial_quaternion();
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
-  void set_grid_ex(Dtype *grid, const example& ex, bool gpu);
-  void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms, bool gpu);
+  void set_grid_ex(Dtype *grid, const example& ex, mol_transform& transform, bool gpu);
+  void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms, mol_transform& transform, bool gpu);
 
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
+  void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu);
 };
 
 
