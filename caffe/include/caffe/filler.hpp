@@ -261,6 +261,22 @@ class BilinearFiller : public Filler<Dtype> {
   }
 };
 
+template <typename Dtype>
+class BlobProtoFiller : public Filler<Dtype> {
+ public:
+  explicit BlobProtoFiller(const FillerParameter& param)
+      : Filler<Dtype>(param) {
+    fstream input(param.source().c_str(), ios::in | ios::binary);
+    blob_proto_.ParseFromIstream(&input);
+  }
+  virtual void Fill(Blob<Dtype>* blob) {
+    blob->FromProto(blob_proto_);
+  }
+
+ protected:
+  BlobProto blob_proto_;
+};
+
 /**
  * @brief Get a specific filler from the specification given in FillerParameter.
  *
@@ -284,6 +300,8 @@ Filler<Dtype>* GetFiller(const FillerParameter& param) {
     return new MSRAFiller<Dtype>(param);
   } else if (type == "bilinear") {
     return new BilinearFiller<Dtype>(param);
+  } else if (type == "blob_proto") {
+    return new BlobProtoFiller<Dtype>(param);
   } else {
     CHECK(false) << "Unknown filler name: " << param.type();
   }
