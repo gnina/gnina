@@ -61,6 +61,7 @@ message FillerParameter {
     AVERAGE = 2;
   }
   optional VarianceNorm variance_norm = 8 [default = FAN_IN];
+  optional string source = 9;
 }
 
 message NetParameter {
