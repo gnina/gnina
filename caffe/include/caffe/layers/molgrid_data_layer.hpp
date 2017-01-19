@@ -57,10 +57,29 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
-  //getter for atom gradient of a structure in current batch
-  vector<float3> getAtomGradient(int batch_idx)
+  //get atom gradient from current batch
+  vector<float3> getReceptorAtomGradient(int batch_idx)
   {
-    return batch_transform[batch_idx].mol.gradient;
+    vector<float3> rec_grad;
+    mol_info& mol = batch_transform[batch_idx].mol;
+    for (unsigned i = 0; i < mol.atoms.size(); ++i)
+    {
+      if (mol.whichGrid[i] < numReceptorTypes)
+        rec_grad.push_back(mol.gradient[i]);
+    }
+    return rec_grad;
+  }
+
+  vector<float3> getLigandAtomGradient(int batch_idx)
+  {
+    vector<float3> lig_grad;
+    mol_info& mol = batch_transform[batch_idx].mol;
+    for (unsigned i = 0; i < mol.atoms.size(); ++i)
+    {
+      if (mol.whichGrid[i] >= numReceptorTypes)
+        lig_grad.push_back(mol.gradient[i]);
+    }
+    return lig_grad;
   }
 
   //set in memory buffer
