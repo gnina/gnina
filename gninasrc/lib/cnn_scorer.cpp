@@ -72,6 +72,7 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		if (cnnopts.cnn_gradient)
 		{
 			param.set_force_backward(true);
+			compute_gradient = true;
 		}
 
 		net.reset(new Net<float>(param));
@@ -134,7 +135,7 @@ float CNNScorer::score(const model& m)
 	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
 	mgrid->setReceptor<atom>(m.get_fixed_atoms());
-	mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
+	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates());
 
 	double score = 0.0;
 	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
@@ -143,8 +144,10 @@ float CNNScorer::score(const model& m)
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{
 		net->Forward();
-		if (false) //TODO get from cnn_opts
+		if (compute_gradient)
+		{
 			net->Backward();		
+		}
 
 		const Dtype* out = outblob->cpu_data();
 		score += out[1];

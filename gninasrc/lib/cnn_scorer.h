@@ -40,6 +40,7 @@ class CNNScorer {
 	unsigned rotations;
 	unsigned seed;
 	bool random_rotate;
+	bool compute_gradient;
 	caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
 
 public:
