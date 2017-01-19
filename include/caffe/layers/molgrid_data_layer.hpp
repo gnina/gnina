@@ -57,6 +57,12 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
+  //getter for atom gradient of a structure in current batch
+  vector<float3> getAtomGradient(int batch_idx)
+  {
+    return batch_transform[batch_idx].mol.gradient;
+  }
+
   //set in memory buffer
   template<typename Atom>
   void setReceptor(const vector<Atom>& receptor)
