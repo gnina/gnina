@@ -49,7 +49,7 @@ __global__ void warp_dot_kernel(const int n, float *a, float *b, float *out)
 }
 
 __global__
-void minus_mat_vec_product_kernel(const int n, const flmat_gpu &m,
+void minus_mat_vec_product_kernel(const int n, const flmat_gpu m,
                                   float*in, float* out) {
     int idx = threadIdx.x;
     fl sum = 0;
