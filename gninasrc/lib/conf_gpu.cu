@@ -122,10 +122,9 @@ change_gpu& change_gpu::operator=(const change_gpu& src) {
 
 void* change_gpu::operator new(size_t count) {
     void* ptr;
-    /* CUDA_CHECK_GNINA(cudaMallocManaged(&ptr, count, cudaMemAttachHost)); */
-    /* CUDA_CHECK_GNINA(cudaStreamAttachMemAsync(cudaStreamPerThread, ptr, */
-    /*             count)); */
-    ptr = malloc(count);
+    CUDA_CHECK_GNINA(cudaMallocManaged(&ptr, count, cudaMemAttachHost));
+    CUDA_CHECK_GNINA(cudaStreamAttachMemAsync(cudaStreamPerThread, ptr));
+    // ptr = malloc(count);
     return ptr;
 }
 
@@ -292,10 +291,9 @@ conf_gpu& conf_gpu::operator=(const conf_gpu& src) {
 
 void* conf_gpu::operator new(size_t count) {
     void* ptr;
-    /* CUDA_CHECK_GNINA(cudaMallocManaged(&ptr, count, cudaMemAttachHost)); */
-    /* CUDA_CHECK_GNINA(cudaStreamAttachMemAsync(cudaStreamPerThread, ptr, */
-    /*             count)); */
-    ptr = malloc(count);
+    CUDA_CHECK_GNINA(cudaMallocManaged(&ptr, count, cudaMemAttachHost));
+    CUDA_CHECK_GNINA(cudaStreamAttachMemAsync(cudaStreamPerThread, ptr));
+    // ptr = malloc(count);
     return ptr;
 }
 

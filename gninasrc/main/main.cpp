@@ -1028,6 +1028,7 @@ Thank you!\n";
 
 		positional_options_description positional; // remains empty
 
+
 		options_description inputs("Input");
 		inputs.add_options()
 		("receptor,r", value<std::string>(&rigid_name),

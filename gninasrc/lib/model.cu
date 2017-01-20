@@ -1290,7 +1290,7 @@ void model::deallocate_gpu() {
 //copy relevant data to gpu buffers
 void gpu_data::copy_to_gpu(model& m) {
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(coords, &m.coords[0], m.coords.size() * sizeof(vec),
+			cudaMemcpy(coords, &m.coords[0], coords_size * sizeof(vec),
 					cudaMemcpyHostToDevice));
 
 	//minus_forces gets initialized in eval_deriv
@@ -1301,7 +1301,7 @@ void gpu_data::copy_to_gpu(model& m) {
 void gpu_data::copy_from_gpu(model& m) {
 	assert(coords);
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(&m.coords[0], coords, m.coords.size() * sizeof(vec),
+			cudaMemcpy(&m.coords[0], coords, coords_size * sizeof(vec),
 					cudaMemcpyDeviceToHost));
 
 }

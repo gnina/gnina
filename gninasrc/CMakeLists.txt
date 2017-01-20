@@ -3,13 +3,17 @@ find_package(CUDA REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options system iostreams timer thread serialization filesystem date_time regex)
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
-  list(APPEND CUDA_NVCC_FLAGS -O3)
+  list(APPEND CUDA_NVCC_FLAGS -O3 --default-stream per-thread)
 elseif("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-  list(APPEND CUDA_NVCC_FLAGS -O0)
+  list(APPEND CUDA_NVCC_FLAGS -O0 -G --default-stream per-thread)
 endif()
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
-  list(APPEND CUDA_NVCC_FLAGS -g -lineinfo)
+  list(APPEND CUDA_NVCC_FLAGS -g)
+endif()
+
+if("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
+  list(APPEND CUDA_NVCC_FLAGS -lineinfo)
 endif()
 
 set(CUDA_SEPARABLE_COMPILATION "ON")
@@ -68,9 +72,13 @@ lib/precalculate_gpu.cu
 lib/tree_gpu.cu
 )
 
+# set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
+find_library(CUDA_DEV_RT NAMES cudadevrt PATHS ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
 cuda_add_library(gninalib ${LIB_SRCS} OPTIONS ${NVCC_FLAGS_EXTRA} --shared)
 set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
+target_link_libraries(gninalib caffe ${Boost_LIBRARIES}
+    ${OPENBABEL2_LIBRARIES})
+MESSAGE(STATUS "variable is: " ${NVCC_FLAGS_EXTRA})
 install(TARGETS gninalib DESTINATION lib)
 
 #cuda_add_library(gninalib_static STATIC ${LIB_SRCS} OPTIONS ${NVCC_FLAGS_EXTRA})
@@ -81,7 +89,7 @@ include_directories(lib)
 
 # compile in libgnina - there are enough dependencies to deal with
 cuda_add_executable(gnina main/main.cpp ${LIB_SRCS})
-target_link_libraries(gnina caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
+target_link_libraries(gnina caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT})
 
 add_subdirectory(gninaserver)
 
