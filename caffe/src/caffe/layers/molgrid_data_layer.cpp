@@ -558,8 +558,7 @@ template <typename Dtype>
 void MolGridDataLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
-  if (propagate_down[0])
-    backward(top, bottom, false);
+  backward(top, bottom, false);
 }
 
 

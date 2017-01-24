@@ -27,7 +27,7 @@ struct cnn_options {
 	bool cnn_gradient; //if true, compute cnn_gradient of final pose
 	unsigned seed; //random seed
 
-	cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), cnn_gradient(false), seed(0) {}
+	cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), cnn_gradient(true), seed(0) {}
 };
 
 /* This class evaluates protein-ligand poses according to a provided
@@ -53,6 +53,7 @@ public:
 
 	float score(const model& m);
 
+	void outputXYZ(const string& fname, const model& m, const vector<float3> rec_grad, const vector<float3> lig_grad);
 };
 
 #endif /* SRC_LIB_CNN_SCORER_H_ */
