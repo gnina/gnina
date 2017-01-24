@@ -53,7 +53,7 @@ public:
 
 	float score(const model& m);
 
-	void outputXYZ(const string& fname, const model& m, const vector<float3> rec_grad, const vector<float3> lig_grad);
+	void outputXYZ(const string& base, const model& m, const vector<float3> rec_grad, const vector<float3> lig_grad);
 };
 
 #endif /* SRC_LIB_CNN_SCORER_H_ */
