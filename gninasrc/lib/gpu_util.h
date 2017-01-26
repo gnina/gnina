@@ -3,13 +3,13 @@
 
 #include <stdio.h>
 
-static inline void abort_on_gpu_err(void){
+__device__ static inline void abort_on_gpu_err(void){
     cudaError err = cudaGetLastError();
     if (cudaSuccess != err)
     {
-        fprintf(stderr, "cudaCheckError() failed at %s:%i : %s\n",
+        printf("cudaCheckError() failed at %s:%i : %s\n",
                 __FILE__, __LINE__, cudaGetErrorString(err));
-        exit(-1);
+        // exit(-1);
     }
 }
 

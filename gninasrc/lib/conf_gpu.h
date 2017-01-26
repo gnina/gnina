@@ -85,6 +85,8 @@ struct conf_gpu {
 
 	void set_data(std::vector<float>& d) const;
 
+    __device__ void print_gpu() const;
+
 	void print() const;
 
     void* operator new(size_t count);

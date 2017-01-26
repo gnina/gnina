@@ -44,7 +44,7 @@ struct quasi_newton_aux_gpu {
 	quasi_newton_aux_gpu(gpu_data& gdata_,const GPUNonCacheInfo& ig_,
 			const vec& v_, model* m_) :
 			gdata(gdata_), ig(ig_), v(v_), m(m_) {
-		gdata.copy_to_gpu(*m);
+		// gdata.copy_to_gpu(*m);
 	}
 
 	~quasi_newton_aux_gpu() {

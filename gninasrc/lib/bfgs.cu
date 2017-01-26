@@ -61,6 +61,8 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
 		//gradient isn't actually in a decreasing direction
 		x_new = x;
 		g_new.clear(); //dkoes - set gradient to zero
+        //TODO: unnecessary? are memset calls issued to the default stream?
+        cudaDeviceSynchronize();
 		return 0;
 	}
 	test = compute_lambdamin(p, x, n);
@@ -69,8 +71,12 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
 	alpha = FIRST; //single newton step
 	for (;;) //always try full newton step first
 	{
+        printf("x_new=%p x=%p\n", &x_new, &x);
+        cudaDeviceSynchronize();
 		x_new = x;
+        cudaDeviceSynchronize();
 		x_new.increment(p, alpha);
+        cudaDeviceSynchronize();
 
 		f1 = f(x_new, g_new);
 
@@ -79,6 +85,8 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
 		{
 			x_new = x;
 			g_new.clear(); //dkoes - set gradient to zero
+            //TODO: unnecessary? are memset calls issued to the default stream?
+            cudaDeviceSynchronize();
 			return 0;
 		}
 		else if (f1 <= f0 + ALF * alpha * slope)
@@ -147,6 +155,7 @@ void bfgs_update(flmat_gpu& h, const change_gpu& p,
 
     minus_hy = y;
 	y.minus_mat_vec_product(h, minus_hy);
+    cudaDeviceSynchronize();
 
 	const fl yhy = -y.dot(minus_hy);
 	const fl r = 1 / (alpha * yp); // 1 / (s^T * y) , where s = alpha * p // FIXME   ... < epsilon
@@ -167,7 +176,6 @@ void bfgs_update(flmat_gpu& h, const change_gpu& p,
     //TODO: spurious(?) compiler complaints about passing pointer to local memory
     /* bfgs_update_aux<<<n,n>>>(n, alpha, r, coef, h,
     /*                          p.change_values, minus_hy.change_values); */
-	return;
 }
 
 __global__
@@ -190,6 +198,7 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
 
         //do we even care about the fast_line_search?
 		assert(params.type == minimization_params::BFGSAccurateLineSearch);
+        cudaDeviceSynchronize();
 		fl alpha = accurate_line_search_gpu(f, n, x, g, f0,
                                             p, x_new, g_new, f1, alpha);
 
@@ -199,6 +208,7 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
 		y = g_new;
         // Update line direction
 		subtract_change(y, g, n);
+        cudaDeviceSynchronize();
 
 		fl prevf0 = f0;
 		f0 = f1;
@@ -222,8 +232,10 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
 		if (step == 0)
 		{
 			const fl yy = scalar_product(y, y, n);
-			if (fabsf(yy) > epsilon_fl)
-				set_diagonal(h, alpha * scalar_product(y, p, n) / yy);
+			if (fabsf(yy) > epsilon_fl) {
+                const fl yp = scalar_product(y, p, n);
+				set_diagonal(h, alpha * yp / yy);
+            }
 		}
         // bfgs_update used to return a bool, but the value of that bool never
         // got checked anyway
@@ -259,9 +271,6 @@ fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
 
     // TODO: only using g for the constructor
     change_gpu* minus_hy = new change_gpu(g);
-    // Caches get cleared after a kernel exits, so we want to keep a ligand
-    // running on the GPU until it's finished since a given iteration will
-    // reuse values computed in the previous iteration
     float* f0;
     float out_energy;
 
@@ -274,8 +283,10 @@ fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
     // this free might be able to go back in the destructor if we don't use
     // dynamic parallelism that involves passing the Hessian between kernels.
     // right now we are, so it can't be there. #askmehowInknow
+    cudaDeviceSynchronize();
     CUDA_CHECK_GNINA(cudaFree(h.m_data));
     CUDA_CHECK_GNINA(cudaMemcpy(&out_energy,
                                 f0, sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK_GNINA(cudaFree(f0));
 	return out_energy;
 }

@@ -301,10 +301,19 @@ void interaction_energy(const GPUNonCacheInfo dinfo, //intentionally copying fro
 	float3 deriv = block_sum<float3>(rec_deriv);
 	if (threadIdx.x == 0) {
 		curl(this_e, (float *) &deriv, v);
-        //TODO: this should be atomic. Won't see errors from it until more
-        //than 1 block can run at a time and num rec atoms >= 2048.
+        //TODO: this is a race condition if there are multiple blocks and
+        //nrec_atoms > 2048. A commented-out solution below should probably be
+        //applied iff this condition is met.
 		out[l] += force_energy_tup(deriv + out_of_bounds_deriv,
 				this_e + out_of_bounds_penalty);
+        // force_energy_tup res = force_energy_tup(deriv + out_of_bounds_deriv, 
+                // this_e + out_of_bounds_penalty);
+        // atomicAdd(&out[l][0], res[0]);
+        // atomicAdd(&out[l][1], res[1]);
+        // atomicAdd(&out[l][2], res[2]);
+        // atomicAdd(&out[l][3], res[3]);
+        // pseudoAtomicAdd(&out[l], force_energy_tup(deriv + out_of_bounds_deriv,
+                    // this_e + out_of_bounds_penalty));
 	}
 }
 
@@ -350,10 +359,9 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
 				nrec_atoms - nthreads_remain, slope, v, ligs, out);
 
 	//get total energy
+    cudaDeviceSynchronize();
 	reduce_energy<<<1, ROUND_TO_WARP(nlig_atoms)>>>(out, nlig_atoms);
-	/* cudaThreadSynchronize(); */
-	/* cudaStreamSynchronize(0); */
-	/* abort_on_gpu_err(); */
+    abort_on_gpu_err();
     cudaDeviceSynchronize();
 
 	return out->energy;

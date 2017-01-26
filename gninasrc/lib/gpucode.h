@@ -37,6 +37,20 @@ struct __align__(sizeof(float4)) force_energy_tup{
   __host__ __device__ force_energy_tup(float3 f, float e)
     : minus_force(f), energy(e){};
 
+  __host__ __device__
+  const fl& operator[](sz i) const { 
+      return i == 0 ? minus_force.x : 
+             i == 1 ? minus_force.y : 
+             i == 2 ? minus_force.z : 
+             energy;
+  }
+  __host__ __device__
+  fl& operator[](sz i) { 
+      return i == 0 ? minus_force.x : 
+             i == 1 ? minus_force.y : 
+             i == 2 ? minus_force.z : 
+             energy;
+  }
 };
 
 struct GPUNonCacheInfo

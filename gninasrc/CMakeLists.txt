@@ -78,7 +78,7 @@ cuda_add_library(gninalib ${LIB_SRCS} OPTIONS ${NVCC_FLAGS_EXTRA} --shared)
 set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
 target_link_libraries(gninalib caffe ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES})
-MESSAGE(STATUS "variable is: " ${NVCC_FLAGS_EXTRA})
+# MESSAGE(STATUS "variable is: " ${NVCC_FLAGS_EXTRA})
 install(TARGETS gninalib DESTINATION lib)
 
 #cuda_add_library(gninalib_static STATIC ${LIB_SRCS} OPTIONS ${NVCC_FLAGS_EXTRA})

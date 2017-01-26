@@ -61,23 +61,6 @@ struct gpu_data {
   	gpu_data(): coords(NULL), atom_coords(NULL), minus_forces(NULL),
   			treegpu(NULL), interacting_pairs(NULL), scratch(NULL), coords_size(0),
   			atom_coords_size(0), forces_size(0), pairs_size(0) {}
-  	//do NOT allow pointers to be copied - must explicitly initialize
-  	// gpu_data(const gpu_data& g): coords(NULL), atom_coords(NULL),
-  			// minus_forces(NULL), treegpu(NULL), interacting_pairs(NULL), scratch(NULL),
-  			// coords_size(0), atom_coords_size(0), forces_size(0), pairs_size(0) {}
-
-  	gpu_data& operator=(const gpu_data& g) {
-  		//TODO: this is ugly, but we really only want to allocate gpu memory when we truly need it
-  		//for sanity's sake, eventually make this do the right thing (and probably wrap other gpu functions into this class)
-  		coords = NULL;
-  		atom_coords = NULL;
-  		minus_forces = NULL;
-  		treegpu = NULL;
-  		interacting_pairs = NULL;
-  		scratch = NULL;
-  		coords_size = atom_coords_size = forces_size = pairs_size = 0;
-          return *this;
-  	}
 
     __device__
 	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v) const;

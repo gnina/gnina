@@ -89,3 +89,8 @@ fl non_cache_gpu::eval(const model& m, fl v) const
   abort(); //not implemented
 }
 
+void non_cache_gpu::setSlope(fl sl) {
+    slope = sl;
+    info.slope = sl;
+}
+

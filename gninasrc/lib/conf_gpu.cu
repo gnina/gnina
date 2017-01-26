@@ -115,6 +115,7 @@ change_gpu& change_gpu::operator=(const change_gpu& src) {
     assert(change_values && n >= src.n);
     n = src.n;
     memcpy(change_values, src.change_values, sizeof(float) * n);
+            
 #endif
     
 	return *this;
@@ -152,6 +153,7 @@ void change_gpu::invert() {
 __device__ float change_gpu::dot(const change_gpu& rhs) const {
 	//since N is small, I think we should do a single warp of threads for this
 	warp_dot_kernel<<<1, (n <= WARPSIZE/2 ? WARPSIZE/2 : WARPSIZE)>>>(n, change_values, rhs.change_values, &change_values[n]);
+    cudaDeviceSynchronize();
 	return change_values[n];
 }
 
@@ -341,12 +343,20 @@ void conf_gpu::get_data(std::vector<float>& d) const {
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(&d[0], cinfo, n * sizeof(float),
 					cudaMemcpyDeviceToHost));
+    cudaDeviceSynchronize();
 }
 
 void conf_gpu::set_data(std::vector<float>& d) const {
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(cinfo, &d[0], n * sizeof(float),
 					cudaMemcpyHostToDevice));
+    cudaDeviceSynchronize();
+}
+
+__device__ void conf_gpu::print_gpu() const {
+    for (unsigned i=0; i<n; i++) 
+        printf("%f ", cinfo->values[i]);
+    printf("\n");
 }
 
 void conf_gpu::print() const {

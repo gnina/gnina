@@ -825,6 +825,7 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
 
 	const fl cutoff_sqr = info.cutoff_sq;
 	memset(scratch, 0, sizeof(float));
+    cudaDeviceSynchronize();
 
 	if(pairs_size < CUDA_THREADS_PER_BLOCK) {
 		eval_intra_kernel<<<1,pairs_size>>>(info.splineInfo, coords,
@@ -838,7 +839,6 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
                     interacting_pairs, pairs_size, cutoff_sqr, v, minus_forces,
                     scratch);
 	}
-
 	return scratch[0];
 }
 
@@ -901,16 +901,24 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
 
 	set_conf_kernel<<<1,info.nlig_atoms>>>(treegpu,
                                            atom_coords, (vec*)coords, c.cinfo);
+    cudaDeviceSynchronize();
+
     memset(minus_forces, 0, sizeof(force_energy_tup) * info.nlig_atoms);
+    cudaDeviceSynchronize();
+
+    c.print_gpu();
+    cudaDeviceSynchronize();
     fl e = single_point_calc(info, coords, minus_forces, v[1]); 
+    cudaDeviceSynchronize();
 
 	fl ie = eval_interacting_pairs_deriv_gpu(info, v[0]); // adds to minus_forces
+    cudaDeviceSynchronize();
 
 	e += ie;
 	// calculate derivatives
 	derivatives_kernel<<<1,info.nlig_atoms>>>
         (treegpu, (vec*)coords, (vec*)minus_forces, g.change_values);
-
+    cudaDeviceSynchronize();
 	// t.stop();
 	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */
 	return e;
@@ -1255,6 +1263,9 @@ void model::initialize_gpu() {
 			cudaMemcpy(gdata.atom_coords, &acoords[0],
 					sizeof(vec) * atoms.size(), cudaMemcpyHostToDevice));
 
+	CUDA_CHECK_GNINA(
+			cudaMemcpy(gdata.coords, &coords[0], coords.size() *
+                sizeof(atom_params), cudaMemcpyHostToDevice));
 }
 
 void model::deallocate_gpu() {
@@ -1303,6 +1314,6 @@ void gpu_data::copy_from_gpu(model& m) {
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(&m.coords[0], coords, coords_size * sizeof(vec),
 					cudaMemcpyDeviceToHost));
-
+    cudaDeviceSynchronize();
 }
 

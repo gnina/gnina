@@ -67,7 +67,8 @@ __device__ __inline__ static
 T pseudoAtomicAdd(T* address, T value) {
     return T(atomicAdd(&((*address)[0]), value[0]),
             atomicAdd(&((*address)[1]), value[1]),
-            atomicAdd(&((*address)[2]), value[2]));
+            atomicAdd(&((*address)[2]), value[2]),
+            atomicAdd(&((*address)[3]), value[3]));
 }
 
 #endif
