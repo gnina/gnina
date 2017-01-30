@@ -149,7 +149,8 @@ float CNNScorer::score(const model& m)
 		if (compute_gradient)
 		{
 			net->Backward();
-			outputXYZ("DEBUG", m, mgrid->getReceptorAtomGradient(0), mgrid->getLigandAtomGradient(0));
+			outputXYZ("DEBUG_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
+			outputXYZ("DEBUG_lig", mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
 		}
 
 		cnt++;
@@ -158,37 +159,22 @@ float CNNScorer::score(const model& m)
 	return score / cnt;
 }
 
-void CNNScorer::outputXYZ(const string& base, const model& m, const vector<float3> rec_grad, const vector<float3> lig_grad)
+void CNNScorer::outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient)
 {
-	const char* el_sym[] = {"H", "C", "N", "O", "S", "P", "F", "Cl", "Br", "I", "Met"};
+	const char* sym[] = {"C", "C", "C", "C", "Ca", "Fe", "Mg", "N", "N", "N", "N", "O", "O", "P", "S", "Zn",
+			     "C", "C", "C", "C", "Br", "Cl", "F",  "N", "N", "N", "N", "O", "O", "O", "P", "S", "S", "I"};
 
-	const string& rec_fname = base + "_rec.xyz";
-	ofstream rec_out(rec_fname.c_str());
-	rec_out.precision(5);
-	const atomv& rec_atoms = m.get_fixed_atoms();
-	rec_out << rec_atoms.size() << "\n\n";
-	for (unsigned i = 0, n = rec_atoms.size(); i < n; ++i)
-	{
-		rec_out << el_sym[smina_atom_type::default_data[rec_atoms[i].sm].el] << " ";
-		rec_out << rec_atoms[i].coords[0] << " " << rec_atoms[i].coords[1] << " " << rec_atoms[i].coords[2] << " ";
-		rec_out << rec_grad[i].x << " " << rec_grad[i].y << " " << rec_grad[i].z;
-		if (i + 1 < n)
-			rec_out << "\n";
-	}
+	const string& fname = base + ".xyz";
+	ofstream out(fname.c_str());
+	out.precision(5);
 
-	const string& lig_fname = base + "_lig.xyz";
-	ofstream lig_out(lig_fname.c_str());
-	lig_out.precision(5);
-	const atomv& lig_atoms = m.get_movable_atoms();
-	const vector<vec> lig_coords = m.coordinates();
-	lig_out << lig_atoms.size() << "\n\n";
-	for (unsigned i = 0, n = lig_atoms.size(); i < n; ++i)
+	out << atoms.size() << "\n\n";
+	for (unsigned i = 0, n = atoms.size(); i < n; ++i)
 	{
-		lig_out << el_sym[smina_atom_type::default_data[lig_atoms[i].sm].el] << " ";
-		lig_out << lig_coords[i][0] << " " << lig_coords[i][1] << " " << lig_coords[i][2] << " ";
-		lig_out << lig_grad[i].x << " " << lig_grad[i].y << " " << lig_grad[i].z;
-		if (i + 1 < n)
-			lig_out << "\n";
+		out << sym[whichGrid[i]] << " ";
+		out << atoms[i].x << " " << atoms[i].y << " " << atoms[i].z << " ";
+		out << gradient[i].x << " " << gradient[i].y << " " << gradient[i].z;
+		if (i + 1 < n) out << "\n";
 	}
 }
 
