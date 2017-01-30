@@ -855,6 +855,10 @@ message MolGridDataParameter {
   optional float radius_multiple = 20 [default = 1.5];
   //if nonzero, set all atomic radii to this value
   optional float fixed_radius = 21 [default = 0.0];
+  //if true, has affinity in addition to label - order is label affinity rmd
+  optional bool has_affinity = 22 [default = false];
+  //if true has rmsd in addition to label - order is label affinity rmsd
+  optional bool has_rmsd = 23 [default = false];
 }
 
 message NDimDataParameter {
