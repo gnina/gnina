@@ -46,7 +46,9 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
   virtual inline const char* type() const { return "MolGridData"; }
   virtual inline int ExactNumBottomBlobs() const { return 0; }
-  virtual inline int ExactNumTopBlobs() const { return 2; }
+  virtual inline int ExactNumTopBlobs() const { return 2+
+		  this->layer_param_.molgrid_data_param().has_affinity()+
+		  this->layer_param_.molgrid_data_param().has_rmsd(); }
 
   virtual inline void resetRotation() { current_rotation = 0; }
 
@@ -120,9 +122,12 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   	string receptor;
   	string ligand;
   	Dtype label;
+  	Dtype affinity;
+  	Dtype rmsd;
 
-  	example(): label(0) {}
-  	example(Dtype l, const string& r, const string& lig): receptor(r), ligand(lig), label(l) {}
+  	example(): label(0), affinity(0), rmsd(0) {}
+  	example(Dtype l, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0) {}
+  	example(Dtype l, Dtype a, Dtype rms, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms) {}
 	};
 
   virtual void Shuffle();
@@ -139,6 +144,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   bool balanced;
   bool inmem;
   vector<Dtype> labels;
+  vector<Dtype> affinities;
+  vector<Dtype> rmsds;
 
   //grid stuff
   GridMaker gmaker;
