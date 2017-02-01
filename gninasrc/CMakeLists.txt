@@ -94,16 +94,19 @@ target_link_libraries(gnina caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${C
 add_subdirectory(gninaserver)
 
 cuda_add_executable(fromgnina fromgnina/fromgnina.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(fromgnina  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
+target_link_libraries(fromgnina  caffe gninalib ${Boost_LIBRARIES}
+    ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT})
 
 cuda_add_executable(gninagrid gninagrid/gninagrid.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(gninagrid  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
+target_link_libraries(gninagrid  caffe gninalib ${Boost_LIBRARIES}
+    ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT})
 
 cuda_add_executable(gninatyper gninatyper/gninatyper.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(gninatyper  caffe gninalib ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT})
 
 cuda_add_executable(tognina tognina/tognina.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
+target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES}
+    ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT})
 
 install(TARGETS gnina gninagrid gninatyper fromgnina tognina RUNTIME DESTINATION bin)
