@@ -100,7 +100,8 @@ cuda_add_executable(gninagrid gninagrid/gninagrid.cpp lib/CommandLine2/CommandLi
 target_link_libraries(gninagrid  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
 
 cuda_add_executable(gninatyper gninatyper/gninatyper.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(gninatyper  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
+target_link_libraries(gninatyper  caffe gninalib ${Boost_LIBRARIES}
+    ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT})
 
 cuda_add_executable(tognina tognina/tognina.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
