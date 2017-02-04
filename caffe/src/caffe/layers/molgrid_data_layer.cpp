@@ -541,8 +541,8 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       for (int item_id = 0; item_id < batch_size; ++item_id) {
         int offset = item_id*example_size;
         labels.push_back(all_[all_pos_].label);
-        affinities.push_back(actives_[all_pos_].affinity);
-        rmsds.push_back(actives_[all_pos_].rmsd);
+        affinities.push_back(all_[all_pos_].affinity);
+        rmsds.push_back(all_[all_pos_].rmsd);
 
         set_grid_ex(data+offset, all_[all_pos_], gpu);
 
