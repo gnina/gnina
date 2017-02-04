@@ -906,8 +906,6 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
     memset(minus_forces, 0, sizeof(force_energy_tup) * info.nlig_atoms);
     cudaDeviceSynchronize();
 
-    c.print_gpu();
-    cudaDeviceSynchronize();
     fl e = single_point_calc(info, coords, minus_forces, v[1]); 
     cudaDeviceSynchronize();
 

@@ -61,7 +61,6 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
 		//gradient isn't actually in a decreasing direction
 		x_new = x;
 		g_new.clear(); //dkoes - set gradient to zero
-        //TODO: unnecessary? are memset calls issued to the default stream?
         cudaDeviceSynchronize();
 		return 0;
 	}
@@ -71,8 +70,6 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
 	alpha = FIRST; //single newton step
 	for (;;) //always try full newton step first
 	{
-        printf("x_new=%p x=%p\n", &x_new, &x);
-        cudaDeviceSynchronize();
 		x_new = x;
         cudaDeviceSynchronize();
 		x_new.increment(p, alpha);
@@ -131,6 +128,7 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
 		//considered slowing things down with f1 > 0, but it was slow without actually improving scores
 		alpha = fmaxf(tmplam, (fl)0.1 * alpha); //never smaller than a tenth
 	}
+	return 0; // absolutely necessary to workaround nvcc compiler bug!!! (only took N days to find..)
 }
 
 /* __global__ */
@@ -259,7 +257,7 @@ fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
     flmat_gpu h(n);
 
     // Initialize and copy additional conf and change objects
-    // TODO: don't need to pass g/x_orig
+    // TODO: don't need to pass g_orig/x_orig
 	change_gpu* g_orig = new change_gpu(g);
 	change_gpu* g_new = new change_gpu(g);
     
@@ -280,9 +278,6 @@ fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
                       g, *g_orig, *g_new,
                       *p, *y, h, *minus_hy,
                       average_required_improvement, params, f0);
-    // this free might be able to go back in the destructor if we don't use
-    // dynamic parallelism that involves passing the Hessian between kernels.
-    // right now we are, so it can't be there. #askmehowInknow
     cudaDeviceSynchronize();
     CUDA_CHECK_GNINA(cudaFree(h.m_data));
     CUDA_CHECK_GNINA(cudaMemcpy(&out_energy,
