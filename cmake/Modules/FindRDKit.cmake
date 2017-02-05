@@ -40,6 +40,7 @@ else()
           $ENV{RDKIT_INCLUDE_PATH}
           $ENV{RDKIT_BASE}/Code
           $ENV{RDBASE}/Code
+	  /usr/include/rdkit
           /usr/local/include/rdkit
           /usr/local/rdkit/include/Code
           /usr/local/rdkit/include
