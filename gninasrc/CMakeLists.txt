@@ -24,7 +24,6 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${CUDA_INCLUDE_DIRS})
 include_directories(${OPENBABEL2_INCLUDE_DIRS})
 include_directories(${RDKIT_INCLUDE_DIR})
-include_directories(/home/jeh176/git/rdkit/Code)
 # need to use eigen 3.2 until CUDA fixes are released
 include_directories(../Eigen)
 

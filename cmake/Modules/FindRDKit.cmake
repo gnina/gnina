@@ -12,10 +12,12 @@
 #  http://nextmovesoftware.com/blog/2013/02/04/looking-for-a-c-cheminformatics-toolkit/
 #  https://github.com/timvdm/MolDB/blob/master/cmake/modules/FindRDKit.cmake
 
+include(FindPackageHandleStandardArgs)
+
 if(RDKIT_INCLUDE_DIR AND RDKIT_LIBRARIES)
   # in cache already or user-specified
-  set(RDKIT_FOUND TRUE)
-
+  find_package_handle_standard_args(RDKit  DEFAULT_MSG
+                                  RDKIT_INCLUDE_DIR RDKIT_LIBRARIES)
 else()
 
   if(NOT RDKIT_INCLUDE_DIR)
@@ -61,6 +63,7 @@ else()
         $ENV{RDBASE}/lib
         /usr/local/rdkit/lib
         ~/rdkit/lib
+        ${RDKIT_LIBRARY_DIR}
         $ENV{LD_LIBRARY_PATH}
 
        #ignore default path, so search starts with above paths
@@ -71,7 +74,6 @@ else()
     find_library(FILEPARSERS_LIB NAMES FileParsers)
 
     if(FILEPARSERS_LIB)
-       #set(FILEPARSERS_LIB /home/jeh176/git/rdkit/lib/libFileParsers.so)
        GET_FILENAME_COMPONENT(RDKIT_LIBRARY_DIR ${FILEPARSERS_LIB} PATH)
        message(STATUS "Found RDKit libraries at ${RDKIT_LIBRARY_DIR}")
 
@@ -105,9 +107,7 @@ else()
     endif()
   endif()
 
-  if(RDKIT_INCLUDE_DIR AND RDKIT_LIBRARIES)
-    set(RDKIT_FOUND TRUE)
-  endif()
-
-  mark_as_advanced(RDKIT_INCLUDE_DIR RDKIT_LIBRARIES)
+  find_package_handle_standard_args(RDKit  DEFAULT_MSG
+                                  RDKIT_INCLUDE_DIR RDKIT_LIBRARIES)
+  mark_as_advanced(RDKIT_INCLUDE_DIR RDKIT_LIBRARIES RDKIT_LIBRARY_DIR)
 endif()
