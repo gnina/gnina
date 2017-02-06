@@ -490,6 +490,7 @@ message AccuracyParameter {
 
 message AffinityLossParameter {
 	optional float cutoff = 1 [default = 0];
+	optional float scale = 2 [default = 1.0]; //multiply difference to reduce size of gradient
 }
 
 message ArgMaxParameter {
