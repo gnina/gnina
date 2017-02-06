@@ -21,6 +21,9 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   Dtype sum = 0.0;
   Dtype cutoff = this->layer_param_.affinity_loss_param().cutoff();
   Dtype scale = this->layer_param_.affinity_loss_param().scale();
+  bool hinge = this->layer_param_.affinity_loss_param().affinity_hinge();
+
+
   const Dtype *labels = bottom[1]->cpu_data();
   const Dtype *preds = bottom[0]->cpu_data();
   Dtype *d = diff_.mutable_cpu_data();
@@ -28,6 +31,7 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   for(unsigned i = 0; i < count; i++) {
 	 Dtype label = labels[i];
 	 Dtype pred = preds[i];
+	 if(hinge) cutoff = label;
 	 if(label > 0) { //normal euclidean
 		 Dtype diff = pred-label;
 		 d[i] = scale*diff;
