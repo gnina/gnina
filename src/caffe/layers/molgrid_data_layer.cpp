@@ -543,14 +543,13 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         labels.push_back(all_[all_pos_].label);
         affinities.push_back(all_[all_pos_].affinity);
         rmsds.push_back(all_[all_pos_].rmsd);
-
         set_grid_ex(data+offset, all_[all_pos_], gpu);
 
         all_pos_++;
         if(all_pos_ >= sz) {
           DLOG(INFO) << "Restarting data  from start.";
           all_pos_ = 0;
-          if (this->layer_param_.ndim_data_param().shuffle()) {
+          if (this->layer_param_.molgrid_data_param().shuffle()) {
             shuffle(all_.begin(), all_.end(), caffe_rng());
           }
           if (num_rotations > 0) {
