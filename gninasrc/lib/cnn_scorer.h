@@ -49,7 +49,10 @@ public:
 
 	bool initialized() const { return net.get(); }
 
+	bool has_affinity() const; //return true if can predict affinity
+
 	float score(const model& m);
+	float score(const model& m, float& affinity);
 
 };
 
