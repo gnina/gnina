@@ -21,10 +21,10 @@ namespace caffe {
 /**
  * @brief Custom layer. Inputs are predicted affinity and true affinity.
  * Euclidean loss is computed if there is a positive true affinity.
- * If the true affinity is zero, a hinge like L2 loss is computed with
- * respected to a user-supplied cutoff (e.g., if predicted loss is less
- * than the cutoff, no penalty; if it is more, L2 penalty).
- * If the true affinity is negative, no penalty is assessed.
+ * If the true affinity is negative, a hinge like L2 loss is computed
+ * with respect to the absolute value (i.e., the predicted value is penalized
+ * for being greater than the "true" value).
+ * If the true affinity is zero, no penalty is assessed.
  *
  * This is *not* symmetric. The *second* input is assumed to be the true affinity.
  *
