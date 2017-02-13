@@ -74,6 +74,8 @@ class Net {
   void BackwardFrom(int start);
   void BackwardTo(int end);
 
+  void Backward_Relevance(const std::vector<int> & classinds);
+
   /**
    * @brief Reshape all layers from bottom to top.
    *

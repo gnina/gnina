@@ -979,6 +979,10 @@ const shared_ptr<Layer<Dtype> > Net<Dtype>::layer_by_name(
   return layer_ptr;
 }
 
+template<typename Dtype>
+void Net<Dtype>::Backward_Relevance(const std::vector<int> & classinds){
+}
+
 INSTANTIATE_CLASS(Net);
 
 }  // namespace caffe

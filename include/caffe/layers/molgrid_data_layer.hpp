@@ -197,6 +197,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms, bool gpu);
 
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
+  void Backward_relevance(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 };
 
 

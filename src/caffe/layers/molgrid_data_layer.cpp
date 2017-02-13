@@ -587,6 +587,10 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
 
 }
 
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
+}
 
 INSTANTIATE_CLASS(MolGridDataLayer);
 REGISTER_LAYER_CLASS(MolGridData);
