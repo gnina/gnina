@@ -72,6 +72,12 @@ void ConvolutionLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
+template <typename Dtype>
+void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+        std::cout << "convolutionlayer backward_relevance";
+}
+
 #ifdef CPU_ONLY
 STUB_GPU(ConvolutionLayer);
 #endif

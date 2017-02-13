@@ -177,3 +177,7 @@ float CNNScorer::score(const model& m)
 	float aff = 0;
 	return score(m,aff);
 }
+
+float CNNScorer::score_relevance(const model& m)
+{
+}
