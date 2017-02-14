@@ -353,6 +353,8 @@ struct model {
 	const atomv& get_fixed_atoms() const { return grid_atoms; }
 	const atomv& get_movable_atoms() const { return atoms; }
 
+	void set_minus_forces(const std::vector<float3> forces);
+
 	//allocate gpu memory, model must be setup
 	//also copies over data that does not change during minimization
 	//if model changes, must re-initialize

@@ -17,6 +17,7 @@
 #include "non_cache.h"
 #include "naive_non_cache.h"
 #include "non_cache_gpu.h"
+#include "non_cache_cnn.h"
 #include "parse_error.h"
 #include "everything.h"
 #include "weighted_terms.h"
@@ -240,7 +241,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< " (kcal/mol)";
 		log.endl();
 
-		cnnscore = cnn.score(m);
+		cnnscore = cnn.score(m, false);
 		if(cnnscore >= 0.0)
 		{
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
@@ -307,7 +308,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< intramolecular_energy
 				<< " (kcal/mol)\nRMSD: " << rmsd;
 		log.endl();
-		cnnscore = cnn.score(m);
+		cnnscore = cnn.score(m, false);
 		if(cnnscore >= 0.0)
 		{
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
@@ -467,18 +468,31 @@ void main_procedure(model& m, precalculate& prec,
 	}
 	else
 	{
-
 		non_cache *nc = NULL;
 		if (settings.gpu_on)
 		{
-			precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
-			if (!gprec)
-				abort();
-			nc = new non_cache_gpu(gridcache, gd, gprec, slope);
+			if (false)
+			{
+				abort(); //TODO implement non_cache_cnn_gpu()
+			}
+			else
+			{
+				precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
+				if (!gprec)
+					abort();
+				nc = new non_cache_gpu(gridcache, gd, gprec, slope);
+			}
 		}
 		else
 		{
-			nc = new non_cache(gridcache, gd, &prec, slope);
+			if (true)
+			{
+				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
+			}
+			else
+			{
+				nc = new non_cache(gridcache, gd, &prec, slope);
+			}
 		}
 		/* cudaProfilerStart(); */
 

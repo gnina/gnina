@@ -69,11 +69,9 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 			//BUT it turns out this isn't actually faster
 			//bsize = nrot;
 		}
-		if (cnnopts.cnn_gradient)
-		{
-			param.set_force_backward(true);
-			compute_gradient = true;
-		}
+
+		//backpropagate to atoms
+		param.set_force_backward(true);
 
 		net.reset(new Net<float>(param));
 
@@ -126,7 +124,7 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 }
 
 //return score of model, assumes receptor has not changed from initialization
-float CNNScorer::score(const model& m)
+float CNNScorer::score(model& m, bool compute_gradient)
 {
 	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
@@ -149,8 +147,7 @@ float CNNScorer::score(const model& m)
 		if (compute_gradient)
 		{
 			net->Backward();
-			outputXYZ("DEBUG_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
-			outputXYZ("DEBUG_lig", mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
+			m.set_minus_forces(mgrid->getLigandGradient(0));
 		}
 
 		cnt++;

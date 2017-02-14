@@ -24,10 +24,9 @@ struct cnn_options {
 	fl resolution; //this isn't specified in model file, so be careful about straying from default
 	unsigned cnn_rotations; //do we want to score multiple orientations?
 	bool cnn_scoring; //if true, do cnn_scoring of final pose
-	bool cnn_gradient; //if true, compute cnn_gradient of final pose
 	unsigned seed; //random seed
 
-	cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), cnn_gradient(true), seed(0) {}
+	cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), seed(0) {}
 };
 
 /* This class evaluates protein-ligand poses according to a provided
@@ -51,7 +50,7 @@ public:
 
 	bool initialized() const { return net.get(); }
 
-	float score(const model& m);
+	float score(model& m, bool compute_gradient);
 
 	void outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient);
 };

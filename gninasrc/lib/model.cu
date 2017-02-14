@@ -939,6 +939,21 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	return e;
 }
 
+void model::set_minus_forces(const std::vector<float3> forces)
+{
+	unsigned n_lig_atoms = num_movable_atoms();
+	assert(forces.size() == n_lig_atoms);
+	minus_forces.clear();
+	VINA_FOR(i, n_lig_atoms)
+	{
+		vec tmp;
+		tmp.data[0] = forces[i].x;
+		tmp.data[1] = forces[i].y;
+		tmp.data[2] = forces[i].z;
+		minus_forces.push_back(tmp);
+	}
+}
+
 //evaluate interactiongs between all of flex (including rigid) and protein
 //will ignore grid_atoms greater than max
 fl model::eval_flex(const precalculate& p, const vec& v, const conf& c,

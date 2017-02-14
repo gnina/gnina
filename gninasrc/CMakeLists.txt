@@ -45,6 +45,7 @@ lib/my_pid.cpp
 lib/naive_non_cache.cpp
 lib/nngridder.cpp
 lib/non_cache.cpp
+lib/non_cache_cnn.cpp
 lib/obmolopener.cpp
 lib/parallel_mc.cpp
 lib/parallel_progress.cpp
