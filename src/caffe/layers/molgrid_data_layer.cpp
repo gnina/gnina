@@ -568,7 +568,7 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const ve
 {
   Dtype *diff = NULL;
   if(gpu)
-    diff = top[0]->mutable_gpu_diff();
+    diff = top[0]->mutable_cpu_diff(); //TODO
   else
     diff = top[0]->mutable_cpu_diff();
 
