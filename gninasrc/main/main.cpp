@@ -76,6 +76,7 @@ struct user_settings
 	bool dominimize;
 	bool include_atom_info;
 	bool gpu_on;
+	bool cnn_scoring;
 
 	//reasonable defaults
 	user_settings() :
@@ -471,9 +472,10 @@ void main_procedure(model& m, precalculate& prec,
 		non_cache *nc = NULL;
 		if (settings.gpu_on)
 		{
-			if (false)
+			if (settings.cnn_scoring)
 			{
-				abort(); //TODO implement non_cache_cnn_gpu()
+                                //TODO implement non_cache_cnn_gpu
+				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
 			}
 			else
 			{
@@ -485,7 +487,7 @@ void main_procedure(model& m, precalculate& prec,
 		}
 		else
 		{
-			if (true)
+			if (settings.cnn_scoring)
 			{
 				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
 			}
@@ -1142,7 +1144,7 @@ Thank you!\n";
 				"resolution of grids, don't change unless you really know what you are doing")
 		("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
 				"evaluate multiple rotations of pose (max 24)")
-		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
+		("cnn_scoring", bool_switch(&settings.cnn_scoring)->default_value(false),
 				"Use a convolutional neural network to score final pose.");
 
 		options_description misc("Misc (optional)");
@@ -1249,6 +1251,7 @@ Thank you!\n";
 		OpenBabel::OBPlugin::LoadAllPlugins(); //for some reason loading on demand can be slow
 #endif
 		cnnopts.seed = settings.seed;
+		cnnopts.cnn_scoring = settings.cnn_scoring;
 		
 		set_fixed_rotable_hydrogens(!flex_hydrogens);
 
