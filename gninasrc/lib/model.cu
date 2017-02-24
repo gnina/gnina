@@ -941,15 +941,26 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 
 void model::set_minus_forces(const std::vector<float3> forces)
 {
-	unsigned n_lig_atoms = num_movable_atoms();
-	assert(forces.size() == n_lig_atoms);
+	assert(forces.size() <= m_num_movable_atoms);
 	minus_forces.clear();
-	VINA_FOR(i, n_lig_atoms)
+	minus_forces.reserve(m_num_movable_atoms);
+	unsigned j = 0;
+	VINA_FOR(i, m_num_movable_atoms)
 	{
 		vec tmp;
-		tmp.data[0] = forces[i].x;
-		tmp.data[1] = forces[i].y;
-		tmp.data[2] = forces[i].z;
+		if (atoms[i].is_hydrogen()) // no hydrogen forces
+		{
+			tmp.data[0] = 0.0;
+			tmp.data[1] = 0.0;
+			tmp.data[2] = 0.0;
+		}
+		else
+		{
+			tmp.data[0] = forces[j].x;
+			tmp.data[1] = forces[j].y;
+			tmp.data[2] = forces[j].z;
+			j += 1;
+		}
 		minus_forces.push_back(tmp);
 	}
 }
