@@ -143,8 +143,86 @@ void InnerProductLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 template <typename Dtype>
 void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
+        
         std::cout << "innerproductlayer backward_relevance";
+        float alpha = 2.0;
+        float beta = 1.0;
+
+        for (int i = 0; i < top.size(); ++i)
+        {
+                const Dtype* top_diff = top[i]->cpu_diff();
+                const Dtype* bottom_data = bottom[i]->cpu_data();
+
+                const Dtype* weights = this->blobs_[0]->cpu_data();
+
+                Dtype* bottom_diff = bottom[i]->mutable_cpu_diff();
+
+                caffe_set(bottom[i]->count(), Dtype(0.0), bottom_diff);
+
+                Blob < Dtype > pos_sums(1,1,M_,N_);
+                Blob < Dtype > neg_sums(1,1,M_,N_);
+
+                Dtype * pos_sums_data = pos_sums.mutable_cpu_data();
+                Dtype * neg_sums_data = neg_sums.mutable_cpu_data();
+
+                memset(pos_sums_data, 0, sizeof(Dtype) * M_ *N_);
+                memset(neg_sums_data, 0, sizeof(Dtype) * M_ *N_);
+
+                //calculate total positive and negative relevance for layer
+                for (long m = 0; m < M_; ++m)
+                {
+                    for(long n = 0; n < N_; ++n)
+                    {
+                        for(long k = 0; k < K_; ++k)
+                        {
+                            pos_sums_data[m * N_ + n] += 
+                                std::max(Dtype(0.), bottom_data[m * K_ + k] * weights[n * K_ + k]);
+                            neg_sums_data[m * N_ + n] += 
+                                std::min(Dtype(0.), bottom_data[m * K_ + k] * weights[n * K_ + k]);
+
+                        }
+                    }
+                }
+                
+                for (long m = 0; m < M_; ++m)
+                {
+                    for (long n = 0; n < N_; ++n)
+                    {
+                        Dtype z1 = 0;
+                        if (pos_sums_data[m * N_ + n] > 0)
+                        {
+                            z1 = top_diff[m * N_ + n] / pos_sums_data[m * N_ + n];
+                        }
+                        Dtype z2 = 0;
+
+                        if (neg_sums_data[m * N_ + n] < 0)
+                        {
+                            z1 = top_diff[m * N_ + n] / neg_sums_data[m * N_ + n];
+                        }
+                                
+                        for(long k = 0; k < K_; ++k)
+                        {
+                            bottom_diff[m * K_ + k] +=
+                                alpha * std::max(Dtype(0.), bottom_data[m * K_ + k]
+                                      * weights[n * K_ + k]) 
+                                      * z1
+                                - beta * std::min(Dtype(0.), bottom_data[m * K_ + k]
+                                      * weights[n * K_ + k]) 
+                                      * z2;
+                        }
+                    }
+                }
+
+
+
+        }
+
+
+
+
+
 }
+
 
 #ifdef CPU_ONLY
 STUB_GPU(InnerProductLayer);
