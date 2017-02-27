@@ -55,6 +55,7 @@ public:
 	float score(const model& m, float& affinity);
     
     float score_relevance(const model& m);
+    void lrp(const model& m);
 
 };
 

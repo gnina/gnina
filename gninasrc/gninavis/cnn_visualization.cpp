@@ -48,6 +48,26 @@ cnn_visualization::cnn_visualization (const vis_options &visopts, const cnn_opti
     }
 }
 
+
+void cnn_visualization::lrp()
+{
+    std::cout << "Starting LRP...\n";
+
+    process_molecules();
+
+    std::stringstream rec_stream(rec_string);
+    model receptor = parse_receptor_pdbqt("", rec_stream);
+    CNNScorer scorer(cnnopts, *center, receptor);
+
+    std::stringstream lig_stream(lig_string);
+    model ligand = parse_ligand_stream_pdbqt("", lig_stream);
+
+    receptor.append(ligand);
+
+    scorer.lrp(receptor);
+}
+
+
 void cnn_visualization::color()
 {
     if(visopts.verbose)

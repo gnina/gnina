@@ -151,6 +151,9 @@ class Layer {
       const vector<bool>& propagate_down,
       const vector<Blob<Dtype>*>& bottom);
 
+  virtual void Backward_relevance(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
   /**
    * @brief Returns the vector of learnable parameter blobs.
    */
@@ -471,6 +474,8 @@ void Layer<Dtype>::ToProto(LayerParameter* param, bool write_diff) {
     blobs_[i]->ToProto(param->add_blobs(), write_diff);
   }
 }
+
+
 
 }  // namespace caffe
 

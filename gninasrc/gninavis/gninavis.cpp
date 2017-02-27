@@ -132,5 +132,5 @@ int main(int argc, char* argv[])
   vec center(center_x,center_y,center_z);
 
   cnn_visualization vis = cnn_visualization(visopts, cnnopts, center);
-  vis.color();
+  vis.lrp();
 }

@@ -181,3 +181,16 @@ float CNNScorer::score(const model& m)
 float CNNScorer::score_relevance(const model& m)
 {
 }
+
+void CNNScorer::lrp(const model& m)
+{
+    boost::lock_guard<boost::mutex> guard(*mtx);
+	
+	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
+
+	mgrid->setReceptor<atom>(m.get_fixed_atoms());
+	mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
+
+    net->Backward_Relevance();
+}
+

@@ -31,6 +31,7 @@ class cnn_visualization
 {
     public:
     cnn_visualization(const vis_options &visopts, const cnn_options &cnnopts, const vec &center);
+    void lrp();
     void color();
     void print();
 

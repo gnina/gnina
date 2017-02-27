@@ -980,7 +980,22 @@ const shared_ptr<Layer<Dtype> > Net<Dtype>::layer_by_name(
 }
 
 template<typename Dtype>
-void Net<Dtype>::Backward_Relevance(const std::vector<int> & classinds){
+void Net<Dtype>::Backward_Relevance(){
+    
+    Forward();
+	const caffe::shared_ptr<Blob<Dtype> > outblob = blob_by_name("output");
+	const Dtype* out = outblob->cpu_data();
+    std::cout << out[1] << "\n";
+    std::cout << layer_names_[3] << "\n";
+    for(int i = layers_.size() - 1; i >= 0; i--)
+    {
+          std::cout << "starting layer " << i << "\n";
+          std::cout << "layer type: " << layer_names_[i] << "\n";
+          vector<bool> propagate_down (10);
+
+          layers_[i]->Backward_relevance(top_vecs_[i], propagate_down, bottom_vecs_[i]);
+    }
+
 }
 
 INSTANTIATE_CLASS(Net);
