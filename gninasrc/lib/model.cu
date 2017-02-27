@@ -901,12 +901,14 @@ fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
 
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
 
-	fl ie = eval_interacting_pairs_deriv_gpu(ncgpu->get_info(), v[0]); // adds to minus_forces
+	if(!ig.skip_interacting_pairs()) {
+		fl ie = eval_interacting_pairs_deriv_gpu(ncgpu->get_info(), v[0]); // adds to minus_forces
 
-	CUDA_CHECK_GNINA(
-			cudaMemcpy(&minus_forces[0], gdata.minus_forces,
-					minus_forces.size() * sizeof(vec), cudaMemcpyDeviceToHost));
-	e += ie;
+		CUDA_CHECK_GNINA(
+				cudaMemcpy(&minus_forces[0], gdata.minus_forces,
+						minus_forces.size() * sizeof(vec), cudaMemcpyDeviceToHost));
+		e += ie;
+	}
 	// calculate derivatives
 	derivatives_kernel<<<1,ligands[0].degrees_of_freedom+1>>>(gdata.treegpu, (vec*)gdata.coords, (vec*)gdata.minus_forces, g.change_values);
 
@@ -924,14 +926,16 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
 
-	e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
-			minus_forces); // adds to minus_forces
-
-	fl ie = 0;
-	VINA_FOR_IN(i, ligands)
-		ie += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
+	if(!ig.skip_interacting_pairs()) {
+		e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
 				minus_forces); // adds to minus_forces
-	e += ie;
+
+		fl ie = 0;
+		VINA_FOR_IN(i, ligands)
+			ie += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
+					minus_forces); // adds to minus_forces
+		e += ie;
+	}
 	// calculate derivatives
 	ligands.derivative(coords, minus_forces, g.ligands);
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored

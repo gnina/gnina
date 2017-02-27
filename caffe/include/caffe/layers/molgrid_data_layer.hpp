@@ -115,7 +115,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     mol_info& mol = batch_transform[batch_idx].mol;
     for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
       if (mol.whichGrid[i] >= numReceptorTypes)
-        gradient.push_back(mol.gradient[i]);
+        gradient.push_back(-mol.gradient[i]);
     return gradient;
   }
 

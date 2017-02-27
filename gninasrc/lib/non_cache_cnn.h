@@ -40,6 +40,7 @@ struct non_cache_cnn : public non_cache {
 	bool within(const model& m, fl margin = 0.0001) const;
 	void setSlope(fl sl) { slope = sl; }
 	fl getSlope() { return slope; }
+	virtual bool skip_interacting_pairs() const { return true; }
 protected:
 	fl slope;
 	grid_dims gd;

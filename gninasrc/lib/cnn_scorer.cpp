@@ -152,7 +152,6 @@ float CNNScorer::score(model& m, bool compute_gradient)
 
 		cnt++;
 	}
-
 	return score / cnt;
 }
 
