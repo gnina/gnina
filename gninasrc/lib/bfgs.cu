@@ -149,18 +149,20 @@ void bfgs_update(flmat_gpu& h, const change_gpu& p,
                  const change_gpu& y, const fl alpha,
                  change_gpu &minus_hy) {
 	const fl yp = y.dot(p);
+    int idx = threadIdx.x;
 	if (alpha * yp < epsilon_fl)
 		return; // FIXME?
 
-    if (threadIdx.x == 0) {
+    if (idx == 0)
         minus_hy = y;
+
+    if (idx < minus_hy.n)
 	    y.minus_mat_vec_product(h, minus_hy);
-        cudaDeviceSynchronize();
-    }
+
     __syncthreads();
 
 	const fl yhy = -y.dot(minus_hy);
-    if (threadIdx.x == 0) {
+    if (idx == 0) {
 	    const fl r = 1 / (alpha * yp); // 1 / (s^T * y) , where s = alpha * p // FIXME   ... < epsilon
 	    const sz n = p.num_floats();
 
@@ -192,21 +194,20 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
     __shared__ fl f1;
     __shared__ fl f0;
     float f_orig;
+    int idx = threadIdx.x;
 
-    if (threadIdx.x == 0) {
+    if (idx == 0) {
         f0 = f(x, g);
 	    f_orig = f0;
     }
 	VINA_U_FOR(step, params.maxiters)
 	{
-        if (threadIdx.x == 0) {
+        if (idx < g.n) {
 		    minus_mat_vec_product(h, g, p);
             // f1 is the returned energy for the next iteration of eval_deriv_gpu
 		    f1 = 0;
-
             //do we even care about the fast_line_search?
 		    assert(params.type == minimization_params::BFGSAccurateLineSearch);
-            cudaDeviceSynchronize();
         }
         __syncthreads();
 		alpha = accurate_line_search_gpu(f, n, x, g, f0,
@@ -215,26 +216,28 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
 			break;
         fl prevf0;
 
-        if (threadIdx.x == 0) {
+        if (idx == 0) {
 		    y = g_new;
-            // Update line direction
-		    subtract_change(y, g, n);
 
 		    prevf0 = f0;
 		    f0 = f1;
 		    x = x_new;
         }
 
+        // Update line direction
+        if (idx < y.n)
+		    subtract_change(y, g, n);
+
 		if (params.early_term)
 		{
-            if (threadIdx.x == 0)
+            if (idx == 0)
 			    diff = prevf0 - f0;
             __syncthreads();
 			if (fabsf(diff) < 1e-5) 
 				break;
 		}
 
-        if (threadIdx.x == 0) 
+        if (idx == 0) 
 		    g = g_new; 
 
         __syncthreads();
@@ -249,7 +252,7 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
 			const fl yy = scalar_product(y, y, n);
 			if (fabsf(yy) > epsilon_fl) {
                 const fl yp = scalar_product(y, p, n);
-                if (threadIdx.x == 0)
+                if (idx == 0)
 				    set_diagonal(h, alpha * yp / yy);
             }
 		}
@@ -257,7 +260,7 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
         // got checked anyway
 		bfgs_update(h, p, y, alpha, minus_hy);
 	}
-    if (threadIdx.x == 0) {
+    if (idx == 0) {
 	    if (!(f0 <= f_orig))
 	    { // succeeds for nans too
 	    	f0 = f_orig;
@@ -293,6 +296,7 @@ fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
     float out_energy;
 
     CUDA_CHECK_GNINA(cudaMalloc(&f0, sizeof(float)));
+    //TODO: make safe for the case where nlig_atoms > 1024?
     bfgs_gpu<<<1,max(WARPSIZE,f.ig.nlig_atoms)>>>(f,
                       x, *x_orig, *x_new,
                       g, *g_orig, *g_new,

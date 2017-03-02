@@ -18,24 +18,6 @@ __global__ void scalar_mult_kernel(float mult, const int n, float *vals) {
 	}
 }
 
-//compute a -= b (result goes in a
-__global__ void vec_sub_kernel(const int n, float *a, float *b) {
-	CUDA_KERNEL_LOOP(index, n)
-	{
-		a[index] -= b[index];
-	}
-}
-
-__global__
-void minus_mat_vec_product_kernel(const int n, const flmat_gpu m,
-                                  float*in, float* out) {
-    int idx = threadIdx.x;
-    fl sum = 0;
-    VINA_FOR(j,n)
-        sum += m(m.index_permissive(idx,j)) * in[j];
-    out[idx] = -sum;
-}
-
 change_gpu::change_gpu(const change& src) :
 		change_values(NULL), n(0) {
 	std::vector<float> data;
@@ -131,7 +113,7 @@ void change_gpu::invert() {
 __device__ float change_gpu::dot(const change_gpu& rhs) const {
 	//since N is small, I think we should do a single warp of threads for this
     if (threadIdx.x < WARPSIZE) {
-	    int start = blockIdx.x * blockDim.x + threadIdx.x;
+	    int start = threadIdx.x;
 	    float val = 0.0;
 	    for(int i = start; i < n; i += WARPSIZE)
 	    {
@@ -139,7 +121,7 @@ __device__ float change_gpu::dot(const change_gpu& rhs) const {
 	    }
 	    //now warp reduce with shuffle
 
-	    for(uint offset = WARPSIZE/2; offset > 0; offset >>= 1)
+	    for(uint offset = WARPSIZE>>1; offset > 0; offset >>= 1)
 	    	val += __shfl_down(val, offset);
 
 	    if(start == 0)
@@ -151,14 +133,18 @@ __device__ float change_gpu::dot(const change_gpu& rhs) const {
 
 //subtract rhs from this
 __device__ void change_gpu::sub(const change_gpu& rhs) {
-	vec_sub_kernel<<<1, min(GNINA_CUDA_NUM_THREADS, n)>>>(n,
-				change_values, rhs.change_values);
+    int nthreads = blockDim.x < n ? blockDim.x : n;
+	for (int index = threadIdx.x; index < n; index += nthreads)
+		change_values[index] -= rhs.change_values[index];
 }
 
 __device__
 void change_gpu::minus_mat_vec_product(const flmat_gpu& m, change_gpu& out) const {
-    minus_mat_vec_product_kernel<<<1,n>>>(n, m, change_values,
-                                          out.change_values);
+    int idx = threadIdx.x;
+    fl sum = 0;
+    VINA_FOR(j,n)
+        sum += m(m.index_permissive(idx,j)) * change_values[j];
+    out.change_values[idx] = -sum;
 }
 
 __host__ __device__
