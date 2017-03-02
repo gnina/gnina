@@ -26,7 +26,8 @@ __device__ static inline void abort_on_gpu_err(void){
 #define CUDA_CHECK_GNINA(condition) condition
 #endif
 
-
+#define GNINA_CUDA_NUM_THREADS (512)
+#define WARPSIZE (32)
 #define CUDA_THREADS_PER_BLOCK (512)
 
 // CUDA: number of blocks for N threads with nthreads per block

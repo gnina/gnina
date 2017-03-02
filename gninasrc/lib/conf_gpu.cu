@@ -6,9 +6,6 @@
 
 #include "conf_gpu.h"
 
-#define GNINA_CUDA_NUM_THREADS (512)
-#define WARPSIZE (32)
-
 #define CUDA_KERNEL_LOOP(i, n) \
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
        i < (n); \
@@ -27,25 +24,6 @@ __global__ void vec_sub_kernel(const int n, float *a, float *b) {
 	{
 		a[index] -= b[index];
 	}
-}
-
-//compute dot(a,b) using a single warp -> call with exactly WARPSIZE threads
-__global__ void warp_dot_kernel(const int n, float *a, float *b, float *out)
-{
-	int start = blockIdx.x * blockDim.x + threadIdx.x;
-	float val = 0.0;
-	int warpSize = blockDim.x; //allow for dynamic warp sizes (in practice 16 or 32)
-	for(int i = start; i < n; i += warpSize)
-	{
-		val += a[i]*b[i];
-	}
-	//now warp reduce with shuffle
-
-	for(uint offset = warpSize/2; offset > 0; offset >>= 1)
-		val += __shfl_down(val, offset);
-
-	if(start == 0)
-		*out = val;
 }
 
 __global__
@@ -152,8 +130,22 @@ void change_gpu::invert() {
 //return dot product
 __device__ float change_gpu::dot(const change_gpu& rhs) const {
 	//since N is small, I think we should do a single warp of threads for this
-	warp_dot_kernel<<<1, (n <= WARPSIZE/2 ? WARPSIZE/2 : WARPSIZE)>>>(n, change_values, rhs.change_values, &change_values[n]);
-    cudaDeviceSynchronize();
+    if (threadIdx.x < WARPSIZE) {
+	    int start = blockIdx.x * blockDim.x + threadIdx.x;
+	    float val = 0.0;
+	    for(int i = start; i < n; i += WARPSIZE)
+	    {
+	    	val += change_values[i]*rhs.change_values[i];
+	    }
+	    //now warp reduce with shuffle
+
+	    for(uint offset = WARPSIZE/2; offset > 0; offset >>= 1)
+	    	val += __shfl_down(val, offset);
+
+	    if(start == 0)
+	    	change_values[n] = val;
+    }
+    __syncthreads();
 	return change_values[n];
 }
 

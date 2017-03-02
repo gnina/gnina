@@ -898,24 +898,37 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
                             const conf_gpu& c, change_gpu& g) {
 	// static loop_timer t;
 	// t.resume();
-
-	set_conf_kernel<<<1,info.nlig_atoms>>>(treegpu,
+    if (threadIdx.x == 0)
+	    set_conf_kernel<<<1,info.nlig_atoms>>>(treegpu,
                                            atom_coords, (vec*)coords, c.cinfo);
+    __syncthreads();
     cudaDeviceSynchronize();
 
-    memset(minus_forces, 0, sizeof(force_energy_tup) * info.nlig_atoms);
+    if (threadIdx.x == 0)
+        memset(minus_forces, 0, sizeof(force_energy_tup) * info.nlig_atoms);
+    __syncthreads();
     cudaDeviceSynchronize();
 
-    fl e = single_point_calc(info, coords, minus_forces, v[1]); 
+    fl e, ie;
+    if (threadIdx.x == 0)
+        e = single_point_calc(info, coords, minus_forces, v[1]); 
+    else
+        e = 0;
+    __syncthreads();
     cudaDeviceSynchronize();
 
-	fl ie = eval_interacting_pairs_deriv_gpu(info, v[0]); // adds to minus_forces
+    if (threadIdx.x == 0)
+	    ie = eval_interacting_pairs_deriv_gpu(info, v[0]); // adds to minus_forces
+    __syncthreads();
     cudaDeviceSynchronize();
 
-	e += ie;
+    if (threadIdx.x == 0)
+	    e += ie;
 	// calculate derivatives
-	derivatives_kernel<<<1,info.nlig_atoms>>>
-        (treegpu, (vec*)coords, (vec*)minus_forces, g.change_values);
+    if (threadIdx.x == 0)
+	    derivatives_kernel<<<1,info.nlig_atoms>>>
+            (treegpu, (vec*)coords, (vec*)minus_forces, g.change_values);
+    __syncthreads();
     cudaDeviceSynchronize();
 	// t.stop();
 	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */
