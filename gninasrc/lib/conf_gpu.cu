@@ -6,16 +6,12 @@
 
 #include "conf_gpu.h"
 
-#define GNINA_CUDA_NUM_THREADS (512)
-#define WARPSIZE (32)
-
 #define CUDA_KERNEL_LOOP(i, n) \
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
        i < (n); \
        i += blockDim.x * gridDim.x)
 
-__global__ void scalar_mult_kernel(float mult, const int n,
-		float *vals) {
+__global__ void scalar_mult_kernel(float mult, const int n, float *vals) {
 	CUDA_KERNEL_LOOP(index, n)
 	{
 		vals[index] *= mult;
@@ -23,35 +19,16 @@ __global__ void scalar_mult_kernel(float mult, const int n,
 }
 
 //compute a -= b (result goes in a
-__global__ void vec_sub_kernel(const int n,
-		float *a, float *b) {
+__global__ void vec_sub_kernel(const int n, float *a, float *b) {
 	CUDA_KERNEL_LOOP(index, n)
 	{
 		a[index] -= b[index];
 	}
 }
 
-//compute dot(a,b) using a single warp -> call with exactly WARPSIZE threads
-__global__ void warp_dot_kernel(const int n, float *a, float *b, float *out)
-{
-	int start = blockIdx.x * blockDim.x + threadIdx.x;
-	float val = 0.0;
-	int warpSize = blockDim.x; //allow for dynamic warp sizes (in practice 16 or 32)
-	for(int i = start; i < n; i += warpSize)
-	{
-		val += a[i]*b[i];
-	}
-	//now warp reduce with shuffle
-
-	for(uint offset = warpSize/2; offset > 0; offset >>= 1)
-		val += __shfl_down(val, offset);
-
-	if(start == 0)
-		*out = val;
-}
-
-__global__ void minus_mat_vec_product_kernel(const int n, flmat_gpu m, float*
-        in, float* out) {
+__global__
+void minus_mat_vec_product_kernel(const int n, const flmat_gpu m,
+                                  float*in, float* out) {
     int idx = threadIdx.x;
     fl sum = 0;
     VINA_FOR(j,n)
@@ -99,7 +76,9 @@ change_gpu::change_gpu(const change_gpu& src) :
 	*this = src;
 }
 
+__device__ __host__
 change_gpu& change_gpu::operator=(const change_gpu& src) {
+#ifndef __CUDA_ARCH__    
 	if (change_values == NULL || n < src.n) {
 		if (change_values) {
 			CUDA_CHECK_GNINA(cudaFree(change_values));
@@ -110,7 +89,26 @@ change_gpu& change_gpu::operator=(const change_gpu& src) {
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(change_values, src.change_values, sizeof(float) * n,
 					cudaMemcpyDeviceToDevice));
+#else
+    assert(change_values && n >= src.n);
+    n = src.n;
+    memcpy(change_values, src.change_values, sizeof(float) * n);
+            
+#endif
+    
 	return *this;
+}
+
+void* change_gpu::operator new(size_t count) {
+    void* ptr;
+    CUDA_CHECK_GNINA(cudaMallocManaged(&ptr, count, cudaMemAttachHost));
+    CUDA_CHECK_GNINA(cudaStreamAttachMemAsync(cudaStreamPerThread, ptr));
+    // ptr = malloc(count);
+    return ptr;
+}
+
+void change_gpu::operator delete(void* ptr) noexcept {
+    CUDA_CHECK_GNINA(cudaFree(ptr));
 }
 
 change_gpu::~change_gpu() {
@@ -119,8 +117,8 @@ change_gpu::~change_gpu() {
 }
 
 //dkoes - zeros out all differences
-void change_gpu::clear() {
-	CUDA_CHECK_GNINA(cudaMemset(change_values, 0, sizeof(float) * n));
+__host__ __device__ void change_gpu::clear() {
+	memset(change_values, 0, sizeof(float) * n);
 }
 
 //dkoes - multiply by -1
@@ -130,26 +128,40 @@ void change_gpu::invert() {
 }
 
 //return dot product
-float change_gpu::dot(const change_gpu& rhs) const {
+__device__ float change_gpu::dot(const change_gpu& rhs) const {
 	//since N is small, I think we should do a single warp of threads for this
-	warp_dot_kernel<<<1, (n <= WARPSIZE/2 ? WARPSIZE/2 : WARPSIZE)>>>(n, change_values, rhs.change_values, &change_values[n]);
-	float gpuval = 0;
-	cudaMemcpy(&gpuval, &change_values[n], sizeof(float),cudaMemcpyDeviceToHost);
-	return gpuval;
+    if (threadIdx.x < WARPSIZE) {
+	    int start = blockIdx.x * blockDim.x + threadIdx.x;
+	    float val = 0.0;
+	    for(int i = start; i < n; i += WARPSIZE)
+	    {
+	    	val += change_values[i]*rhs.change_values[i];
+	    }
+	    //now warp reduce with shuffle
+
+	    for(uint offset = WARPSIZE/2; offset > 0; offset >>= 1)
+	    	val += __shfl_down(val, offset);
+
+	    if(start == 0)
+	    	change_values[n] = val;
+    }
+    __syncthreads();
+	return change_values[n];
 }
 
 //subtract rhs from this
-void change_gpu::sub(const change_gpu& rhs) {
-
+__device__ void change_gpu::sub(const change_gpu& rhs) {
 	vec_sub_kernel<<<1, min(GNINA_CUDA_NUM_THREADS, n)>>>(n,
 				change_values, rhs.change_values);
 }
 
+__device__
 void change_gpu::minus_mat_vec_product(const flmat_gpu& m, change_gpu& out) const {
     minus_mat_vec_product_kernel<<<1,n>>>(n, m, change_values,
-            out.change_values);
+                                          out.change_values);
 }
 
+__host__ __device__
 sz change_gpu::num_floats() const {
 	return n;
 }
@@ -249,7 +261,9 @@ conf_gpu::conf_gpu(const conf_gpu& src) :
 	*this = src;
 }
 
+__host__ __device__
 conf_gpu& conf_gpu::operator=(const conf_gpu& src) {
+#ifndef __CUDA_ARCH__
 	if (cinfo == NULL || n < src.n) {
 		if (cinfo) {
 			CUDA_CHECK_GNINA(cudaFree(cinfo));
@@ -260,7 +274,25 @@ conf_gpu& conf_gpu::operator=(const conf_gpu& src) {
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(cinfo, src.cinfo, sizeof(float) * n,
 					cudaMemcpyDeviceToDevice));
+#else
+    assert(cinfo && n >= src.n);
+	n = src.n;
+    memcpy(cinfo, src.cinfo, sizeof(float) * n);
+#endif
+    
 	return *this;
+}
+
+void* conf_gpu::operator new(size_t count) {
+    void* ptr;
+    CUDA_CHECK_GNINA(cudaMallocManaged(&ptr, count, cudaMemAttachHost));
+    CUDA_CHECK_GNINA(cudaStreamAttachMemAsync(cudaStreamPerThread, ptr));
+    // ptr = malloc(count);
+    return ptr;
+}
+
+void conf_gpu::operator delete(void* ptr) noexcept {
+    CUDA_CHECK_GNINA(cudaFree(ptr));
 }
 
 conf_gpu::~conf_gpu() {
@@ -270,44 +302,53 @@ conf_gpu::~conf_gpu() {
 
 __global__ void increment_kernel(float* x, float* c, fl factor, int n) {
 	//position
-	for(unsigned i = 0; i < 3; i++) {
-		x[i] += c[i]*factor;
-	}
+    int idx = threadIdx.x;
+    if (idx < 3) {
+        x[idx] += c[idx]*factor;
+    }
 
 	//rotation
-	qt orientation(x[3],x[4],x[5],x[6]);
-	vec rotation(factor * c[3], factor * c[4], factor *
-            c[5]);
-	quaternion_increment(orientation, rotation);
-	x[3] = orientation.R_component_1();
-	x[4] = orientation.R_component_2();
-	x[5] = orientation.R_component_3();
-	x[6] = orientation.R_component_4();
+    if (idx == 0) {
+	    qt orientation(x[3],x[4],x[5],x[6]);
+	    vec rotation(factor * c[3], factor * c[4], factor *
+                c[5]);
+	    quaternion_increment(orientation, rotation);
+	    x[3] = orientation.R_component_1();
+	    x[4] = orientation.R_component_2();
+	    x[5] = orientation.R_component_3();
+	    x[6] = orientation.R_component_4();
+    }
 
 	//torsions
-	for(unsigned i = 7; i < n; i++) {
-		x[i] += normalized_angle(factor*c[i-1]);
-		normalize_angle(x[i]);
-	}
+    if (idx > 6) {
+	    x[idx] += normalized_angle(factor*c[idx-1]);
+	    normalize_angle(x[idx]);
+    }
 }
 
-void conf_gpu::increment(const change_gpu& c, fl factor) {
-    increment_kernel<<<1,1>>>(cinfo->values, c.change_values, factor, n);
+__device__ void conf_gpu::increment(const change_gpu& c, fl factor) {
+    increment_kernel<<<1,n>>>(cinfo->values, c.change_values, factor, n);
 }
 
-//for debugging (mostly)
 void conf_gpu::get_data(std::vector<float>& d) const {
 	d.resize(n);
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(&d[0], cinfo, n * sizeof(float),
 					cudaMemcpyDeviceToHost));
-
+    cudaDeviceSynchronize();
 }
 
 void conf_gpu::set_data(std::vector<float>& d) const {
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(cinfo, &d[0], n * sizeof(float),
 					cudaMemcpyHostToDevice));
+    cudaDeviceSynchronize();
+}
+
+__device__ void conf_gpu::print_gpu() const {
+    for (unsigned i=0; i<n; i++) 
+        printf("%f ", cinfo->values[i]);
+    printf("\n");
 }
 
 void conf_gpu::print() const {

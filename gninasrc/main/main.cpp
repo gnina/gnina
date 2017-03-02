@@ -3,12 +3,15 @@
 #include <iostream>
 #include <string>
 #include <exception>
-#include <vector> // ligand paths#include <cmath> // for ceila
+#include <vector> // ligand paths
+#include <cmath> // for ceila
 #include <algorithm>
 #include <iterator>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/filesystem/exception.hpp>
-#include <boost/filesystem/convenience.hpp> // filesystem::basename#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?#include <boost/lexical_cast.hpp>
+#include <boost/filesystem/convenience.hpp> // filesystem::basename
+#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?
+#include <boost/lexical_cast.hpp>
 #include <boost/assign.hpp>
 #include "parse_pdbqt.h"
 #include "parallel_mc.h"
@@ -1035,6 +1038,7 @@ Thank you!\n";
 		fl approx_factor = 32;
 
 		positional_options_description positional; // remains empty
+
 
 		options_description inputs("Input");
 		inputs.add_options()

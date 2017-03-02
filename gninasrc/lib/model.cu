@@ -813,28 +813,33 @@ fl model::eval_interacting_pairs_deriv(const precalculate& p, fl v,
 }
 
 //evaluates interacting pairs (which is all of them) on the gpu
-fl model::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
+__device__
+fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
 		fl v) const { // adds to forces  // clean up
 
 	float e = 0;
 	// If there aren't any pairs, just return.
-	if (ligands[0].pairs.size() == 0) {
+	if (pairs_size == 0) {
 		return e;
 	}
 
 	const fl cutoff_sqr = info.cutoff_sq;
-	cudaMemset(gdata.scratch, 0, sizeof(float));
+	memset(scratch, 0, sizeof(float));
+    cudaDeviceSynchronize();
 
-	if(gdata.pairs_size < CUDA_THREADS_PER_BLOCK) {
-		eval_intra_kernel<<<1,gdata.pairs_size>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch);
+	if(pairs_size < CUDA_THREADS_PER_BLOCK) {
+		eval_intra_kernel<<<1,pairs_size>>>(info.splineInfo, coords,
+                interacting_pairs, pairs_size, cutoff_sqr, v, minus_forces, scratch);
 
 	} 
 	else { 
-		eval_intra_kernel<<<CUDA_GET_BLOCKS(gdata.pairs_size, CUDA_THREADS_PER_BLOCK), CUDA_THREADS_PER_BLOCK>>>(info.splineInfo, gdata.coords, gdata.interacting_pairs, gdata.pairs_size, cutoff_sqr, v, gdata.minus_forces, gdata.scratch);
+		eval_intra_kernel<<<CUDA_GET_BLOCKS(pairs_size,
+                CUDA_THREADS_PER_BLOCK),
+            CUDA_THREADS_PER_BLOCK>>>(info.splineInfo, coords,
+                    interacting_pairs, pairs_size, cutoff_sqr, v, minus_forces,
+                    scratch);
 	}
-
-	cudaMemcpy(&e, gdata.scratch, sizeof(float), cudaMemcpyDeviceToHost);
-	return e;
+	return scratch[0];
 }
 
 fl model::evali(const precalculate& p, const vec& v) const { // clean up
@@ -878,39 +883,54 @@ fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
 
 static __global__
 void derivatives_kernel(tree_gpu *t, const vec * coords, const vec* forces,
-		float *c) {
+                        float *c) {
 	t->derivative(coords, forces, c);
 }
 
 static __global__
 void set_conf_kernel(tree_gpu *t, const vec *atom_coords, vec *coords,
-		const conf_info *conf_vals, unsigned nlig_atoms) {
-	t->set_conf(atom_coords, coords, conf_vals, nlig_atoms);
+                     const conf_info *conf_vals) {
+	t->set_conf(atom_coords, coords, conf_vals);
 }
 
-fl model::eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
-		const conf_gpu& c, change_gpu& g, const grid& user_grid) {
-	static loop_timer t;
-	t.resume();
+__device__
+fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
+                            const conf_gpu& c, change_gpu& g) {
+	// static loop_timer t;
+	// t.resume();
+    if (threadIdx.x == 0)
+	    set_conf_kernel<<<1,info.nlig_atoms>>>(treegpu,
+                                           atom_coords, (vec*)coords, c.cinfo);
+    __syncthreads();
+    cudaDeviceSynchronize();
 
-	const non_cache_gpu *ncgpu = dynamic_cast<const non_cache_gpu*>(&ig);
-	assert(ncgpu);
+    if (threadIdx.x == 0)
+        memset(minus_forces, 0, sizeof(force_energy_tup) * info.nlig_atoms);
+    __syncthreads();
+    cudaDeviceSynchronize();
 
-	set_conf_kernel<<<1,tree_width>>>(gdata.treegpu,
-            gdata.atom_coords, (vec*)gdata.coords, c.cinfo, num_movable_atoms());
+    fl e, ie;
+    if (threadIdx.x == 0)
+        e = single_point_calc(info, coords, minus_forces, v[1]); 
+    else
+        e = 0;
+    __syncthreads();
+    cudaDeviceSynchronize();
 
-	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
+    if (threadIdx.x == 0)
+	    ie = eval_interacting_pairs_deriv_gpu(info, v[0]); // adds to minus_forces
+    __syncthreads();
+    cudaDeviceSynchronize();
 
-	fl ie = eval_interacting_pairs_deriv_gpu(ncgpu->get_info(), v[0]); // adds to minus_forces
-
-	CUDA_CHECK_GNINA(
-			cudaMemcpy(&minus_forces[0], gdata.minus_forces,
-					minus_forces.size() * sizeof(vec), cudaMemcpyDeviceToHost));
-	e += ie;
+    if (threadIdx.x == 0)
+	    e += ie;
 	// calculate derivatives
-	derivatives_kernel<<<1,ligands[0].degrees_of_freedom+1>>>(gdata.treegpu, (vec*)gdata.coords, (vec*)gdata.minus_forces, g.change_values);
-
-	t.stop();
+    if (threadIdx.x == 0)
+	    derivatives_kernel<<<1,info.nlig_atoms>>>
+            (treegpu, (vec*)coords, (vec*)minus_forces, g.change_values);
+    __syncthreads();
+    cudaDeviceSynchronize();
+	// t.stop();
 	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */
 	return e;
 }
@@ -1224,13 +1244,6 @@ void model::initialize_gpu() {
 
 	CUDA_CHECK_GNINA(cudaMalloc(&gdata.treegpu, sizeof(tree_gpu)));
 
-	//setup tree
-	tree_gpu tg(ligands[0]);
-    tree_width = tg.max_atoms_per_layer;
-	CUDA_CHECK_GNINA(
-			cudaMemcpy(gdata.treegpu, &tg, sizeof(tree_gpu),
-					cudaMemcpyHostToDevice));
-
 	//allocate and initialize
 	std::vector<interacting_pair> allpairs(ligands[0].pairs);
 	allpairs.insert(allpairs.end(), other_pairs.begin(), other_pairs.end());
@@ -1249,10 +1262,21 @@ void model::initialize_gpu() {
 	for (unsigned i = 0, n = atoms.size(); i < n; i++) {
 		acoords[i] = atoms[i].coords;
 	}
+
+	//setup tree. Writes padding to mark every atom in acoords with its owner.
+    //TODO: quite intrusive
+	tree_gpu tg(ligands[0], &acoords[0]);
+	CUDA_CHECK_GNINA(
+			cudaMemcpy(gdata.treegpu, &tg, sizeof(tree_gpu),
+					cudaMemcpyHostToDevice));
+    
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(gdata.atom_coords, &acoords[0],
 					sizeof(vec) * atoms.size(), cudaMemcpyHostToDevice));
 
+	CUDA_CHECK_GNINA(
+			cudaMemcpy(gdata.coords, &coords[0], coords.size() *
+                sizeof(atom_params), cudaMemcpyHostToDevice));
 }
 
 void model::deallocate_gpu() {
@@ -1286,9 +1310,9 @@ void model::deallocate_gpu() {
 }
 
 //copy relevant data to gpu buffers
-void model::copy_to_gpu() {
+void gpu_data::copy_to_gpu(model& m) {
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(gdata.coords, &coords[0], coords.size() * sizeof(vec),
+			cudaMemcpy(coords, &m.coords[0], coords_size * sizeof(vec),
 					cudaMemcpyHostToDevice));
 
 	//minus_forces gets initialized in eval_deriv
@@ -1296,11 +1320,11 @@ void model::copy_to_gpu() {
 }
 
 //copy back relevant data from gpu buffers
-void model::copy_from_gpu() {
-	assert(gdata.coords);
+void gpu_data::copy_from_gpu(model& m) {
+	assert(coords);
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(&coords[0], gdata.coords, coords.size() * sizeof(vec),
+			cudaMemcpy(&m.coords[0], coords, coords_size * sizeof(vec),
 					cudaMemcpyDeviceToHost));
-
+    cudaDeviceSynchronize();
 }
 

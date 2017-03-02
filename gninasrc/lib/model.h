@@ -44,6 +44,38 @@ typedef std::vector<interacting_pair> interacting_pairs;
 typedef std::pair<std::string, boost::optional<sz> > parsed_line;
 typedef std::vector<parsed_line> pdbqtcontext;
 
+struct gpu_data {
+	//put all pointers to gpu data into a struct, so we can override copying behavior
+  	atom_params *coords;
+  	vec *atom_coords;
+  	force_energy_tup *minus_forces;
+  	tree_gpu *treegpu;
+  	interacting_pair *interacting_pairs;
+  	float *scratch; //single value for returning total energy
+
+  	unsigned coords_size;
+  	unsigned atom_coords_size;
+  	unsigned forces_size;
+  	unsigned pairs_size;
+
+  	gpu_data(): coords(NULL), atom_coords(NULL), minus_forces(NULL),
+  			treegpu(NULL), interacting_pairs(NULL), scratch(NULL), coords_size(0),
+  			atom_coords_size(0), forces_size(0), pairs_size(0) {}
+
+    __device__
+	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v) const;
+
+    __device__
+	fl eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
+	                     const conf_gpu& c, change_gpu& g);
+
+	//copy relevant data to gpu buffers
+	void copy_to_gpu(model& m);
+	//copy back relevant data from gpu buffers
+	void copy_from_gpu(model& m);
+
+};
+
 // dkoes - as an alternative to pdbqt, this stores information
 //in an sdf friendly format
 struct sdfcontext {
@@ -293,10 +325,6 @@ struct model {
                    const igrid& ig, const vec& v,
                    const conf& c, fl intramolecular_energy, const grid& user_grid);
 
-
-	fl eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
-	                     const conf_gpu& c, change_gpu& g, const grid& user_grid);
-
 	fl rmsd_lower_bound(const model& m) const; // uses coords
 	fl rmsd_upper_bound(const model& m) const; // uses coords
 	fl rmsd_ligands_upper_bound(const model& m) const; // uses coords
@@ -362,53 +390,14 @@ struct model {
 	//deallocate gpu memory
 	void deallocate_gpu();
 
-	//copy relevant data to gpu buffers
-	void copy_to_gpu();
-	//copy back relevant data from gpu buffers
-	void copy_from_gpu();
-
 	model() : m_num_movable_atoms(0) {};
 	~model() { deallocate_gpu(); };
     /* TODO:protect */
-  vecv coords;
+    vecv coords;
   
-  struct gpu_data {
-  	//put all pointers to gpu data into a struct, so we can override copying behavior
-		atom_params *coords;
-		vec *atom_coords;
-		force_energy_tup *minus_forces;
-		tree_gpu *treegpu;
-		interacting_pair *interacting_pairs;
-		float *scratch; //single value for returning total energy
+    gpu_data gdata;
 
-		unsigned coords_size;
-		unsigned atom_coords_size;
-		unsigned forces_size;
-		unsigned pairs_size;
-
-		gpu_data(): coords(NULL), atom_coords(NULL), minus_forces(NULL),
-				treegpu(NULL), interacting_pairs(NULL), scratch(NULL), coords_size(0),
-				atom_coords_size(0), forces_size(0), pairs_size(0) {}
-		//do NOT allow pointers to be copied - must explicitly initialize
-		gpu_data(const gpu_data& g): coords(NULL), atom_coords(NULL),
-				minus_forces(NULL), treegpu(NULL), interacting_pairs(NULL), scratch(NULL),
-				coords_size(0), atom_coords_size(0), forces_size(0), pairs_size(0) {}
-
-		gpu_data& operator=(const gpu_data& g) {
-			//TODO: this is ugly, but we really only want to allocate gpu memory when we truly need it
-			//for sanity's sake, eventually make this do the right thing (and probably wrap other gpu functions into this class)
-			coords = NULL;
-			atom_coords = NULL;
-			minus_forces = NULL;
-			treegpu = NULL;
-			interacting_pairs = NULL;
-			scratch = NULL;
-			coords_size = atom_coords_size = forces_size = pairs_size = 0;
-            return *this;
-		}
-  } gdata;
-
-  vector_mutable<ligand> ligands;
+    vector_mutable<ligand> ligands;
 
 private:
 	//my, aren't we friendly!
@@ -465,8 +454,6 @@ private:
 	fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
                                   const interacting_pairs& pairs,
                                   const vecv& coords, vecv& forces) const;
-
-	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v) const;
 
 	vecv internal_coords;
     /* TODO:reprivate */
