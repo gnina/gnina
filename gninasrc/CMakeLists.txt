@@ -117,6 +117,7 @@ target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT})
 
 cuda_add_executable(gninavis gninavis/gninavis.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES})
+target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES}
+    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT})
 
 install(TARGETS gnina gninagrid gninatyper fromgnina tognina gninavis RUNTIME DESTINATION bin)
