@@ -64,8 +64,9 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
         if (threadIdx.x == 0) {
 		    x_new = x;
 		    g_new.clear(); //dkoes - set gradient to zero
-            cudaDeviceSynchronize();
         }
+        __syncthreads();
+        cudaDeviceSynchronize();
 		return 0;
 	}
     if (threadIdx.x == 0) {
@@ -76,12 +77,17 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
     }
 	for (;;) //always try full newton step first
 	{
-        if (threadIdx.x == 0) {
+        if (threadIdx.x == 0) 
 		    x_new = x;
-            cudaDeviceSynchronize();
+
+        __syncthreads();
+        cudaDeviceSynchronize();
+
+        if (threadIdx.x == 0) 
 		    x_new.increment(p, alpha);
-            cudaDeviceSynchronize();
-        }
+
+        __syncthreads();
+        cudaDeviceSynchronize();
 
         //TODO: remove temp variable
 		fl ftemp = f(x_new, g_new);
@@ -94,9 +100,10 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
             if (threadIdx.x == 0) {
 			    x_new = x;
 			    g_new.clear(); //dkoes - set gradient to zero
-                //TODO: unnecessary? are memset calls issued to the default stream?
-                cudaDeviceSynchronize();
             }
+            //TODO: unnecessary? are memset calls issued to the default stream?
+            __syncthreads();
+            cudaDeviceSynchronize();
 			return 0;
 		}
 		else if (f1 <= f0 + ALF * alpha * slope)
@@ -158,8 +165,9 @@ void bfgs_update(flmat_gpu& h, const change_gpu& p,
     if (threadIdx.x == 0) {
         minus_hy = y;
 	    y.minus_mat_vec_product(h, minus_hy);
-        cudaDeviceSynchronize();
     }
+    __syncthreads();
+    cudaDeviceSynchronize();
 
 	const fl yhy = -y.dot(minus_hy);
     if (threadIdx.x == 0) {
@@ -210,8 +218,9 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
 
             //do we even care about the fast_line_search?
 		    assert(params.type == minimization_params::BFGSAccurateLineSearch);
-            cudaDeviceSynchronize();
         }
+        __syncthreads();
+        cudaDeviceSynchronize();
 		alpha = accurate_line_search_gpu(f, n, x, g, f0,
                                                 p, x_new, g_new, f1);
 		if(alpha == 0) 
@@ -221,12 +230,13 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
 		    y = g_new;
             // Update line direction
 		    subtract_change(y, g, n);
-            cudaDeviceSynchronize();
 
 		    prevf0 = f0;
 		    f0 = f1;
 		    x = x_new;
         }
+        __syncthreads();
+        cudaDeviceSynchronize();
 
 		if (params.early_term)
 		{
