@@ -120,8 +120,14 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 
 }
 
-//return score of model, assumes receptor has not changed from initialization
-float CNNScorer::score(const model& m)
+//has an affinity prediction layer
+bool CNNScorer::has_affinity() const
+{
+	return (bool)net->blob_by_name("predaff");
+}
+
+//return score and affinity of model, assumes receptor has not changed from initialization
+float CNNScorer::score(const model& m, float& aff)
 {
 	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
@@ -133,7 +139,9 @@ float CNNScorer::score(const model& m)
 	mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
 
 	double score = 0.0;
+	double affinity = 0.0;
 	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
+	const caffe::shared_ptr<Blob<Dtype> > affblob = net->blob_by_name("predaff");
 	unsigned cnt = 0;
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{
@@ -141,11 +149,31 @@ float CNNScorer::score(const model& m)
 
 		const Dtype* out = outblob->cpu_data();
 		score += out[1];
-		cout << "#Rotate " << out[1] << "\n";
+
+		if(affblob)
+		{
+			//has affinity prediction
+			const Dtype* aff = affblob->cpu_data();
+			affinity += aff[0];
+			//TODO: use the log
+			cout << "#Rotate " << out[1] << " " << aff[0] << "\n";
+		}
+		else
+		{
+			cout << "#Rotate " << out[1] << "\n";
+		}
 		cnt++;
 
 	}
 
+	aff = affinity/cnt;
 	return score / cnt;
 
+}
+
+//return only score
+float CNNScorer::score(const model& m)
+{
+	float aff = 0;
+	return score(m,aff);
 }

@@ -36,7 +36,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
       : BaseDataLayer<Dtype>(param), actives_pos_(0),
         decoys_pos_(0), all_pos_(0), num_rotations(0), current_rotation(0),
         example_size(0),balanced(false),inmem(false),
-				resolution(0.5), dimension(23.5), radiusmultiple(1.5), randtranslate(0),
+				resolution(0.5), dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0),
 				binary(false), randrotate(false), dim(0), numgridpoints(0),
 				numReceptorTypes(0),numLigandTypes(0), gpu_alloc_size(0),
 				gpu_gridatoms(NULL), gpu_gridwhich(NULL) {}
@@ -46,7 +46,9 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
   virtual inline const char* type() const { return "MolGridData"; }
   virtual inline int ExactNumBottomBlobs() const { return 0; }
-  virtual inline int ExactNumTopBlobs() const { return 2; }
+  virtual inline int ExactNumTopBlobs() const { return 2+
+		  this->layer_param_.molgrid_data_param().has_affinity()+
+		  this->layer_param_.molgrid_data_param().has_rmsd(); }
 
   virtual inline void resetRotation() { current_rotation = 0; }
 
@@ -120,9 +122,12 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   	string receptor;
   	string ligand;
   	Dtype label;
+  	Dtype affinity;
+  	Dtype rmsd;
 
-  	example(): label(0) {}
-  	example(Dtype l, const string& r, const string& lig): receptor(r), ligand(lig), label(l) {}
+  	example(): label(0), affinity(0), rmsd(0) {}
+  	example(Dtype l, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0) {}
+  	example(Dtype l, Dtype a, Dtype rms, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms) {}
 	};
 
   virtual void Shuffle();
@@ -139,12 +144,15 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   bool balanced;
   bool inmem;
   vector<Dtype> labels;
+  vector<Dtype> affinities;
+  vector<Dtype> rmsds;
 
   //grid stuff
   GridMaker gmaker;
   double resolution;
   double dimension;
   double radiusmultiple; //extra to consider past vdw radius
+  double fixedradius;
   double randtranslate;
   bool binary; //produce binary occupancies
   bool randrotate;

@@ -6,7 +6,6 @@ set(USE_CUDNN 0)
 set(USE_LMDB 0)
 set(USE_LEVELDB 0)
 set(USE_OPENCV 0)
-set(BUILD_python 0)
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "")
   set(CMAKE_BUILD_TYPE Release)
