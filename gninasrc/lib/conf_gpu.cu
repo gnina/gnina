@@ -300,34 +300,30 @@ conf_gpu::~conf_gpu() {
 	CUDA_CHECK_GNINA(cudaFree(cinfo));
 }
 
-__global__ void increment_kernel(float* x, float* c, fl factor, int n) {
+__device__ void conf_gpu::increment(const change_gpu& c, fl factor) {
 	//position
     int idx = threadIdx.x;
     if (idx < 3) {
-        x[idx] += c[idx]*factor;
+        cinfo->values[idx] += c.change_values[idx]*factor;
     }
 
 	//rotation
     if (idx == 0) {
-	    qt orientation(x[3],x[4],x[5],x[6]);
-	    vec rotation(factor * c[3], factor * c[4], factor *
-                c[5]);
+	    qt orientation(cinfo->values[3],cinfo->values[4],cinfo->values[5],cinfo->values[6]);
+	    vec rotation(factor * c.change_values[3], factor * c.change_values[4], factor *
+                c.change_values[5]);
 	    quaternion_increment(orientation, rotation);
-	    x[3] = orientation.R_component_1();
-	    x[4] = orientation.R_component_2();
-	    x[5] = orientation.R_component_3();
-	    x[6] = orientation.R_component_4();
+	    cinfo->values[3] = orientation.R_component_1();
+	    cinfo->values[4] = orientation.R_component_2();
+	    cinfo->values[5] = orientation.R_component_3();
+	    cinfo->values[6] = orientation.R_component_4();
     }
 
 	//torsions
     if (idx > 6) {
-	    x[idx] += normalized_angle(factor*c[idx-1]);
-	    normalize_angle(x[idx]);
+	    cinfo->values[idx] += normalized_angle(factor*c.change_values[idx-1]);
+	    normalize_angle(cinfo->values[idx]);
     }
-}
-
-__device__ void conf_gpu::increment(const change_gpu& c, fl factor) {
-    increment_kernel<<<1,n>>>(cinfo->values, c.change_values, factor, n);
 }
 
 void conf_gpu::get_data(std::vector<float>& d) const {

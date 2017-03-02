@@ -57,17 +57,18 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
 
     __shared__ fl alpha;
     __shared__ fl alamin;
+    int idx = threadIdx.x;
 	slope = scalar_product(g, p, n);
 	if (slope >= 0)
 	{
 		//gradient isn't actually in a decreasing direction
-        if (threadIdx.x == 0) {
+        if (idx == 0) {
 		    x_new = x;
 		    g_new.clear(); //dkoes - set gradient to zero
         }
 		return 0;
 	}
-    if (threadIdx.x == 0) {
+    if (idx == 0) {
 	    test = compute_lambdamin(p, x, n);
 
 	    alamin = epsilon_fl / test;
@@ -75,18 +76,22 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
     }
 	for (;;) //always try full newton step first
 	{
-        if (threadIdx.x == 0) {
+        if (idx == 0) {
 		    x_new = x;
             cudaDeviceSynchronize();
-		    x_new.increment(p, alpha);
-            cudaDeviceSynchronize();
-            f1 = f(x_new, g_new);
         }
+        __syncthreads();
+        if (idx < x_new.n)
+		    x_new.increment(p, alpha);
+
+        if (idx == 0)
+            f1 = f(x_new, g_new);
+
         __syncthreads();
 		//std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
 		if (alpha < alamin) //convergence
 		{
-            if (threadIdx.x == 0) {
+            if (idx == 0) {
 			    x_new = x;
 			    g_new.clear(); //dkoes - set gradient to zero
                 cudaDeviceSynchronize();
@@ -101,7 +106,7 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
 		}
 		else //have to backtrack
 		{
-            if (threadIdx.x == 0) {
+            if (idx == 0) {
 			    if (alpha == FIRST)
 			    {
 			    	//first time
@@ -132,7 +137,7 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
 			    }
             }
 		}
-        if (threadIdx.x == 0) {
+        if (idx == 0) {
 		    alpha2 = alpha;
 		    f2 = f1;
 		    //std::cout << "TMPLAM " << tmplam << "\n";

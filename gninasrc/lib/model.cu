@@ -898,7 +898,7 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
                             const conf_gpu& c, change_gpu& g) {
 	// static loop_timer t;
 	// t.resume();
-    fl e,ie;
+    fl e, ie;
     if (threadIdx.x == 0) {
 	    set_conf_kernel<<<1,info.nlig_atoms>>>(treegpu,
                                            atom_coords, (vec*)coords, c.cinfo);
