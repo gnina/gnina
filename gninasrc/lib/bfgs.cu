@@ -65,8 +65,6 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
 		    x_new = x;
 		    g_new.clear(); //dkoes - set gradient to zero
         }
-        __syncthreads();
-        cudaDeviceSynchronize();
 		return 0;
 	}
     if (threadIdx.x == 0) {
@@ -77,22 +75,13 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
     }
 	for (;;) //always try full newton step first
 	{
-        if (threadIdx.x == 0) 
+        if (threadIdx.x == 0) {
 		    x_new = x;
-
-        __syncthreads();
-        cudaDeviceSynchronize();
-
-        if (threadIdx.x == 0) 
+            cudaDeviceSynchronize();
 		    x_new.increment(p, alpha);
-
-        __syncthreads();
-        cudaDeviceSynchronize();
-
-        //TODO: remove temp variable
-		fl ftemp = f(x_new, g_new);
-        if (threadIdx.x == 0)
-            f1 = ftemp;
+            cudaDeviceSynchronize();
+            f1 = f(x_new, g_new);
+        }
         __syncthreads();
 		//std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
 		if (alpha < alamin) //convergence
@@ -100,10 +89,9 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
             if (threadIdx.x == 0) {
 			    x_new = x;
 			    g_new.clear(); //dkoes - set gradient to zero
+                cudaDeviceSynchronize();
             }
             //TODO: unnecessary? are memset calls issued to the default stream?
-            __syncthreads();
-            cudaDeviceSynchronize();
 			return 0;
 		}
 		else if (f1 <= f0 + ALF * alpha * slope)
@@ -165,9 +153,9 @@ void bfgs_update(flmat_gpu& h, const change_gpu& p,
     if (threadIdx.x == 0) {
         minus_hy = y;
 	    y.minus_mat_vec_product(h, minus_hy);
+        cudaDeviceSynchronize();
     }
     __syncthreads();
-    cudaDeviceSynchronize();
 
 	const fl yhy = -y.dot(minus_hy);
     if (threadIdx.x == 0) {
@@ -202,11 +190,9 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
     __shared__ fl f1;
     __shared__ fl f0;
     float f_orig;
-    //TODO: remove temp variable
-    float ftemp;
-	ftemp = f(x, g);
+
     if (threadIdx.x == 0) {
-        f0 = ftemp;
+        f0 = f(x, g);
 	    f_orig = f0;
     }
 	VINA_U_FOR(step, params.maxiters)
@@ -218,25 +204,26 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
 
             //do we even care about the fast_line_search?
 		    assert(params.type == minimization_params::BFGSAccurateLineSearch);
+            cudaDeviceSynchronize();
         }
         __syncthreads();
-        cudaDeviceSynchronize();
 		alpha = accurate_line_search_gpu(f, n, x, g, f0,
                                                 p, x_new, g_new, f1);
 		if(alpha == 0) 
 			break;
         fl prevf0;
+
         if (threadIdx.x == 0) {
 		    y = g_new;
+            cudaDeviceSynchronize();
             // Update line direction
 		    subtract_change(y, g, n);
 
 		    prevf0 = f0;
 		    f0 = f1;
 		    x = x_new;
+            cudaDeviceSynchronize();
         }
-        __syncthreads();
-        cudaDeviceSynchronize();
 
 		if (params.early_term)
 		{
@@ -250,6 +237,7 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
         if (threadIdx.x == 0) 
 		    g = g_new; 
 
+        __syncthreads();
 		fl gradnormsq = scalar_product(g, g, n);
 //		std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
 
