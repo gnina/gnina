@@ -149,6 +149,7 @@ void bfgs_update(flmat_gpu& h, const change_gpu& p,
                  const change_gpu& y, const fl alpha,
                  change_gpu &minus_hy) {
 	const fl yp = y.dot(p);
+	const sz n = p.num_floats();
     int idx = threadIdx.x;
 	if (alpha * yp < epsilon_fl)
 		return; // FIXME?
@@ -162,20 +163,19 @@ void bfgs_update(flmat_gpu& h, const change_gpu& p,
     __syncthreads();
 
 	const fl yhy = -y.dot(minus_hy);
-    if (idx == 0) {
+    if (idx < n) {
 	    const fl r = 1 / (alpha * yp); // 1 / (s^T * y) , where s = alpha * p // FIXME   ... < epsilon
-	    const sz n = p.num_floats();
 
 	    float coef = +alpha * alpha * (r * r * yhy + r) ;
 
         float *minus_hyvec = minus_hy.change_values;
         float *pvec = p.change_values;
-	    VINA_FOR(i, n)
-	    	VINA_RANGE(j, i, n) // includes i
-                h(i, j) += alpha * r *
-                           (minus_hyvec[i] * pvec[j] + minus_hyvec[j] * pvec[i])
-                           + coef * pvec[i]	* pvec[j];
+	    VINA_RANGE(j, idx, n) // includes i
+            atomicAdd(&h(idx, j), alpha * r *
+                       (minus_hyvec[idx] * pvec[j] + minus_hyvec[j] * pvec[idx])
+                       + coef * pvec[idx]	* pvec[j]);
     }
+    __syncthreads();
     // s * s == alpha * alpha * p * p	} *
 }
 
