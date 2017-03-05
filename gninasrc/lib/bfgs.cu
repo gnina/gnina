@@ -5,18 +5,44 @@
 
 #include <cuda_runtime.h>
 
+__device__ float warp_max(float val) {
+    for (int offset = WARPSIZE >> 1; offset > 0; offset >>= 1)
+        val = fmaxf(__shfl_down(val, offset), val);
+    return val;
+}
+
 __device__ fl compute_lambdamin(const change_gpu& p, const conf_gpu& x, sz n)
 
 {
-    fl test = 0;
-	for (sz i = 0; i < n; i++)
+    __shared__ fl buffer[32];
+    const unsigned int idx = threadIdx.x;
+    const unsigned int wid = threadIdx.x >> 5;
+    const unsigned int lane = threadIdx.x & 31;
+    const unsigned int nthreads = blockDim.x < n ? blockDim.x : n;
+    unsigned int nwarps = nthreads >> 5;
+    nwarps += nthreads & 31 ? 1 : 0;
+    fl temp;
+
+	for (sz i = idx; i < n; i+=nthreads)
 	{
-		fl temp = fabsf(p.change_values[i]) / fmaxf(fabsf(x.cinfo->values[i]),
+		temp = fabsf(p.change_values[i]) / fmaxf(fabsf(x.cinfo->values[i]),
                                                     1.0f);
-		if (temp > test)
-			test = temp;
+        temp = warp_max(temp);
+        if (nwarps > 1 && idx == 0) {
+            if (i==idx)
+                buffer[wid] = temp;
+            else if (temp > buffer[wid])
+                buffer[wid] = temp;
+        }
 	}
-    return test;
+    __syncthreads();
+    if (nwarps > 1 && wid == 0) {
+        temp = threadIdx.x < nwarps ? buffer[lane] : 0;
+        if (nthreads & 31 && idx == nthreads-1)
+            temp = buffer[lane];
+        temp = warp_max(temp);
+    }
+    return temp;
 }
 
 //TODO: operator -=
@@ -68,9 +94,9 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
         }
 		return 0;
 	}
-    if (idx == 0) {
-	    test = compute_lambdamin(p, x, n);
 
+	test = compute_lambdamin(p, x, n);
+    if (idx == 0) {
 	    alamin = epsilon_fl / test;
 	    alpha = FIRST; //single newton step
     }
