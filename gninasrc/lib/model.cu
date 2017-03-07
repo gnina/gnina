@@ -723,13 +723,13 @@ void model::sete(const conf& c) {
 		c.ligands[i].rigid.apply(internal_coords, coords, ligands[i].begin,
 				ligands[i].end);
 	/* TODO */
-	/* flex.set_conf(atoms, coords, c.flex); */
+	flex.set_conf(atoms, coords, c.flex);
 }
 
 void model::set(const conf& c) {
 	ligands.set_conf(atoms, coords, c.ligands);
 	/* TODO */
-	/* flex.set_conf(atoms, coords, c.flex); */
+	flex.set_conf(atoms, coords, c.flex);
 }
 
 //dkoes - return the string corresponding to i'th ligand atoms pdb information
