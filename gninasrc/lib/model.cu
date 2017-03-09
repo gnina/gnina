@@ -97,68 +97,104 @@ void ligand::set_range() {
 /////////////////// begin MODEL::APPEND /////////////////////////
 
 // FIXME hairy code - needs to be extensively commented, asserted, reviewed and tested
-
-struct appender_info {
-	sz grid_atoms_size;
-	sz m_num_movable_atoms;
-	sz atoms_size;
-
-	appender_info(const model& m) :
-			grid_atoms_size(m.grid_atoms.size()), m_num_movable_atoms(
-					m.m_num_movable_atoms), atoms_size(m.atoms.size()) {
-	}
-};
+// Double fixme - dkoes made even hairier in order to support hydrogen removals
 
 class appender {
-	appender_info a_info;
-	appender_info b_info;
 
 	//map from current atom index to index in final model
 	//can be negative (to support removing hydrogens
 	//movable atoms go first
 	std::vector<int> a_to_final;
 	std::vector<int> b_to_final;
+	//prune hydrogens from receptor too..
+	std::vector<int> agrid_to_final;
+	std::vector<int> bgrid_to_final;
+	unsigned a_grid_size;
+	unsigned b_grid_size;
 	unsigned a_moveable;
 	unsigned b_moveable;
 	unsigned final_size;
 
 	sz new_grid_index(sz x) const {
-		return (is_a ? x : (a_info.grid_atoms_size + x)); // a-grid_atoms spliced before b-grid_atoms
+		return (is_a ? agrid_to_final[x] : bgrid_to_final[x]); // a-grid_atoms spliced before b-grid_atoms
 	}
 public:
 	bool is_a;
 
-	appender(const model& a, const model& b, bool removeH = false) :
-			a_info(a), b_info(b), a_moveable(0), b_moveable(0), final_size(0), is_a(true) {
+	appender(const model& a, const model& b, bool removeH = true) :
+			a_grid_size(0), b_grid_size(0), a_moveable(0), b_moveable(0), final_size(0), is_a(true) {
 
 		unsigned curr = 0;
 		unsigned i = 0;
 		unsigned asz = a.atoms.size();
 		unsigned bsz = b.atoms.size();
+		a_grid_size = a.grid_atoms.size();
 		a_to_final.resize(asz, -1);
 		b_to_final.resize(bsz, -1);
+		sz N = num_atom_types();
+
 		for(i = 0; i < a.m_num_movable_atoms; i++) {
-			a_to_final[i] = curr;
-			curr++;
-			a_moveable++;
+			smt typ = a.atoms[i].get();
+			if (!removeH || (typ < N && !is_hydrogen(typ))) {
+				a_to_final[i] = curr;
+				curr++;
+				a_moveable++;
+			}
 		}
 		for(i = 0; i < b.m_num_movable_atoms; i++) {
-			b_to_final[i] = curr;
-			curr++;
-			b_moveable++;
+			smt typ = b.atoms[i].get();
+			if (!removeH || (typ < N && !is_hydrogen(typ))) {
+				b_to_final[i] = curr;
+				curr++;
+				b_moveable++;
+			}
 		}
 
 		for(i = a.m_num_movable_atoms; i < asz; i++) {
-			a_to_final[i] = curr;
-			curr++;
+			smt typ = a.atoms[i].get();
+			if (!removeH || (typ < N && !is_hydrogen(typ))) {
+				a_to_final[i] = curr;
+				curr++;
+			}
 		}
 		for(i = b.m_num_movable_atoms; i < bsz; i++) {
-			b_to_final[i] = curr;
-			curr++;
+			smt typ = b.atoms[i].get();
+			if (!removeH || (typ < N && !is_hydrogen(typ))) {
+				b_to_final[i] = curr;
+				curr++;
+			}
 		}
 		final_size = curr;
+		std::cout << "RESIZE " << final_size << "," << a_moveable+b_moveable << " from " << asz+bsz << "\n";
+
+		//process immovable receptor atoms
+		curr = 0;
+		asz = a.grid_atoms.size();
+		for(i = 0; i < asz; i++) {
+			smt typ = a.grid_atoms[i].get();
+			if (!removeH || (typ < N && !is_hydrogen(typ))) {
+				agrid_to_final[i] = curr;
+				curr++;
+				a_grid_size++;
+			}
+
+		}
+
+		bsz = b.grid_atoms.size();
+		for(i = 0; i < bsz; i++) {
+			smt typ = b.grid_atoms[i].get();
+			if (!removeH || (typ < N && !is_hydrogen(typ))) {
+				bgrid_to_final[i] = curr;
+				curr++;
+				b_grid_size++;
+			}
+
+		}
 	}
 
+	unsigned num_moveable() const {
+		return a_moveable+b_moveable;
+	}
 	int operator()(sz x) const { // transform coord index
 		if (is_a) {
 			assert(x < a_to_final.size());
@@ -316,7 +352,10 @@ public:
 		VINA_FOR_IN(i, a) {
 			T& v = a[i];
 			if(update(v)) {
-				newvec[(*this)(i)] = v;
+				int newi = (*this)(i);
+				if(newi >= 0) {
+					newvec[newi] = v;
+				}
 			}
 		}
 
@@ -324,7 +363,10 @@ public:
 		VINA_FOR_IN(i, b) {
 			T v = b[i];
 			if(update(v)) {
-				newvec[(*this)(i)] = v;
+				int newi = (*this)(i);
+				if(newi >= 0) {
+					newvec[newi] = v;
+				}
 			}
 		}
 
@@ -362,6 +404,7 @@ void model::append(const model& m) {
 	appender t(*this, m);
 
 	t.append(other_pairs, m.other_pairs);
+	sz n = num_atom_types();
 
 	VINA_FOR_IN(i, atoms)
 		VINA_FOR_IN(j, m.atoms) {
@@ -373,14 +416,15 @@ void model::append(const model& m) {
 
 			smt t1 = a.get();
 			smt t2 = b.get();
-			sz n = num_atom_types();
 
 			if (t1 < n && t2 < n) {
 				t.is_a = true;
-				sz new_i = t(i);
+				int new_i = t(i);
 				t.is_a = false;
-				sz new_j = t(j);
-				other_pairs.push_back(interacting_pair(t1, t2, new_i, new_j));
+				int new_j = t(j);
+				if(new_i >= 0 && new_j >= 0) {
+					other_pairs.push_back(interacting_pair(t1, t2, new_i, new_j));
+				}
 			}
 		}
 
@@ -398,7 +442,7 @@ void model::append(const model& m) {
 	t.append(grid_atoms, m.grid_atoms);
 	t.coords_append(atoms, m.atoms);
 
-	m_num_movable_atoms += m.m_num_movable_atoms;
+	m_num_movable_atoms = t.num_moveable();
 
 //initialize_gpu();
 
