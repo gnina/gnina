@@ -16,7 +16,7 @@ void result_info::setMolecule(const model& m)
 	std::stringstream str;
 	if (m.write_sdf(str))
 	{
-		sdfvalid = true; //can do native sdf output, //TODO - fix flex residue output
+		sdfvalid = true; //can do native sdf output, //TODO - fix flex residue output - todone? seems like it works
 		molstr = str.str();
 	}
 	else

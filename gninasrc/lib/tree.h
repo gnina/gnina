@@ -77,9 +77,27 @@ struct atom_range {
 	}
 	template<typename F>
 	void transform(const F& f){
-		sz diff = end - begin;
-		begin = f(begin);
-		end = begin + diff;
+		int b = f(begin);
+		int e = f(end-1);
+		//skip over any removed atoms at begining/end
+		while(b < 0 && begin < end) {
+			begin++;
+			b = f(begin);
+		}
+
+		if(b < 0) {
+			begin = end = 0; //removed all atoms
+		}
+		else {
+			end--;
+			while(e < 0 && end > begin) {
+				end--;
+				e = f(end);
+			}
+
+			begin = b;
+			end = e+1;
+		}
 	}
 
 	atom_range() :

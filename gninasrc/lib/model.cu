@@ -112,80 +112,148 @@ struct appender_info {
 class appender {
 	appender_info a_info;
 	appender_info b_info;
+
+	//map from current atom index to index in final model
+	//can be negative (to support removing hydrogens
+	//movable atoms go first
+	std::vector<int> a_to_final;
+	std::vector<int> b_to_final;
+	unsigned a_moveable;
+	unsigned b_moveable;
+	unsigned final_size;
+
 	sz new_grid_index(sz x) const {
 		return (is_a ? x : (a_info.grid_atoms_size + x)); // a-grid_atoms spliced before b-grid_atoms
 	}
 public:
 	bool is_a;
 
-	appender(const model& a, const model& b) :
-			a_info(a), b_info(b), is_a(true) {
+	appender(const model& a, const model& b, bool removeH = false) :
+			a_info(a), b_info(b), a_moveable(0), b_moveable(0), final_size(0), is_a(true) {
+
+		unsigned curr = 0;
+		unsigned i = 0;
+		unsigned asz = a.atoms.size();
+		unsigned bsz = b.atoms.size();
+		a_to_final.resize(asz, -1);
+		b_to_final.resize(bsz, -1);
+		for(i = 0; i < a.m_num_movable_atoms; i++) {
+			a_to_final[i] = curr;
+			curr++;
+			a_moveable++;
+		}
+		for(i = 0; i < b.m_num_movable_atoms; i++) {
+			b_to_final[i] = curr;
+			curr++;
+			b_moveable++;
+		}
+
+		for(i = a.m_num_movable_atoms; i < asz; i++) {
+			a_to_final[i] = curr;
+			curr++;
+		}
+		for(i = b.m_num_movable_atoms; i < bsz; i++) {
+			b_to_final[i] = curr;
+			curr++;
+		}
+		final_size = curr;
 	}
 
-	sz operator()(sz x) const { // transform coord index
+	int operator()(sz x) const { // transform coord index
 		if (is_a) {
-			if (x < a_info.m_num_movable_atoms)
-				return x; // a-movable unchanged
-			else
-				return x + b_info.m_num_movable_atoms; // b-movable spliced before a-inflex
+			assert(x < a_to_final.size());
+			return a_to_final[x];
 		} else {
-			if (x < b_info.m_num_movable_atoms)
-				return x + a_info.m_num_movable_atoms; // a-movable spliced before b-movable
-			else
-				return x + a_info.atoms_size; // all a's spliced before b-inflex
+			assert(x < b_to_final.size());
+			return b_to_final[x];
 		}
 	}
 	atom_index operator()(const atom_index& x) const { // transform atom_index
 		atom_index tmp(x);
 		if (tmp.in_grid)
 			tmp.i = new_grid_index(tmp.i);
-		else
-			tmp.i = operator()(tmp.i);
+		else {
+			int i = operator()(tmp.i);
+			if(i < 0) tmp.i = max_sz; //kinda unnecessary for -1..
+			else tmp.i = i;
+		}
 		return tmp;
 	}
 
 	// type-directed old -> new transformations
-	void update(interacting_pair& ip) const {
-		ip.a = operator()(ip.a);
-		ip.b = operator()(ip.b);
+	//return true if still valid (no removed atoms)
+	bool update(interacting_pair& ip) const {
+		int i = operator()(ip.a);
+		if(i < 0) return false;
+		ip.a = i;
+		i = operator()(ip.b);
+		if(i < 0) return false;
+		ip.b = i;
+		return true;
 	}
-	void update(vec& v) const { // coordinates & forces - do nothing
+	bool update(vec& v) const { // coordinates & forces - do nothing
+		return true;
 	}
-	void update(ligand& lig) const {
+	bool update(ligand& lig) const {
 		lig.transform(*this); // ligand as an atom_range subclass
 		transform_ranges(lig, *this);
-		VINA_FOR_IN(i, lig.pairs)
-			this->update(lig.pairs[i]);
-
-		lig.cont.update(*this);
-	}
-	void update(residue& r) const {
-		transform_ranges(r, *this);
-	}
-	void update(parsed_line& p) const {
-		if (p.second)
-			p.second = (*this)(p.second.get());
-	}
-	void update(atom& a) const {
-		VINA_FOR_IN(i, a.bonds) {
-			bond& b = a.bonds[i];
-			b.connected_atom_index = operator()(b.connected_atom_index); // atom_index transformation, above
+		interacting_pairs newpairs;
+		VINA_FOR_IN(i, lig.pairs) {
+			interacting_pair p = lig.pairs[i];
+			if(this->update(p)) {
+				newpairs.push_back(p);
+			}
 		}
+		lig.pairs = newpairs;
+		lig.cont.update(*this);
+		return true;
+	}
+	bool update(residue& r) const {
+		transform_ranges(r, *this);
+		return true;
+	}
+	bool update(parsed_line& p) const {
+		if (p.second) {
+			int i = (*this)(p.second.get());
+			if(i < 0) return false;
+			p.second = i;
+		}
+		return true;
+	}
+	bool update(atom& a) const {
+		std::vector<bond> newbonds;
+		VINA_FOR_IN(i, a.bonds) {
+			bond b = a.bonds[i];
+			b.connected_atom_index = operator()(b.connected_atom_index); // atom_index transformation, above
+			if(b.connected_atom_index.i != max_sz)
+				newbonds.push_back(b);
+		}
+		a.bonds = newbonds;
+		return true;
 	}
 
 	// ligands, flex, flex_context, atoms; also used for other_pairs
 	template<typename T, typename A>
 	void append(std::vector<T, A>& a, const std::vector<T, A>& b) { // first arg becomes aaaaaaaabbbbbbbbbbbbbbb
 		sz a_sz = a.size();
-		vector_append(a, b);
+		sz b_sz = b.size();
+		std::vector<T, A> newvec;
 
 		is_a = true;
-		VINA_FOR(i, a_sz)
-			update(a[i]);
+		VINA_FOR(i, a_sz) {
+			if(update(a[i])) {
+				newvec.push_back(a[i]);
+			}
+		}
 
 		is_a = false;
-		VINA_RANGE(i, a_sz, a.size())
-			update(a[i]);
+		VINA_FOR(i, b_sz) {
+			T v = b[i];
+			if(update(v)) {
+				newvec.push_back(v);
+			}
+		}
+		a = newvec;
 	}
 
 	//add b to a
@@ -197,31 +265,70 @@ public:
 			abort();
 		} else if (!a.sdftext.valid()) {
 			//but I do need to be able to add flex res to an existing model
-			a.sdftext = b.sdftext;
+			std::vector<sdfcontext::sdfatom>& newatoms = a.sdftext.atoms;
+			std::vector<sdfcontext::sdfbond>& newbonds = a.sdftext.bonds;
+			std::vector<sdfcontext::sdfprop>& newprops = a.sdftext.properties;
+
+			is_a = false;
+			assert(newatoms.size() == 0);
+			newatoms.resize(final_size);
+			//append anything from b that hasn't be removed
+			VINA_FOR_IN(i, b.sdftext.atoms) {
+				sdfcontext::sdfatom a = b.sdftext.atoms[i];
+				int newi = (*this)(i);
+				if(newi >= 0) {
+					VINA_CHECK(newi < newatoms.size());
+					VINA_CHECK(a.index == i);
+					a.index = newi;
+					newatoms[newi] = a;
+				}
+			}
+
+			newbonds.reserve(b.sdftext.bonds.size());
+			VINA_FOR_IN(i, b.sdftext.bonds) {
+				sdfcontext::sdfbond bond = b.sdftext.bonds[i];
+				int newa = (*this)(bond.a);
+				int newb = (*this)(bond.b);
+				if(newa >=0 && newb >= 0) {
+					bond.a = newa;
+					bond.b = newb;
+					newbonds.push_back(bond);
+				}
+			}
+			newprops.reserve(b.sdftext.properties.size());
+			VINA_FOR_IN(i, b.sdftext.properties) {
+				sdfcontext::sdfprop p = b.sdftext.properties[i];
+				int newi = (*this)(p.atom);
+				if(newi >= 0) {
+					p.atom = newi;
+					newprops.push_back(p);
+				}
+			}
+
 		}
 	}
 
 	// internal_coords, coords, minus_forces, atoms
 	template<typename T, typename A>
 	void coords_append(std::vector<T, A>& a, const std::vector<T, A>& b) { // first arg becomes aaaaaaaabbbbbbbbbaab
-		std::vector<T, A> b_copy(b); // more straightforward to make a copy of b and transform that than to do piecewise transformations of the result
-
+		std::vector<T, A> newvec(final_size);
 		is_a = true;
-		VINA_FOR_IN(i, a)
-			update(a[i]);
+		VINA_FOR_IN(i, a) {
+			T& v = a[i];
+			if(update(v)) {
+				newvec[(*this)(i)] = v;
+			}
+		}
 
 		is_a = false;
-		VINA_FOR_IN(i, b_copy)
-			update(b_copy[i]);
+		VINA_FOR_IN(i, b) {
+			T v = b[i];
+			if(update(v)) {
+				newvec[(*this)(i)] = v;
+			}
+		}
 
-		// interleave 
-		typedef typename std::vector<T, A>::const_iterator const cci;
-		cci b1 = b_copy.begin();
-		cci b2 = b_copy.begin() + b_info.m_num_movable_atoms;
-		cci b3 = b_copy.end();
-
-		a.insert(a.begin() + a_info.m_num_movable_atoms, b1, b2);
-		a.insert(a.end(), b2, b3);
+		a = newvec;
 	}
 };
 

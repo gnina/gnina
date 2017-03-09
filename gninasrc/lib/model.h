@@ -392,11 +392,10 @@ struct model {
 
 	model() : m_num_movable_atoms(0) {};
 	~model() { deallocate_gpu(); };
+
     /* TODO:protect */
     vecv coords;
-  
     gpu_data gdata;
-
     vector_mutable<ligand> ligands;
 
 private:
@@ -410,13 +409,17 @@ private:
 	friend struct terms;
 	friend struct conf_independent_inputs;
 	friend struct appender_info;
+	friend class appender;
 	friend struct pdbqt_initializer;
 	friend struct model_test;
 
-	const atom& get_atom(const atom_index& i) const
-    { return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]); }
-  atom& get_atom(const atom_index& i)
-    { return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]); }
+	const atom& get_atom(const atom_index& i) const {
+		return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]);
+	}
+
+	atom& get_atom(const atom_index& i) {
+		return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]);
+	}
 
 	void write_context(const context& c, std::ostream& out) const;
 	void write_context(const context& c, std::ostream& out,
@@ -458,8 +461,7 @@ private:
 	vecv internal_coords;
     /* TODO:reprivate */
 	/* vecv coords; */
-  //I believe this contains the accumulated directional deltas for each
-  //atom
+  //Tthis contains the accumulated directional deltas for each atom
 	vecv minus_forces;
 
 	atomv grid_atoms;

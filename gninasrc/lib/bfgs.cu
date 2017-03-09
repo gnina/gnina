@@ -141,7 +141,9 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
 		    alpha = fmaxf(tmplam, (fl)0.1 * alpha); //never smaller than a tenth
         }
 	}
+
 	return 0; // absolutely necessary to workaround nvcc compiler bug!!! (only took N days to find..)
+
 }
 
 __device__
