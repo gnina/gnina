@@ -155,7 +155,7 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 				m.set_name(c.sdftext.name);
 			}
 
-			m.append(tmp.m);
+			m.append(tmp.m, true);
 
 			return true;
 		}
@@ -169,7 +169,7 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 		{
 		if (pdbqtdone)
 			return false; //can only read one
-		m.append(parse_ligand_pdbqt(lpath));
+		m.append(parse_ligand_pdbqt(lpath),true);
 		pdbqtdone = true;
 		return true;
 	}
@@ -195,7 +195,7 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 				tmp.initialize_from_nrp(nr, c, true);
 				tmp.initialize(nr.mobility_matrix());
 
-				m.append(tmp.m);
+				m.append(tmp.m,true);
 				return true;
 			}
 			catch (parse_error& e)

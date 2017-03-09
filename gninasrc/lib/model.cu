@@ -111,24 +111,25 @@ class appender {
 	std::vector<int> bgrid_to_final;
 	unsigned a_grid_size;
 	unsigned b_grid_size;
+	//all ligand and most flex atoms are moveable,
+	//but some flex atoms are not
 	unsigned a_moveable;
 	unsigned b_moveable;
 	unsigned final_size;
 
-	sz new_grid_index(sz x) const {
+	int new_grid_index(sz x) const {
 		return (is_a ? agrid_to_final[x] : bgrid_to_final[x]); // a-grid_atoms spliced before b-grid_atoms
 	}
 public:
 	bool is_a;
 
-	appender(const model& a, const model& b, bool removeH = true) :
+	appender(const model& a, const model& b, bool removeH = false) :
 			a_grid_size(0), b_grid_size(0), a_moveable(0), b_moveable(0), final_size(0), is_a(true) {
 
 		unsigned curr = 0;
 		unsigned i = 0;
 		unsigned asz = a.atoms.size();
 		unsigned bsz = b.atoms.size();
-		a_grid_size = a.grid_atoms.size();
 		a_to_final.resize(asz, -1);
 		b_to_final.resize(bsz, -1);
 		sz N = num_atom_types();
@@ -165,11 +166,11 @@ public:
 			}
 		}
 		final_size = curr;
-		std::cout << "RESIZE " << final_size << "," << a_moveable+b_moveable << " from " << asz+bsz << "\n";
 
 		//process immovable receptor atoms
 		curr = 0;
 		asz = a.grid_atoms.size();
+		agrid_to_final.resize(asz,-1);
 		for(i = 0; i < asz; i++) {
 			smt typ = a.grid_atoms[i].get();
 			if (!removeH || (typ < N && !is_hydrogen(typ))) {
@@ -181,6 +182,7 @@ public:
 		}
 
 		bsz = b.grid_atoms.size();
+		bgrid_to_final.resize(bsz,-1);
 		for(i = 0; i < bsz; i++) {
 			smt typ = b.grid_atoms[i].get();
 			if (!removeH || (typ < N && !is_hydrogen(typ))) {
@@ -256,6 +258,57 @@ public:
 		}
 		return true;
 	}
+
+	bool update(sdfcontext& sdftext) const {
+		std::vector<sdfcontext::sdfatom> newatoms;
+		std::vector<sdfcontext::sdfbond> newbonds;
+		std::vector<sdfcontext::sdfprop> newprops;
+
+
+		if(sdftext.atoms.size() == 0) return true; //nothing to see here
+
+		newatoms.reserve(final_size);
+
+		std::vector<int> atommap(sdftext.atoms.size(),-1); //sdfbond indices are into the sdf atoms array, keep updated map
+		//append anything from b that hasn't be removed
+		VINA_FOR_IN(i, sdftext.atoms) { //note these atoms are out of order
+			sdfcontext::sdfatom a = sdftext.atoms[i];
+			int newi = (*this)(a.index);
+			if(newi >= 0) {
+				a.index = newi;
+				atommap[i] = newatoms.size();
+				newatoms.push_back(a);
+			}
+		}
+
+		newbonds.reserve(sdftext.bonds.size());
+		VINA_FOR_IN(i, sdftext.bonds) {
+			sdfcontext::sdfbond bond = sdftext.bonds[i];
+			int newa = atommap[bond.a];
+			int newb = atommap[bond.b];
+			if(newa >=0 && newb >= 0) {
+				bond.a = newa;
+				bond.b = newb;
+				newbonds.push_back(bond);
+			}
+		}
+		newprops.reserve(sdftext.properties.size());
+		VINA_FOR_IN(i, sdftext.properties) {
+			sdfcontext::sdfprop p = sdftext.properties[i];
+			int newi = atommap[p.atom];
+			if(newi >= 0) {
+				p.atom = newi;
+				newprops.push_back(p);
+			}
+		}
+
+		sdftext.atoms = newatoms;
+		sdftext.bonds = newbonds;
+		sdftext.properties = newprops;
+
+		return true;
+	}
+
 	bool update(atom& a) const {
 		std::vector<bond> newbonds;
 		VINA_FOR_IN(i, a.bonds) {
@@ -300,48 +353,37 @@ public:
 			//dkoes - I don't think I will need to do this, so not bothering to implement it for now
 			abort();
 		} else if (!a.sdftext.valid()) {
-			//but I do need to be able to add flex res to an existing model
-			std::vector<sdfcontext::sdfatom>& newatoms = a.sdftext.atoms;
-			std::vector<sdfcontext::sdfbond>& newbonds = a.sdftext.bonds;
-			std::vector<sdfcontext::sdfprop>& newprops = a.sdftext.properties;
-
 			is_a = false;
-			assert(newatoms.size() == 0);
-			newatoms.resize(final_size);
-			//append anything from b that hasn't be removed
-			VINA_FOR_IN(i, b.sdftext.atoms) {
-				sdfcontext::sdfatom a = b.sdftext.atoms[i];
-				int newi = (*this)(i);
-				if(newi >= 0) {
-					VINA_CHECK(newi < newatoms.size());
-					VINA_CHECK(a.index == i);
-					a.index = newi;
-					newatoms[newi] = a;
-				}
-			}
-
-			newbonds.reserve(b.sdftext.bonds.size());
-			VINA_FOR_IN(i, b.sdftext.bonds) {
-				sdfcontext::sdfbond bond = b.sdftext.bonds[i];
-				int newa = (*this)(bond.a);
-				int newb = (*this)(bond.b);
-				if(newa >=0 && newb >= 0) {
-					bond.a = newa;
-					bond.b = newb;
-					newbonds.push_back(bond);
-				}
-			}
-			newprops.reserve(b.sdftext.properties.size());
-			VINA_FOR_IN(i, b.sdftext.properties) {
-				sdfcontext::sdfprop p = b.sdftext.properties[i];
-				int newi = (*this)(p.atom);
-				if(newi >= 0) {
-					p.atom = newi;
-					newprops.push_back(p);
-				}
-			}
-
+			a.sdftext = b.sdftext;
+			update(a.sdftext);
 		}
+	}
+
+	//grid atoms
+	void grids_append(atomv& a, const atomv& b) {
+		atomv newatoms;
+		newatoms.reserve(a.size() + b.size());
+
+		is_a = true;
+		VINA_FOR_IN(i, a) {
+			int newi = new_grid_index(i);
+			atom atm = a[i];
+			if(newi >= 0 && update(atm)) {
+				newatoms.push_back(atm);
+			}
+		}
+
+		is_a = false;
+		VINA_FOR_IN(i, b) {
+			int newi = new_grid_index(i);
+			atom atm = b[i];
+			if(newi >= 0 && update(atm)) {
+				newatoms.push_back(atm);
+			}
+		}
+
+		a = newatoms;
+		assert(a.size() == (a_grid_size+b_grid_size));
 	}
 
 	// internal_coords, coords, minus_forces, atoms
@@ -381,9 +423,7 @@ void context::update(const appender& transform) {
 	VINA_FOR_IN(i, pdbqttext)
 		transform.update(pdbqttext[i]); // parsed_line update
 
-	for (unsigned i = 0, n = sdftext.atoms.size(); i < n; i++) {
-		sdftext.atoms[i].index = transform(sdftext.atoms[i].index);
-	}
+	transform.update(sdftext);
 }
 
 //associate pdfbt/sdf data with appropriate atom index from model
@@ -399,12 +439,13 @@ void context::set(sz pdbqtindex, sz sdfindex, sz atomindex, bool inf) {
 	}
 }
 
-void model::append(const model& m) {
+void model::append(const model& m, bool stripH) {
 	deallocate_gpu();
-	appender t(*this, m);
-
+	appender t(*this, m, stripH);
 	t.append(other_pairs, m.other_pairs);
 	sz n = num_atom_types();
+
+	hydrogens_stripped |= (stripH || m.hydrogens_stripped);
 
 	VINA_FOR_IN(i, atoms)
 		VINA_FOR_IN(j, m.atoms) {
@@ -417,7 +458,7 @@ void model::append(const model& m) {
 			smt t1 = a.get();
 			smt t2 = b.get();
 
-			if (t1 < n && t2 < n) {
+			if (t1 < n && t2 < n && !is_hydrogen(t1) && !is_hydrogen(t2)) {
 				t.is_a = true;
 				int new_i = t(i);
 				t.is_a = false;
@@ -439,7 +480,7 @@ void model::append(const model& m) {
 	t.append(flex, m.flex);
 	t.append(flex_context, m.flex_context);
 
-	t.append(grid_atoms, m.grid_atoms);
+	t.grids_append(grid_atoms, m.grid_atoms);
 	t.coords_append(atoms, m.atoms);
 
 	m_num_movable_atoms = t.num_moveable();
@@ -629,6 +670,8 @@ bool model::bonded_to_heteroatom(const atom& a) const {
 
 //dkoes - modify smina types as necessary to take into account bonding information
 void model::assign_types() {
+	VINA_CHECK(!hydrogens_stripped); //type assignment requires hydrogens
+
 	VINA_FOR(i, grid_atoms.size() + atoms.size()) {
 		const atom_index ai = sz_to_atom_index(i);
 		atom& a = get_atom(ai);
@@ -1153,12 +1196,12 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
 			continue; // we only want flex-rigid interaction
 		const atom& a = atoms[i];
 		smt t1 = a.get();
-		if (t1 >= nat)
+		if (t1 >= nat || is_hydrogen(t1))
 			continue;
 		VINA_FOR_IN(j, grid_atoms) {
 			const atom& b = grid_atoms[j];
 			smt t2 = b.get();
-			if (t2 >= nat)
+			if (t2 >= nat || is_hydrogen(t2))
 				continue;
 			fl r2 = vec_distance_sqr(coords[i], b.coords);
 			if (r2 < cutoff_sqr) {

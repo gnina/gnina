@@ -218,7 +218,6 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	sz n = g.num_floats();
 	flmat h(n, 0);
 	set_diagonal(h, 1);
-
 	Change g_new(g);
 	Conf x_new(x);
 	fl f0 = f(x, g);

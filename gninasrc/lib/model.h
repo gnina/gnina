@@ -164,8 +164,9 @@ struct context {
 	sdfcontext sdftext;
 
 	void writePDBQT(const vecv& coords, std::ostream& out) const;
-	void writeSDF(const vecv& coords, sz nummove, std::ostream& out)
-    const { sdftext.write(coords, nummove, out); }
+	void writeSDF(const vecv& coords, sz nummove, std::ostream& out) const {
+		sdftext.write(coords, nummove, out);
+	}
 	void update(const appender& transform);
 	void set(sz pdbqtindex, sz sdfindex, sz atomindex, bool inf = false);
 
@@ -221,7 +222,7 @@ struct pdbqt_initializer; // forward declaration - only declared in parse_pdbqt.
 struct model_test;
 
 struct model {
-	void append(const model& m);
+	void append(const model& m, bool stripH = false);
 
 	sz num_movable_atoms() const { return m_num_movable_atoms; }
 	sz num_internal_pairs() const;
@@ -390,7 +391,7 @@ struct model {
 	//deallocate gpu memory
 	void deallocate_gpu();
 
-	model() : m_num_movable_atoms(0) {};
+	model() : m_num_movable_atoms(0), hydrogens_stripped(false) {};
 	~model() { deallocate_gpu(); };
 
     /* TODO:protect */
@@ -458,6 +459,7 @@ private:
                                   const interacting_pairs& pairs,
                                   const vecv& coords, vecv& forces) const;
 
+	bool hydrogens_stripped;
 	vecv internal_coords;
     /* TODO:reprivate */
 	/* vecv coords; */
