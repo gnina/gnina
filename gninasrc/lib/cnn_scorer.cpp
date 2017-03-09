@@ -124,6 +124,7 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 }
 
 //return score of model, assumes receptor has not changed from initialization
+//if compute_gradient is set, also adds cnn atom gradient to m.minus_forces
 float CNNScorer::score(model& m, bool compute_gradient)
 {
 	boost::lock_guard<boost::mutex> guard(*mtx);
@@ -143,13 +144,11 @@ float CNNScorer::score(model& m, bool compute_gradient)
 	{
 		net->Forward();
 		score += outblob->cpu_data()[1];
-
 		if (compute_gradient)
 		{
 			net->Backward();
-			m.set_minus_forces(mgrid->getLigandGradient(0));
+			m.add_minus_forces(mgrid->getLigandGradient(0)); //TODO divide by cnt
 		}
-
 		cnt++;
 	}
 	return score / cnt;

@@ -1443,8 +1443,7 @@ Thank you!\n";
 		if (settings.cpu < 1)
 			settings.cpu = 1;
 		if (settings.verbosity > 1 && settings.exhaustiveness < settings.cpu)
-			log
-					<< "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
+			log << "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
 
 
 		//dkoes - parse in receptor once

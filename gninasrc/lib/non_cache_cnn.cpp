@@ -35,10 +35,25 @@ non_cache_cnn::non_cache_cnn(szv_grid_cache& gcache,
 
 fl non_cache_cnn::eval(model& m, fl v) const
 {
-	fl score = cnn_scorer.score(m, false);
-	return -score;
-}
+	fl e = 0;
+	sz n = num_atom_types();
+	VINA_FOR(i, m.num_movable_atoms())
+	{
+		const atom_base& a = m.movable_atom(i);
+		smt t1 = a.get();
+		if (t1 >= n || is_hydrogen(t1))
+			continue;
 
+		const vec& a_coords = m.movable_coords(i);
+		vec adjusted_a_coords;
+		fl out_of_bounds_penalty = check_bounds(a_coords, adjusted_a_coords);
+
+		e += out_of_bounds_penalty;
+	}
+	e += -cnn_scorer.score(m, false);
+	return e;
+}
+/*
 bool non_cache_cnn::within(const model& m, fl margin) const
 {
 	VINA_FOR(i, m.num_movable_atoms())
@@ -47,17 +62,51 @@ bool non_cache_cnn::within(const model& m, fl margin) const
 			continue;
 		const vec& a_coords = m.movable_coords(i);
 		VINA_FOR_IN(j, gd)
+		{
 			if (gd[j].n > 0)
 				if (a_coords[j] < gd[j].begin - margin
 						|| a_coords[j] > gd[j].end + margin)
 					return false;
+		}
 	}
 	return true;
 }
-
+*/
 fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const
 {
-	fl score = cnn_scorer.score(m, true);
-	return -score;
+	fl e = 0;
+	sz n = num_atom_types();
+	VINA_FOR(i, m.num_movable_atoms())
+	{
+		const atom_base& a = m.movable_atom(i);
+		smt t1 = a.get();
+		if (t1 >= n || is_hydrogen(t1))
+		{
+			m.movable_minus_forces(i).assign(0);
+			continue;
+		}
+
+		const vec& a_coords = m.movable_coords(i);
+		vec adjusted_a_coords;
+		vec out_of_bounds_deriv(0, 0, 0);
+		fl out_of_bounds_penalty = check_bounds_deriv(a_coords, adjusted_a_coords, out_of_bounds_deriv);
+
+		fl this_e = 0;
+		vec deriv(0, 0, 0);
+		//VINA_FOR_IN(...) { per-atom cnn score would be here }
+		if (user_grid.initialized())
+		{
+			vec ug_deriv(0, 0, 0);
+			fl uge = user_grid.evaluate_user(a_coords, slope, &ug_deriv);
+			this_e += uge;
+			deriv += ug_deriv;
+		}
+		curl(this_e, deriv, v);
+		m.movable_minus_forces(i) = deriv + out_of_bounds_deriv;
+		e += this_e + out_of_bounds_penalty;
+	}
+	m.clear_minus_forces();
+	e = -cnn_scorer.score(m, true);
+	return e;
 }
 
