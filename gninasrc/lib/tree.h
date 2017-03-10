@@ -77,22 +77,32 @@ struct atom_range {
 	}
 	template<typename F>
 	void transform(const F& f){
-		int b = f(begin);
-		int e = f(end-1);
+		sz diff = end - begin;
+		begin = f(begin);
+		end = begin + diff;
+	}
+
+	//remove atoms that are not in atommap
+	//assume relative ordering of atoms hasn't changed (just some removed)
+	void reduce(const std::vector<int>& atommap) {
+		assert(begin < atommap.size());
+		assert(end-1 < atommap.size());
+		int b = atommap[begin];
+		int e = atommap[end-1];
 		//skip over any removed atoms at begining/end
 		while(b < 0 && begin < end) {
 			begin++;
-			b = f(begin);
+			b = atommap[begin];
 		}
 
 		if(b < 0) {
 			begin = end = 0; //removed all atoms
 		}
 		else {
-			end--;
+			end--; //end is one after last element
 			while(e < 0 && end > begin) {
 				end--;
-				e = f(end);
+				e = atommap[end];
 			}
 
 			begin = b;

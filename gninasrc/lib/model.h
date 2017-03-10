@@ -222,7 +222,8 @@ struct pdbqt_initializer; // forward declaration - only declared in parse_pdbqt.
 struct model_test;
 
 struct model {
-	void append(const model& m, bool stripH = false);
+	void append(const model& m);
+	void strip_hydrogens();
 
 	sz num_movable_atoms() const { return m_num_movable_atoms; }
 	sz num_internal_pairs() const;
