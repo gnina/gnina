@@ -787,8 +787,8 @@ grid_dims model::movable_atoms_box(fl add_to_each_dimension,
 				corner2[j] = v[j];
 		}
 	}
-	corner1 -= add_to_each_dimension / 2;
-	corner2 += add_to_each_dimension / 2;
+	corner1 -= add_to_each_dimension;
+	corner2 += add_to_each_dimension;
 
 	grid_dims gd;
 	{ // always doing this now FIXME ?
