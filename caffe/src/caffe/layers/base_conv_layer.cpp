@@ -389,6 +389,96 @@ void BaseConvolutionLayer<Dtype>::backward_gpu_bias(Dtype* bias,
       input, bias_multiplier_.gpu_data(), 1., bias);
 }
 
+template <typename Dtype>
+void BaseConvolutionLayer<Dtype>::alphabeta(
+    const Dtype* upper_relevances,
+    const Dtype* weights, const Dtype* input,
+    Dtype * lower_relevances) 
+{
+    int K = kernel_dim_;
+    int I = conv_out_spatial_dim_;
+    int R = conv_out_channels_ / group_;
+    //inputs are K x I
+    //weights are R x K
+    //upper relevances are R x I
+
+    float beta = 1;
+    float alpha = 1;
+
+    const Dtype* col_buff = input;
+    col_buff = col_buffer_.cpu_data();
+
+    Dtype * col_buff_new = col_buffer_.mutable_cpu_diff();
+    memset(col_buff_new, 0, sizeof(Dtype) * col_buffer_.count());
+
+    Blob<Dtype> pos_sums(1,1,R,I);
+    Blob<Dtype> neg_sums(1,1,R,I);
+    Dtype* pos_sums_data = pos_sums.mutable_cpu_data();
+    Dtype* neg_sums_data = neg_sums.mutable_cpu_data();
+
+    //x is col_buff[k, i]
+    //w is weights[r, k]
+
+    for (int g = 0; g < group_; ++g)
+    {
+        memset(pos_sums_data, 0, sizeof(Dtype) * R * I);
+        memset(neg_sums_data, 0, sizeof(Dtype) * R * I);
+
+        for (long i = 0; i < I; ++i)
+        {
+            for (long r = 0; r < R; ++r)
+            {
+                for (long k = 0; k < K; ++k)
+                {
+                    int index = col_offset_ * g + k * I + i;
+                    pos_sums_data[r * I + i] += 
+                        std::max(Dtype(0.), col_buff[col_offset_ * g + k * I + i] 
+                                * weights[weight_offset_ * g + r * K + k]);
+
+                    neg_sums_data[r * I + i] += 
+                        std::min(Dtype(0.), col_buff[col_offset_ * g + k * I + i] 
+                                * weights[weight_offset_ * g + r * K + k]);
+                }
+            }
+        }
+
+        for (long i = 0; i < I; ++i)
+        {
+            for (long r = 0; r < R; ++r)
+            {
+                Dtype z1 = 0;
+                Dtype z2 = 0;
+                if (pos_sums_data[r * I + i] > 0)
+                {
+                    z1 = upper_relevances[output_offset_ * g + r * I + i]
+                        / pos_sums_data[r * I + i];
+                }
+                if (neg_sums_data[r * I + i] < 0)
+                {
+                    z2 = upper_relevances[output_offset_ * g + r * I + i]
+                        / neg_sums_data[r * I + i];
+                }
+
+                for(long k = 0; k < K; ++k)
+                {
+                    col_buff_new[col_offset_ * g + k * I + i] +=
+                        alpha * std::max(Dtype(0.),
+                                col_buff[col_offset_ * g + k * I + i]
+                                * weights[weight_offset_ * g + r * K + k])
+                                * z1
+                        - beta * std::min(Dtype(0.),
+                                col_buff[col_offset_ * g + k * I + i]
+                                * weights[weight_offset_ * g * r * K + k])
+                                * z2;
+                }
+            }
+        }
+    }
+
+    lower_relevances = col_buff_new;
+}
+
+
 #endif  // !CPU_ONLY
 
 INSTANTIATE_CLASS(BaseConvolutionLayer);

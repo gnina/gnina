@@ -75,7 +75,21 @@ void ConvolutionLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 template <typename Dtype>
 void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-        std::cout << "convolutionlayer backward_relevance";
+        std::cout << "convolutionlayer backward_relevance\n";
+
+        int i = 0; //assume only using top[0]
+        const Dtype* weight = this->blobs_[i]->cpu_data();
+        const Dtype* top_diff = top[i]->cpu_diff();
+        const Dtype* bottom_data = bottom[i]->cpu_data();
+        Dtype* bottom_diff = bottom[i]->mutable_cpu_diff();
+        caffe_set(bottom[i]->count(), Dtype(0.), bottom_diff);
+        std::cout << "this->num_ : " << this->num_ << "\n";
+        for (int n = 0; n < this->num_; ++n)
+        {
+            this->alphabeta(top_diff+n *this->top_dim_,
+                            weight, bottom_data + n * this->bottom_dim_,
+                            bottom_diff + n * this->bottom_dim_);
+        }
 }
 
 #ifdef CPU_ONLY

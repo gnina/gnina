@@ -17,6 +17,8 @@ int main(int argc, char* argv[])
 
   using namespace boost::program_options;
 
+  bool lrp = false;
+
   options_description inputs("Input");
   inputs.add_options()
     ("receptor, r", value<std::string>(&visopts.receptor_name),
@@ -29,10 +31,10 @@ int main(int argc, char* argv[])
     ("cnn_model", value<std::string>(&cnnopts.cnn_model),
                   "CNN model file (*.model)")
     ("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
-                  "CNN weights file (*.caffemodel)");
-
-  options_description outputs("Output");
-  outputs.add_options()
+                  "CNN weights file (*.caffemodel)")
+    ("lrp", bool_switch(&lrp)->default_value(false),
+                  "only run fragment removal on ligand");
+  options_description outputs("Output"); outputs.add_options()
     ("receptor_output", value<std::string>(&visopts.receptor_output),
                   "output file for colored receptor (omit to skip receptor coloring)")
     ("ligand_output", value<std::string>(&visopts.ligand_output),
@@ -82,6 +84,15 @@ int main(int argc, char* argv[])
     return 1;
   }
 
+  //placeholders for center to instantiate
+  float center_x = 0, center_y = 0, center_z = 0;
+  vec center(center_x,center_y,center_z);
+
+  if (lrp)
+  {
+      cnn_visualization vis = cnn_visualization(visopts, cnnopts, center);
+      vis.lrp();
+  }
   if(vm.count("receptor") <= 0)
   {
     std::cerr << "Missing receptor.\n" << "\nCorrect usage:\n"
@@ -127,9 +138,6 @@ int main(int argc, char* argv[])
   google::InitGoogleLogging(argv[0]);
   google::SetStderrLogging(2);
 
-  //placeholders for center to instantiate
-  float center_x = 0, center_y = 0, center_z = 0;
-  vec center(center_x,center_y,center_z);
 
   cnn_visualization vis = cnn_visualization(visopts, cnnopts, center);
   vis.lrp();
