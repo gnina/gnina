@@ -92,9 +92,20 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   randtranslate = this->layer_param_.molgrid_data_param().random_translate();
   randrotate = this->layer_param_.molgrid_data_param().random_rotation();
   radiusmultiple = this->layer_param_.molgrid_data_param().radius_multiple();
+  fixedradius = this->layer_param_.molgrid_data_param().fixed_radius();
+  bool hasaffinity = this->layer_param_.molgrid_data_param().has_affinity();
+  bool hasrmsd = this->layer_param_.molgrid_data_param().has_rmsd();
 
   if(root_folder.length() > 0 && root_folder[root_folder.length()-1] != '/')
     root_folder = root_folder + "/"; //make sure we have trailing slash
+
+  int rmsdindex = -1;
+  if(hasaffinity) {
+	  rmsdindex = 3;
+  }
+  else if(hasrmsd) {
+	  rmsdindex = 2;
+  }
 
   if(binary) radiusmultiple = 1.0;
 
@@ -128,19 +139,28 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     while (getline(infile, line)) {
       stringstream ex(line);
       int label = 0;
+      double affinity = 0.0;
+      double rmsd = 0.0;
       ligname = string();
       recname = string();
       //first the label
       ex >> label;
+      if(hasaffinity)
+    	  ex >> affinity;
+      if(hasrmsd)
+    	  ex >> rmsd;
       //receptor
       ex >> recname;
       //ligand
       ex >> ligname;
 
+      CHECK(recname.length() > 0) << "Empty receptor, missing affinity/rmsd?";
+      CHECK(ligname.length() > 0) << "Empty ligand, missing affinity/rmsd?";
+
       if(root_folder.length() > 0) recname = root_folder + recname;
       if(root_folder.length() > 0) ligname = root_folder + ligname;
 
-      example lineex(label, recname, ligname);
+      example lineex(label, affinity, rmsd, recname, ligname);
       all_.push_back(lineex);
 
       if(label) actives_.push_back(lineex);
@@ -198,9 +218,14 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   // Reshape prefetch_data and top[0] according to the batch_size.
   top[0]->Reshape(top_shape);
 
-  // label
+  // label, affinity, rmsds
   vector<int> label_shape(1, batch_size);
   top[1]->Reshape(label_shape);
+
+  if(hasaffinity)
+	  top[2]->Reshape(label_shape);
+  if(hasrmsd)
+	  top[rmsdindex]->Reshape(label_shape);
 
 }
 
@@ -297,7 +322,10 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         ainfo.x = atom.x;
         ainfo.y = atom.y;
         ainfo.z  = atom.z;
-        ainfo.w = xs_radius(t);
+        if(fixedradius <= 0)
+        	ainfo.w = xs_radius(t);
+        else
+        	ainfo.w = fixedradius;
 
         float3 gradient;
         gradient.x = 0.0;
@@ -341,7 +369,10 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         ainfo.x = a->x();
         ainfo.y = a->y();
         ainfo.z  = a->z();
-        ainfo.w = xs_radius(t);
+        if(fixedradius <= 0)
+        	ainfo.w = xs_radius(t);
+        else
+        	ainfo.w = fixedradius;
 
         float3 gradient;
         gradient.x = 0.0;
@@ -458,6 +489,8 @@ void MolGridDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu)
 {
+  bool hasaffinity = this->layer_param_.molgrid_data_param().has_affinity();
+  bool hasrmsd = this->layer_param_.molgrid_data_param().has_rmsd();
   Dtype *data = NULL;
   if(gpu)
     data = top[0]->mutable_gpu_data();
@@ -465,6 +498,8 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     data = top[0]->mutable_cpu_data();
 
   labels.resize(0);
+  affinities.resize(0);
+  rmsds.resize(0);
   unsigned batch_size = top_shape[0];
   //if in memory must be set programmatically
   if(inmem) {
@@ -485,6 +520,8 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       for (item_id = 0; item_id < nactives; ++item_id) {
         int offset = item_id*example_size;
         labels.push_back(1.0);
+        affinities.push_back(actives_[actives_pos_].affinity);
+        rmsds.push_back(actives_[actives_pos_].rmsd);
 
         set_grid_ex(data+offset, actives_[actives_pos_], batch_transform[item_id], gpu);
 
@@ -505,8 +542,9 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       for (; item_id < batch_size; ++item_id) {
         int offset = item_id*example_size;
         labels.push_back(0.0);
-
-        set_grid_ex(data+offset, decoys_[decoys_pos_], batch_transform[item_id], gpu);
+        affinities.push_back(decoys_[decoys_pos_].affinity);
+        rmsds.push_back(decoys_[decoys_pos_].rmsd);
+        set_grid_ex(data+offset, decoys_[decoys_pos_], gpu);
 
         decoys_pos_++;
         if(decoys_pos_ >= dsz) {
@@ -527,14 +565,15 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       for (int item_id = 0; item_id < batch_size; ++item_id) {
         int offset = item_id*example_size;
         labels.push_back(all_[all_pos_].label);
-
-        set_grid_ex(data+offset, all_[all_pos_], batch_transform[item_id], gpu);
+        affinities.push_back(all_[all_pos_].affinity);
+        rmsds.push_back(all_[all_pos_].rmsd);
+        set_grid_ex(data+offset, all_[all_pos_], gpu);
 
         all_pos_++;
         if(all_pos_ >= sz) {
           DLOG(INFO) << "Restarting data  from start.";
           all_pos_ = 0;
-          if (this->layer_param_.ndim_data_param().shuffle()) {
+          if (this->layer_param_.molgrid_data_param().shuffle()) {
             shuffle(all_.begin(), all_.end(), caffe_rng());
           }
           if (num_rotations > 0) {
@@ -544,10 +583,29 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       }
     }
 
-    if(gpu)
+    if(gpu) {
       caffe_copy(labels.size(), &labels[0], top[1]->mutable_gpu_data());
-    else
+      if(hasaffinity) {
+    	  caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_gpu_data());
+    	  if(hasrmsd) {
+    		  caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_gpu_data());
+    	  }
+      } else if(hasrmsd) {
+    	  caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_gpu_data());
+      }
+
+    }
+    else {
       caffe_copy(labels.size(), &labels[0], top[1]->mutable_cpu_data());
+      if(hasaffinity) {
+    	  caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_cpu_data());
+    	  if(hasrmsd) {
+    		  caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_cpu_data());
+    	  }
+      } else if(hasrmsd) {
+    	  caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_cpu_data());
+      }
+    }
   }
   //grid the examples
 
