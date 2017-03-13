@@ -947,6 +947,14 @@ void model::clear_minus_forces()
 {
 	minus_forces.clear();
 	minus_forces.reserve(m_num_movable_atoms);
+	VINA_FOR(i, m_num_movable_atoms)
+	{
+		vec force;
+		force.data[0] = 0.0;
+		force.data[1] = 0.0;
+		force.data[2] = 0.0;
+		minus_forces.push_back(force);
+	}
 }
 
 void model::add_minus_forces(const std::vector<float3> forces)
@@ -955,21 +963,13 @@ void model::add_minus_forces(const std::vector<float3> forces)
 	unsigned j = 0;
 	VINA_FOR(i, m_num_movable_atoms)
 	{
-		vec force;
-		if (atoms[i].is_hydrogen()) // no hydrogen forces
+		if (!atoms[i].is_hydrogen()) // no hydrogen forces
 		{
-			force.data[0] = 0.0;
-			force.data[1] = 0.0;
-			force.data[2] = 0.0;
-		}
-		else
-		{
-			force.data[0] = forces[j].x;
-			force.data[1] = forces[j].y;
-			force.data[2] = forces[j].z;
+			minus_forces[i].data[0] += forces[j].x;
+			minus_forces[i].data[1] += forces[j].y;
+			minus_forces[i].data[2] += forces[j].z;
 			j += 1;
 		}
-		minus_forces.push_back(force);
 	}
 }
 
