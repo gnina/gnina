@@ -77,6 +77,9 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
         std::cout << "convolutionlayer backward_relevance\n";
 
+        std::cout <<  top[0]->count() << "\n";
+        std::cout <<  bottom[0]->count() << "\n";
+
         int i = 0; //assume only using top[0]
         const Dtype* weight = this->blobs_[i]->cpu_data();
         const Dtype* top_diff = top[i]->cpu_diff();

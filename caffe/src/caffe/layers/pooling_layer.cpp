@@ -586,7 +586,16 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const int* stride_data = this->stride_.cpu_data();
     const int* input_shape_data = this->input_shape_.cpu_data();
     const int* output_shape_data = this->output_shape_.cpu_data();
+    
+    for (int i = 0; i < 3; ++i)
+    {
+        std::cout << input_shape_data[i] << '\n';
+    }
 
+    for (int i = 0; i < 3; ++i)
+    {
+        std::cout << output_shape_data[i] << '\n';
+    }
     //int channels_ = bottom[0]->channels();
     int channels_ = 1;
 
@@ -616,6 +625,9 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
     const Dtype* bottom_data = bottom[0]->cpu_data();
     const Dtype* top_data = top[0]->cpu_data();
+
+    vector<int> offset(2, 0);
+    offset[1] = 1;
 
     caffe_set(bottom[0]->count(), Dtype(0.), bottom_diff);
 
@@ -673,9 +685,9 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
                     }
                 }
             }
-            //bottom_diff += bottom[0]->offset(0,1);
-            //top_diff += top[0]->offset(0,1);
-            //bottom_data += bottom[0]->offset(0,1);
+            bottom_diff += bottom[0]->offset(offset);
+            top_diff += top[0]->offset(offset);
+            bottom_data += bottom[0]->offset(offset);
         }
     }
 }

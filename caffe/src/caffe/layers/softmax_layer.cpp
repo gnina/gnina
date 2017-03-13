@@ -88,6 +88,18 @@ void SoftmaxLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 template <typename Dtype>
 void SoftmaxLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
+
+    std::cout << top[0]->count() << '\n';
+    std::cout << bottom[0]->count() << '\n';
+
+    std::cout << top[0]->cpu_data()[1];
+
+    Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
+    const Dtype* top_data = top[0]->cpu_data();
+
+    caffe_copy<Dtype>(bottom[0]->count(), top_data, bottom_diff);
+    
+
 }
 
 

@@ -995,6 +995,8 @@ void Net<Dtype>::Backward_Relevance(){
           vector<bool> propagate_down (10);
 
           layers_[i]->Backward_relevance(top_vecs_[i], propagate_down, bottom_vecs_[i]);
+
+          
     }
 
 }
