@@ -78,6 +78,7 @@ struct user_settings
 	bool dominimize;
 	bool include_atom_info;
 	bool gpu_on;
+    bool true_score;
 
 	//reasonable defaults
 	user_settings() :
@@ -85,7 +86,7 @@ struct user_settings
 					forcecap(1000), seed(auto_seed()), verbosity(1), cpu(1), exhaustiveness(
 							10),
 					score_only(false), randomize_only(false), local_only(false),
-					dominimize(false), include_atom_info(false)
+					dominimize(false), include_atom_info(false), true_score(false)
 	{
 
 	}
@@ -1128,6 +1129,7 @@ Thank you!\n";
 				"Adjust the verbosity of the output, default: 1")
 		("flex_hydrogens", bool_switch(&flex_hydrogens),
 				"Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.");
+        ("true_score", bool_switch(&settings.true_score), "Enable printing for the true GPU-computed score for correctness testing.");
 
 		options_description cnn("Convolutional neural net (CNN) scoring");
 		cnn.add_options()

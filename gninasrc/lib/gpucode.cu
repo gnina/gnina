@@ -159,6 +159,7 @@ void xadd(force_energy_tup *a, const force_energy_tup &b) {
 //device functions for warp-based reduction using shufl operations
 template<class T>
 __device__  __forceinline__ T warp_sum(T mySum) {
+    assert(__ballot(1) == UINT_MAX);
 	for (int offset = warpSize >> 1; offset > 0; offset >>= 1)
 		mySum += __shfl_down(mySum, offset);
 	return mySum;
@@ -247,14 +248,16 @@ void interaction_energy(const GPUNonCacheInfo dinfo, //intentionally copying fro
 			remainder ? remainder_offset : blockIdx.y * THREADS_PER_BLOCK;
 	unsigned ridx = roffset + r;
 	//get ligand atom info
-	unsigned t = dinfo.types[l];
+    unsigned t = 1;
+    if (ridx < (remainder ? dinfo.nrec_atoms - remainder_offset : UINT_MAX))
+	    t = dinfo.types[l];
 	float rec_energy = 0;
 	float3 rec_deriv = float3(0, 0, 0);
 	float3 out_of_bounds_deriv = float3(0, 0, 0);
 	float out_of_bounds_penalty = 0;
 
 	//TODO: remove hydrogen atoms completely
-	if (t > 1) { //ignore hydrogens
+	if (t > 1) { //ignore hydrogens and warp padded threads
 		//now consider interaction with every possible receptor atom
 		//TODO: parallelize
 		atom_params lin = ligs[l];
@@ -301,11 +304,12 @@ void interaction_energy(const GPUNonCacheInfo dinfo, //intentionally copying fro
 	float3 deriv = block_sum<float3>(rec_deriv);
 	if (threadIdx.x == 0) {
 		curl(this_e, (float *) &deriv, v);
-        //TODO: this is a race condition if there are multiple blocks and
-        //nrec_atoms > 2048. A commented-out solution below should probably be
-        //applied iff this condition is met.
-		out[l] += force_energy_tup(deriv + out_of_bounds_deriv,
-				this_e + out_of_bounds_penalty);
+        if (dinfo.nrec_atoms > 1024)
+            pseudoAtomicAdd(&out[l], force_energy_tup(deriv + out_of_bounds_deriv,
+                        this_e + out_of_bounds_penalty));
+        else
+		    out[l] += force_energy_tup(deriv + out_of_bounds_deriv,
+		    		this_e + out_of_bounds_penalty);
         // force_energy_tup res = force_energy_tup(deriv + out_of_bounds_deriv, 
                 // this_e + out_of_bounds_penalty);
         // atomicAdd(&out[l][0], res[0]);
@@ -355,14 +359,13 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
 		interaction_energy<0> <<<dim3(nlig_atoms, nfull_blocks),
 				THREADS_PER_BLOCK>>>(info, 0, slope, v, ligs, out);
 	if (nthreads_remain)
-		interaction_energy<1> <<<nlig_atoms, nthreads_remain>>>(info,
+		interaction_energy<1> <<<nlig_atoms, ROUND_TO_WARP(nthreads_remain)>>>(info,
 				nrec_atoms - nthreads_remain, slope, v, ligs, out);
 
 	//get total energy
-    cudaDeviceSynchronize();
+    sync_and_errcheck();
 	reduce_energy<<<1, ROUND_TO_WARP(nlig_atoms)>>>(out, nlig_atoms);
-    abort_on_gpu_err();
-    cudaDeviceSynchronize();
+    sync_and_errcheck();
 
 	return out->energy;
 }

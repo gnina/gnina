@@ -13,6 +13,16 @@ __device__ static inline void abort_on_gpu_err(void){
     }
 }
 
+__host__ __device__ static inline void sync_and_errcheck(void){
+    cudaError err = cudaDeviceSynchronize();
+    if (cudaSuccess != err)
+    {
+        printf("cuda async error at %s:%i : %s\n",
+                __FILE__, __LINE__, cudaGetErrorString(err));
+        // exit(-1);
+    }
+}
+
 #ifndef __CUDA_ARCH__
 // CUDA: various checks for different function calls.
 #define CUDA_CHECK_GNINA(condition) \

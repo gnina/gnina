@@ -328,7 +328,7 @@ fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
                       g, *g_orig, *g_new,
                       *p, *y, h, *minus_hy,
                       average_required_improvement, params, f0);
-    cudaDeviceSynchronize();
+    sync_and_errcheck();
     CUDA_CHECK_GNINA(cudaFree(h.m_data));
     CUDA_CHECK_GNINA(cudaMemcpy(&out_energy,
                                 f0, sizeof(float), cudaMemcpyDeviceToHost));

@@ -317,14 +317,14 @@ void conf_gpu::get_data(std::vector<float>& d) const {
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(&d[0], cinfo, n * sizeof(float),
 					cudaMemcpyDeviceToHost));
-    cudaDeviceSynchronize();
+    sync_and_errcheck();
 }
 
 void conf_gpu::set_data(std::vector<float>& d) const {
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(cinfo, &d[0], n * sizeof(float),
 					cudaMemcpyHostToDevice));
-    cudaDeviceSynchronize();
+    sync_and_errcheck();
 }
 
 __device__ void conf_gpu::print_gpu() const {

@@ -35,7 +35,8 @@ struct __align__(sizeof(float4)) force_energy_tup{
 
   __host__ __device__ force_energy_tup(void): minus_force(0,0,0), energy(0) {}
   __host__ __device__ force_energy_tup(float3 f, float e)
-    : minus_force(f), energy(e){};
+    : minus_force(f), energy(e){}
+  __host__ __device__ force_energy_tup(float f1, float f2, float f3, float f4) : minus_force(f1, f2, f3), energy(f4) {};
 
   __host__ __device__
   const fl& operator[](sz i) const { 
