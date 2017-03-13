@@ -164,8 +164,9 @@ struct context {
 	sdfcontext sdftext;
 
 	void writePDBQT(const vecv& coords, std::ostream& out) const;
-	void writeSDF(const vecv& coords, sz nummove, std::ostream& out)
-    const { sdftext.write(coords, nummove, out); }
+	void writeSDF(const vecv& coords, sz nummove, std::ostream& out) const {
+		sdftext.write(coords, nummove, out);
+	}
 	void update(const appender& transform);
 	void set(sz pdbqtindex, sz sdfindex, sz atomindex, bool inf = false);
 
@@ -222,6 +223,7 @@ struct model_test;
 
 struct model {
 	void append(const model& m);
+	void strip_hydrogens();
 
 	sz num_movable_atoms() const { return m_num_movable_atoms; }
 	sz num_internal_pairs() const;
@@ -390,13 +392,12 @@ struct model {
 	//deallocate gpu memory
 	void deallocate_gpu();
 
-	model() : m_num_movable_atoms(0) {};
+	model() : m_num_movable_atoms(0), hydrogens_stripped(false) {};
 	~model() { deallocate_gpu(); };
+
     /* TODO:protect */
     vecv coords;
-  
     gpu_data gdata;
-
     vector_mutable<ligand> ligands;
 
 private:
@@ -410,13 +411,17 @@ private:
 	friend struct terms;
 	friend struct conf_independent_inputs;
 	friend struct appender_info;
+	friend class appender;
 	friend struct pdbqt_initializer;
 	friend struct model_test;
 
-	const atom& get_atom(const atom_index& i) const
-    { return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]); }
-  atom& get_atom(const atom_index& i)
-    { return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]); }
+	const atom& get_atom(const atom_index& i) const {
+		return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]);
+	}
+
+	atom& get_atom(const atom_index& i) {
+		return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]);
+	}
 
 	void write_context(const context& c, std::ostream& out) const;
 	void write_context(const context& c, std::ostream& out,
@@ -455,11 +460,11 @@ private:
                                   const interacting_pairs& pairs,
                                   const vecv& coords, vecv& forces) const;
 
+	bool hydrogens_stripped;
 	vecv internal_coords;
     /* TODO:reprivate */
 	/* vecv coords; */
-  //I believe this contains the accumulated directional deltas for each
-  //atom
+  //Tthis contains the accumulated directional deltas for each atom
 	vecv minus_forces;
 
 	atomv grid_atoms;

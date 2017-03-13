@@ -82,6 +82,34 @@ struct atom_range {
 		end = begin + diff;
 	}
 
+	//remove atoms that are not in atommap
+	//assume relative ordering of atoms hasn't changed (just some removed)
+	void reduce(const std::vector<int>& atommap) {
+		assert(begin < atommap.size());
+		assert(end-1 < atommap.size());
+		int b = atommap[begin];
+		int e = atommap[end-1];
+		//skip over any removed atoms at begining/end
+		while(b < 0 && begin < end) {
+			begin++;
+			b = atommap[begin];
+		}
+
+		if(b < 0) {
+			begin = end = 0; //removed all atoms
+		}
+		else {
+			end--; //end is one after last element
+			while(e < 0 && end > begin) {
+				end--;
+				e = atommap[end];
+			}
+
+			begin = b;
+			end = e+1;
+		}
+	}
+
 	atom_range() :
 			begin(0), end(0){
 	}

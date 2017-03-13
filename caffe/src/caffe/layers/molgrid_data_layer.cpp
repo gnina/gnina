@@ -491,6 +491,9 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     if(balanced) { //load equally from actives/decoys
       unsigned nactives = batch_size/2;
 
+      CHECK_GT(actives_.size(), 0) << "Need non-zero number of actives for balanced input in MolGridDataLayer";
+      CHECK_GT(decoys_.size(), 0) << "Need non-zero number of decoys for balanced input in MolGridDataLayer";
+
       int item_id = 0;
       unsigned asz = actives_.size();
       for (item_id = 0; item_id < nactives; ++item_id) {

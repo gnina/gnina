@@ -45,6 +45,7 @@ lib/everything.cpp
 lib/flexinfo.cpp
 lib/GninaConverter.cpp
 lib/grid.cpp
+lib/model.cpp
 lib/molgetter.cpp
 lib/monte_carlo.cpp
 lib/mutate.cpp
@@ -108,9 +109,9 @@ cuda_add_executable(gninagrid gninagrid/gninagrid.cpp lib/CommandLine2/CommandLi
 target_link_libraries(gninagrid  caffe gninalib ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT})
 
-cuda_add_executable(gninatyper gninatyper/gninatyper.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(gninatyper  caffe gninalib ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT})
+cuda_add_executable(gninatyper gninatyper/gninatyper.cpp lib/CommandLine2/CommandLine.cpp ${LIB_SRCS})
+target_link_libraries(gninatyper  caffe ${Boost_LIBRARIES}
+    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT})
 
 cuda_add_executable(tognina tognina/tognina.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES}

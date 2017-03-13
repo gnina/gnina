@@ -67,7 +67,6 @@ fl non_cache::eval(const model& m, fl v) const
 			}
 		}
 		out_of_bounds_penalty *= slope;
-
 		const szv& possibilities = sgrid.possibilities(adjusted_a_coords);
 
 		VINA_FOR_IN(possibilities_j, possibilities)
@@ -167,6 +166,10 @@ fl non_cache::eval_deriv(model& m, fl v, const grid& user_grid) const
 
 			if (r2 < cutoff_sqr)
 			{
+				if (r2 < epsilon_fl) {
+					throw std::runtime_error(
+							"Ligand atom exactly overlaps receptor atom.  I can't deal with this.");
+				}
 				//dkoes - the "derivative" value returned by eval_deriv
 				//is normalized by r (dor = derivative over r?)
 

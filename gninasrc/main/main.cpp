@@ -83,10 +83,11 @@ struct user_settings
 	//reasonable defaults
 	user_settings() :
 			energy_range(2.0), num_modes(9), out_min_rmsd(1),
-					forcecap(1000), seed(auto_seed()), verbosity(1), cpu(1), exhaustiveness(
-							10),
+					forcecap(1000), seed(auto_seed()), verbosity(1), cpu(1),
+					device(0), exhaustiveness(10),
 					score_only(false), randomize_only(false), local_only(false),
-					dominimize(false), include_atom_info(false), true_score(false)
+					dominimize(false), include_atom_info(false), gpu_on(false),
+                    true_score(false)
 	{
 
 	}
