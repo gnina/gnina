@@ -123,9 +123,15 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 
 }
 
+//has an affinity prediction layer
+bool CNNScorer::has_affinity() const
+{
+	return (bool)net->blob_by_name("predaff");
+}
+
 //return score of model, assumes receptor has not changed from initialization
 //if compute_gradient is set, also adds cnn atom gradient to m.minus_forces
-float CNNScorer::score(model& m, bool compute_gradient)
+float CNNScorer::score(const model& m, bool compute_gradient, float& aff)
 {
 	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
@@ -137,13 +143,27 @@ float CNNScorer::score(model& m, bool compute_gradient)
 	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates());
 
 	double score = 0.0;
+	double affinity = 0.0;
 	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
+	const caffe::shared_ptr<Blob<Dtype> > affblob = net->blob_by_name("predaff");
 
 	unsigned cnt = 0;
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{
-		net->Forward();
-		score += outblob->cpu_data()[1];
+		net->Forward(); //do all rotations at once if requested
+		const Dtype* out = outblob->cpu_data();
+		score += out[1];
+		if (affblob)
+		{
+			//has affinity prediction
+			const Dtype* aff = affblob->cpu_data();
+			affinity += aff[0];
+			cout << "#Rotate " << out[1] << " " << aff[0] << "\n";
+		}
+		else
+		{
+			cout << "#Rotate " << out[1] << "\n";
+		}
 		if (compute_gradient)
 		{
 			net->Backward();
@@ -151,7 +171,16 @@ float CNNScorer::score(model& m, bool compute_gradient)
 		}
 		cnt++;
 	}
+
+	aff = affinity / cnt;
 	return score / cnt;
+}
+
+//return only score
+float CNNScorer::score(const model& m, bool compute_gradient)
+{
+	float aff = 0;
+	return score(m, compute_gradient, aff);
 }
 
 void CNNScorer::outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient)

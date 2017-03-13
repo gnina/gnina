@@ -242,11 +242,16 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< " (kcal/mol)";
 		log.endl();
 
-		cnnscore = cnn.score(m, false);
-		if(cnnscore >= 0.0)
+		float aff = 0;
+		cnnscore = cnn.score(m, false, aff);
+		if (cnnscore >= 0.0)
 		{
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
 			log.endl();
+			if (aff > 0) {
+				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << aff;
+				log.endl();
+			}
 		}
 
 		std::vector<flv> atominfo;
@@ -274,7 +279,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		}
 		log << '\n';
 
-		results.push_back(result_info(e, cnnscore, -1, m));
+		results.push_back(result_info(e, cnnscore, aff, -1, m));
 
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
@@ -309,20 +314,26 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< intramolecular_energy
 				<< " (kcal/mol)\nRMSD: " << rmsd;
 		log.endl();
-		cnnscore = cnn.score(m, false);
-		if(cnnscore >= 0.0)
+
+		float aff = 0;
+		cnnscore = cnn.score(m, false, aff);
+		if (cnnscore >= 0.0)
 		{
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
 			log.endl();
+			if (aff > 0)
+			{
+				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << aff;
+				log.endl();
+			}
 		}
 
 		if (!nc.within(m))
-			log
-			<< "WARNING: not all movable atoms are within the search space\n";
+			log << "WARNING: not all movable atoms are within the search space\n";
 
 		m.set(out.c);
 		done(settings.verbosity, log);
-		results.push_back(result_info(e, cnnscore, rmsd, m));
+		results.push_back(result_info(e, cnnscore, aff, rmsd, m));
 
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
@@ -389,7 +400,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 			log.endl();
 
 			//dkoes - setup result_info
-			results.push_back(result_info(out_cont[i].e, cnnscore, -1, m));
+			results.push_back(result_info(out_cont[i].e, -1, 0, -1, m));
 
 			if (compute_atominfo)
 				results.back().setAtomValues(m, &sf);
@@ -464,7 +475,7 @@ void main_procedure(model& m, precalculate& prec,
 	{
 		fl e = do_randomization(m, corner1, corner2, settings.seed,
 				settings.verbosity, log);
-		results.push_back(result_info(e, -1, -1, m));
+		results.push_back(result_info(e, -1, 0, -1, m));
 		return;
 	}
 	else

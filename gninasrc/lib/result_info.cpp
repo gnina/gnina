@@ -140,6 +140,12 @@ void result_info::write(std::ostream& out, std::string& ext,
 			out << std::fixed  << std::setprecision(10) << cnnscore << "\n\n";
 		}
 
+		if(cnnaffinity >= 0)
+		{
+			out << "> <CNNaffinity>\n";
+			out << std::fixed  << std::setprecision(10) << cnnaffinity << "\n\n";
+		}
+
 		if (include_atom_terms)
 		{
 			std::stringstream astr;
@@ -176,6 +182,12 @@ void result_info::write(std::ostream& out, std::string& ext,
 			setMolData(format, mol,
 					"CNNscore",
 					boost::lexical_cast<std::string>((float) cnnscore));
+		}
+		if (cnnaffinity > 0)
+		{
+			setMolData(format, mol,
+					"CNNaffinity",
+					boost::lexical_cast<std::string>((float) cnnaffinity));
 		}
 
 		if (include_atom_terms)
