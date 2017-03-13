@@ -28,7 +28,6 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
 		 mtx(new boost::mutex)
 {
-
 	if (cnnopts.cnn_scoring)
 	{
 		NetParameter param;
@@ -131,7 +130,7 @@ bool CNNScorer::has_affinity() const
 
 //return score of model, assumes receptor has not changed from initialization
 //if compute_gradient is set, also adds cnn atom gradient to m.minus_forces
-float CNNScorer::score(const model& m, bool compute_gradient, float& aff)
+float CNNScorer::score(model& m, bool compute_gradient, float& aff)
 {
 	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
@@ -177,10 +176,10 @@ float CNNScorer::score(const model& m, bool compute_gradient, float& aff)
 }
 
 //return only score
-float CNNScorer::score(const model& m, bool compute_gradient)
+float CNNScorer::score(model& m)
 {
 	float aff = 0;
-	return score(m, compute_gradient, aff);
+	return score(m, false, aff);
 }
 
 void CNNScorer::outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient)

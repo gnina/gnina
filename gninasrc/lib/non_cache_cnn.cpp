@@ -50,28 +50,11 @@ fl non_cache_cnn::eval(model& m, fl v) const
 
 		e += out_of_bounds_penalty;
 	}
-	e += -cnn_scorer.score(m, false);
+	fl aff = 0;
+	e += -cnn_scorer.score(m, false, aff);
 	return e;
 }
-/*
-bool non_cache_cnn::within(const model& m, fl margin) const
-{
-	VINA_FOR(i, m.num_movable_atoms())
-	{
-		if (m.movable_atom(i).is_hydrogen())
-			continue;
-		const vec& a_coords = m.movable_coords(i);
-		VINA_FOR_IN(j, gd)
-		{
-			if (gd[j].n > 0)
-				if (a_coords[j] < gd[j].begin - margin
-						|| a_coords[j] > gd[j].end + margin)
-					return false;
-		}
-	}
-	return true;
-}
-*/
+
 fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const
 {
 	fl e = 0;
@@ -105,8 +88,8 @@ fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const
 		m.movable_minus_forces(i) = deriv + out_of_bounds_deriv;
 		e += this_e + out_of_bounds_penalty;
 	}
-	m.clear_minus_forces();
-	e = -cnn_scorer.score(m, true);
+	fl aff = 0;
+	e = -cnn_scorer.score(m, true, aff);
 	return e;
 }
 

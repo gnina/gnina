@@ -52,8 +52,8 @@ public:
 
 	bool has_affinity() const; //return true if can predict affinity
 
-	float score(const model& m, bool compute_gradient);
-	float score(const model& m, bool compute_gradient, float& affinity);
+	float score(model& m);
+	float score(model& m, bool compute_gradient, float& affinity);
 
 	void outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient);
 };

@@ -544,7 +544,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         labels.push_back(0.0);
         affinities.push_back(decoys_[decoys_pos_].affinity);
         rmsds.push_back(decoys_[decoys_pos_].rmsd);
-        set_grid_ex(data+offset, decoys_[decoys_pos_], gpu);
+        set_grid_ex(data+offset, decoys_[decoys_pos_], batch_transform[item_id], gpu);
 
         decoys_pos_++;
         if(decoys_pos_ >= dsz) {
@@ -567,7 +567,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         labels.push_back(all_[all_pos_].label);
         affinities.push_back(all_[all_pos_].affinity);
         rmsds.push_back(all_[all_pos_].rmsd);
-        set_grid_ex(data+offset, all_[all_pos_], gpu);
+        set_grid_ex(data+offset, all_[all_pos_], batch_transform[item_id], gpu);
 
         all_pos_++;
         if(all_pos_ >= sz) {
