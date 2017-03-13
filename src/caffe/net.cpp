@@ -991,6 +991,7 @@ void Net<Dtype>::Backward_Relevance(){
     {
           std::cout << "starting layer " << i << "\n";
           std::cout << "layer type: " << layer_names_[i] << "\n";
+          std::cout << "need backward: " << layer_need_backward_[i] << "\n\n";
           vector<bool> propagate_down (10);
 
           layers_[i]->Backward_relevance(top_vecs_[i], propagate_down, bottom_vecs_[i]);
