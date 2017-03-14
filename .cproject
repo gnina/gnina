@@ -28,6 +28,7 @@
 									<listOptionValue builtIn="false" value="/usr/local/include/openbabel-2.0"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/rdkit"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina/caffe/include/}&quot;"/>
 								</option>
 								<inputType id="nvcc.compiler.input.cu.1807711013" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.105662138" superClass="nvcc.compiler.input.cpp"/>
@@ -45,6 +46,7 @@
 									<listOptionValue builtIn="false" value="/usr/local/include/openbabel-2.0"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/rdkit"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina/caffe/include/}&quot;"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1373945305" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>
@@ -82,6 +84,7 @@
 									<listOptionValue builtIn="false" value="/usr/local/include/rdkit"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/openbabel-2.0"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina/caffe/include/}&quot;"/>
 								</option>
 								<option id="nvcc.compiler.def.symbols.798994789" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="__CUDACC_RTC__=1"/>
@@ -102,6 +105,7 @@
 									<listOptionValue builtIn="false" value="/usr/local/include/openbabel-2.0"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/rdkit"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina/caffe/include/caffe}&quot;"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1925758052" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>
