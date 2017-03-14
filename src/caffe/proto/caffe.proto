@@ -869,6 +869,8 @@ message MolGridDataParameter {
   optional bool has_affinity = 22 [default = false];
   //if true has rmsd in addition to label - order is label affinity rmsd
   optional bool has_rmsd = 23 [default = false];
+  // pair positive/negative examples from same receptor; always balanced and shuffled
+  optional bool paired = 24 [default = false];
 }
 
 message NDimDataParameter {

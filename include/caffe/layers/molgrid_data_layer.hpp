@@ -35,7 +35,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   explicit MolGridDataLayer(const LayerParameter& param)
       : BaseDataLayer<Dtype>(param), actives_pos_(0),
         decoys_pos_(0), all_pos_(0), num_rotations(0), current_rotation(0),
-        example_size(0),balanced(false),inmem(false),
+        example_size(0),balanced(false),paired(false),inmem(false),
 				resolution(0.5), dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0),
 				binary(false), randrotate(false), dim(0), numgridpoints(0),
 				numReceptorTypes(0),numLigandTypes(0), gpu_alloc_size(0),
@@ -130,11 +130,35 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   	example(Dtype l, Dtype a, Dtype rms, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms) {}
 	};
 
+  //organize examples with respect to receptor
+  struct paired_examples
+  {
+	  vector<string> receptors;
+	  vector< vector<example> > actives; //indexed by receptor index first
+	  vector< pair<unsigned, vector<example> > > decoys; //indexed by receptor index fist, includes current index into vector
+	  vector< pair<unsigned, unsigned> > indices; //receptor/active indices; can be shuffled
+	  unsigned curr_index; //where we are indices for getting examples
+
+	  boost::unordered_map<string, unsigned> recmap; //map to receptor indices
+
+	  paired_examples(): curr_index(0) {}
+
+	  void add(const example& ex);
+
+	  void shuffle_pairs(); //randomize - only necessary at start
+
+	  //get next pair of examples, will shuffle as necessary
+	  void next(example& active, example& decoy);
+
+  };
+
   virtual void Shuffle();
 
   vector<example> actives_;
   vector<example> decoys_;
   vector<example> all_;
+  paired_examples pairs_;
+
   string root_folder;
   int actives_pos_, decoys_pos_, all_pos_;
   unsigned num_rotations;
@@ -142,6 +166,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   unsigned example_size; //channels*numgridpoints
   vector<int> top_shape;
   bool balanced;
+  bool paired;
   bool inmem;
   vector<Dtype> labels;
   vector<Dtype> affinities;

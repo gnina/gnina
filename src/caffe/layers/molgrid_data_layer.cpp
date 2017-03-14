@@ -57,6 +57,104 @@ MolGridDataLayer<Dtype>::~MolGridDataLayer<Dtype>() {
   }
 }
 
+/*
+ *
+  struct example
+	{
+  	string receptor;
+  	string ligand;
+  	Dtype label;
+  	Dtype affinity;
+  	Dtype rmsd;
+
+  	example(): label(0), affinity(0), rmsd(0) {}
+  	example(Dtype l, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0) {}
+  	example(Dtype l, Dtype a, Dtype rms, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms) {}
+	};
+
+  //organize examples with respect to receptor
+  struct paired_examples
+  {
+	  vector<string> receptors;
+	  vector< vector<example> > actives; //indexed by receptor index first
+	  vector< vector<example> > decoys; //indexed by receptor index fist
+	  vector< pair<unsigned, unsigned> > indices; //receptor/active indices; can be shuffled
+	  unsigned curr_index; //where we are indices for getting examples
+
+	  boost::unordered_map<string, unsigned> recmap; //map to receptor indices
+
+ */
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::paired_examples::add(const MolGridDataLayer::example& ex)
+{
+	//have we seen this receptor before?
+	if(recmap.count(ex.receptor) == 0) {
+		//if not, assign index and resize vectors
+		recmap[ex.receptor] = receptors.size();
+		receptors.push_back(ex.receptor); //honestly, don't really need a vector as opposed to a counter..
+		actives.resize(receptors.size());
+		decoys.resize(receptors.size());
+	}
+
+	unsigned rindex = recmap[ex.receptor];
+
+	//add to appropriate sub-vector
+	if(ex.label != 0) {
+
+		//if active, add to indices
+		indices.push_back(make_pair(rindex, actives[rindex].size()));
+		actives[rindex].push_back(ex);
+	}
+	else {
+		decoys[rindex].first = 0;
+		decoys[rindex].second.push_back(ex);
+	}
+}
+
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::paired_examples::shuffle_pairs() //randomize - only necessary at start
+{
+    shuffle(indices.begin(), indices.end(), caffe_rng());
+    //shuffle decoys
+    for(unsigned i = 0, n = decoys.size(); i < n; i++) {
+    	shuffle(decoys[i].second.begin(), decoys[i].second.end(), caffe_rng());
+    }
+}
+
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::paired_examples::next(example& active, example& decoy)
+{
+	assert(indices.size() > 0);
+	if(curr_index >= indices.size()) {
+		//need to wrap around and re-shuffle
+		curr_index = 0;
+		shuffle(indices.begin(), indices.end(), caffe_rng());
+		//decoys get shuffled on demand
+	}
+
+	unsigned rindex = indices[curr_index].first;
+	unsigned aindex = indices[curr_index].second;
+
+	assert(rindex < actives.size());
+	assert(aindex < actives[rindex].size());
+	active = actives[rindex][aindex];
+
+	//now get decoy, reshuffling if necessary
+	assert(rindex < decoys.size());
+	unsigned dindex = decoys[rindex].first;
+	vector<example>& decvec = decoys[rindex].second;
+	if(dindex >= decvec.size()) {
+		dindex = 0;
+		shuffle(decvec.begin(), decvec.end(), caffe_rng());
+	}
+	decoy = decvec[dindex];
+	//increment indices
+	decoys[rindex].first++;
+	curr_index++;
+
+}
+
+
 //ensure gpu memory is of sufficient size
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::allocateGPUMem(unsigned sz)
@@ -83,6 +181,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   root_folder = this->layer_param_.molgrid_data_param().root_folder();
   balanced  = this->layer_param_.molgrid_data_param().balanced();
+  paired  = this->layer_param_.molgrid_data_param().paired();
   num_rotations = this->layer_param_.molgrid_data_param().rotate();
   all_pos_ = actives_pos_ = decoys_pos_ = 0;
   inmem = this->layer_param_.molgrid_data_param().inmemory();
