@@ -12,7 +12,7 @@ int main(int argc, char* argv[])
   vis_options visopts;
   cnn_options cnnopts;
 
-  cnnopts.cnn_rotations = 24; //any reason to make this an option?
+  cnnopts.cnn_rotations = 1; //any reason to make this an option?
   cnnopts.cnn_scoring = true;
 
   using namespace boost::program_options;
