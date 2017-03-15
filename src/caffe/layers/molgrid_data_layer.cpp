@@ -57,33 +57,7 @@ MolGridDataLayer<Dtype>::~MolGridDataLayer<Dtype>() {
   }
 }
 
-/*
- *
-  struct example
-	{
-  	string receptor;
-  	string ligand;
-  	Dtype label;
-  	Dtype affinity;
-  	Dtype rmsd;
 
-  	example(): label(0), affinity(0), rmsd(0) {}
-  	example(Dtype l, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0) {}
-  	example(Dtype l, Dtype a, Dtype rms, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms) {}
-	};
-
-  //organize examples with respect to receptor
-  struct paired_examples
-  {
-	  vector<string> receptors;
-	  vector< vector<example> > actives; //indexed by receptor index first
-	  vector< vector<example> > decoys; //indexed by receptor index fist
-	  vector< pair<unsigned, unsigned> > indices; //receptor/active indices; can be shuffled
-	  unsigned curr_index; //where we are indices for getting examples
-
-	  boost::unordered_map<string, unsigned> recmap; //map to receptor indices
-
- */
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::paired_examples::add(const MolGridDataLayer::example& ex)
 {
@@ -261,6 +235,8 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
       if(label) actives_.push_back(lineex);
       else decoys_.push_back(lineex);
+
+      pairs_.add(lineex);
     }
 
     if (this->layer_param_.molgrid_data_param().shuffle()) {
@@ -331,6 +307,7 @@ void MolGridDataLayer<Dtype>::Shuffle() {
     shuffle(actives_.begin(), actives_.end(), caffe_rng());
     shuffle(decoys_.begin(), decoys_.end(), caffe_rng());
     shuffle(all_.begin(), all_.end(), caffe_rng());
+    pairs_.shuffle_pairs();
 }
 
 //return quaternion representing one of 24 distinct axial rotations
@@ -587,7 +564,31 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     }
   }
   else {
-    if(balanced) { //load equally from actives/decoys
+	if(paired) {
+		CHECK_EQ(batch_size % 2, 0) << "Paired input requires even batch size in MolGridDataLayer";
+		example active;
+		example decoy;
+		unsigned npairs = batch_size/2;
+		for(unsigned i = 0; i < npairs; i++) {
+	        int offset = labels.size()*example_size;
+			pairs_.next(active, decoy);
+
+			//active
+			labels.push_back(active.label);
+			affinities.push_back(active.affinity);
+			rmsds.push_back(active.rmsd);
+			set_grid_ex(data+offset, active, gpu);
+
+			//then decoy
+			offset += example_size;
+			labels.push_back(decoy.label);
+			affinities.push_back(decoy.affinity);
+			rmsds.push_back(decoy.rmsd);
+			set_grid_ex(data+offset, decoy, gpu);
+		}
+
+	}
+	else if(balanced) { //load equally from actives/decoys
       unsigned nactives = batch_size/2;
 
       CHECK_GT(actives_.size(), 0) << "Need non-zero number of actives for balanced input in MolGridDataLayer";
