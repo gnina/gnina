@@ -42,6 +42,8 @@ class RankLossLayer : public LossLayer<Dtype> {
       : LossLayer<Dtype>(param), allpairs(false) {
     allpairs = this->layer_param_.rank_loss_param().allpairs();
   }
+  virtual ~RankLossLayer() {}
+
   virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
 
@@ -77,6 +79,10 @@ class RankLossLayer : public LossLayer<Dtype> {
 
  private:
   bool allpairs;  // evaluate all possible pairs in batch rather than only adjacent
+
+  Dtype compute_pair_loss(const vector<Blob<Dtype>*>& bottom, unsigned i, unsigned j);
+  void compute_pair_gradient(const vector<Blob<Dtype>*>& top,
+		  const vector<Blob<Dtype>*>& bottom, unsigned i, unsigned j);
 };
 
 }  // namespace caffe

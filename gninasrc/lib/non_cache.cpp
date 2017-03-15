@@ -180,10 +180,10 @@ fl non_cache::eval_deriv(model& m, fl v, const grid& user_grid) const
 		}
 		if(user_grid.initialized())
 		{
-	    vec ug_deriv(0, 0, 0);
+			vec ug_deriv(0, 0, 0);
 			uge = user_grid.evaluate_user(a_coords, slope, &ug_deriv);
 			this_e += uge;
-	    deriv += ug_deriv;
+			deriv += ug_deriv;
 		}
 		curl(this_e, deriv, v);
 		m.minus_forces[i] = deriv + out_of_bounds_deriv;
