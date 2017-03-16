@@ -45,6 +45,7 @@ lib/everything.cpp
 lib/flexinfo.cpp
 lib/GninaConverter.cpp
 lib/grid.cpp
+lib/model.cpp
 lib/molgetter.cpp
 lib/monte_carlo.cpp
 lib/mutate.cpp

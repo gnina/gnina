@@ -125,6 +125,7 @@ float eval_deriv_gpu(const GPUSplineInfo* splineInfo, unsigned t, float charge,
 	return ret;
 }
 
+
 //curl function to scale back positive energies and match vina calculations
 //assume v is reasonable
 __device__
