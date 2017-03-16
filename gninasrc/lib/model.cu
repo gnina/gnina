@@ -71,7 +71,8 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
 	}
 
 	const fl cutoff_sqr = info.cutoff_sq;
-    *scratch = 0;
+	memset(scratch, 0, sizeof(float));
+    cudaDeviceSynchronize();
 
 	if(pairs_size < CUDA_THREADS_PER_BLOCK) {
 		eval_intra_kernel<<<1,pairs_size>>>(info.splineInfo, coords,
@@ -145,23 +146,19 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
 	// static loop_timer t;
 	// t.resume();
     fl e, ie;
-    const unsigned int idx = threadIdx.x;
-    if (idx == 0)
+    if (threadIdx.x == 0) {
 	    set_conf_kernel<<<1,info.nlig_atoms>>>(treegpu,
                                            atom_coords, (vec*)coords, c.cinfo);
-    if (idx < info.nlig_atoms)
-        minus_forces[idx] = 0;
-    __syncthreads();
-    if (idx == 0) {
-        sync_and_errcheck();
+        memset(minus_forces, 0, sizeof(force_energy_tup) * info.nlig_atoms);
+        cudaDeviceSynchronize();
         e = single_point_calc(info, coords, minus_forces, v[1]); 
-        sync_and_errcheck();
+        cudaDeviceSynchronize();
 	    ie = eval_interacting_pairs_deriv_gpu(info, v[0]); // adds to minus_forces
-        sync_and_errcheck();
+        cudaDeviceSynchronize();
         e += ie;
 	    derivatives_kernel<<<1,info.nlig_atoms>>>
             (treegpu, (vec*)coords, (vec*)minus_forces, g.change_values);
-        sync_and_errcheck();
+        cudaDeviceSynchronize();
     }
 
 	// t.stop();
@@ -389,6 +386,6 @@ void gpu_data::copy_from_gpu(model& m) {
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(&m.coords[0], coords, coords_size * sizeof(vec),
 					cudaMemcpyDeviceToHost));
-    sync_and_errcheck();
+    cudaDeviceSynchronize();
 }
 

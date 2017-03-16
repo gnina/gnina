@@ -5,44 +5,18 @@
 
 #include <cuda_runtime.h>
 
-__device__ float warp_max(float val) {
-    for (int offset = WARPSIZE >> 1; offset > 0; offset >>= 1)
-        val = fmaxf(__shfl_down(val, offset), val);
-    return val;
-}
-
 __device__ fl compute_lambdamin(const change_gpu& p, const conf_gpu& x, sz n)
 
 {
-    __shared__ fl buffer[32];
-    const unsigned int idx = threadIdx.x;
-    const unsigned int wid = threadIdx.x >> 5;
-    const unsigned int lane = threadIdx.x & 31;
-    const unsigned int nthreads = blockDim.x < n ? blockDim.x : n;
-    unsigned int nwarps = nthreads >> 5;
-    nwarps += nthreads & 31 ? 1 : 0;
-    fl temp;
-
-	for (sz i = idx; i < n; i+=nthreads)
+    fl test = 0;
+	for (sz i = 0; i < n; i++)
 	{
-		temp = fabsf(p.change_values[i]) / fmaxf(fabsf(x.cinfo->values[i]),
+		fl temp = fabsf(p.change_values[i]) / fmaxf(fabsf(x.cinfo->values[i]),
                                                     1.0f);
-        temp = warp_max(temp);
-        if (nwarps > 1 && idx == 0) {
-            if (i==idx)
-                buffer[wid] = temp;
-            else if (temp > buffer[wid])
-                buffer[wid] = temp;
-        }
+		if (temp > test)
+			test = temp;
 	}
-    __syncthreads();
-    if (nwarps > 1 && wid == 0) {
-        temp = threadIdx.x < nwarps ? buffer[lane] : 0;
-        if (nthreads & 31 && idx == nthreads-1)
-            temp = buffer[lane];
-        temp = warp_max(temp);
-    }
-    return temp;
+    return test;
 }
 
 //TODO: operator -=
@@ -94,9 +68,9 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
         }
 		return 0;
 	}
-
-	test = compute_lambdamin(p, x, n);
     if (idx == 0) {
+	    test = compute_lambdamin(p, x, n);
+
 	    alamin = epsilon_fl / test;
 	    alpha = FIRST; //single newton step
     }
@@ -330,7 +304,7 @@ fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
                       g, *g_orig, *g_new,
                       *p, *y, h, *minus_hy,
                       average_required_improvement, params, f0);
-    sync_and_errcheck();
+    cudaDeviceSynchronize();
     CUDA_CHECK_GNINA(cudaFree(h.m_data));
     CUDA_CHECK_GNINA(cudaMemcpy(&out_energy,
                                 f0, sizeof(float), cudaMemcpyDeviceToHost));

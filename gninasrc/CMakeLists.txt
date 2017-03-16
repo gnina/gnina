@@ -5,7 +5,7 @@ find_package(Boost REQUIRED COMPONENTS program_options system iostreams timer th
 find_package(RDKit REQUIRED)
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
-  list(APPEND CUDA_NVCC_FLAGS -O3 --default-stream per-thread)
+  list(APPEND CUDA_NVCC_FLAGS -O3 --default-stream per-thread -Xptxas -dlcm=ca)
 elseif("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
   list(APPEND CUDA_NVCC_FLAGS -O0 -G --default-stream per-thread)
 endif()
