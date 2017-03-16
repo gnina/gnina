@@ -118,6 +118,8 @@ void MolGridDataLayer<Dtype>::paired_examples::next(example& active, example& de
 
 	//allow one wrap
 	if(curr_index == indices.size()) {
+		curr_index = 0;
+		rindex = indices[curr_index].first;
 		while(decoys[rindex].second.size() == 0) {
 			curr_index++; 
 			CHECK_LT(curr_index, indices.size()) << "No decoy examples for pairing.";
