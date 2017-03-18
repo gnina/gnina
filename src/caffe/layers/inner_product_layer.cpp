@@ -145,6 +145,12 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
         
         std::cout << "innerproductlayer backward_relevance";
+
+        std::cout << "INNERPROD TOP DIFF : " << '\n';
+        for (int i = 0; i < 20; ++i)
+        {
+            std::cout << top[0]->cpu_diff()[i] << "|";
+        }
         float alpha = 2.0;
         float beta = 1.0;
 

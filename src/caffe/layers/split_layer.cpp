@@ -48,7 +48,11 @@ void SplitLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
-
+template <typename Dtype>
+void SplitLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+    std::cout << "split_layer back rel\n";
+}
 #ifdef CPU_ONLY
 STUB_GPU(SplitLayer);
 #endif

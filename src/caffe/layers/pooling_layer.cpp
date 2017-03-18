@@ -224,6 +224,12 @@ template <typename Dtype>
 void PoolingLayer<Dtype>::Forward_cpu(
       const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
+
+    std::cout << "FORWARD CPU DATA\n";
+  for(int i = 0; i < 1000; ++i)
+    {
+        std::cout << bottom[0]->cpu_data()[i] << "|";
+    }
   const Dtype* bottom_data = bottom[0]->cpu_data();
   Dtype* top_data = top[0]->mutable_cpu_data();
   const int top_count = top[0]->count();
@@ -579,6 +585,20 @@ template <typename Dtype>
 void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
 
+    
+    std::cout << "POOL TOP: " << '\n';
+    for (int i = 0; i < 1000; ++i)
+    {
+        std::cout <<  top[0]->cpu_diff()[i] << "|";
+    }
+
+     std::cout << "FORWARD CPU DATA\n";
+     for(int i = 0; i < 1000; ++i)
+    {
+        std::cout << bottom[0]->cpu_data()[i] << "|";
+    }
+        
+
     PoolingParameter pool_param = this->layer_param_.pooling_param();
 
     const int* kernel_shape = kernel_shape_.cpu_data();
@@ -689,6 +709,11 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
             top_diff += top[0]->offset(offset);
             bottom_data += bottom[0]->offset(offset);
         }
+    }
+    std::cout << "POOL BOTTOM: " << '\n';
+    for (int i = 0; i < 1000; ++i)
+    {
+        std::cout <<  bottom[0]->cpu_diff()[i] << "|";
     }
 }
 

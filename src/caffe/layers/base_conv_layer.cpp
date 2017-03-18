@@ -390,7 +390,7 @@ void BaseConvolutionLayer<Dtype>::backward_gpu_bias(Dtype* bias,
 }
 
 template <typename Dtype>
-void BaseConvolutionLayer<Dtype>::alphabeta(
+Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
     const Dtype* upper_relevances,
     const Dtype* weights, const Dtype* input,
     Dtype * lower_relevances) 
@@ -430,7 +430,6 @@ void BaseConvolutionLayer<Dtype>::alphabeta(
             {
                 for (long k = 0; k < K; ++k)
                 {
-                    int index = col_offset_ * g + k * I + i;
                     pos_sums_data[r * I + i] += 
                         std::max(Dtype(0.), col_buff[col_offset_ * g + k * I + i] 
                                 * weights[weight_offset_ * g + r * K + k]);
@@ -461,6 +460,7 @@ void BaseConvolutionLayer<Dtype>::alphabeta(
 
                 for(long k = 0; k < K; ++k)
                 {
+                    //std::cout << col_offset_ * g + k * I + i << '\n';
                     col_buff_new[col_offset_ * g + k * I + i] +=
                         alpha * std::max(Dtype(0.),
                                 col_buff[col_offset_ * g + k * I + i]
@@ -476,6 +476,7 @@ void BaseConvolutionLayer<Dtype>::alphabeta(
     }
 
     lower_relevances = col_buff_new;
+    return col_buff_new;
 }
 
 
