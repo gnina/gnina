@@ -26,8 +26,7 @@ using namespace std;
 CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		const model& m) :
 		rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
-		 mtx(new boost::mutex)
-{
+		 mtx(new boost::mutex) {
 
 	if (cnnopts.cnn_scoring)
 	{
@@ -68,6 +67,11 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 			//I think there's a bug in the axial rotations - they aren't all distinct
 			//BUT it turns out this isn't actually faster
 			//bsize = nrot;
+		}
+		if (cnnopts.cnn_gradient)
+		{
+			param.set_force_backward(true);
+			compute_gradient = true;
 		}
 
 		net.reset(new Net<float>(param));
@@ -120,66 +124,57 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 
 }
 
-//has an affinity prediction layer
-bool CNNScorer::has_affinity() const
-{
-	return (bool)net->blob_by_name("predaff");
-}
-
-//return score and affinity of model, assumes receptor has not changed from initialization
-float CNNScorer::score(const model& m, float& aff)
+//return score of model, assumes receptor has not changed from initialization
+float CNNScorer::score(const model& m)
 {
 	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
 		return -1.0;
-	
+
 	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
 	mgrid->setReceptor<atom>(m.get_fixed_atoms());
-	mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
+	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates());
 
 	double score = 0.0;
-	double affinity = 0.0;
 	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
-	const caffe::shared_ptr<Blob<Dtype> > affblob = net->blob_by_name("predaff");
+
 	unsigned cnt = 0;
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{
-		net->Forward(); //do all rotations at once if requested
+		net->Forward();
+		score += outblob->cpu_data()[1];
 
-		const Dtype* out = outblob->cpu_data();
-		score += out[1];
+		if (compute_gradient)
+		{
+			net->Backward();
+			outputXYZ("DEBUG_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
+			outputXYZ("DEBUG_lig", mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
+		}
 
-		if(affblob)
-		{
-			//has affinity prediction
-			const Dtype* aff = affblob->cpu_data();
-			affinity += aff[0];
-			//TODO: use the log
-			cout << "#Rotate " << out[1] << " " << aff[0] << "\n";
-		}
-		else
-		{
-			cout << "#Rotate " << out[1] << "\n";
-		}
 		cnt++;
-
 	}
 
-	aff = affinity/cnt;
 	return score / cnt;
-
 }
 
-//return only score
-float CNNScorer::score(const model& m)
+void CNNScorer::outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient)
 {
-	float aff = 0;
-	return score(m,aff);
-}
+	const char* sym[] = {"C", "C", "C", "C", "Ca", "Fe", "Mg", "N", "N", "N", "N", "O", "O", "P", "S", "Zn",
+			     "C", "C", "C", "C", "Br", "Cl", "F",  "N", "N", "N", "N", "O", "O", "O", "P", "S", "S", "I"};
 
-float CNNScorer::score_relevance(const model& m)
-{
+	const string& fname = base + ".xyz";
+	ofstream out(fname.c_str());
+	out.precision(5);
+
+	out << atoms.size() << "\n\n";
+	for (unsigned i = 0, n = atoms.size(); i < n; ++i)
+	{
+		out << sym[whichGrid[i]] << " ";
+		out << atoms[i].x << " " << atoms[i].y << " " << atoms[i].z << " ";
+		out << gradient[i].x << " " << gradient[i].y << " " << gradient[i].z;
+		if (i + 1 < n) out << "\n";
+	}
 }
 
 void CNNScorer::lrp(const model& m)
@@ -192,5 +187,9 @@ void CNNScorer::lrp(const model& m)
 	mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
 
     net->Backward_Relevance();
-}
+	
+	outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
+	outputXYZ("LRP_lig", mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
 
+
+}

@@ -982,21 +982,30 @@ const shared_ptr<Layer<Dtype> > Net<Dtype>::layer_by_name(
 template<typename Dtype>
 void Net<Dtype>::Backward_Relevance(){
     
-    Forward();
-	const caffe::shared_ptr<Blob<Dtype> > outblob = blob_by_name("output");
-	const Dtype* out = outblob->cpu_data();
-    std::cout << out[1] << "\n";
-    std::cout << layer_names_[3] << "\n";
-    for(int i = layers_.size() - 1; i >= 0; i--)
+    std::cout << "FORWARD\n";
+    this->Forward();
+    std::cout << "END FORWARD\n";
+    vector<bool> propagate_down (10);
+    for(int i = layers_.size()-1; i >= 0; i--)
     {
-          std::cout << "starting layer " << i << "\n";
-          std::cout << "layer type: " << layer_names_[i] << "\n";
-          std::cout << "need backward: " << layer_need_backward_[i] << "\n\n";
-          vector<bool> propagate_down (10);
+        std::cout << "starting layer " << i << "\n";
+      //std::cout << "propagate down: " << layer_params.propagate_down[i] << '\n';
+        std::cout << "layer type: " << layer_names_[i] << "\n";
+        std::cout << "need backward: " << layer_need_backward_[i] << "\n\n";
 
-          layers_[i]->Backward_relevance(top_vecs_[i], propagate_down, bottom_vecs_[i]);
-
-          
+        if(i == 11)
+        {
+            std::cout << "DOING BACKWARD\n";
+            std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[0] << "\n";
+            std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[1] << "\n";
+            std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[2] << "\n";
+            layers_[i]->Backward_relevance(bottom_vecs_[14], propagate_down, bottom_vecs_[i]);
+        }
+        else
+        {
+            std::cout << "DOING BACKWARD\n";
+            layers_[i]->Backward_relevance(top_vecs_[i], propagate_down, bottom_vecs_[i]);
+        }
     }
 
 }

@@ -48,6 +48,18 @@ void ReLULayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     {
             bottom_diff[i] = top_diff[i];
     }
+
+    std::cout << "RELU TOP: \n";
+    for (int i = 0; i < 1000; i++)
+    {
+        std::cout << top[0]->cpu_diff()[i] << "|";
+    }
+
+    std::cout << "RELU BOTTOM: \n";
+    for (int i = 0; i < 1000; i++)
+    {
+        std::cout << bottom[0]->cpu_diff()[i] << "|";
+    }
 }
 
 

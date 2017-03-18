@@ -40,7 +40,7 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   void weight_cpu_gemm(const Dtype* input, const Dtype* output, Dtype*
       weights);
   void backward_cpu_bias(Dtype* bias, const Dtype* input);
-  void alphabeta(const Dtype* upper_relevances, 
+  Dtype* alphabeta(const Dtype* upper_relevances, 
           const Dtype * weights, const Dtype * input,
           Dtype * lower_relevances);
 

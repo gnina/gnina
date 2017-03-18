@@ -241,7 +241,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log.endl();
 
 		float aff = 0;
-		cnnscore = cnn.score(m, aff);
+		//cnnscore = cnn.score(m, aff);
 		if(cnnscore >= 0.0)
 		{
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
@@ -314,7 +314,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log.endl();
 
 		float aff = 0;
-		cnnscore = cnn.score(m, aff);
+		//cnnscore = cnn.score(m, aff);
 		if(cnnscore >= 0.0)
 		{
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
