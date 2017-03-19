@@ -62,13 +62,15 @@ struct gpu_data {
   			treegpu(NULL), interacting_pairs(NULL), scratch(NULL), coords_size(0),
   			atom_coords_size(0), forces_size(0), pairs_size(0) {}
 
-    __device__
+    __host__ __device__
 	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v) const;
 
     __device__
 	fl eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
 	                     const conf_gpu& c, change_gpu& g);
-
+    
+    fl eval(const GPUNonCacheInfo& info, const float v);
+    fl eval_intramolecular(const GPUNonCacheInfo& info, const float v);
 	//copy relevant data to gpu buffers
 	void copy_to_gpu(model& m);
 	//copy back relevant data from gpu buffers
@@ -320,6 +322,7 @@ struct model {
                 const conf& c, const grid& user_grid	);
 	fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
                 const conf& c, change& g, const grid& user_grid);
+    fl eval_intra(const precalculate& p, const vec& v);
 	fl eval_flex(const precalculate& p, const vec& v,
                const conf& c, unsigned maxGridAtom=0);
 	fl eval_intramolecular(const precalculate& p, const vec& v, const conf& c);

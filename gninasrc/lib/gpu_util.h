@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-__device__ static inline void abort_on_gpu_err(void){
+__host__ __device__ static inline void abort_on_gpu_err(void){
     cudaError err = cudaGetLastError();
     if (cudaSuccess != err)
     {

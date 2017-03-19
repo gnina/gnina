@@ -276,8 +276,6 @@ void interaction_energy(const GPUNonCacheInfo dinfo, //intentionally copying fro
 	//TODO: remove hydrogen atoms completely
 	if (t > 1) { //ignore hydrogens
 		//now consider interaction with every possible receptor atom
-		//TODO: parallelize
-
 		//compute squared difference
 		atom_params rin = dinfo.rec_atoms[ridx];
 		float3 diff = xyz - rin.coords;
@@ -327,7 +325,7 @@ __global__ void reduce_energy(force_energy_tup *result, int n) {
 
 /* } */
 
-__device__
+__host__ __device__
 float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
                         force_energy_tup *out, float v)
 {
@@ -356,8 +354,13 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
 	reduce_energy<<<1, ROUND_TO_WARP(nlig_atoms)>>>(out, nlig_atoms);
     abort_on_gpu_err();
     cudaDeviceSynchronize();
-
+    #ifdef __CUDA_ARCH__
 	return out->energy;
+    #else
+    float cpu_out;
+    cudaMemcpy(&cpu_out, &out->energy, sizeof(float), cudaMemcpyDeviceToHost);
+    return cpu_out;
+    #endif
 }
 
 /* evaluate contribution of interacting pairs, add to forces and place total */

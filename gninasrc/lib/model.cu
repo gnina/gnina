@@ -60,7 +60,7 @@ fl model::eval_interacting_pairs_deriv(const precalculate& p, fl v,
 }
 
 //evaluates interacting pairs (which is all of them) on the gpu
-__device__
+__host__ __device__
 fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
 		fl v) const { // adds to forces  // clean up
 
@@ -71,7 +71,11 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
 	}
 
 	const fl cutoff_sqr = info.cutoff_sq;
+    #ifdef __CUDA_ARCH__
 	memset(scratch, 0, sizeof(float));
+    #else
+    cudaMemset(scratch, 0, sizeof(float));
+    #endif
     cudaDeviceSynchronize();
 
 	if(pairs_size < CUDA_THREADS_PER_BLOCK) {
@@ -86,7 +90,13 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
                     interacting_pairs, pairs_size, cutoff_sqr, v, minus_forces,
                     scratch);
 	}
+    #ifdef __CUDA_ARCH__ 
 	return scratch[0];
+    #else
+    float out;
+    cudaMemcpy(&out, scratch, sizeof(float), cudaMemcpyDeviceToHost);
+    return out;
+    #endif
 }
 
 fl model::evali(const precalculate& p, const vec& v) const { // clean up
@@ -166,6 +176,22 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
 	return e;
 }
 
+//NB: the next two are only used for score_only, but they also compute the forces
+//unnecessarily. this is fine as long as you don't care about using score_only
+//for performance metrics, just correctness, which is what you should do. 
+fl gpu_data::eval(const GPUNonCacheInfo& info, const float v) {
+    fl e;
+    cudaMemset(minus_forces, 0, sizeof(force_energy_tup) * info.nlig_atoms);
+    e = single_point_calc(info, coords, minus_forces, v);
+    return e;
+}
+
+fl gpu_data::eval_intramolecular(const GPUNonCacheInfo& info, const float v) {
+    fl ie;
+    ie = eval_interacting_pairs_deriv_gpu(info, v);
+    return ie;
+}
+
 fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 		const conf& c, change& g, const grid& user_grid) { // clean up
 	static loop_timer t;
@@ -188,6 +214,14 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
 	t.stop();
 	return e;
+}
+
+fl model::eval_intra(const precalculate& p, const vec& v) {
+    fl ie = 0;
+    VINA_FOR_IN(i, ligands)
+		ie += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
+				minus_forces); // adds to minus_forces
+    return ie;
 }
 
 //evaluate interactiongs between all of flex (including rigid) and protein

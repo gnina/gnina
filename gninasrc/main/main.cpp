@@ -228,6 +228,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 	conf_size s = m.get_size();
 	conf c = m.get_initial_conf();
 	fl e = max_fl;
+    fl intramolecular_energy = max_fl;
 	fl cnnscore = -1.0;
 	fl rmsd = 0;
 	const vec authentic_v(settings.forcecap, settings.forcecap,
@@ -235,11 +236,24 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 	if (settings.score_only)
 	{
-		fl intramolecular_energy = m.eval_intramolecular(exact_prec,
-				authentic_v, c);
-		naive_non_cache nnc(&exact_prec); // for out of grid issues
-		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
-				intramolecular_energy, user_grid);
+        if (settings.true_score && settings.gpu_on) {
+            m.initialize_gpu();
+	        non_cache_gpu* nc_gpu = dynamic_cast<non_cache_gpu*>(&nc);
+            assert(nc_gpu);
+            e = m.gdata.eval(nc_gpu->get_info(), authentic_v[1]);
+            intramolecular_energy = m.gdata.eval_intramolecular(nc_gpu->get_info(), authentic_v[0]);
+        }
+        else if (settings.true_score) {
+            e = nc.eval_deriv(m, authentic_v[1], user_grid);
+            intramolecular_energy = m.eval_intra(prec, authentic_v);
+        }
+        else {
+		    intramolecular_energy = m.eval_intramolecular(exact_prec,
+		    		authentic_v, c);
+		    naive_non_cache nnc(&exact_prec); // for out of grid issues
+		    e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
+		    		intramolecular_energy, user_grid);
+        }
 
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
@@ -496,7 +510,7 @@ void main_procedure(model& m, precalculate& prec,
 		{
 			nc = new non_cache(gridcache, gd, &prec, slope);
 		}
-		/* cudaProfilerStart(); */
+		cudaProfilerStart();
 
 		if (no_cache)
 		{
@@ -525,7 +539,7 @@ void main_procedure(model& m, precalculate& prec,
 					settings, compute_atominfo, log,
 					wt.unweighted_terms(), user_grid, cnn, results);
 		}
-		/* cudaProfilerStop(); */
+		cudaProfilerStop();
 
 		delete nc;
 	}
@@ -1129,7 +1143,7 @@ Thank you!\n";
 		("verbosity", value<int>(&settings.verbosity)->default_value(1),
 				"Adjust the verbosity of the output, default: 1")
 		("flex_hydrogens", bool_switch(&flex_hydrogens),
-				"Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.");
+				"Enable torsions affecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
         ("true_score", bool_switch(&settings.true_score), "Enable printing for the true GPU-computed score for correctness testing.");
 
 		options_description cnn("Convolutional neural net (CNN) scoring");
@@ -1553,7 +1567,7 @@ Thank you!\n";
 					break;
 				}
 
-				if (settings.local_only)
+				if (settings.local_only || settings.true_score)
 				{
 					gd = m->movable_atoms_box(autobox_add, granularity);
 				}
@@ -1576,7 +1590,7 @@ Thank you!\n";
 		writer_thread.join();
 
         cudaDeviceSynchronize();
-		cudaProfilerStop();
+		// cudaProfilerStop();
 
 		std::cout << "Loop time " << time.elapsed().wall/1000000000.0 << "\n";
 
