@@ -1286,6 +1286,9 @@ Thank you!\n";
 				approx_factor = 10;
 		}
 
+        if (settings.gpu_on)
+            cudaDeviceSetLimit(cudaLimitStackSize, 5120);
+
 		if (accurate_line)
 		{
 			minparms.type = minimization_params::BFGSAccurateLineSearch;
@@ -1571,6 +1574,11 @@ Thank you!\n";
 				{
 					gd = m->movable_atoms_box(autobox_add, granularity);
 				}
+
+                if (settings.local_only && settings.true_score) {
+                    m->print_during_minimization = true;
+                    m->gdata.print_during_minimization = true;
+                }
 
 				done(settings.verbosity, log);
 				std::vector<result_info>* results =

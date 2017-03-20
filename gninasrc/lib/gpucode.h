@@ -54,6 +54,16 @@ struct __align__(sizeof(float4)) force_energy_tup{
   }
 };
 
+inline __host__ __device__
+force_energy_tup operator+(force_energy_tup& a, force_energy_tup& b) {
+    return force_energy_tup(a[0]+b[0], a[1]+b[1], a[2]+b[2], a[3]+b[3]);
+}
+inline __host__ __device__
+force_energy_tup& operator+=(force_energy_tup& a, force_energy_tup& b) {
+    a = a + b;
+    return a;
+}
+
 struct GPUNonCacheInfo
 {
   unsigned nlig_atoms, nrec_atoms;

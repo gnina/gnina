@@ -13,7 +13,7 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
   info.cutoff_sq = p->cutoff_sqr();
   info.slope = slope;
 
-  m.print_counts();
+  m.print_counts(info.nrec_atoms);
 
   unsigned nlig_atoms = m.num_movable_atoms();
   info.nlig_atoms = nlig_atoms;

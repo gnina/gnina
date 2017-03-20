@@ -1092,11 +1092,11 @@ void model::print_stuff() const {
 	about();
 }
 
-void model::print_counts(void) const {
+void model::print_counts(unsigned nrec_atoms) const {
 	std::cout << "ligands :" << ligands.size() << "\n" << "torsions: "
 			<< ligands.count_torsions()[0] << "\n" << "lig atoms: "
-			<< coords.size() << "\n" << "rec atoms(unpruned): "
-			<< grid_atoms.size() << "\n";
+			<< coords.size() << "\n" << "rec atoms(pruned): "
+			<< nrec_atoms << "\n";
 }
 
 fl pairwise_clash_penalty(fl r, fl covalent_r) {

@@ -91,6 +91,7 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
                     scratch);
 	}
     #ifdef __CUDA_ARCH__ 
+    cudaDeviceSynchronize();
 	return scratch[0];
     #else
     float out;
@@ -150,6 +151,23 @@ void set_conf_kernel(tree_gpu *t, const vec *atom_coords, vec *coords,
 	t->set_conf(atom_coords, coords, conf_vals);
 }
 
+__host__ __device__
+void do_minimization_printing(size_t& eval_deriv_counter, force_energy_tup*
+        minus_forces, size_t minus_forces_size, fl e, fl ie) {
+    if (eval_deriv_counter < 2) {
+        force_energy_tup summed_forces(0,0,0,0);
+        for (size_t i=0; i<minus_forces_size; i++)
+            summed_forces += minus_forces[i];
+        printf("Iteration %lu: Energy=%.8f Intra=%.8f Forces=%.8f,%.8f,%.8f\n",
+                (unsigned long)eval_deriv_counter, e, ie, summed_forces[0],
+                summed_forces[1], summed_forces[2]);
+#ifdef __CUDA_ARCH__
+        cudaDeviceSynchronize();
+#endif
+    }
+    eval_deriv_counter++;
+}
+
 __device__
 fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
                             const conf_gpu& c, change_gpu& g) {
@@ -164,7 +182,11 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
         e = single_point_calc(info, coords, minus_forces, v[1]); 
         cudaDeviceSynchronize();
 	    ie = eval_interacting_pairs_deriv_gpu(info, v[0]); // adds to minus_forces
-        cudaDeviceSynchronize();
+
+        if (print_during_minimization) 
+            do_minimization_printing(eval_deriv_counter, minus_forces,
+                    (size_t)forces_size, e, ie);
+
         e += ie;
 	    derivatives_kernel<<<1,info.nlig_atoms>>>
             (treegpu, (vec*)coords, (vec*)minus_forces, g.change_values);
@@ -208,6 +230,11 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	VINA_FOR_IN(i, ligands)
 		ie += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
 				minus_forces); // adds to minus_forces
+    
+    if (print_during_minimization) 
+        do_minimization_printing(eval_deriv_counter, (force_energy_tup*)&minus_forces[0],
+                minus_forces.size(), e, ie);
+
 	e += ie;
 	// calculate derivatives
 	ligands.derivative(coords, minus_forces, g.ligands);
