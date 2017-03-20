@@ -408,6 +408,8 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
     const Dtype* col_buff = input;
     col_buff = col_buffer_.cpu_data();
 
+
+
     Dtype * col_buff_new = col_buffer_.mutable_cpu_diff();
     memset(col_buff_new, 0, sizeof(Dtype) * col_buffer_.count());
 
@@ -418,6 +420,7 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
 
     //x is col_buff[k, i]
     //w is weights[r, k]
+
 
     for (int g = 0; g < group_; ++g)
     {
@@ -475,8 +478,9 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
         }
     }
 
-    lower_relevances = col_buff_new;
-    return col_buff_new;
+    conv_col2im_cpu(col_buff_new, lower_relevances);
+
+    return lower_relevances;
 }
 
 

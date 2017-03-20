@@ -616,8 +616,10 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     {
         std::cout << output_shape_data[i] << '\n';
     }
-    //int channels_ = bottom[0]->channels();
-    int channels_ = 1;
+
+    int channels_ = bottom[0]->channels();
+    std::cout << "CHANNELS: " << channels_ << '\n';
+    //int channels_ = 1;
 
     int height_ = input_shape_data[0];
     int width_ = input_shape_data[1];
@@ -639,18 +641,41 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     int pooled_width_ = output_shape_data[1];
     int pooled_depth_ = output_shape_data[2];
 
-    //if(bottom[0]->num_axes() == 3)
-    
     const Dtype* top_diff = top[0]->cpu_diff();
     Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
     const Dtype* bottom_data = bottom[0]->cpu_data();
-    const Dtype* top_data = top[0]->cpu_data();
+    //const Dtype* top_data = top[0]->cpu_data();
 
+    //equivalent of legacy offset(0, 1)
     vector<int> offset(2, 0);
     offset[1] = 1;
 
     caffe_set(bottom[0]->count(), Dtype(0.), bottom_diff);
 
+      for (int n = 0; n < top[0]->num(); ++n)
+        {
+            for (int c = 0; c < channels_; ++c)
+            {
+                for(int p_h = 0; p_h < pooled_height_; ++p_h)
+                {
+                    for(int p_w = 0; p_w < pooled_width_; ++p_w)
+                    {
+                        for(int p_d = 0; p_d < pooled_depth_; ++p_d)
+                        {
+                            const int index = (p_h * pooled_width_ + p_w)*
+                                                  pooled_depth_ + p_d;
+                            bottom_diff[index] += top_diff[index];
+                        }
+                    }
+                }
+            bottom_diff += bottom[0]->offset(offset);
+            top_diff += top[0]->offset(offset);
+            bottom_data += bottom[0]->offset(offset);
+            }
+        }
+
+
+    /*
     for (int n = 0; n < top[0]->num(); ++n)
     {
         for (int c = 0; c < channels_; ++c)
@@ -696,7 +721,7 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
                                     const int pool_index = (h * width_ + w)*
                                                   depth_ + d;
                                     bottom_diff[pool_index] +=
-                                    top_diff[pool_index]
+                                    top_diff[(p_h * pooled_width_ + p_w) * pooled_depth_ + p_d]
                                     * bottom_data[pool_index]
                                     / bottom_avg;
                                 }
@@ -710,6 +735,7 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
             bottom_data += bottom[0]->offset(offset);
         }
     }
+        */
     std::cout << "POOL BOTTOM: " << '\n';
     for (int i = 0; i < 1000; ++i)
     {
