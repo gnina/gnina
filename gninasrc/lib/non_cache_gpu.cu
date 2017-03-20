@@ -13,8 +13,6 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
   info.cutoff_sq = p->cutoff_sqr();
   info.slope = slope;
 
-  m.print_counts(info.nrec_atoms);
-
   unsigned nlig_atoms = m.num_movable_atoms();
   info.nlig_atoms = nlig_atoms;
   //allocate memory for positions, partial charges, and atom types of movable atoms
@@ -42,6 +40,7 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
   gcache.compute_relevant(gd_, recatomids);
   unsigned nrec_atoms = recatomids.size();
   info.nrec_atoms = nrec_atoms;
+  m.print_counts(info.nrec_atoms);
 
   //allocate memory for positions, atom types, and partial charges of all
   //possibly relevant receptor atoms
