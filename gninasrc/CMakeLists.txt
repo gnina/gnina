@@ -3,6 +3,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 find_package(CUDA REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options system iostreams timer thread serialization filesystem date_time regex)
 find_package(RDKit REQUIRED)
+find_package(OpenBabel2 REQUIRED)
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
   list(APPEND CUDA_NVCC_FLAGS -O3 --default-stream per-thread -Xptxas -dlcm=ca)
@@ -26,7 +27,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 include_directories(${Boost_INCLUDE_DIRS}) 
 include_directories(${CUDA_INCLUDE_DIRS})
-include_directories(${OPENBABEL2_INCLUDE_DIRS})
+include_directories(${OPENBABEL2_INCLUDE_DIR})
 include_directories(${RDKIT_INCLUDE_DIR})
 # need to use eigen 3.2 until CUDA fixes are released
 include_directories(../Eigen)
