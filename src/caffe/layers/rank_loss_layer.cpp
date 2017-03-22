@@ -164,14 +164,27 @@ void RankLossLayer<Dtype>::compute_pair_gradient(
 		d = -d;
 	}
 
+	//scale by num
+	d /= num;
+	//also by total loss
+	Dtype scale = top[0]->cpu_diff()[0];
+	d *= scale; //not
+
 	if(dim == 1) {
 		bottom_diff[i] += d;
 		bottom_diff[j] += -d;
+		//LOG(INFO) << "RANKLOSS1 " << i << " L:" << Li << " s:" << si << " "<< d << "\t" << j << " L:" << Lj << " s:" << sj << " " << -d << "\n";
+
 	} else if(dim == 2) {
+		//compensate for applying gradient to both classes
+		d /= 2.0;
 		bottom_diff[i*2] += -d;
 		bottom_diff[i*2+1] += d;
 		bottom_diff[j*2] += d;
 		bottom_diff[j*2+1] += -d;
+
+		//LOG(INFO) << "RANKLOSS " << i << " L:" << Li << " s:" << si << " "<< d << "\t" << j << " L:" << Lj << " s:" << sj << " " << -d << "\n";
+		//LOG(INFO) << "RANKINPUTS " << i << "(" << Li <<"): " << bottom_data[i*dim] << "," << bottom_data[i*dim+1] << "   " << j << "(" << Lj <<"): " << bottom_data[j*dim] << "," << bottom_data[j*dim+1] << "\n";
 	}
 }
 
