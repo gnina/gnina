@@ -347,7 +347,6 @@ static void striph_update_bonds(const std::vector<int>& gridatommap, const std::
 //Remove hydrogens from model in-place.  Must be called after final assignment of atom types.
 void model::strip_hydrogens() {
 	deallocate_gpu();
-
 	hydrogens_stripped = true;
 	sz N = num_atom_types();
 

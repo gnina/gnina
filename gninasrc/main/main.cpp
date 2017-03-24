@@ -1029,6 +1029,7 @@ Thank you!\n";
 		bool print_terms = false;
 		bool print_atom_types = false;
 		bool add_hydrogens = true;
+		bool strip_hydrogens = false;
 		bool no_lig = false;
 
 		cnn_options cnnopts;
@@ -1163,6 +1164,8 @@ Thank you!\n";
 		("quiet,q", bool_switch(&quiet), "Suppress output messages")
 		("addH", value<bool>(&add_hydrogens),
 				"automatically add hydrogens in ligands (on by default)")
+		("stripH", value<bool>(&strip_hydrogens),
+						"remove hydrogens from molecule _after_ performing atom typing for efficiency (on by default)")
 		("device", value<int>(&settings.device)->default_value(0), "GPU device to use")
 		("gpu", bool_switch(&settings.gpu_on), "Turn on GPU acceleration");
 
@@ -1446,7 +1449,7 @@ Thank you!\n";
 
 
 		//dkoes - parse in receptor once
-		MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, log);
+		MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
 		CNNScorer cnn_scorer(cnnopts, vec(center_x, center_y, center_z), mols.getInitModel());
 
 		//dkoes, hoist precalculation outside of loop

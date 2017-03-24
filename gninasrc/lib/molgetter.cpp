@@ -84,7 +84,8 @@ void MolGetter::create_init_model(const std::string& rigid_name,
 
 	}
 
-	initm.strip_hydrogens();
+	if(strip_hydrogens)
+		initm.strip_hydrogens();
 }
 
 //setup for reading from fname
@@ -157,7 +158,8 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 				m.set_name(c.sdftext.name);
 			}
 
-			tmp.m.strip_hydrogens();
+			if(strip_hydrogens)
+				tmp.m.strip_hydrogens();
 			m.append(tmp.m);
 
 			return true;
@@ -173,7 +175,8 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 		if (pdbqtdone)
 			return false; //can only read one
 		model lig = parse_ligand_pdbqt(lpath);
-		lig.strip_hydrogens();
+		if(strip_hydrogens)
+			lig.strip_hydrogens();
 		m.append(lig);
 		pdbqtdone = true;
 		return true;
@@ -199,7 +202,9 @@ bool MolGetter::readMoleculeIntoModel(model &m)
 				pdbqt_initializer tmp;
 				tmp.initialize_from_nrp(nr, c, true);
 				tmp.initialize(nr.mobility_matrix());
-				tmp.m.strip_hydrogens();
+				if(strip_hydrogens)
+					tmp.m.strip_hydrogens();
+
 				m.append(tmp.m);
 				return true;
 			}
