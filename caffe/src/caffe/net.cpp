@@ -984,7 +984,7 @@ void Net<Dtype>::Backward_Relevance(){
     
     this->Forward();
     vector<bool> propagate_down (10);
-    for(int i = layers_.size()-1; i >= 0; i--)
+    for(int i = 11; i >= 0; i--)
     {
         std::cout << "starting layer " << i << "\n";
       //std::cout << "propagate down: " << layer_params.propagate_down[i] << '\n';
@@ -993,14 +993,24 @@ void Net<Dtype>::Backward_Relevance(){
 
         if(i == 11)
         {
-            std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[0] << "\n";
-            std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[1] << "\n";
-            std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[2] << "\n";
-            std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[3] << "\n";
-            std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[4] << "\n";
-            std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[5] << "\n";
-            std::cout << "TOP COUNT" << bottom_vecs_[14][0]->count() << "\n";
-            layers_[i]->Backward_relevance(bottom_vecs_[14], propagate_down, bottom_vecs_[i]);
+            //for (int s = 0; s < top_vecs_[i].size(); s++)
+            //{
+            int s = 0;
+                    std::cout << "top.size() " << top_vecs_[i].size() << '\n';
+                    Dtype* top_diff = top_vecs_[i][s]->mutable_cpu_diff();
+                    const Dtype* top_data = top_vecs_[14][s]->cpu_data();
+                    std::cout << "top_vecs_[i][s]->count() " << top_vecs_[i][s]->count() << '\n';
+
+                    memset(top_diff, 0, sizeof(Dtype) * top_vecs_[i][s]->count());
+
+                    for( int x = 0; x < 10; x++)
+                    {
+                            std::cout << "top_data[" << x <<"]: " << top_data[x] << '\n';
+                    }
+
+                    top_diff[0] = top_data[1];
+            //}
+            layers_[i]->Backward_relevance(top_vecs_[i], propagate_down, bottom_vecs_[i]);
         }
         else if( i == 0)
         {

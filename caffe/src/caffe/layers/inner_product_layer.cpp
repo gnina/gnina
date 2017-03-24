@@ -144,7 +144,8 @@ template <typename Dtype>
 void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
         
-        std::cout << "INNERPROD TOP DIFF: " << top[0]->cpu_diff()[1] << '\n'; 
+        std::cout << "INNERPROD TOP DIFF: " << top[0]->cpu_diff()[0] << '\n'; 
+        std::cout << "INNERPROD TOP COUNT: " << top[0]->count() << '\n'; 
         float top_sum = 0.0;
         for (int i = 0; i < top[0]->count(); ++i)
         {
@@ -156,7 +157,7 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
 
         //for (int i = 0; i < top.size(); ++i)
         //{
-                int i = 1;
+                int i = 0;
                 const Dtype* top_diff = top[i]->cpu_diff();
                 const Dtype* bottom_data = bottom[i]->cpu_data();
 
@@ -180,12 +181,15 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
                 {
                     for(long n = 0; n < N_; ++n)
                     {
+                        Dtype bias = bias_multiplier_.cpu_data()[m] * this->blobs_[1]->cpu_data()[n];
                         for(long k = 0; k < K_; ++k)
                         {
                             pos_sums_data[m * N_ + n] += 
-                                std::max(Dtype(0.), bottom_data[m * K_ + k] * weights[n * K_ + k]);
+                                std::max(Dtype(0.), bottom_data[m * K_ + k] * weights[n * K_ + k]
+                                                                            + bias / K_);
                             neg_sums_data[m * N_ + n] += 
-                                std::min(Dtype(0.), bottom_data[m * K_ + k] * weights[n * K_ + k]);
+                                std::min(Dtype(0.), bottom_data[m * K_ + k] * weights[n * K_ + k]
+                                                                            + bias / K_);
 
                         }
                     }
@@ -195,6 +199,8 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
                 {
                     for (long n = 0; n < N_; ++n)
                     {
+                        Dtype bias = bias_multiplier_.cpu_data()[m] * this->blobs_[1]->cpu_data()[n];
+
                         Dtype z1 = 0;
                         if (pos_sums_data[m * N_ + n] > 0)
                         {
@@ -204,17 +210,17 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
 
                         if (neg_sums_data[m * N_ + n] < 0)
                         {
-                            z1 = top_diff[m * N_ + n] / neg_sums_data[m * N_ + n];
+                            z2 = top_diff[m * N_ + n] / neg_sums_data[m * N_ + n];
                         }
 
                         for(long k = 0; k < K_; ++k)
                         {
                             bottom_diff[m * K_ + k] +=
                                 alpha * std::max(Dtype(0.), bottom_data[m * K_ + k]
-                                      * weights[n * K_ + k]) 
+                                      * weights[n * K_ + k] + bias / K_) 
                                       * z1
                                 - beta * std::min(Dtype(0.), bottom_data[m * K_ + k]
-                                      * weights[n * K_ + k]) 
+                                      * weights[n * K_ + k] + bias / K_) 
                                       * z2;
                         }
                     }
