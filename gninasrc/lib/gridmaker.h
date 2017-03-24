@@ -340,6 +340,7 @@ public:
   void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
                            const Grids& grids, vector<float3>& agrad)
   { 
+      std::cout << "\nSET ATOM GRADIENTS\n";
     zeroAtomGradientsCPU(agrad);
     for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
     {

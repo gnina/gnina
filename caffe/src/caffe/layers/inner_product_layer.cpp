@@ -144,18 +144,19 @@ template <typename Dtype>
 void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
         
-        std::cout << "innerproductlayer backward_relevance";
-
-        std::cout << "INNERPROD TOP DIFF : " << '\n';
-        for (int i = 0; i < 20; ++i)
+        std::cout << "INNERPROD TOP DIFF: " << top[0]->cpu_diff()[1] << '\n'; 
+        float top_sum = 0.0;
+        for (int i = 0; i < top[0]->count(); ++i)
         {
-            std::cout << top[0]->cpu_diff()[i] << "|";
+            top_sum += top[0]->cpu_diff()[i];
         }
+        std::cout << "INNERPROD TOP SUM : " << top_sum << '\n';
         float alpha = 2.0;
         float beta = 1.0;
 
-        for (int i = 0; i < top.size(); ++i)
-        {
+        //for (int i = 0; i < top.size(); ++i)
+        //{
+                int i = 1;
                 const Dtype* top_diff = top[i]->cpu_diff();
                 const Dtype* bottom_data = bottom[i]->cpu_data();
 
@@ -189,7 +190,7 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
                         }
                     }
                 }
-                
+
                 for (long m = 0; m < M_; ++m)
                 {
                     for (long n = 0; n < N_; ++n)
@@ -205,7 +206,7 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
                         {
                             z1 = top_diff[m * N_ + n] / neg_sums_data[m * N_ + n];
                         }
-                                
+
                         for(long k = 0; k < K_; ++k)
                         {
                             bottom_diff[m * K_ + k] +=
@@ -218,15 +219,17 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
                         }
                     }
                 }
+        //}
 
 
 
+
+        float bottom_sum = 0.0;
+        for (int i = 0; i < bottom[0]->count(); ++i)
+        {
+            bottom_sum += bottom[0]->cpu_diff()[i];
         }
-
-
-
-
-
+        std::cout << "INNERPROD BOTTOM SUM : " << bottom_sum << '\n';
 }
 
 

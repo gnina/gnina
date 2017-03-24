@@ -982,24 +982,30 @@ const shared_ptr<Layer<Dtype> > Net<Dtype>::layer_by_name(
 template<typename Dtype>
 void Net<Dtype>::Backward_Relevance(){
     
-    std::cout << "FORWARD\n";
     this->Forward();
-    std::cout << "END FORWARD\n";
     vector<bool> propagate_down (10);
     for(int i = layers_.size()-1; i >= 0; i--)
     {
         std::cout << "starting layer " << i << "\n";
       //std::cout << "propagate down: " << layer_params.propagate_down[i] << '\n';
         std::cout << "layer type: " << layer_names_[i] << "\n";
-        std::cout << "need backward: " << layer_need_backward_[i] << "\n\n";
+        std::cout << "need backward: " << layer_need_backward_[i] << "\n";
 
         if(i == 11)
         {
-            std::cout << "DOING BACKWARD\n";
             std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[0] << "\n";
             std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[1] << "\n";
             std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[2] << "\n";
+            std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[3] << "\n";
+            std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[4] << "\n";
+            std::cout << "TOP SHOULD BE " << bottom_vecs_[14][0]->cpu_diff()[5] << "\n";
+            std::cout << "TOP COUNT" << bottom_vecs_[14][0]->count() << "\n";
             layers_[i]->Backward_relevance(bottom_vecs_[14], propagate_down, bottom_vecs_[i]);
+        }
+        else if( i == 0)
+        {
+            layers_[i]->Backward(top_vecs_[i], propagate_down, bottom_vecs_[i]);
+            std::cout << "DOING MOLGRID BACKWARDS" << '\n';
         }
         else
         {
