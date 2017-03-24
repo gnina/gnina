@@ -421,7 +421,6 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
     //x is col_buff[k, i]
     //w is weights[r, k]
 
-
     for (int g = 0; g < group_; ++g)
     {
         memset(pos_sums_data, 0, sizeof(Dtype) * R * I);

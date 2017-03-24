@@ -225,11 +225,6 @@ void PoolingLayer<Dtype>::Forward_cpu(
       const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
 
-    std::cout << "FORWARD CPU DATA\n";
-  for(int i = 0; i < 1000; ++i)
-    {
-        std::cout << bottom[0]->cpu_data()[i] << "|";
-    }
   const Dtype* bottom_data = bottom[0]->cpu_data();
   Dtype* top_data = top[0]->mutable_cpu_data();
   const int top_count = top[0]->count();
@@ -737,10 +732,13 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     }
         */
     std::cout << "POOL BOTTOM: " << '\n';
-    for (int i = 0; i < 1000; ++i)
+    float sum = 0.0;
+    for (int i = 0; i < bottom[0]->count(); ++i)
     {
-        std::cout <<  bottom[0]->cpu_diff()[i] << "|";
+        //std::cout <<  bottom[0]->cpu_diff()[i] << "|";
+        sum += bottom[0]->cpu_diff()[i];
     }
+    std::cout << "POOL SUM: " << sum << '\n';
 }
 
 #ifdef CPU_ONLY

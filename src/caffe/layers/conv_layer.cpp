@@ -76,11 +76,15 @@ template <typename Dtype>
 void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
         std::cout << "convolutionlayer backward_relevance\n";
-        std::cout << "CONV TOP: \n";
-        for (int i = 0; i < 1000; ++i)
+
+        float top_sum = 0;
+        for (int i = 0; i < top[0]->count(); ++i)
         {
-            std::cout << top[0]->cpu_diff()[i] << "|";
+            top_sum += top[0]->cpu_diff()[i];
+            //std::cout << bottom[0]->cpu_diff()[i] << "|";
         }
+        std::cout << "CONV TOP SUM: " << top_sum << '\n';
+
 
         std::cout <<  top[0]->count() << "\n";
         std::cout <<  bottom[0]->count() << "\n";
@@ -91,28 +95,30 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
         const Dtype* bottom_data = bottom[i]->cpu_data();
         Dtype* bottom_diff = bottom[i]->mutable_cpu_diff();
         caffe_set(bottom[i]->count(), Dtype(0.), bottom_diff);
-        std::cout << "this->num_ : " << this->num_ << "\n";
         for (int n = 0; n < this->num_; ++n)
         {
             Dtype* alphabetas = this->alphabeta(top_diff+n *this->top_dim_,
                             weight, bottom_data + n * this->bottom_dim_,
                             bottom_diff + n * this->bottom_dim_);
 
+            /*
             std::cout << "AB CONV DATA: " << '\n';
             for (int i = 0; i < 1000; ++i)
             {
                 std::cout << alphabetas[i] << "|";
             }
+            */
             caffe_copy(bottom[i]->count(), alphabetas, bottom_diff);
         }
 
 
-        std::cout << "CONV BOTTOM: \n";
-        for (int i = 0; i < 1000; ++i)
+        float sum = 0;
+        for (int i = 0; i < bottom[0]->count(); ++i)
         {
-            std::cout << bottom[0]->cpu_diff()[i] << "|";
+            sum += bottom[0]->cpu_diff()[i];
+            //std::cout << bottom[0]->cpu_diff()[i] << "|";
         }
-
+        std::cout << "CONV BOTTOM SUM: " << sum << '\n';
 }
 
 #ifdef CPU_ONLY
