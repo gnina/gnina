@@ -430,15 +430,18 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
         {
             for (long r = 0; r < R; ++r)
             {
+                Dtype bias = this->blobs_[1]->cpu_data()[r] * bias_multiplier_.cpu_data()[i];
                 for (long k = 0; k < K; ++k)
                 {
                     pos_sums_data[r * I + i] += 
                         std::max(Dtype(0.), col_buff[col_offset_ * g + k * I + i] 
-                                * weights[weight_offset_ * g + r * K + k]);
+                                * weights[weight_offset_ * g + r * K + k] +
+                                + bias / K);
 
                     neg_sums_data[r * I + i] += 
                         std::min(Dtype(0.), col_buff[col_offset_ * g + k * I + i] 
-                                * weights[weight_offset_ * g + r * K + k]);
+                                * weights[weight_offset_ * g + r * K + k]
+                                + bias / K);
                 }
             }
         }
@@ -447,6 +450,8 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
         {
             for (long r = 0; r < R; ++r)
             {
+                Dtype bias = this->blobs_[1]->cpu_data()[r] * bias_multiplier_.cpu_data()[i];
+
                 Dtype z1 = 0;
                 Dtype z2 = 0;
                 if (pos_sums_data[r * I + i] > 0)
@@ -466,11 +471,13 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
                     col_buff_new[col_offset_ * g + k * I + i] +=
                         alpha * std::max(Dtype(0.),
                                 col_buff[col_offset_ * g + k * I + i]
-                                * weights[weight_offset_ * g + r * K + k])
+                                * weights[weight_offset_ * g + r * K + k]
+                                + bias / K)
                                 * z1
                         - beta * std::min(Dtype(0.),
                                 col_buff[col_offset_ * g + k * I + i]
-                                * weights[weight_offset_ * g * r * K + k])
+                                * weights[weight_offset_ * g + r * K + k]
+                                + bias / K)       
                                 * z2;
                 }
             }
