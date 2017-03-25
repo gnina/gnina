@@ -571,8 +571,6 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const ve
   else
     diff = top[0]->mutable_cpu_diff();
 
-  std::cout << "IN MOLGRID BACK";
-
   //propagate gradient grid onto atom positions
   unsigned batch_size = top_shape[0];
   for (int item_id = 0; item_id < batch_size; ++item_id) {
@@ -586,22 +584,33 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const ve
         transform.mol.gradient);
   }
 }
-/*
+template <typename Dtype>
 void MolGridDataLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
-  unsigned batch_size = top_shape[0];
-  for (int item_id = 0; item_id < batch_size; ++item_id)
-  {
-    int offset = item_id*example_size;
-    Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
 
-    mol_transform& transform = batch_transform[item_id];
-    gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
-    gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids, transform.mol.gradient);
+  float top_sum = 0.0;
+  for(int i = 0; i < top[0]->count(); i++)
+  {
+          top_sum += top[0]->cpu_diff()[i];
   }
+  std::cout << "MOLGRID TOP: " << top_sum << '\n';
+
+  backward(top, bottom, false);
+
+  float bottom_sum = 0.0;
+  for(int i = 0; i < bottom[0]->count(); i++)
+  {
+          bottom_sum += bottom[0]->cpu_diff()[i];
+  }
+  std::cout << "MOLGRID BOTTOM: " << bottom_sum << '\n';
+
+
+
+
+
+
 }
 
-*/
 INSTANTIATE_CLASS(MolGridDataLayer);
 REGISTER_LAYER_CLASS(MolGridData);
 

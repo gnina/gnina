@@ -1014,7 +1014,7 @@ void Net<Dtype>::Backward_Relevance(){
         }
         else if( i == 0)
         {
-            layers_[i]->Backward(top_vecs_[i], propagate_down, bottom_vecs_[i]);
+            layers_[i]->Backward_relevance(top_vecs_[i], propagate_down, bottom_vecs_[i]);
             std::cout << "DOING MOLGRID BACKWARDS" << '\n';
         }
         else

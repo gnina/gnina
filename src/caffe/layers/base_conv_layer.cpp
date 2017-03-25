@@ -403,7 +403,7 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
     //upper relevances are R x I
 
     float beta = 1;
-    float alpha = 1;
+    float alpha = 2;
 
     const Dtype* col_buff = input;
     col_buff = col_buffer_.cpu_data();
