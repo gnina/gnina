@@ -192,14 +192,14 @@ void CNNScorer::lrp(const model& m)
     //std::ostream os(&fb);
 
     //outputDXGrid(os, mgrid);
-//    NNGridder gridder();
- //   gridder.outputDX("gradient");
+    //NNMolsGridder gridder();
+    //gridder.outputDX("lrp");
     
     //fb.close();
 
     net->Backward_Relevance();
 	
-	outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
+	//outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
 	outputXYZ("LRP_lig", mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
 
 

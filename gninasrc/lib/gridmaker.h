@@ -242,6 +242,8 @@ public:
   void accumulateAtomGradient(const float3& coords, double ar, float x, float y, float z,
                               float gridval, float3& agrad)
   {
+
+    std::cout << "INNER GRIDVAL: " << gridval << '\n';
     float dist_x = x-coords.x;
     float dist_y = y-coords.y;
     float dist_z = z-coords.z;
@@ -329,6 +331,10 @@ public:
           float x = dims[0].first + i * resolution;
           float y = dims[1].first + j * resolution;
           float z = dims[2].first + k * resolution;
+          std::cout << "DEBUG: " << ranges[0].first << '\n';
+          std::cout << "DEBUG: " << ranges[1].first << '\n';
+          std::cout << "DEBUG: " << ranges[2].first << '\n';
+          std::cout << "GRIDVAL: " << grids[0][0][25][0] << '\n';
           accumulateAtomGradient(coords, radius, x, y, z, grids[whichgrid][i][j][k], agrad);
         }
       }
@@ -345,6 +351,7 @@ public:
     for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
     {
       int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
+      std::cout << "WHICHGRID: " << whichgrid << '\n';
       if (whichgrid >= 0)
         setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
     }

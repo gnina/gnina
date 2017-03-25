@@ -99,11 +99,14 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
   vector<float3> getReceptorGradient(int batch_idx)
   {
+    std::cout << "GET RECEPTOR GRADIENT\n";
     vector<float3> gradient;
     mol_info& mol = batch_transform[batch_idx].mol;
     for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
       if (mol.whichGrid[i] < numReceptorTypes)
+      {
         gradient.push_back(mol.gradient[i]);
+      }
     return gradient;
   }
 
@@ -113,7 +116,10 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     mol_info& mol = batch_transform[batch_idx].mol;
     for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
       if (mol.whichGrid[i] >= numReceptorTypes)
+      {
         gradient.push_back(mol.gradient[i]);
+        std::cout << "MOL GRADIENT[" << i << "]: " <<  mol.gradient[i].z << '\n';;
+      }
     return gradient;
   }
 
