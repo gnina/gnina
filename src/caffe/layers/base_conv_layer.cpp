@@ -411,7 +411,7 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
 
 
     Dtype * col_buff_new = col_buffer_.mutable_cpu_diff();
-    memset(col_buff_new, 0, sizeof(Dtype) * col_buffer_.count());
+    memset(col_buff_new, 10, sizeof(Dtype) * col_buffer_.count());
 
     Blob<Dtype> pos_sums(1,1,R,I);
     Blob<Dtype> neg_sums(1,1,R,I);
@@ -484,6 +484,7 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
         }
     }
 
+    //memset(col_buff_new, 10, sizeof(Dtype) * col_buffer_.count());
     conv_col2im_cpu(col_buff_new, lower_relevances);
 
     return lower_relevances;
