@@ -15,6 +15,7 @@
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
+#include "nngridder.h"
 
 #include "cnn_data.h"
 
@@ -68,11 +69,11 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 			//BUT it turns out this isn't actually faster
 			//bsize = nrot;
 		}
-		if (cnnopts.cnn_gradient)
-		{
+//		if (cnnopts.cnn_gradient)
+//		{
 			param.set_force_backward(true);
 			compute_gradient = true;
-		}
+//		}
 
 		net.reset(new Net<float>(param));
 
@@ -185,6 +186,16 @@ void CNNScorer::lrp(const model& m)
 
 	mgrid->setReceptor<atom>(m.get_fixed_atoms());
 	mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
+
+    //std::filebuf fb;
+    //fb.open("gradient.dx", std::ios::out);
+    //std::ostream os(&fb);
+
+    //outputDXGrid(os, mgrid);
+//    NNGridder gridder();
+ //   gridder.outputDX("gradient");
+    
+    //fb.close();
 
     net->Backward_Relevance();
 	
