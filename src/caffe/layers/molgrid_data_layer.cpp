@@ -24,6 +24,8 @@
 #include <openbabel/obiter.h>
 #include <boost/timer/timer.hpp>
 
+#include "gninasrc/lib/nngridder.h"
+
 
 //allocate and initialize atom type data
 namespace smina_atom_type
@@ -583,6 +585,14 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const ve
     int offset = item_id*example_size;
     std::cout << "OFFSET" << offset << '\n';
     Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+
+    std::cout << "grids size: " << grids.size() << '\n';
+
+    //ofstream fo;
+  	//fo.open ("dx_test.dx");
+
+    //NNGridder gridder;
+    //gridder.outputDXGrid(fo, grids[0]);
 
     mol_transform& transform = batch_transform[item_id];
     gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);

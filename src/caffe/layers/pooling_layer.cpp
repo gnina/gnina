@@ -645,6 +645,8 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     vector<int> offset(2, 0);
     offset[1] = 1;
 
+    const int* mask = max_idx_.cpu_data();
+
     caffe_set(bottom[0]->count(), Dtype(0.), bottom_diff);
 
       for (int n = 0; n < top[0]->num(); ++n)
@@ -659,7 +661,9 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
                         {
                             const int index = (p_h * pooled_width_ + p_w)*
                                                   pooled_depth_ + p_d;
-                            bottom_diff[index] += top_diff[index];
+                            const int bottom_index = mask[index];
+                            bottom_diff[bottom_index] += top_diff[bottom_index];
+                            std::cout << "POOL TD: " << top_diff[index] << "|";
                         }
                     }
                 }
@@ -668,7 +672,6 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
             bottom_data += bottom[0]->offset(offset);
             }
         }
-
 
     /*
     for (int n = 0; n < top[0]->num(); ++n)
@@ -731,6 +734,8 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
         }
     }
         */
+
+
     std::cout << "POOL BOTTOM: " << '\n';
     float sum = 0.0;
     for (int i = 0; i < bottom[0]->count(); ++i)

@@ -405,13 +405,10 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
     float beta = 1;
     float alpha = 2;
 
-    const Dtype* col_buff = input;
-    col_buff = col_buffer_.cpu_data();
-
-
+    const Dtype* col_buff = col_buffer_.cpu_data();
 
     Dtype * col_buff_new = col_buffer_.mutable_cpu_diff();
-    memset(col_buff_new, 10, sizeof(Dtype) * col_buffer_.count());
+    memset(col_buff_new, 0, sizeof(Dtype) * col_buffer_.count());
 
     Blob<Dtype> pos_sums(1,1,R,I);
     Blob<Dtype> neg_sums(1,1,R,I);
@@ -425,7 +422,8 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
     {
         memset(pos_sums_data, 0, sizeof(Dtype) * R * I);
         memset(neg_sums_data, 0, sizeof(Dtype) * R * I);
-
+        
+        //sum bottom data inputs * weights + bias
         for (long i = 0; i < I; ++i)
         {
             for (long r = 0; r < R; ++r)
@@ -465,6 +463,11 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
                         / neg_sums_data[r * I + i];
                 }
 
+
+                std::cout << "POS_SUMS: " << pos_sums_data[r * I + i] << '\n';
+                std::cout << "NEG_SUMS: " << neg_sums_data[r * I + i] << '\n';
+                std::cout << "Z1: " << z1 << '\n';
+                std::cout << "Z2: " << z2 << '\n';
                 for(long k = 0; k < K; ++k)
                 {
                     //std::cout << col_offset_ * g + k * I + i << '\n';
@@ -473,7 +476,7 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
                                 col_buff[col_offset_ * g + k * I + i]
                                 * weights[weight_offset_ * g + r * K + k]
                                 + bias / K)
-                                * z1
+                                * z1;
                         - beta * std::min(Dtype(0.),
                                 col_buff[col_offset_ * g + k * I + i]
                                 * weights[weight_offset_ * g + r * K + k]
