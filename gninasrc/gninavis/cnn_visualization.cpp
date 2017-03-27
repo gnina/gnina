@@ -65,6 +65,9 @@ void cnn_visualization::lrp()
     receptor.append(ligand);
 
     scorer.lrp(receptor);
+
+    write_scores(scorer.get_relevances(true), true, false);
+    write_scores(scorer.get_relevances(false), false, false);
 }
 
 
@@ -282,7 +285,7 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string)
 
 //input: raw score differences
 //will be transformed before writing
-void cnn_visualization::write_scores(const std::vector<float> score_diffs, bool isRec)
+void cnn_visualization::write_scores(const std::vector<float> score_diffs, bool isRec, bool transform)
 {
     std::string file_name;
     std::string mol_string;
@@ -320,10 +323,21 @@ void cnn_visualization::write_scores(const std::vector<float> score_diffs, bool 
             index_string = line.substr(6,5);
             atom_index = std::stoi(index_string);
 
+            std::cout << "ATOM INDEX: " << atom_index << '\n';
+            std::cout << "SCORE: " << score_diffs[atom_index] << '\n';
             if ((score_diffs[atom_index] > 0.001) || (score_diffs[atom_index] < -0.001)) //ignore very small score differences
             {
-                float transformed_score = transform_score_diff(score_diffs[atom_index]);
-                score_stream << std::fixed << std::setprecision(5) << transformed_score;
+                float score;
+                if(transform)
+                {
+                    score = transform_score_diff(score_diffs[atom_index]);
+                }
+                else
+                {
+                    score = score_diffs[atom_index];
+                }
+
+                score_stream << std::fixed << std::setprecision(5) << score;
                 out_file << line.substr(0,61);
                 score_string = score_stream.str();
                 score_string.resize(5);
@@ -491,7 +505,7 @@ void cnn_visualization::remove_residues()
         atoms_to_remove.clear();
     }
 
-    write_scores(score_diffs, true);
+    write_scores(score_diffs, true, false);
     std::cout << '\n';
 }
 
@@ -728,13 +742,13 @@ void cnn_visualization::remove_ligand_atoms()
     if (visopts.atoms_only)
     {
         individual_score_diffs = remove_each_atom();
-        write_scores(individual_score_diffs, false);
+        write_scores(individual_score_diffs, false, false);
     }
 
     else if (visopts.frags_only)
     {
         frag_score_diffs = remove_fragments(6);
-        write_scores(frag_score_diffs, false);
+        write_scores(frag_score_diffs, false, false);
     }
 
     else
@@ -751,7 +765,7 @@ void cnn_visualization::remove_ligand_atoms()
             both_score_diffs[i] = avg;
         }
 
-        write_scores(both_score_diffs, false);
+        write_scores(both_score_diffs, false, false);
 
     }
 

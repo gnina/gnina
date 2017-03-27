@@ -78,6 +78,8 @@ public:
   typedef GridMaker::quaternion quaternion;
 	typedef boost::multi_array<float, 3, float_pinned_allocator>  Grid;
 
+  //output a grid the file in dx format (for debug)
+  void outputDXGrid(ostream& out, Grid& grid);
 protected:
 
 
@@ -124,8 +126,6 @@ protected:
 	//output a grid the file in map format (for debug)
 	void outputMAPGrid(ostream& out, Grid& grid);
 
-  //output a grid the file in dx format (for debug)
-  void outputDXGrid(ostream& out, Grid& grid);
 
 	//return a string representation of the atom type(s) represented by index
 	//in map - this isn't particularly efficient, but is only for debug purposes

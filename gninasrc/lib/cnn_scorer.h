@@ -55,7 +55,9 @@ public:
 
 	void outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient);
 
-  	 void lrp(const model& m);
+  std::vector<float> get_relevances(bool receptor);
+
+  void lrp(const model& m);
  
 };
 

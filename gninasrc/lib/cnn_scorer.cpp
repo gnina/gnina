@@ -25,167 +25,197 @@ using namespace std;
 //initialize from commandline options
 //throw error if missing required info
 CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
-		const model& m) :
-		rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
-		 mtx(new boost::mutex) {
+        const model& m) :
+        rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
+         mtx(new boost::mutex) {
 
-	if (cnnopts.cnn_scoring)
-	{
-		NetParameter param;
+    if (cnnopts.cnn_scoring)
+    {
+        NetParameter param;
 
-		//load cnn model
-		if (cnnopts.cnn_model.size() == 0)
-		{
-			google::protobuf::io::ArrayInputStream  modeldata(cnn_default_model, strlen(cnn_default_model));
-			bool success = google::protobuf::TextFormat::Parse(&modeldata, &param);
-			if(!success)
-				throw usage_error("Error with default cnn model.");
-			UpgradeNetAsNeeded("default",&param);
-		}
-		else
-		{
-			ReadNetParamsFromTextFileOrDie(cnnopts.cnn_model, &param);
-		}
+        //load cnn model
+        if (cnnopts.cnn_model.size() == 0)
+        {
+            google::protobuf::io::ArrayInputStream  modeldata(cnn_default_model, strlen(cnn_default_model));
+            bool success = google::protobuf::TextFormat::Parse(&modeldata, &param);
+            if(!success)
+                throw usage_error("Error with default cnn model.");
+            UpgradeNetAsNeeded("default",&param);
+        }
+        else
+        {
+            ReadNetParamsFromTextFileOrDie(cnnopts.cnn_model, &param);
+        }
 
-		param.mutable_state()->set_phase(TEST);
-		LayerParameter *first = param.mutable_layer(0);
-		//must be ndim
-		MolGridDataParameter *mgridparam = first->mutable_molgrid_data_param();
-		if (mgridparam == NULL)
-		{
-			throw usage_error("First layer of model must be MolGridData.");
-		}
-		mgridparam->set_inmemory(true);
+        param.mutable_state()->set_phase(TEST);
+        LayerParameter *first = param.mutable_layer(0);
+        //must be ndim
+        MolGridDataParameter *mgridparam = first->mutable_molgrid_data_param();
+        if (mgridparam == NULL)
+        {
+            throw usage_error("First layer of model must be MolGridData.");
+        }
+        mgridparam->set_inmemory(true);
 
-		//set batch size to 1
-		unsigned bsize = 1;
-		//unless we have rotations, in which case do them all at once, which turns out isn't actually faster :-(
-		if (cnnopts.cnn_rotations > 0)
-		{
-			//let user specify rotations
-			unsigned nrot = cnnopts.cnn_rotations;
-			mgridparam->set_random_rotation(true);
-			//I think there's a bug in the axial rotations - they aren't all distinct
-			//BUT it turns out this isn't actually faster
-			//bsize = nrot;
-		}
-//		if (cnnopts.cnn_gradient)
-//		{
-			param.set_force_backward(true);
-			compute_gradient = true;
-//		}
+        //set batch size to 1
+        unsigned bsize = 1;
+        //unless we have rotations, in which case do them all at once, which turns out isn't actually faster :-(
+        if (cnnopts.cnn_rotations > 0)
+        {
+            //let user specify rotations
+            unsigned nrot = cnnopts.cnn_rotations;
+            mgridparam->set_random_rotation(true);
+            //I think there's a bug in the axial rotations - they aren't all distinct
+            //BUT it turns out this isn't actually faster
+            //bsize = nrot;
+        }
+//      if (cnnopts.cnn_gradient)
+//      {
+            param.set_force_backward(true);
+            compute_gradient = true;
+//      }
 
-		net.reset(new Net<float>(param));
+        net.reset(new Net<float>(param));
 
-		//load weights
-		if (cnnopts.cnn_weights.size() == 0)
-		{
-			NetParameter wparam;
-			google::protobuf::io::ArrayInputStream  weightdata(cnn_default_weights, cnn_default_weights_len);
-			google::protobuf::io::CodedInputStream strm(&weightdata);
-			strm.SetTotalBytesLimit(INT_MAX, 536870912);
-			bool success = wparam.ParseFromCodedStream(&strm);
-			if(!success)
-				throw usage_error("Error with default weights.");
+        //load weights
+        if (cnnopts.cnn_weights.size() == 0)
+        {
+            NetParameter wparam;
+            google::protobuf::io::ArrayInputStream  weightdata(cnn_default_weights, cnn_default_weights_len);
+            google::protobuf::io::CodedInputStream strm(&weightdata);
+            strm.SetTotalBytesLimit(INT_MAX, 536870912);
+            bool success = wparam.ParseFromCodedStream(&strm);
+            if(!success)
+                throw usage_error("Error with default weights.");
 
-			net->CopyTrainedLayersFrom(wparam);
-		}
-		else
-		{
-			net->CopyTrainedLayersFrom(cnnopts.cnn_weights);
-		}
+            net->CopyTrainedLayersFrom(wparam);
+        }
+        else
+        {
+            net->CopyTrainedLayersFrom(cnnopts.cnn_weights);
+        }
 
-		//check that network matches our expectations
+        //check that network matches our expectations
 
-		//the first layer must be MolGridLayer
-		const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
+        //the first layer must be MolGridLayer
+        const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
 
-		//we also need an output layer
-		if (layers.size() < 1)
-		{
-			throw usage_error("No layers in model!");
-		}
+        //we also need an output layer
+        if (layers.size() < 1)
+        {
+            throw usage_error("No layers in model!");
+        }
 
-		mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(layers[0].get());
-		if (mgrid == NULL)
-		{
-			throw usage_error("First layer of model must be MolGridDataLayer.");
-		}
+        mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(layers[0].get());
+        if (mgrid == NULL)
+        {
+            throw usage_error("First layer of model must be MolGridDataLayer.");
+        }
 
-		if (!net->has_blob("output"))
-		{
-			throw usage_error("Model must have output layer named \"output\".");
-		}
-		if (net->blob_by_name("output")->count() != 2 * bsize)
-		{
-			throw usage_error(
-					"Model output layer does not have exactly two outputs.");
-		}
-	}
+        if (!net->has_blob("output"))
+        {
+            throw usage_error("Model must have output layer named \"output\".");
+        }
+        if (net->blob_by_name("output")->count() != 2 * bsize)
+        {
+            throw usage_error(
+                    "Model output layer does not have exactly two outputs.");
+        }
+    }
 
 }
 
 //return score of model, assumes receptor has not changed from initialization
 float CNNScorer::score(const model& m)
 {
-	boost::lock_guard<boost::mutex> guard(*mtx);
-	if (!initialized())
-		return -1.0;
+    boost::lock_guard<boost::mutex> guard(*mtx);
+    if (!initialized())
+        return -1.0;
 
-	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
+    caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
-	mgrid->setReceptor<atom>(m.get_fixed_atoms());
-	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates());
+    mgrid->setReceptor<atom>(m.get_fixed_atoms());
+    mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates());
 
-	double score = 0.0;
-	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
+    double score = 0.0;
+    const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
 
-	unsigned cnt = 0;
-	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
-	{
-		net->Forward();
-		score += outblob->cpu_data()[1];
+    unsigned cnt = 0;
+    for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
+    {
+        net->Forward();
+        score += outblob->cpu_data()[1];
 
-		if (compute_gradient)
-		{
-			net->Backward();
-			outputXYZ("DEBUG_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
-			outputXYZ("DEBUG_lig", mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
-		}
+        if (compute_gradient)
+        {
+            net->Backward();
+            outputXYZ("DEBUG_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
+            outputXYZ("DEBUG_lig", mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
+        }
 
-		cnt++;
-	}
+        cnt++;
+    }
 
-	return score / cnt;
+    return score / cnt;
 }
 
 void CNNScorer::outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient)
 {
-	const char* sym[] = {"C", "C", "C", "C", "Ca", "Fe", "Mg", "N", "N", "N", "N", "O", "O", "P", "S", "Zn",
-			     "C", "C", "C", "C", "Br", "Cl", "F",  "N", "N", "N", "N", "O", "O", "O", "P", "S", "S", "I"};
+    const char* sym[] = {"C", "C", "C", "C", "Ca", "Fe", "Mg", "N", "N", "N", "N", "O", "O", "P", "S", "Zn",
+                 "C", "C", "C", "C", "Br", "Cl", "F",  "N", "N", "N", "N", "O", "O", "O", "P", "S", "S", "I"};
 
-	const string& fname = base + ".xyz";
-	ofstream out(fname.c_str());
-	out.precision(5);
+    const string& fname = base + ".xyz";
+    ofstream out(fname.c_str());
+    out.precision(5);
 
-	out << atoms.size() << "\n\n";
-	for (unsigned i = 0, n = atoms.size(); i < n; ++i)
-	{
-		out << sym[whichGrid[i]] << " ";
-		out << atoms[i].x << " " << atoms[i].y << " " << atoms[i].z << " ";
-		out << gradient[i].x << " " << gradient[i].y << " " << gradient[i].z;
-		if (i + 1 < n) out << "\n";
-	}
+    out << atoms.size() << "\n\n";
+    for (unsigned i = 0, n = atoms.size(); i < n; ++i)
+    {
+        out << sym[whichGrid[i]] << " ";
+        out << atoms[i].x << " " << atoms[i].y << " " << atoms[i].z << " ";
+        out << gradient[i].x;
+        if (i + 1 < n) out << "\n";
+    }
 }
+
+//returns relevance scores per atom
+std::vector<float> CNNScorer::get_relevances(bool receptor)
+{
+    vector<float4> atoms;
+    vector<float3> gradient; 
+
+    if (receptor)
+    {
+        atoms = mgrid->getReceptorAtoms(0);
+        gradient = mgrid->getReceptorGradient(0);
+    }
+    else
+    {
+        atoms = mgrid->getLigandAtoms(0);
+        gradient = mgrid->getLigandGradient(0);
+    }
+
+    std::vector<float> relevances(atoms.size());
+
+    for (unsigned i = 0, n = atoms.size(); i < n; ++i)
+    {
+        //relevances summed to x field of gradient, will be fixed
+        relevances[i] = gradient[i].x;
+        std::cout << "OUTPUT GRADIENT: " << gradient[i].x << '\n';
+    }
+
+    return relevances;
+}
+
 
 void CNNScorer::lrp(const model& m)
 {
     boost::lock_guard<boost::mutex> guard(*mtx);
-	
-	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
+    
+    caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
-	mgrid->setReceptor<atom>(m.get_fixed_atoms());
-	mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
+    mgrid->setReceptor<atom>(m.get_fixed_atoms());
+    mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
 
     //std::filebuf fb;
     //fb.open("gradient.dx", std::ios::out);
@@ -198,9 +228,9 @@ void CNNScorer::lrp(const model& m)
     //fb.close();
 
     net->Backward_Relevance();
-	
-	//outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
-	outputXYZ("LRP_lig", mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
+    
+    //outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
+    outputXYZ("LRP_lig", mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
 
 
 }

@@ -285,9 +285,10 @@ public:
     }
     // d_loss/d_atomx = d_atomdist/d_atomx * d_gridpoint/d_atomdist * d_loss/d_gridpoint
     // sum across all gridpoints
-    agrad.x += (-dist_x / dist) * agrad_dist * gridval;
-    agrad.y += (-dist_y / dist) * agrad_dist * gridval;
-    agrad.z += (-dist_z / dist) * agrad_dist * gridval;
+    agrad.x += gridval;
+    //agrad.x += (-dist_x / dist) * agrad_dist * gridval;
+    //agrad.y += (-dist_y / dist) * agrad_dist * gridval;
+    //agrad.z += (-dist_z / dist) * agrad_dist * gridval;
   }
 
   //get the atom position gradient from relevant grid points for provided atom
@@ -334,7 +335,7 @@ public:
           std::cout << "DEBUG: " << ranges[0].first << '\n';
           std::cout << "DEBUG: " << ranges[1].first << '\n';
           std::cout << "DEBUG: " << ranges[2].first << '\n';
-          std::cout << "GRIDVAL: " << grids[0][0][25][0] << '\n';
+          std::cout << "GRIDVAL: " << grids[whichgrid][i][j][k] << '\n';
           accumulateAtomGradient(coords, radius, x, y, z, grids[whichgrid][i][j][k], agrad);
         }
       }

@@ -19,6 +19,7 @@ struct vis_options
   bool verbose;
   bool output_files;
   bool skip_bound_check;
+  bool lrp;
   
   int gpu;
 

@@ -88,11 +88,6 @@ int main(int argc, char* argv[])
   float center_x = 0, center_y = 0, center_z = 0;
   vec center(center_x,center_y,center_z);
 
-  if (lrp)
-  {
-      cnn_visualization vis = cnn_visualization(visopts, cnnopts, center);
-      vis.lrp();
-  }
   if(vm.count("receptor") <= 0)
   {
     std::cerr << "Missing receptor.\n" << "\nCorrect usage:\n"
