@@ -61,6 +61,10 @@ void AffinityLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
           bottom[i]->mutable_cpu_diff());  // b
     }
   }
+  /*LOG(INFO) << "AFFGRADS";
+  for(unsigned i = 0, n = bottom[0]->num(); i < n; i++) {
+    LOG(INFO) << bottom[0]->cpu_diff()[i];
+  }*/
 }
 
 
