@@ -77,6 +77,10 @@ void RankLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 					compute_pair_gradient(top, bottom, i, j);
 				}
 			}
+			/*LOG(INFO) <<"RANKGRADIENTS";
+			for(unsigned i = 0; i < num; i++) {
+				 LOG(INFO) << i << ": " << bottom_diff[i] << "\n";
+			}*/
 		} else {
 			//adjacent pairs only
 			for (int i = 0; i < num; i+=2) {
@@ -118,14 +122,19 @@ Dtype RankLossLayer<Dtype>::compute_pair_loss(
 	Dtype Lj = bottom_label[j];
 	Dtype diff = si - sj;
 	Dtype ediff = exp(diff);
-	Dtype Pij = ediff / (1 + ediff);
+	Dtype Pij =  1.0;
+	if(std::isfinite(ediff)) 
+		Pij = ediff / (1 + ediff);
 
 	if (Li > Lj) {
+		Pij = std::max(Pij, Dtype(kLOG_THRESHOLD));
 		loss = -log(Pij);
 	} else {
-		loss = -log(1 - Pij);
+		Dtype val = 1-Pij;
+		val = std::max(val, Dtype(kLOG_THRESHOLD));
+		loss = -log(val);
 	}
-
+//LOG(INFO) << "RANKPAIRLOSS " << i <<","<<j<<" "<<loss<< " " << Pij << " " << ediff << " s: " << si << "," << sj << " L: " << Li << "," << Lj;
 	return loss;
 }
 
@@ -158,7 +167,11 @@ void RankLossLayer<Dtype>::compute_pair_gradient(
 
 	Dtype Li = bottom_label[i];
 	Dtype Lj = bottom_label[j];
-	Dtype d = - 1.0 / (1.0+exp(si-sj));
+	Dtype ediff = exp(si-sj);
+	Dtype d = 0;
+	if(std::isfinite(ediff))
+		d = - 1.0 / (1.0+exp(si-sj));
+
 	if(Li < Lj) {
 		//reverse sign
 		d = -d;
