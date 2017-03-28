@@ -146,12 +146,10 @@ float CNNScorer::score(const model& m)
         net->Forward();
         score += outblob->cpu_data()[1];
 
-        if (compute_gradient)
-        {
-            net->Backward();
-            outputXYZ("DEBUG_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
-            outputXYZ("DEBUG_lig", mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
-        }
+        //if (compute_gradient)
+        //{
+        //    net->Backward();
+        //}
 
         cnt++;
     }

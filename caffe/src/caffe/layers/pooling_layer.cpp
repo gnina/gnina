@@ -580,66 +580,30 @@ template <typename Dtype>
 void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
 
-    
-    std::cout << "POOL TOP: " << '\n';
-    for (int i = 0; i < 1000; ++i)
+ 
+    float top_sum = 0.0;
+    for (int i = 0; i < top[0]->count(); ++i)
     {
-        std::cout <<  top[0]->cpu_diff()[i] << "|";
+        //std::cout <<  bottom[0]->cpu_diff()[i] << "|";
+        top_sum += top[0]->cpu_diff()[i];
     }
+    std::cout << "POOL TOP SUM: " << top_sum << '\n';
 
-     std::cout << "FORWARD CPU DATA\n";
-     for(int i = 0; i < 1000; ++i)
-    {
-        std::cout << bottom[0]->cpu_data()[i] << "|";
-    }
-        
+    std::cout << "USE TOP MASK: " << (top.size() > 1) << '\n';
 
     PoolingParameter pool_param = this->layer_param_.pooling_param();
 
-    const int* kernel_shape = kernel_shape_.cpu_data();
-    const int* pad_data = this->pad_.cpu_data();
-    const int* stride_data = this->stride_.cpu_data();
-    const int* input_shape_data = this->input_shape_.cpu_data();
     const int* output_shape_data = this->output_shape_.cpu_data();
-    
-    for (int i = 0; i < 3; ++i)
-    {
-        std::cout << input_shape_data[i] << '\n';
-    }
-
-    for (int i = 0; i < 3; ++i)
-    {
-        std::cout << output_shape_data[i] << '\n';
-    }
-
-    int channels_ = bottom[0]->channels();
-    std::cout << "CHANNELS: " << channels_ << '\n';
-    //int channels_ = 1;
-
-    int height_ = input_shape_data[0];
-    int width_ = input_shape_data[1];
-    int depth_ = input_shape_data[2];
-
-    int pad_h_ = pad_data[0];
-    int pad_w_ = pad_data[1];
-    int pad_d_ = pad_data[2];
-
-    int stride_h_ = stride_data[0];
-    int stride_w_ = stride_data[1];
-    int stride_d_ = stride_data[2];
-
-    int kernel_h_ = kernel_shape[0];
-    int kernel_w_ = kernel_shape[1];
-    int kernel_d_ = kernel_shape[2];
 
     int pooled_height_ = output_shape_data[0];
     int pooled_width_ = output_shape_data[1];
     int pooled_depth_ = output_shape_data[2];
 
+    int channels_ = bottom[0]->channels();
+
     const Dtype* top_diff = top[0]->cpu_diff();
     Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
     const Dtype* bottom_data = bottom[0]->cpu_data();
-    //const Dtype* top_data = top[0]->cpu_data();
 
     //equivalent of legacy offset(0, 1)
     vector<int> offset(2, 0);
@@ -661,89 +625,26 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
                         {
                             const int index = (p_h * pooled_width_ + p_w)*
                                                   pooled_depth_ + p_d;
+
                             const int bottom_index = mask[index];
+
                             bottom_diff[bottom_index] += top_diff[bottom_index];
-                            std::cout << "POOL TD: " << top_diff[index] << "|";
                         }
                     }
                 }
             bottom_diff += bottom[0]->offset(offset);
             top_diff += top[0]->offset(offset);
             bottom_data += bottom[0]->offset(offset);
-            }
+           }
         }
 
-    /*
-    for (int n = 0; n < top[0]->num(); ++n)
-    {
-        for (int c = 0; c < channels_; ++c)
-        {
-            for(int p_h = 0; p_h < pooled_height_; ++p_h)
-            {
-                for(int p_w = 0; p_w < pooled_width_; ++p_w)
-                {
-                    for(int p_d = 0; p_d < pooled_depth_; ++p_d)
-                    {
-                        int h_start = p_h * stride_h_ - pad_h_;
-                        int w_start = p_w * stride_w_ - pad_w_;
-                        int d_start = p_d * stride_d_ - pad_d_;
-
-                        int h_end = min(h_start + kernel_h_, height_ + pad_h_);
-                        int w_end = min(w_start + kernel_w_, width_ + pad_w_);
-                        int d_end = min(d_start + kernel_d_, depth_ + pad_d_);
-
-                        h_start = max(h_start, 0);
-                        w_start = max(w_start, 0);
-                        d_start = max(d_start, 0);
-
-                        Dtype bottom_avg = Dtype(0.);
-                        for (int h = h_start; h < h_end; ++h)
-                        {
-                            for (int w = w_start; w < w_end; ++w)
-                            {
-                                for (int d = d_start; d < d_end; ++d)
-                                {
-                                    const int pool_index = (h * width_ + w)*
-                                                  depth_ + d;
-                                    bottom_avg += bottom_data[pool_index];
-                                }
-                            }
-                        }
-
-                        for (int h = h_start; h < h_end; ++h)
-                        {
-                            for (int w = w_start; w < w_end; ++w)
-                            {
-                                for (int d = d_start; d < d_end; ++d)
-                                {
-                                    const int pool_index = (h * width_ + w)*
-                                                  depth_ + d;
-                                    bottom_diff[pool_index] +=
-                                    top_diff[(p_h * pooled_width_ + p_w) * pooled_depth_ + p_d]
-                                    * bottom_data[pool_index]
-                                    / bottom_avg;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            bottom_diff += bottom[0]->offset(offset);
-            top_diff += top[0]->offset(offset);
-            bottom_data += bottom[0]->offset(offset);
-        }
-    }
-        */
-
-
-    std::cout << "POOL BOTTOM: " << '\n';
-    float sum = 0.0;
+    float bottom_sum = 0.0;
     for (int i = 0; i < bottom[0]->count(); ++i)
     {
         //std::cout <<  bottom[0]->cpu_diff()[i] << "|";
-        sum += bottom[0]->cpu_diff()[i];
+        bottom_sum += bottom[0]->cpu_diff()[i];
     }
-    std::cout << "POOL SUM: " << sum << '\n';
+    std::cout << "POOL BOTTOM SUM: " << bottom_sum << '\n';
 }
 
 #ifdef CPU_ONLY

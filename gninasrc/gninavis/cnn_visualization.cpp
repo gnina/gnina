@@ -71,8 +71,9 @@ void cnn_visualization::lrp()
 }
 
 
-void cnn_visualization::color()
+void cnn_visualization::removal()
 {
+    std::cout << "REMOVAL\n";
     if(visopts.verbose)
     {
       print();
@@ -284,8 +285,7 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string)
 }
 
 //input: raw score differences
-//will be transformed before writing
-void cnn_visualization::write_scores(const std::vector<float> score_diffs, bool isRec, bool transform)
+void cnn_visualization::write_scores(const std::vector<float> score_diffs, bool isRec, bool removal)
 {
     std::string file_name;
     std::string mol_string;
@@ -301,6 +301,15 @@ void cnn_visualization::write_scores(const std::vector<float> score_diffs, bool 
         mol_string = lig_string;
     }
 
+    if (!removal)
+    {
+        file_name = "lrp_" + file_name;
+    }
+    else
+    {
+        file_name = "removal_" + file_name;
+    }
+
     std::ofstream out_file; 
     out_file.open(file_name);
 
@@ -313,7 +322,9 @@ void cnn_visualization::write_scores(const std::vector<float> score_diffs, bool 
     int atom_index;
     std::stringstream score_stream;
     std::string score_string;
-    
+
+    float score_sum = 0;
+
     while(std::getline(mol_stream, line))
     {
         if ((line.find("ATOM") < std::string::npos) || 
@@ -325,10 +336,12 @@ void cnn_visualization::write_scores(const std::vector<float> score_diffs, bool 
 
             std::cout << "ATOM INDEX: " << atom_index << '\n';
             std::cout << "SCORE: " << score_diffs[atom_index] << '\n';
+            score_sum += score_diffs[atom_index];
             if ((score_diffs[atom_index] > 0.001) || (score_diffs[atom_index] < -0.001)) //ignore very small score differences
             {
                 float score;
-                if(transform)
+                //do not transform scores if lrp
+                if(removal)
                 {
                     score = transform_score_diff(score_diffs[atom_index]);
                 }
@@ -357,6 +370,7 @@ void cnn_visualization::write_scores(const std::vector<float> score_diffs, bool 
             out_file << line << '\n';
         }
     }
+    std::cout << "ATOM SCORE SUM: " << score_sum << '\n';
 }
 
 
@@ -505,7 +519,7 @@ void cnn_visualization::remove_residues()
         atoms_to_remove.clear();
     }
 
-    write_scores(score_diffs, true, false);
+    write_scores(score_diffs, true, true);
     std::cout << '\n';
 }
 
@@ -742,13 +756,13 @@ void cnn_visualization::remove_ligand_atoms()
     if (visopts.atoms_only)
     {
         individual_score_diffs = remove_each_atom();
-        write_scores(individual_score_diffs, false, false);
+        write_scores(individual_score_diffs, false, true);
     }
 
     else if (visopts.frags_only)
     {
         frag_score_diffs = remove_fragments(6);
-        write_scores(frag_score_diffs, false, false);
+        write_scores(frag_score_diffs, false, true);
     }
 
     else
@@ -765,7 +779,7 @@ void cnn_visualization::remove_ligand_atoms()
             both_score_diffs[i] = avg;
         }
 
-        write_scores(both_score_diffs, false, false);
+        write_scores(both_score_diffs, false, true);
 
     }
 

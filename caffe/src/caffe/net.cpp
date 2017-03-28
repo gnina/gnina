@@ -986,40 +986,28 @@ void Net<Dtype>::Backward_Relevance(){
     vector<bool> propagate_down (10);
     for(int i = 11; i >= 0; i--)
     {
-        std::cout << "starting layer " << i << "\n";
+      //std::cout << "starting layer " << i << "\n";
       //std::cout << "propagate down: " << layer_params.propagate_down[i] << '\n';
-        std::cout << "layer type: " << layer_names_[i] << "\n";
-        std::cout << "need backward: " << layer_need_backward_[i] << "\n";
+      //std::cout << "layer type: " << layer_names_[i] << "\n";
+      //std::cout << "need backward: " << layer_need_backward_[i] << "\n";
 
         if(i == 11)
         {
-            //for (int s = 0; s < top_vecs_[i].size(); s++)
-            //{
             int s = 0;
-                    std::cout << "top.size() " << top_vecs_[i].size() << '\n';
-                    Dtype* top_diff = top_vecs_[i][s]->mutable_cpu_diff();
-                    const Dtype* top_data = top_vecs_[14][s]->cpu_data();
-                    std::cout << "top_vecs_[i][s]->count() " << top_vecs_[i][s]->count() << '\n';
+            Dtype* top_diff = top_vecs_[i][s]->mutable_cpu_diff();
+            const Dtype* top_data = top_vecs_[14][s]->cpu_data();
 
-                    memset(top_diff, 0, sizeof(Dtype) * top_vecs_[i][s]->count());
+            memset(top_diff, 0, sizeof(Dtype) * top_vecs_[i][s]->count());
 
-                    for( int x = 0; x < 10; x++)
-                    {
-                            std::cout << "top_data[" << x <<"]: " << top_data[x] << '\n';
-                    }
-
-                    top_diff[0] = top_data[1];
-            //}
+            top_diff[0] = top_data[1];
             layers_[i]->Backward_relevance(top_vecs_[i], propagate_down, bottom_vecs_[i]);
         }
         else if( i == 0)
         {
             layers_[i]->Backward_relevance(top_vecs_[i], propagate_down, bottom_vecs_[i]);
-            std::cout << "DOING MOLGRID BACKWARDS" << '\n';
         }
         else
         {
-            std::cout << "DOING BACKWARD\n";
             layers_[i]->Backward_relevance(top_vecs_[i], propagate_down, bottom_vecs_[i]);
         }
     }

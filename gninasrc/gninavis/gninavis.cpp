@@ -12,12 +12,12 @@ int main(int argc, char* argv[])
   vis_options visopts;
   cnn_options cnnopts;
 
-  cnnopts.cnn_rotations = 24; //any reason to make this an option?
+  cnnopts.cnn_rotations = 1; //any reason to make this an option?
   cnnopts.cnn_scoring = true;
 
   using namespace boost::program_options;
 
-  bool lrp = false;
+  int vis_method = -1;
 
   options_description inputs("Input");
   inputs.add_options()
@@ -31,9 +31,7 @@ int main(int argc, char* argv[])
     ("cnn_model", value<std::string>(&cnnopts.cnn_model),
                   "CNN model file (*.model)")
     ("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
-                  "CNN weights file (*.caffemodel)")
-    ("lrp", bool_switch(&lrp)->default_value(false),
-                  "only run fragment removal on ligand");
+                  "CNN weights file (*.caffemodel)");
   options_description outputs("Output"); outputs.add_options()
     ("receptor_output", value<std::string>(&visopts.receptor_output),
                   "output file for colored receptor (omit to skip receptor coloring)")
@@ -51,7 +49,9 @@ int main(int argc, char* argv[])
     ("verbose", bool_switch(&visopts.verbose)->default_value(false),
                   "print full output, including removed atom lists")
     ("gpu", value<int>(&visopts.gpu)->default_value(-1),
-                    "gpu id for accelerated scoring");
+                    "gpu id for accelerated scoring")
+    ("vis_method", value<int>(&vis_method)->default_value(0),
+                    "visualization method (default 0 for removal, 1 for lrp, 2 for both");
 
   options_description debug("Debug");
   debug.add_options()
@@ -129,11 +129,23 @@ int main(int argc, char* argv[])
             << desc << '\n';
     return 1;
   }
-  
+
   google::InitGoogleLogging(argv[0]);
   google::SetStderrLogging(2);
 
-
   cnn_visualization vis = cnn_visualization(visopts, cnnopts, center);
-  vis.lrp();
+
+  if (0 == vis_method)
+  {
+    vis.removal();
+  }
+  if (1 == vis_method)
+  {
+    vis.lrp();
+  }
+  if (2 == vis_method)
+  {
+    vis.removal();
+    vis.lrp();
+  }
 }

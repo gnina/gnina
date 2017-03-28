@@ -243,13 +243,12 @@ public:
                               float gridval, float3& agrad)
   {
 
-    std::cout << "INNER GRIDVAL: " << gridval << '\n';
     float dist_x = x-coords.x;
     float dist_y = y-coords.y;
     float dist_z = z-coords.z;
     float dist2 = dist_x*dist_x + dist_y*dist_y + dist_z*dist_z;
-    if (dist2 == 0.0 || gridval == 0.0) // gradient is zero
-      return;
+    //if (dist2 == 0.0 || gridval == 0.0) // gradient is zero
+    //  return;
 
     //in order to compute the loss gradient wrt atom position,
     //  we sum gradient from each gridpoint overlapped by the atom
@@ -332,10 +331,6 @@ public:
           float x = dims[0].first + i * resolution;
           float y = dims[1].first + j * resolution;
           float z = dims[2].first + k * resolution;
-          std::cout << "DEBUG: " << ranges[0].first << '\n';
-          std::cout << "DEBUG: " << ranges[1].first << '\n';
-          std::cout << "DEBUG: " << ranges[2].first << '\n';
-          std::cout << "GRIDVAL: " << grids[whichgrid][i][j][k] << '\n';
           accumulateAtomGradient(coords, radius, x, y, z, grids[whichgrid][i][j][k], agrad);
         }
       }
@@ -347,12 +342,10 @@ public:
   void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
                            const Grids& grids, vector<float3>& agrad)
   { 
-      std::cout << "\nSET ATOM GRADIENTS\n";
     zeroAtomGradientsCPU(agrad);
     for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
     {
       int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
-      std::cout << "WHICHGRID: " << whichgrid << '\n';
       if (whichgrid >= 0)
         setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
     }
