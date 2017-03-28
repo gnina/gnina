@@ -394,6 +394,7 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
     const Dtype* upper_relevances,
     const Dtype* weights, const Dtype* input,
     Dtype * lower_relevances) 
+
 {
     int K = kernel_dim_;
     int I = conv_out_spatial_dim_;
@@ -402,8 +403,8 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
     //weights are R x K
     //upper relevances are R x I
 
-    float beta = 1;
-    float alpha = 2;
+    float beta = 0;
+    float alpha = 1;
 
     const Dtype* col_buff = col_buffer_.cpu_data();
 
@@ -464,23 +465,18 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
                 }
 
 
-                std::cout << "POS_SUMS: " << pos_sums_data[r * I + i] << '\n';
-                std::cout << "NEG_SUMS: " << neg_sums_data[r * I + i] << '\n';
-                std::cout << "Z1: " << z1 << '\n';
-                std::cout << "Z2: " << z2 << '\n';
                 for(long k = 0; k < K; ++k)
                 {
-                    //std::cout << col_offset_ * g + k * I + i << '\n';
                     col_buff_new[col_offset_ * g + k * I + i] +=
                         alpha * std::max(Dtype(0.),
                                 col_buff[col_offset_ * g + k * I + i]
                                 * weights[weight_offset_ * g + r * K + k]
                                 + bias / K)
-                                * z1;
+                                * z1
                         - beta * std::min(Dtype(0.),
                                 col_buff[col_offset_ * g + k * I + i]
                                 * weights[weight_offset_ * g + r * K + k]
-                                + bias / K)       
+                                + bias / K)
                                 * z2;
                 }
             }
