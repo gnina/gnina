@@ -33,7 +33,7 @@ template <typename Dtype>
 class AffinityLossLayer : public LossLayer<Dtype> {
  public:
   explicit AffinityLossLayer(const LayerParameter& param)
-      : LossLayer<Dtype>(param), diff_(), cutoff(0) {}
+      : LossLayer<Dtype>(param), diff_() {}
 
   virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -58,7 +58,6 @@ class AffinityLossLayer : public LossLayer<Dtype> {
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
   Blob<Dtype> diff_;
-  Dtype cutoff;
 };
 
 }  // namespace caffe

@@ -8,10 +8,7 @@
 #include "cnn_scorer.h"
 #include "gridoptions.h"
 
-#include "caffe/layer.hpp"
-#include "caffe/net.hpp"
 #include "caffe/proto/caffe.pb.h"
-#include "caffe/layers/ndim_data_layer.hpp"
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
@@ -26,7 +23,7 @@ using namespace std;
 CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		const model& m) :
 		rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
-		 mtx(new boost::mutex)
+		 outputdx(cnnopts.outputdx), mtx(new boost::mutex)
 {
 
 	if (cnnopts.cnn_scoring)
@@ -69,6 +66,7 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 			//BUT it turns out this isn't actually faster
 			//bsize = nrot;
 		}
+		param.set_force_backward(true);
 
 		net.reset(new Net<float>(param));
 
@@ -166,10 +164,18 @@ float CNNScorer::score(const model& m, float& aff)
 
 	}
 
+	if(outputdx) {
+		const caffe::shared_ptr<Blob<Dtype> > datablob = net->blob_by_name("data");
+		if(datablob) {
+			net->Backward();
+			mgrid->dumpDiffDX(m.get_name(), datablob.get());
+		}
+	}
 	aff = affinity/cnt;
 	return score / cnt;
 
 }
+
 
 //return only score
 float CNNScorer::score(const model& m)

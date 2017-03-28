@@ -1145,7 +1145,9 @@ Thank you!\n";
 		("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
 				"evaluate multiple rotations of pose (max 24)")
 		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
-				"Use a convolutional neural network to score final pose.");
+				"Use a convolutional neural network to score final pose.")
+		("cnn_outputdx", bool_switch(&cnnopts.outputdx)->default_value(false),
+		               "Dump dx files of gradient.");
 
 		options_description misc("Misc (optional)");
 		misc.add_options()

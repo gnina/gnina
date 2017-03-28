@@ -111,6 +111,10 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     mem_lig.center = center;
   }
 
+  double getDimension() const { return dimension; }
+  double getResolution() const { return resolution; }
+
+  void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top) const;
 
  protected:
 
@@ -201,7 +205,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     vector<float4> atoms;
     vector<short> whichGrid; //separate for better memory layout on gpu
     vec center; //precalculate centroid, includes any random translation
-    boost::array< pair<float, float>, 3> dims;
+    //boost::array< pair<float, float>, 3> dims;
 
     mol_info() { center[0] = center[1] = center[2] = 0;}
 
@@ -222,6 +226,11 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms, bool gpu);
 
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
+
+  //stuff for outputing dx grids
+  std::string getIndexName(const vector<int>& map, unsigned index) const;
+  void outputDXGrid(std::ostream& out, Grids& grids, unsigned g) const;
+
 };
 
 
