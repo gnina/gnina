@@ -548,6 +548,90 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
 }
 
 
+//return a string representation of the atom type(s) represented by index
+//in map - this isn't particularly efficient, but is only for debug purposes
+template <typename Dtype>
+string MolGridDataLayer<Dtype>::getIndexName(const vector<int>& map, unsigned index) const
+		{
+	stringstream ret;
+	stringstream altret;
+	for (unsigned at = 0; at < smina_atom_type::NumTypes; at++)
+	{
+		if (map[at] == index)
+		{
+			ret << smina_type_to_string((smt) at);
+			altret << "_" << at;
+		}
+	}
+
+	if (ret.str().length() > 32) //there are limits on file name lengths
+		return altret.str();
+	else
+		return ret.str();
+}
+
+
+//output a grid the file in dx format (for debug)
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::outputDXGrid(std::ostream& out, Grids& grid, unsigned g) const
+{
+  unsigned n = dim;
+  out.precision(5);
+  setprecision(5);
+  out << fixed;
+  out << "object 1 class gridpositions counts " << n << " " << n << " " << " " << n << "\n";
+  out << "origin";
+  for (unsigned i = 0; i < 3; i++)
+  {
+    out << " " << mem_lig.center[i]-dimension/2.0;
+  }
+  out << "\n";
+  out << "delta " << resolution << " 0 0\ndelta 0 " << resolution << " 0\ndelta 0 0 " << resolution << "\n";
+  out << "object 2 class gridconnections counts " << n << " " << n << " " << " " << n << "\n";
+  out << "object 3 class array type double rank 0 items [ " << n*n*n << "] data follows\n";
+  //now coordinates - x,y,z
+  unsigned total = 0;
+  for (unsigned i = 0; i < n; i++)
+  {
+    for (unsigned j = 0; j < n; j++)
+    {
+      for (unsigned k = 0; k < n; k++)
+      {
+        out << grid[g][i][j][k];
+        total++;
+        if(total % 3 == 0) out << "\n";
+        else out << " ";
+      }
+    }
+  }
+}
+
+//dump dx files for every atom type, with files names starting with prefix
+//only does the very first grid for now
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
+		Blob<Dtype>* top) const
+{
+	Grids grids(top->mutable_cpu_diff(),
+			boost::extents[numReceptorTypes + numLigandTypes][dim][dim][dim]);
+    CHECK_GT(mem_lig.atoms.size(),0) << "DX dump only works with in-memory ligand";
+    CHECK_EQ(randrotate, false) << "DX dump requires no rotation";
+	for (unsigned a = 0, na = numReceptorTypes; a < na; a++) {
+		string name = getIndexName(rmap, a);
+		string fname = prefix + "_rec_" + name + ".dx";
+		ofstream out(fname.c_str());
+		outputDXGrid(out, grids, a);
+	}
+	for (unsigned a = 0, na = numLigandTypes; a < na; a++) {
+			string name = getIndexName(lmap, a);
+			string fname = prefix + "_lig_" + name + ".dx";
+			ofstream out(fname.c_str());
+			outputDXGrid(out, grids, numReceptorTypes+a);
+	}
+
+}
+
+
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top)
