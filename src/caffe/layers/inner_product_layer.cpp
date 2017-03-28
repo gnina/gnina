@@ -143,7 +143,69 @@ void InnerProductLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 template <typename Dtype>
 void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
-        
+
+    const float eps = .00001;
+
+    Forward_cpu(bottom, top);
+
+    float top_sum = 0.0;
+    for (int i = 0; i < top[0]->count(); ++i)
+    {
+        top_sum += top[0]->cpu_diff()[i];
+    }
+    std::cout << "INNERPROD TOP SUM : " << top_sum << '\n';
+
+    for (int i = 0; i < top.size(); ++i)
+    {
+        const Dtype* top_diff = top[i]->cpu_diff();
+        const Dtype* bottom_data = bottom[i]->cpu_data();
+        Dtype* bottom_diff = bottom[i]->mutable_cpu_diff();
+
+        caffe_set(bottom[i]->count(), Dtype(0.0), bottom_diff);
+
+        const Dtype* top_data = top[i]->cpu_data();
+        Blob<Dtype> top_data_with_eps((top[i])->shape());
+
+        int outcount = top_data_with_eps.count();
+
+        Dtype* top_data_with_eps_data = top_data_with_eps.mutable_cpu_data();
+        caffe_copy<Dtype>(outcount, top_diff, top_data_with_eps_data);
+
+        for (int c = 0; c < outcount; ++c)
+        {
+            if (top_data[c] > 0)
+            {
+                top_data_with_eps_data[c] /= top_data[c] + eps;
+            }
+            if (top_data[c] < 0)
+            {
+                top_data_with_eps_data[c] /= top_data[c] - eps;
+            }
+        }
+
+        caffe_cpu_gemm<Dtype> (CblasNoTrans, CblasNoTrans, M_, K_, N_, (Dtype) 1., top_data_with_eps_data, this->blobs_[0]->cpu_data(), (Dtype) 0., bottom[i]->mutable_cpu_diff());
+
+        for(int d = 0; d < M_ * K_; ++d)
+        {
+            bottom_diff[d] *= bottom_data[d];
+        }
+    }
+
+    float bottom_sum = 0.0;
+    for (int i = 0; i < bottom[0]->count(); ++i)
+    {
+        bottom_sum += bottom[0]->cpu_diff()[i];
+    }
+    std::cout << "INNERPROD BOTTOM SUM : " << bottom_sum << '\n';
+}
+
+
+
+
+
+
+
+/*        
         std::cout << "INNERPROD TOP DIFF: " << top[0]->cpu_diff()[0] << '\n'; 
         std::cout << "INNERPROD TOP COUNT: " << top[0]->count() << '\n'; 
         float top_sum = 0.0;
@@ -229,16 +291,9 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
 
 
 
+        */
 
-        float bottom_sum = 0.0;
-        for (int i = 0; i < bottom[0]->count(); ++i)
-        {
-            bottom_sum += bottom[0]->cpu_diff()[i];
-        }
-        std::cout << "INNERPROD BOTTOM SUM : " << bottom_sum << '\n';
-}
-
-
+        
 #ifdef CPU_ONLY
 STUB_GPU(InnerProductLayer);
 #endif

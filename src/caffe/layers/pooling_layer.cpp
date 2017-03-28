@@ -425,9 +425,9 @@ void PoolingLayer<Dtype>::Forward_cpu(
 template <typename Dtype>
 void PoolingLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-  if (!propagate_down[0]) {
-    return;
-  }
+  //if (!propagate_down[0]) {
+  //  return;
+  //}
   const Dtype* top_diff = top[0]->cpu_diff();
   Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
   // Different pooling methods. We explicitly do the switch outside the for
@@ -580,7 +580,9 @@ template <typename Dtype>
 void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
 
- 
+
+    Backward_cpu(top, propagate_down, bottom);
+/* 
     float top_sum = 0.0;
     for (int i = 0; i < top[0]->count(); ++i)
     {
@@ -645,6 +647,7 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
         bottom_sum += bottom[0]->cpu_diff()[i];
     }
     std::cout << "POOL BOTTOM SUM: " << bottom_sum << '\n';
+    */
 }
 
 #ifdef CPU_ONLY

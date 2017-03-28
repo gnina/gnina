@@ -75,8 +75,68 @@ void ConvolutionLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 template <typename Dtype>
 void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-        std::cout << "convolutionlayer backward_relevance\n";
 
+        const float eps = .00001;
+
+        Forward_cpu(bottom, top);
+
+        float top_sum = 0;
+        for(int i = 0; i < top[0]->count(); ++i)
+        {
+            top_sum += top[0]->cpu_diff()[i];
+        }
+        std::cout << "CONV TOP SUM: " << top_sum << '\n';
+
+
+        const Dtype* weight = this->blobs_[0]->cpu_data();
+
+        for (int i = 0; i < top.size(); ++i)
+        {
+            const Dtype* top_diff = top[i]->cpu_diff();
+            const Dtype* bottom_data = bottom[i]->cpu_data();
+            Dtype* bottom_diff = bottom[i]->mutable_cpu_diff();
+
+            caffe_set(bottom[i]->count(), Dtype(0.0), bottom_diff);
+
+            const Dtype* top_data = top[i]->cpu_data();
+
+            int Mfull = this->num_output_;
+
+            const int first_spatial_axis = this->channel_axis_ + 1;
+            int N = bottom[i]->count(first_spatial_axis);
+            int K = this->blobs_[0]->count(1);
+
+            Blob<Dtype> top_data_with_eps((top[i])->shape());
+
+            int outcount = top_data_with_eps.count();
+
+            Dtype* top_data_with_eps_data = top_data_with_eps.mutable_cpu_data();
+            caffe_copy<Dtype>(outcount, top_diff, top_data_with_eps_data);
+
+            for(int c = 0; c < outcount; ++c)
+            {
+                if(top_data[c] > 0)
+                {
+                    top_data_with_eps_data[c] /= top_data[c] + eps;
+                }
+                else if(top_data[c] < 0)
+                {
+                    top_data_with_eps_data[c] /= top_data[c] - eps;
+                }
+            }
+
+            for (int n = 0; n < this->num_; ++n)
+            {
+                this->backward_cpu_gemm(top_data_with_eps_data + n * this->top_dim_, weight, bottom_diff + n * this->bottom_dim_);
+
+                for(int d = 0; d < this->bottom_dim_; ++d)
+                {
+                    bottom_diff[d + n * this->bottom_dim_] 
+                            *= bottom_data[d + n * this->bottom_dim_];
+                }
+            }
+            }
+        /*
         //std::cout << "CONV TOP DIFF: ";
         float top_sum = 0;
         for (int i = 0; i < top[0]->count(); ++i)
@@ -103,24 +163,24 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
                             weight, bottom_data + n * this->bottom_dim_,
                             bottom_diff + n * this->bottom_dim_);
 
-            /*
-            std::cout << "AB CONV DATA: " << '\n';
-            for (int i = 0; i < 1000; ++i)
-            {
-                std::cout << alphabetas[i] << "|";
-            }
-            */
+            //std::cout << "AB CONV DATA: " << '\n';
+            //for (int i = 0; i < 1000; ++i)
+            //{
+            //    std::cout << alphabetas[i] << "|";
+            //}
             caffe_copy(bottom[i]->count(), alphabetas, bottom_diff);
         }
 
 
-        float sum = 0;
+        */
+        float bottom_sum = 0;
         for (int i = 0; i < bottom[0]->count(); ++i)
         {
-            sum += bottom[0]->cpu_diff()[i];
+            bottom_sum += bottom[0]->cpu_diff()[i];
             //std::cout << bottom[0]->cpu_diff()[i] << "|";
         }
-        std::cout << "CONV BOTTOM SUM: " << sum << '\n';
+        std::cout << "CONV BOTTOM SUM: " << bottom_sum << '\n';
+
 }
 
 #ifdef CPU_ONLY
