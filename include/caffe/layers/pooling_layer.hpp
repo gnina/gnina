@@ -35,6 +35,14 @@ class PoolingLayer : public Layer<Dtype> {
             PoolingParameter_PoolMethod_MAX) ? 2 : 1;
   }
 
+  inline PoolingParameter_PoolMethod pool() const {
+	  return this->layer_param_.pooling_param().pool();
+  }
+
+  inline void set_pool(PoolingParameter_PoolMethod p) {
+	  this->layer_param_.mutable_pooling_param()->set_pool(p);
+  }
+
  protected:
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
