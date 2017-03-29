@@ -421,11 +421,6 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         else
         	ainfo.w = fixedradius;
 
-        float3 gradient;
-        gradient.x = 0.0;
-        gradient.y = 0.0;
-        gradient.z = 0.0;
-
         minfo.atoms.push_back(ainfo);
         minfo.whichGrid.push_back(index+mapoffset);
         minfo.gradient.push_back(gradient);
@@ -467,11 +462,6 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         	ainfo.w = xs_radius(t);
         else
         	ainfo.w = fixedradius;
-
-        float3 gradient;
-        gradient.x = 0.0;
-        gradient.y = 0.0;
-        gradient.z = 0.0;
 
         minfo.atoms.push_back(ainfo);
         minfo.whichGrid.push_back(index+mapoffset);
