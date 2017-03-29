@@ -64,10 +64,7 @@ void cnn_visualization::lrp()
 
     receptor.append(ligand);
 
-    scorer.lrp(receptor);
-
-    write_scores(scorer.get_relevances(true), true, false);
-    write_scores(scorer.get_relevances(false), false, false);
+    scorer.lrp(receptor, visopts.receptor_output, visopts.ligand_output);
 }
 
 
@@ -336,6 +333,11 @@ void cnn_visualization::write_scores(const std::vector<float> score_diffs, bool 
 
             std::cout << "ATOM INDEX: " << atom_index << '\n';
             std::cout << "SCORE: " << score_diffs[atom_index] << '\n';
+
+            if(atom_index >= score_diffs.size()) {
+            	std::cerr << "Mismatched indices: " << score_diffs.size() << "\n";
+            	abort();
+            }
             score_sum += score_diffs[atom_index];
             if ((score_diffs[atom_index] > 0.001) || (score_diffs[atom_index] < -0.001)) //ignore very small score differences
             {

@@ -289,9 +289,10 @@ public:
   }
 
   //get the atom position gradient from relevant grid points for provided atom
+  //if isrelevance is true, simply sum overlapping values
   template<typename Grids>
   void setAtomGradientCPU(const float4& ainfo, int whichgrid, const quaternion& Q, const Grids& grids,
-                          float3& agrad)
+                          float3& agrad, bool isrelevance=false)
   { 
     float3 coords;
     if (Q.real() != 0) //apply rotation
@@ -325,11 +326,18 @@ public:
       {
         for (unsigned k = ranges[2].first, kend = ranges[2].second; k < kend; ++k)
         {
-          //convert grid point coordinates to angstroms
-          float x = dims[0].first + i * resolution;
-          float y = dims[1].first + j * resolution;
-          float z = dims[2].first + k * resolution;
-          accumulateAtomGradient(coords, radius, x, y, z, grids[whichgrid][i][j][k], agrad);
+        	if(isrelevance)
+        	{
+        		agrad.x += grids[whichgrid][i][j][k];
+        	}
+        	else //true gradient, distance matters
+        	{
+			  //convert grid point coordinates to angstroms
+			  float x = dims[0].first + i * resolution;
+			  float y = dims[1].first + j * resolution;
+			  float z = dims[2].first + k * resolution;
+			  accumulateAtomGradient(coords, radius, x, y, z, grids[whichgrid][i][j][k], agrad);
+        	}
         }
       }
     }
@@ -344,11 +352,26 @@ public:
     for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
     {
       int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
-      if (whichgrid >= 0)
+      if (whichgrid >= 0) {
         setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
+      }
     }
   }
 
+  //summ up gradient values overlapping atoms
+  template<typename Grids>
+  void setAtomRelevanceCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
+                           const Grids& grids, vector<float3>& agrad)
+  {
+    zeroAtomGradientsCPU(agrad);
+    for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
+    {
+      int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
+      if (whichgrid >= 0) {
+        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i],true);
+      }
+    }
+  }
 
 	static unsigned createDefaultMap(const char *names[], vector<int>& map)
 	{

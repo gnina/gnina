@@ -386,7 +386,8 @@ struct model {
 	const atomv& get_movable_atoms() const { return atoms; }
 
 	void clear_minus_forces();
-	void add_minus_forces(const std::vector<float3> forces);
+	void add_minus_forces(const std::vector<float3>& forces);
+	void sub_minus_forces(const std::vector<float3>& forces);
 
 	//allocate gpu memory, model must be setup
 	//also copies over data that does not change during minimization

@@ -151,7 +151,7 @@ std::vector<float> CNNScorer::get_relevances(bool receptor)
 }
 
 
-void CNNScorer::lrp(const model& m)
+void CNNScorer::lrp(const model& m, const string& recname, const string& ligname)
 {
     boost::lock_guard<boost::mutex> guard(*mtx);
     
@@ -173,7 +173,8 @@ void CNNScorer::lrp(const model& m)
     net->Backward_Relevance();
     
     //outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
-    outputXYZ("LRP_lig", mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
+    outputXYZ(ligname, mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
+    outputXYZ(recname, mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
 }
 
 //has an affinity prediction layer
