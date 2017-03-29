@@ -59,6 +59,96 @@ MolGridDataLayer<Dtype>::~MolGridDataLayer<Dtype>() {
   }
 }
 
+
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::paired_examples::add(const MolGridDataLayer::example& ex)
+{
+	//have we seen this receptor before?
+	if(recmap.count(ex.receptor) == 0) {
+		//if not, assign index and resize vectors
+		recmap[ex.receptor] = receptors.size();
+		receptors.push_back(ex.receptor); //honestly, don't really need a vector as opposed to a counter..
+		actives.resize(receptors.size());
+		decoys.resize(receptors.size());
+	}
+
+	unsigned rindex = recmap[ex.receptor];
+
+	//add to appropriate sub-vector
+	if(ex.label != 0) {
+
+		//if active, add to indices
+		indices.push_back(make_pair(rindex, actives[rindex].size()));
+		actives[rindex].push_back(ex);
+	}
+	else {
+		decoys[rindex].first = 0;
+		decoys[rindex].second.push_back(ex);
+	}
+}
+
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::paired_examples::shuffle_pairs() //randomize - only necessary at start
+{
+    shuffle(indices.begin(), indices.end(), caffe_rng());
+    //shuffle decoys
+    for(unsigned i = 0, n = decoys.size(); i < n; i++) {
+    	shuffle(decoys[i].second.begin(), decoys[i].second.end(), caffe_rng());
+    }
+}
+
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::paired_examples::next(example& active, example& decoy)
+{
+	assert(indices.size() > 0);
+	if(curr_index >= indices.size()) {
+		//need to wrap around and re-shuffle
+		curr_index = 0;
+		shuffle(indices.begin(), indices.end(), caffe_rng());
+		//decoys get shuffled on demand
+	}
+
+	unsigned rindex = indices[curr_index].first;
+
+	while(decoys[rindex].second.size() == 0) {
+		//skip targets with empty decoys
+		curr_index++;
+		if(curr_index == indices.size())
+			break;
+		rindex = indices[curr_index].first;
+	}
+
+	//allow one wrap
+	if(curr_index == indices.size()) {
+		curr_index = 0;
+		rindex = indices[curr_index].first;
+		while(decoys[rindex].second.size() == 0) {
+			curr_index++; 
+			CHECK_LT(curr_index, indices.size()) << "No decoy examples for pairing.";
+			rindex = indices[curr_index].first;
+		}
+	}
+	unsigned aindex = indices[curr_index].second;
+	assert(rindex < actives.size());
+	assert(aindex < actives[rindex].size());
+	active = actives[rindex][aindex];
+
+	//now get decoy, reshuffling if necessary
+	assert(rindex < decoys.size());
+	unsigned dindex = decoys[rindex].first;
+	vector<example>& decvec = decoys[rindex].second;
+	if(dindex >= decvec.size()) {
+		dindex = 0;
+		shuffle(decvec.begin(), decvec.end(), caffe_rng());
+	}
+	decoy = decvec[dindex];
+	//increment indices
+	decoys[rindex].first++;
+	curr_index++;
+
+}
+
+
 //ensure gpu memory is of sufficient size
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::allocateGPUMem(unsigned sz)
@@ -85,6 +175,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   root_folder = this->layer_param_.molgrid_data_param().root_folder();
   balanced  = this->layer_param_.molgrid_data_param().balanced();
+  paired  = this->layer_param_.molgrid_data_param().paired();
   num_rotations = this->layer_param_.molgrid_data_param().rotate();
   all_pos_ = actives_pos_ = decoys_pos_ = 0;
   inmem = this->layer_param_.molgrid_data_param().inmemory();
@@ -112,7 +203,8 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   CHECK_GT(batch_size, 0) << "Positive batch size required";
 
   //keep track of atoms and transformations for each example in batch
-  batch_transform = vector<mol_transform>(batch_size);
+
+  batch_transform.resize(batch_size);
 
   if(!inmem)
   {
@@ -147,6 +239,8 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
       if(label) actives_.push_back(lineex);
       else decoys_.push_back(lineex);
+
+      pairs_.add(lineex);
     }
 
     if (this->layer_param_.molgrid_data_param().shuffle()) {
@@ -212,6 +306,7 @@ void MolGridDataLayer<Dtype>::Shuffle() {
     shuffle(actives_.begin(), actives_.end(), caffe_rng());
     shuffle(decoys_.begin(), decoys_.end(), caffe_rng());
     shuffle(all_.begin(), all_.end(), caffe_rng());
+    pairs_.shuffle_pairs();
 }
 
 //return quaternion representing one of 24 distinct axial rotations
@@ -306,6 +401,11 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         gradient.y = 0.0;
         gradient.z = 0.0;
 
+        float3 gradient;
+        gradient.x = 0.0;
+        gradient.y = 0.0;
+        gradient.z = 0.0;
+
         minfo.atoms.push_back(ainfo);
         minfo.whichGrid.push_back(index+mapoffset);
         minfo.gradient.push_back(gradient);
@@ -344,6 +444,11 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         ainfo.y = a->y();
         ainfo.z  = a->z();
         ainfo.w = xs_radius(t);
+
+        float3 gradient;
+        gradient.x = 0.0;
+        gradient.y = 0.0;
+        gradient.z = 0.0;
 
         float3 gradient;
         gradient.x = 0.0;
@@ -449,6 +554,90 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
 }
 
 
+//return a string representation of the atom type(s) represented by index
+//in map - this isn't particularly efficient, but is only for debug purposes
+template <typename Dtype>
+string MolGridDataLayer<Dtype>::getIndexName(const vector<int>& map, unsigned index) const
+		{
+	stringstream ret;
+	stringstream altret;
+	for (unsigned at = 0; at < smina_atom_type::NumTypes; at++)
+	{
+		if (map[at] == index)
+		{
+			ret << smina_type_to_string((smt) at);
+			altret << "_" << at;
+		}
+	}
+
+	if (ret.str().length() > 32) //there are limits on file name lengths
+		return altret.str();
+	else
+		return ret.str();
+}
+
+
+//output a grid the file in dx format (for debug)
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::outputDXGrid(std::ostream& out, Grids& grid, unsigned g) const
+{
+  unsigned n = dim;
+  out.precision(5);
+  setprecision(5);
+  out << fixed;
+  out << "object 1 class gridpositions counts " << n << " " << n << " " << " " << n << "\n";
+  out << "origin";
+  for (unsigned i = 0; i < 3; i++)
+  {
+    out << " " << mem_lig.center[i]-dimension/2.0;
+  }
+  out << "\n";
+  out << "delta " << resolution << " 0 0\ndelta 0 " << resolution << " 0\ndelta 0 0 " << resolution << "\n";
+  out << "object 2 class gridconnections counts " << n << " " << n << " " << " " << n << "\n";
+  out << "object 3 class array type double rank 0 items [ " << n*n*n << "] data follows\n";
+  //now coordinates - x,y,z
+  unsigned total = 0;
+  for (unsigned i = 0; i < n; i++)
+  {
+    for (unsigned j = 0; j < n; j++)
+    {
+      for (unsigned k = 0; k < n; k++)
+      {
+        out << grid[g][i][j][k];
+        total++;
+        if(total % 3 == 0) out << "\n";
+        else out << " ";
+      }
+    }
+  }
+}
+
+//dump dx files for every atom type, with files names starting with prefix
+//only does the very first grid for now
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
+		Blob<Dtype>* top) const
+{
+	Grids grids(top->mutable_cpu_diff(),
+			boost::extents[numReceptorTypes + numLigandTypes][dim][dim][dim]);
+    CHECK_GT(mem_lig.atoms.size(),0) << "DX dump only works with in-memory ligand";
+    CHECK_EQ(randrotate, false) << "DX dump requires no rotation";
+	for (unsigned a = 0, na = numReceptorTypes; a < na; a++) {
+		string name = getIndexName(rmap, a);
+		string fname = prefix + "_rec_" + name + ".dx";
+		ofstream out(fname.c_str());
+		outputDXGrid(out, grids, a);
+	}
+	for (unsigned a = 0, na = numLigandTypes; a < na; a++) {
+			string name = getIndexName(lmap, a);
+			string fname = prefix + "_lig_" + name + ".dx";
+			ofstream out(fname.c_str());
+			outputDXGrid(out, grids, numReceptorTypes+a);
+	}
+
+}
+
+
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top)
@@ -479,8 +668,35 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     }
   }
   else {
-    if(balanced) { //load equally from actives/decoys
+	if(paired) {
+		CHECK_EQ(batch_size % 2, 0) << "Paired input requires even batch size in MolGridDataLayer";
+		example active;
+		example decoy;
+		unsigned npairs = batch_size/2;
+		for(unsigned i = 0; i < npairs; i++) {
+	        int offset = labels.size()*example_size;
+			pairs_.next(active, decoy);
+
+			//active
+			labels.push_back(active.label);
+			affinities.push_back(active.affinity);
+			rmsds.push_back(active.rmsd);
+			set_grid_ex(data+offset, active, batch_transform[2*i], gpu);
+
+			//then decoy
+			offset += example_size;
+			labels.push_back(decoy.label);
+			affinities.push_back(decoy.affinity);
+			rmsds.push_back(decoy.rmsd);
+			set_grid_ex(data+offset, decoy, batch_transform[2*i+1], gpu);
+		}
+
+	}
+	else if(balanced) { //load equally from actives/decoys
       unsigned nactives = batch_size/2;
+
+      CHECK_GT(actives_.size(), 0) << "Need non-zero number of actives for balanced input in MolGridDataLayer";
+      CHECK_GT(decoys_.size(), 0) << "Need non-zero number of decoys for balanced input in MolGridDataLayer";
 
       int item_id = 0;
       unsigned asz = actives_.size();
@@ -508,6 +724,8 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         int offset = item_id*example_size;
         labels.push_back(0.0);
 
+        affinities.push_back(decoys_[decoys_pos_].affinity);
+        rmsds.push_back(decoys_[decoys_pos_].rmsd);
         set_grid_ex(data+offset, decoys_[decoys_pos_], batch_transform[item_id], gpu);
 
         decoys_pos_++;
@@ -530,6 +748,8 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         int offset = item_id*example_size;
         labels.push_back(all_[all_pos_].label);
 
+        affinities.push_back(all_[all_pos_].affinity);
+        rmsds.push_back(all_[all_pos_].rmsd);
         set_grid_ex(data+offset, all_[all_pos_], batch_transform[item_id], gpu);
 
         all_pos_++;
@@ -558,7 +778,8 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
-    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
+{
   backward(top, bottom, false);
 }
 
@@ -581,19 +802,13 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const ve
     int offset = item_id*example_size;
     Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
 
-    //ofstream fo;
-  	//fo.open ("dx_test.dx");
-
-    //NNGridder gridder;
-    //gridder.outputDXGrid(fo, grids[0]);
-
     mol_transform& transform = batch_transform[item_id];
     gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
     gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
         transform.mol.gradient);
-
   }
 }
+
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
@@ -624,6 +839,7 @@ void MolGridDataLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
 
 
 }
+
 
 INSTANTIATE_CLASS(MolGridDataLayer);
 REGISTER_LAYER_CLASS(MolGridData);
