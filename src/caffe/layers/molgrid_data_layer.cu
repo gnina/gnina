@@ -17,6 +17,14 @@ void MolGridDataLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
 	forward(bottom, top, true);
 }
 
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& bottom,
+		const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& top)
+{
+	backward(bottom, top, true);
+}
+
 INSTANTIATE_LAYER_GPU_FORWARD(MolGridDataLayer);
+INSTANTIATE_LAYER_GPU_BACKWARD(MolGridDataLayer);
 
 }  // namespace caffe
