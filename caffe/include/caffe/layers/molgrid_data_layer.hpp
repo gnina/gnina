@@ -35,8 +35,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   explicit MolGridDataLayer(const LayerParameter& param)
       : BaseDataLayer<Dtype>(param), actives_pos_(0),
         decoys_pos_(0), all_pos_(0), num_rotations(0), current_rotation(0),
-        example_size(0),balanced(false),inmem(false),
-				resolution(0.5), dimension(23.5), radiusmultiple(1.5), randtranslate(0),
+        example_size(0),balanced(false),paired(false),inmem(false),
+				resolution(0.5), dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0),
 				binary(false), randrotate(false), dim(0), numgridpoints(0),
 				numReceptorTypes(0),numLigandTypes(0), gpu_alloc_size(0),
 				gpu_gridatoms(NULL), gpu_gridwhich(NULL) {}
@@ -55,6 +55,9 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
   virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
+  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
   vector<float4> getReceptorAtoms(int batch_idx)
@@ -100,6 +103,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   vector<float3> getReceptorGradient(int batch_idx)
   {
     std::cout << "GET RECEPTOR GRADIENT\n";
+
     vector<float3> gradient;
     mol_info& mol = batch_transform[batch_idx].mol;
     for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
@@ -107,6 +111,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
       {
         gradient.push_back(mol.gradient[i]);
       }
+
     return gradient;
   }
 
@@ -120,6 +125,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
         gradient.push_back(mol.gradient[i]);
         std::cout << "MOL GRADIENT[" << i << "]: " <<  mol.gradient[i].z << '\n';;
       }
+
     return gradient;
   }
 
@@ -193,6 +199,10 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     mem_lig.center = center;
   }
 
+  double getDimension() const { return dimension; }
+  double getResolution() const { return resolution; }
+
+  void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top) const;
 
  protected:
 
@@ -209,11 +219,35 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   	example(Dtype l, const string& r, const string& lig): receptor(r), ligand(lig), label(l) {}
 	};
 
+  //organize examples with respect to receptor
+  struct paired_examples
+  {
+	  vector<string> receptors;
+	  vector< vector<example> > actives; //indexed by receptor index first
+	  vector< pair<unsigned, vector<example> > > decoys; //indexed by receptor index fist, includes current index into vector
+	  vector< pair<unsigned, unsigned> > indices; //receptor/active indices; can be shuffled
+	  unsigned curr_index; //where we are indices for getting examples
+
+	  boost::unordered_map<string, unsigned> recmap; //map to receptor indices
+
+	  paired_examples(): curr_index(0) {}
+
+	  void add(const example& ex);
+
+	  void shuffle_pairs(); //randomize - only necessary at start
+
+	  //get next pair of examples, will shuffle as necessary
+	  void next(example& active, example& decoy);
+
+  };
+
   virtual void Shuffle();
 
   vector<example> actives_;
   vector<example> decoys_;
   vector<example> all_;
+  paired_examples pairs_;
+
   string root_folder;
   int actives_pos_, decoys_pos_, all_pos_;
   unsigned num_rotations;
@@ -221,6 +255,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   unsigned example_size; //channels*numgridpoints
   vector<int> top_shape;
   bool balanced;
+  bool paired;
   bool inmem;
   vector<Dtype> labels;
 
@@ -253,7 +288,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     vector<short> whichGrid; //separate for better memory layout on gpu
     vector<float3> gradient;
     vec center; //precalculate centroid, includes any random translation
-    boost::array< pair<float, float>, 3> dims;
+    //boost::array< pair<float, float>, 3> dims;
 
     mol_info() { center[0] = center[1] = center[2] = 0;}
 
@@ -292,6 +327,11 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
   void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu);
   void Backward_relevance(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
+  //stuff for outputing dx grids
+  std::string getIndexName(const vector<int>& map, unsigned index) const;
+  void outputDXGrid(std::ostream& out, Grids& grids, unsigned g) const;
+
 };
 
 

@@ -44,6 +44,38 @@ typedef std::vector<interacting_pair> interacting_pairs;
 typedef std::pair<std::string, boost::optional<sz> > parsed_line;
 typedef std::vector<parsed_line> pdbqtcontext;
 
+struct gpu_data {
+	//put all pointers to gpu data into a struct, so we can override copying behavior
+  	atom_params *coords;
+  	vec *atom_coords;
+  	force_energy_tup *minus_forces;
+  	tree_gpu *treegpu;
+  	interacting_pair *interacting_pairs;
+  	float *scratch; //single value for returning total energy
+
+  	unsigned coords_size;
+  	unsigned atom_coords_size;
+  	unsigned forces_size;
+  	unsigned pairs_size;
+
+  	gpu_data(): coords(NULL), atom_coords(NULL), minus_forces(NULL),
+  			treegpu(NULL), interacting_pairs(NULL), scratch(NULL), coords_size(0),
+  			atom_coords_size(0), forces_size(0), pairs_size(0) {}
+
+    __device__
+	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v) const;
+
+    __device__
+	fl eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
+	                     const conf_gpu& c, change_gpu& g);
+
+	//copy relevant data to gpu buffers
+	void copy_to_gpu(model& m);
+	//copy back relevant data from gpu buffers
+	void copy_from_gpu(model& m);
+
+};
+
 // dkoes - as an alternative to pdbqt, this stores information
 //in an sdf friendly format
 struct sdfcontext {
@@ -109,7 +141,7 @@ struct sdfcontext {
 
 
 	void dump(std::ostream& out) const;
-  //output sdf with provided coords
+	//output sdf with provided coords
 	void write(const vecv& coords, sz nummove, std::ostream& out) const;
 	bool valid() const {return atoms.size() > 0; }
 	sz size() const {return atoms.size(); }
@@ -132,8 +164,9 @@ struct context {
 	sdfcontext sdftext;
 
 	void writePDBQT(const vecv& coords, std::ostream& out) const;
-	void writeSDF(const vecv& coords, sz nummove, std::ostream& out)
-    const { sdftext.write(coords, nummove, out); }
+	void writeSDF(const vecv& coords, sz nummove, std::ostream& out) const {
+		sdftext.write(coords, nummove, out);
+	}
 	void update(const appender& transform);
 	void set(sz pdbqtindex, sz sdfindex, sz atomindex, bool inf = false);
 
@@ -190,35 +223,35 @@ struct model_test;
 
 struct model {
 	void append(const model& m);
+	void strip_hydrogens();
 
 	sz num_movable_atoms() const { return m_num_movable_atoms; }
 	sz num_internal_pairs() const;
 	sz num_other_pairs() const { return other_pairs.size(); }
 	sz num_ligands() const { return ligands.size(); }
 	sz num_flex() const { return flex.size(); }
-	sz ligand_degrees_of_freedom(sz ligand_number) const {
-    return ligands[ligand_number].degrees_of_freedom; }
+	sz ligand_degrees_of_freedom(sz ligand_number) const
+	{ return ligands[ligand_number].degrees_of_freedom; }
 	sz ligand_longest_branch(sz ligand_number) const;
 	sz ligand_length(sz ligand_number) const;
-    unsigned tree_width;
+	unsigned tree_width;
 	void get_movable_atom_types(std::vector<smt>& movingtypes) const;
 
 	void set_name(const std::string& n) { name = n; }
 	const std::string& get_name() const { return name; }
 
 	conf_size get_size() const;
-  // torsions = 0, orientations = identity, ligand positions = current
+	// torsions = 0, orientations = identity, ligand positions = current
 	conf get_initial_conf() const; 
 
 	grid_dims movable_atoms_box(fl add_to_each_dimension, fl granularity = 0.375) const;
 
-	void write_flex  (const path& name, const std::string& remark) const
-    { write_context(flex_context, name, remark); }
-
+	void write_flex  (const path& name, const std::string& remark) const {
+		write_context(flex_context, name, remark);
+	}
 	void write_flex  (std::ostream& out) const {
 		write_context(flex_context, out);
 	}
-
 	void write_flex_sdf( std::ostream& out) const {
 		flex_context.writeSDF(coords, m_num_movable_atoms, out);
 	}
@@ -248,8 +281,9 @@ struct model {
 		out << remark;
 		write_structure(out);
 	}
-	void write_structure(const path& name) const
-    { ofile out(name); write_structure(out); }
+	void write_structure(const path& name) const {
+		ofile out(name); write_structure(out);
+	}
 	void write_model(std::ostream& out, sz model_number,
                    const std::string& remark = "") const {
 		out << "MODEL " << model_number << '\n';
@@ -264,14 +298,16 @@ struct model {
 	fl gyration_radius(sz ligand_number) const; // uses coords
 
 	const atom_base& movable_atom  (sz i) const
-    { assert(i < m_num_movable_atoms); return  atoms[i]; }
+	{ assert(i < m_num_movable_atoms); return atoms[i]; }
 	const vec&       movable_coords(sz i) const
-    { assert(i < m_num_movable_atoms); return coords[i]; }
+	{ assert(i < m_num_movable_atoms); return coords[i]; }
+	vec& movable_minus_forces(sz i)
+	{ assert(i < m_num_movable_atoms); return minus_forces[i]; }
 
 	const vec& atom_coords(const atom_index& i) const;
 	fl distance_sqr_between(const atom_index& a, const atom_index& b) const;
-  // there is an atom closer to both a and b then they are to each other
-  // and immobile relative to them
+	// there is an atom closer to both a and b then they are to each other
+	// and immobile relative to them
 	bool atom_exists_between(const distance_type_matrix& mobility,
                            const atom_index& a, const atom_index& b,
                            const szv& relevant_atoms) const; 
@@ -292,10 +328,6 @@ struct model {
 	fl eval_adjusted(const scoring_function& sf, const precalculate& p,
                    const igrid& ig, const vec& v,
                    const conf& c, fl intramolecular_energy, const grid& user_grid);
-
-
-	fl eval_deriv_gpu(const precalculate& p, const igrid& ig, const vec& v,
-	                     const conf_gpu& c, change_gpu& g, const grid& user_grid);
 
 	fl rmsd_lower_bound(const model& m) const; // uses coords
 	fl rmsd_upper_bound(const model& m) const; // uses coords
@@ -345,13 +377,16 @@ struct model {
 	}
 	void check_internal_pairs() const;
 	void print_stuff() const; // FIXME rm
-    /* TODO: rm */
-    void print_counts(void) const;
+	/* TODO: rm */
+	void print_counts(void) const;
 
 	fl clash_penalty() const;
 
 	const atomv& get_fixed_atoms() const { return grid_atoms; }
 	const atomv& get_movable_atoms() const { return atoms; }
+
+	void clear_minus_forces();
+	void add_minus_forces(const std::vector<float3> forces);
 
 	//allocate gpu memory, model must be setup
 	//also copies over data that does not change during minimization
@@ -362,53 +397,13 @@ struct model {
 	//deallocate gpu memory
 	void deallocate_gpu();
 
-	//copy relevant data to gpu buffers
-	void copy_to_gpu();
-	//copy back relevant data from gpu buffers
-	void copy_from_gpu();
-
-	model() : m_num_movable_atoms(0) {};
+	model() : m_num_movable_atoms(0), hydrogens_stripped(false) {};
 	~model() { deallocate_gpu(); };
+
     /* TODO:protect */
-  vecv coords;
-  
-  struct gpu_data {
-  	//put all pointers to gpu data into a struct, so we can override copying behavior
-		atom_params *coords;
-		vec *atom_coords;
-		force_energy_tup *minus_forces;
-		tree_gpu *treegpu;
-		interacting_pair *interacting_pairs;
-		float *scratch; //single value for returning total energy
-
-		unsigned coords_size;
-		unsigned atom_coords_size;
-		unsigned forces_size;
-		unsigned pairs_size;
-
-		gpu_data(): coords(NULL), atom_coords(NULL), minus_forces(NULL),
-				treegpu(NULL), interacting_pairs(NULL), scratch(NULL), coords_size(0),
-				atom_coords_size(0), forces_size(0), pairs_size(0) {}
-		//do NOT allow pointers to be copied - must explicitly initialize
-		gpu_data(const gpu_data& g): coords(NULL), atom_coords(NULL),
-				minus_forces(NULL), treegpu(NULL), interacting_pairs(NULL), scratch(NULL),
-				coords_size(0), atom_coords_size(0), forces_size(0), pairs_size(0) {}
-
-		gpu_data& operator=(const gpu_data& g) {
-			//TODO: this is ugly, but we really only want to allocate gpu memory when we truly need it
-			//for sanity's sake, eventually make this do the right thing (and probably wrap other gpu functions into this class)
-			coords = NULL;
-			atom_coords = NULL;
-			minus_forces = NULL;
-			treegpu = NULL;
-			interacting_pairs = NULL;
-			scratch = NULL;
-			coords_size = atom_coords_size = forces_size = pairs_size = 0;
-            return *this;
-		}
-  } gdata;
-
-  vector_mutable<ligand> ligands;
+    vecv coords;
+    gpu_data gdata;
+    vector_mutable<ligand> ligands;
 
 private:
 	//my, aren't we friendly!
@@ -421,13 +416,17 @@ private:
 	friend struct terms;
 	friend struct conf_independent_inputs;
 	friend struct appender_info;
+	friend class appender;
 	friend struct pdbqt_initializer;
 	friend struct model_test;
 
-	const atom& get_atom(const atom_index& i) const
-    { return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]); }
-  atom& get_atom(const atom_index& i)
-    { return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]); }
+	const atom& get_atom(const atom_index& i) const {
+		return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]);
+	}
+
+	atom& get_atom(const atom_index& i) {
+		return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]);
+	}
 
 	void write_context(const context& c, std::ostream& out) const;
 	void write_context(const context& c, std::ostream& out,
@@ -443,7 +442,7 @@ private:
 		ofile out(name);
 		write_context(c, out, remark);
 	}
-  // actually static
+	// actually static
 	fl rmsd_lower_bound_asymmetric(const model& x, const model& y) const; 
 	
 	atom_index sz_to_atom_index(sz i) const; // grid_atoms, atoms
@@ -453,7 +452,7 @@ private:
 	void bonded_to(sz a, sz n, szv& out) const;
 	szv bonded_to(sz a, sz n) const;
 
-  // assign bonds based on relative mobility, distance and covalent length
+	// assign bonds based on relative mobility, distance and covalent length
 	void assign_bonds(const distance_type_matrix& mobility); 
 	void assign_types();
 	void initialize_pairs(const distance_type_matrix& mobility);
@@ -466,13 +465,12 @@ private:
                                   const interacting_pairs& pairs,
                                   const vecv& coords, vecv& forces) const;
 
-	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v) const;
-
+	bool hydrogens_stripped;
 	vecv internal_coords;
-    /* TODO:reprivate */
+	/* TODO:reprivate */
 	/* vecv coords; */
-  //I believe this contains the accumulated directional deltas for each
-  //atom
+
+	//This contains the accumulated directional deltas for each atom
 	vecv minus_forces;
 
 	atomv grid_atoms;
@@ -480,8 +478,8 @@ private:
 
 	vector_mutable<residue> flex;
 	context flex_context;
-  // all except internal to one ligand: ligand-other ligands;
-  // ligand-flex/inflex; flex-flex/inflex
+	// all except internal to one ligand: ligand-other ligands;
+	// ligand-flex/inflex; flex-flex/inflex
 	interacting_pairs other_pairs; 
 
 	sz m_num_movable_atoms;

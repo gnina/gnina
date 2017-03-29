@@ -3,12 +3,15 @@
 #include <iostream>
 #include <string>
 #include <exception>
-#include <vector> // ligand paths#include <cmath> // for ceila
+#include <vector> // ligand paths
+#include <cmath> // for ceila
 #include <algorithm>
 #include <iterator>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/filesystem/exception.hpp>
-#include <boost/filesystem/convenience.hpp> // filesystem::basename#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?#include <boost/lexical_cast.hpp>
+#include <boost/filesystem/convenience.hpp> // filesystem::basename
+#include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?
+#include <boost/lexical_cast.hpp>
 #include <boost/assign.hpp>
 #include "parse_pdbqt.h"
 #include "parallel_mc.h"
@@ -17,6 +20,7 @@
 #include "non_cache.h"
 #include "naive_non_cache.h"
 #include "non_cache_gpu.h"
+#include "non_cache_cnn.h"
 #include "parse_error.h"
 #include "everything.h"
 #include "weighted_terms.h"
@@ -75,14 +79,15 @@ struct user_settings
 	bool dominimize;
 	bool include_atom_info;
 	bool gpu_on;
+	bool cnn_scoring;
 
 	//reasonable defaults
 	user_settings() :
 			energy_range(2.0), num_modes(9), out_min_rmsd(1),
-					forcecap(1000), seed(auto_seed()), verbosity(1), cpu(1), exhaustiveness(
-							10),
+					forcecap(1000), seed(auto_seed()), verbosity(1), cpu(1),
+					device(0), exhaustiveness(10),
 					score_only(false), randomize_only(false), local_only(false),
-					dominimize(false), include_atom_info(false)
+					dominimize(false), include_atom_info(false), gpu_on(false)
 	{
 
 	}
@@ -241,12 +246,12 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log.endl();
 
 		float aff = 0;
-		//cnnscore = cnn.score(m, aff);
-		if(cnnscore >= 0.0)
+		cnnscore = cnn.score(m, false, aff);
+		if (cnnscore >= 0.0)
 		{
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
 			log.endl();
-			if(aff > 0) {
+			if (aff > 0) {
 				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << aff;
 				log.endl();
 			}
@@ -314,12 +319,12 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log.endl();
 
 		float aff = 0;
-		//cnnscore = cnn.score(m, aff);
-		if(cnnscore >= 0.0)
+		cnnscore = cnn.score(m, false, aff);
+		if (cnnscore >= 0.0)
 		{
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
 			log.endl();
-			if(aff > 0)
+			if (aff > 0)
 			{
 				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << aff;
 				log.endl();
@@ -478,18 +483,32 @@ void main_procedure(model& m, precalculate& prec,
 	}
 	else
 	{
-
 		non_cache *nc = NULL;
 		if (settings.gpu_on)
 		{
-			precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
-			if (!gprec)
-				abort();
-			nc = new non_cache_gpu(gridcache, gd, gprec, slope);
+			if (settings.cnn_scoring)
+			{
+                                //TODO implement non_cache_cnn_gpu
+				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
+			}
+			else
+			{
+				precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
+				if (!gprec)
+					abort();
+				nc = new non_cache_gpu(gridcache, gd, gprec, slope);
+			}
 		}
 		else
 		{
-			nc = new non_cache(gridcache, gd, &prec, slope);
+			if (settings.cnn_scoring)
+			{
+				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
+			}
+			else
+			{
+				nc = new non_cache(gridcache, gd, &prec, slope);
+			}
 		}
 		/* cudaProfilerStart(); */
 
@@ -1026,6 +1045,7 @@ Thank you!\n";
 		bool print_terms = false;
 		bool print_atom_types = false;
 		bool add_hydrogens = true;
+		bool strip_hydrogens = false;
 		bool no_lig = false;
 
 		cnn_options cnnopts;
@@ -1035,6 +1055,7 @@ Thank you!\n";
 		fl approx_factor = 32;
 
 		positional_options_description positional; // remains empty
+
 
 		options_description inputs("Input");
 		inputs.add_options()
@@ -1140,7 +1161,9 @@ Thank you!\n";
 		("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
 				"evaluate multiple rotations of pose (max 24)")
 		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
-				"Use a convolutional neural network to score final pose.");
+				"Use a convolutional neural network to score final pose.")
+		("cnn_outputdx", bool_switch(&cnnopts.outputdx)->default_value(false),
+		               "Dump dx files of gradient.");
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
@@ -1159,6 +1182,8 @@ Thank you!\n";
 		("quiet,q", bool_switch(&quiet), "Suppress output messages")
 		("addH", value<bool>(&add_hydrogens),
 				"automatically add hydrogens in ligands (on by default)")
+		("stripH", value<bool>(&strip_hydrogens),
+						"remove hydrogens from molecule _after_ performing atom typing for efficiency (on by default)")
 		("device", value<int>(&settings.device)->default_value(0), "GPU device to use")
 		("gpu", bool_switch(&settings.gpu_on), "Turn on GPU acceleration");
 
@@ -1437,12 +1462,11 @@ Thank you!\n";
 		if (settings.cpu < 1)
 			settings.cpu = 1;
 		if (settings.verbosity > 1 && settings.exhaustiveness < settings.cpu)
-			log
-					<< "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
+			log << "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
 
 
 		//dkoes - parse in receptor once
-		MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, log);
+		MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
 		CNNScorer cnn_scorer(cnnopts, vec(center_x, center_y, center_z), mols.getInitModel());
 
 		//dkoes, hoist precalculation outside of loop
@@ -1567,6 +1591,9 @@ Thank you!\n";
 		work_done = true;
 		worker_threads.join_all();
 		writer_thread.join();
+
+        cudaDeviceSynchronize();
+		cudaProfilerStop();
 
 		std::cout << "Loop time " << time.elapsed().wall/1000000000.0 << "\n";
 

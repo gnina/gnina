@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 project (gnina C CXX)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 #disable parts of caffe we don't need
 set(USE_CUDNN 0)

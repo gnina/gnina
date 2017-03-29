@@ -242,13 +242,10 @@ public:
   void accumulateAtomGradient(const float3& coords, double ar, float x, float y, float z,
                               float gridval, float3& agrad)
   {
-
     float dist_x = x-coords.x;
     float dist_y = y-coords.y;
     float dist_z = z-coords.z;
     float dist2 = dist_x*dist_x + dist_y*dist_y + dist_z*dist_z;
-    //if (dist2 == 0.0 || gridval == 0.0) // gradient is zero
-    //  return;
 
     //in order to compute the loss gradient wrt atom position,
     //  we sum gradient from each gridpoint overlapped by the atom
@@ -288,6 +285,7 @@ public:
     //agrad.x += (-dist_x / dist) * agrad_dist * gridval;
     //agrad.y += (-dist_y / dist) * agrad_dist * gridval;
     //agrad.z += (-dist_z / dist) * agrad_dist * gridval;
+
   }
 
   //get the atom position gradient from relevant grid points for provided atom

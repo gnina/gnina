@@ -8,10 +8,8 @@
 #include "cnn_scorer.h"
 #include "gridoptions.h"
 
-#include "caffe/layer.hpp"
-#include "caffe/net.hpp"
 #include "caffe/proto/caffe.pb.h"
-#include "caffe/layers/ndim_data_layer.hpp"
+#include "caffe/layers/pooling_layer.hpp"
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
@@ -69,13 +67,10 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
             //BUT it turns out this isn't actually faster
             //bsize = nrot;
         }
-//      if (cnnopts.cnn_gradient)
-//      {
-            param.set_force_backward(true);
-            compute_gradient = true;
-//      }
 
-        net.reset(new Net<float>(param));
+        param.set_force_backward(true);
+
+        net.reset(new Net<Dtype>(param));
 
         //load weights
         if (cnnopts.cnn_weights.size() == 0)
@@ -125,56 +120,6 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 
 }
 
-//return score of model, assumes receptor has not changed from initialization
-float CNNScorer::score(const model& m)
-{
-    boost::lock_guard<boost::mutex> guard(*mtx);
-    if (!initialized())
-        return -1.0;
-
-    caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
-
-    mgrid->setReceptor<atom>(m.get_fixed_atoms());
-    mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates());
-
-    double score = 0.0;
-    const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
-
-    unsigned cnt = 0;
-    for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
-    {
-        net->Forward();
-        score += outblob->cpu_data()[1];
-
-        //if (compute_gradient)
-        //{
-        //    net->Backward();
-        //}
-
-        cnt++;
-    }
-
-    return score / cnt;
-}
-
-void CNNScorer::outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient)
-{
-    const char* sym[] = {"C", "C", "C", "C", "Ca", "Fe", "Mg", "N", "N", "N", "N", "O", "O", "P", "S", "Zn",
-                 "C", "C", "C", "C", "Br", "Cl", "F",  "N", "N", "N", "N", "O", "O", "O", "P", "S", "S", "I"};
-
-    const string& fname = base + ".xyz";
-    ofstream out(fname.c_str());
-    out.precision(5);
-
-    out << atoms.size() << "\n\n";
-    for (unsigned i = 0, n = atoms.size(); i < n; ++i)
-    {
-        out << sym[whichGrid[i]] << " ";
-        out << atoms[i].x << " " << atoms[i].y << " " << atoms[i].z << " ";
-        out << gradient[i].x;
-        if (i + 1 < n) out << "\n";
-    }
-}
 
 //returns relevance scores per atom
 std::vector<float> CNNScorer::get_relevances(bool receptor)
@@ -229,6 +174,121 @@ void CNNScorer::lrp(const model& m)
     
     //outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
     outputXYZ("LRP_lig", mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
-
-
 }
+
+//has an affinity prediction layer
+bool CNNScorer::has_affinity() const
+{
+	return (bool)net->blob_by_name("predaff");
+}
+
+//return score of model, assumes receptor has not changed from initialization
+//if compute_gradient is set, also adds cnn atom gradient to m.minus_forces
+float CNNScorer::score(model& m, bool compute_gradient, float& aff)
+{
+	boost::lock_guard<boost::mutex> guard(*mtx);
+	if (!initialized())
+		return -1.0;
+
+	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
+
+	mgrid->setReceptor<atom>(m.get_fixed_atoms());
+	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates());
+
+	double score = 0.0;
+	double affinity = 0.0;
+	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
+	const caffe::shared_ptr<Blob<Dtype> > affblob = net->blob_by_name("predaff");
+
+	unsigned cnt = 0;
+	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
+	{
+		net->Forward(); //do all rotations at once if requested
+		const Dtype* out = outblob->cpu_data();
+		score += out[1];
+		if (affblob)
+		{
+			//has affinity prediction
+			const Dtype* aff = affblob->cpu_data();
+			affinity += aff[0];
+			cout << "#Rotate " << out[1] << " " << aff[0] << "\n";
+		}
+		else
+		{
+			cout << "#Rotate " << out[1] << "\n";
+		}
+		if (compute_gradient)
+		{
+			net->Backward();
+			m.add_minus_forces(mgrid->getLigandGradient(0)); //TODO divide by cnt
+		}
+		cnt++;
+	}
+
+	if(outputdx) {
+		const caffe::shared_ptr<Blob<Dtype> > datablob = net->blob_by_name("data");
+		const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
+		if(datablob) {
+			//this is a big more fragile than I would like.. if there is a pooling layer before
+			//the first convoluational of fully connected layer and it is a max pooling layer,
+			//change it to average before the backward to avoid a discontinuous map
+			PoolingLayer<Dtype> *pool = NULL;
+			for(unsigned i = 1, nl = layers.size(); i < nl; i++)
+			{
+				pool = dynamic_cast<PoolingLayer<Dtype>*>(layers[i].get());
+				if(pool)
+					break; //found it
+				else if(layers[i]->type() == string("Convolution"))
+					break; //give up
+				else if(layers[i]->type() == string("InnerProduct"))
+					break;
+			}
+			if(pool) {
+				if(pool->pool() == PoolingParameter_PoolMethod_MAX) {
+					pool->set_pool(PoolingParameter_PoolMethod_AVE);
+				} else {
+					pool = NULL; //no need to reset to max
+				}
+			}
+			net->Backward();
+			mgrid->dumpDiffDX(m.get_name(), datablob.get());
+
+			if(pool) {
+				pool->set_pool(PoolingParameter_PoolMethod_MAX);
+			}
+
+		}
+	}
+	aff = affinity/cnt;
+
+	return score / cnt;
+}
+
+
+//return only score
+float CNNScorer::score(model& m)
+{
+	float aff = 0;
+	return score(m, false, aff);
+}
+
+void CNNScorer::outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient)
+{
+	const char* sym[] = {"C", "C", "C", "C", "Ca", "Fe", "Mg", "N", "N", "N", "N", "O", "O", "P", "S", "Zn",
+			     "C", "C", "C", "C", "Br", "Cl", "F",  "N", "N", "N", "N", "O", "O", "O", "P", "S", "S", "I"};
+
+	const string& fname = base + ".xyz";
+	ofstream out(fname.c_str());
+	out.precision(5);
+
+	out << atoms.size() << "\n\n";
+	for (unsigned i = 0, n = atoms.size(); i < n; ++i)
+	{
+		out << sym[whichGrid[i]] << " ";
+		out << atoms[i].x << " " << atoms[i].y << " " << atoms[i].z << " ";
+		out << gradient[i].x << " " << gradient[i].y << " " << gradient[i].z;
+		if (i + 1 < n) out << "\n";
+	}
+}
+
+

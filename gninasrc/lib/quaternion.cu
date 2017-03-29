@@ -78,7 +78,7 @@ qt random_orientation(rng& generator) {
 __host__ __device__ void quaternion_increment(qt& q, const vec& rotation) {
 	assert(quaternion_is_normalized(q));
 	q = angle_to_quaternion(rotation) * q;
-	quaternion_normalize_approx(q); // normalization added in 1.1.2
+	q = quaternion_normalize_approx(q); // normalization added in 1.1.2
 }
 
 vec quaternion_difference(const qt& b, const qt& a) { // rotation that needs to be applied to convert a to b

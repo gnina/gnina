@@ -41,9 +41,9 @@ class InnerProductLayer : public Layer<Dtype> {
   virtual void Backward_relevance(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
-  int M_;
-  int K_;
-  int N_;
+  int M_; //batch size (normally)
+  int K_; // num inputs per example(normally)
+  int N_; // num outputs per example (normally)
   bool bias_term_;
   Blob<Dtype> bias_multiplier_;
   bool transpose_;  ///< if true, assume transposed weights

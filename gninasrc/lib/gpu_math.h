@@ -31,7 +31,11 @@ struct gfloat3 : float3{
                z;
     };
 
-    __host__ __inline__
+    __host__ __device__
+    gfloat3 &operator=(const gfloat3 &b) = default;
+
+    
+    __host__ __device__ __inline__
     float3 &operator=(const vec &b) {
         x = b[0];
         y = b[1];
@@ -63,7 +67,8 @@ __device__ __inline__ static
 T pseudoAtomicAdd(T* address, T value) {
     return T(atomicAdd(&((*address)[0]), value[0]),
             atomicAdd(&((*address)[1]), value[1]),
-            atomicAdd(&((*address)[2]), value[2]));
+            atomicAdd(&((*address)[2]), value[2]),
+            atomicAdd(&((*address)[3]), value[3]));
 }
 
 #endif
@@ -81,10 +86,6 @@ inline bool almostEqual(float a, float b) {
         return diff / std::min((absA + absB), FLT_MAX) < FLT_EPSILON;
 }
 
-__host__ __device__ __inline__ static
-float3 operator-(const float3 &a) {
-	return float3(-a.x, -a.y, -a.z);
-}
 
 __host__ __device__ __inline__ static
 float dot(float3 a, float3 b) {
@@ -105,6 +106,11 @@ const float &get(const float3 &a, int b){
            b == 0 ? a.x :
            b == 1 ? a.y :
            a.z;
+}
+
+__host__ __device__ __inline__ static
+float3 operator-(const float3 &a) {
+	return float3(-a.x, -a.y, -a.z);
 }
 
 __host__ __device__ __inline__ static

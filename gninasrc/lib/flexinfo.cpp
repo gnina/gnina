@@ -120,7 +120,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
 		}
 		log << "\n";
 	}
-	//reinsert residues now with defaul chain
+	//reinsert residues now with default chain
 	residues.clear();
 	residues.insert(sortedres.begin(), sortedres.end());
 
@@ -165,7 +165,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
 				std::string aid = r->GetAtomID(a);
 				boost::trim(aid);
 				if(aid != "CA" && aid != "N" && aid != "C" &&
-						aid != "O" && aid != "H" && //leave backbone alone other than CA which is handled above
+						aid != "O" && aid != "H" && aid != "HN" && //leave backbone alone other than CA which is handled above
 						 !a->IsNonPolarHydrogen())
 				{
 					flexatoms.push_back(a);

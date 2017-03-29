@@ -9,6 +9,8 @@
 #define SRC_LIB_CNN_SCORER_H_
 
 #include "caffe/caffe.hpp"
+#include "caffe/net.hpp"
+#include "caffe/layer.hpp"
 #include "caffe/layers/molgrid_data_layer.hpp"
 #include "boost/thread/mutex.hpp"
 
@@ -24,10 +26,10 @@ struct cnn_options {
 	fl resolution; //this isn't specified in model file, so be careful about straying from default
 	unsigned cnn_rotations; //do we want to score multiple orientations?
 	bool cnn_scoring; //if true, do cnn_scoring of final pose
-	bool cnn_gradient; //if true, compute cnn_gradient of final pose
+	bool outputdx;
 	unsigned seed; //random seed
 
-	cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), cnn_gradient(true), seed(0) {}
+	cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), outputdx(false), seed(0) {}
 };
 
 /* This class evaluates protein-ligand poses according to a provided
@@ -40,25 +42,27 @@ class CNNScorer {
 	unsigned rotations;
 	unsigned seed;
 	bool random_rotate;
-	bool compute_gradient;
+	bool outputdx;
+
 	caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
 
 public:
-	CNNScorer(): mgrid(NULL), rotations(0), random_rotate(false), mtx(new boost::mutex) {}
+	CNNScorer(): mgrid(NULL), rotations(0), random_rotate(false), outputdx(false), mtx(new boost::mutex) {}
 	virtual ~CNNScorer() {}
 
 	CNNScorer(const cnn_options& cnnopts, const vec& center, const model& m);
 
 	bool initialized() const { return net.get(); }
 
-	float score(const model& m);
+	bool has_affinity() const; //return true if can predict affinity
+
+	float score(model& m);
+	float score(model& m, bool compute_gradient, float& affinity);
 
 	void outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient);
+	std::vector<float> get_relevances(bool receptor);
 
-  std::vector<float> get_relevances(bool receptor);
-
-  void lrp(const model& m);
- 
+	void lrp(const model& m);
 };
 
 #endif /* SRC_LIB_CNN_SCORER_H_ */
