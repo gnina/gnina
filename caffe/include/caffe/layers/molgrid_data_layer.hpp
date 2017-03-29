@@ -46,7 +46,9 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
   virtual inline const char* type() const { return "MolGridData"; }
   virtual inline int ExactNumBottomBlobs() const { return 0; }
-  virtual inline int ExactNumTopBlobs() const { return 2; }
+  virtual inline int ExactNumTopBlobs() const { return 2+
+		  this->layer_param_.molgrid_data_param().has_affinity()+
+		  this->layer_param_.molgrid_data_param().has_rmsd(); }
 
   virtual inline void resetRotation() { current_rotation = 0; }
 
@@ -56,7 +58,6 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
       const vector<Blob<Dtype>*>& top);
   virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
-
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
@@ -102,16 +103,11 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
   vector<float3> getReceptorGradient(int batch_idx)
   {
-    std::cout << "GET RECEPTOR GRADIENT\n";
-
     vector<float3> gradient;
     mol_info& mol = batch_transform[batch_idx].mol;
     for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
       if (mol.whichGrid[i] < numReceptorTypes)
-      {
         gradient.push_back(mol.gradient[i]);
-      }
-
     return gradient;
   }
 
@@ -121,11 +117,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     mol_info& mol = batch_transform[batch_idx].mol;
     for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
       if (mol.whichGrid[i] >= numReceptorTypes)
-      {
         gradient.push_back(mol.gradient[i]);
-        std::cout << "MOL GRADIENT[" << i << "]: " <<  mol.gradient[i].z << '\n';;
-      }
-
     return gradient;
   }
 
@@ -214,9 +206,12 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   	string receptor;
   	string ligand;
   	Dtype label;
+  	Dtype affinity;
+  	Dtype rmsd;
 
-  	example(): label(0) {}
-  	example(Dtype l, const string& r, const string& lig): receptor(r), ligand(lig), label(l) {}
+  	example(): label(0), affinity(0), rmsd(0) {}
+  	example(Dtype l, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0) {}
+  	example(Dtype l, Dtype a, Dtype rms, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms) {}
 	};
 
   //organize examples with respect to receptor
@@ -258,12 +253,15 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   bool paired;
   bool inmem;
   vector<Dtype> labels;
+  vector<Dtype> affinities;
+  vector<Dtype> rmsds;
 
   //grid stuff
   GridMaker gmaker;
   double resolution;
   double dimension;
   double radiusmultiple; //extra to consider past vdw radius
+  double fixedradius;
   double randtranslate;
   bool binary; //produce binary occupancies
   bool randrotate;

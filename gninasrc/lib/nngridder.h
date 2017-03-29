@@ -78,8 +78,6 @@ public:
   typedef GridMaker::quaternion quaternion;
 	typedef boost::multi_array<float, 3, float_pinned_allocator>  Grid;
 
-  //output a grid the file in dx format (for debug)
-  void outputDXGrid(ostream& out, Grid& grid);
 protected:
 
 	grid_dims dims; //this is a cube
