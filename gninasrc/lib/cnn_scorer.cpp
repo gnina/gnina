@@ -26,7 +26,6 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 		rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
 		 outputdx(cnnopts.outputdx), mtx(new boost::mutex)
 {
-
 	if (cnnopts.cnn_scoring)
 	{
 		NetParameter param;
@@ -67,6 +66,9 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 			//BUT it turns out this isn't actually faster
 			//bsize = nrot;
 		}
+		param.set_force_backward(true);
+
+		//backpropagate to atoms
 		param.set_force_backward(true);
 
 		net.reset(new Net<float>(param));
@@ -125,44 +127,47 @@ bool CNNScorer::has_affinity() const
 	return (bool)net->blob_by_name("predaff");
 }
 
-//return score and affinity of model, assumes receptor has not changed from initialization
-float CNNScorer::score(const model& m, float& aff)
+//return score of model, assumes receptor has not changed from initialization
+//if compute_gradient is set, also adds cnn atom gradient to m.minus_forces
+float CNNScorer::score(model& m, bool compute_gradient, float& aff)
 {
 	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
 		return -1.0;
-	
+
 	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
 	mgrid->setReceptor<atom>(m.get_fixed_atoms());
-	mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
+	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates());
 
 	double score = 0.0;
 	double affinity = 0.0;
 	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
 	const caffe::shared_ptr<Blob<Dtype> > affblob = net->blob_by_name("predaff");
+
 	unsigned cnt = 0;
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{
 		net->Forward(); //do all rotations at once if requested
-
 		const Dtype* out = outblob->cpu_data();
 		score += out[1];
-
-		if(affblob)
+		if (affblob)
 		{
 			//has affinity prediction
 			const Dtype* aff = affblob->cpu_data();
 			affinity += aff[0];
-			//TODO: use the log
 			cout << "#Rotate " << out[1] << " " << aff[0] << "\n";
 		}
 		else
 		{
 			cout << "#Rotate " << out[1] << "\n";
 		}
+		if (compute_gradient)
+		{
+			net->Backward();
+			m.add_minus_forces(mgrid->getLigandGradient(0)); //TODO divide by cnt
+		}
 		cnt++;
-
 	}
 
 	if(outputdx) {
@@ -200,14 +205,34 @@ float CNNScorer::score(const model& m, float& aff)
 		}
 	}
 	aff = affinity/cnt;
-	return score / cnt;
 
+	return score / cnt;
 }
 
 
 //return only score
-float CNNScorer::score(const model& m)
+float CNNScorer::score(model& m)
 {
 	float aff = 0;
-	return score(m,aff);
+	return score(m, false, aff);
 }
+
+void CNNScorer::outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient)
+{
+	const char* sym[] = {"C", "C", "C", "C", "Ca", "Fe", "Mg", "N", "N", "N", "N", "O", "O", "P", "S", "Zn",
+			     "C", "C", "C", "C", "Br", "Cl", "F",  "N", "N", "N", "N", "O", "O", "O", "P", "S", "S", "I"};
+
+	const string& fname = base + ".xyz";
+	ofstream out(fname.c_str());
+	out.precision(5);
+
+	out << atoms.size() << "\n\n";
+	for (unsigned i = 0, n = atoms.size(); i < n; ++i)
+	{
+		out << sym[whichGrid[i]] << " ";
+		out << atoms[i].x << " " << atoms[i].y << " " << atoms[i].z << " ";
+		out << gradient[i].x << " " << gradient[i].y << " " << gradient[i].z;
+		if (i + 1 < n) out << "\n";
+	}
+}
+

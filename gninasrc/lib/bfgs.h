@@ -226,19 +226,19 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	Conf x_orig(x);
 
 	Change p(g);
-//	std::cout << std::setprecision(8);
-//	std::cout << "f0 " << f0 << "\n";
-//	std::ofstream fout("minout.sdf");
+	std::cout << std::setprecision(8);
+	std::cout << "f0 " << f0 << "\n";
+	//std::ofstream fout("minout.sdf");
 	VINA_U_FOR(step, params.maxiters)
 	{
 		minus_mat_vec_product(h, g, p);
 		fl f1 = 0;
 		fl alpha;
-
-//		f.m->set(x);
-//		f.m->write_sdf(fout);
-//		fout << "$$$$\n";
-
+/*
+		f.m->set(x);
+		f.m->write_sdf(fout);
+		fout << "$$$$\n";
+*/
 		if (params.type == minimization_params::BFGSAccurateLineSearch)
 			alpha = accurate_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
 		else
@@ -270,7 +270,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		g = g_new; // dkoes - check the convergence of the new gradient
 
 		fl gradnormsq = scalar_product(g, g, n);
-//		std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+		std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
 
 		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
 		{

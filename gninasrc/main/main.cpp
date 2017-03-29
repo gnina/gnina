@@ -20,6 +20,7 @@
 #include "non_cache.h"
 #include "naive_non_cache.h"
 #include "non_cache_gpu.h"
+#include "non_cache_cnn.h"
 #include "parse_error.h"
 #include "everything.h"
 #include "weighted_terms.h"
@@ -78,6 +79,7 @@ struct user_settings
 	bool dominimize;
 	bool include_atom_info;
 	bool gpu_on;
+	bool cnn_scoring;
 
 	//reasonable defaults
 	user_settings() :
@@ -244,12 +246,12 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log.endl();
 
 		float aff = 0;
-		cnnscore = cnn.score(m, aff);
-		if(cnnscore >= 0.0)
+		cnnscore = cnn.score(m, false, aff);
+		if (cnnscore >= 0.0)
 		{
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
 			log.endl();
-			if(aff > 0) {
+			if (aff > 0) {
 				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << aff;
 				log.endl();
 			}
@@ -317,12 +319,12 @@ void do_search(model& m, const boost::optional<model>& ref,
 		log.endl();
 
 		float aff = 0;
-		cnnscore = cnn.score(m, aff);
-		if(cnnscore >= 0.0)
+		cnnscore = cnn.score(m, false, aff);
+		if (cnnscore >= 0.0)
 		{
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
 			log.endl();
-			if(aff > 0)
+			if (aff > 0)
 			{
 				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << aff;
 				log.endl();
@@ -481,18 +483,32 @@ void main_procedure(model& m, precalculate& prec,
 	}
 	else
 	{
-
 		non_cache *nc = NULL;
 		if (settings.gpu_on)
 		{
-			precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
-			if (!gprec)
-				abort();
-			nc = new non_cache_gpu(gridcache, gd, gprec, slope);
+			if (settings.cnn_scoring)
+			{
+                                //TODO implement non_cache_cnn_gpu
+				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
+			}
+			else
+			{
+				precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
+				if (!gprec)
+					abort();
+				nc = new non_cache_gpu(gridcache, gd, gprec, slope);
+			}
 		}
 		else
 		{
-			nc = new non_cache(gridcache, gd, &prec, slope);
+			if (settings.cnn_scoring)
+			{
+				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
+			}
+			else
+			{
+				nc = new non_cache(gridcache, gd, &prec, slope);
+			}
 		}
 		/* cudaProfilerStart(); */
 
@@ -1446,8 +1462,7 @@ Thank you!\n";
 		if (settings.cpu < 1)
 			settings.cpu = 1;
 		if (settings.verbosity > 1 && settings.exhaustiveness < settings.cpu)
-			log
-					<< "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
+			log << "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
 
 
 		//dkoes - parse in receptor once

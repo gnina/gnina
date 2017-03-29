@@ -43,6 +43,7 @@ class CNNScorer {
 	unsigned seed;
 	bool random_rotate;
 	bool outputdx;
+
 	caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
 
 public:
@@ -55,9 +56,10 @@ public:
 
 	bool has_affinity() const; //return true if can predict affinity
 
-	float score(const model& m);
-	float score(const model& m, float& affinity);
+	float score(model& m);
+	float score(model& m, bool compute_gradient, float& affinity);
 
+	void outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient);
 };
 
 #endif /* SRC_LIB_CNN_SCORER_H_ */
