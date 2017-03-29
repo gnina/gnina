@@ -227,42 +227,47 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff)
 	}
 
 	if(outputdx) {
-		const caffe::shared_ptr<Blob<Dtype> > datablob = net->blob_by_name("data");
-		const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
-		if(datablob) {
-			//this is a big more fragile than I would like.. if there is a pooling layer before
-			//the first convoluational of fully connected layer and it is a max pooling layer,
-			//change it to average before the backward to avoid a discontinuous map
-			PoolingLayer<Dtype> *pool = NULL;
-			for(unsigned i = 1, nl = layers.size(); i < nl; i++)
-			{
-				pool = dynamic_cast<PoolingLayer<Dtype>*>(layers[i].get());
-				if(pool)
-					break; //found it
-				else if(layers[i]->type() == string("Convolution"))
-					break; //give up
-				else if(layers[i]->type() == string("InnerProduct"))
-					break;
-			}
-			if(pool) {
-				if(pool->pool() == PoolingParameter_PoolMethod_MAX) {
-					pool->set_pool(PoolingParameter_PoolMethod_AVE);
-				} else {
-					pool = NULL; //no need to reset to max
-				}
-			}
-			net->Backward();
-			mgrid->dumpDiffDX(m.get_name(), datablob.get());
-
-			if(pool) {
-				pool->set_pool(PoolingParameter_PoolMethod_MAX);
-			}
-
-		}
+		outputDX(m.get_name());
 	}
 	aff = affinity/cnt;
 
 	return score / cnt;
+}
+
+void CNNScorer::outputDX(const string& prefix)
+{
+	const caffe::shared_ptr<Blob<Dtype> > datablob = net->blob_by_name("data");
+	const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
+	if(datablob) {
+		//this is a big more fragile than I would like.. if there is a pooling layer before
+		//the first convoluational of fully connected layer and it is a max pooling layer,
+		//change it to average before the backward to avoid a discontinuous map
+		PoolingLayer<Dtype> *pool = NULL;
+		for(unsigned i = 1, nl = layers.size(); i < nl; i++)
+		{
+			pool = dynamic_cast<PoolingLayer<Dtype>*>(layers[i].get());
+			if(pool)
+				break; //found it
+			else if(layers[i]->type() == string("Convolution"))
+				break; //give up
+			else if(layers[i]->type() == string("InnerProduct"))
+				break;
+		}
+		if(pool) {
+			if(pool->pool() == PoolingParameter_PoolMethod_MAX) {
+				pool->set_pool(PoolingParameter_PoolMethod_AVE);
+			} else {
+				pool = NULL; //no need to reset to max
+			}
+		}
+		net->Backward();
+		mgrid->dumpDiffDX(prefix, datablob.get());
+
+		if(pool) {
+			pool->set_pool(PoolingParameter_PoolMethod_MAX);
+		}
+
+	}
 }
 
 

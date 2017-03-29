@@ -59,6 +59,7 @@ public:
 	float score(model& m);
 	float score(model& m, bool compute_gradient, float& affinity);
 
+	void outputDX(const string& prefix);
 	void outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient);
 	std::vector<float> get_relevances(bool receptor);
 

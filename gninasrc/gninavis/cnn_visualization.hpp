@@ -19,12 +19,13 @@ struct vis_options
   bool verbose;
   bool output_files;
   bool skip_bound_check;
-
+  bool outputdx;
   int gpu;
 
   float box_size;
 
-  //vis_options(): box_size(23.5), frags_only(false), atoms_only(false), verbose(false) {}
+  vis_options(): frags_only(false), atoms_only(false), verbose(false),
+		  output_files(false), skip_bound_check(false), outputdx(false), gpu(0), box_size(23.5) {}
 };
 
 class cnn_visualization
