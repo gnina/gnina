@@ -25,7 +25,7 @@ using namespace std;
 CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
         const model& m) :
         rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
-         mtx(new boost::mutex) {
+         outputdx(cnnopts.outputdx), mtx(new boost::mutex) {
 
     if (cnnopts.cnn_scoring)
     {
@@ -160,16 +160,6 @@ void CNNScorer::lrp(const model& m, const string& recname, const string& ligname
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
 
-    //std::filebuf fb;
-    //fb.open("gradient.dx", std::ios::out);
-    //std::ostream os(&fb);
-
-    //outputDXGrid(os, mgrid);
-    //NNMolsGridder gridder();
-    //gridder.outputDX("lrp");
-    
-    //fb.close();
-
     net->Backward_Relevance();
     
     //outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
@@ -234,7 +224,17 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff)
 	return score / cnt;
 }
 
-void CNNScorer::outputDX(const string& prefix)
+
+//return only score
+float CNNScorer::score(model& m)
+{
+	float aff = 0;
+	return score(m, false, aff);
+}
+
+
+//dump dx files of the diff
+void CNNScorer::outputDX(const string& prefix, bool relevance)
 {
 	const caffe::shared_ptr<Blob<Dtype> > datablob = net->blob_by_name("data");
 	const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
@@ -260,8 +260,16 @@ void CNNScorer::outputDX(const string& prefix)
 				pool = NULL; //no need to reset to max
 			}
 		}
-		net->Backward();
-		mgrid->dumpDiffDX(prefix, datablob.get());
+
+		//must redo backwards with average pooling
+		if(relevance)
+			net->Backward_Relevance();
+		else
+			net->Backward();
+
+		string p = prefix;
+		if(p.length() == 0) p = "dx";
+		mgrid->dumpDiffDX(p, datablob.get());
 
 		if(pool) {
 			pool->set_pool(PoolingParameter_PoolMethod_MAX);
@@ -270,13 +278,6 @@ void CNNScorer::outputDX(const string& prefix)
 	}
 }
 
-
-//return only score
-float CNNScorer::score(model& m)
-{
-	float aff = 0;
-	return score(m, false, aff);
-}
 
 void CNNScorer::outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient)
 {

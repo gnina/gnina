@@ -41,13 +41,12 @@ class CNNScorer {
 	caffe::MolGridDataLayer<Dtype> *mgrid;
 	unsigned rotations;
 	unsigned seed;
-	bool random_rotate;
 	bool outputdx;
 
 	caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
 
 public:
-	CNNScorer(): mgrid(NULL), rotations(0), random_rotate(false), outputdx(false), mtx(new boost::mutex) {}
+	CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), mtx(new boost::mutex) {}
 	virtual ~CNNScorer() {}
 
 	CNNScorer(const cnn_options& cnnopts, const vec& center, const model& m);
@@ -59,7 +58,7 @@ public:
 	float score(model& m);
 	float score(model& m, bool compute_gradient, float& affinity);
 
-	void outputDX(const string& prefix);
+	void outputDX(const string& prefix, bool relevance=false);
 	void outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient);
 	std::vector<float> get_relevances(bool receptor);
 
