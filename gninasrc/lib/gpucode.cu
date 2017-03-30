@@ -332,7 +332,7 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
 	/* Assumed by warp_sum */
 	assert(THREADS_PER_BLOCK <= 1024);
     float slope = info.slope;
-    unsigned nlig_atoms = info.nlig_atoms;
+    unsigned num_movable_atoms = info.num_movable_atoms;
     unsigned nrec_atoms = info.nrec_atoms;
 
 	//this will calculate the per-atom energies and forces.
@@ -343,15 +343,15 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
 	unsigned nthreads_remain = nrec_atoms % THREADS_PER_BLOCK;
 
 	if (nfull_blocks)
-		interaction_energy<0> <<<dim3(nlig_atoms, nfull_blocks),
+		interaction_energy<0> <<<dim3(num_movable_atoms, nfull_blocks),
 				THREADS_PER_BLOCK>>>(info, 0, slope, v, ligs, out);
 	if (nthreads_remain)
-		interaction_energy<1> <<<nlig_atoms, ROUND_TO_WARP(nthreads_remain)>>>(info,
+		interaction_energy<1> <<<num_movable_atoms, ROUND_TO_WARP(nthreads_remain)>>>(info,
 				nrec_atoms - nthreads_remain, slope, v, ligs, out);
 
 	//get total energy
     cudaDeviceSynchronize();
-	reduce_energy<<<1, ROUND_TO_WARP(nlig_atoms)>>>(out, nlig_atoms);
+	reduce_energy<<<1, ROUND_TO_WARP(num_movable_atoms)>>>(out, num_movable_atoms);
     abort_on_gpu_err();
     cudaDeviceSynchronize();
     #ifdef __CUDA_ARCH__

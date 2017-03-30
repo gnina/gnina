@@ -2,6 +2,8 @@
 #define GPU_UTIL_H
 
 #include <stdio.h>
+#include <cstdlib>
+#include <iostream>
 
 __host__ __device__ static inline void abort_on_gpu_err(void){
     cudaError err = cudaGetLastError();

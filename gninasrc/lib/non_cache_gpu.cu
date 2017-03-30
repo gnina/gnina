@@ -13,23 +13,23 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
   info.cutoff_sq = p->cutoff_sqr();
   info.slope = slope;
 
-  unsigned nlig_atoms = m.num_movable_atoms();
-  info.nlig_atoms = nlig_atoms;
+  unsigned num_movable_atoms = m.num_movable_atoms();
+  info.num_movable_atoms = num_movable_atoms;
   //allocate memory for positions, partial charges, and atom types of movable atoms
-  cudaMalloc(&info.lig_penalties, sizeof(force_energy_tup[nlig_atoms]));
-  cudaMalloc(&info.types, sizeof(unsigned[nlig_atoms]));
+  cudaMalloc(&info.lig_penalties, sizeof(force_energy_tup[num_movable_atoms]));
+  cudaMalloc(&info.types, sizeof(unsigned[num_movable_atoms]));
 
   //initialize atom types and partial charges
-  std::vector<unsigned> htypes(nlig_atoms);
+  std::vector<unsigned> htypes(num_movable_atoms);
 
-  VINA_FOR(i, nlig_atoms)
+  VINA_FOR(i, num_movable_atoms)
   {
     htypes[i] = m.atoms[i].get();
     /* TODO breaking const */
     ((atom_params *) &m.coords[0])[i].charge = m.atoms[i].charge;
     /* lig_atoms_scratch[i].charge = 101010; */
   }
-  cudaMemcpy(info.types, &htypes[0], sizeof(unsigned[nlig_atoms]),
+  cudaMemcpy(info.types, &htypes[0], sizeof(unsigned[num_movable_atoms]),
              cudaMemcpyHostToDevice);
 
   info.gridbegins = float3(gd[0].begin, gd[1].begin, gd[2].begin);

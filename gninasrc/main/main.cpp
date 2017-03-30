@@ -59,6 +59,8 @@
 using namespace boost::iostreams;
 using boost::filesystem::path;
 
+extern thread_local float_buffer buffer;
+
 //just a collection of user-specified configurations
 struct user_settings
 {
@@ -177,9 +179,11 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	//dkoes - you don't need a very strong constraint to keep ligands in the box,
 	//but this factor can really bias the energy landscape
 	fl slope = 10;
+    //TODO: add buffer resize
 	VINA_FOR(p, 5)
 	{
 		nc.setSlope(slope);
+        buffer.reinitialize();
 		quasi_newton_par(m, prec, nc, out, g, cap, user_grid); //quasi_newton operator
 		m.set(out.c); // just to be sure
 		if (nc.within(m))
@@ -871,8 +875,9 @@ void threads_at_work(boost::lockfree::queue<worker_job>* wrkq,
 		MolGetter* mols,
 		bool* work_done, int* nligs, bool* ligcount_final)
 {
-	if(gs->settings->gpu_on)
+	if(gs->settings->gpu_on) {
 		initializeCUDA(gs->settings->device);
+    }
 
 	while (!*work_done || !wrkq->empty())
 	{
@@ -1007,7 +1012,7 @@ Thank you!\n";
 					"  \\__, |_| |_|_|_| |_|\\__,_|\n"
 					"   __/ |                    \n"
 					"  |___/                     \n"
-					"\ngnina is based off of smina and AutoDock Vina.\nPlease cite appropriately.\n\n"
+					"\ngnina is based on smina and AutoDock Vina.\nPlease cite appropriately.\n\n"
 					"*** IMPORTANT: gnina is not yet intended for production use. Use smina. ***\n";
 
 	try

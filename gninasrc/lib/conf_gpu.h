@@ -11,26 +11,23 @@
 #include "matrix.h"
 #include "gpu_util.h"
 #include "gpu_math.h"
+#include "device_buffer.h"
 
-/* change is a single GPU allocated array of floats.
- * The first six are the position and orientation and the remaining
- * are torsions.  The class itself is allocated on the CPU (at least for now)
- * and GPU code must be passed raw vector.
- */
 struct change_gpu {
-	float *change_values;
-	int n; //on cpu, size of change_values is 6+torsions
+	float *values;
+	int n; //size of ligand change_values is 6+torsions; residue is just torsions
+    int flex_offset; //index where the residues start
 
-	change_gpu(const change& src);
+	change_gpu(const change& src, float_buffer& buffer);
 
-	change_gpu(const change_gpu& src);
+	change_gpu(const change_gpu& src, float_buffer& buffer);
 
-    __host__ __device__
+    change_gpu(const change_gpu& src) = default;
+
+    __device__
 	change_gpu& operator=(const change_gpu& src);
 
-	~change_gpu();
-
-	__host__ __device__ void clear();
+	__device__ void clear();
 
 	void invert();
 
@@ -43,55 +40,30 @@ struct change_gpu {
 
     __host__ __device__
 	sz num_floats() const;
-
-	void get_data(std::vector<float>& d) const;
-
-	void set_data(std::vector<float>& d) const;
-
-	void print() const;
-
-    void* operator new(size_t count);
-    void operator delete(void* ptr) noexcept;
-};
-
-union conf_info {
-	struct {
-		float position[3];
-		float orientation[4];
-		float torsions[];
-	};
-	float values[];
 };
 
 struct conf_gpu {
 
-	conf_info *cinfo;
-	int n; //on cpu, size of conf_values is 7+torsions to include x,y,z and quaternion
+	float *values;
+    int n; //size of ligand conf_values is 7+torsions; residue is just torsions
+    int flex_offset; //index where the residues start
 
-	conf_gpu(const conf& src);
+	conf_gpu(const conf& src, float_buffer& buffer);
 
 	void set_cpu(conf& dst) const;
 
-	conf_gpu(const conf_gpu& src);
+	conf_gpu(const conf_gpu& src, float_buffer& buffer);
+
+    conf_gpu(const conf_gpu& src) = default;
 
     __host__ __device__
 	conf_gpu& operator=(const conf_gpu& src);
 
-	~conf_gpu();
-
-	__device__ void increment(const change_gpu& c, fl factor);
+	__device__ void increment(const change_gpu& c, fl factor, unsigned* lig_subtree_sizes);
 
 	void get_data(std::vector<float>& d) const;
 
 	void set_data(std::vector<float>& d) const;
-
-    __device__ void print_gpu() const;
-
-	void print() const;
-
-    void* operator new(size_t count);
-    void operator delete(void* ptr) noexcept;
-
 };
 
 #endif

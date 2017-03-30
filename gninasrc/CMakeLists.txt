@@ -41,6 +41,7 @@ lib/cache.cpp
 lib/cnn_scorer.cpp
 lib/coords.cpp
 lib/custom_terms.cpp
+lib/device_buffer.cpp
 lib/everything.cpp
 lib/flexinfo.cpp
 lib/GninaConverter.cpp

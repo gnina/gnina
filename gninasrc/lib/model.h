@@ -45,28 +45,35 @@ typedef std::pair<std::string, boost::optional<sz> > parsed_line;
 typedef std::vector<parsed_line> pdbqtcontext;
 
 struct gpu_data {
-	//put all pointers to gpu data into a struct, so we can override copying behavior
+	//put all pointers to gpu data into a struct that provides a lightweight 
+    //model-like object for the GPU
   	atom_params *coords;
   	vec *atom_coords;
   	force_energy_tup *minus_forces;
-  	tree_gpu *treegpu;
+  	tree_gpu<ligand> *treegpu;
+    tree_gpu<residue> *flex;
   	interacting_pair *interacting_pairs;
+    // all except internal to one ligand: ligand-other ligands;
+    // ligand-flex/inflex; flex-flex/inflex
+    interacting_pair *other_pairs; 
   	float *scratch; //single value for returning total energy
 
   	unsigned coords_size;
   	unsigned atom_coords_size;
   	unsigned forces_size;
   	unsigned pairs_size;
+    unsigned other_pairs_size;
     bool print_during_minimization;
     size_t eval_deriv_counter;
 
   	gpu_data(): coords(NULL), atom_coords(NULL), minus_forces(NULL),
-  			treegpu(NULL), interacting_pairs(NULL), scratch(NULL), coords_size(0),
-  			atom_coords_size(0), forces_size(0), pairs_size(0), print_during_minimization(false), 
-            eval_deriv_counter(0) {}
+  			treegpu(NULL), flex(NULL), interacting_pairs(NULL), other_pairs(NULL), 
+            scratch(NULL), coords_size(0),
+  			atom_coords_size(0), forces_size(0), pairs_size(0), other_pairs_size(0), 
+            print_during_minimization(false), eval_deriv_counter(0) {}
 
     __host__ __device__
-	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v) const;
+	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v, interacting_pair* pairs, unsigned pairs_sz) const;
 
     __device__
 	fl eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
@@ -473,7 +480,7 @@ private:
 	vecv internal_coords;
     /* TODO:reprivate */
 	/* vecv coords; */
-  //Tthis contains the accumulated directional deltas for each atom
+  //This contains the accumulated directional deltas for each atom
 	vecv minus_forces;
 
 	atomv grid_atoms;

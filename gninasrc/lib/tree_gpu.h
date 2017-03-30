@@ -4,7 +4,7 @@
 #include "tree.h"
 #include "atom.h"
 #include <vector>
-#include <queue>
+#include <algorithm>
 #include "gpu_util.h"
 #include "conf_gpu.h"
 #include "gpu_math.h"
@@ -52,6 +52,11 @@ struct gpu_mat{
     gpu_mat(const mat &m);
 };
 
+struct __align__(sizeof(float4)) marked_coord{
+    float3 coords;
+    uint owner_idx;
+};
+
 struct segment_node {
 	//a segment is a rigid collection of atoms with an orientation
 	//from an axis in a torsion tree
@@ -63,15 +68,19 @@ struct segment_node {
 	gpu_mat orientation_m;
 	sz begin;
 	sz end;
-	int parent; //location of parent in node array, -1 if root
+	int parent; //location of parent in node array, -1 if root 
 	int layer; //layer in BFS tree
+    int root; //used to index into conf and change arrays with multiple residues
 
 	segment_node() :
 			parent(-1), layer(0), begin(0), end(0){
 	}
 
 	segment_node(const segment& node,int p,segment_node* pnode);
-	segment_node(const rigid_body& node);
+
+    segment_node(const rigid_body& node, int root);
+
+    segment_node(const first_segment& node, int root);
 
 	__device__
 	gfloat4p sum_force_and_torque(const gfloat4 *coords, const gfloat4 *forces) const;
@@ -94,6 +103,38 @@ struct segment_node {
 
 };
 
+struct ligand_root : public segment_node {
+    ligand_root(){
+    }
+
+    ligand_root(const rigid_body& node, const int root) : segment_node(node, root) {
+    }
+
+    __device__ void set_conf(const float* c);
+
+    __device__ void set_derivative(const gfloat4p* force_torques, float* c);
+
+    __device__ static size_t get_offset() { return 7; }
+
+    __device__ static bool in_unison() { return false; }
+};
+
+struct residue_root : public segment_node {
+    residue_root(){
+    }
+
+    residue_root(const first_segment& node, const int root) : segment_node(node, root) {
+    }
+
+    __device__ void set_conf(const float* c);
+
+    __device__ void set_derivative(const gfloat4p* force_torques, float* c);
+
+    __device__ static size_t get_offset() { return 1; }
+        
+    __device__ static bool in_unison() { return true; }
+};
+
 struct __align__(sizeof(uint2)) atom_node_indices{
     uint atom_idx;
     uint node_idx;
@@ -102,40 +143,62 @@ struct __align__(sizeof(uint2)) atom_node_indices{
     __host__ __device__ atom_node_indices(uint ai, uint ni) : atom_idx(ai), node_idx(ni) {};
 };
 
+struct ligand;
+struct residue;
+
+template <typename cpu_root>
+struct cpu_to_gpu_root
+{};
+
+template <>
+struct cpu_to_gpu_root<ligand>
+{
+    typedef ligand_root gpu_root;
+};
+
+template <>
+struct cpu_to_gpu_root<residue>
+{
+    typedef residue_root gpu_root;
+};
+    
+template<typename cpu_root>
 struct tree_gpu {
 
+    // typedef std::conditional<typeid(cpu_root) == typeid(rigid_body), ligand_root, residue_root>::type root_type;
+    typedef typename cpu_to_gpu_root<cpu_root>::gpu_root gpu_root;
 	segment_node *device_nodes;
 	gfloat4p *force_torques;
 	unsigned num_nodes;
     unsigned num_layers;
+    unsigned num_atoms;
+    unsigned *subtree_sizes;
 
     uint *owners;
 
     tree_gpu() = default;
-	tree_gpu(const heterotree<rigid_body> &ligand, vec *atom_coords);
+	tree_gpu(const vector_mutable<cpu_root> &source, vec *atom_coords);
 
 	static void deallocate(tree_gpu *t);
 
     __device__
-	void derivative(const vec *coords,const vec* forces, float *c);
+	void derivative(const vec *coords,const vec* forces, change_gpu *c);
     __device__
 	void set_conf(const vec *atom_coords, vec *coords,
-                  const conf_info *c);
-
-    struct __align__(sizeof(float4)) marked_coord{
-        float3 coords;
-        uint owner_idx;
-    };
+                  const conf_gpu *c);
 
 private:
     void do_dfs(int parent, const branch& branch, 
                 std::vector<segment_node> &nodes);
 
 	__device__
-	void _derivative(const gfloat4 *coords,const gfloat4* forces, float *c);
+	void _derivative(const gfloat4 *coords,const gfloat4* forces, change_gpu *c);
 	__device__
 	void _set_conf(const marked_coord *atom_coords, gfloat4 *coords,
-                   const conf_info *c);
+                   const conf_gpu *c);
 };
+
+extern template struct tree_gpu<ligand>;
+extern template struct tree_gpu<residue>;
 
 #endif

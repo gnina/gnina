@@ -66,7 +66,7 @@ force_energy_tup& operator+=(force_energy_tup& a, force_energy_tup& b) {
 
 struct GPUNonCacheInfo
 {
-  unsigned nlig_atoms, nrec_atoms;
+  unsigned num_movable_atoms, nrec_atoms;
   float cutoff_sq;
   float slope; 
 
