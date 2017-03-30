@@ -51,7 +51,28 @@ void SplitLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 template <typename Dtype>
 void SplitLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-    std::cout << "split_layer back rel\n";
+    std::cout << "split_layer back rel " << top.size() << " " << bottom.size() << "\n";
+    //take average
+    unsigned n = bottom[0]->count();
+    Dtype *bottom_diff = bottom[0]->mutable_cpu_diff();
+    caffe_copy(n, top[0]->cpu_diff(), bottom_diff);
+    for(unsigned i = 1, ntop = top.size(); i < ntop; i++) {
+    	caffe_axpy<Dtype>(n, 1.0, top[i]->cpu_diff(), bottom_diff);
+    }
+
+    //in our network this is merging softmax and softmaxwithloss, only one of which is
+    //set see wee take the sum instead of the average
+    //average
+    //caffe_scal<Dtype>(n, 1.0/top.size(), bottom_diff);
+
+    float sum = 0;
+    for (int i = 0; i < bottom[0]->count(); ++i)
+    {
+        sum += bottom[0]->cpu_diff()[i];
+    }
+    std::cout << "SPLIT BOTTOM SUM: " << sum << '\n';
+
+
 }
 #ifdef CPU_ONLY
 STUB_GPU(SplitLayer);

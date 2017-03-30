@@ -74,7 +74,7 @@ class Net {
   void BackwardFrom(int start);
   void BackwardTo(int end);
 
-  void Backward_Relevance();
+  void Backward_relevance();
 
   /**
    * @brief Reshape all layers from bottom to top.

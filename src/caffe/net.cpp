@@ -980,38 +980,18 @@ const shared_ptr<Layer<Dtype> > Net<Dtype>::layer_by_name(
 }
 
 template<typename Dtype>
-void Net<Dtype>::Backward_Relevance(){
+void Net<Dtype>::Backward_relevance(){
     
-    this->Forward();
-    vector<bool> propagate_down (10);
-    for(int i = 11; i >= 0; i--)
-    {
-      //std::cout << "starting layer " << i << "\n";
-      //std::cout << "propagate down: " << layer_params.propagate_down[i] << '\n';
-      //std::cout << "layer type: " << layer_names_[i] << "\n";
-      //std::cout << "need backward: " << layer_need_backward_[i] << "\n";
+    int end = 0;
+    int start = layers_.size()-1;
 
-        if(i == 11)
-        {
-            int s = 0;
-            Dtype* top_diff = top_vecs_[i][s]->mutable_cpu_diff();
-            const Dtype* top_data = top_vecs_[14][s]->cpu_data();
+    for (int i = start; i >= end; --i) {
 
-            memset(top_diff, 0, sizeof(Dtype) * top_vecs_[i][s]->count());
-
-            top_diff[0] = top_data[1];
-            layers_[i]->Backward_relevance(top_vecs_[i], propagate_down, bottom_vecs_[i]);
-        }
-        else if( i == 0)
-        {
-            layers_[i]->Backward_relevance(top_vecs_[i], propagate_down, bottom_vecs_[i]);
-        }
-        else
-        {
-            layers_[i]->Backward_relevance(top_vecs_[i], propagate_down, bottom_vecs_[i]);
-        }
+      if (layer_need_backward_[i]) {
+        layers_[i]->Backward_relevance(
+            top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
+      }
     }
-
 }
 
 INSTANTIATE_CLASS(Net);
