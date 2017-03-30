@@ -301,17 +301,17 @@ void tree_gpu<cpu_root>::_derivative(const gfloat4 *coords,const gfloat4* forces
     if (gpu_root::in_unison())
         c->values[c->flex_offset + tid - subtree_sizes[0] + root] = ft.second * axis;
     else if(tid > (subtree_sizes[0]-1) && tid < num_nodes)
-        c->values[tid - subtree_sizes[0] + (root+1)*7] = ft.second * axis;
+        c->values[tid - subtree_sizes[0] + (root+1)*6] = ft.second * axis;
     else if (tid < num_nodes) {
         ft = force_torques[tid];
         uint offset = tid == 0 ? 0 : subtree_sizes[tid];
-	    c->values[7*tid + offset] = ft.first[0];
-	    c->values[7*tid + offset + 1] = ft.first[1];
-	    c->values[7*tid + offset + 2] = ft.first[2];
+	    c->values[6*tid + offset] = ft.first[0];
+	    c->values[6*tid + offset + 1] = ft.first[1];
+	    c->values[6*tid + offset + 2] = ft.first[2];
 
-	    c->values[7*tid + offset + 3] = ft.second[0];
-	    c->values[7*tid + offset + 4] = ft.second[1];
-	    c->values[7*tid + offset + 5] = ft.second[2];
+	    c->values[6*tid + offset + 3] = ft.second[0];
+	    c->values[6*tid + offset + 4] = ft.second[1];
+	    c->values[6*tid + offset + 5] = ft.second[2];
     }
 }
 
