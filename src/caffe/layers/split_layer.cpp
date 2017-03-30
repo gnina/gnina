@@ -51,7 +51,6 @@ void SplitLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 template <typename Dtype>
 void SplitLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-    std::cout << "split_layer back rel " << top.size() << " " << bottom.size() << "\n";
     //take average
     unsigned n = bottom[0]->count();
     Dtype *bottom_diff = bottom[0]->mutable_cpu_diff();
