@@ -432,15 +432,12 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
                 Dtype bias = this->blobs_[1]->cpu_data()[r] * bias_multiplier_.cpu_data()[i];
                 for (long k = 0; k < K; ++k)
                 {
-                    pos_sums_data[r * I + i] += 
-                        std::max(Dtype(0.), col_buff[col_offset_ * g + k * I + i] 
-                                * weights[weight_offset_ * g + r * K + k] +
-                                + bias / K);
+                	Dtype val = col_buff[col_offset_ * g + k * I + i]
+                                         * weights[weight_offset_ * g + r * K + k] +
+                                         + bias / K;
+                    pos_sums_data[r * I + i] += std::max(Dtype(0.), val);
 
-                    neg_sums_data[r * I + i] += 
-                        std::min(Dtype(0.), col_buff[col_offset_ * g + k * I + i] 
-                                * weights[weight_offset_ * g + r * K + k]
-                                + bias / K);
+                    neg_sums_data[r * I + i] += std::min(Dtype(0.), val);
                 }
             }
         }
@@ -467,17 +464,12 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
 
                 for(long k = 0; k < K; ++k)
                 {
+                	Dtype val = col_buff[col_offset_ * g + k * I + i]
+                                         * weights[weight_offset_ * g + r * K + k]
+                                         + bias / K;
                     col_buff_new[col_offset_ * g + k * I + i] +=
-                        alpha * std::max(Dtype(0.),
-                                col_buff[col_offset_ * g + k * I + i]
-                                * weights[weight_offset_ * g + r * K + k]
-                                + bias / K)
-                                * z1
-                        - beta * std::min(Dtype(0.),
-                                col_buff[col_offset_ * g + k * I + i]
-                                * weights[weight_offset_ * g + r * K + k]
-                                + bias / K)
-                                * z2;
+                        alpha * std::max(Dtype(0.), val) * z1
+                        - beta * std::min(Dtype(0.), val) * z2;
                 }
             }
         }
