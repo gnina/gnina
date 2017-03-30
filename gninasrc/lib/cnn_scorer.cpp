@@ -25,7 +25,8 @@ using namespace std;
 CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
         const model& m) :
         rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
-         outputdx(cnnopts.outputdx), mtx(new boost::mutex) {
+        outputdx(cnnopts.outputdx), outputxyz(cnnopts.outputxyz),
+        mtx(new boost::mutex) {
 
     if (cnnopts.cnn_scoring)
     {
@@ -216,11 +217,20 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff)
 		cnt++;
 	}
 
-	if(outputdx) {
+	if (outputdx) {
 		outputDX(m.get_name());
 	}
-	aff = affinity/cnt;
+	if (outputxyz) {
+		if (!compute_gradient)
+			net->Backward();
+		const string& ligname = m.get_name() + "_lig";
+		const string& recname = m.get_name() + "_rec";
+		outputXYZ(ligname, mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
+		outputXYZ(recname, mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
+	}
 
+	//TODO m.scale_minus_forces(1 / cnt);
+	aff = affinity / cnt;
 	return score / cnt;
 }
 
@@ -279,7 +289,7 @@ void CNNScorer::outputDX(const string& prefix, bool relevance)
 }
 
 
-void CNNScorer::outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient)
+void CNNScorer::outputXYZ(const string& base, const vector<float4>& atoms, const vector<short>& whichGrid, const vector<float3>& gradient)
 {
 	const char* sym[] = {"C", "C", "C", "C", "Ca", "Fe", "Mg", "N", "N", "N", "N", "O", "O", "P", "S", "Zn",
 			     "C", "C", "C", "C", "Br", "Cl", "F",  "N", "N", "N", "N", "O", "O", "O", "P", "S", "S", "I"};
@@ -297,5 +307,4 @@ void CNNScorer::outputXYZ(const string& base, const vector<float4> atoms, const 
 		if (i + 1 < n) out << "\n";
 	}
 }
-
 

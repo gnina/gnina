@@ -239,17 +239,12 @@ public:
   }
 
   //accumulate gradient from grid point x,y,z for provided atom
-  void accumulateAtomGradient(const float3& coords, double ar, float x, float y, float z,
-                              float gridval, float3& agrad)
+  void accumulateAtomGradient(const float3& coords, double ar, float gridx, float gridy,
+                              float gridz, float gridval, float3& agrad, bool relevance=false)
   {
-    float dist_x = x-coords.x;
-    float dist_y = y-coords.y;
-    float dist_z = z-coords.z;
-    float dist2 = dist_x*dist_x + dist_y*dist_y + dist_z*dist_z;
-
     //in order to compute the loss gradient wrt atom position,
     //  we sum gradient from each gridpoint overlapped by the atom
-    //  we can compute this as d_gridpoint/d_atompos * d_loss/d_gridpoint
+    //  we can compute this as d_gridval/d_atompos * d_loss/d_gridpoint
 
     //the first term is a derivative of the atom-gridding operation:
     //  how does the occupancy value at grid position x,y,z change
@@ -260,32 +255,41 @@ public:
     //  relative to the distance from atom to gridpoint: d_gridpoint/d_atomdist
     //  then to convert to x,y,z, multiply by: d_atomdist/d_atomx (same for y,z)
 
+    float dist_x = gridx-coords.x;
+    float dist_y = gridy-coords.y;
+    float dist_z = gridz-coords.z;
+    float dist2 = dist_x*dist_x + dist_y*dist_y + dist_z*dist_z;
     double dist = sqrt(dist2);
     float agrad_dist = 0.0;
-    if (dist >= ar * radiusmultiple)
-    { 
-      return;
+    //check that atom overlaps grid point
+    if (dist < ar * radiusmultiple)
+    {
+      if (relevance)
+      {
+        // sum across all gridpoints
+        agrad.x += gridval;
+      }
+      else
+      {
+        if (dist <= ar) //gaussian derivative
+        { 
+          float h = 0.5 * ar;
+          float ex = -dist2 / (2 * h * h);
+          float coef = -dist / (h * h);
+          agrad_dist = coef * exp(ex);
+        }
+        else //quadratic derivative
+        { 
+          float h = 0.5 * ar;
+          float inv_e2 = 1.0 / (M_E * M_E); //e^(-2)
+          agrad_dist = 2.0 * dist * inv_e2 / (h * h) - 6.0 * inv_e2 / h;
+        }
+        // d_loss/d_atomx = d_atomdist/d_atomx * d_gridpoint/d_atomdist * d_loss/d_gridpoint
+        agrad.x += (-dist_x / dist) * agrad_dist * gridval;
+        agrad.y += (-dist_y / dist) * agrad_dist * gridval;
+        agrad.z += (-dist_z / dist) * agrad_dist * gridval;
+      }
     }
-    else if (dist <= ar) //gaussian derivative
-    { 
-      float h = 0.5 * ar;
-      float ex = -dist2 / (2 * h * h);
-      float coef = -dist / (h * h);
-      agrad_dist = coef * exp(ex);
-    }
-    else //quadratic derivative
-    { 
-      float h = 0.5 * ar;
-      float inv_e2 = 1.0 / (M_E * M_E); //e^(-2)
-      agrad_dist = 2.0 * dist * inv_e2 / (h * h) - 6.0 * inv_e2 / h;
-    }
-    // d_loss/d_atomx = d_atomdist/d_atomx * d_gridpoint/d_atomdist * d_loss/d_gridpoint
-    // sum across all gridpoints
-    agrad.x += gridval;
-    //agrad.x += (-dist_x / dist) * agrad_dist * gridval;
-    //agrad.y += (-dist_y / dist) * agrad_dist * gridval;
-    //agrad.z += (-dist_z / dist) * agrad_dist * gridval;
-
   }
 
   //get the atom position gradient from relevant grid points for provided atom

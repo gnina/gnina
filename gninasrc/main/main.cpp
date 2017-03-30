@@ -1163,7 +1163,9 @@ Thank you!\n";
 		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
 				"Use a convolutional neural network to score final pose.")
 		("cnn_outputdx", bool_switch(&cnnopts.outputdx)->default_value(false),
-		               "Dump dx files of gradient.");
+		               "Dump .dx files of atom grid gradient.")
+		("cnn_outputxyz", bool_switch(&cnnopts.outputxyz)->default_value(false),
+		               "Dump .xyz files of atom gradient.");
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
