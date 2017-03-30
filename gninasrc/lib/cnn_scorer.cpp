@@ -160,7 +160,8 @@ void CNNScorer::lrp(const model& m, const string& recname, const string& ligname
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
 
-    net->Backward_Relevance();
+    net->Forward();
+    net->Backward_relevance();
     
     //outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
     outputXYZ(ligname, mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
@@ -263,7 +264,7 @@ void CNNScorer::outputDX(const string& prefix, bool relevance)
 
 		//must redo backwards with average pooling
 		if(relevance)
-			net->Backward_Relevance();
+			net->Backward_relevance();
 		else
 			net->Backward();
 

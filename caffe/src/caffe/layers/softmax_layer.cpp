@@ -89,18 +89,19 @@ template <typename Dtype>
 void SoftmaxLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
+	//copy just the positive class (assumes binary classification)
+	Dtype *bottom_diff = bottom[0]->mutable_cpu_diff();
+	unsigned n = bottom[0]->count();
+	assert(n == 2);
+	bottom_diff[0] = 0;
+	bottom_diff[1] = top[0]->cpu_data()[1]; //positive class
 
-    std::cout << bottom[0]->count() << '\n';
-    std::cout << "SOFTMAX TOP DATA:" << '\n';
-    std::cout << top[0]->cpu_data()[0] << '\n';
-    std::cout << top[0]->cpu_data()[1] << '\n';
-
-    Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
-    const Dtype* top_data = top[0]->cpu_data();
-
-    caffe_copy<Dtype>(bottom[0]->count(),top_data , bottom_diff);
-    
-
+    float sum = 0;
+    for (int i = 0; i < bottom[0]->count(); ++i)
+    {
+        sum += bottom[0]->cpu_diff()[i];
+    }
+    std::cout << "SOFTLOSS BOTTOM SUM: " << sum << '\n';
 }
 
 
