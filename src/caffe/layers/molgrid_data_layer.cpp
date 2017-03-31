@@ -589,7 +589,7 @@ string MolGridDataLayer<Dtype>::getIndexName(const vector<int>& map, unsigned in
 
 //output a grid the file in dx format (for debug)
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::outputDXGrid(std::ostream& out, Grids& grid, unsigned g) const
+void MolGridDataLayer<Dtype>::outputDXGrid(std::ostream& out, Grids& grid, unsigned g, double scale) const
 {
   unsigned n = dim;
   out.precision(5);
@@ -613,7 +613,7 @@ void MolGridDataLayer<Dtype>::outputDXGrid(std::ostream& out, Grids& grid, unsig
     {
       for (unsigned k = 0; k < n; k++)
       {
-        out << grid[g][i][j][k];
+        out << grid[g][i][j][k]*scale;
         total++;
         if(total % 3 == 0) out << "\n";
         else out << " ";
@@ -626,7 +626,7 @@ void MolGridDataLayer<Dtype>::outputDXGrid(std::ostream& out, Grids& grid, unsig
 //only does the very first grid for now
 template<typename Dtype>
 void MolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
-		Blob<Dtype>* top) const
+		Blob<Dtype>* top, double scale) const
 {
 	Grids grids(top->mutable_cpu_diff(),
 			boost::extents[numReceptorTypes + numLigandTypes][dim][dim][dim]);
@@ -636,13 +636,13 @@ void MolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
 		string name = getIndexName(rmap, a);
 		string fname = prefix + "_rec_" + name + ".dx";
 		ofstream out(fname.c_str());
-		outputDXGrid(out, grids, a);
+		outputDXGrid(out, grids, a, scale);
 	}
 	for (unsigned a = 0, na = numLigandTypes; a < na; a++) {
 			string name = getIndexName(lmap, a);
 			string fname = prefix + "_lig_" + name + ".dx";
 			ofstream out(fname.c_str());
-			outputDXGrid(out, grids, numReceptorTypes+a);
+			outputDXGrid(out, grids, numReceptorTypes+a, scale);
 	}
 
 }
