@@ -30,15 +30,23 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 	 Dtype label = labels[i];
 	 Dtype pred = preds[i];
 	 if(label > 0) { //normal euclidean
-		 Dtype diff = std::fabs(pred-label);
-		 diff -= gap;
-		 if(diff < 0) diff = 0;
+		 Dtype diff = pred-label;
+		 if(diff < 0) {
+			 diff = std::min(diff+gap,Dtype(0));
+		 } else {
+			 diff = std::max(diff-gap,Dtype(0));
+		 }
+
 		 d[i] = scale*diff;
 		 sum += diff*diff;
 	 } else if(label < 0 && pred > -label) { //hinge like
 		 Dtype diff = pred+label;
-		 diff -= gap;
-		 if(diff < 0) diff = 0;
+		 if(diff < 0) {
+			diff = std::min(diff+gap,Dtype(0));
+		 } else {
+			diff = std::max(diff-gap,Dtype(0)); 
+		 }
+
 		 d[i] = scale*diff;
 		 sum += diff*diff;
 	 } else { //ignore
