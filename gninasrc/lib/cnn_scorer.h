@@ -27,9 +27,10 @@ struct cnn_options {
 	unsigned cnn_rotations; //do we want to score multiple orientations?
 	bool cnn_scoring; //if true, do cnn_scoring of final pose
 	bool outputdx;
+	bool outputxyz;
 	unsigned seed; //random seed
 
-	cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), outputdx(false), seed(0) {}
+	cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), outputdx(false), outputxyz(false), seed(0) {}
 };
 
 /* This class evaluates protein-ligand poses according to a provided
@@ -42,6 +43,7 @@ class CNNScorer {
 	unsigned rotations;
 	unsigned seed;
 	bool outputdx;
+	bool outputxyz;
 
 	caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
 
@@ -59,7 +61,8 @@ public:
 	float score(model& m, bool compute_gradient, float& affinity);
 
 	void outputDX(const string& prefix, bool relevance=false);
-	void outputXYZ(const string& base, const vector<float4> atoms, const vector<short> whichGrid, const vector<float3> gradient);
+	void outputXYZ(const string& base, const vector<float4>& atoms,
+		       const vector<short>& whichGrid, const vector<float3>& gradient);
 	std::vector<float> get_relevances(bool receptor);
 
 	void lrp(const model& m, const string& recname, const string& ligname);

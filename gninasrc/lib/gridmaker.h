@@ -238,58 +238,49 @@ public:
     }
   }
 
-  void accumulateAtomRelevance(const float3& coords, double ar, float x, float y, float z,
-                              float gridval, float3& agrad)
-  {
-	  //simple sum of values that the atom overlaps
-	    float dist_x = x-coords.x;
-	    float dist_y = y-coords.y;
-	    float dist_z = z-coords.z;
-	    float dist2 = dist_x*dist_x + dist_y*dist_y + dist_z*dist_z;
-
-	    double dist = sqrt(dist2);
-	    if (dist >= ar * radiusmultiple)
-	    {
-	      return;
-	    }
-	    else
-	    {
-	    	agrad.x += gridval;
-	    }
-  }
+  	void accumulateAtomRelevance(const float3& coords, double ar, float x, float y, float z,
+				     float gridval, float3& agrad)
+	{
+		//simple sum of values that the atom overlaps
+		float dist_x = x-coords.x;
+		float dist_y = y-coords.y;
+		float dist_z = z-coords.z;
+		float dist2 = dist_x*dist_x + dist_y*dist_y + dist_z*dist_z;
+		double dist = sqrt(dist2);
+		if (dist >= ar * radiusmultiple)
+		{
+			return;
+		}
+		else
+		{
+			agrad.x += gridval;
+		}
+	}
 
 	//accumulate gradient from grid point x,y,z for provided atom
 	void accumulateAtomGradient(const float3& coords, double ar, float x,
-			float y, float z, float gridval, float3& agrad) {
+				    float y, float z, float gridval, float3& agrad)
+	{
+		//sum gradient grid values overlapped by the atom times the
+		//derivative of the atom density at each grid point
 		float dist_x = x - coords.x;
 		float dist_y = y - coords.y;
 		float dist_z = z - coords.z;
 		float dist2 = dist_x * dist_x + dist_y * dist_y + dist_z * dist_z;
-
-		//in order to compute the loss gradient wrt atom position,
-		//  we sum gradient from each gridpoint overlapped by the atom
-		//  we can compute this as d_gridpoint/d_atompos * d_loss/d_gridpoint
-
-		//the first term is a derivative of the atom-gridding operation:
-		//  how does the occupancy value at grid position x,y,z change
-		//  with respect to the coordinates of this atom?
-		//the second term is gridval, computed by caffe backward pass to input layer
-
-		//atom-gridding is circularly symmetric, so we compute the derivative
-		//  relative to the distance from atom to gridpoint: d_gridpoint/d_atomdist
-		//  then to convert to x,y,z, multiply by: d_atomdist/d_atomx (same for y,z)
-
 		double dist = sqrt(dist2);
 		float agrad_dist = 0.0;
-		if (dist >= ar * radiusmultiple) {
+		if (dist >= ar * radiusmultiple) //no overlap
+		{
 			return;
-		} else if (dist <= ar) //gaussian derivative
-				{
+		}
+		else if (dist <= ar) //gaussian derivative
+		{
 			float h = 0.5 * ar;
 			float ex = -dist2 / (2 * h * h);
 			float coef = -dist / (h * h);
 			agrad_dist = coef * exp(ex);
-		} else //quadratic derivative
+		}
+		else //quadratic derivative
 		{
 			float h = 0.5 * ar;
 			float inv_e2 = 1.0 / (M_E * M_E); //e^(-2)
@@ -300,7 +291,6 @@ public:
 		agrad.x += (-dist_x / dist) * agrad_dist * gridval;
 		agrad.y += (-dist_y / dist) * agrad_dist * gridval;
 		agrad.z += (-dist_z / dist) * agrad_dist * gridval;
-
 	}
 
 	//get the atom position gradient from relevant grid points for provided atom
