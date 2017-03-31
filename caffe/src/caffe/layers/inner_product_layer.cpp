@@ -206,8 +206,8 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
             top_sum += top[0]->cpu_diff()[i];
         }
         std::cout << "INNERPROD TOP SUM : " << top_sum << '\n';
-        float alpha = 1;
-        float beta = 0;
+        float alpha = 2;
+        float beta = 1;
 
         //for (int i = 0; i < top.size(); ++i)
         //{
