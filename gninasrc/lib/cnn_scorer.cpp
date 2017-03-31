@@ -245,7 +245,7 @@ float CNNScorer::score(model& m)
 
 
 //dump dx files of the diff
-void CNNScorer::outputDX(const string& prefix, bool relevance)
+void CNNScorer::outputDX(const string& prefix, double scale, bool relevance)
 {
 	const caffe::shared_ptr<Blob<Dtype> > datablob = net->blob_by_name("data");
 	const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
@@ -280,7 +280,7 @@ void CNNScorer::outputDX(const string& prefix, bool relevance)
 
 		string p = prefix;
 		if(p.length() == 0) p = "dx";
-		mgrid->dumpDiffDX(p, datablob.get());
+		mgrid->dumpDiffDX(p, datablob.get(), scale);
 
 		if(pool) {
 			pool->set_pool(PoolingParameter_PoolMethod_MAX);

@@ -194,7 +194,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   double getDimension() const { return dimension; }
   double getResolution() const { return resolution; }
 
-  void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top) const;
+  void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
 
  protected:
 
@@ -327,7 +327,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
   //stuff for outputing dx grids
   std::string getIndexName(const vector<int>& map, unsigned index) const;
-  void outputDXGrid(std::ostream& out, Grids& grids, unsigned g) const;
+  void outputDXGrid(std::ostream& out, Grids& grids, unsigned g, double scale) const;
 
 };
 
