@@ -403,8 +403,8 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
     //weights are R x K
     //upper relevances are R x I
 
-    float beta = 0;
-    float alpha = 1;
+    float beta = 1;
+    float alpha = 2;
 
     const Dtype* col_buff = col_buffer_.cpu_data();
 
