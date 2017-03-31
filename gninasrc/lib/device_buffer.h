@@ -14,7 +14,7 @@ struct device_buffer
     size_t capacity; //buffer size in bytes is capacity*sizeof(type),
     T* current;  //pointer to the beginning of the unused region
 
-    device_buffer(size_t capacity=1000);
+    device_buffer(size_t capacity=10000);
 
     bool has_space(size_t n_requested);
     void resize(size_t new_requested);

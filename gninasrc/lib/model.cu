@@ -85,7 +85,7 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
 	} 
 	else { 
 		eval_intra_kernel<<<CUDA_GET_BLOCKS(pairs_sz,
-                CUDA_THREADS_PER_BLOCK),
+                1024),
             CUDA_THREADS_PER_BLOCK>>>(info.splineInfo, coords,
                     pairs, pairs_sz, cutoff_sqr, v, minus_forces,
                     scratch);
@@ -188,10 +188,12 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
         cudaDeviceSynchronize();
         e = single_point_calc(info, coords, minus_forces, v[1]); 
         cudaDeviceSynchronize();
-        e += eval_interacting_pairs_deriv_gpu(info, v[2], other_pairs,
-                other_pairs_size); 
-	    ie = eval_interacting_pairs_deriv_gpu(info, v[0], interacting_pairs,
-                pairs_size); // adds to minus_forces
+        if (other_pairs_size)
+            e += eval_interacting_pairs_deriv_gpu(info, v[2], other_pairs,
+                    other_pairs_size); 
+        if (pairs_size)
+	        ie = eval_interacting_pairs_deriv_gpu(info, v[0], interacting_pairs,
+                    pairs_size); // adds to minus_forces
 
         if (print_during_minimization) 
             do_minimization_printing(eval_deriv_counter, minus_forces,
@@ -382,27 +384,32 @@ void model::initialize_gpu() {
 	gdata.forces_size = minus_forces.size();
 
 
-	//ligand internal pairs and all flexible pairs
-	std::vector<interacting_pair> ligand_pairs(ligands[0].pairs);
-    for (int i=1; i<ligands.size(); i++) 
-        ligand_pairs.insert(ligand_pairs.end(), ligands[i].pairs.begin(),
-                ligands[i].pairs.end());
-	gdata.pairs_size = ligand_pairs.size();
+	//ligand internal pairs 
+    if (ligands.size()) {
+	    std::vector<interacting_pair> ligand_pairs(ligands[0].pairs);
+        for (int i=1; i<ligands.size(); i++) 
+            ligand_pairs.insert(ligand_pairs.end(), ligands[i].pairs.begin(),
+                    ligands[i].pairs.end());
+	    gdata.pairs_size = ligand_pairs.size();
 
-	CUDA_CHECK_GNINA(
-			cudaMalloc(&gdata.interacting_pairs,
-					sizeof(interacting_pair) * ligand_pairs.size()));
-	CUDA_CHECK_GNINA(
-			cudaMemcpy(gdata.interacting_pairs, &ligand_pairs[0],
-					sizeof(interacting_pair) * ligand_pairs.size(),
-					cudaMemcpyHostToDevice));
+	    CUDA_CHECK_GNINA(
+	    		cudaMalloc(&gdata.interacting_pairs,
+	    				sizeof(interacting_pair) * ligand_pairs.size()));
+	    CUDA_CHECK_GNINA(
+	    		cudaMemcpy(gdata.interacting_pairs, &ligand_pairs[0],
+	    				sizeof(interacting_pair) * ligand_pairs.size(),
+	    				cudaMemcpyHostToDevice));
+    }
 
-    CUDA_CHECK_GNINA(cudaMalloc(&gdata.other_pairs, sizeof(interacting_pair) *
-                other_pairs.size()));
-    CUDA_CHECK_GNINA(cudaMemcpy(gdata.other_pairs, &other_pairs[0],
-                sizeof(interacting_pair) * other_pairs.size(),
-                cudaMemcpyHostToDevice));
-    gdata.other_pairs_size = other_pairs.size();
+    //all flexible pairs, but not intra
+    if (other_pairs.size()) {
+        CUDA_CHECK_GNINA(cudaMalloc(&gdata.other_pairs, sizeof(interacting_pair) *
+                    other_pairs.size()));
+        CUDA_CHECK_GNINA(cudaMemcpy(gdata.other_pairs, &other_pairs[0],
+                    sizeof(interacting_pair) * other_pairs.size(),
+                    cudaMemcpyHostToDevice));
+        gdata.other_pairs_size = other_pairs.size();
+    }
 
 	//input atom coords do not change
 	std::vector<vec> acoords(atoms.size());

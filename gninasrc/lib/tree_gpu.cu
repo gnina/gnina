@@ -298,8 +298,13 @@ void tree_gpu<cpu_root>::_derivative(const gfloat4 *coords,const gfloat4* forces
                         ::operator+(cross_product(r, ft.first), ft.second));
     }
    
-    if (gpu_root::in_unison())
-        c->values[c->flex_offset + tid - subtree_sizes[0] + root] = ft.second * axis;
+    if (gpu_root::in_unison()) {
+        unsigned relative_offset = tid < subtree_sizes[0] ? tid +
+            subtree_sizes[tid] : tid + root - subtree_sizes[0];
+        if (tid == 0)
+            relative_offset = 0;
+        c->values[c->flex_offset + relative_offset] = ft.second * axis;
+    }
     else if(tid > (subtree_sizes[0]-1) && tid < num_nodes)
         c->values[tid - subtree_sizes[0] + (root+1)*6] = ft.second * axis;
     else if (tid < num_nodes) {
