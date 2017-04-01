@@ -51,7 +51,7 @@ change_gpu::change_gpu(const change& src, float_buffer& buffer) :
 
 //allocate and copy
 change_gpu::change_gpu(const change_gpu& src, float_buffer& buffer) :
-		n(src.n), values(NULL) {
+		n(src.n), values(NULL), flex_offset(src.flex_offset) {
     values = buffer.copy(src.values, n+1, cudaMemcpyDeviceToDevice);
 }
 
@@ -190,7 +190,7 @@ void conf_gpu::set_cpu(conf& dst) const {
 
 //copy within buffer
 conf_gpu::conf_gpu(const conf_gpu& src, float_buffer& buffer) :
-		n(src.n), values(NULL) {
+		n(src.n), values(NULL), flex_offset(src.flex_offset) {
     values = buffer.copy(src.values, n, cudaMemcpyDeviceToDevice);
 }
 
