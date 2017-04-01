@@ -2,6 +2,7 @@
 #include "model.h"
 #include <algorithm>
 #include <map>
+#include <queue>
 
 __device__
 gfloat4 pseudoAtomicAdd(gfloat4* address, gfloat4 value) {
@@ -99,21 +100,20 @@ segment_node::segment_node(const segment& node,int p,segment_node* pnode) :
     begin(node.begin),
     end(node.end),
     parent(p),
-    layer(pnode->layer + 1),
-    root(pnode->root){}
+    layer(pnode->layer + 1){}
 
-segment_node::segment_node(const first_segment& node, int root) : //root node
+segment_node::segment_node(const first_segment& node) : //root node
     relative_axis(0,0,0,0), relative_origin(0,0,0,0),
     axis(node.axis), origin(node.origin),
     orientation_q(node.orientation_q), orientation_m(node.orientation_m),
-    begin(node.begin), end(node.end), parent(-1), layer(0), root(root){
+    begin(node.begin), end(node.end), parent(-1), layer(0){
 
 }
-segment_node::segment_node(const rigid_body& node, int root) : //root node
+segment_node::segment_node(const rigid_body& node) : //root node
     relative_axis(0,0,0,0), relative_origin(0,0,0,0),
     axis(0,0,0,0), origin(node.origin),
     orientation_q(node.orientation_q), orientation_m(node.orientation_m),
-    begin(node.begin), end(node.end), parent(-1), layer(0), root(root){
+    begin(node.begin), end(node.end), parent(-1), layer(0){
 
 }
 
@@ -172,21 +172,37 @@ void residue_root::set_conf(const float* c) {
 	set_orientation(angle_to_quaternion(axis, *c));
 }
 
-template<typename cpu_root>
-tree_gpu<cpu_root>::tree_gpu(const vector_mutable<cpu_root> &source, vec *atom_coords){
-	//populate nodes in DFS order
+tree_gpu::tree_gpu(const vector_mutable &ligands, const vector_mutable
+        &residues, vec *atom_coords){
+	//populate nodes in BFS order
 	std::vector<segment_node> nodes;
-    uint cpu_subtree_sizes[source.size()+1];
+    std::queue<pinfo_branch> bfs_branches;
    
-    VINA_FOR_IN(i, source)
-	    nodes.push_back(segment_node(source[i].node,i));
+    for (auto& lig : ligands) {
+	    nodes.push_back(segment_node(lig.node));
+        size_t pidx = nodes.size()-1;
+        for (auto& child : lig.children) { 
+            bfs_branches.push(pinfo_branch(child, pidx, nodes[pidx].layer+1));
+        }
+    }
 
-    cpu_subtree_sizes[0] = nodes.size();
+    for (auto& res : residues) {
+	    nodes.push_back(segment_node(res.node));
+        size_t pidx = nodes.size()-1;
+        for (auto& child : res.children) { 
+            bfs_branches.push(pinfo_branch(child, pidx, nodes[pidx].layer+1));
+        }
+    }
 
-    for (unsigned i=0; i < source.size(); i++) {
-        for (unsigned j=0; j < source[i].children.size(); j++) 
-	    	do_dfs(i, source[i].children[j], nodes);
-        cpu_subtree_sizes[i+1] = nodes.size() - cpu_subtree_sizes[0];
+    while (!bfs_branches.empty()) {
+        pinfo_branch& next_branch = bfs_branches.front();
+        nodes.push_back(segment_node(next_branch.node, next_branch.parent,
+                    next_branch.layer));
+        size_t pidx = nodes.size()-1;
+        for (auto& child : next_branch.children) {
+            bfs_branches.push(pinfo_branch(child, pidx, nodes[pidx].layer+1));
+        }
+        bfs_branches.pop();
     }
 
     uint natoms = 0;
@@ -207,8 +223,6 @@ tree_gpu<cpu_root>::tree_gpu(const vector_mutable<cpu_root> &source, vec *atom_c
 	num_nodes = nodes.size();
     num_layers = max_layer + 1;
    
-    //TODO: except for subtree_sizes, these should only be malloc'ed if
-    //nodes.size()
 	cudaMalloc(&device_nodes, sizeof(segment_node)*nodes.size());
 	cudaMemcpy(device_nodes, &nodes[0], sizeof(segment_node)*nodes.size(), cudaMemcpyHostToDevice);
 
@@ -217,10 +231,6 @@ tree_gpu<cpu_root>::tree_gpu(const vector_mutable<cpu_root> &source, vec *atom_c
 
     cudaMalloc(&owners, sizeof(uint) * natoms);
     cudaMemcpy(owners, cpu_owners, sizeof(uint) * natoms, cudaMemcpyHostToDevice);
-
-    cudaMalloc(&subtree_sizes, sizeof(uint) * (source.size()+1));
-    cudaMemcpy(subtree_sizes, cpu_subtree_sizes, sizeof(uint) *
-            (source.size()+1), cudaMemcpyHostToDevice);
 
     /* assert(num_nodes == source.count_torsions() + 1); */
     

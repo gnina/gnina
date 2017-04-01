@@ -70,7 +70,6 @@ struct segment_node {
 	sz end;
 	int parent; //location of parent in node array, -1 if root 
 	int layer; //layer in BFS tree
-    int root; //used to index into conf and change arrays with multiple residues
 
 	segment_node() :
 			parent(-1), layer(0), begin(0), end(0){
@@ -135,6 +134,15 @@ struct residue_root : public segment_node {
     __device__ static bool in_unison() { return true; }
 };
 
+//just a branch with parent info convenient for creating a bfs-ordered nodes
+//array for the tree_gpu struct
+struct pinfo_branch : branch {
+    int parent;
+    int layer;
+
+    pinfo_branch(const branch& b, const int pidx, const int lidx) : branch(branch), parent(pidx), layer(lidx) {}
+};
+
 struct __align__(sizeof(uint2)) atom_node_indices{
     uint atom_idx;
     uint node_idx;
@@ -172,7 +180,6 @@ struct tree_gpu {
 	unsigned num_nodes;
     unsigned num_layers;
     unsigned num_atoms;
-    unsigned *subtree_sizes;
 
     uint *owners;
 
