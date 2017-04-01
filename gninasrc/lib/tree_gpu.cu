@@ -182,6 +182,7 @@ tree_gpu<cpu_root>::tree_gpu(const vector_mutable<cpu_root> &source, vec *atom_c
 	    nodes.push_back(segment_node(source[i].node,i));
 
     cpu_subtree_sizes[0] = nodes.size();
+
     for (unsigned i=0; i < source.size(); i++) {
         for (unsigned j=0; j < source[i].children.size(); j++) 
 	    	do_dfs(i, source[i].children[j], nodes);
@@ -300,10 +301,11 @@ void tree_gpu<cpu_root>::_derivative(const gfloat4 *coords,const gfloat4* forces
    
     if (gpu_root::in_unison()) {
         unsigned relative_offset = tid < subtree_sizes[0] ? tid +
-            subtree_sizes[tid] : tid + root - subtree_sizes[0];
+            subtree_sizes[tid] : tid + root - subtree_sizes[0] + 1;
         if (tid == 0)
             relative_offset = 0;
-        c->values[c->flex_offset + relative_offset] = ft.second * axis;
+        if (tid < num_nodes)
+            c->values[c->flex_offset + relative_offset] = ft.second * axis;
     }
     else if(tid > (subtree_sizes[0]-1) && tid < num_nodes)
         c->values[tid - subtree_sizes[0] + (root+1)*6] = ft.second * axis;

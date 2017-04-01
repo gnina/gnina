@@ -72,11 +72,10 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
 
 	const fl cutoff_sqr = info.cutoff_sq;
     #ifdef __CUDA_ARCH__
-	memset(scratch, 0, sizeof(float));
+    scratch[0] = 0;
     #else
     cudaMemset(scratch, 0, sizeof(float));
     #endif
-    cudaDeviceSynchronize();
 
 	if(pairs_sz< CUDA_THREADS_PER_BLOCK) {
 		eval_intra_kernel<<<1,pairs_sz>>>(info.splineInfo, coords,
