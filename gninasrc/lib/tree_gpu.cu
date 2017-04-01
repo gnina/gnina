@@ -304,6 +304,8 @@ void tree_gpu<cpu_root>::_derivative(const gfloat4 *coords,const gfloat4* forces
             subtree_sizes[tid] : tid + root - subtree_sizes[0] + 1;
         if (tid == 0)
             relative_offset = 0;
+        if (tid < subtree_sizes[0])
+            ft = force_torques[tid];
         if (tid < num_nodes)
             c->values[c->flex_offset + relative_offset] = ft.second * axis;
     }
