@@ -54,6 +54,7 @@ bool conf::operator==(const conf& other) const
 }
 
 fl conf::get_with_node_idx(sz index, sz* node_idx) const {
+    *node_idx = 0;
     VINA_FOR_IN(i, ligands) {
         const ligand_conf& lig = ligands[i];
         if(index < 3) return lig.rigid.position[index];
@@ -66,12 +67,11 @@ fl conf::get_with_node_idx(sz index, sz* node_idx) const {
         // }
         // TODO instead of this:
         if(index < 4) return ((float*)&lig.rigid.orientation)[index];
-
+        index -= 4;
         // Count the number of nodes we have/will skip over on this
         // iteration.
         *node_idx += 1 + std::min(index, lig.torsions.size());
 
-        index -= 4;
         if(index < lig.torsions.size()) return lig.torsions[index];
         index -= lig.torsions.size();
     }
