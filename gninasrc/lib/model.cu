@@ -408,7 +408,9 @@ void model::initialize_gpu() {
 
 	//set up tree. Writes padding to mark every atom in acoords with its owner.
     //TODO: quite intrusive
-	tree_gpu tg(ligands, flex, &acoords[0]);
+	tree_gpu tg(ligands, flex, &acoords[0], gdata.dfs_order_bfs_indices,
+            gdata.bfs_order_dfs_indices);
+    gdata.nlig_roots = tg.nlig_roots;
 	CUDA_CHECK_GNINA(cudaMalloc(&gdata.treegpu, sizeof(tree_gpu)));
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(gdata.treegpu, &tg, sizeof(tree_gpu),
@@ -446,6 +448,14 @@ void model::deallocate_gpu() {
 		CUDA_CHECK_GNINA(cudaFree(gdata.scratch));
 		gdata.scratch = NULL;
 	}
+    if (gdata.dfs_order_bfs_indices) {
+        delete [] gdata.dfs_order_bfs_indices;
+        gdata.dfs_order_bfs_indices = NULL;
+    }
+    if (gdata.bfs_order_dfs_indices) {
+        delete [] gdata.bfs_order_dfs_indices;
+        gdata.bfs_order_dfs_indices = NULL;
+    }
 
 	if (gdata.interacting_pairs) {
 		CUDA_CHECK_GNINA(cudaFree(gdata.interacting_pairs));

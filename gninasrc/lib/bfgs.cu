@@ -83,7 +83,7 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
         }
         __syncthreads();
         if (idx < x_new.n)
-		    x_new.increment(p, alpha, f.gdata.treegpu);
+		    x_new.increment(p, alpha, &f.gdata);
 
         if (idx == 0)
             f1 = f(x_new, g_new);

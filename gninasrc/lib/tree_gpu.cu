@@ -269,8 +269,6 @@ void tree_gpu::deallocate(tree_gpu *t) {
 	cudaMemcpy(&cpu, t, sizeof(tree_gpu), cudaMemcpyDeviceToHost);
 	cudaFree(cpu.device_nodes);
 	cudaFree(cpu.force_torques);
-    delete [] cpu.dfs_order_bfs_indices;
-    delete [] cpu.bfs_order_dfs_indices;
 	cudaFree(t);
 }
 

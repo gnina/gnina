@@ -20,7 +20,7 @@ __global__ void scalar_mult_kernel(float mult, const int n, float *vals) {
 }
 
 size_t change_gpu::idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const gpu_data& d) {
-    unsigned gpu_node_idx = d.node_idx_cpu2gpu(cpu_node_idx);
+    size_t gpu_node_idx = d.node_idx_cpu2gpu(cpu_node_idx);
 
     constexpr size_t extra_floats_per_lig_root = 5;
     size_t lig_roots_before_node = min(gpu_node_idx, d.nlig_roots);
@@ -123,7 +123,7 @@ sz change_gpu::num_floats() const {
 // CPU conf torsions are stored in dfs order, relative to the model's
 // trees. GPU conf torsions are in bfs order.
 size_t conf_gpu::idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const gpu_data& d) {
-    unsigned gpu_node_idx = d.node_idx_cpu2gpu(cpu_node_idx);
+    size_t gpu_node_idx = d.node_idx_cpu2gpu(cpu_node_idx);
 
     constexpr size_t extra_floats_per_lig_root = 6;
     size_t lig_roots_before_node = min(gpu_node_idx, d.nlig_roots);
@@ -183,10 +183,11 @@ conf_gpu& conf_gpu::operator=(const conf_gpu& src) {
 	return *this;
 }
 
-__device__ void conf_gpu::increment(const change_gpu& c, fl factor, tree_gpu*
-        tree) {
+__device__ void conf_gpu::increment(const change_gpu& c, fl factor, gpu_data*
+        gdata) {
     unsigned idx = threadIdx.x;
-    unsigned lig_roots = tree->nlig_roots;
+    tree_gpu& tree = *gdata->treegpu;
+    unsigned lig_roots = tree.nlig_roots;
     //update rigid with early threads
     if (idx < lig_roots) {
         //position
@@ -208,7 +209,7 @@ __device__ void conf_gpu::increment(const change_gpu& c, fl factor, tree_gpu*
 	    values[conf_offset + 6] = orientation.R_component_4();
     }
 	//torsions updated by everybody else, with indexing to avoid touching rigid again
-    else if (idx < tree->num_nodes) {
+    else if (idx < tree.num_nodes) {
         unsigned conf_offset = idx + (6 * lig_roots);
         unsigned change_offset = idx + (5 * lig_roots);
 	    values[conf_offset] += normalized_angle(factor*c.values[change_offset]);

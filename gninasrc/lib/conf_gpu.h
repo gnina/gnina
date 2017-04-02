@@ -64,7 +64,7 @@ struct conf_gpu {
     __host__ __device__
 	conf_gpu& operator=(const conf_gpu& src);
 
-	__device__ void increment(const change_gpu& c, fl factor, tree_gpu* tree);
+	__device__ void increment(const change_gpu& c, fl factor, gpu_data* gdata);
 
 	void get_data(std::vector<float>& d) const;
 
