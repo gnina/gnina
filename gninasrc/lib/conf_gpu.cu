@@ -19,51 +19,49 @@ __global__ void scalar_mult_kernel(float mult, const int n, float *vals) {
 	}
 }
 
-change_gpu::change_gpu(const change& src, float_buffer& buffer) :
-		values(NULL), n(0) {
-	std::vector<float> data;
-    for (auto& ligchange : src.ligands) {
-	    n += 6; //position + orientation
-	    for (unsigned i = 0; i < 3; i++)
-	    	data.push_back(ligchange.rigid.position[i]);
+size_t change_gpu::idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const tree_gpu& t) {
+    size_t gpu_node_idx = t.node_idx_dfs2bfs(cpu_node_idx);
 
-	    for (unsigned i = 0; i < 3; i++)
-	    	data.push_back(ligchange.rigid.orientation[i]);
+    constexpr size_t extra_floats_per_lig_root = 5;
+    size_t lig_roots_before_node = min(gpu_node_idx, t.nlig_roots);
+    size_t gpu_flat_idx =
+        gpu_node_idx +
+        extra_floats_per_lig_root * lig_roots_before_node;
 
-	    n += ligchange.torsions.size();
-	    for (unsigned i = 0, nn = ligchange.torsions.size(); i < nn; i++) {
-	    	data.push_back(ligchange.torsions[i]);
-	    }
+    return gpu_flat_idx;
+}
+
+change_gpu::change_gpu(const change& src, const tree_gpu& t, float_buffer& buffer) :
+    n(src.num_floats())
+{
+    std::unique_ptr<fl[]> data(new fl[n]);
+
+    for (sz i = 0; i < num_floats(); i++) {
+        sz cpu_node_idx;
+        fl cpu_val = src.get_with_node_idx(i, &cpu_node_idx);
+        data[change_gpu::idx_cpu2gpu(i, cpu_node_idx, t)] = cpu_val;
     }
 
-    for (auto& reschange : src.flex) {
-	    n += reschange.torsions.size();
-	    for (unsigned j = 0, m = reschange.torsions.size(); j < m; j++) {
-	    	data.push_back(reschange.torsions[j]);
-	    }
-    }
-	//copy to buffer, leaving scratch space for dot
-	assert(n == data.size());
-    data.push_back(0);
-    values = buffer.copy(&data[0], n+1, cudaMemcpyHostToDevice);
+    values = buffer.copy(data.get(), n, cudaMemcpyHostToDevice);
 }
 
 //allocate and copy
 change_gpu::change_gpu(const change_gpu& src, float_buffer& buffer) :
-		n(src.n), values(NULL) {
+		n(src.n), values(NULL)
+{
     values = buffer.copy(src.values, n+1, cudaMemcpyDeviceToDevice);
 }
 
-__device__ 
+__device__
 change_gpu& change_gpu::operator=(const change_gpu& src) {
     assert(values && n == src.n);
-#ifndef __CUDA_ARCH__    
+#ifndef __CUDA_ARCH__
     CUDA_CHECK_GNINA(cudaMemcpy(values, src.values, sizeof(float) * n,
             cudaMemcpyDeviceToDevice));
 #else
     memcpy(values, src.values, sizeof(float) * n);
 #endif
-    
+
 	return *this;
 }
 
@@ -121,67 +119,46 @@ sz change_gpu::num_floats() const {
 	return n;
 }
 
-conf_gpu::conf_gpu(const conf& src, float_buffer& buffer) :
-		values(NULL), n(0) {
-	std::vector<float> data;
-    for (auto& ligconf : src.ligands) {
-	    n += 7; //position + orientation(qt)
-	    for (unsigned i = 0; i < 3; i++)
-	    	data.push_back(ligconf.rigid.position[i]);
+// CPU conf torsions are stored in dfs order, relative to the model's
+// trees. GPU conf torsions are in bfs order.
+size_t conf_gpu::idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const gpu_data& d) {
+    size_t gpu_node_idx = t.node_idx_dfs2bfs(cpu_node_idx);
 
-	    data.push_back(ligconf.rigid.orientation.R_component_1());
-	    data.push_back(ligconf.rigid.orientation.R_component_2());
-	    data.push_back(ligconf.rigid.orientation.R_component_3());
-	    data.push_back(ligconf.rigid.orientation.R_component_4());
+    constexpr size_t extra_floats_per_lig_root = 6;
+    size_t lig_roots_before_node = min(gpu_node_idx, t.nlig_roots);
+    size_t gpu_flat_idx =
+        gpu_node_idx +
+        extra_floats_per_lig_root * lig_roots_before_node;
 
-	    n += ligconf.torsions.size();
-	    for (unsigned i = 0, nn = ligconf.torsions.size(); i < nn; i++) {
-	    	data.push_back(ligconf.torsions[i]);
-	    }
+    return gpu_flat_idx;
+}
+
+conf_gpu::conf_gpu(const conf& src, const gpu_data& d, float_buffer& buffer) :
+    n(src.num_floats())
+{
+    std::unique_ptr<fl[]> data(new fl[n]);
+
+    for (sz i = 0; i < n; i++) {
+        sz cpu_node_idx;
+        fl cpu_val = src.get_with_node_idx(i, &cpu_node_idx);
+        data[conf_gpu::idx_cpu2gpu(i, cpu_node_idx, d)] = cpu_val;
     }
 
-    for (auto& resconf : src.flex) {
-	    n += resconf.torsions.size();
-	    for (unsigned j = 0, m = resconf.torsions.size(); j < m; j++) {
-	    	data.push_back(resconf.torsions[j]);
-	    }
-    }
-
-	assert(n == data.size());
-    values = buffer.copy(&data[0], n, cudaMemcpyHostToDevice);
+    values = buffer.copy(data.get(), n, cudaMemcpyHostToDevice);
 }
 
 //set cpu to gpu values, assumes correctly sized
-void conf_gpu::set_cpu(conf& dst) const {
-	std::vector<float> d;
-	get_data(d);
-    unsigned n = 0;
-    //N.B. this assumes the torsions are in the same order
-    //TODO: ugliness
-    for (auto& lig : dst.ligands) {
-        for (unsigned i = 0; i < 3; i++) {
-            lig.rigid.position[i] = d[n];
-            n++;
-        }
-        lig.rigid.orientation.x = d[n];
-        n++;
-        lig.rigid.orientation.y = d[n];
-        n++;
-        lig.rigid.orientation.z = d[n];
-        n++;
-        lig.rigid.orientation.w = d[n];
-        n++;
-        for (unsigned i = 0; i < lig.torsions.size(); i++) {
-            lig.torsions[i] = d[n];
-            n++;
-        }
-    }
+void conf_gpu::set_cpu(conf& dst, const gpu_data& d) const {
 
-    for (auto& res : dst.flex) {
-        for (unsigned i = 0; i < res.torsions.size(); i++) {
-            res.torsions[i] = d[n];
-            n++;
-        }
+    std::vector<fl> data;
+    get_data(data);
+
+    for (sz i = 0; i < n; i++) {
+        // TODO: need get_with_node_idx for node_idx, but need operator()
+        // for writeable-ref.
+        sz cpu_node_idx;
+        fl cpu_val = dst.get_with_node_idx(i, &cpu_node_idx);
+        dst(i) = data[conf_gpu::idx_cpu2gpu(i, cpu_node_idx, d)];
     }
 }
 
@@ -201,7 +178,7 @@ conf_gpu& conf_gpu::operator=(const conf_gpu& src) {
 #else
     memcpy(values, src.values, sizeof(float) * n);
 #endif
-    
+
 	return *this;
 }
 
@@ -214,11 +191,11 @@ __device__ void conf_gpu::increment(const change_gpu& c, fl factor, tree_gpu*
         //position
         unsigned conf_offset = idx*7;
         unsigned change_offset = idx*6;
-        for (int i = 0; i < 3; i++) 
+        for (int i = 0; i < 3; i++)
             values[conf_offset + i] += c.values[change_offset + i]*factor;
 
 	    //rotation
-	    qt orientation(values[conf_offset+ 3], values[conf_offset + 4], 
+	    qt orientation(values[conf_offset+ 3], values[conf_offset + 4],
                 values[conf_offset + 5], values[conf_offset + 6]);
 	    vec rotation(factor * c.values[change_offset + 3], factor *
                 c.values[change_offset + 4], factor *
@@ -230,7 +207,7 @@ __device__ void conf_gpu::increment(const change_gpu& c, fl factor, tree_gpu*
 	    values[conf_offset + 6] = orientation.R_component_4();
     }
 	//torsions updated by everybody else, with indexing to avoid touching rigid again
-    else if (idx < tree->num_nodes) {     
+    else if (idx < tree->num_nodes) {
         unsigned conf_offset = idx + (6 * lig_roots);
         unsigned change_offset = idx + (5 * lig_roots);
 	    values[conf_offset] += normalized_angle(factor*c.values[change_offset]);

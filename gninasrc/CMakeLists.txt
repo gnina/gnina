@@ -68,6 +68,7 @@ lib/ssd.cpp
 lib/szv_grid.cpp
 lib/terms.cpp
 lib/weighted_terms.cpp
+lib/conf.cpp
 lib/conf_gpu.cu
 lib/gpucode.cu
 lib/gridmaker.cu

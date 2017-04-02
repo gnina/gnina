@@ -22,7 +22,7 @@ __host__ __device__
 gfloat4 operator*(const gpu_mat &m, const gfloat4&_v){
     gfloat4 v = _v;
     return
-    gfloat4(m.vecs[0][0] * v[0] + m.vecs[1][0] * v[1] + m.vecs[2][0] * v[2], 
+    gfloat4(m.vecs[0][0] * v[0] + m.vecs[1][0] * v[1] + m.vecs[2][0] * v[2],
             m.vecs[0][1] * v[0] + m.vecs[1][1] * v[1] + m.vecs[2][1] * v[2],
             m.vecs[0][2] * v[0] + m.vecs[1][2] * v[1] + m.vecs[2][2] * v[2],
             0);
@@ -31,7 +31,7 @@ gfloat4 operator*(const gpu_mat &m, const gfloat4&_v){
 __host__ __device__
 gfloat4 operator*(const gpu_mat &m, const float3&v){
     return
-    gfloat4(m.vecs[0][0] * v[0] + m.vecs[1][0] * v[1] + m.vecs[2][0] * v[2], 
+    gfloat4(m.vecs[0][0] * v[0] + m.vecs[1][0] * v[1] + m.vecs[2][0] * v[2],
             m.vecs[0][1] * v[0] + m.vecs[1][1] * v[1] + m.vecs[2][1] * v[2],
             m.vecs[0][2] * v[0] + m.vecs[1][2] * v[1] + m.vecs[2][2] * v[2],
             0);
@@ -158,7 +158,7 @@ void tree_gpu::do_dfs(branch& branch, size_t& dfs_idx){
 	}
 }
 
-tree_gpu::tree_gpu(vector_mutable<ligand> &ligands, 
+tree_gpu::tree_gpu(vector_mutable<ligand> &ligands,
         vector_mutable<residue> &residues, vec *atom_coords){
     size_t dfs_idx = 0;
     //do DFS traversal of cpu trees to populate dfs_idx
@@ -184,14 +184,14 @@ tree_gpu::tree_gpu(vector_mutable<ligand> &ligands,
     std::queue<pinfo_branch> bfs_branches;
     dfs_order_bfs_indices = new size_t[num_nodes];
     bfs_order_dfs_indices = new size_t[num_nodes];
-   
+
     for (auto& lig : ligands) {
 	    nodes.push_back(segment_node(lig.node));
         size_t pidx = nodes.size()-1;
         lig.node.bfs_idx = pidx;
         dfs_order_bfs_indices[lig.node.dfs_idx] = lig.node.bfs_idx;
         bfs_order_dfs_indices[lig.node.bfs_idx] = lig.node.dfs_idx;
-        for (auto& child : lig.children) { 
+        for (auto& child : lig.children) {
             bfs_branches.push(pinfo_branch(&child, pidx, nodes[pidx].layer+1));
         }
     }
@@ -203,7 +203,7 @@ tree_gpu::tree_gpu(vector_mutable<ligand> &ligands,
         res.node.bfs_idx = pidx;
         dfs_order_bfs_indices[res.node.dfs_idx] = res.node.bfs_idx;
         bfs_order_dfs_indices[res.node.bfs_idx] = res.node.dfs_idx;
-        for (auto& child : res.children) { 
+        for (auto& child : res.children) {
             bfs_branches.push(pinfo_branch(&child, pidx, nodes[pidx].layer+1));
         }
     }
@@ -232,7 +232,7 @@ tree_gpu::tree_gpu(vector_mutable<ligand> &ligands,
         max_layer = std::max((uint) n.layer, max_layer);
     }
     num_atoms = natoms;
-    
+
     marked_coord *atoms = (marked_coord *) atom_coords;
     uint cpu_owners[natoms];
     for(int i = 0; i < nodes.size(); i++)
@@ -241,7 +241,7 @@ tree_gpu::tree_gpu(vector_mutable<ligand> &ligands,
 
 	assert(num_nodes = nodes.size());
     num_layers = max_layer + 1;
-   
+
 	cudaMalloc(&device_nodes, sizeof(segment_node)*nodes.size());
 	cudaMemcpy(device_nodes, &nodes[0], sizeof(segment_node)*nodes.size(), cudaMemcpyHostToDevice);
 
@@ -252,13 +252,13 @@ tree_gpu::tree_gpu(vector_mutable<ligand> &ligands,
     cudaMemcpy(owners, cpu_owners, sizeof(uint) * natoms, cudaMemcpyHostToDevice);
 
     /* assert(num_nodes == source.count_torsions() + 1); */
-    
+
     for(uint &o : cpu_owners){
         segment_node &n = nodes[o];
         assert(&o >= &cpu_owners[n.begin] &&
                &o < &cpu_owners[n.end]);
         assert(o < nodes.size());
-        
+
     }
 }
 
@@ -288,7 +288,7 @@ void tree_gpu::_derivative(const gfloat4 *coords,const gfloat4* forces, change_g
     if(tid < num_nodes)
         force_torques[tid] = gfloat4p(gfloat4(0,0,0,0), gfloat4(0,0,0,0));
     __syncthreads();
-    
+
     pseudoAtomicAdd(&force_torques[nid].first, forces[tid]);
     pseudoAtomicAdd(&force_torques[nid].second,
                     cross_product(coords[tid] - owner.origin, forces[tid]));
@@ -301,7 +301,7 @@ void tree_gpu::_derivative(const gfloat4 *coords,const gfloat4* forces, change_g
     gfloat4 origin;
     gfloat4 parent_origin;
     gfloat4p ft;
-    
+
     if(tid > (nlig_roots+nres_roots-1) && tid < num_nodes){
         segment_node &n = device_nodes[tid];
         parent_id = n.parent;
@@ -310,19 +310,19 @@ void tree_gpu::_derivative(const gfloat4 *coords,const gfloat4* forces, change_g
         axis = n.axis;
         origin = n.origin;
     }
-    
+
     for(uint l = num_layers - 1; l > 0; l--){
         __syncthreads();
         if(l != layer)
             continue;
         ft = force_torques[tid];
         gfloat4 r = origin - parent_origin;
-        
+
         pseudoAtomicAdd(&force_torques[parent_id].first, ft.first);
         pseudoAtomicAdd(&force_torques[parent_id].second,
                         ::operator+(cross_product(r, ft.first), ft.second));
     }
-   
+
     if (tid > (nlig_roots-1) && tid < num_nodes) {
         c->values[tid + 5*nlig_roots] = ft.second * axis;
     }
@@ -358,7 +358,7 @@ void tree_gpu::set_conf(const vec *atom_coords, vec *coords,
 __device__
 void tree_gpu::_set_conf(const marked_coord *atom_coords, gfloat4 *coords,
                          const conf_gpu *c){
-    
+
 	uint tid = threadIdx.x;
     segment_node* n = &device_nodes[tid];
     marked_coord a = atom_coords[tid];
@@ -366,7 +366,7 @@ void tree_gpu::_set_conf(const marked_coord *atom_coords, gfloat4 *coords,
     uint layer = 0;
     segment_node *parent = NULL;
     fl torsion = 0;
-    
+
     if (tid < nlig_roots){
         float* rigid_conf = &c->values[7*tid];
 	    for(unsigned i = 0; i < 3; i++)
@@ -402,4 +402,3 @@ void tree_gpu::_set_conf(const marked_coord *atom_coords, gfloat4 *coords,
 
     coords[tid] = device_nodes[a.owner_idx].local_to_lab(a.coords);
 }
-

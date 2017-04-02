@@ -65,6 +65,9 @@ struct gpu_data {
     bool print_during_minimization;
     size_t eval_deriv_counter;
 
+    //TODO delete
+    size_t nlig_roots;
+
   	gpu_data(): coords(NULL), atom_coords(NULL), minus_forces(NULL),
   			treegpu(NULL), interacting_pairs(NULL), other_pairs(NULL), 
             scratch(NULL), coords_size(0),
@@ -86,6 +89,7 @@ struct gpu_data {
 	//copy back relevant data from gpu buffers
 	void copy_from_gpu(model& m);
 
+    sz node_idx_dfs2bfs(sz dfs_node_idx) const;
 };
 
 // dkoes - as an alternative to pdbqt, this stores information

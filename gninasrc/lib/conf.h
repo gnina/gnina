@@ -309,6 +309,8 @@ struct change {
 		VINA_FOR_IN(i, flex)
 			flex[i].print();
 	}
+
+    fl get_with_node_idx(sz index, sz* node_idx /* out */) const;
 };
 
 struct conf {
@@ -410,6 +412,19 @@ struct conf {
 		//VINA_CHECK(false); //avoid compiler warnings
 		return 0; // shouldn't happen, placating the compiler
 	}
+
+	fl& operator()(sz index);
+
+    sz num_floats() const {
+		sz tmp = 0;
+		VINA_FOR_IN(i, ligands)
+			tmp += 7 + ligands[i].torsions.size();
+		VINA_FOR_IN(i, flex)
+			tmp += flex[i].torsions.size();
+		return tmp;
+	}
+
+    fl get_with_node_idx(sz index, sz* node_idx /* out */) const;
 
 private:
 	friend class boost::serialization::access;
