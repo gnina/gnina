@@ -263,11 +263,6 @@ tree_gpu::tree_gpu(vector_mutable<ligand> &ligands,
     }
 }
 
-size_t tree_gpu::node_idx_cpu2gpu(size_t cpu_idx) const
-{
-    return bfs_order_dfs_indices[cpu_idx];
-}
-
 //given a gpu point, deallocate all the memory
 void tree_gpu::deallocate(tree_gpu *t) {
 	tree_gpu cpu;

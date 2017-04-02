@@ -474,3 +474,7 @@ void gpu_data::copy_from_gpu(model& m) {
     cudaDeviceSynchronize();
 }
 
+size_t gpu_data::node_idx_cpu2gpu(size_t cpu_idx) const
+{
+    return bfs_order_dfs_indices[cpu_idx];
+}

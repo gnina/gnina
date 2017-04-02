@@ -92,7 +92,7 @@ struct gpu_data {
 	//copy back relevant data from gpu buffers
 	void copy_from_gpu(model& m);
 
-    sz node_idx_dfs2bfs(sz dfs_node_idx) const;
+    size_t node_idx_cpu2gpu(size_t cpu_idx) const;
 };
 
 // dkoes - as an alternative to pdbqt, this stores information

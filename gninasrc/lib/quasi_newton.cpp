@@ -57,7 +57,7 @@ void quasi_newton::operator()(model& m,const precalculate& p,const igrid& ig,
 		change_gpu gchange(g, *m.gdata, buffer);
 		conf_gpu gconf(out.c, *m.gdata, buffer);
 		fl res = bfgs(aux, gconf, gchange, average_required_improvement, params);
-		gconf.set_cpu(out.c, *m.gdata.treegpu);
+		gconf.set_cpu(out.c, *m.gdata);
 		out.e = res;
 	} else {
 		quasi_newton_aux aux(&m, &p, &ig, v, &user_grid);
