@@ -51,7 +51,6 @@ struct gpu_data {
   	vec *atom_coords;
   	force_energy_tup *minus_forces;
   	tree_gpu<ligand> *treegpu;
-    tree_gpu<residue> *flex;
   	interacting_pair *interacting_pairs;
     // all except internal to one ligand: ligand-other ligands;
     // ligand-flex/inflex; flex-flex/inflex

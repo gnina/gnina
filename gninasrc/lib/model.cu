@@ -416,18 +416,12 @@ void model::initialize_gpu() {
 		acoords[i] = atoms[i].coords;
 	}
 
-	//setup ligand tree. Writes padding to mark every atom in acoords with its owner.
+	//set up tree. Writes padding to mark every atom in acoords with its owner.
     //TODO: quite intrusive
-	tree_gpu<ligand> tg_lig(ligands, &acoords[0]);
-	CUDA_CHECK_GNINA(cudaMalloc(&gdata.treegpu, sizeof(tree_gpu<ligand>)));
+	tree_gpu tg(ligands, flex, &acoords[0]);
+	CUDA_CHECK_GNINA(cudaMalloc(&gdata.treegpu, sizeof(tree_gpu)));
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(gdata.treegpu, &tg_lig, sizeof(tree_gpu<ligand>),
-					cudaMemcpyHostToDevice));
-    //setup flex tree.
-	tree_gpu<residue> tg_flex(flex, &acoords[0]);
-	CUDA_CHECK_GNINA(cudaMalloc(&gdata.flex, sizeof(tree_gpu<residue>)));
-	CUDA_CHECK_GNINA(
-			cudaMemcpy(gdata.flex, &tg_flex, sizeof(tree_gpu<residue>),
+			cudaMemcpy(gdata.treegpu, &tg, sizeof(tree_gpu),
 					cudaMemcpyHostToDevice));
    
     //this contains the marked_coords for all the atoms and therefore all the
@@ -455,12 +449,8 @@ void model::deallocate_gpu() {
 		gdata.minus_forces = NULL;
 	}
 	if (gdata.treegpu) {
-		tree_gpu<ligand>::deallocate(gdata.treegpu);
+		tree_gpu::deallocate(gdata.treegpu);
 		gdata.treegpu = NULL;
-	}
-	if (gdata.flex) {
-		tree_gpu<residue>::deallocate(gdata.flex);
-		gdata.flex = NULL;
 	}
 	if (gdata.scratch) {
 		CUDA_CHECK_GNINA(cudaFree(gdata.scratch));

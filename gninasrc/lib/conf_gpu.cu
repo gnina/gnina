@@ -208,8 +208,8 @@ conf_gpu& conf_gpu::operator=(const conf_gpu& src) {
 	return *this;
 }
 
-__device__ void conf_gpu::increment(const change_gpu& c, fl factor, unsigned*
-        lig_subtree_sizes) {
+__device__ void conf_gpu::increment(const change_gpu& c, fl factor, tree_gpu*
+        tree) {
     unsigned idx = threadIdx.x;
     unsigned nroots = lig_subtree_sizes[0];
     //update rigid with early threads

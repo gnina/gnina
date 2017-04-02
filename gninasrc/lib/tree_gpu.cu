@@ -150,16 +150,14 @@ void segment_node::set_orientation(float x, float y, float z, float w) { // does
 	orientation_m = quaternion_to_r3(orientation_q);
 }
 
-template<typename cpu_root>
-void tree_gpu<cpu_root>::do_dfs(int parent, const branch& branch,
-                      std::vector<segment_node> &nodes){
-	segment_node node(branch.node, parent, &nodes[parent]);
-	unsigned index = nodes.size();
-	nodes.push_back(node);
-	VINA_FOR_IN(i, branch.children) {
-		do_dfs(index, branch.children[i], nodes);
+void tree_gpu::do_dfs(const branch& branch, size_t& dfs_idx){
+    branch.node.dfs_idx = dfs_idx;
+    dfs_idx++;
+    for (auto& child : branch.children) {
+		do_dfs(child, dfs_idx);
 	}
 }
+
 __device__ 
 void ligand_root::set_conf(const float* c) {
 	for(unsigned i = 0; i < 3; i++)
@@ -174,33 +172,66 @@ void residue_root::set_conf(const float* c) {
 
 tree_gpu::tree_gpu(const vector_mutable &ligands, const vector_mutable
         &residues, vec *atom_coords){
-	//populate nodes in BFS order
-	std::vector<segment_node> nodes;
-    std::queue<pinfo_branch> bfs_branches;
-   
+    size_t dfs_idx = 0;
+    //do DFS traversal of cpu trees to populate dfs_idx
     for (auto& lig : ligands) {
-	    nodes.push_back(segment_node(lig.node));
-        size_t pidx = nodes.size()-1;
-        for (auto& child : lig.children) { 
-            bfs_branches.push(pinfo_branch(child, pidx, nodes[pidx].layer+1));
+        lig.node.dfs_idx = dfs_idx;
+        dfs_idx++;
+        for (auto& child : lig.children) {
+            do_dfs(child, dfs_idx);
         }
     }
 
     for (auto& res : residues) {
+        res.node.dfs_idx = dfs_idx;
+        dfs_idx++;
+        for (auto& child : res.children) {
+            do_dfs(child, dfs_idx);
+        }
+    }
+
+    num_nodes = dfs_idx;
+	//populate nodes in BFS order and populate cpu tree bfs_idx
+	std::vector<segment_node> nodes;
+    std::queue<pinfo_branch> bfs_branches;
+    size_t dfs_order_bfs_indices[num_nodes];
+    size_t bfs_order_dfs_indices[num_nodes];
+   
+    for (auto& lig : ligands) {
+	    nodes.push_back(segment_node(lig.node));
+        size_t pidx = nodes.size()-1;
+        lig.node.bfs_idx = pidx;
+        dfs_order_bfs_indices[lig.node.dfs_idx] = lig.node.bfs_idx;
+        bfs_order_dfs_indices[lig.node.bfs_idx] = lig.node.dfs_idx;
+        for (auto& child : lig.children) { 
+            bfs_branches.push(pinfo_branch(&child, pidx, nodes[pidx].layer+1));
+        }
+    }
+
+    res_start = nodes.size();
+    for (auto& res : residues) {
 	    nodes.push_back(segment_node(res.node));
         size_t pidx = nodes.size()-1;
+        res.node.bfs_idx = pidx;
+        dfs_order_bfs_indices[res.node.dfs_idx] = res.node.bfs_idx;
+        bfs_order_dfs_indices[res.node.bfs_idx] = res.node.dfs_idx;
         for (auto& child : res.children) { 
-            bfs_branches.push(pinfo_branch(child, pidx, nodes[pidx].layer+1));
+            bfs_branches.push(pinfo_branch(&child, pidx, nodes[pidx].layer+1));
         }
     }
 
     while (!bfs_branches.empty()) {
         pinfo_branch& next_branch = bfs_branches.front();
-        nodes.push_back(segment_node(next_branch.node, next_branch.parent,
+        nodes.push_back(segment_node(next_branch.bptr->node, next_branch.parent,
                     next_branch.layer));
         size_t pidx = nodes.size()-1;
-        for (auto& child : next_branch.children) {
-            bfs_branches.push(pinfo_branch(child, pidx, nodes[pidx].layer+1));
+        next_branch.bptr->node.bfs_idx = pidx;
+        dfs_order_bfs_indices[next_branch.bptr->node.dfs_idx] =
+            next_branch.bptr->node.bfs_idx;
+        bfs_order_dfs_indices[next_branch.bptr->node.bfs_idx] =
+            next_branch.bptr->node.dfs_idx;
+        for (auto& child : next_branch.bptr->children) {
+            bfs_branches.push(pinfo_branch(&child, pidx, nodes[pidx].layer+1));
         }
         bfs_branches.pop();
     }
@@ -209,7 +240,6 @@ tree_gpu::tree_gpu(const vector_mutable &ligands, const vector_mutable
     uint max_layer = 0;
     for(auto n : nodes){
         natoms += n.end - n.begin;
-        //TODO: just BFS-order the nodes
         max_layer = std::max((uint) n.layer, max_layer);
     }
     num_atoms = natoms;
@@ -220,7 +250,7 @@ tree_gpu::tree_gpu(const vector_mutable &ligands, const vector_mutable
         for(int ai = nodes[i].begin; ai < nodes[i].end; ai++)
             cpu_owners[ai] = atoms[ai].owner_idx = i;
 
-	num_nodes = nodes.size();
+	assert(num_nodes = nodes.size());
     num_layers = max_layer + 1;
    
 	cudaMalloc(&device_nodes, sizeof(segment_node)*nodes.size());
@@ -244,8 +274,7 @@ tree_gpu::tree_gpu(const vector_mutable &ligands, const vector_mutable
 }
 
 //given a gpu point, deallocate all the memory
-template<typename cpu_root>
-void tree_gpu<cpu_root>::deallocate(tree_gpu *t) {
+void tree_gpu::deallocate(tree_gpu *t) {
 	tree_gpu cpu;
 	cudaMemcpy(&cpu, t, sizeof(tree_gpu), cudaMemcpyDeviceToHost);
 	cudaFree(cpu.device_nodes);
@@ -253,15 +282,13 @@ void tree_gpu<cpu_root>::deallocate(tree_gpu *t) {
 	cudaFree(t);
 }
 
-template<typename cpu_root>
 __device__
-void tree_gpu<cpu_root>::derivative(const vec *coords,const vec* forces, change_gpu *c){
+void tree_gpu::derivative(const vec *coords,const vec* forces, change_gpu *c){
     _derivative((gfloat4 *) coords, (gfloat4 *) forces, c);
 }
 
-template<typename cpu_root>
 __device__
-void tree_gpu<cpu_root>::_derivative(const gfloat4 *coords,const gfloat4* forces, change_gpu *c){
+void tree_gpu::_derivative(const gfloat4 *coords,const gfloat4* forces, change_gpu *c){
 	// assert(c.torsions.size() == num_nodes-1);
 	
 	//calculate each segments individual force/torque
@@ -344,17 +371,15 @@ gfloat4p segment_node::sum_force_and_torque(const gfloat4 *coords, const gfloat4
 	return tmp;
 }
 
-template<typename cpu_root>
 __device__
-void tree_gpu<cpu_root>::set_conf(const vec *atom_coords, vec *coords,
+void tree_gpu::set_conf(const vec *atom_coords, vec *coords,
                         const conf_gpu* c){
     _set_conf((marked_coord *) atom_coords, (gfloat4 *) coords, c);
 }
 
 
-template<typename cpu_root>
 __device__
-void tree_gpu<cpu_root>::_set_conf(const marked_coord *atom_coords, gfloat4 *coords,
+void tree_gpu::_set_conf(const marked_coord *atom_coords, gfloat4 *coords,
                          const conf_gpu *c){
     
 	uint tid = threadIdx.x;
@@ -397,5 +422,3 @@ void tree_gpu<cpu_root>::_set_conf(const marked_coord *atom_coords, gfloat4 *coo
     coords[tid] = device_nodes[a.owner_idx].local_to_lab(a.coords);
 }
 
-template struct tree_gpu<ligand>;
-template struct tree_gpu<residue>;
