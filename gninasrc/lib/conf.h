@@ -180,7 +180,6 @@ struct ligand_conf  {
 		printnl(torsions);
 	}
 
-	__device__ __host__
 	ligand_conf(const ligand_conf& rhs): rigid(rhs.rigid), torsions(rhs.torsions) {
 
 	}
@@ -310,7 +309,7 @@ struct change {
 			flex[i].print();
 	}
 
-    fl get_with_node_idx(sz index, sz* node_idx /* out */) const;
+    fl get_with_node_idx(sz index, sz* node_idx /* out */, sz* offset_in_node /* out */) const;
     bool operator==(const change& other) const;
 };
 
@@ -425,7 +424,7 @@ struct conf {
 		return tmp;
 	}
 
-    fl get_with_node_idx(sz index, sz* node_idx /* out */) const;
+    fl get_with_node_idx(sz index, sz* node_idx /* out */, sz* offset_in_node /* out */) const;
 
     bool operator==(const conf& other) const;
 private:

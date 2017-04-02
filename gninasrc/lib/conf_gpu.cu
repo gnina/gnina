@@ -19,14 +19,30 @@ __global__ void scalar_mult_kernel(float mult, const int n, float *vals) {
 	}
 }
 
-size_t change_gpu::idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const gpu_data& d) {
+size_t change_gpu::idx_cpu2gpu(size_t cpu_node_idx, size_t offset_in_node, const gpu_data& d) {
     size_t gpu_node_idx = d.node_idx_cpu2gpu(cpu_node_idx);
 
     constexpr size_t extra_floats_per_lig_root = 5;
     size_t lig_roots_before_node = min(gpu_node_idx, d.nlig_roots);
     size_t gpu_flat_idx =
         gpu_node_idx +
-        extra_floats_per_lig_root * lig_roots_before_node;
+        extra_floats_per_lig_root * lig_roots_before_node +
+        offset_in_node;
+
+    return gpu_flat_idx;
+}
+
+// CPU conf torsions are stored in dfs order, relative to the model's
+// trees. GPU conf torsions are in bfs order.
+size_t conf_gpu::idx_cpu2gpu(size_t cpu_node_idx, size_t offset_in_node, const gpu_data& d) {
+    size_t gpu_node_idx = d.node_idx_cpu2gpu(cpu_node_idx);
+
+    constexpr size_t extra_floats_per_lig_root = 6;
+    size_t lig_roots_before_node = min(gpu_node_idx, d.nlig_roots);
+    size_t gpu_flat_idx =
+        gpu_node_idx +
+        extra_floats_per_lig_root * lig_roots_before_node +
+        offset_in_node;
 
     return gpu_flat_idx;
 }
@@ -38,8 +54,12 @@ change_gpu::change_gpu(const change& src, const gpu_data& d, float_buffer& buffe
 
     for (sz i = 0; i < num_floats(); i++) {
         sz cpu_node_idx;
-        fl cpu_val = src.get_with_node_idx(i, &cpu_node_idx);
-        data[change_gpu::idx_cpu2gpu(i, cpu_node_idx, d)] = cpu_val;
+        sz offset_in_node;
+        fl cpu_val = src.get_with_node_idx(i, &cpu_node_idx, &offset_in_node);
+        assert(offset_in_node < 6);
+        assert(cpu_node_idx < n);
+
+        data[change_gpu::idx_cpu2gpu(cpu_node_idx, offset_in_node, d)] = cpu_val;
     }
 
     values = buffer.copy(data.get(), n, cudaMemcpyHostToDevice);
@@ -120,20 +140,6 @@ sz change_gpu::num_floats() const {
 	return n;
 }
 
-// CPU conf torsions are stored in dfs order, relative to the model's
-// trees. GPU conf torsions are in bfs order.
-size_t conf_gpu::idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const gpu_data& d) {
-    size_t gpu_node_idx = d.node_idx_cpu2gpu(cpu_node_idx);
-
-    constexpr size_t extra_floats_per_lig_root = 6;
-    size_t lig_roots_before_node = min(gpu_node_idx, d.nlig_roots);
-    size_t gpu_flat_idx =
-        gpu_node_idx +
-        extra_floats_per_lig_root * lig_roots_before_node;
-
-    return gpu_flat_idx;
-}
-
 static
 bool constructor_valid(const conf_gpu& gpu, const conf& src, const gpu_data& d){
     conf test_dst = src;
@@ -151,8 +157,12 @@ conf_gpu::conf_gpu(const conf& src, const gpu_data& d, float_buffer& buffer) :
 
     for (sz i = 0; i < n; i++) {
         sz cpu_node_idx;
-        fl cpu_val = src.get_with_node_idx(i, &cpu_node_idx);
-        data[conf_gpu::idx_cpu2gpu(i, cpu_node_idx, d)] = cpu_val;
+        sz offset_in_node;
+        fl cpu_val = src.get_with_node_idx(i, &cpu_node_idx, &offset_in_node);
+        assert(offset_in_node < 7);
+        assert(cpu_node_idx < n);
+
+        data[conf_gpu::idx_cpu2gpu(cpu_node_idx, offset_in_node, d)] = cpu_val;
     }
 
     values = buffer.copy(data.get(), n, cudaMemcpyHostToDevice);
@@ -169,8 +179,12 @@ void conf_gpu::set_cpu(conf& dst, const gpu_data& d) const {
         // TODO: need get_with_node_idx for node_idx, but need operator()
         // for writeable-ref.
         sz cpu_node_idx;
-        fl cpu_val = dst.get_with_node_idx(i, &cpu_node_idx);
-        dst(i) = data[conf_gpu::idx_cpu2gpu(i, cpu_node_idx, d)];
+        sz offset_in_node;
+        dst.get_with_node_idx(i, &cpu_node_idx, &offset_in_node);
+        assert(offset_in_node < 7);
+        assert(cpu_node_idx < n);
+
+        dst(i) = data[conf_gpu::idx_cpu2gpu(cpu_node_idx, offset_in_node, d)];
     }
 }
 

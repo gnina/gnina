@@ -44,7 +44,7 @@ struct change_gpu {
 
 private:
     static
-    size_t idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const gpu_data& d);
+    size_t idx_cpu2gpu(size_t cpu_node_idx, size_t offset_in_node, const gpu_data& d);
 
 };
 
@@ -72,7 +72,7 @@ struct conf_gpu {
 
 private:
     static
-    size_t idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const gpu_data& d);
+    size_t idx_cpu2gpu(size_t cpu_node_idx, size_t offset_in_node, const gpu_data& d);
 };
 
 #endif

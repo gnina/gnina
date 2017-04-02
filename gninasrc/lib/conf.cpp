@@ -5,17 +5,19 @@ bool change::operator==(const change& other) const {
     assert(other.num_floats() == n);
     for(sz i = 0; i < num_floats(); i++){
         sz ignore;
-        if(get_with_node_idx(i, &ignore) !=
-           other.get_with_node_idx(i, &ignore))
+        if(get_with_node_idx(i, &ignore, &ignore) !=
+           other.get_with_node_idx(i, &ignore, &ignore))
             return false;
     }
     return true;
 }
 
-fl change::get_with_node_idx(sz index, sz* node_idx) const {
+fl change::get_with_node_idx(sz index, sz* node_idx, sz* offset_in_node) const {
     *node_idx = 0;
+    *offset_in_node = 0;
     VINA_FOR_IN(i, ligands) {
         const ligand_change& lig = ligands[i];
+        if(index < 6) *offset_in_node = index;
         if(index < 3) return lig.rigid.position[index];
         index -= 3;
         if(index < 3) return lig.rigid.orientation[index];
@@ -46,17 +48,19 @@ bool conf::operator==(const conf& other) const
     assert(other.num_floats() == n);
     for(sz i = 0; i < num_floats(); i++){
         sz ignore;
-        if(get_with_node_idx(i, &ignore) !=
-           other.get_with_node_idx(i, &ignore))
+        if(get_with_node_idx(i, &ignore, &ignore) !=
+           other.get_with_node_idx(i, &ignore, &ignore))
             return false;
     }
     return true;
 }
 
-fl conf::get_with_node_idx(sz index, sz* node_idx) const {
+fl conf::get_with_node_idx(sz index, sz* node_idx, sz* offset_in_node) const {
     *node_idx = 0;
+    *offset_in_node = 0;
     VINA_FOR_IN(i, ligands) {
         const ligand_conf& lig = ligands[i];
+        if(index < 7) *offset_in_node = index;
         if(index < 3) return lig.rigid.position[index];
         index -= 3;
         // TODO CPU version has this
