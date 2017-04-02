@@ -148,6 +148,7 @@ struct tree_gpu {
 	void set_conf(const vec *atom_coords, vec *coords,
                   const conf_gpu *c);
 
+    size_t node_idx_cpu2gpu(size_t cpu_idx) const;
 private:
     void do_dfs(branch& branch, size_t& dfs_idx);
 

@@ -19,7 +19,7 @@ struct change_gpu {
 	fl *values;
 	int n; //size of ligand change_values is 6+torsions; residue is just torsions
 
-	change_gpu(const change& src, const gpu_data &d, float_buffer& buffer);
+	change_gpu(const change& src, const tree_gpu& t, float_buffer& buffer);
 
 	change_gpu(const change_gpu& src, float_buffer& buffer);
 
@@ -44,7 +44,7 @@ struct change_gpu {
 
 private:
     static
-    size_t idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const gpu_data& d);
+    size_t idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const tree_gpu& t);
 
 };
 
@@ -53,9 +53,9 @@ struct conf_gpu {
 	float *values;
     int n; //size of ligand conf_values is 7+torsions; residue is just torsions
 
-	conf_gpu(const conf& src, const gpu_data &d, float_buffer& buffer);
+	conf_gpu(const conf& src, const tree_gpu& t, float_buffer& buffer);
 
-	void set_cpu(conf& dst, const gpu_data& d) const;
+	void set_cpu(conf& dst, const tree_gpu& t) const;
 
 	conf_gpu(const conf_gpu& src, float_buffer& buffer);
 
@@ -72,7 +72,7 @@ struct conf_gpu {
 
 private:
     static
-    size_t idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const gpu_data& d);
+    size_t idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const tree_gpu& t);
 };
 
 #endif

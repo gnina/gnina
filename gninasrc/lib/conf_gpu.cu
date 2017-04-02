@@ -20,7 +20,7 @@ __global__ void scalar_mult_kernel(float mult, const int n, float *vals) {
 }
 
 size_t change_gpu::idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const tree_gpu& t) {
-    size_t gpu_node_idx = t.node_idx_dfs2bfs(cpu_node_idx);
+    unsigned gpu_node_idx = t.node_idx_cpu2gpu(cpu_node_idx);
 
     constexpr size_t extra_floats_per_lig_root = 5;
     size_t lig_roots_before_node = min(gpu_node_idx, t.nlig_roots);
@@ -121,8 +121,8 @@ sz change_gpu::num_floats() const {
 
 // CPU conf torsions are stored in dfs order, relative to the model's
 // trees. GPU conf torsions are in bfs order.
-size_t conf_gpu::idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const gpu_data& d) {
-    size_t gpu_node_idx = t.node_idx_dfs2bfs(cpu_node_idx);
+size_t conf_gpu::idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const tree_gpu& t) {
+    unsigned gpu_node_idx = t.node_idx_cpu2gpu(cpu_node_idx);
 
     constexpr size_t extra_floats_per_lig_root = 6;
     size_t lig_roots_before_node = min(gpu_node_idx, t.nlig_roots);
@@ -133,7 +133,7 @@ size_t conf_gpu::idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const gpu_
     return gpu_flat_idx;
 }
 
-conf_gpu::conf_gpu(const conf& src, const gpu_data& d, float_buffer& buffer) :
+conf_gpu::conf_gpu(const conf& src, const tree_gpu& t, float_buffer& buffer) :
     n(src.num_floats())
 {
     std::unique_ptr<fl[]> data(new fl[n]);
@@ -141,14 +141,14 @@ conf_gpu::conf_gpu(const conf& src, const gpu_data& d, float_buffer& buffer) :
     for (sz i = 0; i < n; i++) {
         sz cpu_node_idx;
         fl cpu_val = src.get_with_node_idx(i, &cpu_node_idx);
-        data[conf_gpu::idx_cpu2gpu(i, cpu_node_idx, d)] = cpu_val;
+        data[conf_gpu::idx_cpu2gpu(i, cpu_node_idx, t)] = cpu_val;
     }
 
     values = buffer.copy(data.get(), n, cudaMemcpyHostToDevice);
 }
 
 //set cpu to gpu values, assumes correctly sized
-void conf_gpu::set_cpu(conf& dst, const gpu_data& d) const {
+void conf_gpu::set_cpu(conf& dst, const tree_gpu& t) const {
 
     std::vector<fl> data;
     get_data(data);
@@ -158,7 +158,7 @@ void conf_gpu::set_cpu(conf& dst, const gpu_data& d) const {
         // for writeable-ref.
         sz cpu_node_idx;
         fl cpu_val = dst.get_with_node_idx(i, &cpu_node_idx);
-        dst(i) = data[conf_gpu::idx_cpu2gpu(i, cpu_node_idx, d)];
+        dst(i) = data[conf_gpu::idx_cpu2gpu(i, cpu_node_idx, t)];
     }
 }
 
