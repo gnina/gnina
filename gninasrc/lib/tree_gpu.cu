@@ -90,7 +90,7 @@ inline __host__ __device__ float operator*(gfloat4 a, gfloat4 b)
 /*     return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w; */
 /* } */
 
-segment_node::segment_node(const segment& node,int p,segment_node* pnode) :
+segment_node::segment_node(const segment& node,int p,int l) :
     relative_axis(node.relative_axis),
     relative_origin(node.relative_origin),
     axis(node.axis),
@@ -100,7 +100,7 @@ segment_node::segment_node(const segment& node,int p,segment_node* pnode) :
     begin(node.begin),
     end(node.end),
     parent(p),
-    layer(pnode->layer + 1){}
+    layer(l){}
 
 segment_node::segment_node(const first_segment& node) : //root node
     relative_axis(0,0,0,0), relative_origin(0,0,0,0),
@@ -150,7 +150,7 @@ void segment_node::set_orientation(float x, float y, float z, float w) { // does
 	orientation_m = quaternion_to_r3(orientation_q);
 }
 
-void tree_gpu::do_dfs(const branch& branch, size_t& dfs_idx){
+void tree_gpu::do_dfs(branch& branch, size_t& dfs_idx){
     branch.node.dfs_idx = dfs_idx;
     dfs_idx++;
     for (auto& child : branch.children) {
@@ -158,20 +158,8 @@ void tree_gpu::do_dfs(const branch& branch, size_t& dfs_idx){
 	}
 }
 
-__device__ 
-void ligand_root::set_conf(const float* c) {
-	for(unsigned i = 0; i < 3; i++)
-	    origin[i] = c[i];
-	set_orientation(c[3], c[4],
-                      c[5], c[6]);
-}
-__device__ 
-void residue_root::set_conf(const float* c) {
-	set_orientation(angle_to_quaternion(axis, *c));
-}
-
-tree_gpu::tree_gpu(const vector_mutable &ligands, const vector_mutable
-        &residues, vec *atom_coords){
+tree_gpu::tree_gpu(vector_mutable<ligand> &ligands, 
+        vector_mutable<residue> &residues, vec *atom_coords){
     size_t dfs_idx = 0;
     //do DFS traversal of cpu trees to populate dfs_idx
     for (auto& lig : ligands) {
@@ -194,8 +182,8 @@ tree_gpu::tree_gpu(const vector_mutable &ligands, const vector_mutable
 	//populate nodes in BFS order and populate cpu tree bfs_idx
 	std::vector<segment_node> nodes;
     std::queue<pinfo_branch> bfs_branches;
-    size_t dfs_order_bfs_indices[num_nodes];
-    size_t bfs_order_dfs_indices[num_nodes];
+    dfs_order_bfs_indices = new size_t[num_nodes];
+    bfs_order_dfs_indices = new size_t[num_nodes];
    
     for (auto& lig : ligands) {
 	    nodes.push_back(segment_node(lig.node));
@@ -208,7 +196,7 @@ tree_gpu::tree_gpu(const vector_mutable &ligands, const vector_mutable
         }
     }
 
-    res_start = nodes.size();
+    nlig_roots = nodes.size();
     for (auto& res : residues) {
 	    nodes.push_back(segment_node(res.node));
         size_t pidx = nodes.size()-1;
@@ -220,6 +208,7 @@ tree_gpu::tree_gpu(const vector_mutable &ligands, const vector_mutable
         }
     }
 
+    nres_roots = nodes.size() - nlig_roots;
     while (!bfs_branches.empty()) {
         pinfo_branch& next_branch = bfs_branches.front();
         nodes.push_back(segment_node(next_branch.bptr->node, next_branch.parent,
@@ -279,6 +268,8 @@ void tree_gpu::deallocate(tree_gpu *t) {
 	cudaMemcpy(&cpu, t, sizeof(tree_gpu), cudaMemcpyDeviceToHost);
 	cudaFree(cpu.device_nodes);
 	cudaFree(cpu.force_torques);
+    delete [] cpu.dfs_order_bfs_indices;
+    delete [] cpu.bfs_order_dfs_indices;
 	cudaFree(t);
 }
 
@@ -289,8 +280,6 @@ void tree_gpu::derivative(const vec *coords,const vec* forces, change_gpu *c){
 
 __device__
 void tree_gpu::_derivative(const gfloat4 *coords,const gfloat4* forces, change_gpu *c){
-	// assert(c.torsions.size() == num_nodes-1);
-	
 	//calculate each segments individual force/torque
     uint tid = threadIdx.x;
     uint nid = owners[tid];
@@ -312,16 +301,14 @@ void tree_gpu::_derivative(const gfloat4 *coords,const gfloat4* forces, change_g
     gfloat4 origin;
     gfloat4 parent_origin;
     gfloat4p ft;
-    uint root = 0;
     
-    if(tid > (subtree_sizes[0]-1) && tid < num_nodes){
+    if(tid > (nlig_roots+nres_roots-1) && tid < num_nodes){
         segment_node &n = device_nodes[tid];
         parent_id = n.parent;
         parent_origin = device_nodes[parent_id].origin;
         layer = n.layer;
         axis = n.axis;
         origin = n.origin;
-        root = n.root;
     }
     
     for(uint l = num_layers - 1; l > 0; l--){
@@ -336,28 +323,18 @@ void tree_gpu::_derivative(const gfloat4 *coords,const gfloat4* forces, change_g
                         ::operator+(cross_product(r, ft.first), ft.second));
     }
    
-    if (gpu_root::in_unison()) {
-        unsigned relative_offset = tid < subtree_sizes[0] ? tid +
-            subtree_sizes[tid] : tid + root - subtree_sizes[0] + 1;
-        if (tid == 0)
-            relative_offset = 0;
-        if (tid < subtree_sizes[0])
-            ft = force_torques[tid];
-        if (tid < num_nodes)
-            c->values[c->flex_offset + relative_offset] = ft.second * axis;
+    if (tid > (nlig_roots-1) && tid < num_nodes) {
+        c->values[tid + 5*nlig_roots] = ft.second * axis;
     }
-    else if(tid > (subtree_sizes[0]-1) && tid < num_nodes)
-        c->values[tid - subtree_sizes[0] + (root+1)*6] = ft.second * axis;
     else if (tid < num_nodes) {
         ft = force_torques[tid];
-        uint offset = tid == 0 ? 0 : subtree_sizes[tid];
-	    c->values[6*tid + offset] = ft.first[0];
-	    c->values[6*tid + offset + 1] = ft.first[1];
-	    c->values[6*tid + offset + 2] = ft.first[2];
+	    c->values[6*tid] = ft.first[0];
+	    c->values[6*tid + 1] = ft.first[1];
+	    c->values[6*tid + 2] = ft.first[2];
 
-	    c->values[6*tid + offset + 3] = ft.second[0];
-	    c->values[6*tid + offset + 4] = ft.second[1];
-	    c->values[6*tid + offset + 5] = ft.second[2];
+	    c->values[6*tid + 3] = ft.second[0];
+	    c->values[6*tid + 4] = ft.second[1];
+	    c->values[6*tid + 5] = ft.second[2];
     }
 }
 
@@ -383,35 +360,39 @@ void tree_gpu::_set_conf(const marked_coord *atom_coords, gfloat4 *coords,
                          const conf_gpu *c){
     
 	uint tid = threadIdx.x;
-    segment_node &n = device_nodes[tid];
+    segment_node* n = &device_nodes[tid];
     marked_coord a = atom_coords[tid];
 
     uint layer = 0;
     segment_node *parent = NULL;
     fl torsion = 0;
-    uint rootid = 0;
     
-    if(tid < subtree_sizes[0]){
-        gpu_root* root = static_cast<gpu_root*>(&n);
-        unsigned offset = tid == 0 ? 0 : subtree_sizes[tid+1];
-        root->set_conf(&c->values[7*tid + offset]);
-    }else if(tid < num_nodes){
-        layer = n.layer;
-        parent = &device_nodes[n.parent];
-        rootid = n.root;
-        torsion = c->values[(rootid+1) * gpu_root::get_offset() + tid -
-            subtree_sizes[0]];
+    if (tid < nlig_roots){
+        float* rigid_conf = &c->values[7*tid];
+	    for(unsigned i = 0; i < 3; i++)
+	        n->origin[i] = rigid_conf[i];
+	    n->set_orientation(rigid_conf[3], rigid_conf[4], rigid_conf[5], rigid_conf[6]);
+    }
+    else if (tid < (nlig_roots + nres_roots)) {
+        float* root_torsion = &c->values[tid + 6*nlig_roots];
+        //investigate?
+	    n->set_orientation(angle_to_quaternion(n->axis, *root_torsion));
+    }
+    else if (tid < num_nodes){
+        layer = n->layer;
+        parent = &device_nodes[n->parent];
+        torsion = c->values[tid + 6*nlig_roots];
     }
 
     for(uint i = 1; i < num_layers; i++){
         __syncthreads();
         if(layer != i)
             continue;
-        n.origin = parent->local_to_lab(n.relative_origin);
-        n.axis = parent->local_to_lab_direction(n.relative_axis);
-        n.set_orientation(
+        n->origin = parent->local_to_lab(n->relative_origin);
+        n->axis = parent->local_to_lab_direction(n->relative_axis);
+        n->set_orientation(
             quaternion_normalize_approx(
-                angle_to_quaternion(n.axis, torsion) * parent->orientation_q));
+                angle_to_quaternion(n->axis, torsion) * parent->orientation_q));
     }
     __syncthreads();
 

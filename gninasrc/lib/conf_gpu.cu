@@ -5,6 +5,7 @@
 */
 
 #include "conf_gpu.h"
+#include "tree_gpu.h"
 
 #define CUDA_KERNEL_LOOP(i, n) \
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
@@ -35,8 +36,6 @@ change_gpu::change_gpu(const change& src, float_buffer& buffer) :
 	    }
     }
 
-    flex_offset = n;
-
     for (auto& reschange : src.flex) {
 	    n += reschange.torsions.size();
 	    for (unsigned j = 0, m = reschange.torsions.size(); j < m; j++) {
@@ -51,7 +50,7 @@ change_gpu::change_gpu(const change& src, float_buffer& buffer) :
 
 //allocate and copy
 change_gpu::change_gpu(const change_gpu& src, float_buffer& buffer) :
-		n(src.n), values(NULL), flex_offset(src.flex_offset) {
+		n(src.n), values(NULL) {
     values = buffer.copy(src.values, n+1, cudaMemcpyDeviceToDevice);
 }
 
@@ -141,8 +140,6 @@ conf_gpu::conf_gpu(const conf& src, float_buffer& buffer) :
 	    }
     }
 
-    flex_offset = n;
-
     for (auto& resconf : src.flex) {
 	    n += resconf.torsions.size();
 	    for (unsigned j = 0, m = resconf.torsions.size(); j < m; j++) {
@@ -190,7 +187,7 @@ void conf_gpu::set_cpu(conf& dst) const {
 
 //copy within buffer
 conf_gpu::conf_gpu(const conf_gpu& src, float_buffer& buffer) :
-		n(src.n), values(NULL), flex_offset(src.flex_offset) {
+		n(src.n), values(NULL) {
     values = buffer.copy(src.values, n, cudaMemcpyDeviceToDevice);
 }
 
@@ -211,19 +208,18 @@ conf_gpu& conf_gpu::operator=(const conf_gpu& src) {
 __device__ void conf_gpu::increment(const change_gpu& c, fl factor, tree_gpu*
         tree) {
     unsigned idx = threadIdx.x;
-    unsigned nroots = lig_subtree_sizes[0];
+    unsigned lig_roots = tree->nlig_roots;
     //update rigid with early threads
-    if (idx < nroots) {
+    if (idx < lig_roots) {
         //position
-        unsigned torsion_offset = idx == 0 ? 0 : lig_subtree_sizes[idx];
-        unsigned conf_offset = torsion_offset + (7*idx);
-        unsigned change_offset = conf_offset - idx;
+        unsigned conf_offset = idx*7;
+        unsigned change_offset = idx*6;
         for (int i = 0; i < 3; i++) 
             values[conf_offset + i] += c.values[change_offset + i]*factor;
 
 	    //rotation
-	    qt orientation(values[conf_offset + 3],values[conf_offset +
-                4],values[conf_offset + 5],values[conf_offset + 6]);
+	    qt orientation(values[conf_offset+ 3], values[conf_offset + 4], 
+                values[conf_offset + 5], values[conf_offset + 6]);
 	    vec rotation(factor * c.values[change_offset + 3], factor *
                 c.values[change_offset + 4], factor *
                 c.values[change_offset + 5]);
@@ -234,14 +230,9 @@ __device__ void conf_gpu::increment(const change_gpu& c, fl factor, tree_gpu*
 	    values[conf_offset + 6] = orientation.R_component_4();
     }
 	//torsions updated by everybody else, with indexing to avoid touching rigid again
-    else if (idx < (n - (nroots*6))) {     //n-(7*nroots)+nroots 
-        unsigned treeid = nroots;
-        for (unsigned i = 1; i < nroots+1; i++) {
-            if (idx < (lig_subtree_sizes[i] + nroots))
-                treeid = i;
-        }
-        unsigned conf_offset = idx - nroots + (7 * treeid);
-        unsigned change_offset = conf_offset - treeid;
+    else if (idx < tree->num_nodes) {     
+        unsigned conf_offset = idx + (6 * lig_roots);
+        unsigned change_offset = idx + (5 * lig_roots);
 	    values[conf_offset] += normalized_angle(factor*c.values[change_offset]);
 	    normalize_angle(values[conf_offset]);
     }

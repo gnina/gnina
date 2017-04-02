@@ -50,7 +50,7 @@ struct gpu_data {
   	atom_params *coords;
   	vec *atom_coords;
   	force_energy_tup *minus_forces;
-  	tree_gpu<ligand> *treegpu;
+  	tree_gpu *treegpu;
   	interacting_pair *interacting_pairs;
     // all except internal to one ligand: ligand-other ligands;
     // ligand-flex/inflex; flex-flex/inflex
@@ -66,7 +66,7 @@ struct gpu_data {
     size_t eval_deriv_counter;
 
   	gpu_data(): coords(NULL), atom_coords(NULL), minus_forces(NULL),
-  			treegpu(NULL), flex(NULL), interacting_pairs(NULL), other_pairs(NULL), 
+  			treegpu(NULL), interacting_pairs(NULL), other_pairs(NULL), 
             scratch(NULL), coords_size(0),
   			atom_coords_size(0), forces_size(0), pairs_size(0), other_pairs_size(0), 
             print_during_minimization(false), eval_deriv_counter(0) {}
@@ -77,7 +77,8 @@ struct gpu_data {
     __device__
 	fl eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
 	                     const conf_gpu& c, change_gpu& g);
-    
+   
+    size_t node_idx_dfs2bfs(const size_t node_idx);
     fl eval(const GPUNonCacheInfo& info, const float v);
     fl eval_intramolecular(const GPUNonCacheInfo& info, const float v);
 	//copy relevant data to gpu buffers

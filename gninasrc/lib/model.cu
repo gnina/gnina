@@ -138,16 +138,14 @@ fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
 	return e;
 }
 
-template<typename cpu_root>
 static __global__
-void derivatives_kernel(tree_gpu<cpu_root> *t, const vec * coords, const vec* forces,
+void derivatives_kernel(tree_gpu *t, const vec * coords, const vec* forces,
                         change_gpu c) {
 	t->derivative(coords, forces, &c);
 }
 
-template<typename cpu_root>
 static __global__
-void set_conf_kernel(tree_gpu<cpu_root> *t, const vec *atom_coords, vec *coords,
+void set_conf_kernel(tree_gpu *t, const vec *atom_coords, vec *coords,
                      const conf_gpu c) {
 	t->set_conf(atom_coords, coords, &c);
 }
@@ -176,11 +174,7 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
 	// t.resume();
     fl e, ie;
     if (threadIdx.x == 0) {
-        if (treegpu->subtree_sizes[0])
-	        set_conf_kernel<<<1,treegpu->num_atoms>>>(treegpu,
-                                               atom_coords, (vec*)coords, c);
-        if (flex->subtree_sizes[0])
-	        set_conf_kernel<<<1,flex->num_atoms>>>(flex,
+	    set_conf_kernel<<<1,treegpu->num_atoms>>>(treegpu,
                                                atom_coords, (vec*)coords, c);
         memset(minus_forces, 0, sizeof(force_energy_tup) *
                 (info.num_movable_atoms));
@@ -199,12 +193,8 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
                     (size_t)forces_size, e, ie);
 
         e += ie;
-        if (treegpu->subtree_sizes[0])
-	        derivatives_kernel<<<1,treegpu->num_atoms>>>
+	    derivatives_kernel<<<1,treegpu->num_atoms>>>
                 (treegpu, (vec*)coords, (vec*)minus_forces, g);
-        if (flex->subtree_sizes[0])
-	        derivatives_kernel<<<1,flex->num_atoms>>>
-                (flex, (vec*)coords, (vec*)minus_forces, g);
 
         cudaDeviceSynchronize();
     }

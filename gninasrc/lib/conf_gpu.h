@@ -13,10 +13,11 @@
 #include "gpu_math.h"
 #include "device_buffer.h"
 
+struct tree_gpu;
+
 struct change_gpu {
 	float *values;
 	int n; //size of ligand change_values is 6+torsions; residue is just torsions
-    int flex_offset; //index where the residues start
 
 	change_gpu(const change& src, float_buffer& buffer);
 
@@ -46,7 +47,6 @@ struct conf_gpu {
 
 	float *values;
     int n; //size of ligand conf_values is 7+torsions; residue is just torsions
-    int flex_offset; //index where the residues start
 
 	conf_gpu(const conf& src, float_buffer& buffer);
 
@@ -59,7 +59,7 @@ struct conf_gpu {
     __host__ __device__
 	conf_gpu& operator=(const conf_gpu& src);
 
-	__device__ void increment(const change_gpu& c, fl factor, unsigned* lig_subtree_sizes);
+	__device__ void increment(const change_gpu& c, fl factor, tree_gpu* tree);
 
 	void get_data(std::vector<float>& d) const;
 
