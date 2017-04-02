@@ -136,7 +136,7 @@ size_t conf_gpu::idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const gpu_
 
 static
 bool constructor_valid(const conf_gpu& gpu, const conf& src, const gpu_data& d){
-    conf test_dst;
+    conf test_dst = src;
     gpu.set_cpu(test_dst, d);
     sz n = src.num_floats();
     assert(n == test_dst.num_floats());
