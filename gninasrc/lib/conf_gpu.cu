@@ -134,6 +134,16 @@ size_t conf_gpu::idx_cpu2gpu(size_t cpu_val_idx, size_t cpu_node_idx, const gpu_
     return gpu_flat_idx;
 }
 
+static
+bool constructor_valid(const conf_gpu& gpu, const conf& src, const gpu_data& d){
+    conf test_dst;
+    gpu.set_cpu(test_dst, d);
+    sz n = src.num_floats();
+    assert(n == test_dst.num_floats());
+    assert(test_dst == src);
+    return true;
+}
+
 conf_gpu::conf_gpu(const conf& src, const gpu_data& d, float_buffer& buffer) :
     n(src.num_floats())
 {
@@ -146,11 +156,12 @@ conf_gpu::conf_gpu(const conf& src, const gpu_data& d, float_buffer& buffer) :
     }
 
     values = buffer.copy(data.get(), n, cudaMemcpyHostToDevice);
+
+    assert(constructor_valid(*this, src, d));
 }
 
 //set cpu to gpu values, assumes correctly sized
 void conf_gpu::set_cpu(conf& dst, const gpu_data& d) const {
-
     std::vector<fl> data;
     get_data(data);
 
