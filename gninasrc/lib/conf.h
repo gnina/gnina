@@ -311,6 +311,7 @@ struct change {
 	}
 
     fl get_with_node_idx(sz index, sz* node_idx /* out */) const;
+    bool operator==(const change& other) const;
 };
 
 struct conf {
@@ -426,6 +427,7 @@ struct conf {
 
     fl get_with_node_idx(sz index, sz* node_idx /* out */) const;
 
+    bool operator==(const conf& other) const;
 private:
 	friend class boost::serialization::access;
 	template<class Archive>
