@@ -78,6 +78,7 @@ void change_gpu::invert() {
 
 //return dot product
 __device__ float change_gpu::dot(const change_gpu& rhs) const {
+    __shared__ float out;
     //TODO: n is no longer necessarily small
     if (threadIdx.x < WARPSIZE) {
 	    int start = threadIdx.x;
@@ -92,10 +93,10 @@ __device__ float change_gpu::dot(const change_gpu& rhs) const {
 	    	val += __shfl_down(val, offset);
 
 	    if(start == 0)
-	    	values[n] = val;
+	    	out = val;
     }
     __syncthreads();
-	return values[n];
+	return out;
 }
 
 //subtract rhs from this

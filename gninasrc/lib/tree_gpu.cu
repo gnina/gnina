@@ -159,7 +159,8 @@ void tree_gpu::do_dfs(branch& branch, size_t& dfs_idx){
 }
 
 tree_gpu::tree_gpu(vector_mutable<ligand> &ligands,
-        vector_mutable<residue> &residues, vec *atom_coords){
+        vector_mutable<residue> &residues, vec *atom_coords, size_t*&
+        dfs_order_bfs_indices, size_t*& bfs_order_dfs_indices){
     size_t dfs_idx = 0;
     //do DFS traversal of cpu trees to populate dfs_idx
     for (auto& lig : ligands) {

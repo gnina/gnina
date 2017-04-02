@@ -4,7 +4,7 @@ fl change::get_with_node_idx(sz index, sz* node_idx) const {
     VINA_FOR_IN(i, ligands) {
         *node_idx = i;
 
-        ligand_change& lig = ligands[i];
+        const ligand_change& lig = ligands[i];
         if(index < 3) return lig.rigid.position[index];
         index -= 3;
         if(index < 3) return lig.rigid.orientation[index];
@@ -16,7 +16,7 @@ fl change::get_with_node_idx(sz index, sz* node_idx) const {
     VINA_FOR_IN(i, flex) {
         *node_idx = i + ligands.size();
 
-        residue_change& res = flex[i];
+        const residue_change& res = flex[i];
         if(index < res.torsions.size()) return res.torsions[index];
         index -= res.torsions.size();
     }
@@ -38,9 +38,9 @@ fl conf::get_with_node_idx(sz index, sz* node_idx) const {
         //     return ang[index];
         // }
         // TODO instead of this:
-        if(index < 3) return lig.rigid.orientation[index];
+        if(index < 4) return ((float*)&lig.rigid.orientation)[index];
 
-        index -= 3;
+        index -= 4;
         if(index < lig.torsions.size()) return lig.torsions[index];
         index -= lig.torsions.size();
     }
@@ -55,9 +55,9 @@ fl conf::get_with_node_idx(sz index, sz* node_idx) const {
     __builtin_unreachable();
 }
 
-fl conf::operator()(sz index) { // returns by value
+fl& conf::operator()(sz index) { // returns by value
     VINA_FOR_IN(i, ligands) {
-        const ligand_conf& lig = ligands[i];
+        ligand_conf& lig = ligands[i];
         if(index < 3) return lig.rigid.position[index];
         index -= 3;
         //TODO
@@ -66,17 +66,17 @@ fl conf::operator()(sz index) { // returns by value
         //     vec ang = quaternion_to_angle(lig.rigid.orientation);
         //     return ang[index];
         // }
-        if(index < 3) return lig.rigid.orientation[index];
+        if(index < 4) return ((float*)&lig.rigid.orientation)[index];
 
-        index -= 3;
+        index -= 4;
         if(index < lig.torsions.size()) return lig.torsions[index];
         index -= lig.torsions.size();
     }
     VINA_FOR_IN(i, flex) {
-        const residue_conf& res = flex[i];
+        residue_conf& res = flex[i];
         if(index < res.torsions.size()) return res.torsions[index];
         index -= res.torsions.size();
     }
     //VINA_CHECK(false); //avoid compiler warnings
-    return 0; // shouldn't happen, placating the compiler
+    __builtin_unreachable();
 }

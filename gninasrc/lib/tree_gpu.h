@@ -132,13 +132,11 @@ struct tree_gpu {
     unsigned num_atoms;
     unsigned nlig_roots;
     unsigned nres_roots;
-    size_t* dfs_order_bfs_indices;
-    size_t* bfs_order_dfs_indices;
 
     uint *owners;
 
     tree_gpu() = default;
-	tree_gpu(vector_mutable<ligand> &ligands, vector_mutable<residue> &residues, vec *atom_coords);
+	tree_gpu(vector_mutable<ligand> &ligands, vector_mutable<residue> &residues, vec *atom_coords, size_t*& dfs_order_bfs_indices, size_t*& bfs_order_dfs_indices);
 
 	static void deallocate(tree_gpu *t);
 

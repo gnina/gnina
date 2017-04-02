@@ -55,6 +55,8 @@ struct gpu_data {
     // all except internal to one ligand: ligand-other ligands;
     // ligand-flex/inflex; flex-flex/inflex
     interacting_pair *other_pairs; 
+    size_t* dfs_order_bfs_indices;
+    size_t* bfs_order_dfs_indices;
   	float *scratch; //single value for returning total energy
 
   	unsigned coords_size;
@@ -70,6 +72,7 @@ struct gpu_data {
 
   	gpu_data(): coords(NULL), atom_coords(NULL), minus_forces(NULL),
   			treegpu(NULL), interacting_pairs(NULL), other_pairs(NULL), 
+            dfs_order_bfs_indices(NULL), bfs_order_dfs_indices(NULL), 
             scratch(NULL), coords_size(0),
   			atom_coords_size(0), forces_size(0), pairs_size(0), other_pairs_size(0), 
             print_during_minimization(false), eval_deriv_counter(0) {}
