@@ -514,7 +514,6 @@ void main_procedure(model& m, precalculate& prec,
 		{
 			nc = new non_cache(gridcache, gd, &prec, slope);
 		}
-		cudaProfilerStart();
 
 		if (no_cache)
 		{
@@ -543,7 +542,6 @@ void main_procedure(model& m, precalculate& prec,
 					settings, compute_atominfo, log,
 					wt.unweighted_terms(), user_grid, cnn, results);
 		}
-		cudaProfilerStop();
 
 		delete nc;
 	}
@@ -1603,7 +1601,6 @@ Thank you!\n";
 		writer_thread.join();
 
         cudaDeviceSynchronize();
-		// cudaProfilerStop();
 
 		std::cout << "Loop time " << time.elapsed().wall/1000000000.0 << "\n";
 
