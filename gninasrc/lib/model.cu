@@ -174,6 +174,7 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
 	// t.resume();
     fl e, ie;
     if (threadIdx.x == 0) {
+        ie = 0;
 	    set_conf_kernel<<<1,treegpu->num_atoms>>>(treegpu,
                                                atom_coords, (vec*)coords, c);
         memset(minus_forces, 0, sizeof(force_energy_tup) *
