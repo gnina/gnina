@@ -80,7 +80,6 @@ public:
 
 protected:
 
-
 	grid_dims dims; //this is a cube
 	quaternion Q;
 	vec trans;
@@ -124,8 +123,8 @@ protected:
 	//output a grid the file in map format (for debug)
 	void outputMAPGrid(ostream& out, Grid& grid);
 
-  //output a grid the file in dx format (for debug)
-  void outputDXGrid(ostream& out, Grid& grid);
+	//output a grid the file in dx format (for debug)
+	void outputDXGrid(ostream& out, Grid& grid);
 
 	//return a string representation of the atom type(s) represented by index
 	//in map - this isn't particularly efficient, but is only for debug purposes

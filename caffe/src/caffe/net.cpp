@@ -979,6 +979,21 @@ const shared_ptr<Layer<Dtype> > Net<Dtype>::layer_by_name(
   return layer_ptr;
 }
 
+template<typename Dtype>
+void Net<Dtype>::Backward_relevance(){
+    
+    int end = 0;
+    int start = layers_.size()-1;
+
+    for (int i = start; i >= end; --i) {
+
+      if (layer_need_backward_[i]) {
+        layers_[i]->Backward_relevance(
+            top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
+      }
+    }
+}
+
 INSTANTIATE_CLASS(Net);
 
 }  // namespace caffe

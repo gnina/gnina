@@ -224,6 +224,7 @@ template <typename Dtype>
 void PoolingLayer<Dtype>::Forward_cpu(
       const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
+
   const Dtype* bottom_data = bottom[0]->cpu_data();
   Dtype* top_data = top[0]->mutable_cpu_data();
   const int top_count = top[0]->count();
@@ -424,9 +425,9 @@ void PoolingLayer<Dtype>::Forward_cpu(
 template <typename Dtype>
 void PoolingLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-  if (!propagate_down[0]) {
-    return;
-  }
+  //if (!propagate_down[0]) {
+  //  return;
+  //}
   const Dtype* top_diff = top[0]->cpu_diff();
   Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
   // Different pooling methods. We explicitly do the switch outside the for
@@ -573,6 +574,81 @@ void PoolingLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
+//distributes relevance proportionally back, even in max pooling case
+//maybe distribute only to max, or other strategy
+template <typename Dtype>
+void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
+
+
+    Backward_cpu(top, propagate_down, bottom);
+/* 
+    float top_sum = 0.0;
+    for (int i = 0; i < top[0]->count(); ++i)
+    {
+        //std::cout <<  bottom[0]->cpu_diff()[i] << "|";
+        top_sum += top[0]->cpu_diff()[i];
+    }
+    std::cout << "POOL TOP SUM: " << top_sum << '\n';
+
+    std::cout << "USE TOP MASK: " << (top.size() > 1) << '\n';
+
+    PoolingParameter pool_param = this->layer_param_.pooling_param();
+
+    const int* output_shape_data = this->output_shape_.cpu_data();
+
+    int pooled_height_ = output_shape_data[0];
+    int pooled_width_ = output_shape_data[1];
+    int pooled_depth_ = output_shape_data[2];
+
+    int channels_ = bottom[0]->channels();
+
+    const Dtype* top_diff = top[0]->cpu_diff();
+    Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
+    const Dtype* bottom_data = bottom[0]->cpu_data();
+
+    //equivalent of legacy offset(0, 1)
+    vector<int> offset(2, 0);
+    offset[1] = 1;
+
+    const int* mask = max_idx_.cpu_data();
+
+    caffe_set(bottom[0]->count(), Dtype(0.), bottom_diff);
+
+      for (int n = 0; n < top[0]->num(); ++n)
+        {
+            for (int c = 0; c < channels_; ++c)
+            {
+                for(int p_h = 0; p_h < pooled_height_; ++p_h)
+                {
+                    for(int p_w = 0; p_w < pooled_width_; ++p_w)
+                    {
+                        for(int p_d = 0; p_d < pooled_depth_; ++p_d)
+                        {
+                            const int index = (p_h * pooled_width_ + p_w)*
+                                                  pooled_depth_ + p_d;
+
+                            const int bottom_index = mask[index];
+
+                            bottom_diff[bottom_index] += top_diff[bottom_index];
+                        }
+                    }
+                }
+            bottom_diff += bottom[0]->offset(offset);
+            top_diff += top[0]->offset(offset);
+            bottom_data += bottom[0]->offset(offset);
+           }
+        }
+
+    float bottom_sum = 0.0;
+    for (int i = 0; i < bottom[0]->count(); ++i)
+    {
+        //std::cout <<  bottom[0]->cpu_diff()[i] << "|";
+        bottom_sum += bottom[0]->cpu_diff()[i];
+    }
+    std::cout << "POOL BOTTOM SUM: " << bottom_sum << '\n';
+    */
+}
 
 #ifdef CPU_ONLY
 STUB_GPU(PoolingLayer);

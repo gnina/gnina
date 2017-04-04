@@ -12,10 +12,12 @@ int main(int argc, char* argv[])
   vis_options visopts;
   cnn_options cnnopts;
 
-  cnnopts.cnn_rotations = 24; //any reason to make this an option?
+  cnnopts.cnn_rotations = 0; //any reason to make this an option?
   cnnopts.cnn_scoring = true;
 
   using namespace boost::program_options;
+
+  int vis_method = -1;
 
   options_description inputs("Input");
   inputs.add_options()
@@ -30,9 +32,7 @@ int main(int argc, char* argv[])
                   "CNN model file (*.model)")
     ("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
                   "CNN weights file (*.caffemodel)");
-
-  options_description outputs("Output");
-  outputs.add_options()
+  options_description outputs("Output"); outputs.add_options()
     ("receptor_output", value<std::string>(&visopts.receptor_output),
                   "output file for colored receptor (omit to skip receptor coloring)")
     ("ligand_output", value<std::string>(&visopts.ligand_output),
@@ -49,7 +49,11 @@ int main(int argc, char* argv[])
     ("verbose", bool_switch(&visopts.verbose)->default_value(false),
                   "print full output, including removed atom lists")
     ("gpu", value<int>(&visopts.gpu)->default_value(-1),
-                    "gpu id for accelerated scoring");
+                    "gpu id for accelerated scoring")
+    ("vis_method", value<int>(&vis_method)->default_value(0),
+                    "visualization method (default 0 for removal, 1 for lrp, 2 for both)")
+    ("outputdx", bool_switch(&visopts.outputdx)->default_value(false),
+                   "output DX grid files (lrp only)");
 
   options_description debug("Debug");
   debug.add_options()
@@ -81,6 +85,10 @@ int main(int argc, char* argv[])
               << "\nCorrect usage:\n" << desc << '\n';
     return 1;
   }
+
+  //placeholders for center to instantiate
+  float center_x = 0, center_y = 0, center_z = 0;
+  vec center(center_x,center_y,center_z);
 
   if(vm.count("receptor") <= 0)
   {
@@ -123,14 +131,23 @@ int main(int argc, char* argv[])
             << desc << '\n';
     return 1;
   }
-  
+
   google::InitGoogleLogging(argv[0]);
   google::SetStderrLogging(2);
 
-  //placeholders for center to instantiate
-  float center_x = 0, center_y = 0, center_z = 0;
-  vec center(center_x,center_y,center_z);
-
   cnn_visualization vis = cnn_visualization(visopts, cnnopts, center);
-  vis.color();
+
+  if (0 == vis_method)
+  {
+    vis.removal();
+  }
+  if (1 == vis_method)
+  {
+    vis.lrp();
+  }
+  if (2 == vis_method)
+  {
+    vis.removal();
+    vis.lrp();
+  }
 }

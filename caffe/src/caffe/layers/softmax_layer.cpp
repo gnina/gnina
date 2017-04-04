@@ -85,6 +85,29 @@ void SoftmaxLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   caffe_mul(top[0]->count(), bottom_diff, top_data, bottom_diff);
 }
 
+template <typename Dtype>
+void SoftmaxLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
+{
+	Dtype *bottom_diff = bottom[0]->mutable_cpu_diff();
+	unsigned n = bottom[0]->count();
+	assert(n == 2);
+	bottom_diff[0] = top[0]->cpu_data()[1]; //positive class
+	bottom_diff[1] = 0 - top[0]->cpu_data()[0]; //negative class
+
+    for (int i = 0; i < top[0]->count(); ++i)
+    {
+            std::cout << "TOP[" << i << "]: " << top[0]->cpu_data()[i] << '\n';
+    }
+
+    float sum = 0;
+    for (int i = 0; i < bottom[0]->count(); ++i)
+    {
+        sum += bottom[0]->cpu_diff()[i];
+    }
+    std::cout << "SOFTLOSS BOTTOM SUM: " << sum << '\n';
+}
+
 
 #ifdef CPU_ONLY
 STUB_GPU(SoftmaxLayer);

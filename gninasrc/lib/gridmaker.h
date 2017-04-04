@@ -228,6 +228,155 @@ public:
 	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, unsigned ngrids, Dtype *grids);
 
 
+  void zeroAtomGradientsCPU(vector<float3>& agrad)
+  {
+    for (unsigned i = 0, n = agrad.size(); i < n; ++i)
+    { 
+      agrad[i].x = 0.0;
+      agrad[i].y = 0.0;
+      agrad[i].z = 0.0;
+    }
+  }
+
+  	void accumulateAtomRelevance(const float3& coords, double ar, float x, float y, float z,
+				     float gridval, float3& agrad)
+	{
+		//simple sum of values that the atom overlaps
+		float dist_x = x-coords.x;
+		float dist_y = y-coords.y;
+		float dist_z = z-coords.z;
+		float dist2 = dist_x*dist_x + dist_y*dist_y + dist_z*dist_z;
+		double dist = sqrt(dist2);
+		if (dist >= ar * radiusmultiple)
+		{
+			return;
+		}
+		else
+		{
+			agrad.x += gridval;
+		}
+	}
+
+	//accumulate gradient from grid point x,y,z for provided atom
+	void accumulateAtomGradient(const float3& coords, double ar, float x,
+				    float y, float z, float gridval, float3& agrad)
+	{
+		//sum gradient grid values overlapped by the atom times the
+		//derivative of the atom density at each grid point
+		float dist_x = x - coords.x;
+		float dist_y = y - coords.y;
+		float dist_z = z - coords.z;
+		float dist2 = dist_x * dist_x + dist_y * dist_y + dist_z * dist_z;
+		double dist = sqrt(dist2);
+		float agrad_dist = 0.0;
+		if (dist >= ar * radiusmultiple) //no overlap
+		{
+			return;
+		}
+		else if (dist <= ar) //gaussian derivative
+		{
+			float h = 0.5 * ar;
+			float ex = -dist2 / (2 * h * h);
+			float coef = -dist / (h * h);
+			agrad_dist = coef * exp(ex);
+		}
+		else //quadratic derivative
+		{
+			float h = 0.5 * ar;
+			float inv_e2 = 1.0 / (M_E * M_E); //e^(-2)
+			agrad_dist = 2.0 * dist * inv_e2 / (h * h) - 6.0 * inv_e2 / h;
+		}
+		// d_loss/d_atomx = d_atomdist/d_atomx * d_gridpoint/d_atomdist * d_loss/d_gridpoint
+		// sum across all gridpoints
+		agrad.x += (-dist_x / dist) * agrad_dist * gridval;
+		agrad.y += (-dist_y / dist) * agrad_dist * gridval;
+		agrad.z += (-dist_z / dist) * agrad_dist * gridval;
+	}
+
+	//get the atom position gradient from relevant grid points for provided atom
+	//if isrelevance is true, simply sum overlapping values
+	template<typename Grids>
+	void setAtomGradientCPU(const float4& ainfo, int whichgrid,
+			const quaternion& Q, const Grids& grids,
+			float3& agrad, bool isrelevance = false) {
+		float3 coords;
+		if (Q.real() != 0) //apply rotation
+				{
+			quaternion p(0, ainfo.x - center.x, ainfo.y - center.y,
+					ainfo.z - center.z);
+			p = Q * p * (conj(Q) / norm(Q));
+
+			coords.x = p.R_component_2() + center.x;
+			coords.y = p.R_component_3() + center.y;
+			coords.z = p.R_component_4() + center.z;
+		} else {
+			coords.x = ainfo.x;
+			coords.y = ainfo.y;
+			coords.z = ainfo.z;
+		}
+
+		//get grid index ranges that could possibly be overlapped by atom
+		float radius = ainfo.w;
+		float r = radius * radiusmultiple;
+		vector<pair<unsigned, unsigned> > ranges(3);
+		ranges[0] = getrange(dims[0], coords.x, r);
+		ranges[1] = getrange(dims[1], coords.y, r);
+		ranges[2] = getrange(dims[2], coords.z, r);
+
+		//for every grid point possibly overlapped by this atom
+		for (unsigned i = ranges[0].first, iend = ranges[0].second; i < iend;
+				++i) {
+			for (unsigned j = ranges[1].first, jend = ranges[1].second;
+					j < jend; ++j) {
+				for (unsigned k = ranges[2].first, kend = ranges[2].second;
+						k < kend; ++k) {
+					//convert grid point coordinates to angstroms
+					float x = dims[0].first + i * resolution;
+					float y = dims[1].first + j * resolution;
+					float z = dims[2].first + k * resolution;
+					if (isrelevance) {
+						accumulateAtomRelevance(coords, radius, x, y, z,
+								grids[whichgrid][i][j][k], agrad);
+					} else //true gradient, distance matters
+					{
+						accumulateAtomGradient(coords, radius, x, y, z,
+								grids[whichgrid][i][j][k], agrad);
+					}
+				}
+			}
+		}
+	}
+
+  //backpropagate the gradient from atom grid to atom x,y,z positions
+  template<typename Grids>
+  void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
+                           const Grids& grids, vector<float3>& agrad)
+  { 
+    zeroAtomGradientsCPU(agrad);
+    for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
+    {
+      int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
+      if (whichgrid >= 0) {
+        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
+      }
+    }
+  }
+
+  //summ up gradient values overlapping atoms
+  template<typename Grids>
+  void setAtomRelevanceCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
+                           const Grids& grids, vector<float3>& agrad)
+  {
+    zeroAtomGradientsCPU(agrad);
+    for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
+    {
+      int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
+      if (whichgrid >= 0) {
+        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i],true);
+      }
+    }
+  }
+
 	static unsigned createDefaultMap(const char *names[], vector<int>& map)
 	{
 		map.assign(smina_atom_type::NumTypes, -1);

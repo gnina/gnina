@@ -201,6 +201,7 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
     }
 
 	// t.stop();
+
 	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */
 	return e;
 }
@@ -231,20 +232,21 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	set(c);
 
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
+    fl ie = 0;
 
-	e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
-			minus_forces); // adds to minus_forces
-
-	fl ie = 0;
-	VINA_FOR_IN(i, ligands)
-		ie += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
+	if(!ig.skip_interacting_pairs()) {
+		ie += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
 				minus_forces); // adds to minus_forces
-    
-    if (print_during_minimization) 
-        do_minimization_printing(eval_deriv_counter, (force_energy_tup*)&minus_forces[0],
-                minus_forces.size(), e, ie);
 
-	e += ie;
+		VINA_FOR_IN(i, ligands)
+			ie += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
+					minus_forces); // adds to minus_forces
+		e += ie;
+
+        if (print_during_minimization) 
+            do_minimization_printing(eval_deriv_counter, (force_energy_tup*)&minus_forces[0],
+                    minus_forces.size(), e, ie);
+	}
 	// calculate derivatives
 	ligands.derivative(coords, minus_forces, g.ligands);
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
@@ -258,6 +260,52 @@ fl model::eval_intra(const precalculate& p, const vec& v) {
 		ie += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
 				minus_forces); // adds to minus_forces
     return ie;
+
+void model::clear_minus_forces()
+{
+	minus_forces.clear();
+	minus_forces.reserve(m_num_movable_atoms);
+	VINA_FOR(i, m_num_movable_atoms)
+	{
+		vec force;
+		force.data[0] = 0.0;
+		force.data[1] = 0.0;
+		force.data[2] = 0.0;
+		minus_forces.push_back(force);
+	}
+}
+
+void model::add_minus_forces(const std::vector<float3>& forces)
+{
+	assert(forces.size() <= m_num_movable_atoms);
+	unsigned j = 0;
+	VINA_FOR(i, m_num_movable_atoms)
+	{
+		if (!atoms[i].is_hydrogen()) // no hydrogen forces
+		{
+			minus_forces[i].data[0] += forces[j].x;
+			minus_forces[i].data[1] += forces[j].y;
+			minus_forces[i].data[2] += forces[j].z;
+			j += 1;
+		}
+	}
+}
+
+void model::sub_minus_forces(const std::vector<float3>& forces)
+{
+	assert(forces.size() <= m_num_movable_atoms);
+	unsigned j = 0;
+	VINA_FOR(i, m_num_movable_atoms)
+	{
+		if (!atoms[i].is_hydrogen()) // no hydrogen forces
+		{
+			minus_forces[i].data[0] -= forces[j].x;
+			minus_forces[i].data[1] -= forces[j].y;
+			minus_forces[i].data[2] -= forces[j].z;
+			j += 1;
+		}
+	}
+>>>>>>> fc3604cf315ddc0e9c584ba72b7b8a96caf3999e
 }
 
 //evaluate interactiongs between all of flex (including rigid) and protein

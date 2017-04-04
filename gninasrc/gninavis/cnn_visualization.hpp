@@ -19,19 +19,21 @@ struct vis_options
   bool verbose;
   bool output_files;
   bool skip_bound_check;
-  
+  bool outputdx;
   int gpu;
 
   float box_size;
 
-  //vis_options(): box_size(23.5), frags_only(false), atoms_only(false), verbose(false) {}
+  vis_options(): frags_only(false), atoms_only(false), verbose(false),
+		  output_files(false), skip_bound_check(false), outputdx(false), gpu(0), box_size(23.5) {}
 };
 
 class cnn_visualization
 {
     public:
     cnn_visualization(const vis_options &visopts, const cnn_options &cnnopts, const vec &center);
-    void color();
+    void lrp();
+    void removal();
     void print();
 
     private:
@@ -54,7 +56,7 @@ class cnn_visualization
     std::vector<std::string> rec_map;
     std::vector<std::string> lig_map;
     float score(const std::string &molString, bool isRec);
-    void write_scores(std::vector<float> scoreList, bool isRec);
+    void write_scores(std::vector<float> scoreList, bool isRec, bool removal);
     bool check_in_range(std::unordered_set<int> atomList);
     float transform_score_diff(float diff_val);
     void remove_residues();

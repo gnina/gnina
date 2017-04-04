@@ -35,6 +35,37 @@ void ReLULayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
+template <typename Dtype>
+void ReLULayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
+
+    const Dtype* bottom_data = bottom[0]->cpu_data();
+    const Dtype* top_diff = top[0]->cpu_diff();
+    Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
+    const int count = bottom[0]->count();
+
+    for (int i = 0; i < count; i++)
+    {
+            bottom_diff[i] = top_diff[i];
+    }
+
+    float top_sum = 0;
+    for (int i = 0; i < top[0]->count(); i++)
+    {
+        top_sum += top[0]->cpu_diff()[i];
+        //std::cout << top[0]->cpu_diff()[i] << "|";
+    }
+
+    std::cout << "RELU TOP: " << top_sum << '\n';
+
+    float bottom_sum = 0.0;
+    for (int i = 0; i < bottom[0]->count(); i++)
+    {
+        bottom_sum += bottom[0]->cpu_diff()[i];
+    }
+    std::cout << "RELU BOTTOM: " << bottom_sum << '\n';
+}
+
 
 #ifdef CPU_ONLY
 STUB_GPU(ReLULayer);

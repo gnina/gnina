@@ -90,6 +90,10 @@ void ReshapeLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   top[0]->ShareDiff(*bottom[0]);
 }
 
+template <typename Dtype>
+void ReshapeLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& bottom,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& top) {
+}
 INSTANTIATE_CLASS(ReshapeLayer);
 REGISTER_LAYER_CLASS(Reshape);
 

@@ -17,14 +17,16 @@
 //openbabel for general molecular data (default)
 //vina parse_pdbqt for pdbqt files (one ligand, obey rotational bonds)
 //smina format
-class MolGetter
-{
+class MolGetter {
 	model initm;
-	enum Type {OB, PDBQT, SMINA,GNINA,NONE}; //different inputs
+	enum Type {
+		OB, PDBQT, SMINA, GNINA, NONE
+	}; //different inputs
 
 	Type type;
 	path lpath;
-	bool add_hydrogens;
+	bool add_hydrogens; //add hydrogens before calculating atom types
+	bool strip_hydrogens; //strip them after (more efficient)
 	//openbabel data structs
 	OpenBabel::OBConversion conv;
 	obmol_opener infileopener;
@@ -37,13 +39,14 @@ class MolGetter
 
 public:
 
-	MolGetter(bool addH=true):  add_hydrogens(addH),
-			 type(NONE), pdbqtdone(false) {
+	MolGetter(bool addH = true, bool stripH = true) :
+			add_hydrogens(addH), strip_hydrogens(stripH),
+			type(NONE), pdbqtdone(false) {
 	}
 
 	MolGetter(const std::string& rigid_name, const std::string& flex_name,
-			FlexInfo& finfo, bool addH, tee& log):  add_hydrogens(addH),
-			 type(NONE), pdbqtdone(false) {
+			FlexInfo& finfo, bool addH, bool stripH, tee& log) :
+			add_hydrogens(addH), strip_hydrogens(stripH), type(NONE), pdbqtdone(false) {
 		create_init_model(rigid_name, flex_name, finfo, log);
 	}
 
@@ -59,8 +62,9 @@ public:
 	bool readMoleculeIntoModel(model &m);
 
 	//return model without ligand
-	const model& getInitModel() const { return initm; }
+	const model& getInitModel() const {
+		return initm;
+	}
 };
-
 
 #endif /* MOLGETTER_H_ */
