@@ -578,7 +578,9 @@ void PoolingLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 //maybe distribute only to max, or other strategy
 template <typename Dtype>
 void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
-    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom,
+    float beta)
+{
 
 
     Backward_cpu(top, propagate_down, bottom);

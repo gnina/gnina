@@ -74,9 +74,10 @@ void ConvolutionLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 
 template <typename Dtype>
 void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
-    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom, float beta) {
 
         const float eps = .00001;
+        std::cout << "CONV BETA: " << beta << '\n';
 
         /*
         float top_sum = 0;
@@ -157,7 +158,7 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
         {
             Dtype* alphabetas = this->alphabeta(top_diff+n *this->top_dim_,
                             weight, bottom_data + n * this->bottom_dim_,
-                            bottom_diff + n * this->bottom_dim_);
+                            bottom_diff + n * this->bottom_dim_, beta);
 
             //std::cout << "AB CONV DATA: " << '\n';
             //for (int i = 0; i < 1000; ++i)

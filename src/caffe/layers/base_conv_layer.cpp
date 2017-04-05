@@ -393,7 +393,7 @@ template <typename Dtype>
 Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
     const Dtype* upper_relevances,
     const Dtype* weights, const Dtype* input,
-    Dtype * lower_relevances) 
+    Dtype * lower_relevances, float beta) 
 
 {
     int K = kernel_dim_;
@@ -403,8 +403,9 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
     //weights are R x K
     //upper relevances are R x I
 
-    float beta = 1;
-    float alpha = 2;
+    float alpha = beta + 1;
+
+    std::cout << "BETA: " << beta << '\n';
 
     const Dtype* col_buff = col_buffer_.cpu_data();
 
