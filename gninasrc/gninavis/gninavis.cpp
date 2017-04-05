@@ -53,7 +53,9 @@ int main(int argc, char* argv[])
     ("vis_method", value<int>(&vis_method)->default_value(0),
                     "visualization method (default 0 for removal, 1 for lrp, 2 for both)")
     ("outputdx", bool_switch(&visopts.outputdx)->default_value(false),
-                   "output DX grid files (lrp only)");
+                   "output DX grid files (lrp only)")
+    ("beta", value<int>(&visopts.beta)->default_value(0),
+                   "set beta parameter for stablization (default 0, alpha will be 1 + beta)");
 
   options_description debug("Debug");
   debug.add_options()

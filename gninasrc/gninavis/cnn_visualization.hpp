@@ -19,9 +19,10 @@ struct vis_options
   bool verbose;
   bool output_files;
   bool skip_bound_check;
-  bool outputdx;
   int gpu;
 
+  bool outputdx;
+  int beta;
   float box_size;
 
   vis_options(): frags_only(false), atoms_only(false), verbose(false),

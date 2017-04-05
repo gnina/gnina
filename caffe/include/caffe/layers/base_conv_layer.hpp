@@ -42,7 +42,7 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   void backward_cpu_bias(Dtype* bias, const Dtype* input);
   Dtype* alphabeta(const Dtype* upper_relevances, 
           const Dtype * weights, const Dtype * input,
-          Dtype * lower_relevances);
+          Dtype * lower_relevances, float beta);
 
 #ifndef CPU_ONLY
   void forward_gpu_gemm(const Dtype* col_input, const Dtype* weights,
