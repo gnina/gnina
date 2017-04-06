@@ -260,6 +260,7 @@ fl model::eval_intra(const precalculate& p, const vec& v) {
 		ie += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
 				minus_forces); // adds to minus_forces
     return ie;
+}
 
 void model::clear_minus_forces()
 {
@@ -305,7 +306,6 @@ void model::sub_minus_forces(const std::vector<float3>& forces)
 			j += 1;
 		}
 	}
->>>>>>> fc3604cf315ddc0e9c584ba72b7b8a96caf3999e
 }
 
 //evaluate interactiongs between all of flex (including rigid) and protein
