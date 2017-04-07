@@ -240,7 +240,8 @@ void eval_intra_st(const GPUSplineInfo * spinfo, const atom_params * atoms,
 template<bool remainder> __global__
 void interaction_energy(const GPUNonCacheInfo dinfo, //intentionally copying from host to device
                         unsigned remainder_offset, float slope, float v,
-                        const atom_params *ligs, force_energy_tup *out)
+                        const atom_params *ligs, force_energy_tup *out, bool
+                        doprint)
 {
 	unsigned l = blockIdx.x;
 	unsigned r = blockDim.x - threadIdx.x - 1;
@@ -248,7 +249,7 @@ void interaction_energy(const GPUNonCacheInfo dinfo, //intentionally copying fro
 			remainder ? remainder_offset : blockIdx.y * THREADS_PER_BLOCK;
 	unsigned ridx = roffset + r;
 	//get ligand atom info
-	unsigned t = ridx < dinfo.nrec_atoms ? dinfo.types[l] : 1;
+	unsigned t = dinfo.types[l];
 	float rec_energy = 0;
 	float3 rec_deriv = float3(0, 0, 0);
 	float3 out_of_bounds_deriv = float3(0, 0, 0);
@@ -257,49 +258,54 @@ void interaction_energy(const GPUNonCacheInfo dinfo, //intentionally copying fro
 	atom_params lin = ligs[l];
 	float3 xyz = lin.coords;
 
-	//evaluate for out of boundsness
-	for (unsigned i = 0; i < 3; i++) {
-		float min = dinfo.gridbegins[i];
-		float max = dinfo.gridends[i];
-		if (xyz[i] < min) {
-			out_of_bounds_deriv[i] = -1;
-			out_of_bounds_penalty += fabs(min - xyz[i]);
-			xyz[i] = min;
-		} else if (xyz[i] > max) {
-			out_of_bounds_deriv[i] = 1;
-			out_of_bounds_penalty += fabs(max - xyz[i]);
-			xyz[i] = max;
-		}
-		out_of_bounds_deriv[i] *= slope;
-	}
-
-	out_of_bounds_penalty *= slope;
 	//TODO: remove hydrogen atoms completely
 	if (t > 1) { //ignore hydrogens
+	    //evaluate for out of boundsness
+	    for (unsigned i = 0; i < 3; i++) {
+	    	float min = dinfo.gridbegins[i];
+	    	float max = dinfo.gridends[i];
+	    	if (xyz[i] < min) {
+	    		out_of_bounds_deriv[i] = -1;
+	    		out_of_bounds_penalty += fabs(min - xyz[i]);
+	    		xyz[i] = min;
+	    	} else if (xyz[i] > max) {
+	    		out_of_bounds_deriv[i] = 1;
+	    		out_of_bounds_penalty += fabs(max - xyz[i]);
+	    		xyz[i] = max;
+	    	}
+	    	out_of_bounds_deriv[i] *= slope;
+	    }
+
+	    out_of_bounds_penalty *= slope;
+
 		//now consider interaction with every possible receptor atom
-		//compute squared difference
-		atom_params rin = dinfo.rec_atoms[ridx];
-		float3 diff = xyz - rin.coords;
+        if (ridx < dinfo.nrec_atoms) {
+		    //compute squared difference
+		    atom_params rin = dinfo.rec_atoms[ridx];
+		    float3 diff = xyz - rin.coords;
 
-		float rSq = 0;
-		for (unsigned j = 0; j < 3; j++) {
-			float d = diff[j];
-			rSq += d * d;
-		}
+		    float rSq = 0;
+		    for (unsigned j = 0; j < 3; j++) {
+		    	float d = diff[j];
+		    	rSq += d * d;
+		    }
 
-		if (rSq < dinfo.cutoff_sq) {
-			//dkoes - the "derivative" value returned by eval_deriv
-			//is normalized by r (dor = derivative over r?)
-			float dor;
-			rec_energy = eval_deriv_gpu(dinfo.splineInfo, t, lin.charge,
-					dinfo.rectypes[ridx], rin.charge, rSq, dor);
-			rec_deriv = diff * dor;
-		}
+		    if (rSq < dinfo.cutoff_sq) {
+		    	//dkoes - the "derivative" value returned by eval_deriv
+		    	//is normalized by r (dor = derivative over r?)
+		    	float dor;
+		    	rec_energy = eval_deriv_gpu(dinfo.splineInfo, t, lin.charge,
+		    			dinfo.rectypes[ridx], rin.charge, rSq, dor);
+		    	rec_deriv = diff * dor;
+		    }
+        }
 	}
 	float this_e = block_sum<float>(rec_energy);
 	float3 deriv = block_sum<float3>(rec_deriv);
 	if (threadIdx.x == 0) {
 		curl(this_e, (float *) &deriv, v);
+        if (doprint)
+            printf("atom %d, energy %f\n", l, this_e + out_of_bounds_penalty);
         if (dinfo.nrec_atoms > 1024)
             pseudoAtomicAdd(&out[l], force_energy_tup(deriv + out_of_bounds_deriv,
                         this_e + out_of_bounds_penalty));
@@ -328,7 +334,7 @@ __global__ void reduce_energy(force_energy_tup *result, int n) {
 
 __host__ __device__
 float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
-                        force_energy_tup *out, float v)
+                        force_energy_tup *out, float v, bool doprint)
 {
 	/* Assumed by warp_sum */
 	assert(THREADS_PER_BLOCK <= 1024);
@@ -345,10 +351,10 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
 
 	if (nfull_blocks)
 		interaction_energy<0> <<<dim3(num_movable_atoms, nfull_blocks),
-				THREADS_PER_BLOCK>>>(info, 0, slope, v, ligs, out);
+				THREADS_PER_BLOCK>>>(info, 0, slope, v, ligs, out, doprint);
 	if (nthreads_remain)
 		interaction_energy<1> <<<num_movable_atoms, ROUND_TO_WARP(nthreads_remain)>>>(info,
-				nrec_atoms - nthreads_remain, slope, v, ligs, out);
+				nrec_atoms - nthreads_remain, slope, v, ligs, out, doprint);
 
 	//get total energy
     cudaDeviceSynchronize();

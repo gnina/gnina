@@ -173,14 +173,20 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
 	// static loop_timer t;
 	// t.resume();
     fl e, ie;
+    bool doprint;
     if (threadIdx.x == 0) {
         ie = 0;
 	    set_conf_kernel<<<1,treegpu->num_atoms>>>(treegpu,
                                                atom_coords, (vec*)coords, c);
         memset(minus_forces, 0, sizeof(force_energy_tup) *
-                (info.num_movable_atoms));
+                (forces_size));
         cudaDeviceSynchronize();
-        e = single_point_calc(info, coords, minus_forces, v[1]); 
+        printf("iteration %d\n", eval_deriv_counter);
+        if (eval_deriv_counter < 10)
+            doprint = true;
+        else
+            doprint = false;
+        e = single_point_calc(info, coords, minus_forces, v[1], doprint); 
         cudaDeviceSynchronize();
         if (other_pairs_size)
             e += eval_interacting_pairs_deriv_gpu(info, v[2], other_pairs,
@@ -192,12 +198,23 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
         if (print_during_minimization) 
             do_minimization_printing(eval_deriv_counter, minus_forces,
                     (size_t)forces_size, e, ie);
-
+       
+        if (eval_deriv_counter < 10) {
+            // printf("iteration %d\n", eval_deriv_counter);
+            for (int i=0; i<coords_size; i++) {
+                vec* coord = (vec*)&coords[i];
+                for (int j=0; j<3; j++)
+                    printf("%f ",(*coord)[j]);
+            }
+            printf("\ne is %f\n",e);
+            // printf("ie is %f\n",ie);
+        }
         e += ie;
 	    derivatives_kernel<<<1,treegpu->num_atoms>>>
                 (treegpu, (vec*)coords, (vec*)minus_forces, g);
 
         cudaDeviceSynchronize();
+        eval_deriv_counter++;
     }
 
 	// t.stop();
@@ -213,7 +230,7 @@ fl gpu_data::eval(const GPUNonCacheInfo& info, const float v) {
     fl e;
     cudaMemset(minus_forces, 0, sizeof(force_energy_tup) *
             info.num_movable_atoms);
-    e = single_point_calc(info, coords, minus_forces, v);
+    e = single_point_calc(info, coords, minus_forces, v, false);
     return e;
 }
 
@@ -231,6 +248,7 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 
 	set(c);
 
+    printf("iteration %d\n", eval_deriv_counter);
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
     fl ie = 0;
 
@@ -241,6 +259,13 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 		VINA_FOR_IN(i, ligands)
 			ie += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
 					minus_forces); // adds to minus_forces
+        VINA_FOR_IN(i,coords) {
+            for (int j=0; j < 3; j++)
+                printf("%f ",coords[i][j]);
+        }
+        printf("\n");
+        printf("e is %f\n",e);
+        // printf("ie is %f\n",ie);
 		e += ie;
 
         if (print_during_minimization) 
@@ -250,6 +275,7 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	// calculate derivatives
 	ligands.derivative(coords, minus_forces, g.ligands);
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
+    eval_deriv_counter++;
 	t.stop();
 	return e;
 }
