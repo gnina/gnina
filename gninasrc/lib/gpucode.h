@@ -92,7 +92,7 @@ void evaluate_splines_host(const GPUSplineInfo& spInfo, float r,
 
 __host__ __device__
 float single_point_calc(const GPUNonCacheInfo &dinfo, atom_params *lig,
-                        force_energy_tup *out, float v, bool doprint);
+                        force_energy_tup *out, float v);
 __global__
 void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
 		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr, float v, force_energy_tup *out, float *e);

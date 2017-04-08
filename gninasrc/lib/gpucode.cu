@@ -240,8 +240,7 @@ void eval_intra_st(const GPUSplineInfo * spinfo, const atom_params * atoms,
 template<bool remainder> __global__
 void interaction_energy(const GPUNonCacheInfo dinfo, //intentionally copying from host to device
                         unsigned remainder_offset, float slope, float v,
-                        const atom_params *ligs, force_energy_tup *out, bool
-                        doprint)
+                        const atom_params *ligs, force_energy_tup *out)
 {
 	unsigned l = blockIdx.x;
 	unsigned r = blockDim.x - threadIdx.x - 1;
@@ -304,8 +303,6 @@ void interaction_energy(const GPUNonCacheInfo dinfo, //intentionally copying fro
 	float3 deriv = block_sum<float3>(rec_deriv);
 	if (threadIdx.x == 0) {
 		curl(this_e, (float *) &deriv, v);
-        if (doprint)
-            printf("atom %d, energy %f\n", l, this_e + out_of_bounds_penalty);
         if (dinfo.nrec_atoms > 1024)
             pseudoAtomicAdd(&out[l], force_energy_tup(deriv + out_of_bounds_deriv,
                         this_e + out_of_bounds_penalty));
@@ -334,7 +331,7 @@ __global__ void reduce_energy(force_energy_tup *result, int n) {
 
 __host__ __device__
 float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
-                        force_energy_tup *out, float v, bool doprint)
+                        force_energy_tup *out, float v)
 {
 	/* Assumed by warp_sum */
 	assert(THREADS_PER_BLOCK <= 1024);
@@ -351,10 +348,10 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
 
 	if (nfull_blocks)
 		interaction_energy<0> <<<dim3(num_movable_atoms, nfull_blocks),
-				THREADS_PER_BLOCK>>>(info, 0, slope, v, ligs, out, doprint);
+				THREADS_PER_BLOCK>>>(info, 0, slope, v, ligs, out);
 	if (nthreads_remain)
 		interaction_energy<1> <<<num_movable_atoms, ROUND_TO_WARP(nthreads_remain)>>>(info,
-				nrec_atoms - nthreads_remain, slope, v, ligs, out, doprint);
+				nrec_atoms - nthreads_remain, slope, v, ligs, out);
 
 	//get total energy
     cudaDeviceSynchronize();

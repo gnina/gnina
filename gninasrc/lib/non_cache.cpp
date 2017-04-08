@@ -193,7 +193,6 @@ fl non_cache::eval_deriv(model& m, fl v, const grid& user_grid) const
 		}
 		curl(this_e, deriv, v);
 		m.minus_forces[i] = deriv + out_of_bounds_deriv;
-        printf("atom %d, energy %f\n",i,this_e+out_of_bounds_penalty);
 		e += this_e + out_of_bounds_penalty;
 	}
 	return e;
