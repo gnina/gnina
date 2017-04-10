@@ -37,7 +37,7 @@ builtin_scoring::builtin_scoring()
 	add("dkoes_fast","constant_term", -2.467357);
 
 	add("ad4_scoring","vdw(i=6,_j=12,_s=0,_^=100,_c=8)", 0.1560);
-	add("ad4_scoring","non_dir_h_bond_lj(o=-0.7,_^=100,_c=8)", -0.0974);
+	add("ad4_scoring","non_dir_h_bond_lj(o=-0.7,_^=100,_c=8)", 0.0974);
 	add("ad4_scoring","ad4_solvation(d-sigma=3.5,_s/q=0.01097,_c=8)", 0.1159);
 	add("ad4_scoring","electrostatic(i=1,_^=100,_c=8)", 0.1465);
 	add("ad4_scoring","num_tors_add", 0.2744);

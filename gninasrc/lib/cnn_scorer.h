@@ -48,7 +48,7 @@ class CNNScorer {
 	caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
 
 public:
-	CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), mtx(new boost::mutex) {}
+	CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), outputxyz(false), mtx(new boost::mutex) {}
 	virtual ~CNNScorer() {}
 
 	CNNScorer(const cnn_options& cnnopts, const vec& center, const model& m);

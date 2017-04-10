@@ -76,9 +76,9 @@ template <typename Dtype>
 void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
 
-        const float eps = .00001;
 
         /*
+        const float eps = .00001;
         float top_sum = 0;
         for(int i = 0; i < top[0]->count(); ++i)
         {

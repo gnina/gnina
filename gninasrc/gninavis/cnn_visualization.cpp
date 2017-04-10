@@ -62,7 +62,7 @@ void cnn_visualization::lrp() {
 	scorer.lrp(receptor, visopts.receptor_output, visopts.ligand_output);
 
 	if (visopts.outputdx) {
-		scorer.outputDX(visopts.ligand_output, true);
+		scorer.outputDX(visopts.ligand_output, 1.0, true);
 	}
 }
 
