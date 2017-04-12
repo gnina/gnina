@@ -82,6 +82,8 @@ struct user_settings
 	bool include_atom_info;
 	bool gpu_on;
     bool true_score;
+
+    cnn_options cnnopts;
 	bool cnn_scoring;
 
 	//reasonable defaults
@@ -506,9 +508,8 @@ void main_procedure(model& m, precalculate& prec,
 		non_cache *nc = NULL;
 		if (settings.gpu_on)
 		{
-			if (settings.cnn_scoring)
+			if (settings.cnnopts.cnn_scoring)
 			{
-                                //TODO implement non_cache_cnn_gpu
 				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
 			}
 			else
@@ -521,7 +522,7 @@ void main_procedure(model& m, precalculate& prec,
 		}
 		else
 		{
-			if (settings.cnn_scoring)
+			if (settings.cnnopts.cnn_scoring)
 			{
 				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
 			}
@@ -1067,8 +1068,9 @@ Thank you!\n";
 		bool strip_hydrogens = false;
 		bool no_lig = false;
 
-		cnn_options cnnopts;
 		user_settings settings;
+		cnn_options& cnnopts = settings.cnnopts;
+
 		minimization_params minparms;
 		ApproxType approx = LinearApprox;
 		fl approx_factor = 32;
