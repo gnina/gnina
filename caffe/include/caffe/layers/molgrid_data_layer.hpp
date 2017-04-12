@@ -61,64 +61,58 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
-  vector<float4> getReceptorAtoms(int batch_idx)
+  void getReceptorAtoms(int batch_idx, vector<float4>& atoms)
   {
-    vector<float4> atoms;
+    atoms.resize(0);
     mol_info& mol = batch_transform[batch_idx].mol;
     for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
       if (mol.whichGrid[i] < numReceptorTypes)
         atoms.push_back(mol.atoms[i]);
-    return atoms;
   }
 
-  vector<float4> getLigandAtoms(int batch_idx)
+  void getLigandAtoms(int batch_idx, vector<float4>& atoms)
   {
-    vector<float4> atoms;
+    atoms.resize(0);
     mol_info& mol = batch_transform[batch_idx].mol;
     for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
       if (mol.whichGrid[i] >= numReceptorTypes)
         atoms.push_back(mol.atoms[i]);
-    return atoms;
   }
 
-  vector<short> getReceptorChannels(int batch_idx)
+  void getReceptorChannels(int batch_idx, vector<short>& whichGrid)
   {
-    vector<short> whichGrid;
+    whichGrid.resize(0);
     mol_info& mol = batch_transform[batch_idx].mol;
     for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
       if (mol.whichGrid[i] < numReceptorTypes)
         whichGrid.push_back(mol.whichGrid[i]);
-    return whichGrid;
   }
 
-  vector<short> getLigandChannels(int batch_idx)
+  void getLigandChannels(int batch_idx, vector<short>& whichGrid)
   {
-    vector<short> whichGrid;
+    whichGrid.resize(0);
     mol_info& mol = batch_transform[batch_idx].mol;
     for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
       if (mol.whichGrid[i] >= numReceptorTypes)
         whichGrid.push_back(mol.whichGrid[i]);
-    return whichGrid;
   }
 
-  vector<float3> getReceptorGradient(int batch_idx)
+  void getReceptorGradient(int batch_idx, vector<float3>& gradient)
   {
-    vector<float3> gradient;
+    gradient.resize(0);
     mol_info& mol = batch_transform[batch_idx].mol;
     for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
       if (mol.whichGrid[i] < numReceptorTypes)
-        gradient.push_back(mol.gradient[i]);
-    return gradient;
+        gradient.push_back(-mol.gradient[i]);
   }
 
-  vector<float3> getLigandGradient(int batch_idx)
+  void getLigandGradient(int batch_idx, vector<float3>& gradient)
   {
-    vector<float3> gradient;
+    gradient.resize(0);
     mol_info& mol = batch_transform[batch_idx].mol;
     for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
       if (mol.whichGrid[i] >= numReceptorTypes)
-        gradient.push_back(mol.gradient[i]);
-    return gradient;
+        gradient.push_back(-mol.gradient[i]);
   }
 
   //set in memory buffer

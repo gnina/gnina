@@ -126,22 +126,21 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 std::vector<float> CNNScorer::get_relevances(bool receptor)
 {
     vector<float4> atoms;
-    vector<float3> gradient; 
 
     if (receptor)
     {
-        atoms = mgrid->getReceptorAtoms(0);
-        gradient = mgrid->getReceptorGradient(0);
+        mgrid->getReceptorAtoms(0, atoms);
+        mgrid->getReceptorGradient(0,gradient);
     }
     else
     {
-        atoms = mgrid->getLigandAtoms(0);
-        gradient = mgrid->getLigandGradient(0);
+        mgrid->getLigandAtoms(0, atoms);
+        mgrid->getLigandGradient(0, gradient);
     }
 
     std::vector<float> relevances(atoms.size());
 
-    for (unsigned i = 0, n = atoms.size(); i < n; ++i)
+    for (unsigned i = 0, n = gradient.size(); i < n; ++i)
     {
         //relevances summed to x field of gradient, will be fixed
         relevances[i] = gradient[i].x;
@@ -165,8 +164,15 @@ void CNNScorer::lrp(const model& m, const string& recname, const string& ligname
     net->Backward_relevance();
     
     //outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
-    outputXYZ(ligname, mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
-    outputXYZ(recname, mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
+	mgrid->getLigandGradient(0, gradient);
+	mgrid->getLigandAtoms(0, atoms);
+	mgrid->getLigandChannels(0, channels);
+    outputXYZ(ligname, atoms, channels, gradient);
+
+	mgrid->getReceptorGradient(0, gradient);
+	mgrid->getReceptorAtoms(0, atoms);
+	mgrid->getReceptorChannels(0, channels);
+    outputXYZ(recname, atoms, channels, gradient);
 }
 
 //has an affinity prediction layer
@@ -213,7 +219,8 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff)
 		if (compute_gradient)
 		{
 			net->Backward();
-			m.add_minus_forces(mgrid->getLigandGradient(0)); //TODO divide by cnt
+			mgrid->getLigandGradient(0, gradient);
+			m.add_minus_forces(gradient); //TODO divide by cnt?
 		}
 		cnt++;
 	}
@@ -226,8 +233,15 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff)
 			net->Backward();
 		const string& ligname = m.get_name() + "_lig";
 		const string& recname = m.get_name() + "_rec";
-		outputXYZ(ligname, mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
-		outputXYZ(recname, mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
+		mgrid->getLigandGradient(0, gradient);
+		mgrid->getLigandAtoms(0, atoms);
+		mgrid->getLigandChannels(0, channels);
+		outputXYZ(ligname, atoms, channels, gradient);
+
+		mgrid->getReceptorGradient(0, gradient);
+		mgrid->getReceptorAtoms(0, atoms);
+		mgrid->getReceptorChannels(0, channels);
+		outputXYZ(recname, atoms, channels, gradient);
 	}
 
 	//TODO m.scale_minus_forces(1 / cnt);

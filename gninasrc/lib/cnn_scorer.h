@@ -47,6 +47,11 @@ class CNNScorer {
 
 	caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
 
+	//scratch vectors to avoid memory reallocation
+	vector<float3> gradient;
+    vector<float4> atoms;
+    vector<short> channels;
+
 public:
 	CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), outputxyz(false), mtx(new boost::mutex) {}
 	virtual ~CNNScorer() {}
