@@ -152,7 +152,7 @@ std::vector<float> CNNScorer::get_relevances(bool receptor)
 }
 
 
-void CNNScorer::lrp(const model& m, const string& recname, const string& ligname, int beta)
+void CNNScorer::lrp(const model& m, const string& recname, const string& ligname, const float eps)
 {
     boost::lock_guard<boost::mutex> guard(*mtx);
     
@@ -162,7 +162,7 @@ void CNNScorer::lrp(const model& m, const string& recname, const string& ligname
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
     
     net->Forward();
-    net->Backward_relevance(beta);
+    net->Backward_relevance(eps);
     
     //outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
     outputXYZ(ligname, mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
@@ -245,7 +245,7 @@ float CNNScorer::score(model& m)
 
 
 //dump dx files of the diff
-void CNNScorer::outputDX(const string& prefix, double scale, int relevance_beta)
+void CNNScorer::outputDX(const string& prefix, double scale, const float relevance_eps)
 {
     const caffe::shared_ptr<Blob<Dtype> > datablob = net->blob_by_name("data");
     const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
@@ -273,9 +273,9 @@ void CNNScorer::outputDX(const string& prefix, double scale, int relevance_beta)
         }
 
         //must redo backwards with average pooling
-        if(relevance_beta > -1)
+        if(relevance_eps > 0)
         {
-            net->Backward_relevance(relevance_beta);
+            net->Backward_relevance(relevance_eps);
         }
         else
             net->Backward();

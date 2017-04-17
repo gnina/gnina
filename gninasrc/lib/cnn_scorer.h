@@ -60,12 +60,12 @@ public:
     float score(model& m);
     float score(model& m, bool compute_gradient, float& affinity);
 
-    void outputDX(const string& prefix, double scale = 1.0, int relevance_beta = -1);
+    void outputDX(const string& prefix, double scale = 1.0, const float relevance_eps = -1.0);
     void outputXYZ(const string& base, const vector<float4>& atoms,
                const vector<short>& whichGrid, const vector<float3>& gradient);
     std::vector<float> get_relevances(bool receptor);
 
-    void lrp(const model& m, const string& recname, const string& ligname, int beta);
+    void lrp(const model& m, const string& recname, const string& ligname, const float eps);
 };
 
 #endif /* SRC_LIB_CNN_SCORER_H_ */

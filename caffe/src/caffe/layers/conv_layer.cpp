@@ -74,12 +74,10 @@ void ConvolutionLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 
 template <typename Dtype>
 void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
-    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom, float beta) {
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom, const float eps) {
 
-        const float eps = .00001;
-        std::cout << "CONV BETA: " << beta << '\n';
+        std::cout << "conv eps: " << eps << '\n';
 
-        /*
         float top_sum = 0;
         for(int i = 0; i < top[0]->count(); ++i)
         {
@@ -134,20 +132,20 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
                 }
             }
             }
-        */
-        float top_sum = 0;
-        for (int i = 0; i < top[0]->count(); ++i)
-        {
-            top_sum += top[0]->cpu_diff()[i];
+        //float top_sum = 0;
+        //for (int i = 0; i < top[0]->count(); ++i)
+       // {
+        //    top_sum += top[0]->cpu_diff()[i];
             //std::cout << top[0]->cpu_diff()[i] << "|";
             //std::cout << bottom[0]->cpu_diff()[i] << "|";
-        }
-        std::cout << "CONV TOP SUM: " << top_sum << '\n';
+        //}
+        //std::cout << "CONV TOP SUM: " << top_sum << '\n';
 
 
        // std::cout <<  top[0]->count() << "\n";
         //std::cout <<  bottom[0]->count() << "\n";
 
+        /*
         int i = 0; //assume only using top[0]
         const Dtype* weight = this->blobs_[i]->cpu_data();
         const Dtype* top_diff = top[i]->cpu_diff();
@@ -168,7 +166,7 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
             caffe_copy(bottom[i]->count(), alphabetas, bottom_diff);
         }
 
-
+        */
 
         float bottom_sum = 0;
         for (int i = 0; i < bottom[0]->count(); ++i)

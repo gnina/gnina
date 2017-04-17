@@ -38,7 +38,7 @@ class SoftmaxLayer : public Layer<Dtype> {
 
   virtual void Backward_relevance(const vector<Blob<Dtype>*>& top,
      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom,
-     float beta);
+     const float eps);
 
   int outer_num_;
   int inner_num_;

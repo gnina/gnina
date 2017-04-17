@@ -980,9 +980,8 @@ const shared_ptr<Layer<Dtype> > Net<Dtype>::layer_by_name(
 }
 
 template<typename Dtype>
-void Net<Dtype>::Backward_relevance(float beta){
+void Net<Dtype>::Backward_relevance(const float eps){
     
-    std::cout << "NET BETA: " << beta << '\n';
     int end = 0;
     int start = layers_.size()-1;
 
@@ -990,7 +989,7 @@ void Net<Dtype>::Backward_relevance(float beta){
 
       if (layer_need_backward_[i]) {
         layers_[i]->Backward_relevance(
-            top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i], beta);
+            top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i], eps);
       }
     }
 }
