@@ -142,10 +142,7 @@ void InnerProductLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 
 template <typename Dtype>
 void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
-    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom, float beta){
-
-	/*
-    const float eps = .00001;
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom, const float eps){
 
     float top_sum = 0.0;
     for (int i = 0; i < top[0]->count(); ++i)
@@ -197,8 +194,7 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
     }
     std::cout << "INNERPROD BOTTOM SUM : " << bottom_sum << '\n';
 }
-
-*/
+        /*
 
         float top_sum = 0.0;
         for (int i = 0; i < top[0]->count(); ++i)
@@ -279,6 +275,7 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
                     }
                 }
         }
+    */
 
 
 

@@ -579,7 +579,7 @@ void PoolingLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 template <typename Dtype>
 void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom,
-    float beta)
+    const float eps)
 {
 
 

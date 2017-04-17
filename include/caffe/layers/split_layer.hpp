@@ -39,7 +39,7 @@ class SplitLayer : public Layer<Dtype> {
 
   virtual void Backward_relevance(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom,
-      float beta);
+      const float eps);
 
   int count_;
 };
