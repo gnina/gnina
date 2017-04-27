@@ -139,6 +139,8 @@ bool NNGridder::readDXGrid(istream& in, vec& center, double& res, Grid& grid)
 
 	//data begins
 	grid.resize(extents[n][n][n]);
+	fill_n(grid.data(), grid.num_elements(), 0.0);
+
 	unsigned total = 0;
 	for (unsigned i = 0; i < n; i++)
 	{
