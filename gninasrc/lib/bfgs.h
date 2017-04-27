@@ -226,8 +226,8 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	Conf x_orig(x);
 
 	Change p(g);
-	// std::cout << std::setprecision(8);
-	// std::cout << "f0 " << f0 << "\n";
+	 //std::cout << std::setprecision(8);
+	 //std::cout << "f0 " << f0 << "\n";
 	//std::ofstream fout("minout.sdf");
 	VINA_U_FOR(step, params.maxiters)
 	{
@@ -270,7 +270,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		g = g_new; // dkoes - check the convergence of the new gradient
 
 		fl gradnormsq = scalar_product(g, g, n);
-		// std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+		std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
 
 		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
 		{

@@ -61,6 +61,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
+  //the following really shouldn't be recalculated each evaluation (not including gradients)
   void getReceptorAtoms(int batch_idx, vector<float4>& atoms)
   {
     atoms.resize(0);
