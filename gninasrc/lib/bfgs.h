@@ -137,7 +137,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 	test = compute_lambdamin(p, x, n);
 
 	alamin = epsilon_fl / test;
-	std::cout << "alamin " << alamin << " epsilon_fl " << epsilon_fl << " test " << test << "\n";
+	//std::cout << "alamin " << alamin << " epsilon_fl " << epsilon_fl << " test " << test << "\n";
 	alpha = FIRST; //single newton step
 	for (;;) //always try full newton step first
 	{
@@ -146,7 +146,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 
 		f1 = f(x_new, g_new);
 
-		std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
+		//std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
 		if (alpha < alamin || !std::isfinite(alpha)) //convergence
 		{
 			x_new = x;
@@ -191,7 +191,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		}
 		alpha2 = alpha;
 		f2 = f1;
-		std::cout << "TMPLAM " << tmplam << "\n";
+		//std::cout << "TMPLAM " << tmplam << "\n";
 		//considered slowing things down with f1 > 0, but it was slow without actually improving scores
 		alpha = std::max(tmplam, (fl)0.1 * alpha); //never smaller than a tenth
 	}
