@@ -940,7 +940,7 @@ void write_out(std::vector<result_info> &results, ozfile &outfile,
 		//write out flexible residue data data
 		for (unsigned j = 0, nr = results.size(); j < nr; j++)
 		{
-			results[j].writeFlex(outflex, outfext);
+			results[j].writeFlex(outflex, outfext,j+1);
 		}
 	}
 	if (atomoutfile)
