@@ -1578,45 +1578,55 @@ Thank you!\n";
 				&outflex, &outfext, &nligs, &ligcount_final);
 
 
-		//loop over input ligands, adding them to the work queue
-		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
-		{
-			doing(settings.verbosity, "Reading input", log);
-			const std::string ligand_name = ligand_names[l];
-			mols.setInputFile(ligand_name);
-
-			unsigned i = 0;
-
-			for (;;)
+		try {
+			//loop over input ligands, adding them to the work queue
+			for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
 			{
-				model* m = new model;
+				doing(settings.verbosity, "Reading input", log);
+				const std::string ligand_name = ligand_names[l];
+				mols.setInputFile(ligand_name);
 
-				if (!mols.readMoleculeIntoModel(*m))
+				unsigned i = 0;
+
+				for (;;)
 				{
-					delete m;
-					break;
+					model* m = new model;
+
+					if (!mols.readMoleculeIntoModel(*m))
+					{
+						delete m;
+						break;
+					}
+
+					if (settings.local_only || settings.true_score)
+					{
+						gd = m->movable_atoms_box(autobox_add, granularity);
+					}
+
+					if (settings.local_only && settings.true_score) {
+						m->print_during_minimization = true;
+						m->gdata.print_during_minimization = true;
+					}
+
+					done(settings.verbosity, log);
+					std::vector<result_info>* results =
+							new std::vector<result_info>();
+					worker_job j(i, m, results, gd);
+					wrkq.push(j);
+
+					i++;
+					if (no_lig)
+						break;
 				}
-
-				if (settings.local_only || settings.true_score)
-				{
-					gd = m->movable_atoms_box(autobox_add, granularity);
-				}
-
-                if (settings.local_only && settings.true_score) {
-                    m->print_during_minimization = true;
-                    m->gdata.print_during_minimization = true;
-                }
-
-				done(settings.verbosity, log);
-				std::vector<result_info>* results =
-						new std::vector<result_info>();
-				worker_job j(i, m, results, gd);
-				wrkq.push(j);
-
-				i++;
-				if (no_lig)
-					break;
 			}
+		} catch (...)
+		{
+			//clean up threads before passing along exception
+			work_done = true;
+			worker_threads.join_all();
+			writer_thread.join();
+	        cudaDeviceSynchronize();
+			throw;
 		}
 
 		//join all the threads when their work is done
