@@ -1,6 +1,10 @@
 gnina (pronounced NEE-na) is a fork of smina, which is a fork of AutoDock Vina.
 
-gnina is **not** recommended for production use (*yet*) in molecular modeling tasks.  However, it *is* suitable as a platform for researching structure-based deep learning approaches as described in [our paper](https://arxiv.org/abs/1612.02751).  
+gnina is **not** recommended for production use (*yet*) in molecular modeling tasks.  However, it *is* suitable as a platform for researching structure-based deep learning approaches as described in [our paper](http://pubs.acs.org/doi/abs/10.1021/acs.jcim.6b00740).  
+
+Help
+====
+**Reminder: gnina is not yet intended for production use**.  However, if you would like to evaluate it or use it as a research platform, please [subscribe to our slack team](http://bits.csb.pitt.edu/slack). 
 
 Installation
 ============
