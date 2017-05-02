@@ -36,9 +36,9 @@ make install
 To install on (CentOS 7):
 
 The program will not build in a computer with a gpu with computer capability < 3.5 unless
-you setup force a different architecture.
+you force a different architecture. The program will compile but will not run in that computer due to the GPU architecture difference.
 
-_Add EPEL repository_
+_Add the EPEL repository_
 ```
 sudo yum  install epel-release
 ```
@@ -50,7 +50,8 @@ sudo yum clean all
 sudo yum install cuda
 ```
 
-_Install dependencies_
+_Install dependencies_  
+These are necessary to build RDKit, Caffe, and gnina. 
 ```
 sudo yum  groupinstall 'Development Tools'
 ```
@@ -67,8 +68,9 @@ export CMAKE_HOME=/home/$USER/bin/cmake-3.8.0-Linux-x86_64
 export PATH=$CMAKE_HOME/bin:$PATH
 ```
 _Install RDKit Release_2017_03_1 and compile gnina_  
-_Install RDKit_  
-Is better if we keep everything inside the gnina directory
+  
+_Install RDKit_   
+Is better if we keep everything inside the gnina directory.
 ```
 cd /home/$USER/bin
 git clone https://github.com/gnina/gnina.git
@@ -104,6 +106,7 @@ We need to make additional links to resemble the UBUNTU names.
 cd $RDBASE/lib
 for i in $(ls -1 *.so.1.2017.03.1); do name=`basename $i .so.1.2017.03.1`; namef=`echo $name | sed 's/RDKit//g'`; ln -s $i ${namef}.so.1; ln -s ${namef}.so.1 ${namef}.so; done
 ```
+
 _Continue with gnina compilation_  
 We need to set the variable for the ATLAS libraries.  
 Use lib**s**atlas.so for serial libraries or lib**t**atlas.so for threaded libraries.  
