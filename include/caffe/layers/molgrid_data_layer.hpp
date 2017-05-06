@@ -136,11 +136,12 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
         ainfo.x = a.coords[0];
         ainfo.y = a.coords[1];
         ainfo.z = a.coords[2];
-        ainfo.w = xs_radius(t);
-        float3 gradient;
-        gradient.x = 0.0;
-        gradient.y = 0.0;
-        gradient.z = 0.0;
+        if (fixedradius <= 0)
+          ainfo.w = xs_radius(t);
+        else
+          ainfo.w = fixedradius;
+        float3 gradient(0,0,0);
+
         mem_rec.atoms.push_back(ainfo);
         mem_rec.whichGrid.push_back(rmap[t]);
         mem_rec.gradient.push_back(gradient);
@@ -169,11 +170,12 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
         ainfo.x = coord[0];
         ainfo.y = coord[1];
         ainfo.z = coord[2];
-        ainfo.w = xs_radius(t);
-        float3 gradient;
-        gradient.x = 0.0;
-        gradient.y = 0.0;
-        gradient.z = 0.0;
+        if (fixedradius <= 0)
+          ainfo.w = xs_radius(t);
+        else
+          ainfo.w = fixedradius;
+        float3 gradient(0,0,0);
+
         mem_lig.atoms.push_back(ainfo);
         mem_lig.whichGrid.push_back(lmap[t]+numReceptorTypes);
         mem_lig.gradient.push_back(gradient);
