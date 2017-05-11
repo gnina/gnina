@@ -9,7 +9,7 @@ Help
 Installation
 ============
 
-###Ubuntu 16.04
+### Ubuntu 16.04
 ```
 apt-get install build-essential git wget libopenbabel-dev libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-serial-dev libatlas-base-dev python-dev cmake librdkit-dev python-numpy
 ```
@@ -33,7 +33,7 @@ make install
 ```
 # 
 
-###CentOS 7)
+### CentOS 7)
 
 The program will not build in a computer with a gpu with computer capability < 3.5 unless
 you force a different architecture. The program will compile but will not run in that computer due to the GPU architecture difference.
