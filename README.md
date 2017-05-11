@@ -33,7 +33,7 @@ make install
 ```
 # 
 
-### CentOS 7)
+### CentOS 7
 
 The program will not build in a computer with a gpu with computer capability < 3.5 unless
 you force a different architecture. The program will compile but will not run in that computer due to the GPU architecture difference.
