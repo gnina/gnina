@@ -77,7 +77,7 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
 
 
-        /*
+
         const float eps = .00001;
         float top_sum = 0;
         for(int i = 0; i < top[0]->count(); ++i)
@@ -133,7 +133,7 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
                 }
             }
             }
-        */
+        /*
         float top_sum = 0;
         for (int i = 0; i < top[0]->count(); ++i)
         {
@@ -176,7 +176,7 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
             //std::cout << bottom[0]->cpu_diff()[i] << "|";
         }
         std::cout << "CONV BOTTOM SUM: " << bottom_sum << '\n';
-
+*/
 }
 
 #ifdef CPU_ONLY

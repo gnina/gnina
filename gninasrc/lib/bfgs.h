@@ -253,12 +253,15 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		fl prevf0 = f0;
 		f0 = f1;
 
-		/*
-				f.m->set(x);
-				f.m->write_sdf(fout);
-				fout << "$$$$\n";
-		*/
-
+/*
+		for(double factor = 0; factor <= 1.0; factor += 0.025) {
+			Conf xi(x);
+			xi.increment(p, alpha*factor);
+			f.m->set(xi);
+			f.m->write_sdf(fout);
+			fout << "$$$$\n";
+		}
+*/
 		x = x_new;
 
 		if (params.early_term)

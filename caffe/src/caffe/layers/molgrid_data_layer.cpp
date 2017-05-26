@@ -484,17 +484,29 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
 {
   //output grid values for provided example
   //cache atom info
-  if(molcache.count(ex.receptor) == 0)
-  {
-    set_mol_info(ex.receptor, rmap, 0, molcache[ex.receptor]);
-  }
-  if(molcache.count(ex.ligand) == 0)
-  {
-    set_mol_info(ex.ligand, lmap, numReceptorTypes, molcache[ex.ligand]);
-  }
+  bool docache = this->layer_param_.molgrid_data_param().cache_structs();
 
-  set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, gpu);
+  if(docache)
+  {
+    if(molcache.count(ex.receptor) == 0)
+    {
+      set_mol_info(ex.receptor, rmap, 0, molcache[ex.receptor]);
+    }
+    if(molcache.count(ex.ligand) == 0)
+    {
+      set_mol_info(ex.ligand, lmap, numReceptorTypes, molcache[ex.ligand]);
+    }
 
+    set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, gpu);
+  }
+  else
+  {
+    mol_info rec;
+    mol_info lig;
+    set_mol_info(ex.receptor, rmap, 0, rec);
+    set_mol_info(ex.ligand, lmap, numReceptorTypes, lig);
+    set_grid_minfo(data, rec, lig, transform, gpu);
+  }
 }
 
 
