@@ -391,7 +391,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
   vec center(0,0,0);
   minfo.atoms.clear();
   minfo.whichGrid.clear();
-  float3 gradient(0,0,0);
+  minfo.gradient.clear();
 
   //also, implemented a custom gninatypes files to precalc this info
   if(boost::algorithm::ends_with(file,".gninatypes"))
@@ -404,7 +404,6 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
     ifstream in(file.c_str());
     CHECK(in) << "Could not read " << file;
 
-    float3 gradient(0,0,0);
     int cnt = 0;
     while(in.read((char*)&atom, sizeof(atom)))
     {
@@ -417,11 +416,12 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         float4 ainfo;
         ainfo.x = atom.x;
         ainfo.y = atom.y;
-        ainfo.z  = atom.z;
+        ainfo.z = atom.z;
         if(fixedradius <= 0)
         	ainfo.w = xs_radius(t);
         else
         	ainfo.w = fixedradius;
+        float3 gradient(0,0,0);
 
         minfo.atoms.push_back(ainfo);
         minfo.whichGrid.push_back(index+mapoffset);
@@ -464,6 +464,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         	ainfo.w = xs_radius(t);
         else
         	ainfo.w = fixedradius;
+        float3 gradient(0,0,0);
 
         minfo.atoms.push_back(ainfo);
         minfo.whichGrid.push_back(index+mapoffset);

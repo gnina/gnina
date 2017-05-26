@@ -9,7 +9,7 @@ Help
 Installation
 ============
 
-To install (Ubuntu 16.04):
+### Ubuntu 16.04
 ```
 apt-get install build-essential git wget libopenbabel-dev libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-serial-dev libatlas-base-dev python-dev cmake librdkit-dev python-numpy
 ```
@@ -31,7 +31,106 @@ cmake ..
 make
 make install
 ```
+# 
 
+### CentOS 7
+
+The program will not build in a computer with a gpu with computer capability < 3.5 unless
+you force a different architecture. The program will compile but will not run in that computer due to the GPU architecture difference.
+
+_Add the EPEL repository_
+```
+sudo yum  install epel-release
+```
+_[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA.  Or:_
+```
+wget http://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-repo-rhel7-8.0.61-1.x86_64.rpm
+sudo rpm -i cuda-repo-rhel7-8.0.61-1.x86_64.rpm
+sudo yum clean all
+sudo yum install cuda
+```
+
+_Install dependencies_  
+These are necessary to build RDKit, Caffe, and gnina. 
+```
+sudo yum  groupinstall 'Development Tools'
+```
+```
+sudo yum install boost-devel.x86_64 eigen3-devel.noarch protobuf-compiler.x86_64 protobuf-devel.x86_64 hdf5-devel.x86_64 cmake git wget openbabel-devel.x86_64 openbabel.x86_64 leveldb-devel.x86_64 snappy-devel.x86_64 opencv-devel.x86_64 gflags-devel.x86_64 glog-devel.x86_64 lmdb-devel.x86_64 readline-devel.x86_64 zlib-devel.x86_64 bzip2-devel.x86_64 sqlite-devel.x86_64 python-devel.x86_64 numpy.x86_64 atlas-devel.x86_64 atlas.x86_64 atlas-static.x86_64
+```
+_Install cmake 3.8_  
+The cmake installed by yum in CentOS 7 (cmake version 2.8.12.2) produce a lot of error. Is better if you use an updated version.
+```
+cd /home/$USER/bin
+wget https://cmake.org/files/v3.8/cmake-3.8.0-Linux-x86_64.tar.gz
+tar -xvf cmake-3.8.0-Linux-x86_64.tar.gz
+export CMAKE_HOME=/home/$USER/bin/cmake-3.8.0-Linux-x86_64
+export PATH=$CMAKE_HOME/bin:$PATH
+```
+_Install RDKit Release_2017_03_1 and compile gnina_  
+  
+_Install RDKit_   
+Is better if we keep everything inside the gnina directory.
+```
+cd /home/$USER/bin
+git clone https://github.com/gnina/gnina.git
+cd gnina
+wget https://github.com/rdkit/rdkit/archive/Release_2017_03_1.tar.gz
+tar -xvf Release_2017_03_1.tar.gz
+cd Release_2017_03_1
+export RDBASE=`pwd`
+export LD_LIBRARY_PATH=$RDBASE/lib:$LD_LIBRARY_PATH
+mkdir build
+cd build
+```
+**If you are using anaconda python the you need to check that all the python variables are set correctly or set them manually.**
+```
+export ANACONDA_PY_HOME=/home/$USER/anaconda
+cmake -DPYTHON_EXECUTABLE=$ANACONDA_PY_HOME/bin/python -DPYTHON_INCLUDE_DIR=$ANACONDA_PY_HOME/include/python2.7 -DPYTHON_LIBRARY=$ANACONDA_PY_HOME/lib/libpython2.7.so -DPYTHON_NUMPY_INCLUDE_PATH=$ANACONDA_PY_HOME/lib/python2.7/site-packages/numpy/core/include ..
+make
+ctest
+make install
+```
+**If you are using your CentOS python**
+```
+cmake ..
+make 
+ctest
+make install
+```
+_Fix RDKit Libraries_  
+Compiling RDKit will add the name of the package to the library.   
+ex. libSmilesParse.so (UBUNTU Package) !=  libRDKitSmilesParse.so (Compiled in CentOS)  
+We need to make additional links to resemble the UBUNTU names.
+```
+cd $RDBASE/lib
+for i in $(ls -1 *.so.1.2017.03.1); do name=`basename $i .so.1.2017.03.1`; namef=`echo $name | sed 's/RDKit//g'`; ln -s $i ${namef}.so.1; ln -s ${namef}.so.1 ${namef}.so; done
+```
+
+_Continue with gnina compilation_  
+We need to set the variable for the ATLAS libraries.  
+Use lib**s**atlas.so for serial libraries or lib**t**atlas.so for threaded libraries.  
+
+**If you are using anaconda python the you need to check that all the python variables are set correctly or set them manually.**
+```
+cd /home/$USER/bin/gnina
+mkdir build
+cd build
+cmake -DPYTHON_EXECUTABLE=$ANACONDA_PY_HOME/bin/python -DPYTHON_INCLUDE_DIR=$ANACONDA_PY_HOME/include/python2.7 -DPYTHON_LIBRARY=$ANACONDA_PY_HOME/lib/libpython2.7.so -DAtlas_BLAS_LIBRARY=/usr/lib64/atlas/libtatlas.so -DAtlas_CBLAS_LIBRARY=/usr/lib64/atlas/libtatlas.so -DAtlas_LAPACK_LIBRARY=/usr/lib64/atlas/libtatlas.so ..
+make 
+make install
+```
+**If you are using your CentOS python**
+```
+cd /home/$USER/bin/gnina
+mkdir build
+cd build
+cmake -DAtlas_BLAS_LIBRARY=/usr/lib64/atlas/libtatlas.so -DAtlas_CBLAS_LIBRARY=/usr/lib64/atlas/libtatlas.so -DAtlas_LAPACK_LIBRARY=/usr/lib64/atlas/libtatlas.so ..
+make
+make install
+```
+
+#
 If you are building for systems with different GPUs, include `-DCUDA_ARCH_NAME=All`.  
 
 
