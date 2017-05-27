@@ -428,6 +428,10 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         minfo.gradient.push_back(gradient);
         center += vec(atom.x,atom.y,atom.z);
       }
+      else 
+      {
+	std::cerr << "WARNING: Unknown atom type in " << file << ".  This atom will be discarded\n";
+      }
     }
     center /= cnt;
   }
@@ -471,6 +475,10 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         minfo.gradient.push_back(gradient);
         center += vec(a->x(),a->y(),a->z());
       }
+      else
+      {
+        std::cerr << "WARNING: Unknown atom type in " << file << ".  This atom will be discarded\n";
+      }	
     }
     center /= cnt;
   }
@@ -558,7 +566,11 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
 
   //TODO move this into gridmaker.setAtoms, have it just take the mol_transform as input
   gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
-  
+ 
+  if(transform.mol.atoms.size() == 0) {
+     std::cerr << "ERROR: No atoms in molecule.  I can't deal with this.\n";
+     exit(-1); //presumably you never actually want this and it results in a cuda error
+  } 
   //compute grid from atom info arrays
   if(gpu)
   {
