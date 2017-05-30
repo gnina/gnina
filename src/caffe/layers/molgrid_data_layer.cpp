@@ -428,9 +428,9 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         minfo.gradient.push_back(gradient);
         center += vec(atom.x,atom.y,atom.z);
       }
-      else 
+      else if(t > 1) //silence on hydrogens
       {
-	std::cerr << "WARNING: Unknown atom type in " << file << ".  This atom will be discarded\n";
+	std::cerr << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded\n";
       }
     }
     center /= cnt;
