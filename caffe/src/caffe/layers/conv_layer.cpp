@@ -107,24 +107,26 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
 
             int outcount = top_data_with_eps.count();
 
-            Dtype* top_data_with_eps_data = top_data_with_eps.mutable_cpu_data();
-            caffe_copy<Dtype>(outcount, top_diff, top_data_with_eps_data);
+            Dtype* relevance = top_data_with_eps.mutable_cpu_data();
+            caffe_copy<Dtype>(outcount, top_diff, relevance);
 
             for(int c = 0; c < outcount; ++c)
             {
-                if(top_data[c] > 0)
+                Dtype bias = this->blobs_[1]->cpu_data()[c/N];
+                Dtype val = top_data[c] - bias;
+                if(val > 0)
                 {
-                    top_data_with_eps_data[c] /= top_data[c] + eps;
+                  relevance[c] /= val + eps;
                 }
-                else if(top_data[c] < 0)
+                else if(val < 0)
                 {
-                    top_data_with_eps_data[c] /= top_data[c] - eps;
+                  relevance[c] /= val - eps;
                 }
             }
 
             for (int n = 0; n < this->num_; ++n)
             {
-                this->backward_cpu_gemm(top_data_with_eps_data + n * this->top_dim_, weight, bottom_diff + n * this->bottom_dim_);
+                this->backward_cpu_gemm(relevance + n * this->top_dim_, weight, bottom_diff + n * this->bottom_dim_);
 
                 for(int d = 0; d < this->bottom_dim_; ++d)
                 {
@@ -168,7 +170,7 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
         }
 
 
-
+*/
         float bottom_sum = 0;
         for (int i = 0; i < bottom[0]->count(); ++i)
         {
@@ -176,7 +178,7 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
             //std::cout << bottom[0]->cpu_diff()[i] << "|";
         }
         std::cout << "CONV BOTTOM SUM: " << bottom_sum << '\n';
-*/
+
 }
 
 #ifdef CPU_ONLY
