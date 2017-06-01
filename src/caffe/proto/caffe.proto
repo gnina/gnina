@@ -875,6 +875,10 @@ message MolGridDataParameter {
   optional bool paired = 24 [default = false];
   //store x,y,z,atom type info for the whole input in memory instead of re-reading from files
   optional bool cache_structs = 25 [default = true];
+  // Can train on data from two sources at some ratio per batch
+  optional string source2 = 26 [default = ""];
+  optional string root_folder2 = 27 [default = ""];
+  optional float source_ratio = 28;
 }
 
 message NDimDataParameter {
