@@ -40,7 +40,8 @@ const sz EL_TYPE_Cl   =  7;
 const sz EL_TYPE_Br   =  8;
 const sz EL_TYPE_I    =  9;
 const sz EL_TYPE_Met  = 10;
-const sz EL_TYPE_SIZE = 11;
+const sz EL_TYPE_B  = 11;
+const sz EL_TYPE_SIZE = 12;
 
 // AutoDock4
 const sz AD_TYPE_C    =  0;
@@ -64,7 +65,8 @@ const sz AD_TYPE_Fe   = 17;
 const sz AD_TYPE_Cl   = 18;
 const sz AD_TYPE_Br   = 19;
 const sz AD_TYPE_METAL = 20; //generic metal, not actually part of autodock
-const sz AD_TYPE_SIZE = 21;
+const sz AD_TYPE_B = 21;
+const sz AD_TYPE_SIZE = 22;
 
 // X-Score
 const sz XS_TYPE_C_H   =  0;
@@ -84,7 +86,8 @@ const sz XS_TYPE_Cl_H  = 13;
 const sz XS_TYPE_Br_H  = 14;
 const sz XS_TYPE_I_H   = 15;
 const sz XS_TYPE_Met_D = 16;
-const sz XS_TYPE_SIZE  = 17;
+const sz XS_TYPE_B = 17;
+const sz XS_TYPE_SIZE  = 18;
 
 
 
@@ -120,6 +123,7 @@ enum type {
 	Calcium, //Met_Ca_Met_D,
 	Iron, //Met_Fe_Met_D,
 	GenericMetal, //Met_METAL_Met_D,
+	Boron,
 	NumTypes
 };
 
@@ -204,7 +208,11 @@ const info default_data[NumTypes] = { //el, ad, xs
 		{Iron, EL_TYPE_Met, AD_TYPE_Fe, XS_TYPE_Met_D,"Iron",
 				"Fe",	0.650000,	0.010000,	-0.001100,	1.840000,	1.250000,	1.200000,	false,	true,	false,	true},
 		{GenericMetal, EL_TYPE_Met, AD_TYPE_METAL, XS_TYPE_Met_D,"GenericMetal",
-				"M",	1.200000,	0.000000,	-0.001100,	22.449300,	1.750000,	1.200000,	false,	true,	false,	true}
+				"M",	1.200000,	0.000000,	-0.001100,	22.449300,	1.750000,	1.200000,	false,	true,	false,	true},
+		//note AD4 doesn't have boron, so copying from carbon
+		{Boron, EL_TYPE_B, AD_TYPE_B, XS_TYPE_B,"Boron",
+		        "B",    2.000000,   0.150000,   -0.001430,  33.510300,  0.90,   1.920000,   true,   false,  false,  false}
+
 };
 
 }
