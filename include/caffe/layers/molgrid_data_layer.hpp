@@ -245,8 +245,9 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     int all_index;
     int actives_index;
     int decoys_index;
+    bool shuffle_on_wrap; //TODO this doesn't apply to pairs for now
 
-    examples(): all_index(0), actives_index(0), decoys_index(0) {}
+    examples(): all_index(0), actives_index(0), decoys_index(0), shuffle_on_wrap(false) {}
     void add(const example& ex);
     void shuffle_();
     void next(example& ex);
