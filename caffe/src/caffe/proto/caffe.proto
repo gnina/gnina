@@ -878,7 +878,7 @@ message MolGridDataParameter {
   // Can train on data from two sources at some ratio per batch
   optional string source2 = 26 [default = ""];
   optional string root_folder2 = 27 [default = ""];
-  optional float source_ratio = 28;
+  optional float source_ratio = 28 [default = -1.0];
 }
 
 message NDimDataParameter {

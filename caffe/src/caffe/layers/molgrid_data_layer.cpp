@@ -197,7 +197,8 @@ void MolGridDataLayer<Dtype>::examples::next(example& ex)
   if (all_index >= all.size())
   {
     all_index = 0;
-    shuffle(all.begin(), all.end(), caffe_rng());
+    if (shuffle_on_wrap)
+      shuffle(all.begin(), all.end(), caffe_rng());
   }
 }
 
@@ -209,7 +210,8 @@ void MolGridDataLayer<Dtype>::examples::next_active(example& ex)
   if (actives_index >= actives.size())
   {
     actives_index = 0;
-    shuffle(actives.begin(), actives.end(), caffe_rng());
+    if (shuffle_on_wrap)
+      shuffle(actives.begin(), actives.end(), caffe_rng());
   }
 }
 
@@ -221,7 +223,8 @@ void MolGridDataLayer<Dtype>::examples::next_decoy(example& ex)
   if (decoys_index >= decoys.size())
   {
     decoys_index = 0;
-    shuffle(decoys.begin(), decoys.end(), caffe_rng());
+    if (shuffle_on_wrap)
+      shuffle(decoys.begin(), decoys.end(), caffe_rng());
   }
 }
 
@@ -265,6 +268,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   bool hasrmsd = this->layer_param_.molgrid_data_param().has_rmsd();
   data_ratio = this->layer_param_.molgrid_data_param().source_ratio();
   string root_folder2 = this->layer_param_.molgrid_data_param().root_folder2();
+  bool shuffle = this->layer_param_.molgrid_data_param().shuffle();
 
   //make sure root folder(s) have trailing slash
   if (root_folder.length() > 0 && root_folder[root_folder.length()-1] != '/')
@@ -302,6 +306,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     CHECK((bool)infile) << "Could not open " << source;
 
     data.root_folder = root_folder;
+    data.shuffle_on_wrap = shuffle;
 
     string line;
     while (getline(infile, line))
@@ -319,6 +324,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       CHECK((bool)infile) << "Could not open " << source2;
 
       data2.root_folder = root_folder2;
+      data2.shuffle_on_wrap = shuffle;
 
       while (getline(infile, line))
       {
@@ -335,7 +341,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       two_data_sources = false;
     }
 
-    if (this->layer_param_.molgrid_data_param().shuffle())
+    if (shuffle)
     {
       // randomly shuffle data
       LOG(INFO) << "Shuffling data";
