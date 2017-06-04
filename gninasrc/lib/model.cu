@@ -60,33 +60,43 @@ fl model::eval_interacting_pairs_deriv(const precalculate& p, fl v,
 }
 
 //evaluates interacting pairs (which is all of them) on the gpu
-__device__
+__host__ __device__
 fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
-		fl v) const { // adds to forces  // clean up
+		fl v, interacting_pair* pairs, unsigned pairs_sz) const { // adds to forces  // clean up
 
 	float e = 0;
 	// If there aren't any pairs, just return.
-	if (pairs_size == 0) {
+	if (pairs_sz == 0) {
 		return e;
 	}
 
 	const fl cutoff_sqr = info.cutoff_sq;
-	memset(scratch, 0, sizeof(float));
-    cudaDeviceSynchronize();
+    #ifdef __CUDA_ARCH__
+    scratch[0] = 0;
+    #else
+    cudaMemset(scratch, 0, sizeof(float));
+    #endif
 
-	if(pairs_size < CUDA_THREADS_PER_BLOCK) {
-		eval_intra_kernel<<<1,pairs_size>>>(info.splineInfo, coords,
-                interacting_pairs, pairs_size, cutoff_sqr, v, minus_forces, scratch);
+	if(pairs_sz< CUDA_THREADS_PER_BLOCK) {
+		eval_intra_kernel<<<1,pairs_sz>>>(info.splineInfo, coords,
+                pairs, pairs_sz, cutoff_sqr, v, minus_forces, scratch);
 
 	} 
 	else { 
-		eval_intra_kernel<<<CUDA_GET_BLOCKS(pairs_size,
-                CUDA_THREADS_PER_BLOCK),
+		eval_intra_kernel<<<CUDA_GET_BLOCKS(pairs_sz,
+                1024),
             CUDA_THREADS_PER_BLOCK>>>(info.splineInfo, coords,
-                    interacting_pairs, pairs_size, cutoff_sqr, v, minus_forces,
+                    pairs, pairs_sz, cutoff_sqr, v, minus_forces,
                     scratch);
 	}
+    #ifdef __CUDA_ARCH__ 
+    cudaDeviceSynchronize();
 	return scratch[0];
+    #else
+    float out;
+    cudaMemcpy(&out, scratch, sizeof(float), cudaMemcpyDeviceToHost);
+    return out;
+    #endif
 }
 
 fl model::evali(const precalculate& p, const vec& v) const { // clean up
@@ -130,14 +140,31 @@ fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
 
 static __global__
 void derivatives_kernel(tree_gpu *t, const vec * coords, const vec* forces,
-                        float *c) {
-	t->derivative(coords, forces, c);
+                        change_gpu c) {
+	t->derivative(coords, forces, &c);
 }
 
 static __global__
 void set_conf_kernel(tree_gpu *t, const vec *atom_coords, vec *coords,
-                     const conf_info *conf_vals) {
-	t->set_conf(atom_coords, coords, conf_vals);
+                     const conf_gpu c) {
+	t->set_conf(atom_coords, coords, &c);
+}
+
+__host__ __device__
+void do_minimization_printing(size_t& eval_deriv_counter, force_energy_tup*
+        minus_forces, size_t minus_forces_size, fl e, fl ie) {
+    if (eval_deriv_counter < 2) {
+        force_energy_tup summed_forces(0,0,0,0);
+        for (size_t i=0; i<minus_forces_size; i++)
+            summed_forces += minus_forces[i];
+        printf("Iteration %lu: Energy=%.8f Intra=%.8f Forces=%.8f,%.8f,%.8f\n",
+                (unsigned long)eval_deriv_counter, e, ie, summed_forces[0],
+                summed_forces[1], summed_forces[2]);
+#ifdef __CUDA_ARCH__
+        cudaDeviceSynchronize();
+#endif
+    }
+    eval_deriv_counter++;
 }
 
 __device__
@@ -147,24 +174,55 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
 	// t.resume();
     fl e, ie;
     if (threadIdx.x == 0) {
-	    set_conf_kernel<<<1,info.nlig_atoms>>>(treegpu,
-                                           atom_coords, (vec*)coords, c.cinfo);
-        memset(minus_forces, 0, sizeof(force_energy_tup) * info.nlig_atoms);
+        ie = 0;
+	    set_conf_kernel<<<1,treegpu->num_atoms>>>(treegpu,
+                                               atom_coords, (vec*)coords, c);
+        memset(minus_forces, 0, sizeof(force_energy_tup) *
+                (forces_size));
         cudaDeviceSynchronize();
         e = single_point_calc(info, coords, minus_forces, v[1]); 
         cudaDeviceSynchronize();
-	    ie = eval_interacting_pairs_deriv_gpu(info, v[0]); // adds to minus_forces
-        cudaDeviceSynchronize();
+        if (other_pairs_size)
+            e += eval_interacting_pairs_deriv_gpu(info, v[2], other_pairs,
+                    other_pairs_size); 
+        if (pairs_size)
+	        ie = eval_interacting_pairs_deriv_gpu(info, v[0], interacting_pairs,
+                    pairs_size); // adds to minus_forces
+
+        if (print_during_minimization) 
+            do_minimization_printing(eval_deriv_counter, minus_forces,
+                    (size_t)forces_size, e, ie);
+       
         e += ie;
-	    derivatives_kernel<<<1,info.nlig_atoms>>>
-            (treegpu, (vec*)coords, (vec*)minus_forces, g.change_values);
+	    derivatives_kernel<<<1,treegpu->num_atoms>>>
+                (treegpu, (vec*)coords, (vec*)minus_forces, g);
+
         cudaDeviceSynchronize();
+        eval_deriv_counter++;
     }
 
 	// t.stop();
 
 	/* flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored */
 	return e;
+}
+
+//NB: the next two are only used for score_only, but they also compute the forces
+//unnecessarily. this is fine as long as you don't care about using score_only
+//for performance metrics, just correctness, which is what you should do. 
+fl gpu_data::eval(const GPUNonCacheInfo& info, const float v) {
+    fl e;
+    cudaMemset(minus_forces, 0, sizeof(force_energy_tup) *
+            info.num_movable_atoms);
+    e = single_point_calc(info, coords, minus_forces, v);
+    return e;
+}
+
+fl gpu_data::eval_intramolecular(const GPUNonCacheInfo& info, const float v) {
+    fl ie;
+    ie = eval_interacting_pairs_deriv_gpu(info, v, interacting_pairs,
+            pairs_size);
+    return ie;
 }
 
 fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
@@ -175,22 +233,35 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	set(c);
 
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
+    fl ie = 0;
 
 	if(!ig.skip_interacting_pairs()) {
-		e += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
+		ie += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
 				minus_forces); // adds to minus_forces
 
-		fl ie = 0;
 		VINA_FOR_IN(i, ligands)
 			ie += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
 					minus_forces); // adds to minus_forces
 		e += ie;
+
+        if (print_during_minimization) 
+            do_minimization_printing(eval_deriv_counter, (force_energy_tup*)&minus_forces[0],
+                    minus_forces.size(), e, ie);
 	}
 	// calculate derivatives
 	ligands.derivative(coords, minus_forces, g.ligands);
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
+    eval_deriv_counter++;
 	t.stop();
 	return e;
+}
+
+fl model::eval_intra(const precalculate& p, const vec& v) {
+    fl ie = 0;
+    VINA_FOR_IN(i, ligands)
+		ie += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
+				minus_forces); // adds to minus_forces
+    return ie;
 }
 
 void model::clear_minus_forces()
@@ -352,20 +423,33 @@ void model::initialize_gpu() {
 	gdata.atom_coords_size = atoms.size();
 	gdata.forces_size = minus_forces.size();
 
-	CUDA_CHECK_GNINA(cudaMalloc(&gdata.treegpu, sizeof(tree_gpu)));
 
-	//allocate and initialize
-	std::vector<interacting_pair> allpairs(ligands[0].pairs);
-	allpairs.insert(allpairs.end(), other_pairs.begin(), other_pairs.end());
-	gdata.pairs_size = allpairs.size();
+	//ligand internal pairs 
+    if (ligands.size()) {
+	    std::vector<interacting_pair> ligand_pairs(ligands[0].pairs);
+        for (int i=1; i<ligands.size(); i++) 
+            ligand_pairs.insert(ligand_pairs.end(), ligands[i].pairs.begin(),
+                    ligands[i].pairs.end());
+	    gdata.pairs_size = ligand_pairs.size();
 
-	CUDA_CHECK_GNINA(
-			cudaMalloc(&gdata.interacting_pairs,
-					sizeof(interacting_pair) * allpairs.size()));
-	CUDA_CHECK_GNINA(
-			cudaMemcpy(gdata.interacting_pairs, &allpairs[0],
-					sizeof(interacting_pair) * allpairs.size(),
-					cudaMemcpyHostToDevice));
+	    CUDA_CHECK_GNINA(
+	    		cudaMalloc(&gdata.interacting_pairs,
+	    				sizeof(interacting_pair) * ligand_pairs.size()));
+	    CUDA_CHECK_GNINA(
+	    		cudaMemcpy(gdata.interacting_pairs, &ligand_pairs[0],
+	    				sizeof(interacting_pair) * ligand_pairs.size(),
+	    				cudaMemcpyHostToDevice));
+    }
+
+    //all flexible pairs, but not intra
+    if (other_pairs.size()) {
+        CUDA_CHECK_GNINA(cudaMalloc(&gdata.other_pairs, sizeof(interacting_pair) *
+                    other_pairs.size()));
+        CUDA_CHECK_GNINA(cudaMemcpy(gdata.other_pairs, &other_pairs[0],
+                    sizeof(interacting_pair) * other_pairs.size(),
+                    cudaMemcpyHostToDevice));
+        gdata.other_pairs_size = other_pairs.size();
+    }
 
 	//input atom coords do not change
 	std::vector<vec> acoords(atoms.size());
@@ -373,13 +457,18 @@ void model::initialize_gpu() {
 		acoords[i] = atoms[i].coords;
 	}
 
-	//setup tree. Writes padding to mark every atom in acoords with its owner.
+	//set up tree. Writes padding to mark every atom in acoords with its owner.
     //TODO: quite intrusive
-	tree_gpu tg(ligands[0], &acoords[0]);
+	tree_gpu tg(ligands, flex, &acoords[0], gdata.dfs_order_bfs_indices,
+            gdata.bfs_order_dfs_indices);
+    gdata.nlig_roots = tg.nlig_roots;
+	CUDA_CHECK_GNINA(cudaMalloc(&gdata.treegpu, sizeof(tree_gpu)));
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(gdata.treegpu, &tg, sizeof(tree_gpu),
 					cudaMemcpyHostToDevice));
-    
+   
+    //this contains the marked_coords for all the atoms and therefore all the
+    //nodes in both trees
 	CUDA_CHECK_GNINA(
 			cudaMemcpy(gdata.atom_coords, &acoords[0],
 					sizeof(vec) * atoms.size(), cudaMemcpyHostToDevice));
@@ -410,6 +499,14 @@ void model::deallocate_gpu() {
 		CUDA_CHECK_GNINA(cudaFree(gdata.scratch));
 		gdata.scratch = NULL;
 	}
+    if (gdata.dfs_order_bfs_indices) {
+        delete [] gdata.dfs_order_bfs_indices;
+        gdata.dfs_order_bfs_indices = NULL;
+    }
+    if (gdata.bfs_order_dfs_indices) {
+        delete [] gdata.bfs_order_dfs_indices;
+        gdata.bfs_order_dfs_indices = NULL;
+    }
 
 	if (gdata.interacting_pairs) {
 		CUDA_CHECK_GNINA(cudaFree(gdata.interacting_pairs));
@@ -438,3 +535,7 @@ void gpu_data::copy_from_gpu(model& m) {
     cudaDeviceSynchronize();
 }
 
+size_t gpu_data::node_idx_cpu2gpu(size_t cpu_idx) const
+{
+    return dfs_order_bfs_indices[cpu_idx];
+}

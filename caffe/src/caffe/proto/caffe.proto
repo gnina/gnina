@@ -873,6 +873,8 @@ message MolGridDataParameter {
   optional bool has_rmsd = 23 [default = false];
   // pair positive/negative examples from same receptor; always balanced and shuffled
   optional bool paired = 24 [default = false];
+  //store x,y,z,atom type info for the whole input in memory instead of re-reading from files
+  optional bool cache_structs = 25 [default = true];
 }
 
 message NDimDataParameter {

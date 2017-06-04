@@ -2,12 +2,24 @@
 #define GPU_UTIL_H
 
 #include <stdio.h>
+#include <cstdlib>
+#include <iostream>
 
-__device__ static inline void abort_on_gpu_err(void){
+__host__ __device__ static inline void abort_on_gpu_err(void){
     cudaError err = cudaGetLastError();
     if (cudaSuccess != err)
     {
         printf("cudaCheckError() failed at %s:%i : %s\n",
+                __FILE__, __LINE__, cudaGetErrorString(err));
+        // exit(-1);
+    }
+}
+
+__host__ __device__ static inline void sync_and_errcheck(void){
+    cudaError err = cudaDeviceSynchronize();
+    if (cudaSuccess != err)
+    {
+        printf("cuda async error at %s:%i : %s\n",
                 __FILE__, __LINE__, cudaGetErrorString(err));
         // exit(-1);
     }

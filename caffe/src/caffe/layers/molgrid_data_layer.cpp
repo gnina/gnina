@@ -391,7 +391,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
   vec center(0,0,0);
   minfo.atoms.clear();
   minfo.whichGrid.clear();
-  float3 gradient(0,0,0);
+  minfo.gradient.clear();
 
   //also, implemented a custom gninatypes files to precalc this info
   if(boost::algorithm::ends_with(file,".gninatypes"))
@@ -404,7 +404,6 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
     ifstream in(file.c_str());
     CHECK(in) << "Could not read " << file;
 
-    float3 gradient(0,0,0);
     int cnt = 0;
     while(in.read((char*)&atom, sizeof(atom)))
     {
@@ -417,16 +416,21 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         float4 ainfo;
         ainfo.x = atom.x;
         ainfo.y = atom.y;
-        ainfo.z  = atom.z;
+        ainfo.z = atom.z;
         if(fixedradius <= 0)
         	ainfo.w = xs_radius(t);
         else
         	ainfo.w = fixedradius;
+        float3 gradient(0,0,0);
 
         minfo.atoms.push_back(ainfo);
         minfo.whichGrid.push_back(index+mapoffset);
         minfo.gradient.push_back(gradient);
         center += vec(atom.x,atom.y,atom.z);
+      }
+      else if(t > 1) //silence on hydrogens
+      {
+	std::cerr << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded\n";
       }
     }
     center /= cnt;
@@ -464,12 +468,17 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         	ainfo.w = xs_radius(t);
         else
         	ainfo.w = fixedradius;
+        float3 gradient(0,0,0);
 
         minfo.atoms.push_back(ainfo);
         minfo.whichGrid.push_back(index+mapoffset);
         minfo.gradient.push_back(gradient);
         center += vec(a->x(),a->y(),a->z());
       }
+      else
+      {
+        std::cerr << "WARNING: Unknown atom type in " << file << ".  This atom will be discarded\n";
+      }	
     }
     center /= cnt;
   }
@@ -484,17 +493,29 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
 {
   //output grid values for provided example
   //cache atom info
-  if(molcache.count(ex.receptor) == 0)
-  {
-    set_mol_info(ex.receptor, rmap, 0, molcache[ex.receptor]);
-  }
-  if(molcache.count(ex.ligand) == 0)
-  {
-    set_mol_info(ex.ligand, lmap, numReceptorTypes, molcache[ex.ligand]);
-  }
+  bool docache = this->layer_param_.molgrid_data_param().cache_structs();
 
-  set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, gpu);
+  if(docache)
+  {
+    if(molcache.count(ex.receptor) == 0)
+    {
+      set_mol_info(ex.receptor, rmap, 0, molcache[ex.receptor]);
+    }
+    if(molcache.count(ex.ligand) == 0)
+    {
+      set_mol_info(ex.ligand, lmap, numReceptorTypes, molcache[ex.ligand]);
+    }
 
+    set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, gpu);
+  }
+  else
+  {
+    mol_info rec;
+    mol_info lig;
+    set_mol_info(ex.receptor, rmap, 0, rec);
+    set_mol_info(ex.ligand, lmap, numReceptorTypes, lig);
+    set_grid_minfo(data, rec, lig, transform, gpu);
+  }
 }
 
 
@@ -545,7 +566,11 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
 
   //TODO move this into gridmaker.setAtoms, have it just take the mol_transform as input
   gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
-  
+ 
+  if(transform.mol.atoms.size() == 0) {
+     std::cerr << "ERROR: No atoms in molecule.  I can't deal with this.\n";
+     exit(-1); //presumably you never actually want this and it results in a cuda error
+  } 
   //compute grid from atom info arrays
   if(gpu)
   {

@@ -152,6 +152,8 @@ struct atom_frame: public frame, public atom_range {
 };
 
 struct rigid_body: public atom_frame {
+    size_t dfs_idx;
+    size_t bfs_idx;
 	rigid_body(){
 	}
 	rigid_body(const vec& origin_,sz begin_,sz end_) :
@@ -204,6 +206,8 @@ protected:
 };
 
 struct segment: public axis_frame {
+    size_t dfs_idx;
+    size_t bfs_idx;
 	segment(){
 	} //for serialization
 	segment(const vec& origin_,sz begin_,sz end_,const vec& axis_root,
@@ -262,6 +266,8 @@ private:
 };
 
 struct first_segment: public axis_frame {
+    size_t dfs_idx;
+    size_t bfs_idx;
 	first_segment(){
 	}
 	first_segment(const segment& s) :

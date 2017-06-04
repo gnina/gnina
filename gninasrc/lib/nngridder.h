@@ -103,6 +103,7 @@ protected:
 	vector<float> ligRadii;
 	vector<short> ligWhichGrid; //only change if ligand changes
 
+	vector<Grid> userGrids; //user supplied grids, these set the box
 
 	//gpu data structures, these all point to device mem
 	float *gpu_receptorGrids;
@@ -125,6 +126,9 @@ protected:
 
 	//output a grid the file in dx format (for debug)
 	void outputDXGrid(ostream& out, Grid& grid);
+
+	//read dx file into grid
+	bool readDXGrid(istream& in, vec& center, double& res, Grid& grid);
 
 	//return a string representation of the atom type(s) represented by index
 	//in map - this isn't particularly efficient, but is only for debug purposes
@@ -164,16 +168,16 @@ public:
 	//output an AD4 map for each grid
 	void outputMAP(const string& base);
 
-  //output an dx map for each grid
-  void outputDX(const string& base);
+	//output an dx map for each grid
+	void outputDX(const string& base);
 
-	//output binary form of raw data in 3D multi-channel form (types are last)
-	void outputBIN(ostream& out, bool outputrec = true, bool outputlig = true);
+	//output binary form of raw data in 3D multi-channel form
+	void outputBIN(ostream& out, bool outputrec=true, bool outputlig=true);
 
 	//set vector to full set of grids
 	void outputMem(vector<float>& out);
 
-	unsigned nchannels() const { return receptorGrids.size() + ligandGrids.size(); }
+	unsigned nchannels() const { return receptorGrids.size() + ligandGrids.size() + userGrids.size(); }
 
 	//for debugging, run non-gpu code and compre to values in current grids
 	bool cpuSetModelCheck(const model& m, bool reinitlig=false, bool reinitrec=false);

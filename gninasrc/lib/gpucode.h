@@ -36,6 +36,7 @@ struct __align__(sizeof(float4)) force_energy_tup{
   __host__ __device__ force_energy_tup(void): minus_force(0,0,0), energy(0) {}
   __host__ __device__ force_energy_tup(float3 f, float e)
     : minus_force(f), energy(e){};
+  __host__ __device__ force_energy_tup(float f1, float f2, float f3, float f4) : minus_force(f1, f2, f3), energy(f4) {};
 
   __host__ __device__
   const fl& operator[](sz i) const { 
@@ -53,9 +54,19 @@ struct __align__(sizeof(float4)) force_energy_tup{
   }
 };
 
+inline __host__ __device__
+force_energy_tup operator+(force_energy_tup& a, force_energy_tup& b) {
+    return force_energy_tup(a[0]+b[0], a[1]+b[1], a[2]+b[2], a[3]+b[3]);
+}
+inline __host__ __device__
+force_energy_tup& operator+=(force_energy_tup& a, force_energy_tup& b) {
+    a = a + b;
+    return a;
+}
+
 struct GPUNonCacheInfo
 {
-  unsigned nlig_atoms, nrec_atoms;
+  unsigned num_movable_atoms, nrec_atoms;
   float cutoff_sq;
   float slope; 
 
@@ -79,7 +90,7 @@ struct GPUNonCacheInfo
 void evaluate_splines_host(const GPUSplineInfo& spInfo, float r,
                            float *device_vals, float *device_derivs);
 
-__device__
+__host__ __device__
 float single_point_calc(const GPUNonCacheInfo &dinfo, atom_params *lig,
                         force_energy_tup *out, float v);
 __global__

@@ -40,7 +40,8 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	inputs.add_options()
 	("receptor,r", value<std::string>(&o.receptorfile)->required(),
 			"receptor file")
-	("ligand,l", value<std::string>(&o.ligandfile)->required(), "ligand(s)");
+	("ligand,l", value<std::string>(&o.ligandfile)->required(), "ligand(s)")
+	("grid,g", value<std::vector<std::string> >(&o.usergrids)->multitoken(), "grid(s) dx format");
 
 	options_description outputs("Output");
 	outputs.add_options()
@@ -48,7 +49,7 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 			"output file name base, combined map of both lig and receptor")
 	("map", bool_switch(&o.outmap),
 			"output AD4 map files (for debugging, out is base name)")
-  ("dx", bool_switch(&o.outdx),
+	("dx", bool_switch(&o.outdx),
       "output DX map files (for debugging, out is base name)");
 
 	options_description options("Options");
@@ -64,6 +65,7 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	("random_seed", value<int>(&o.seed), "Random seed to use")
 	("recmap", value<string>(&o.recmap), "Atom type mapping for receptor atoms")
 	("ligmap", value<string>(&o.ligmap), "Atom type mapping for ligand atoms")
+	("separate", bool_switch(&o.separate), "Output separate rec and lig files - only valid with user grids.")
 	("gpu", bool_switch(&o.gpu), "Use GPU to compute grids");
 
 	options_description info("Information (optional)");
@@ -123,6 +125,23 @@ int main(int argc, char *argv[])
 		//setup receptor grid
 		NNMolsGridder gridder(opt);
 
+		if(opt.separate)
+		{
+			if(opt.usergrids.size() == 0)
+			{
+				cerr << "Separate receptor/ligand output is only valid with user supplied grid inputs.\n";
+				abort();
+			}
+			string outname = opt.outname + "." + gridder.getParamString(true,false) + ".binmap";
+			ofstream binout(outname.c_str());
+			if (!binout)
+			{
+				cerr << "Could not open " << outname << "\n";
+				exit(-1);
+			}
+			gridder.outputBIN(binout,true,false);
+		}
+
 		//for each ligand..
 		unsigned ligcnt = 0;
 		while (gridder.readMolecule(opt.timeit))
@@ -137,6 +156,17 @@ int main(int argc, char *argv[])
 			else if(opt.outdx)
 			{
 			  gridder.outputDX(base);
+			}
+			else if(opt.separate)
+			{
+				string outname = base + "." + gridder.getParamString(false, true) + ".binmap";
+				ofstream binout(outname.c_str());
+				if (!binout)
+				{
+					cerr << "Could not open " << outname << "\n";
+					exit(-1);
+				}
+				gridder.outputBIN(binout,false,true);
 			}
 			else
 			{

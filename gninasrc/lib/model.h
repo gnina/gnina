@@ -45,35 +45,54 @@ typedef std::pair<std::string, boost::optional<sz> > parsed_line;
 typedef std::vector<parsed_line> pdbqtcontext;
 
 struct gpu_data {
-	//put all pointers to gpu data into a struct, so we can override copying behavior
+	//put all pointers to gpu data into a struct that provides a lightweight 
+    //model-like object for the GPU
   	atom_params *coords;
   	vec *atom_coords;
   	force_energy_tup *minus_forces;
   	tree_gpu *treegpu;
   	interacting_pair *interacting_pairs;
+    // all except internal to one ligand: ligand-other ligands;
+    // ligand-flex/inflex; flex-flex/inflex
+    interacting_pair *other_pairs; 
+    size_t* dfs_order_bfs_indices;
+    size_t* bfs_order_dfs_indices;
   	float *scratch; //single value for returning total energy
 
   	unsigned coords_size;
   	unsigned atom_coords_size;
   	unsigned forces_size;
   	unsigned pairs_size;
+    unsigned other_pairs_size;
+    bool print_during_minimization;
+    size_t eval_deriv_counter;
+
+    //TODO delete
+    size_t nlig_roots;
 
   	gpu_data(): coords(NULL), atom_coords(NULL), minus_forces(NULL),
-  			treegpu(NULL), interacting_pairs(NULL), scratch(NULL), coords_size(0),
-  			atom_coords_size(0), forces_size(0), pairs_size(0) {}
+  			treegpu(NULL), interacting_pairs(NULL), other_pairs(NULL), 
+            dfs_order_bfs_indices(NULL), bfs_order_dfs_indices(NULL), 
+            scratch(NULL), coords_size(0),
+  			atom_coords_size(0), forces_size(0), pairs_size(0), other_pairs_size(0), 
+            print_during_minimization(false), eval_deriv_counter(0) {}
 
-    __device__
-	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v) const;
+    __host__ __device__
+	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v, interacting_pair* pairs, unsigned pairs_sz) const;
 
     __device__
 	fl eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
 	                     const conf_gpu& c, change_gpu& g);
-
+   
+    size_t node_idx_dfs2bfs(const size_t node_idx);
+    fl eval(const GPUNonCacheInfo& info, const float v);
+    fl eval_intramolecular(const GPUNonCacheInfo& info, const float v);
 	//copy relevant data to gpu buffers
 	void copy_to_gpu(model& m);
 	//copy back relevant data from gpu buffers
 	void copy_from_gpu(model& m);
 
+    size_t node_idx_cpu2gpu(size_t cpu_idx) const;
 };
 
 // dkoes - as an alternative to pdbqt, this stores information
@@ -322,6 +341,7 @@ struct model {
                 const conf& c, const grid& user_grid	);
 	fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
                 const conf& c, change& g, const grid& user_grid);
+    fl eval_intra(const precalculate& p, const vec& v);
 	fl eval_flex(const precalculate& p, const vec& v,
                const conf& c, unsigned maxGridAtom=0);
 	fl eval_intramolecular(const precalculate& p, const vec& v, const conf& c);
@@ -377,8 +397,9 @@ struct model {
 	}
 	void check_internal_pairs() const;
 	void print_stuff() const; // FIXME rm
-	/* TODO: rm */
-	void print_counts(void) const;
+    void print_counts(unsigned nrec_atoms) const;
+    bool print_during_minimization;
+    size_t eval_deriv_counter;
 
 	fl clash_penalty() const;
 
@@ -398,7 +419,8 @@ struct model {
 	//deallocate gpu memory
 	void deallocate_gpu();
 
-	model() : m_num_movable_atoms(0), hydrogens_stripped(false) {};
+	model() : m_num_movable_atoms(0), hydrogens_stripped(false), print_during_minimization(false), 
+    eval_deriv_counter(0) {};
 	~model() { deallocate_gpu(); };
 
     /* TODO:protect */
@@ -470,7 +492,6 @@ private:
 	vecv internal_coords;
 	/* TODO:reprivate */
 	/* vecv coords; */
-
 	//This contains the accumulated directional deltas for each atom
 	vecv minus_forces;
 

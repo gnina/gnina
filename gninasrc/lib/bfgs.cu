@@ -5,13 +5,15 @@
 
 #include <cuda_runtime.h>
 
+thread_local float_buffer buffer;
+
 __device__ fl compute_lambdamin(const change_gpu& p, const conf_gpu& x, sz n)
 
 {
     fl test = 0;
 	for (sz i = 0; i < n; i++)
 	{
-		fl temp = fabsf(p.change_values[i]) / fmaxf(fabsf(x.cinfo->values[i]),
+		fl temp = fabsf(p.values[i]) / fmaxf(fabsf(x.values[i]),
                                                     1.0f);
 		if (temp > test)
 			test = temp;
@@ -81,7 +83,7 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
         }
         __syncthreads();
         if (idx < x_new.n)
-		    x_new.increment(p, alpha);
+		    x_new.increment(p, alpha, &f.gdata);
 
         if (idx == 0)
             f1 = f(x_new, g_new);
@@ -170,8 +172,8 @@ void bfgs_update(flmat_gpu& h, const change_gpu& p,
 
 	    float coef = +alpha * alpha * (r * r * yhy + r) ;
 
-        float *minus_hyvec = minus_hy.change_values;
-        float *pvec = p.change_values;
+        float *minus_hyvec = minus_hy.values;
+        float *pvec = p.values;
 	    VINA_RANGE(j, idx, n) // includes i
             atomicAdd(&h(idx, j), alpha * r *
                        (minus_hyvec[idx] * pvec[j] + minus_hyvec[j] * pvec[idx])
@@ -183,9 +185,9 @@ void bfgs_update(flmat_gpu& h, const change_gpu& p,
 
 __global__
 void bfgs_gpu(quasi_newton_aux_gpu f,
-              conf_gpu& x, conf_gpu& x_orig, conf_gpu &x_new,
-              change_gpu& g, change_gpu& g_orig, change_gpu &g_new,
-              change_gpu& p, change_gpu& y, flmat_gpu h, change_gpu &minus_hy,
+              conf_gpu x, conf_gpu x_orig, conf_gpu x_new,
+              change_gpu g, change_gpu g_orig, change_gpu g_new,
+              change_gpu p, change_gpu y, flmat_gpu h, change_gpu minus_hy,
               const fl average_required_improvement,
               const minimization_params params,
               float* out_energy)
@@ -282,39 +284,31 @@ fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
     flmat_gpu h(n);
 
     // Initialize and copy additional conf and change objects
-    // TODO: don't need to pass g_orig/x_orig
-	change_gpu* g_orig = new change_gpu(g);
-	change_gpu* g_new = new change_gpu(g);
+	change_gpu g_orig(g, buffer);
+	change_gpu g_new(g, buffer);
     
-	conf_gpu* x_orig = new conf_gpu(x);
-	conf_gpu* x_new = new conf_gpu(x);
+	conf_gpu x_orig(x, buffer);
+	conf_gpu x_new(x, buffer);
 
-	change_gpu* p = new change_gpu(g);
-    change_gpu* y = new change_gpu(g);
+	change_gpu p(g, buffer);
+    change_gpu y(g, buffer);
 
-    // TODO: only using g for the constructor
-    change_gpu* minus_hy = new change_gpu(g);
+    change_gpu minus_hy(g, buffer);
     float* f0;
     float out_energy;
 
     CUDA_CHECK_GNINA(cudaMalloc(&f0, sizeof(float)));
-    //TODO: make safe for the case where nlig_atoms > 1024?
-    bfgs_gpu<<<1,max(WARPSIZE,f.ig.nlig_atoms)>>>(f,
-                      x, *x_orig, *x_new,
-                      g, *g_orig, *g_new,
-                      *p, *y, h, *minus_hy,
+    //TODO: make safe for the case where num_movable_atoms > 1024
+    assert(f.ig.num_movable_atoms <= 1024);
+    bfgs_gpu<<<1,max(WARPSIZE,f.ig.num_movable_atoms)>>>(f,
+                      x, x_orig, x_new,
+                      g, g_orig, g_new,
+                      p, y, h, minus_hy,
                       average_required_improvement, params, f0);
-    cudaDeviceSynchronize();
+    sync_and_errcheck();
     CUDA_CHECK_GNINA(cudaFree(h.m_data));
     CUDA_CHECK_GNINA(cudaMemcpy(&out_energy,
                                 f0, sizeof(float), cudaMemcpyDeviceToHost));
     CUDA_CHECK_GNINA(cudaFree(f0));
-    delete g_orig;
-    delete g_new;
-    delete x_orig;
-    delete x_new;
-    delete p;
-    delete y;
-    delete minus_hy;
 	return out_energy;
 }

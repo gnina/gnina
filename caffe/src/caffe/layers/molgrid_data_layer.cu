@@ -18,10 +18,10 @@ void MolGridDataLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
 }
 
 template <typename Dtype>
-void MolGridDataLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& bottom,
-		const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& top)
+void MolGridDataLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
+		const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
-	backward(bottom, top, true);
+	backward(top, bottom, true);
 }
 
 INSTANTIATE_LAYER_GPU_FORWARD(MolGridDataLayer);

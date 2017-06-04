@@ -60,6 +60,8 @@
 using namespace boost::iostreams;
 using boost::filesystem::path;
 
+extern thread_local float_buffer buffer;
+
 //just a collection of user-specified configurations
 struct user_settings
 {
@@ -79,6 +81,9 @@ struct user_settings
 	bool dominimize;
 	bool include_atom_info;
 	bool gpu_on;
+    bool true_score;
+
+    cnn_options cnnopts;
 	bool cnn_scoring;
 
 	//reasonable defaults
@@ -87,7 +92,8 @@ struct user_settings
 					forcecap(1000), seed(auto_seed()), verbosity(1), cpu(1),
 					device(0), exhaustiveness(10),
 					score_only(false), randomize_only(false), local_only(false),
-					dominimize(false), include_atom_info(false), gpu_on(false)
+					dominimize(false), include_atom_info(false), gpu_on(false),
+                    true_score(false)
 	{
 
 	}
@@ -177,9 +183,11 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	//dkoes - you don't need a very strong constraint to keep ligands in the box,
 	//but this factor can really bias the energy landscape
 	fl slope = 10;
+    //TODO: add buffer resize
 	VINA_FOR(p, 5)
 	{
 		nc.setSlope(slope);
+        buffer.reinitialize();
 		quasi_newton_par(m, prec, nc, out, g, cap, user_grid); //quasi_newton operator
 		m.set(out.c); // just to be sure
 		if (nc.within(m))
@@ -228,6 +236,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 	conf_size s = m.get_size();
 	conf c = m.get_initial_conf();
 	fl e = max_fl;
+    fl intramolecular_energy = max_fl;
 	fl cnnscore = -1.0;
 	fl rmsd = 0;
 	const vec authentic_v(settings.forcecap, settings.forcecap,
@@ -235,11 +244,24 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 	if (settings.score_only)
 	{
-		fl intramolecular_energy = m.eval_intramolecular(exact_prec,
-				authentic_v, c);
-		naive_non_cache nnc(&exact_prec); // for out of grid issues
-		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
-				intramolecular_energy, user_grid);
+        if (settings.true_score && settings.gpu_on) {
+            m.initialize_gpu();
+	        non_cache_gpu* nc_gpu = dynamic_cast<non_cache_gpu*>(&nc);
+            assert(nc_gpu);
+            e = m.gdata.eval(nc_gpu->get_info(), authentic_v[1]);
+            intramolecular_energy = m.gdata.eval_intramolecular(nc_gpu->get_info(), authentic_v[0]);
+        }
+        else if (settings.true_score) {
+            e = nc.eval_deriv(m, authentic_v[1], user_grid);
+            intramolecular_energy = m.eval_intra(prec, authentic_v);
+        }
+        else {
+		    intramolecular_energy = m.eval_intramolecular(exact_prec,
+		    		authentic_v, c);
+		    naive_non_cache nnc(&exact_prec); // for out of grid issues
+		    e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
+		    		intramolecular_energy, user_grid);
+        }
 
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
@@ -486,9 +508,8 @@ void main_procedure(model& m, precalculate& prec,
 		non_cache *nc = NULL;
 		if (settings.gpu_on)
 		{
-			if (settings.cnn_scoring)
+			if (settings.cnnopts.cnn_scoring)
 			{
-                                //TODO implement non_cache_cnn_gpu
 				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
 			}
 			else
@@ -501,7 +522,7 @@ void main_procedure(model& m, precalculate& prec,
 		}
 		else
 		{
-			if (settings.cnn_scoring)
+			if (settings.cnnopts.cnn_scoring)
 			{
 				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
 			}
@@ -510,7 +531,6 @@ void main_procedure(model& m, precalculate& prec,
 				nc = new non_cache(gridcache, gd, &prec, slope);
 			}
 		}
-		/* cudaProfilerStart(); */
 
 		if (no_cache)
 		{
@@ -539,7 +559,6 @@ void main_procedure(model& m, precalculate& prec,
 					settings, compute_atominfo, log,
 					wt.unweighted_terms(), user_grid, cnn, results);
 		}
-		/* cudaProfilerStop(); */
 
 		delete nc;
 	}
@@ -871,8 +890,9 @@ void threads_at_work(boost::lockfree::queue<worker_job>* wrkq,
 		MolGetter* mols,
 		bool* work_done, int* nligs, bool* ligcount_final)
 {
-	if(gs->settings->gpu_on)
+	if(gs->settings->gpu_on) {
 		initializeCUDA(gs->settings->device);
+    }
 
 	while (!*work_done || !wrkq->empty())
 	{
@@ -920,7 +940,7 @@ void write_out(std::vector<result_info> &results, ozfile &outfile,
 		//write out flexible residue data data
 		for (unsigned j = 0, nr = results.size(); j < nr; j++)
 		{
-			results[j].writeFlex(outflex, outfext);
+			results[j].writeFlex(outflex, outfext,j+1);
 		}
 	}
 	if (atomoutfile)
@@ -1007,7 +1027,7 @@ Thank you!\n";
 					"  \\__, |_| |_|_|_| |_|\\__,_|\n"
 					"   __/ |                    \n"
 					"  |___/                     \n"
-					"\ngnina is based off of smina and AutoDock Vina.\nPlease cite appropriately.\n\n"
+					"\ngnina is based on smina and AutoDock Vina.\nPlease cite appropriately.\n\n"
 					"*** IMPORTANT: gnina is not yet intended for production use. Use smina. ***\n";
 
 	try
@@ -1048,8 +1068,9 @@ Thank you!\n";
 		bool strip_hydrogens = false;
 		bool no_lig = false;
 
-		cnn_options cnnopts;
 		user_settings settings;
+		cnn_options& cnnopts = settings.cnnopts;
+
 		minimization_params minparms;
 		ApproxType approx = LinearApprox;
 		fl approx_factor = 32;
@@ -1144,7 +1165,8 @@ Thank you!\n";
 		("verbosity", value<int>(&settings.verbosity)->default_value(1),
 				"Adjust the verbosity of the output, default: 1")
 		("flex_hydrogens", bool_switch(&flex_hydrogens),
-				"Enable torsions effecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.");
+				"Enable torsions affecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
+        ("true_score", bool_switch(&settings.true_score), "Enable printing for the true GPU-computed score for correctness testing.");
 
 		options_description cnn("Convolutional neural net (CNN) scoring");
 		cnn.add_options()
@@ -1291,6 +1313,9 @@ Thank you!\n";
 			if (!vm.count("factor"))
 				approx_factor = 10;
 		}
+
+        if (settings.gpu_on)
+            cudaDeviceSetLimit(cudaLimitStackSize, 5120);
 
 		if (accurate_line)
 		{
@@ -1553,40 +1578,55 @@ Thank you!\n";
 				&outflex, &outfext, &nligs, &ligcount_final);
 
 
-		//loop over input ligands, adding them to the work queue
-		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
-		{
-			doing(settings.verbosity, "Reading input", log);
-			const std::string ligand_name = ligand_names[l];
-			mols.setInputFile(ligand_name);
-
-			unsigned i = 0;
-
-			for (;;)
+		try {
+			//loop over input ligands, adding them to the work queue
+			for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
 			{
-				model* m = new model;
+				doing(settings.verbosity, "Reading input", log);
+				const std::string ligand_name = ligand_names[l];
+				mols.setInputFile(ligand_name);
 
-				if (!mols.readMoleculeIntoModel(*m))
+				unsigned i = 0;
+
+				for (;;)
 				{
-					delete m;
-					break;
+					model* m = new model;
+
+					if (!mols.readMoleculeIntoModel(*m))
+					{
+						delete m;
+						break;
+					}
+
+					if (settings.local_only || settings.true_score)
+					{
+						gd = m->movable_atoms_box(autobox_add, granularity);
+					}
+
+					if (settings.local_only && settings.true_score) {
+						m->print_during_minimization = true;
+						m->gdata.print_during_minimization = true;
+					}
+
+					done(settings.verbosity, log);
+					std::vector<result_info>* results =
+							new std::vector<result_info>();
+					worker_job j(i, m, results, gd);
+					wrkq.push(j);
+
+					i++;
+					if (no_lig)
+						break;
 				}
-
-				if (settings.local_only)
-				{
-					gd = m->movable_atoms_box(autobox_add, granularity);
-				}
-
-				done(settings.verbosity, log);
-				std::vector<result_info>* results =
-						new std::vector<result_info>();
-				worker_job j(i, m, results, gd);
-				wrkq.push(j);
-
-				i++;
-				if (no_lig)
-					break;
 			}
+		} catch (...)
+		{
+			//clean up threads before passing along exception
+			work_done = true;
+			worker_threads.join_all();
+			writer_thread.join();
+	        cudaDeviceSynchronize();
+			throw;
 		}
 
 		//join all the threads when their work is done
@@ -1595,7 +1635,6 @@ Thank you!\n";
 		writer_thread.join();
 
         cudaDeviceSynchronize();
-		cudaProfilerStop();
 
 		std::cout << "Loop time " << time.elapsed().wall/1000000000.0 << "\n";
 

@@ -532,12 +532,16 @@ bool model::atom_exists_between(const distance_type_matrix& mobility,
 		atom_index c = sz_to_atom_index(i);
 		if (a == c || b == c)
 			continue;
+		if(is_hydrogen(get_atom(c).sm))
+			continue; //don't let hydrogens lock things down
 		distance_type ac = distance_type_between(mobility, a, c);
 		distance_type bc = distance_type_between(mobility, b, c);
 		if (ac != DISTANCE_VARIABLE && bc != DISTANCE_VARIABLE
 				&& distance_sqr_between(a, c) < r2
 				&& distance_sqr_between(b, c) < r2)
+		{
 			return true;
+		}
 	}
 	return false;
 }
@@ -626,6 +630,7 @@ void model::assign_bonds(const distance_type_matrix& mobility) { // assign bonds
 			distance_type dt = distance_type_between(mobility, i_atom_index,
 					j_atom_index);
 			fl r2 = distance_sqr_between(i_atom_index, j_atom_index);
+
 			if (r2 < sqr(bond_length_allowance_factor * bond_length)
 					&& !atom_exists_between(mobility, i_atom_index,
 							j_atom_index, relevant_atoms)) {
@@ -1091,11 +1096,11 @@ void model::print_stuff() const {
 	about();
 }
 
-void model::print_counts(void) const {
+void model::print_counts(unsigned nrec_atoms) const {
 	std::cout << "ligands :" << ligands.size() << "\n" << "torsions: "
 			<< ligands.count_torsions()[0] << "\n" << "lig atoms: "
-			<< coords.size() << "\n" << "rec atoms(unpruned): "
-			<< grid_atoms.size() << "\n";
+			<< coords.size() << "\n" << "rec atoms(pruned): "
+			<< nrec_atoms << "\n";
 }
 
 fl pairwise_clash_penalty(fl r, fl covalent_r) {

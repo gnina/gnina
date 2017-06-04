@@ -5,6 +5,7 @@
 */
 
 #include "conf_gpu.h"
+#include "model.h"
 
 #define CUDA_KERNEL_LOOP(i, n) \
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
@@ -18,106 +19,93 @@ __global__ void scalar_mult_kernel(float mult, const int n, float *vals) {
 	}
 }
 
-change_gpu::change_gpu(const change& src) :
-		change_values(NULL), n(0) {
-	std::vector<float> data;
-	//figure out number of torsions
-	assert(src.ligands.size() == 1);
-	n = 6; //position + orientation
-	const ligand_change& lig = src.ligands[0];
+size_t change_gpu::idx_cpu2gpu(size_t cpu_node_idx, size_t offset_in_node, const gpu_data& d) {
+    size_t gpu_node_idx = d.node_idx_cpu2gpu(cpu_node_idx);
 
-	for (unsigned i = 0; i < 3; i++)
-		data.push_back(lig.rigid.position[i]);
+    constexpr size_t extra_floats_per_lig_root = 5;
+    size_t lig_roots_before_node = min(gpu_node_idx, d.nlig_roots);
+    size_t gpu_flat_idx =
+        gpu_node_idx +
+        extra_floats_per_lig_root * lig_roots_before_node +
+        offset_in_node;
 
-	for (unsigned i = 0; i < 3; i++)
-		data.push_back(lig.rigid.orientation[i]);
+    return gpu_flat_idx;
+}
 
-	n += lig.torsions.size();
-	for (unsigned i = 0, nn = lig.torsions.size(); i < nn; i++) {
-		data.push_back(lig.torsions[i]);
-	}
+// CPU conf torsions are stored in dfs order, relative to the model's
+// trees. GPU conf torsions are in bfs order.
+size_t conf_gpu::idx_cpu2gpu(size_t cpu_node_idx, size_t offset_in_node, const gpu_data& d) {
+    size_t gpu_node_idx = d.node_idx_cpu2gpu(cpu_node_idx);
 
-	for (unsigned i = 0, nn = src.flex.size(); i < nn; i++) {
-		n += src.flex[i].torsions.size();
-		for (unsigned j = 0, m = src.flex[i].torsions.size(); j < m; j++) {
-			data.push_back(src.flex[i].torsions[j]);
-		}
-	}
-	//allocate vector
-	CUDA_CHECK_GNINA(cudaMalloc(&change_values, sizeof(float) * (n+1))); //leave scratch space for dot
-	//and init
-	assert(n == data.size());
-	CUDA_CHECK_GNINA(
-			cudaMemcpy(change_values, &data[0], n * sizeof(float),
-					cudaMemcpyHostToDevice));
+    constexpr size_t extra_floats_per_lig_root = 6;
+    size_t lig_roots_before_node = min(gpu_node_idx, d.nlig_roots);
+    size_t gpu_flat_idx =
+        gpu_node_idx +
+        extra_floats_per_lig_root * lig_roots_before_node +
+        offset_in_node;
+
+    return gpu_flat_idx;
+}
+
+change_gpu::change_gpu(const change& src, const gpu_data& d, float_buffer& buffer) :
+    n(src.num_floats())
+{
+    std::unique_ptr<fl[]> data(new fl[n]);
+
+    for (sz i = 0; i < num_floats(); i++) {
+        sz cpu_node_idx;
+        sz offset_in_node;
+        fl cpu_val = src.get_with_node_idx(i, &cpu_node_idx, &offset_in_node);
+        assert(offset_in_node < 6);
+        assert(cpu_node_idx < n);
+
+        data[change_gpu::idx_cpu2gpu(cpu_node_idx, offset_in_node, d)] = cpu_val;
+    }
+
+    values = buffer.copy(data.get(), n, cudaMemcpyHostToDevice);
 }
 
 //allocate and copy
-change_gpu::change_gpu(const change_gpu& src) :
-		n(0), change_values(NULL) {
-	*this = src;
+change_gpu::change_gpu(const change_gpu& src, float_buffer& buffer) :
+		n(src.n), values(NULL)
+{
+    values = buffer.copy(src.values, n+1, cudaMemcpyDeviceToDevice);
 }
 
-__device__ __host__
+__device__
 change_gpu& change_gpu::operator=(const change_gpu& src) {
-#ifndef __CUDA_ARCH__    
-	if (change_values == NULL || n < src.n) {
-		if (change_values) {
-			CUDA_CHECK_GNINA(cudaFree(change_values));
-		}
-		CUDA_CHECK_GNINA(cudaMalloc(&change_values, sizeof(float) * (src.n+1))); //scratch space
-	}
-	n = src.n;
-	CUDA_CHECK_GNINA(
-			cudaMemcpy(change_values, src.change_values, sizeof(float) * n,
-					cudaMemcpyDeviceToDevice));
+    assert(values && n == src.n);
+#ifndef __CUDA_ARCH__
+    CUDA_CHECK_GNINA(cudaMemcpy(values, src.values, sizeof(float) * n,
+            cudaMemcpyDeviceToDevice));
 #else
-    assert(change_values && n >= src.n);
-    n = src.n;
-    memcpy(change_values, src.change_values, sizeof(float) * n);
-            
+    memcpy(values, src.values, sizeof(float) * n);
 #endif
-    
+
 	return *this;
 }
 
-void* change_gpu::operator new(size_t count) {
-    void* ptr;
-    CUDA_CHECK_GNINA(cudaMallocManaged(&ptr, count, cudaMemAttachHost));
-    CUDA_CHECK_GNINA(cudaStreamAttachMemAsync(cudaStreamPerThread, ptr));
-    // ptr = malloc(count);
-    return ptr;
-}
-
-void change_gpu::operator delete(void* ptr) noexcept {
-    CUDA_CHECK_GNINA(cudaFree(ptr));
-}
-
-change_gpu::~change_gpu() {
-	//deallocate mem
-	CUDA_CHECK_GNINA(cudaFree(change_values));
-}
-
 //dkoes - zeros out all differences
-__host__ __device__ void change_gpu::clear() {
-	memset(change_values, 0, sizeof(float) * n);
+__device__ void change_gpu::clear() {
+	memset(values, 0, sizeof(float) * n);
 }
 
 //dkoes - multiply by -1
 void change_gpu::invert() {
 	scalar_mult_kernel<<<1, min(GNINA_CUDA_NUM_THREADS, n)>>>(-1.0, n,
-			change_values);
+			values);
 }
 
 //return dot product
 __device__ float change_gpu::dot(const change_gpu& rhs) const {
-	//since N is small, I think we should do a single warp of threads for this
+    __shared__ float out;
+    //TODO: n is no longer necessarily small
     if (threadIdx.x < WARPSIZE) {
 	    int start = threadIdx.x;
 	    float val = 0.0;
 	    for(int i = start; i < n; i += WARPSIZE)
 	    {
-	    	val += change_values[i]*rhs.change_values[i];
+	    	val += values[i]*rhs.values[i];
 	    }
 	    //now warp reduce with shuffle
 
@@ -125,17 +113,17 @@ __device__ float change_gpu::dot(const change_gpu& rhs) const {
 	    	val += __shfl_down(val, offset);
 
 	    if(start == 0)
-	    	change_values[n] = val;
+	    	out = val;
     }
     __syncthreads();
-	return change_values[n];
+	return out;
 }
 
 //subtract rhs from this
 __device__ void change_gpu::sub(const change_gpu& rhs) {
     int nthreads = blockDim.x < n ? blockDim.x : n;
 	for (int index = threadIdx.x; index < n; index += nthreads)
-		change_values[index] -= rhs.change_values[index];
+		values[index] -= rhs.values[index];
 }
 
 __device__
@@ -143,8 +131,8 @@ void change_gpu::minus_mat_vec_product(const flmat_gpu& m, change_gpu& out) cons
     int idx = threadIdx.x;
     fl sum = 0;
     VINA_FOR(j,n)
-        sum += m(m.index_permissive(idx,j)) * change_values[j];
-    out.change_values[idx] = -sum;
+        sum += m(m.index_permissive(idx,j)) * values[j];
+    out.values[idx] = -sum;
 }
 
 __host__ __device__
@@ -152,192 +140,119 @@ sz change_gpu::num_floats() const {
 	return n;
 }
 
-//for debugging
-void change_gpu::get_data(std::vector<float>& d) const {
-	d.resize(n);
-	CUDA_CHECK_GNINA(
-			cudaMemcpy(&d[0], change_values, n * sizeof(float),
-					cudaMemcpyDeviceToHost));
-
+static
+bool constructor_valid(const conf_gpu& gpu, const conf& src, const gpu_data& d){
+    conf test_dst = src;
+    gpu.set_cpu(test_dst, d);
+    sz n = src.num_floats();
+    assert(n == test_dst.num_floats());
+    assert(test_dst == src);
+    return true;
 }
 
-void change_gpu::set_data(std::vector<float>& d) const {
-	CUDA_CHECK_GNINA(
-			cudaMemcpy(change_values, &d[0], n * sizeof(float),
-					cudaMemcpyHostToDevice));
-}
+conf_gpu::conf_gpu(const conf& src, const gpu_data& d, float_buffer& buffer) :
+    n(src.num_floats())
+{
+    std::unique_ptr<fl[]> data(new fl[n]);
 
-void change_gpu::print() const {
-	std::vector<float> d;
-	get_data(d);
-	for (unsigned i = 0, n = d.size(); i < n; i++) {
-		std::cout << d[i] << " ";
-	}
-	std::cout << "\n";
-}
+    for (sz i = 0; i < n; i++) {
+        sz cpu_node_idx;
+        sz offset_in_node;
+        fl cpu_val = src.get_with_node_idx(i, &cpu_node_idx, &offset_in_node);
+        assert(offset_in_node < 7);
+        assert(cpu_node_idx < n);
 
-conf_gpu::conf_gpu(const conf& src) :
-		cinfo(NULL), n(0) {
-	std::vector<float> data;
-	//figure out number of torsions
-	assert(src.ligands.size() == 1);
-	n = 7; //position + orientation(qt)
-	const ligand_conf& lig = src.ligands[0];
+        data[conf_gpu::idx_cpu2gpu(cpu_node_idx, offset_in_node, d)] = cpu_val;
+    }
 
-	for (unsigned i = 0; i < 3; i++)
-		data.push_back(lig.rigid.position[i]);
+    values = buffer.copy(data.get(), n, cudaMemcpyHostToDevice);
 
-	data.push_back(lig.rigid.orientation.R_component_1());
-	data.push_back(lig.rigid.orientation.R_component_2());
-	data.push_back(lig.rigid.orientation.R_component_3());
-	data.push_back(lig.rigid.orientation.R_component_4());
-
-	n += lig.torsions.size();
-	for (unsigned i = 0, nn = lig.torsions.size(); i < nn; i++) {
-		data.push_back(lig.torsions[i]);
-	}
-
-	for (unsigned i = 0, nn = src.flex.size(); i < nn; i++) {
-		n += src.flex[i].torsions.size();
-		for (unsigned j = 0, m = src.flex[i].torsions.size(); j < m; j++) {
-			data.push_back(src.flex[i].torsions[j]);
-		}
-	}
-
-	//allocate vector
-	CUDA_CHECK_GNINA(cudaMalloc(&cinfo, sizeof(float) * n));
-	//and init
-	assert(n == data.size());
-	CUDA_CHECK_GNINA(
-			cudaMemcpy(cinfo, &data[0], n * sizeof(float),
-					cudaMemcpyHostToDevice));
+    assert(constructor_valid(*this, src, d));
 }
 
 //set cpu to gpu values, assumes correctly sized
-void conf_gpu::set_cpu(conf& dst) const {
-	std::vector<float> d;
-	get_data(d);
-	assert(dst.ligands.size() == 1);
-	unsigned pos = 0;
-	if (d.size() >= 7) {
-		ligand_conf& lig = dst.ligands[0];
-		lig.rigid.position = vec(d[0], d[1], d[2]);
-		lig.rigid.orientation = qt(d[3], d[4], d[5], d[6]);
-		pos = 7;
-		for (unsigned i = 0, nt = lig.torsions.size(); i < nt && pos < n;
-				i++) {
-			lig.torsions[i] = d[pos];
-			pos++;
-		}
-	}
+void conf_gpu::set_cpu(conf& dst, const gpu_data& d) const {
+    std::vector<fl> data;
+    get_data(data);
 
-	for (unsigned r = 0, nr = dst.flex.size(); r < nr; r++) {
-		residue_conf& res = dst.flex[r];
-		for (unsigned i = 0, nt = res.torsions.size(); i < nt && pos < n;
-				i++) {
-			res.torsions[i] = d[pos];
-			pos++;
-		}
-	}
+    for (sz i = 0; i < n; i++) {
+        // TODO: need get_with_node_idx for node_idx, but need operator()
+        // for writeable-ref.
+        sz cpu_node_idx;
+        sz offset_in_node;
+        dst.get_with_node_idx(i, &cpu_node_idx, &offset_in_node);
+        assert(offset_in_node < 7);
+        assert(cpu_node_idx < n);
+
+        dst(i) = data[conf_gpu::idx_cpu2gpu(cpu_node_idx, offset_in_node, d)];
+    }
 }
 
-//allocate and copy
-conf_gpu::conf_gpu(const conf_gpu& src) :
-		n(0), cinfo(NULL) {
-	*this = src;
+//copy within buffer
+conf_gpu::conf_gpu(const conf_gpu& src, float_buffer& buffer) :
+		n(src.n), values(NULL) {
+    values = buffer.copy(src.values, n, cudaMemcpyDeviceToDevice);
 }
 
 __host__ __device__
 conf_gpu& conf_gpu::operator=(const conf_gpu& src) {
+    assert(values && n == src.n);
 #ifndef __CUDA_ARCH__
-	if (cinfo == NULL || n < src.n) {
-		if (cinfo) {
-			CUDA_CHECK_GNINA(cudaFree(cinfo));
-		}
-		CUDA_CHECK_GNINA(cudaMalloc(&cinfo, sizeof(float) * src.n));
-	}
-	n = src.n;
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(cinfo, src.cinfo, sizeof(float) * n,
+			cudaMemcpy(values, src.values, sizeof(float) * n,
 					cudaMemcpyDeviceToDevice));
 #else
-    assert(cinfo && n >= src.n);
-	n = src.n;
-    memcpy(cinfo, src.cinfo, sizeof(float) * n);
+    memcpy(values, src.values, sizeof(float) * n);
 #endif
-    
+
 	return *this;
 }
 
-void* conf_gpu::operator new(size_t count) {
-    void* ptr;
-    CUDA_CHECK_GNINA(cudaMallocManaged(&ptr, count, cudaMemAttachHost));
-    CUDA_CHECK_GNINA(cudaStreamAttachMemAsync(cudaStreamPerThread, ptr));
-    // ptr = malloc(count);
-    return ptr;
-}
+__device__ void conf_gpu::increment(const change_gpu& c, fl factor, gpu_data*
+        gdata) {
+    unsigned idx = threadIdx.x;
+    tree_gpu& tree = *gdata->treegpu;
+    unsigned lig_roots = tree.nlig_roots;
+    //update rigid with early threads
+    if (idx < lig_roots) {
+        //position
+        unsigned conf_offset = idx*7;
+        unsigned change_offset = idx*6;
+        for (int i = 0; i < 3; i++)
+            values[conf_offset + i] += c.values[change_offset + i]*factor;
 
-void conf_gpu::operator delete(void* ptr) noexcept {
-    CUDA_CHECK_GNINA(cudaFree(ptr));
-}
-
-conf_gpu::~conf_gpu() {
-	//deallocate mem
-	CUDA_CHECK_GNINA(cudaFree(cinfo));
-}
-
-__device__ void conf_gpu::increment(const change_gpu& c, fl factor) {
-	//position
-    int idx = threadIdx.x;
-    if (idx < 3) {
-        cinfo->values[idx] += c.change_values[idx]*factor;
-    }
-
-	//rotation
-    if (idx == 0) {
-	    qt orientation(cinfo->values[3],cinfo->values[4],cinfo->values[5],cinfo->values[6]);
-	    vec rotation(factor * c.change_values[3], factor * c.change_values[4], factor *
-                c.change_values[5]);
+	    //rotation
+	    qt orientation(values[conf_offset+ 3], values[conf_offset + 4],
+                values[conf_offset + 5], values[conf_offset + 6]);
+	    vec rotation(factor * c.values[change_offset + 3], factor *
+                c.values[change_offset + 4], factor *
+                c.values[change_offset + 5]);
 	    quaternion_increment(orientation, rotation);
-	    cinfo->values[3] = orientation.R_component_1();
-	    cinfo->values[4] = orientation.R_component_2();
-	    cinfo->values[5] = orientation.R_component_3();
-	    cinfo->values[6] = orientation.R_component_4();
+	    values[conf_offset + 3] = orientation.R_component_1();
+	    values[conf_offset + 4] = orientation.R_component_2();
+	    values[conf_offset + 5] = orientation.R_component_3();
+	    values[conf_offset + 6] = orientation.R_component_4();
     }
-
-	//torsions
-    if (idx > 6) {
-	    cinfo->values[idx] += normalized_angle(factor*c.change_values[idx-1]);
-	    normalize_angle(cinfo->values[idx]);
+	//torsions updated by everybody else, with indexing to avoid touching rigid again
+    else if (idx < tree.num_nodes) {
+        unsigned conf_offset = idx + (6 * lig_roots);
+        unsigned change_offset = idx + (5 * lig_roots);
+	    values[conf_offset] += normalized_angle(factor*c.values[change_offset]);
+	    normalize_angle(values[conf_offset]);
     }
 }
 
 void conf_gpu::get_data(std::vector<float>& d) const {
 	d.resize(n);
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(&d[0], cinfo, n * sizeof(float),
+			cudaMemcpy(&d[0], values, n * sizeof(float),
 					cudaMemcpyDeviceToHost));
-    cudaDeviceSynchronize();
+    sync_and_errcheck();
 }
 
 void conf_gpu::set_data(std::vector<float>& d) const {
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(cinfo, &d[0], n * sizeof(float),
+			cudaMemcpy(values, &d[0], n * sizeof(float),
 					cudaMemcpyHostToDevice));
-    cudaDeviceSynchronize();
-}
-
-__device__ void conf_gpu::print_gpu() const {
-    for (unsigned i=0; i<n; i++) 
-        printf("%f ", cinfo->values[i]);
-    printf("\n");
-}
-
-void conf_gpu::print() const {
-	std::vector<float> d;
-	get_data(d);
-	for (unsigned i = 0, n = d.size(); i < n; i++) {
-		std::cout << d[i] << " ";
-	}
-	std::cout << "\n";
+    sync_and_errcheck();
 }

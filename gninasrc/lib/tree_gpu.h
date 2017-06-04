@@ -4,7 +4,7 @@
 #include "tree.h"
 #include "atom.h"
 #include <vector>
-#include <queue>
+#include <algorithm>
 #include "gpu_util.h"
 #include "conf_gpu.h"
 #include "gpu_math.h"
@@ -52,6 +52,14 @@ struct gpu_mat{
     gpu_mat(const mat &m);
 };
 
+struct __align__(sizeof(float4)) marked_coord{
+    float3 coords;
+    uint owner_idx;
+};
+
+struct ligand;
+struct residue;
+
 struct segment_node {
 	//a segment is a rigid collection of atoms with an orientation
 	//from an axis in a torsion tree
@@ -63,15 +71,18 @@ struct segment_node {
 	gpu_mat orientation_m;
 	sz begin;
 	sz end;
-	int parent; //location of parent in node array, -1 if root
+	int parent; //location of parent in node array, -1 if root 
 	int layer; //layer in BFS tree
 
 	segment_node() :
 			parent(-1), layer(0), begin(0), end(0){
 	}
 
-	segment_node(const segment& node,int p,segment_node* pnode);
-	segment_node(const rigid_body& node);
+	segment_node(const segment& node,int p,int layer);
+
+    segment_node(const rigid_body& node);
+
+    segment_node(const first_segment& node);
 
 	__device__
 	gfloat4p sum_force_and_torque(const gfloat4 *coords, const gfloat4 *forces) const;
@@ -94,6 +105,16 @@ struct segment_node {
 
 };
 
+//just a branch with parent info convenient for creating a bfs-ordered nodes
+//array for the tree_gpu struct
+struct pinfo_branch {
+    branch* bptr;
+    int parent;
+    int layer;
+
+    pinfo_branch(branch* b, const int pidx, const int lidx) : bptr(b), parent(pidx), layer(lidx) {}
+};
+
 struct __align__(sizeof(uint2)) atom_node_indices{
     uint atom_idx;
     uint node_idx;
@@ -108,34 +129,30 @@ struct tree_gpu {
 	gfloat4p *force_torques;
 	unsigned num_nodes;
     unsigned num_layers;
+    unsigned num_atoms;
+    unsigned nlig_roots;
+    unsigned nres_roots;
 
     uint *owners;
 
     tree_gpu() = default;
-	tree_gpu(const heterotree<rigid_body> &ligand, vec *atom_coords);
+	tree_gpu(vector_mutable<ligand> &ligands, vector_mutable<residue> &residues, vec *atom_coords, size_t*& dfs_order_bfs_indices, size_t*& bfs_order_dfs_indices);
 
 	static void deallocate(tree_gpu *t);
 
     __device__
-	void derivative(const vec *coords,const vec* forces, float *c);
+	void derivative(const vec *coords,const vec* forces, change_gpu *c);
     __device__
 	void set_conf(const vec *atom_coords, vec *coords,
-                  const conf_info *c);
-
-    struct __align__(sizeof(float4)) marked_coord{
-        float3 coords;
-        uint owner_idx;
-    };
-
+                  const conf_gpu *c);
 private:
-    void do_dfs(int parent, const branch& branch, 
-                std::vector<segment_node> &nodes);
+    void do_dfs(branch& branch, size_t& dfs_idx);
 
 	__device__
-	void _derivative(const gfloat4 *coords,const gfloat4* forces, float *c);
+	void _derivative(const gfloat4 *coords,const gfloat4* forces, change_gpu *c);
 	__device__
 	void _set_conf(const marked_coord *atom_coords, gfloat4 *coords,
-                   const conf_info *c);
+                   const conf_gpu *c);
 };
 
 #endif
