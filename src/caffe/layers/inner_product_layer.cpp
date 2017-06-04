@@ -164,22 +164,26 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
 
         int outcount = top_data_with_eps.count();
 
-        Dtype* top_data_with_eps_data = top_data_with_eps.mutable_cpu_data();
-        caffe_copy<Dtype>(outcount, top_diff, top_data_with_eps_data);
+        Dtype* relevance = top_data_with_eps.mutable_cpu_data();
+        caffe_copy<Dtype>(outcount, top_diff, relevance);
 
         for (int c = 0; c < outcount; ++c)
         {
-            if (top_data[c] > 0)
+            Dtype bias = this->blobs_[1]->cpu_data()[c];
+            Dtype val = top_data[c] - bias;
+            if (val > 0)
             {
-                top_data_with_eps_data[c] /= top_data[c] + eps;
+              relevance[c] /= val + eps;
             }
-            if (top_data[c] < 0)
+            if (val < 0)
             {
-                top_data_with_eps_data[c] /= top_data[c] - eps;
+              relevance[c] /= val - eps;
             }
         }
 
-        caffe_cpu_gemm<Dtype> (CblasNoTrans, CblasNoTrans, M_, K_, N_, (Dtype) 1., top_data_with_eps_data, this->blobs_[0]->cpu_data(), (Dtype) 0., bottom[i]->mutable_cpu_diff());
+        caffe_cpu_gemm<Dtype> (CblasNoTrans, CblasNoTrans, M_, K_, N_,
+                (Dtype) 1., relevance, this->blobs_[0]->cpu_data(), 
+                (Dtype) 0., bottom[i]->mutable_cpu_diff());
 
         for(int d = 0; d < M_ * K_; ++d)
         {
@@ -194,94 +198,7 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
     }
     std::cout << "INNERPROD BOTTOM SUM : " << bottom_sum << '\n';
 }
-        /*
 
-        float top_sum = 0.0;
-        for (int i = 0; i < top[0]->count(); ++i)
-        {
-            top_sum += top[0]->cpu_diff()[i];
-        }
-        std::cout << "INNERPROD TOP SUM : " << top_sum << '\n';
-        float alpha = 1 + beta;
-
-        //for (int i = 0; i < top.size(); ++i)
-        //{
-                int i = 0;
-                const Dtype* top_diff = top[i]->cpu_diff();
-                const Dtype* bottom_data = bottom[i]->cpu_data();
-
-                const Dtype* weights = this->blobs_[0]->cpu_data();
-
-                Dtype* bottom_diff = bottom[i]->mutable_cpu_diff();
-
-                caffe_set(bottom[i]->count(), Dtype(0.0), bottom_diff);
-
-                Blob < Dtype > pos_sums(1,1,M_,N_);
-                Blob < Dtype > neg_sums(1,1,M_,N_);
-
-                Dtype * pos_sums_data = pos_sums.mutable_cpu_data();
-                Dtype * neg_sums_data = neg_sums.mutable_cpu_data();
-
-                memset(pos_sums_data, 0, sizeof(Dtype) * M_ *N_);
-                memset(neg_sums_data, 0, sizeof(Dtype) * M_ *N_);
-
-                //calculate total positive and negative relevance for layer
-                for (long m = 0; m < M_; ++m)
-                {
-                    for(long n = 0; n < N_; ++n)
-                    {
-                        Dtype bias = bias_multiplier_.cpu_data()[m] * this->blobs_[1]->cpu_data()[n];
-                        for(long k = 0; k < K_; ++k)
-                        {
-                            pos_sums_data[m * N_ + n] += 
-                                std::max(Dtype(0.), bottom_data[m * K_ + k] * weights[n * K_ + k]
-                                                                            + bias / K_);
-                            neg_sums_data[m * N_ + n] += 
-                                std::min(Dtype(0.), bottom_data[m * K_ + k] * weights[n * K_ + k]
-                                                                            + bias / K_);
-
-                        }
-                    }
-                }
-
-                for (long m = 0; m < M_; ++m)
-                {
-                    for (long n = 0; n < N_; ++n)
-                    {
-                        Dtype bias = bias_multiplier_.cpu_data()[m] * this->blobs_[1]->cpu_data()[n];
-
-                        Dtype z1 = 0;
-                        if (pos_sums_data[m * N_ + n] > 0)
-                        {
-                            z1 = top_diff[m * N_ + n] / pos_sums_data[m * N_ + n];
-                        }
-                        Dtype z2 = 0;
-
-                        if (neg_sums_data[m * N_ + n] < 0)
-                        {
-                            z2 = top_diff[m * N_ + n] / neg_sums_data[m * N_ + n];
-                        }
-
-                        for(long k = 0; k < K_; ++k)
-                        {
-                            bottom_diff[m * K_ + k] +=
-                                alpha * std::max(Dtype(0.), bottom_data[m * K_ + k]
-                                      * weights[n * K_ + k] + bias / K_) 
-                                      * z1
-                                - beta * std::min(Dtype(0.), bottom_data[m * K_ + k]
-                                      * weights[n * K_ + k] + bias / K_) 
-                                      * z2;
-                        }
-                    }
-                }
-        }
-    */
-
-
-
-
-
-        
 #ifdef CPU_ONLY
 STUB_GPU(InnerProductLayer);
 #endif
