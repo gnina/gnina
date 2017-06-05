@@ -76,6 +76,9 @@ template <typename Dtype>
 void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom, const float eps) {
 
+    //recalculate z_ij, otherwise relu is applied
+    Forward_cpu(bottom, top);
+
     float top_sum = 0;
 
     for(int i = 0; i < top[0]->count(); ++i)
@@ -122,7 +125,7 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
         //copy bottom_data into x_ij_data
         caffe_copy<Dtype>(x_ij.count(), bottom_data, x_ij_data);
 
-        std::cout << "n: " << this->num_ << '\n';
+        //std::cout << "n: " << this->num_ << '\n';
         for (int n = 0; n < this->num_; ++n) 
         {
             this->forward_cpu_gemm(x_ij_data + n * this->bottom_dim_, weight,
@@ -150,12 +153,12 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
         long double bias_removed_total = 0;
         long double top_data_total = 0;
 
-        std::cout << "shapes: " << top[i]->count() << '|' << z_ij.count() << '\n';
+        //std::cout << "shapes: " << top[i]->count() << '|' << z_ij.count() << '\n';
 
         for(int c = 0; c < outcount; c++)
         {
             //std::cout << z_ij_data[c] << "|" << bias_removed_data[c] << '|' << relevance[c] << '\n';
-            std::cout << z_ij_data[c] << '\n';
+            //std::cout << bias_removed_data[c] - z_ij_data[c] << '\n';
             z_ij_total += z_ij_data[c];
             bias_removed_total = bias_removed_data[c];
             top_data_total += top_data[c];
