@@ -95,11 +95,11 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
 
         const Dtype* top_data = top[i]->cpu_data();
 
-        int Mfull = this->num_output_;
+        //int Mfull = this->num_output_;
 
         const int first_spatial_axis = this->channel_axis_ + 1;
         int N = bottom[i]->count(first_spatial_axis);
-        int K = this->blobs_[0]->count(1);
+        //int K = this->blobs_[0]->count(1);
 
         Blob<Dtype> top_data_with_eps((top[i])->shape());
 
@@ -107,6 +107,27 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
 
         Dtype* relevance = top_data_with_eps.mutable_cpu_data();
         caffe_copy<Dtype>(outcount, top_diff, relevance);
+
+        Blob<Dtype> bias_removed (top[i]->shape());
+        Dtype* bias_removed_data = bias_removed.mutable_cpu_data();
+
+        //stores data
+        Blob<Dtype> x_ij (bottom[i]->shape());
+        Dtype* x_ij_data = x_ij.mutable_cpu_data();
+
+        //will store data * weights
+        Blob<Dtype> z_ij (top[i]->shape());
+        Dtype* z_ij_data = z_ij.mutable_cpu_data();
+
+        //copy bottom_data into x_ij_data
+        caffe_copy<Dtype>(x_ij.count(), bottom_data, x_ij_data);
+
+        std::cout << "n: " << this->num_ << '\n';
+        for (int n = 0; n < this->num_; ++n) 
+        {
+            this->forward_cpu_gemm(x_ij_data + n * this->bottom_dim_, weight,
+                z_ij_data + n * this->top_dim_);
+        }
 
         for(int c = 0; c < outcount; ++c)
         {
@@ -120,7 +141,26 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
             {
               relevance[c] /= val - eps;
             }
+
+            //calculate w_ij from top for sanity check
+            bias_removed_data[c] = val;
         }
+
+        long double z_ij_total = 0;
+        long double bias_removed_total = 0;
+        long double top_data_total = 0;
+
+        std::cout << "shapes: " << top[i]->count() << '|' << z_ij.count() << '\n';
+
+        for(int c = 0; c < outcount; c++)
+        {
+            //std::cout << z_ij_data[c] << "|" << bias_removed_data[c] << '|' << relevance[c] << '\n';
+            std::cout << z_ij_data[c] << '\n';
+            z_ij_total += z_ij_data[c];
+            bias_removed_total = bias_removed_data[c];
+            top_data_total += top_data[c];
+        }
+        std::cout << z_ij_total << "|" << bias_removed_total <<  '|' << top_data_total << '\n';
 
         for (int n = 0; n < this->num_; ++n)
         {
