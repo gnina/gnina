@@ -144,6 +144,9 @@ template <typename Dtype>
 void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom, const float eps){
 
+    //recalculate z_ij, otherwise relu is applied
+    Forward_cpu(bottom, top);
+
     float top_sum = 0.0;
     for (int i = 0; i < top[0]->count(); ++i)
     {
