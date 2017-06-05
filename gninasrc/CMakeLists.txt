@@ -79,6 +79,7 @@ lib/non_cache_gpu.cu
 lib/precalculate_gpu.cu
 lib/tree_gpu.cu
 gninavis/cnn_visualization.cpp
+test/test_runner.cpp
 )
 
 set(rdkit_lib_line "-lFileParsers -lSmilesParse -lDepictor -lGraphMol -lRDGeometryLib -lRDGeneral -lSubstructMatch -lSubgraphs -lDataStructs")
@@ -124,5 +125,8 @@ target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES}
 cuda_add_executable(gninavis gninavis/gninavis.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT})
+
+cuda_add_executable(check test/test_runner.cpp)
+target_link_libraries(check gninalib)
 
 install(TARGETS gnina gninagrid gninatyper fromgnina tognina gninavis RUNTIME DESTINATION bin)
