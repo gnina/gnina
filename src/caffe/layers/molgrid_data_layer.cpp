@@ -619,8 +619,8 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
   {
     mol_info rec;
     mol_info lig;
-    set_mol_info(ex.receptor, rmap, 0, rec);
-    set_mol_info(ex.ligand, lmap, numReceptorTypes, lig);
+    set_mol_info(root_folder+ex.receptor, rmap, 0, rec);
+    set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, lig);
     set_grid_minfo(data, rec, lig, transform, gpu);
   }
 }
