@@ -146,6 +146,87 @@ void MolGridDataLayer<Dtype>::paired_examples::next(example& active, example& de
 
 }
 
+template <typename Dtype>
+MolGridDataLayer<Dtype>::example::example(string line, bool hasaffinity, bool hasrmsd)
+  : label(0), affinity(0.0), rmsd(0.0)
+{
+  stringstream stream(line);
+
+  //first the label
+  stream >> label;
+  if(hasaffinity)
+   stream >> affinity;
+  if(hasrmsd)
+   stream >> rmsd;
+  //receptor
+  stream >> receptor;
+  //ligand
+  stream >> ligand;
+
+  CHECK(receptor.length() > 0) << "Empty receptor, missing affinity/rmsd?";
+  CHECK(ligand.length() > 0) << "Empty ligand, missing affinity/rmsd?";
+}
+
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::examples::add(const example& ex)
+{
+  all.push_back(ex);
+
+  if (ex.label)
+    actives.push_back(ex);
+  else
+    decoys.push_back(ex);
+
+  pairs.add(ex);
+}
+
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::examples::shuffle_()
+{
+  shuffle(all.begin(), all.end(), caffe_rng());
+  shuffle(actives.begin(), actives.end(), caffe_rng());
+  shuffle(decoys.begin(), decoys.end(), caffe_rng());
+  pairs.shuffle_pairs();
+}
+
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::examples::next(example& ex)
+{
+  ex = all[all_index];
+  all_index++;
+  if (all_index >= all.size())
+  {
+    all_index = 0;
+    if (shuffle_on_wrap)
+      shuffle(all.begin(), all.end(), caffe_rng());
+  }
+}
+
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::examples::next_active(example& ex)
+{
+  ex = actives[actives_index];
+  actives_index++;
+  if (actives_index >= actives.size())
+  {
+    actives_index = 0;
+    if (shuffle_on_wrap)
+      shuffle(actives.begin(), actives.end(), caffe_rng());
+  }
+}
+
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::examples::next_decoy(example& ex)
+{
+  ex = decoys[decoys_index];
+  decoys_index++;
+  if (decoys_index >= decoys.size())
+  {
+    decoys_index = 0;
+    if (shuffle_on_wrap)
+      shuffle(decoys.begin(), decoys.end(), caffe_rng());
+  }
+}
 
 //ensure gpu memory is of sufficient size
 template <typename Dtype>
@@ -171,11 +252,10 @@ template <typename Dtype>
 void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
 
-  root_folder = this->layer_param_.molgrid_data_param().root_folder();
+  string root_folder = this->layer_param_.molgrid_data_param().root_folder();
   balanced  = this->layer_param_.molgrid_data_param().balanced();
   paired  = this->layer_param_.molgrid_data_param().paired();
   num_rotations = this->layer_param_.molgrid_data_param().rotate();
-  all_pos_ = actives_pos_ = decoys_pos_ = 0;
   inmem = this->layer_param_.molgrid_data_param().inmemory();
   dimension = this->layer_param_.molgrid_data_param().dimension();
   resolution = this->layer_param_.molgrid_data_param().resolution();
@@ -186,17 +266,15 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   fixedradius = this->layer_param_.molgrid_data_param().fixed_radius();
   bool hasaffinity = this->layer_param_.molgrid_data_param().has_affinity();
   bool hasrmsd = this->layer_param_.molgrid_data_param().has_rmsd();
+  data_ratio = this->layer_param_.molgrid_data_param().source_ratio();
+  string root_folder2 = this->layer_param_.molgrid_data_param().root_folder2();
+  bool shuffle = this->layer_param_.molgrid_data_param().shuffle();
 
-  if(root_folder.length() > 0 && root_folder[root_folder.length()-1] != '/')
-    root_folder = root_folder + "/"; //make sure we have trailing slash
-
-  int rmsdindex = -1;
-  if(hasaffinity) {
-	  rmsdindex = 3;
-  }
-  else if(hasrmsd) {
-	  rmsdindex = 2;
-  }
+  //make sure root folder(s) have trailing slash
+  if (root_folder.length() > 0 && root_folder[root_folder.length()-1] != '/')
+    root_folder = root_folder + "/";
+  if (root_folder2.length() > 0 && root_folder2[root_folder2.length()-1] != '/')
+    root_folder2 = root_folder2 + "/";
 
   if(binary) radiusmultiple = 1.0;
 
@@ -216,70 +294,99 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   if(!inmem)
   {
-    // Read the file with labels and structure, each line is
-    // label receptor_file ligand_file
     const string& source = this->layer_param_.molgrid_data_param().source();
+    const string& source2 = this->layer_param_.molgrid_data_param().source2();
 
+    CHECK_GT(source.length(), 0) << "No data source file provided";
+
+    // Read source file(s) with labels and structures,
+    // each line is label [affinity] [rmsd] receptor_file ligand_file
     LOG(INFO) << "Opening file " << source;
     std::ifstream infile(source.c_str());
-    CHECK((bool)infile) << "Could not load " << source;
+    CHECK((bool)infile) << "Could not open " << source;
 
+    data.root_folder = root_folder;
+    data.shuffle_on_wrap = shuffle;
 
-    string line, recname, ligname;
-
-    while (getline(infile, line)) {
-      stringstream ex(line);
-      int label = 0;
-      double affinity = 0.0;
-      double rmsd = 0.0;
-      ligname = string();
-      recname = string();
-      //first the label
-      ex >> label;
-      if(hasaffinity)
-    	  ex >> affinity;
-      if(hasrmsd)
-    	  ex >> rmsd;
-      //receptor
-      ex >> recname;
-      //ligand
-      ex >> ligname;
-
-      CHECK(recname.length() > 0) << "Empty receptor, missing affinity/rmsd?";
-      CHECK(ligname.length() > 0) << "Empty ligand, missing affinity/rmsd?";
-
-      if(root_folder.length() > 0) recname = root_folder + recname;
-      if(root_folder.length() > 0) ligname = root_folder + ligname;
-
-      example lineex(label, affinity, rmsd, recname, ligname);
-      all_.push_back(lineex);
-
-      if(label) actives_.push_back(lineex);
-      else decoys_.push_back(lineex);
-
-      pairs_.add(lineex);
+    string line;
+    while (getline(infile, line))
+    {
+      example ex(line, hasaffinity, hasrmsd);
+      data.add(ex);
     }
 
-    if (this->layer_param_.molgrid_data_param().shuffle()) {
+    if (source2.length() > 0)
+    {
+      CHECK_GE(data_ratio, 0) << "Must provide non-negative ratio for two data sources";
+
+      LOG(INFO) << "Opening file " << source2;
+      std::ifstream infile(source2.c_str());
+      CHECK((bool)infile) << "Could not open " << source2;
+
+      data2.root_folder = root_folder2;
+      data2.shuffle_on_wrap = shuffle;
+
+      while (getline(infile, line))
+      {
+        example ex(line, hasaffinity, hasrmsd);
+        data2.add(ex);
+      }
+
+      LOG(INFO) << "Combining at ratio " << data_ratio;
+      two_data_sources = true;
+    }
+    else
+    {
+      CHECK_EQ(data_ratio, -1) << "Need two data sources to use ratio";
+      two_data_sources = false;
+    }
+
+    if (shuffle)
+    {
       // randomly shuffle data
       LOG(INFO) << "Shuffling data";
-      Shuffle();
+      data.shuffle_();
+      if (two_data_sources)
+        data2.shuffle_();
     }
-    LOG(INFO) << "A total of " << all_.size() << " examples.";
+
+    LOG(INFO) << "Total examples: " << data.all.size() + data2.all.size();
 
     // Check if we would need to randomly skip a few data points
-    if (this->layer_param_.molgrid_data_param().rand_skip()) {
+    if (this->layer_param_.molgrid_data_param().rand_skip())
+    {
       unsigned int skip = caffe_rng_rand() %
           this->layer_param_.molgrid_data_param().rand_skip();
+
       LOG(INFO) << "Skipping first " << skip << " data points.";
-      CHECK_GT(all_.size(), skip) << "Not enough points to skip";
-      all_pos_ = skip;
-      actives_pos_ = skip % actives_.size();
-      decoys_pos_ = skip % decoys_.size();
+      CHECK_GT(data.all.size(), skip) << "Not enough points to skip in " << source;
+
+      data.all_index = skip;
+      data.actives_index = skip % data.actives.size();
+      data.decoys_index = skip % data.decoys.size();
+
+      if (two_data_sources)
+      {
+        CHECK_GT(data2.all.size(), skip) << "Not enough points to skip in " << source2;
+
+        data2.all_index = skip;
+        data2.actives_index = skip % data2.actives.size();
+        data2.decoys_index = skip % data2.decoys.size();
+      }
     }
 
-    if(balanced) {
-      CHECK_GT(batch_size, 1) << "Batch size must be > 1 with balanced option.";
+    if (balanced)
+    {
+      CHECK_GT(batch_size, 1) << "Batch size must be > 1 to balance actives/decoys";
+
+      CHECK_GT(data.actives.size(), 0) << "Need non-zero number of actives to balance " << source;
+      CHECK_GT(data.decoys.size(), 0) << "Need non-zero number of decoys to balance " << source;
+
+      if (two_data_sources)
+      {
+        CHECK_GT(data.actives.size(), 0) << "Need non-zero number of actives to balance " << source2;
+        CHECK_GT(data.decoys.size(), 0) << "Need non-zero number of decoys to balance " << source2;
+      }
     }
   }
 
@@ -311,24 +418,23 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   // Reshape prefetch_data and top[0] according to the batch_size.
   top[0]->Reshape(top_shape);
 
-  // label, affinity, rmsds
-  vector<int> label_shape(1, batch_size);
+  // Reshape label, affinity, rmsds
+  vector<int> label_shape(1, batch_size); // [batch_size]
+
   top[1]->Reshape(label_shape);
 
-  if(hasaffinity)
-	  top[2]->Reshape(label_shape);
-  if(hasrmsd)
-	  top[rmsdindex]->Reshape(label_shape);
-
-}
-
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::Shuffle() {
-
-    shuffle(actives_.begin(), actives_.end(), caffe_rng());
-    shuffle(decoys_.begin(), decoys_.end(), caffe_rng());
-    shuffle(all_.begin(), all_.end(), caffe_rng());
-    pairs_.shuffle_pairs();
+  if (hasaffinity)
+  {
+    top[2]->Reshape(label_shape);
+    if (hasrmsd)
+    {
+      top[3]->Reshape(label_shape);
+    }
+  }
+  else if(hasrmsd)
+  {
+    top[2]->Reshape(label_shape);
+  }
 }
 
 //return quaternion representing one of 24 distinct axial rotations
@@ -383,6 +489,7 @@ template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>& atommap,
     unsigned mapoffset, mol_info& minfo)
 {
+  //read mol info from file
   //OpenBabel is SLOW, especially for the receptor, so we cache the result
   //if this gets too annoying, can add support for spawning a thread for openbabel
   //but since this gets amortized across many hits to the same example, not a high priority
@@ -430,18 +537,18 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
       }
       else if(t > 1) //silence on hydrogens
       {
-	std::cerr << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded\n";
+       std::cerr << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded\n";
       }
     }
     center /= cnt;
   }
   else
   {
-  //read mol from file and set mol info (atom coords and grid positions)
-  //types are mapped using atommap values plus offset
+    //read mol from file and set mol info (atom coords and grid positions)
+    //types are mapped using atommap values plus offset
     OpenBabel::OBConversion conv;
     OBMol mol;
-    CHECK(conv.ReadFile(&mol, root_folder + file)) << "Could not read " << file;
+    CHECK(conv.ReadFile(&mol, file)) << "Could not read " << file;
 
     if(this->layer_param_.molgrid_data_param().addh()) {
       mol.AddHydrogens();
@@ -489,9 +596,9 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dtype>::example& ex,
-    MolGridDataLayer<Dtype>::mol_transform& transform, bool gpu)
+    const string& root_folder, MolGridDataLayer<Dtype>::mol_transform& transform, bool gpu)
 {
-  //output grid values for provided example
+  //set grid values for example
   //cache atom info
   bool docache = this->layer_param_.molgrid_data_param().cache_structs();
 
@@ -499,11 +606,11 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
   {
     if(molcache.count(ex.receptor) == 0)
     {
-      set_mol_info(ex.receptor, rmap, 0, molcache[ex.receptor]);
+      set_mol_info(root_folder+ex.receptor, rmap, 0, molcache[ex.receptor]);
     }
     if(molcache.count(ex.ligand) == 0)
     {
-      set_mol_info(ex.ligand, lmap, numReceptorTypes, molcache[ex.ligand]);
+      set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, molcache[ex.ligand]);
     }
 
     set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, gpu);
@@ -512,8 +619,8 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
   {
     mol_info rec;
     mol_info lig;
-    set_mol_info(ex.receptor, rmap, 0, rec);
-    set_mol_info(ex.ligand, lmap, numReceptorTypes, lig);
+    set_mol_info(root_folder+ex.receptor, rmap, 0, rec);
+    set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, lig);
     set_grid_minfo(data, rec, lig, transform, gpu);
   }
 }
@@ -523,6 +630,7 @@ template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer<Dtype>::mol_info& recatoms,
   const MolGridDataLayer<Dtype>::mol_info& ligatoms, MolGridDataLayer<Dtype>::mol_transform& transform, bool gpu)
 {
+  //set grid values from mol info
   //first clear transform from the previous batch
   transform = mol_transform();
 
@@ -688,122 +796,128 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
 {
   bool hasaffinity = this->layer_param_.molgrid_data_param().has_affinity();
   bool hasrmsd = this->layer_param_.molgrid_data_param().has_rmsd();
-  Dtype *data = NULL;
-  if(gpu)
-    data = top[0]->mutable_gpu_data();
-  else
-    data = top[0]->mutable_cpu_data();
 
-  labels.resize(0);
-  affinities.resize(0);
-  rmsds.resize(0);
+  Dtype *top_data = NULL;
+  if(gpu)
+    top_data = top[0]->mutable_gpu_data();
+  else
+    top_data = top[0]->mutable_cpu_data();
+
+  //clear batch labels
+  labels.clear();
+  affinities.clear();
+  rmsds.clear();
   unsigned batch_size = top_shape[0];
+
+  //percent of batch from first data source
+  float pct_data = 1.0;
+  if (two_data_sources)
+    pct_data = data_ratio/(data_ratio+1);
+
   //if in memory must be set programmatically
   if(inmem) {
     CHECK_GT(mem_rec.atoms.size(),0) << "Receptor not set in MolGridDataLayer";
     CHECK_GT(mem_lig.atoms.size(),0) << "Ligand not set in MolGridDataLayer";
     //memory is now available
-    set_grid_minfo(data, mem_rec, mem_lig, batch_transform[0], gpu); //TODO how do we know what batch position?
+    set_grid_minfo(top_data, mem_rec, mem_lig, batch_transform[0], gpu); //TODO how do we know what batch position?
     if (num_rotations > 0) {
       current_rotation = (current_rotation+1)%num_rotations;
     }
   }
   else {
 	if(paired) {
+		CHECK(!two_data_sources) << "Paired input not implemented for two data sources"; //TODO
 		CHECK_EQ(batch_size % 2, 0) << "Paired input requires even batch size in MolGridDataLayer";
 		example active;
 		example decoy;
 		unsigned npairs = batch_size/2;
 		for(unsigned i = 0; i < npairs; i++) {
 	        int offset = labels.size()*example_size;
-			pairs_.next(active, decoy);
+			data.pairs.next(active, decoy);
 
 			//active
 			labels.push_back(active.label);
 			affinities.push_back(active.affinity);
 			rmsds.push_back(active.rmsd);
-			set_grid_ex(data+offset, active, batch_transform[2*i], gpu);
+			set_grid_ex(top_data+offset, active, data.root_folder, batch_transform[2*i], gpu);
 
 			//then decoy
 			offset += example_size;
 			labels.push_back(decoy.label);
 			affinities.push_back(decoy.affinity);
 			rmsds.push_back(decoy.rmsd);
-			set_grid_ex(data+offset, decoy, batch_transform[2*i+1], gpu);
+			set_grid_ex(top_data+offset, decoy, data.root_folder, batch_transform[2*i+1], gpu);
 		}
 
 	}
-	else if(balanced) { //load equally from actives/decoys
-      unsigned nactives = batch_size/2;
-
-      CHECK_GT(actives_.size(), 0) << "Need non-zero number of actives for balanced input in MolGridDataLayer";
-      CHECK_GT(decoys_.size(), 0) << "Need non-zero number of decoys for balanced input in MolGridDataLayer";
-
-      int item_id = 0;
-      unsigned asz = actives_.size();
-      for (item_id = 0; item_id < nactives; ++item_id) {
-        int offset = item_id*example_size;
-        labels.push_back(1.0);
-        affinities.push_back(actives_[actives_pos_].affinity);
-        rmsds.push_back(actives_[actives_pos_].rmsd);
-
-        set_grid_ex(data+offset, actives_[actives_pos_], batch_transform[item_id], gpu);
-
-        actives_pos_++;
-        if(actives_pos_ >= asz) {
-          DLOG(INFO) << "Restarting actives data  from start.";
-          actives_pos_ = 0;
-          if (this->layer_param_.molgrid_data_param().shuffle()) {
-            shuffle(actives_.begin(), actives_.end(), caffe_rng());
+    else if (balanced) //load equally from actives and decoys
+    {
+      for (int batch_idx = 0; batch_idx < batch_size; ++batch_idx)
+      {
+        example ex;
+        string root_folder;
+        if (batch_idx < batch_size/2) //actives
+        {
+          if (batch_idx < pct_data*batch_size/2)
+          {
+            data.next_active(ex);
+            root_folder = data.root_folder;
           }
-          //this is less than ideal, gets reset for both actives and decoys
-          if (num_rotations > 0) {
-            current_rotation = (current_rotation+1)%num_rotations;
+          else
+          {
+            data2.next_active(ex);
+            root_folder = data2.root_folder;
           }
         }
+        else //decoys
+        {
+          if (batch_idx < (pct_data+1)*batch_size/2)
+          {
+            data.next_decoy(ex);
+            root_folder = data.root_folder;
+          }
+          else
+          {
+            data2.next_decoy(ex);
+            root_folder = data2.root_folder;
+          }
+        }
+
+        labels.push_back(ex.label);
+        affinities.push_back(ex.affinity);
+        rmsds.push_back(ex.rmsd);
+
+        int offset = batch_idx*example_size;
+        set_grid_ex(top_data+offset, ex, root_folder, batch_transform[batch_idx], gpu);
+
+        //this is less than ideal, gets reset for both actives and decoys
+        //TODO increment current_rotation when data wraps around
       }
-      unsigned dsz = decoys_.size();
-      for (; item_id < batch_size; ++item_id) {
-        int offset = item_id*example_size;
-        labels.push_back(0.0);
-        affinities.push_back(decoys_[decoys_pos_].affinity);
-        rmsds.push_back(decoys_[decoys_pos_].rmsd);
-        set_grid_ex(data+offset, decoys_[decoys_pos_], batch_transform[item_id], gpu);
-
-        decoys_pos_++;
-        if(decoys_pos_ >= dsz) {
-          DLOG(INFO) << "Restarting decoys data  from start.";
-          decoys_pos_ = 0;
-          if (this->layer_param_.molgrid_data_param().shuffle()) {
-            shuffle(decoys_.begin(), decoys_.end(), caffe_rng());
-          }
-          if (num_rotations > 0) {
-            current_rotation = (current_rotation+1)%num_rotations;
-          }
+    } else //load from all
+    {
+      for (int batch_idx = 0; batch_idx < batch_size; ++batch_idx)
+      {
+        example ex;
+        string root_folder;
+        if (batch_idx < pct_data*batch_size)
+        {
+          data.next(ex);
+          root_folder = data.root_folder;
         }
-      }
-
-    } else {
-      //load from all
-      unsigned sz = all_.size();
-      for (int item_id = 0; item_id < batch_size; ++item_id) {
-        int offset = item_id*example_size;
-        labels.push_back(all_[all_pos_].label);
-        affinities.push_back(all_[all_pos_].affinity);
-        rmsds.push_back(all_[all_pos_].rmsd);
-        set_grid_ex(data+offset, all_[all_pos_], batch_transform[item_id], gpu);
-
-        all_pos_++;
-        if(all_pos_ >= sz) {
-          DLOG(INFO) << "Restarting data  from start.";
-          all_pos_ = 0;
-          if (this->layer_param_.molgrid_data_param().shuffle()) {
-            shuffle(all_.begin(), all_.end(), caffe_rng());
-          }
-          if (num_rotations > 0) {
-            current_rotation = (current_rotation+1)%num_rotations;
-          }
+        else
+        {
+          data2.next(ex);
+          root_folder= data2.root_folder;
         }
+
+        labels.push_back(ex.label);
+        affinities.push_back(ex.affinity);
+        rmsds.push_back(ex.rmsd);
+
+        int offset = batch_idx*example_size;
+        set_grid_ex(top_data+offset, ex, root_folder, batch_transform[batch_idx], gpu);
+
+        //TODO increment current_rotation when data wraps around
       }
     }
 
@@ -831,8 +945,6 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       }
     }
   }
-  //grid the examples
-
 }
 
 
