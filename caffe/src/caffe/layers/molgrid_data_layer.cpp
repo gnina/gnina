@@ -279,6 +279,8 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   //keep track of atoms and transformations for each example in batch
   batch_transform.resize(batch_size);
 
+  CHECK_LE(inmem + paired + balanced, 1) << "Only one of inmemory, paired, and balanced can be set";
+
   if(!inmem)
   {
     const string& source = this->layer_param_.molgrid_data_param().source();
