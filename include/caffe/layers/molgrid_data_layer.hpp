@@ -33,9 +33,8 @@ template <typename Dtype>
 class MolGridDataLayer : public BaseDataLayer<Dtype> {
  public:
   explicit MolGridDataLayer(const LayerParameter& param)
-      : BaseDataLayer<Dtype>(param), actives_pos_(0),
-        decoys_pos_(0), all_pos_(0), num_rotations(0), current_rotation(0),
-        example_size(0),balanced(false),paired(false),inmem(false),
+      : BaseDataLayer<Dtype>(param), num_rotations(0), current_rotation(0),
+        example_size(0), balanced(false), paired(false), inmem(false),
 				resolution(0.5), dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0),
 				binary(false), randrotate(false), dim(0), numgridpoints(0),
 				numReceptorTypes(0),numLigandTypes(0), gpu_alloc_size(0),
@@ -199,17 +198,18 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   typedef typename boost::multi_array_ref<Dtype, 4>  Grids;
 
   struct example
-	{
-  	string receptor;
-  	string ligand;
-  	Dtype label;
-  	Dtype affinity;
-  	Dtype rmsd;
+  {
+    string receptor;
+    string ligand;
+    Dtype label;
+    Dtype affinity;
+    Dtype rmsd;
 
-  	example(): label(0), affinity(0), rmsd(0) {}
-  	example(Dtype l, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0) {}
-  	example(Dtype l, Dtype a, Dtype rms, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms) {}
-	};
+    example(): label(0), affinity(0), rmsd(0) {}
+    example(Dtype l, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0) {}
+    example(Dtype l, Dtype a, Dtype rms, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms) {}
+    example(string line, bool hasaffinity, bool hasrmsd);
+  };
 
   //organize examples with respect to receptor
   struct paired_examples
@@ -233,22 +233,43 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
   };
 
-  virtual void Shuffle();
+  struct examples
+  {
+    string root_folder;
 
-  vector<example> actives_;
-  vector<example> decoys_;
-  vector<example> all_;
-  paired_examples pairs_;
+    vector<example> all;
+    vector<example> actives;
+    vector<example> decoys;
+    paired_examples pairs;
 
-  string root_folder;
-  int actives_pos_, decoys_pos_, all_pos_;
+    int all_index;
+    int actives_index;
+    int decoys_index;
+    bool shuffle_on_wrap; //TODO this doesn't apply to pairs for now
+
+    examples(): all_index(0), actives_index(0), decoys_index(0), shuffle_on_wrap(false) {}
+    void add(const example& ex);
+    void shuffle_();
+    void next(example& ex);
+    void next_active(example& ex);
+    void next_decoy(example& ex);
+  };
+
+  examples data;
+  examples data2;
+  float data_ratio;
+  bool two_data_sources;
+
   unsigned num_rotations;
   unsigned current_rotation;
   unsigned example_size; //channels*numgridpoints
+
   vector<int> top_shape;
   bool balanced;
   bool paired;
   bool inmem;
+
+  //batch labels
   vector<Dtype> labels;
   vector<Dtype> affinities;
   vector<Dtype> rmsds;
@@ -315,7 +336,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
   quaternion axial_quaternion();
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
-  void set_grid_ex(Dtype *grid, const example& ex, mol_transform& transform, bool gpu);
+  void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder, mol_transform& transform, bool gpu);
   void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms, mol_transform& transform, bool gpu);
 
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
