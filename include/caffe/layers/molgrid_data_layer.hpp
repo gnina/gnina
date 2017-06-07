@@ -248,7 +248,6 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     bool shuffle_on_wrap; //TODO this doesn't apply to pairs for now
 
     examples(): all_index(0), actives_index(0), decoys_index(0), shuffle_on_wrap(false) {}
-    void add(const example& ex);
     void shuffle_();
     void next(example& ex);
     void next_active(example& ex);
