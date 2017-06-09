@@ -101,7 +101,6 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
 
             const int first_spatial_axis = this->channel_axis_ + 1;
             int N = bottom[i]->count(first_spatial_axis);
-            int K = this->blobs_[0]->count(1);
 
             Blob<Dtype> top_data_with_eps((top[i])->shape());
 
