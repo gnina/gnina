@@ -316,9 +316,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     CHECK((bool)infile) << "Could not open " << source;
 
     bool all = !(balanced || paired);
-    data = examples(all, balanced, paired);
-    data.root_folder = root_folder;
-    data.shuffle_on_wrap = shuffle;
+    data = examples(all, balanced, paired, shuffle, root_folder);
 
     string line;
     while (getline(infile, line))
@@ -335,9 +333,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       std::ifstream infile(source2.c_str());
       CHECK((bool)infile) << "Could not open " << source2;
 
-      data2 = examples(all, balanced, paired);
-      data2.root_folder = root_folder2;
-      data2.shuffle_on_wrap = shuffle;
+      data2 = examples(all, balanced, paired, shuffle, root_folder2);
 
       while (getline(infile, line))
       {
