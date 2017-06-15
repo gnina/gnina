@@ -19,6 +19,7 @@
 #include "caffe/layer.hpp"
 #include "caffe/layers/base_data_layer.hpp"
 #include "caffe/proto/caffe.pb.h"
+#include "caffe/util/rng.hpp"
 
 #include "gninasrc/lib/atom_constants.h"
 #include "gninasrc/lib/gridmaker.h"
@@ -34,8 +35,9 @@ template <typename Dtype>
 class MolGridDataLayer : public BaseDataLayer<Dtype> {
 public:
   explicit MolGridDataLayer(const LayerParameter& param) :
-      BaseDataLayer<Dtype>(param), num_rotations(0), current_rotation(0),
-      example_size(0), balanced(false), paired(false), inmem(false), resolution(0.5),
+      BaseDataLayer<Dtype>(param), data(NULL), data2(NULL), data_ratio(0),
+      num_rotations(0), current_rotation(0),
+      example_size(0), inmem(false), resolution(0.5),
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0),
       binary(false), randrotate(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
@@ -195,6 +197,7 @@ public:
 
  protected:
 
+  ///////////////////////////   PROTECTED DATA TYPES   //////////////////////////////
   typedef GridMaker::quaternion quaternion;
   typedef typename boost::multi_array_ref<Dtype, 4>  Grids;
 
@@ -225,77 +228,312 @@ public:
     example(string_cache& cache, string line, bool hasaffinity, bool hasrmsd);
   };
 
-  //organize examples with respect to receptor
-  struct paired_examples
+  //abstract class for storing training examples
+  class example_provider
   {
-	  vector<string> receptors;
-	  vector< vector<example> > actives; //indexed by receptor index first
-	  vector< pair<unsigned, vector<example> > > decoys; //indexed by receptor index fist, includes current index into vector
-	  vector< pair<unsigned, unsigned> > indices; //receptor/active indices; can be shuffled
-	  unsigned curr_index; //where we are indices for getting examples
-
-	  boost::unordered_map<string, unsigned> recmap; //map to receptor indices
-
-	  paired_examples(): curr_index(0) {}
-
-	  void add(const example& ex);
-
-	  void shuffle_pairs(); //randomize - only necessary at start
-
-	  //get next pair of examples, will shuffle as necessary
-	  void next(example& active, example& decoy);
-
+  public:
+    virtual void add(const example& ex) = 0;
+    virtual void setup() = 0; //essentially shuffle if necessary
+    virtual void next(example& ex) = 0;
+    virtual unsigned size() const = 0;
+    virtual ~example_provider() {}
   };
 
-  struct examples
+  //single array of examples, possibly shuffled
+  class uniform_example_provider: public example_provider
   {
-    bool store_all;
-    bool store_actives_decoys;
-    bool store_pairs;
-    int count;
-
-    string root_folder;
-
     vector<example> all;
-    vector<example> actives;
-    vector<example> decoys;
-    paired_examples pairs;
+    size_t current;
+    bool randomize;
 
-    int all_index;
-    int actives_index;
-    int decoys_index;
-    bool shuffle_on_wrap; //TODO this doesn't apply to pairs for now
+  public:
+    uniform_example_provider(): current(0), randomize(false) {}
+    uniform_example_provider(const MolGridDataParameter& parm): current(0)
+    {
+      randomize = parm.shuffle();
+    }
 
-    examples():
-        store_all(true), store_actives_decoys(true), store_pairs(true), count(0),
-        all_index(0), actives_index(0), decoys_index(0), shuffle_on_wrap(false) {}
+    void add(const example& ex)
+    {
+      all.push_back(ex);
+    }
 
-    examples(bool all, bool actives_decoys, bool pairs, bool shuffle, string& root):
-        store_all(all), store_actives_decoys(actives_decoys), store_pairs(pairs), count(0),
-        all_index(0), actives_index(0), decoys_index(0), shuffle_on_wrap(shuffle),
-        root_folder(root) {}
+    void setup()
+    {
+      current = 0;
+      if(randomize) shuffle(all.begin(), all.end(), caffe::caffe_rng());
+      CHECK_GT(all.size(), 0) << "Not enough examples (or at least the right kinds) in training set.";
+    }
 
-    void add(const example& ex);
-    void shuffle_();
-    void next(example& ex);
-    void next_active(example& ex);
-    void next_decoy(example& ex);
-    unsigned size() const { return count; }
+    void next(example& ex)
+    {
+      CHECK_LT(current, all.size()) << "Out of bounds error";
+      ex = all[current];
+      current++;
+      if(current >= all.size())
+      {
+        setup(); //reset current and shuffle if necessary
+      }
+    }
+
+    unsigned size() const { return all.size(); }
   };
+
+  //sample uniformly from actives and decoys
+  class balanced_example_provider: public example_provider
+  {
+    uniform_example_provider actives;
+    uniform_example_provider decoys;
+    size_t current;
+    bool randomize;
+
+  public:
+    balanced_example_provider(): current(0), randomize(false) {}
+    balanced_example_provider(const MolGridDataParameter& parm): actives(parm), decoys(parm), current(0)
+    {
+      randomize = parm.shuffle();
+    }
+
+    void add(const example& ex)
+    {
+      if (ex.label)
+        actives.add(ex);
+      else
+        decoys.add(ex);
+    }
+
+    void setup()
+    {
+      current = 0;
+      actives.setup();
+      decoys.setup();
+    }
+
+    void next(example& ex)
+    {
+      //alternate between actives and decoys
+      if(current % 2 == 0)
+        actives.next(ex);
+      else
+        decoys.next(ex);
+
+      current++;
+    }
+
+    unsigned size() const { return actives.size()+decoys.size(); }
+
+    unsigned num_actives() const { return actives.size(); }
+    unsigned num_decoys() const { return decoys.size(); }
+
+    void next_active(example& ex)
+    {
+      actives.next(ex);
+    }
+
+    void next_decoy(example& ex)
+    {
+      decoys.next(ex);
+    }
+  };
+
+
+  //partition examples by receptor and sample k times uniformly from each receptor
+  //with k=2 and a balanced_provider you get paired examples from each receptor
+  template<class Provider, int K=1>
+  class receptor_stratified_example_provider: public example_provider
+  {
+    vector<Provider> examples;
+    MolGridDataParameter p;
+    boost::unordered_map<const char*, unsigned> recmap; //map to receptor indices
+
+    size_t currenti, currentk; //position in array, and number of times sampling it
+    bool randomize;
+
+  public:
+    receptor_stratified_example_provider(): currenti(0), currentk(0), randomize(false) {}
+    receptor_stratified_example_provider(const MolGridDataParameter& parm): p(parm), currenti(0), currentk(0)
+    {
+      randomize = parm.shuffle();
+    }
+
+    void add(const example& ex)
+    {
+      if(recmap.count(ex.receptor) == 0)
+      {
+        //allocate
+        recmap[ex.receptor] = examples.size();
+        examples.push_back(Provider(p));
+      }
+      unsigned pos = recmap[ex.receptor];
+      examples[pos].add(ex);
+    }
+
+    //NOTE: this has specializations for balanced/2 in the cpp file
+    void setup()
+    {
+      CHECK_GT(K,0) << "Invalid sampling k for receptor_stratified_example_provider";
+      currenti = 0; currentk = 0;
+      for(unsigned i = 0, n = examples.size(); i < n; i++)
+      {
+        examples[i].setup();
+      }
+      //also shuffle receptors
+      if(randomize) shuffle(examples.begin(), examples.end(), caffe::caffe_rng());
+    }
+
+    void next(example& ex)
+    {
+      if(currentk >= K)
+      {
+        currentk = 0; //on to next receptor
+        currenti++;
+      }
+      if(currenti >= examples.size())
+      {
+        currenti = 0;
+        CHECK_EQ(currentk, 0) << "Invalid indices";
+        if(randomize) shuffle(examples.begin(), examples.end(), caffe::caffe_rng());
+      }
+
+      examples[currenti].next(ex);
+      currentk++;
+    }
+
+    unsigned size() const
+    {
+      //no one said this had to be particularly efficient..
+      unsigned ret = 0;
+      for(unsigned i = 0, n = examples.size(); i < n; i++)
+      {
+        ret += examples[i].size();
+      }
+      return ret;
+    }
+  };
+
+  //partition examples by affinity and sample uniformly from each affinity bin
+  //affinities are binned by absolute value according to molgriddataparameters
+  template<class Provider>
+  class affinity_stratified_example_provider: public example_provider
+  {
+    vector<Provider> examples;
+    size_t currenti;//position in array
+    double min, max, step;
+
+    //return bin for given affinity
+    unsigned bin(double affinity) const
+    {
+      affinity = fabs(affinity);
+      if(affinity < min) affinity = min;
+      if(affinity >= max) affinity = max-FLT_EPSILON;
+      affinity -= min;
+      unsigned pos = affinity/step;
+      CHECK_LT(pos, examples.size());
+      return pos;
+    }
+  public:
+    affinity_stratified_example_provider(): currenti(0), min(0), max(0), step(0) {}
+    affinity_stratified_example_provider(const MolGridDataParameter& parm): currenti(0)
+    {
+      max = parm.stratify_affinity_max();
+      min = parm.stratify_affinity_min();
+      step = parm.stratify_affinity_step();
+      CHECK_NE(min,max) << "Empty range for affinity stratification";
+      unsigned maxbin = bin(max);
+      for(unsigned i = 0; i <= maxbin; i++)
+      {
+        examples.push_back(Provider(parm));
+      }
+    }
+
+    void add(const example& ex)
+    {
+      unsigned i = bin(ex.affinity);
+      CHECK_LT(i, examples.size()) << "Error with affinity stratification binning";
+      examples[i].add(ex);
+    }
+
+    void setup()
+    {
+      currenti = 0;
+      vector<Provider> tmp;
+      for(unsigned i = 0, n = examples.size(); i < n; i++)
+      {
+        if(examples[i].size() > 0) {
+          //eliminate empty buckets
+          tmp.push_back(examples[i]);
+          tmp.back().setup();
+        }
+      }
+      swap(examples,tmp);
+      CHECK_GT(examples.size(), 0) << "No examples in affinity stratification!";
+    }
+
+    void next(example& ex)
+    {
+      examples[currenti].next(ex);
+      currenti = (currenti+1)%examples.size();
+    }
+
+    unsigned size() const
+    {
+      //no one said this had to be particularly efficient..
+      unsigned ret = 0;
+      for(unsigned i = 0, n = examples.size(); i < n; i++)
+      {
+        ret += examples[i].size();
+      }
+      return ret;
+    }
+  };
+
+  struct mol_info {
+    vector<float4> atoms;
+    vector<short> whichGrid; //separate for better memory layout on gpu
+    vector<float3> gradient;
+    vec center; //precalculate centroid, includes any random translation
+
+    mol_info() { center[0] = center[1] = center[2] = 0;}
+
+    void append(const mol_info& a)
+    {
+      atoms.insert(atoms.end(), a.atoms.begin(), a.atoms.end());
+      whichGrid.insert(whichGrid.end(), a.whichGrid.begin(), a.whichGrid.end());
+      gradient.insert(gradient.end(), a.gradient.begin(), a.gradient.end());
+    }
+  };
+
+  struct mol_transform {
+    mol_info mol;
+    quaternion Q;  // rotation
+    vec center; // translation
+
+    mol_transform() {
+      mol = mol_info();
+      Q = quaternion(0,0,0,0);
+      center[0] = center[1] = center[2] = 0;
+    }
+  };
+
+  ///////////////////   PROTECTED DATA   ////////////////
 
   string_cache scache;
-  examples data;
-  examples data2;
+
+  //we are manually stratifying by file, this could be made more general-purpose and flexible
+  //as an example_provider subclass, but this is all we need for now
+  example_provider *data;
+  example_provider *data2;
+  //store exampels without the root folder prefix to save memory
+  //(which means they must be unique even without the prefix!)
+  string root_folder;
+  string root_folder2;
   float data_ratio;
-  bool two_data_sources;
 
   unsigned num_rotations;
   unsigned current_rotation;
   unsigned example_size; //channels*numgridpoints
 
   vector<int> top_shape;
-  bool balanced;
-  bool paired;
   bool inmem;
 
   //batch labels
@@ -326,42 +564,20 @@ public:
   float4 *gpu_gridatoms;
   short *gpu_gridwhich;
 
-  void allocateGPUMem(unsigned sz);
-
-  struct mol_info {
-    vector<float4> atoms;
-    vector<short> whichGrid; //separate for better memory layout on gpu
-    vector<float3> gradient;
-    vec center; //precalculate centroid, includes any random translation
-
-    mol_info() { center[0] = center[1] = center[2] = 0;}
-
-    void append(const mol_info& a)
-    {
-      atoms.insert(atoms.end(), a.atoms.begin(), a.atoms.end());
-      whichGrid.insert(whichGrid.end(), a.whichGrid.begin(), a.whichGrid.end());
-      gradient.insert(gradient.end(), a.gradient.begin(), a.gradient.end());
-    }
-  };
-
-  struct mol_transform {
-    mol_info mol;
-    quaternion Q;  // rotation
-    vec center; // translation
-
-    mol_transform() {
-      mol = mol_info();
-      Q = quaternion(0,0,0,0);
-      center[0] = center[1] = center[2] = 0;
-    }
-  };
-
   //need to remember how mols were transformed for backward pass
   vector<mol_transform> batch_transform;
 
   boost::unordered_map<string, mol_info> molcache;
   mol_info mem_rec; //molecular data set programmatically with setReceptor
   mol_info mem_lig; //molecular data set programmatically with setLigand
+
+
+  ////////////////////   PROTECTED METHODS   //////////////////////
+  static void remove_missing_and_setup(vector<balanced_example_provider>& examples);
+  void allocateGPUMem(unsigned sz);
+
+  example_provider* create_example_data(const MolGridDataParameter& parm);
+  void populate_data(const string& root_folder, const string& source, example_provider* data, bool hasaffinity, bool hasrmsd);
 
   quaternion axial_quaternion();
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
