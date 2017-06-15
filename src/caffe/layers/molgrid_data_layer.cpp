@@ -173,14 +173,22 @@ MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache&
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::examples::add(const example& ex)
 {
-  all.push_back(ex);
-
-  if (ex.label)
-    actives.push_back(ex);
-  else
-    decoys.push_back(ex);
-
-  pairs.add(ex);
+  if (store_all)
+  {
+    all.push_back(ex);
+  }
+  if (store_actives_decoys)
+  {
+    if (ex.label)
+      actives.push_back(ex);
+    else
+      decoys.push_back(ex);
+  }
+  if (store_pairs)
+  {
+    pairs.add(ex);
+  }
+  count++;
 }
 
 template <typename Dtype>
@@ -295,6 +303,8 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   //keep track of atoms and transformations for each example in batch
   batch_transform.resize(batch_size);
 
+  CHECK_LE(inmem + paired + balanced, 1) << "Only one of inmemory, paired, and balanced can be set";
+
   if(!inmem)
   {
     const string& source = this->layer_param_.molgrid_data_param().source();
@@ -308,8 +318,8 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     std::ifstream infile(source.c_str());
     CHECK((bool)infile) << "Could not open " << source;
 
-    data.root_folder = root_folder;
-    data.shuffle_on_wrap = shuffle;
+    bool all = !(balanced || paired);
+    data = examples(all, balanced, paired, shuffle, root_folder);
 
     string line;
     while (getline(infile, line))
@@ -327,8 +337,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       std::ifstream infile(source2.c_str());
       CHECK((bool)infile) << "Could not open " << source2;
 
-      data2.root_folder = root_folder2;
-      data2.shuffle_on_wrap = shuffle;
+      data2 = examples(all, balanced, paired, shuffle, root_folder2);
 
       while (getline(infile, line))
       {
@@ -354,7 +363,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
         data2.shuffle_();
     }
 
-    LOG(INFO) << "Total examples: " << data.all.size() + data2.all.size();
+    LOG(INFO) << "Total examples: " << data.count + data2.count;
 
     // Check if we would need to randomly skip a few data points
     if (this->layer_param_.molgrid_data_param().rand_skip())
@@ -363,17 +372,17 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
           this->layer_param_.molgrid_data_param().rand_skip();
 
       LOG(INFO) << "Skipping first " << skip << " data points.";
-      CHECK_GT(data.all.size(), skip) << "Not enough points to skip in " << source;
+      CHECK_GT(data.count, skip) << "Not enough points to skip in " << source;
 
-      data.all_index = skip;
+      data.all_index = skip % data.all.size();
       data.actives_index = skip % data.actives.size();
       data.decoys_index = skip % data.decoys.size();
 
       if (two_data_sources)
       {
-        CHECK_GT(data2.all.size(), skip) << "Not enough points to skip in " << source2;
+        CHECK_GT(data2.count, skip) << "Not enough points to skip in " << source2;
 
-        data2.all_index = skip;
+        data2.all_index = skip % data2.all.size();
         data2.actives_index = skip % data2.actives.size();
         data2.decoys_index = skip % data2.decoys.size();
       }

@@ -249,6 +249,11 @@ public:
 
   struct examples
   {
+    bool store_all;
+    bool store_actives_decoys;
+    bool store_pairs;
+    int count;
+
     string root_folder;
 
     vector<example> all;
@@ -261,7 +266,15 @@ public:
     int decoys_index;
     bool shuffle_on_wrap; //TODO this doesn't apply to pairs for now
 
-    examples(): all_index(0), actives_index(0), decoys_index(0), shuffle_on_wrap(false) {}
+    examples():
+        store_all(true), store_actives_decoys(true), store_pairs(true), count(0),
+        all_index(0), actives_index(0), decoys_index(0), shuffle_on_wrap(false) {}
+
+    examples(bool all, bool actives_decoys, bool pairs, bool shuffle, string& root):
+        store_all(all), store_actives_decoys(actives_decoys), store_pairs(pairs), count(0),
+        all_index(0), actives_index(0), decoys_index(0), shuffle_on_wrap(shuffle),
+        root_folder(root) {}
+
     void add(const example& ex);
     void shuffle_();
     void next(example& ex);
