@@ -147,11 +147,11 @@ void MolGridDataLayer<Dtype>::paired_examples::next(example& active, example& de
 }
 
 template <typename Dtype>
-MolGridDataLayer<Dtype>::example::example(string line, bool hasaffinity, bool hasrmsd)
+MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache& cache, string line, bool hasaffinity, bool hasrmsd)
   : label(0), affinity(0.0), rmsd(0.0)
 {
   stringstream stream(line);
-
+  string tmp;
   //first the label
   stream >> label;
   if(hasaffinity)
@@ -159,12 +159,15 @@ MolGridDataLayer<Dtype>::example::example(string line, bool hasaffinity, bool ha
   if(hasrmsd)
    stream >> rmsd;
   //receptor
-  stream >> receptor;
+  stream >> tmp;
+  CHECK(tmp.length() > 0) << "Empty receptor, missing affinity/rmsd?";
+  receptor = cache.get(tmp);
   //ligand
-  stream >> ligand;
+  tmp.clear();
+  stream >> tmp;
+  CHECK(tmp.length() > 0) << "Empty ligand, missing affinity/rmsd?";
 
-  CHECK(receptor.length() > 0) << "Empty receptor, missing affinity/rmsd?";
-  CHECK(ligand.length() > 0) << "Empty ligand, missing affinity/rmsd?";
+  ligand = cache.get(tmp);
 }
 
 template <typename Dtype>
@@ -311,7 +314,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     string line;
     while (getline(infile, line))
     {
-      example ex(line, hasaffinity, hasrmsd);
+      example ex(scache, line, hasaffinity, hasrmsd);
       data.add(ex);
     }
     CHECK_GT(data.all.size(),0) << "No examples provided in source: " << source;
@@ -329,7 +332,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
       while (getline(infile, line))
       {
-        example ex(line, hasaffinity, hasrmsd);
+        example ex(scache, line, hasaffinity, hasrmsd);
         data2.add(ex);
       }
       CHECK_GT(data2.all.size(),0) << "No examples provided in source2: " << source2;

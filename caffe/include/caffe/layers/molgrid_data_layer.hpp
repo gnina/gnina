@@ -10,6 +10,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition_variable.hpp>
 #include <boost/unordered_map.hpp>
+#include <boost/unordered_set.hpp>
 #include <boost/math/quaternion.hpp>
 #include <boost/multi_array/multi_array_ref.hpp>
 #include "caffe/blob.hpp"
@@ -31,14 +32,14 @@ namespace caffe {
  */
 template <typename Dtype>
 class MolGridDataLayer : public BaseDataLayer<Dtype> {
- public:
-  explicit MolGridDataLayer(const LayerParameter& param)
-      : BaseDataLayer<Dtype>(param), num_rotations(0), current_rotation(0),
-        example_size(0), balanced(false), paired(false), inmem(false),
-				resolution(0.5), dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0),
-				binary(false), randrotate(false), dim(0), numgridpoints(0),
-				numReceptorTypes(0),numLigandTypes(0), gpu_alloc_size(0),
-				gpu_gridatoms(NULL), gpu_gridwhich(NULL) {}
+public:
+  explicit MolGridDataLayer(const LayerParameter& param) :
+      BaseDataLayer<Dtype>(param), num_rotations(0), current_rotation(0),
+      example_size(0), balanced(false), paired(false), inmem(false), resolution(0.5),
+      dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0),
+      binary(false), randrotate(false), dim(0), numgridpoints(0),
+      numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
+      gpu_gridatoms(NULL), gpu_gridwhich(NULL) {}
   virtual ~MolGridDataLayer();
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -46,8 +47,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   virtual inline const char* type() const { return "MolGridData"; }
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int ExactNumTopBlobs() const { return 2+
-		  this->layer_param_.molgrid_data_param().has_affinity()+
-		  this->layer_param_.molgrid_data_param().has_rmsd(); }
+      this->layer_param_.molgrid_data_param().has_affinity()+
+      this->layer_param_.molgrid_data_param().has_rmsd(); }
 
   virtual inline void resetRotation() { current_rotation = 0; }
 
@@ -197,18 +198,31 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   typedef GridMaker::quaternion quaternion;
   typedef typename boost::multi_array_ref<Dtype, 4>  Grids;
 
+  //for memory efficiency, only store a given string once and use the const char*
+  class string_cache
+  {
+    boost::unordered_set<string> strings;
+  public:
+    const char* get(const string& s)
+    {
+      strings.insert(s);
+      //we assume even as the set is resized that strings never get allocated
+      return strings.find(s)->c_str();
+    }
+  };
+
   struct example
   {
-    string receptor;
-    string ligand;
+    const char* receptor;
+    const char* ligand;
     Dtype label;
     Dtype affinity;
     Dtype rmsd;
 
-    example(): label(0), affinity(0), rmsd(0) {}
-    example(Dtype l, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0) {}
-    example(Dtype l, Dtype a, Dtype rms, const string& r, const string& lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms) {}
-    example(string line, bool hasaffinity, bool hasrmsd);
+    example(): receptor(NULL), ligand(NULL), label(0), affinity(0), rmsd(0) {}
+    example(Dtype l, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0) {}
+    example(Dtype l, Dtype a, Dtype rms, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms) {}
+    example(string_cache& cache, string line, bool hasaffinity, bool hasrmsd);
   };
 
   //organize examples with respect to receptor
@@ -255,6 +269,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     void next_decoy(example& ex);
   };
 
+  string_cache scache;
   examples data;
   examples data2;
   float data_ratio;
