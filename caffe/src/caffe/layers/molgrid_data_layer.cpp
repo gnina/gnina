@@ -327,7 +327,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       example ex(scache, line, hasaffinity, hasrmsd);
       data.add(ex);
     }
-    CHECK_GT(data.all.size(),0) << "No examples provided in source: " << source;
+    CHECK_GT(data.size(),0) << "No examples provided in source: " << source;
 
     if (source2.length() > 0)
     {
@@ -344,7 +344,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
         example ex(scache, line, hasaffinity, hasrmsd);
         data2.add(ex);
       }
-      CHECK_GT(data2.all.size(),0) << "No examples provided in source2: " << source2;
+      CHECK_GT(data2.size(),0) << "No examples provided in source2: " << source2;
       LOG(INFO) << "Combining at ratio " << data_ratio;
       two_data_sources = true;
     }
