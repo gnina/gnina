@@ -280,6 +280,7 @@ public:
     void next(example& ex);
     void next_active(example& ex);
     void next_decoy(example& ex);
+    unsigned size() const { return count; }
   };
 
   string_cache scache;
