@@ -871,14 +871,18 @@ message MolGridDataParameter {
   optional bool has_affinity = 22 [default = false];
   //if true has rmsd in addition to label - order is label affinity rmsd
   optional bool has_rmsd = 23 [default = false];
-  // pair positive/negative examples from same receptor; always balanced and shuffled
-  optional bool paired = 24 [default = false];
+  // sample uniformly across receptor
+  optional bool stratify_receptor = 24 [default = false];
   //store x,y,z,atom type info for the whole input in memory instead of re-reading from files
   optional bool cache_structs = 25 [default = true];
   // Can train on data from two sources at some ratio per batch
   optional string source2 = 26 [default = ""];
   optional string root_folder2 = 27 [default = ""];
   optional float source_ratio = 28 [default = -1.0];
+  //range and stepsize for affinity stratification
+  optional float stratify_affinity_min = 29 [default = 0.0];
+  optional float stratify_affinity_max = 30 [default = 0.0];
+  optional float stratify_affinity_step = 31 [default = 0.0];
 }
 
 message NDimDataParameter {
