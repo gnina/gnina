@@ -102,7 +102,7 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
 
         const int first_spatial_axis = this->channel_axis_ + 1;
         int N = bottom[i]->count(first_spatial_axis);
-        //int K = this->blobs_[0]->count(1);
+        int K = this->blobs_[0]->count(0);
 
         Blob<Dtype> top_data_with_eps((top[i])->shape());
 
@@ -153,18 +153,45 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
         long double bias_removed_total = 0;
         long double top_data_total = 0;
 
-        //std::cout << "shapes: " << top[i]->count() << '|' << z_ij.count() << '\n';
+        std::cout << "shapes: " << top[i]->count() << '|' << z_ij.count() << '\n';
 
         for(int c = 0; c < outcount; c++)
         {
             //std::cout << z_ij_data[c] << "|" << bias_removed_data[c] << '|' << relevance[c] << '\n';
-            //std::cout << bias_removed_data[c] - z_ij_data[c] << '\n';
+            //std::cout << top_diff[c] << '\n';
             z_ij_total += z_ij_data[c];
-            bias_removed_total = bias_removed_data[c];
+            bias_removed_total += bias_removed_data[c];
             top_data_total += top_data[c];
         }
+
+        
         std::cout << z_ij_total << "|" << bias_removed_total <<  '|' << top_data_total << '\n';
 
+        std::cout << "n * d: " << this->num_ * this->bottom_dim_ << '\n';
+
+        std::cout << "top_dim_: " << this->top_dim_ << '\n';
+        std::cout << "bottom_dim_: " << this->bottom_dim_ << '\n';
+        std::cout << "weight count: " << this->blobs_[0]->count() << '\n';
+
+        std::cout << "K: " << K << '\n';
+
+
+        std::cout << "N: " << N << '\n';
+
+        /*
+        int M_ = this->num_output_ / this->group_;
+        int K_ = this->channels_ * this->kernel_h_ * this->kernel_w_ / this->group_;
+        int N_ = this->height_out_ * this->width_out_;
+        //(MxK) * (K*N)
+        std::cout << "M_ " << M_ << '\n';
+        std::cout << "K_ " << K_ << '\n';
+        std::cout << "N_ " << N_ << '\n';
+        */
+
+
+        this->manual_relevance_backward(relevance, weight, bottom_data, bottom_diff);
+
+        /*
         for (int n = 0; n < this->num_; ++n)
         {
             this->backward_cpu_gemm(relevance + n * this->top_dim_, weight, bottom_diff + n * this->bottom_dim_);
@@ -175,6 +202,7 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
                         *= bottom_data[d + n * this->bottom_dim_];
             }
         }
+
     }
 
     float bottom_sum = 0;

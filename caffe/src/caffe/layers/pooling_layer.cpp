@@ -581,6 +581,15 @@ void PoolingLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom,
     const float eps)
 {
+    const int* output_shape_data = this->output_shape_.cpu_data();
+
+    int pooled_height_ = output_shape_data[0];
+    int pooled_width_ = output_shape_data[1];
+    int pooled_depth_ = output_shape_data[2];
+
+    std::cout << "pooled_height: " << pooled_height_ << '\n';
+    std::cout << "pooled_width: " << pooled_width_ << '\n';
+    std::cout << "pooled_depth: " << pooled_depth_ << '\n';
 
 
     Backward_cpu(top, propagate_down, bottom);

@@ -200,6 +200,9 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
         bottom_sum += bottom[0]->cpu_diff()[i];
     }
     std::cout << "INNERPROD BOTTOM SUM : " << bottom_sum << '\n';
+
+  const int num_output = this->layer_param_.inner_product_param().num_output();
+    std::cout << "innerprod num out: " << num_output << '\n';
 }
 
 #ifdef CPU_ONLY
