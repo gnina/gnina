@@ -390,11 +390,10 @@ void BaseConvolutionLayer<Dtype>::backward_gpu_bias(Dtype* bias,
 }
 
 template <typename Dtype>
-Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
+void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
     const Dtype* upper_relevances,
-    const Dtype* weights, const Dtype* input,
-    Dtype * lower_relevances, float beta) 
-
+    const Dtype* weights, const Dtype* bottom_data,
+    Dtype * lower_relevances) 
 {
     int K = kernel_dim_;
     int I = conv_out_spatial_dim_;
@@ -402,47 +401,85 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
     //inputs are K x I
     //weights are R x K
     //upper relevances are R x I
+    //
 
-    float alpha = beta + 1;
 
-    std::cout << "BETA: " << beta << '\n';
+    std::cout << "base K : " << K << '\n';
+    std::cout << "base I : " << I << '\n';
+    std::cout << "base R : " << R << '\n';
 
-    const Dtype* col_buff = col_buffer_.cpu_data();
+    std::cout << "K * I: " << K * I << '\n';
+    std::cout << "R * K: " << R * K << '\n';
+    std::cout << "R * I: " << R * I << '\n';
+
+    const Dtype* col_buff = bottom_data;
+    conv_im2col_cpu(bottom_data, col_buffer_.mutable_cpu_data());
+    col_buff = col_buffer_.cpu_data();
 
     Dtype * col_buff_new = col_buffer_.mutable_cpu_diff();
     memset(col_buff_new, 0, sizeof(Dtype) * col_buffer_.count());
 
-    Blob<Dtype> pos_sums(1,1,R,I);
-    Blob<Dtype> neg_sums(1,1,R,I);
-    Dtype* pos_sums_data = pos_sums.mutable_cpu_data();
-    Dtype* neg_sums_data = neg_sums.mutable_cpu_data();
+    Dtype buff_total = 0;
+
+    for(int i = 0; i < col_buffer_.count(); i++)
+    {
+        buff_total += col_buff_new[i];
+    }
+
+    std::cout << "buff_total: " << buff_total << '\n';
+
+    //Blob<Dtype> pos_sums(1,1,R,I);
+    //Blob<Dtype> neg_sums(1,1,R,I);
+    //Dtype* pos_sums_data = pos_sums.mutable_cpu_data();
+    //Dtype* neg_sums_data = neg_sums.mutable_cpu_data();
 
     //x is col_buff[k, i]
     //w is weights[r, k]
+    /*
+    for(int m = 0; m < M_; m++)
+    {
+        for(int 
+    */
 
+    long counter = 0;
     for (int g = 0; g < group_; ++g)
     {
-        memset(pos_sums_data, 0, sizeof(Dtype) * R * I);
-        memset(neg_sums_data, 0, sizeof(Dtype) * R * I);
+        //memset(pos_sums_data, 0, sizeof(Dtype) * R * I);
+        //memset(neg_sums_data, 0, sizeof(Dtype) * R * I);
         
-        //sum bottom data inputs * weights + bias
+        long val_count = 0;
+        Dtype cb_sum = 0;
+        Dtype w_sum = 0;
+        Dtype rel_sum = 0;
+        Dtype val_sum = 0;
+
+        //multiply (relevance / top_data) *  (inputs * weights)
         for (long i = 0; i < I; ++i)
         {
             for (long r = 0; r < R; ++r)
             {
-                Dtype bias = this->blobs_[1]->cpu_data()[r] * bias_multiplier_.cpu_data()[i];
                 for (long k = 0; k < K; ++k)
                 {
-                	Dtype val = col_buff[col_offset_ * g + k * I + i]
-                                         * weights[weight_offset_ * g + r * K + k] +
-                                         + bias / K;
-                    pos_sums_data[r * I + i] += std::max(Dtype(0.), val);
-
-                    neg_sums_data[r * I + i] += std::min(Dtype(0.), val);
+                    Dtype rel = upper_relevances[r * I + i];
+                    rel_sum += rel;
+                    Dtype cb  = col_buff[col_offset_ * g + k * I + i]; //transformed bottom data
+                    cb_sum += cb;
+                    Dtype w = weights[weight_offset_ * g + r * K + k];
+                    w_sum += w;
+                    Dtype val = cb * w * rel;
+                    val_sum += val;
+                    col_buff_new[col_offset_ * g + k * I + i] += val;
                 }
             }
         }
+        std::cout << "val_count: " << val_count << '\n';
+        std::cout << "val_sum: " << val_sum << '\n';
+        std::cout << "cb_sum: " << cb_sum << '\n';
+        std::cout << "w_sum: " << w_sum << '\n';
+        std::cout << "rel_sum: " << rel_sum << '\n';
 
+
+    /*
         for (long i = 0; i < I; ++i)
         {
             for (long r = 0; r < R; ++r)
@@ -454,7 +491,7 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
                 if (pos_sums_data[r * I + i] > 0)
                 {
                     z1 = upper_relevances[output_offset_ * g + r * I + i]
-                        / pos_sums_data[r * I + i];
+                        / top_data[r * I + i];
                 }
                 if (neg_sums_data[r * I + i] < 0)
                 {
@@ -465,7 +502,7 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
 
                 for(long k = 0; k < K; ++k)
                 {
-                	Dtype val = col_buff[col_offset_ * g + k * I + i]
+                    Dtype val = col_buff[col_offset_ * g + k * I + i]
                                          * weights[weight_offset_ * g + r * K + k]
                                          + bias / K;
                     col_buff_new[col_offset_ * g + k * I + i] +=
@@ -477,9 +514,11 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
     }
 
     //memset(col_buff_new, 10, sizeof(Dtype) * col_buffer_.count());
+    */
     conv_col2im_cpu(col_buff_new, lower_relevances);
+    //caffe_copy(col_buffer_.count(), col_buff_new, lower_relevances);
 
-    return lower_relevances;
+}
 }
 
 
