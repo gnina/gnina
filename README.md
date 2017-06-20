@@ -77,7 +77,7 @@ git clone https://github.com/gnina/gnina.git
 cd gnina
 wget https://github.com/rdkit/rdkit/archive/Release_2017_03_1.tar.gz
 tar -xvf Release_2017_03_1.tar.gz
-cd Release_2017_03_1
+cd rdkit-Release_2017_03_1
 export RDBASE=`pwd`
 export LD_LIBRARY_PATH=$RDBASE/lib:$LD_LIBRARY_PATH
 mkdir build
