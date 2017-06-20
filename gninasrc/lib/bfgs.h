@@ -277,7 +277,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		g = g_new; // dkoes - check the convergence of the new gradient
 
 		fl gradnormsq = scalar_product(g, g, n);
-		std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+		//std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
 
 		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
 		{

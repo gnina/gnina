@@ -272,11 +272,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     LOG(INFO) << "Total number of grid points (" << numgridpoints << ") is not evenly divisible by 512.";
 
   //shape must come from parameters
-  const int batch_size = param.batch_size();
-  CHECK_GT(batch_size, 0) << "Positive batch size required";
-
-  //keep track of atoms and transformations for each example in batch
-  batch_transform.resize(batch_size);
+  int batch_size = param.batch_size();
 
   if(!inmem)
   {
@@ -327,6 +323,14 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       }
     }
   }
+  else //in memory always batch size of 1
+  {
+    batch_size = 1;
+  }
+
+  CHECK_GT(batch_size, 0) << "Positive batch size required";
+  //keep track of atoms and transformations for each example in batch
+  batch_transform.resize(batch_size);
 
   //initialize atom type maps
   string recmap = param.recmap();
