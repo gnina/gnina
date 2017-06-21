@@ -428,7 +428,6 @@ public:
       if(affinity >= max) affinity = max-FLT_EPSILON;
       affinity -= min;
       unsigned pos = affinity/step;
-      CHECK_LT(pos, examples.size());
       return pos;
     }
   public:
@@ -440,6 +439,7 @@ public:
       step = parm.stratify_affinity_step();
       CHECK_NE(min,max) << "Empty range for affinity stratification";
       unsigned maxbin = bin(max);
+      CHECK_GT(maxbin, 0) << "Not enough bins";
       for(unsigned i = 0; i <= maxbin; i++)
       {
         examples.push_back(Provider(parm));
@@ -464,6 +464,9 @@ public:
           tmp.push_back(examples[i]);
           tmp.back().setup();
         }
+	else {
+	  LOG(INFO) << "Empty bucket " << i;
+	}
       }
       swap(examples,tmp);
       CHECK_GT(examples.size(), 0) << "No examples in affinity stratification!";
