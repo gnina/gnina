@@ -449,6 +449,7 @@ public:
 				"Sulfur",
 				"SulfurAcceptor",
 				"Iodine",
+				"Bromine",
 				NULL };
 		return createDefaultMap(names, map);
 	}
