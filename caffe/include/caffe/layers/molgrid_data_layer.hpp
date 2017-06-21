@@ -425,7 +425,7 @@ public:
     {
       affinity = fabs(affinity);
       if(affinity < min) affinity = min;
-      if(affinity >= max) affinity = max;
+      if(affinity >= max) affinity = max-FLT_EPSILON;
       affinity -= min;
       unsigned pos = affinity/step;
       return pos;
