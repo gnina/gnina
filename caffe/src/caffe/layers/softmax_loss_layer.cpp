@@ -150,8 +150,8 @@ void SoftmaxWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 
 template <typename Dtype>
 void SoftmaxWithLossLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
-    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom,
-    const float eps){
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
+{
 	//copy bottom data to diff as the relevance
 	Dtype *bottom_diff = bottom[0]->mutable_cpu_diff();
 	caffe_set<Dtype>(bottom[0]->count(), 0.0, bottom_diff);

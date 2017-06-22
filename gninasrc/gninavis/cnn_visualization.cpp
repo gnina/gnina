@@ -62,15 +62,14 @@ void cnn_visualization::lrp() {
     std::string rec_output_name = "lrp_" + visopts.receptor_output;
     std::string lig_output_name = "lrp_" + visopts.ligand_output;
 
-    std::cout << "visopts eps: " << visopts.eps << '\n';
     float aff;
     std::cout << "CNN SCORE: " << scorer.score(receptor) << '\n';
-    scorer.lrp(receptor, rec_output_name, lig_output_name, visopts.eps);
+    scorer.lrp(receptor, rec_output_name, lig_output_name);
 
     if (visopts.outputdx) 
     {
         float scale = 1.0;
-        scorer.outputDX(visopts.ligand_output, scale, visopts.eps);
+        scorer.outputDX(visopts.ligand_output, scale);
     }
 }
 

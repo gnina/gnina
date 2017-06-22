@@ -142,7 +142,7 @@ void InnerProductLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 
 template <typename Dtype>
 void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
-    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom, const float eps){
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
 
     //recalculate z_ij, otherwise relu is applied
     Forward_cpu(bottom, top);
@@ -198,11 +198,11 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
             Dtype val = top_data[c] - bias;
             if (val > 0)
             {
-              relevance[c] /= val + eps;
+              relevance[c] /= val;
             }
             if (val < 0)
             {
-              relevance[c] /= val - eps;
+              relevance[c] /= val;
             }
         }
 

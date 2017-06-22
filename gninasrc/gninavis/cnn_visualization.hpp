@@ -22,7 +22,6 @@ struct vis_options
   int gpu;
 
   bool outputdx;
-  float eps;
   float box_size;
 
   vis_options(): frags_only(false), atoms_only(false), verbose(false),

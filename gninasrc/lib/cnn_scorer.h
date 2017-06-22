@@ -70,7 +70,7 @@ public:
                const vector<short>& whichGrid, const vector<float3>& gradient);
     std::vector<float> get_relevances(bool receptor);
 
-    void lrp(const model& m, const string& recname, const string& ligname, const float eps);
+    void lrp(const model& m, const string& recname, const string& ligname);
 };
 
 #endif /* SRC_LIB_CNN_SCORER_H_ */

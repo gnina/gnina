@@ -53,9 +53,7 @@ int main(int argc, char* argv[])
     ("vis_method", value<int>(&vis_method)->default_value(0),
                     "visualization method (default 0 for removal, 1 for lrp, 2 for both)")
     ("outputdx", bool_switch(&visopts.outputdx)->default_value(false),
-                   "output DX grid files (lrp only)")
-    ("eps", value<float>(&visopts.eps)->default_value(0.001),
-                   "set eps parameter for stabilization (default 0.001)");
+                   "output DX grid files (lrp only)");
 
   options_description debug("Debug");
   debug.add_options()
