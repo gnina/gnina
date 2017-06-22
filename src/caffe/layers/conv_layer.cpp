@@ -76,6 +76,8 @@ template <typename Dtype>
 void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom, const float eps) {
 
+    std::cout << "conv eps: " << eps << '\n';
+
     //recalculate z_ij, otherwise relu is applied
     Forward_cpu(bottom, top);
 
@@ -107,10 +109,11 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
         Blob<Dtype> top_data_with_eps((top[i])->shape());
 
         int outcount = top_data_with_eps.count();
-
+        
         Dtype* relevance = top_data_with_eps.mutable_cpu_data();
         caffe_copy<Dtype>(outcount, top_diff, relevance);
 
+        /*
         Blob<Dtype> bias_removed (top[i]->shape());
         Dtype* bias_removed_data = bias_removed.mutable_cpu_data();
 
@@ -178,7 +181,6 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
 
         std::cout << "N: " << N << '\n';
 
-        /*
         int M_ = this->num_output_ / this->group_;
         int K_ = this->channels_ * this->kernel_h_ * this->kernel_w_ / this->group_;
         int N_ = this->height_out_ * this->width_out_;
@@ -189,7 +191,7 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
         */
 
 
-        this->manual_relevance_backward(relevance, weight, bottom_data, bottom_diff);
+        this->manual_relevance_backward(top_diff, top_data, weight, bottom_data, bottom_diff);
 
         /*
         for (int n = 0; n < this->num_; ++n)
@@ -202,8 +204,10 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
                         *= bottom_data[d + n * this->bottom_dim_];
             }
         }
+        */
 
     }
+
 
     float bottom_sum = 0;
     for (int i = 0; i < bottom[0]->count(); ++i)

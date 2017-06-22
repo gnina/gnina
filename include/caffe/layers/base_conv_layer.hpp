@@ -42,7 +42,7 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   void backward_cpu_bias(Dtype* bias, const Dtype* input);
 
   void manual_relevance_backward(
-    const Dtype* upper_relevances,
+    const Dtype* upper_relevances, const Dtype* top_data,
     const Dtype* weights, const Dtype* input,
     Dtype * lower_relevances);
 

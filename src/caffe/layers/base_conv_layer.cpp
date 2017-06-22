@@ -391,7 +391,7 @@ void BaseConvolutionLayer<Dtype>::backward_gpu_bias(Dtype* bias,
 
 template <typename Dtype>
 void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
-    const Dtype* upper_relevances,
+    const Dtype* upper_relevances, const Dtype* top_data,
     const Dtype* weights, const Dtype* bottom_data,
     Dtype * lower_relevances) 
 {
@@ -401,32 +401,108 @@ void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
     //inputs are K x I
     //weights are R x K
     //upper relevances are R x I
-    //
 
+    //std::cout << "base K : " << K << '\n';
+    //std::cout << "base I : " << I << '\n';
+    //std::cout << "base R : " << R << '\n';
 
-    std::cout << "base K : " << K << '\n';
-    std::cout << "base I : " << I << '\n';
-    std::cout << "base R : " << R << '\n';
+    //std::cout << "K * I: " << K * I << '\n';
+    //std::cout << "R * K: " << R * K << '\n';
+    //std::cout << "R * I: " << R * I << '\n';
 
-    std::cout << "K * I: " << K * I << '\n';
-    std::cout << "R * K: " << R * K << '\n';
-    std::cout << "R * I: " << R * I << '\n';
-
-    const Dtype* col_buff = bottom_data;
+    const Dtype* bottom_data_buffer = bottom_data;
     conv_im2col_cpu(bottom_data, col_buffer_.mutable_cpu_data());
-    col_buff = col_buffer_.cpu_data();
+    bottom_data_buffer = col_buffer_.cpu_data();
 
-    Dtype * col_buff_new = col_buffer_.mutable_cpu_diff();
-    memset(col_buff_new, 0, sizeof(Dtype) * col_buffer_.count());
+    Blob<Dtype> buffer_blob(col_buffer_.shape()); //for some reason it's necessary to make another blob for buffer values
+    //used to store upper_relevance / top_data
+    Dtype * top_buffer = buffer_blob.mutable_cpu_diff();
+    //Dtype * top_buffer = col_buffer_.mutable_cpu_diff();
+    caffe_copy<Dtype>(R*I, upper_relevances, top_buffer); 
+
+    //used to store lower_relevances before col2im transformation
+    Dtype * relevance_buffer = col_buffer_.mutable_cpu_diff();
+    memset(relevance_buffer, 0, sizeof(Dtype) * col_buffer_.count());
+
+    //Dtype top_buff_total = 0;
+    //Dtype upper_rel_total = 0;
+
+    //for(int i = 0; i < R * I; i++)
+    //{
+        //top_buffer[i] = upper_relevances[i];
+    //    upper_rel_total += upper_relevances[i];
+    //}
+
+    //std::cout << "top_buff_total: " << top_buff_total << '\n';
+    //std::cout << "upper_rel_total: " << upper_rel_total << '\n';
+
+
+    Dtype bias_sum = 0;
+    Dtype first_val_sum = 0;
+
+    Dtype zero_top_data_sum = 0;
+    Dtype total_top_data = 0;
+
+    long zero_count = 0;
+    
+    //sum up relevance coming from top nodes with value of 0
+    //also sum up total relevance for proportion calculation
+    for(int i = 0; i < R * I; i++)
+    {
+        Dtype bias = this->blobs_[1]->cpu_data()[i/I];
+        bias_sum += bias;
+        Dtype val = top_data[i] - bias;
+        if (val == 0)
+        {
+            zero_top_data_sum += top_buffer[i];
+            zero_count++;
+        }
+        total_top_data += val;
+    }
+    for(int i = 0; i < R * I; i++)
+    {
+        Dtype bias = this->blobs_[1]->cpu_data()[i/I];
+        Dtype val = top_data[i] - bias;
+     //   top_buffer[i] += (val / total_top_data) * zero_top_data_sum;
+    }
+
+
+    //std::cout << "zero_top_data_sum: " << zero_top_data_sum << '\n';
+    //std::cout << "total_top_data: " << total_top_data << '\n';
+    std::cout << "zero_count" << zero_count << '\n';
+
+    for(int c = 0; c < R * I; ++c)
+    {
+        Dtype bias = this->blobs_[1]->cpu_data()[c/I];
+        bias_sum += bias;
+        Dtype val = top_data[c] - bias;
+        first_val_sum += val;
+
+        if(val > 0)
+        {
+            top_buffer[c] /=  val;
+        }
+        else if(val < 0)
+        {
+            top_buffer[c] /=  val;
+        }
+        else
+        {
+            top_buffer[c] = 0;
+        }
+        
+    }
+    //std::cout << "bias_sum: " << bias_sum << '\n';
+    //std::cout << "first_val_sum: " << first_val_sum << '\n';
 
     Dtype buff_total = 0;
 
-    for(int i = 0; i < col_buffer_.count(); i++)
+    for(int i = 0; i < R * I; i++)
     {
-        buff_total += col_buff_new[i];
+        buff_total += top_buffer[i];
     }
 
-    std::cout << "buff_total: " << buff_total << '\n';
+    //std::cout << "buff_total: " << buff_total << '\n';
 
     //Blob<Dtype> pos_sums(1,1,R,I);
     //Blob<Dtype> neg_sums(1,1,R,I);
@@ -441,7 +517,6 @@ void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
         for(int 
     */
 
-    long counter = 0;
     for (int g = 0; g < group_; ++g)
     {
         //memset(pos_sums_data, 0, sizeof(Dtype) * R * I);
@@ -460,23 +535,28 @@ void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
             {
                 for (long k = 0; k < K; ++k)
                 {
-                    Dtype rel = upper_relevances[r * I + i];
-                    rel_sum += rel;
-                    Dtype cb  = col_buff[col_offset_ * g + k * I + i]; //transformed bottom data
+                    Dtype top_rel = top_buffer[r * I + i];
+                    rel_sum += top_rel;
+
+
+                    Dtype cb  = bottom_data_buffer[col_offset_ * g + k * I + i]; //transformed bottom data
                     cb_sum += cb;
+
                     Dtype w = weights[weight_offset_ * g + r * K + k];
                     w_sum += w;
-                    Dtype val = cb * w * rel;
+
+                    Dtype val = cb * w * top_rel;
                     val_sum += val;
-                    col_buff_new[col_offset_ * g + k * I + i] += val;
+
+                    relevance_buffer[col_offset_ * g + k * I + i] += val;
                 }
             }
         }
-        std::cout << "val_count: " << val_count << '\n';
-        std::cout << "val_sum: " << val_sum << '\n';
-        std::cout << "cb_sum: " << cb_sum << '\n';
-        std::cout << "w_sum: " << w_sum << '\n';
-        std::cout << "rel_sum: " << rel_sum << '\n';
+        //std::cout << "val_count: " << val_count << '\n';
+        //std::cout << "val_sum: " << val_sum << '\n';
+        //std::cout << "cb_sum: " << cb_sum << '\n';
+        //std::cout << "w_sum: " << w_sum << '\n';
+        //std::cout << "rel_sum: " << rel_sum << '\n';
 
 
     /*
@@ -515,7 +595,7 @@ void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
 
     //memset(col_buff_new, 10, sizeof(Dtype) * col_buffer_.count());
     */
-    conv_col2im_cpu(col_buff_new, lower_relevances);
+    conv_col2im_cpu(relevance_buffer, lower_relevances);
     //caffe_copy(col_buffer_.count(), col_buff_new, lower_relevances);
 
 }
