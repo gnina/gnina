@@ -156,24 +156,24 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
 
     for (int i = 0; i < top.size(); ++i)
     {
+        const Dtype* top_data = top[i]->cpu_data();
         const Dtype* top_diff = top[i]->cpu_diff();
         const Dtype* bottom_data = bottom[i]->cpu_data();
         Dtype* bottom_diff = bottom[i]->mutable_cpu_diff();
-
         caffe_set(bottom[i]->count(), Dtype(0.0), bottom_diff);
 
-        const Dtype* top_data = top[i]->cpu_data();
-        Blob<Dtype> top_data_with_eps((top[i])->shape());
+        Blob<Dtype> buffer_blob((top[i])->shape());
+        Dtype* relevance = buffer_blob.mutable_cpu_data();
 
-        int outcount = top_data_with_eps.count();
-
-        Dtype* relevance = top_data_with_eps.mutable_cpu_data();
+        int top_count = buffer_blob.count();
      
+        caffe_copy<Dtype>(top_count, top_diff, relevance);
+
         //sum up relevance coming from top nodes with value of 0
         //also sum up total relevance for proportion calculation
         Dtype zero_top_data_sum = 0;
         Dtype total_top_data = 0;
-        for(int i = 0; i < outcount; i++)
+        for(int i = 0; i < top_count; i++)
         {
             Dtype bias = this->blobs_[1]->cpu_data()[i];
             Dtype val = top_data[i] - bias;
@@ -185,16 +185,14 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
         }
 
         //distribute relevance from dead nodes proportionally to remaining nodes
-        for(int i = 0; i < outcount; i++)
+        for(int i = 0; i < top_count; i++)
         {
             Dtype bias = this->blobs_[1]->cpu_data()[i];
             Dtype val = top_data[i] - bias;
             relevance[i] += (val / total_top_data) * zero_top_data_sum;
         }
 
-        caffe_copy<Dtype>(outcount, top_diff, relevance);
-
-        for (int c = 0; c < outcount; ++c)
+        for (int c = 0; c < top_count; ++c)
         {
             Dtype bias = this->blobs_[1]->cpu_data()[c];
             Dtype val = top_data[c] - bias;
@@ -225,7 +223,6 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
     }
     std::cout << "INNERPROD BOTTOM SUM : " << bottom_sum << '\n';
 
-  const int num_output = this->layer_param_.inner_product_param().num_output();
 }
 
 #ifdef CPU_ONLY

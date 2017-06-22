@@ -76,12 +76,10 @@ template <typename Dtype>
 void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom, const float eps) {
 
-    std::cout << "conv eps: " << eps << '\n';
-
     //recalculate z_ij, otherwise relu is applied
     Forward_cpu(bottom, top);
 
-    float top_sum = 0;
+    Dtype top_sum = 0;
 
     for(int i = 0; i < top[0]->count(); ++i)
     {
@@ -93,121 +91,16 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
 
     for (int i = 0; i < top.size(); ++i)
     {
+        const Dtype* top_data = top[i]->cpu_data();
         const Dtype* top_diff = top[i]->cpu_diff();
         const Dtype* bottom_data = bottom[i]->cpu_data();
+
         Dtype* bottom_diff = bottom[i]->mutable_cpu_diff();
         caffe_set(bottom[i]->count(), Dtype(0.0), bottom_diff);
 
-        const Dtype* top_data = top[i]->cpu_data();
-
-        //int Mfull = this->num_output_;
-
-        const int first_spatial_axis = this->channel_axis_ + 1;
-        int N = bottom[i]->count(first_spatial_axis);
-        int K = this->blobs_[0]->count(0);
-
-        Blob<Dtype> top_data_with_eps((top[i])->shape());
-
-        int outcount = top_data_with_eps.count();
-        
-        Dtype* relevance = top_data_with_eps.mutable_cpu_data();
-        caffe_copy<Dtype>(outcount, top_diff, relevance);
-
-        /*
-        Blob<Dtype> bias_removed (top[i]->shape());
-        Dtype* bias_removed_data = bias_removed.mutable_cpu_data();
-
-        //stores data
-        Blob<Dtype> x_ij (bottom[i]->shape());
-        Dtype* x_ij_data = x_ij.mutable_cpu_data();
-
-        //will store data * weights
-        Blob<Dtype> z_ij (top[i]->shape());
-        Dtype* z_ij_data = z_ij.mutable_cpu_data();
-
-        //copy bottom_data into x_ij_data
-        caffe_copy<Dtype>(x_ij.count(), bottom_data, x_ij_data);
-
-        //std::cout << "n: " << this->num_ << '\n';
-        for (int n = 0; n < this->num_; ++n) 
-        {
-            this->forward_cpu_gemm(x_ij_data + n * this->bottom_dim_, weight,
-                z_ij_data + n * this->top_dim_);
-        }
-
-        for(int c = 0; c < outcount; ++c)
-        {
-            Dtype bias = this->blobs_[1]->cpu_data()[c/N];
-            Dtype val = top_data[c] - bias;
-            if(val > 0)
-            {
-              relevance[c] /= val + eps;
-            }
-            else if(val < 0)
-            {
-              relevance[c] /= val - eps;
-            }
-
-            //calculate w_ij from top for sanity check
-            bias_removed_data[c] = val;
-        }
-
-        long double z_ij_total = 0;
-        long double bias_removed_total = 0;
-        long double top_data_total = 0;
-
-        std::cout << "shapes: " << top[i]->count() << '|' << z_ij.count() << '\n';
-
-        for(int c = 0; c < outcount; c++)
-        {
-            //std::cout << z_ij_data[c] << "|" << bias_removed_data[c] << '|' << relevance[c] << '\n';
-            //std::cout << top_diff[c] << '\n';
-            z_ij_total += z_ij_data[c];
-            bias_removed_total += bias_removed_data[c];
-            top_data_total += top_data[c];
-        }
-
-        
-        std::cout << z_ij_total << "|" << bias_removed_total <<  '|' << top_data_total << '\n';
-
-        std::cout << "n * d: " << this->num_ * this->bottom_dim_ << '\n';
-
-        std::cout << "top_dim_: " << this->top_dim_ << '\n';
-        std::cout << "bottom_dim_: " << this->bottom_dim_ << '\n';
-        std::cout << "weight count: " << this->blobs_[0]->count() << '\n';
-
-        std::cout << "K: " << K << '\n';
-
-
-        std::cout << "N: " << N << '\n';
-
-        int M_ = this->num_output_ / this->group_;
-        int K_ = this->channels_ * this->kernel_h_ * this->kernel_w_ / this->group_;
-        int N_ = this->height_out_ * this->width_out_;
-        //(MxK) * (K*N)
-        std::cout << "M_ " << M_ << '\n';
-        std::cout << "K_ " << K_ << '\n';
-        std::cout << "N_ " << N_ << '\n';
-        */
-
-
+        //have to do calculation in base_conv_layer to access certain variables
         this->manual_relevance_backward(top_diff, top_data, weight, bottom_data, bottom_diff);
-
-        /*
-        for (int n = 0; n < this->num_; ++n)
-        {
-            this->backward_cpu_gemm(relevance + n * this->top_dim_, weight, bottom_diff + n * this->bottom_dim_);
-
-            for(int d = 0; d < this->bottom_dim_; ++d)
-            {
-                bottom_diff[d + n * this->bottom_dim_] 
-                        *= bottom_data[d + n * this->bottom_dim_];
-            }
-        }
-        */
-
     }
-
 
     float bottom_sum = 0;
     for (int i = 0; i < bottom[0]->count(); ++i)
