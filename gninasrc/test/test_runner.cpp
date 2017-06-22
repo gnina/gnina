@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <random>
 #include "common.h"
+#include "model.h"
 #include "curl.h"
 #include "weighted_terms.h"
 #include "custom_terms.h"
@@ -10,14 +11,14 @@
 
 //TODO: logging, user-provided random seed
 
-void make_lig(std::vector<atom_params>& lig_atoms,
+void make_mol(std::vector<atom_params>& atoms,
              std::mt19937 engine,
-             size_t nlig_atoms=0, size_t min_ligatoms=1, size_t max_ligatoms=200) {
+             size_t natoms=0, size_t min_atoms=1, size_t max_atoms=200) {
 
-    if (!nlig_atoms) {
-    //if not provided, randomly generate the number of ligand atoms
-        std::uniform_int_distribution<int> natoms_dist(min_ligatoms, max_ligatoms+1);
-        nlig_atoms = natoms_dist(engine);
+    if (!natoms) {
+    //if not provided, randomly generate the number of atoms
+        std::uniform_int_distribution<int> natoms_dist(min_atoms, max_atoms+1);
+        natoms = natoms_dist(engine);
     }
 
     //randomly seed reasonable-ish coordinates and types
@@ -26,13 +27,13 @@ void make_lig(std::vector<atom_params>& lig_atoms,
     std::uniform_int_distribution<int> charge_dist(-2, 3);
     std::uniform_int_distribution<int> type_dist(0, 28); //what is NumTypes?
 
-    //set up vector of lig atoms
-    for (size_t i=0; i<nlig_atoms; ++i) {
+    //set up vector of atoms
+    for (size_t i=0; i<n_atoms; ++i) {
         atom_params atom;
         atom.charge = charge_dist(engine);
         for (size_t j=0; j<3; ++j) 
             atom.coords[j] = coords_dist(engine);
-        lig_atoms.push_back(atom);
+        atoms.push_back(atom);
     }
 }
 
@@ -199,11 +200,13 @@ int main() {
     const precalculate_gpu* gprec = new precalculate_gpu(wt, approx_factor);
     const precalculate_splines* prec = new precalculate_splines(wt, approx_factor);
 
-    //set up fake lig for testing
+    //set up fake lig and rec for testing
     std::vector<atom_params> lig_atoms;
+    std::vector<atom_params> rec_atoms;
     fl max_x = -HUGE_VALF, max_y = -HUGE_VALF, max_z = -HUGE_VALF;
     fl min_x = HUGE_VALF, min_y = HUGE_VALF, min_z = HUGE_VALF;
-    make_lig(lig_atoms, engine);
+    make_mol(lig_atoms, engine);
+    make_mol(rec_atoms, engine);
 
     //set up grid
     for (auto& atom : lig_atoms) {
@@ -233,6 +236,8 @@ int main() {
         gd[i].end = gd[i].begin + real_span;
     }
 
+    model* m = new model;
+
     //set up dinfo, mostly involves randomly generating some receptor atoms.
     //to my knowledge lig_penalties is never used, so I don't even bother
     //mallocing it here; if I'm wrong a segfault is a good way to find out
@@ -260,7 +265,7 @@ int main() {
     float g_out = single_point_calc(dinfo, glig_atoms, d_forces, v[0]);
     // float c_out = eval_inter_cpu(prec, dinfo.num_movable_atoms, lig_atoms, rec_atoms, lig_types, rec_types, minus_forces, gd, dinfo.slope, v[1]);
 
-    printf("%f\n", g_out);
+    std::cout << g_out << "\n";
     // printf("%f\n", c_out);
 
     cudaFree(glig_atoms);

@@ -110,7 +110,7 @@ if not args.ligands:
     args.ligands = []
     #TODO: this should be 16, but the new GPU version has a problem that I
     #assume is related to the buffer being too small
-    for i in range(15):
+    for i in range(16):
         args.ligands.append('performance/a17/test/a17_%dtorsions.sdf' %i)
     assert not args.receptor
     args.receptor = 'performance/a17/a17_rec.pdb'
@@ -175,10 +175,11 @@ for idx,bin in enumerate(args.input):
                 out = run_command(args.cpu, '-r', args.receptor, '-l', ligand, '--minimize')
                 cpu_time[lignum][run] = get_time(out)
             elif args.paired_test or not args.paired_test and idx == 0:
-                out = run_command(bin, '-r', args.receptor, '-l', ligand, '--minimize')
+                out = run_command(bin, '-r', args.receptor, '-l', ligand,
+                        '--minimize')
                 cpu_time[lignum][run] = get_time(out)
             out = run_command(bin, '-r', args.receptor, '-l', ligand, '--minimize',
-            '--gpu')
+            '--gpu', '--cpu', '3')
             gpu_time[lignum][run] = get_time(out)
 
     torsions_speedup[bin] = []
