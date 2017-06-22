@@ -2,11 +2,11 @@
 
 namespace caffe {
 
-
 template <typename Dtype>
 void Layer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
-                const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom, float beta)
+                const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
+    std::cout << "Does this ever get called?\n";
     for (int i = 0; i < top.size(); ++i) {
 
         if(propagate_down[i]) {
