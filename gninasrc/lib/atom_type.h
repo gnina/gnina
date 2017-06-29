@@ -44,7 +44,7 @@ struct atom_type {
 	}
 
 	bool same_element(const atom_type& a) const { // does not distinguish metals or unassigned types
-		return smina_atom_type::data[sm].el == smina_atom_type::data[a.sm].el;
+		return smina_atom_type::data[sm].anum == smina_atom_type::data[a.sm].anum;
 	}
 	fl covalent_radius() const {
 		return ::covalent_radius(sm);

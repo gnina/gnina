@@ -147,7 +147,7 @@ fl do_randomization(model& m, const vec& corner1,
 		log << "Using random seed: " << seed;
 		log.endl();
 	}
-	const sz attempts = 10000;
+	const sz attempts = 100;
 	conf best_conf = init_conf;
 	fl best_clash_penalty = 0;
 	VINA_FOR(i, attempts)
@@ -160,6 +160,7 @@ fl do_randomization(model& m, const vec& corner1,
 		{
 			best_conf = c;
 			best_clash_penalty = penalty;
+			if(penalty == 0) break;
 		}
 	}
 	m.set(best_conf);
@@ -498,9 +499,11 @@ void main_procedure(model& m, precalculate& prec,
 	const fl slope = 1e6; // FIXME: too large? used to be 100
 	if (settings.randomize_only)
 	{
-		fl e = do_randomization(m, corner1, corner2, settings.seed,
+		for(unsigned i = 0; i < settings.num_modes; i++) {
+			fl e = do_randomization(m, corner1, corner2, settings.seed+i,
 				settings.verbosity, log);
-		results.push_back(result_info(e, -1, 0, -1, m));
+			results.push_back(result_info(e, -1, 0, -1, m));
+		}
 		return;
 	}
 	else
