@@ -52,8 +52,8 @@ int main(int argc, char* argv[])
                   "print full output, including removed atom lists")
     ("gpu", value<int>(&visopts.gpu)->default_value(-1),
                     "gpu id for accelerated scoring")
-    ("vis_method", value<std::string>(&vis_method)->default_value("removal"),
-                    "visualization method (lrp, removal, gradient, or all)")
+    ("vis_method", value<std::string>(&vis_method)->default_value("masking"),
+                    "visualization method (lrp, masking, gradient, or all)")
     ("outputdx", bool_switch(&visopts.outputdx)->default_value(false),
                    "output DX grid files (lrp only)");
 
