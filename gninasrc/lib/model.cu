@@ -310,6 +310,21 @@ void model::sub_minus_forces(const std::vector<float3>& forces)
 	}
 }
 
+fl model::get_minus_forces_magnitude()
+{
+	fl m = 0;
+	VINA_FOR(i, m_num_movable_atoms)
+	{
+		if (!atoms[i].is_hydrogen()) // no hydrogen forces
+		{
+			m += std::sqrt(minus_forces[i].data[0]^2
+			             + minus_forces[i].data[1]^2
+			             + minus_forces[i].data[2]^2)
+		}
+	}
+	return m;
+}
+
 //evaluate interactiongs between all of flex (including rigid) and protein
 //will ignore grid_atoms greater than max
 fl model::eval_flex(const precalculate& p, const vec& v, const conf& c,

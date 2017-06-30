@@ -221,6 +221,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff)
 			net->Backward();
 			mgrid->getLigandGradient(0, gradient);
 			m.add_minus_forces(gradient); //TODO divide by cnt?
+			cout << "gradient = " << m.get_minus_forces_magnitude() << "\n";
 		}
 		cnt++;
 	}
