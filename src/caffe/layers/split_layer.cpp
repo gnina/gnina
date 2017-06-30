@@ -65,12 +65,14 @@ void SplitLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     //average
     //caffe_scal<Dtype>(n, 1.0/top.size(), bottom_diff);
 
+    /*
     float sum = 0;
     for (int i = 0; i < bottom[0]->count(); ++i)
     {
         sum += bottom[0]->cpu_diff()[i];
     }
     std::cout << "SPLIT BOTTOM SUM: " << sum << '\n';
+    */
 
 
 }
