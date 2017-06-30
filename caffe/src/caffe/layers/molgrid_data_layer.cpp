@@ -857,16 +857,16 @@ template <typename Dtype>
 void MolGridDataLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
 
+  /*
   float top_sum = 0.0;
 
-  //std::cout << "MOLGRID TOP:";
+  std::cout << "MOLGRID TOP:";
   for(int i = 0; i < top[0]->count(); i++)
   {
-          //std::cout << top[0]->cpu_diff()[i] << "|";
           top_sum += top[0]->cpu_diff()[i];
   }
-  //std::cout << '\n';
   std::cout << "MOLGRID TOP: " << top_sum << '\n';
+  */
 
   Dtype *diff = top[0]->mutable_cpu_diff(); //TODO: implement gpu
 

@@ -62,15 +62,16 @@ public:
 
     bool has_affinity() const; //return true if can predict affinity
 
-    float score(model& m);
-    float score(model& m, bool compute_gradient, float& affinity);
+    float score(model& m, bool silent = false);
+    float score(model& m, bool compute_gradient, float& affinity, bool silent = false);
 
     void outputDX(const string& prefix, double scale = 1.0, const float relevance_eps = -1.0);
     void outputXYZ(const string& base, const vector<float4>& atoms,
                const vector<short>& whichGrid, const vector<float3>& gradient);
-    std::vector<float> get_relevances(bool receptor);
+    std::vector<float> get_scores_per_atom(bool receptor, bool relevance = false);
 
     void lrp(const model& m, const string& recname, const string& ligname);
+    void gradient_setup(const model& m, const string& recname, const string& ligname);
 };
 
 #endif /* SRC_LIB_CNN_SCORER_H_ */

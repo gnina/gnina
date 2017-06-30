@@ -100,22 +100,40 @@ public:
         whichGrid.push_back(mol.whichGrid[i]);
   }
 
-  void getReceptorGradient(int batch_idx, vector<float3>& gradient)
+  void getReceptorGradient(int batch_idx, vector<float3>& gradient, bool lrp = false)
   {
     gradient.resize(0);
     mol_info& mol = batch_transform[batch_idx].mol;
     for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
       if (mol.whichGrid[i] < numReceptorTypes)
-        gradient.push_back(-mol.gradient[i]);
+      {
+        if(lrp)
+        {
+            gradient.push_back(mol.gradient[i]);
+        }
+        else
+        {
+            gradient.push_back(-mol.gradient[i]);
+        }
+      }
   }
 
-  void getLigandGradient(int batch_idx, vector<float3>& gradient)
+  void getLigandGradient(int batch_idx, vector<float3>& gradient, bool lrp = false)
   {
     gradient.resize(0);
     mol_info& mol = batch_transform[batch_idx].mol;
     for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
       if (mol.whichGrid[i] >= numReceptorTypes)
-        gradient.push_back(-mol.gradient[i]);
+      {
+        if(lrp)
+        {
+            gradient.push_back(mol.gradient[i]);
+        }
+        else
+        {
+            gradient.push_back(-mol.gradient[i]);
+        }
+      }
   }
 
   //set in memory buffer

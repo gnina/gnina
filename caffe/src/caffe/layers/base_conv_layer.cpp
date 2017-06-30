@@ -7,7 +7,6 @@
 #include "caffe/util/math_functions.hpp"
 
 namespace caffe {
-
 template <typename Dtype>
 void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {

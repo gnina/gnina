@@ -147,12 +147,14 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
     //recalculate z_ij, otherwise relu is applied
     Forward_cpu(bottom, top);
 
+    /*
     float top_sum = 0.0;
     for (int i = 0; i < top[0]->count(); ++i)
     {
         top_sum += top[0]->cpu_diff()[i];
     }
     std::cout << "INNERPROD TOP SUM : " << top_sum << '\n';
+    */
 
     for (int i = 0; i < top.size(); ++i)
     {
@@ -216,12 +218,14 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
         }
     }
 
+    /*
     float bottom_sum = 0.0;
     for (int i = 0; i < bottom[0]->count(); ++i)
     {
         bottom_sum += bottom[0]->cpu_diff()[i];
     }
     std::cout << "INNERPROD BOTTOM SUM : " << bottom_sum << '\n';
+    */
 
 }
 
