@@ -120,15 +120,6 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-	/*
-  if(vm.count("receptor_output") <= 0 && vm.count("ligand_output") <= 0)
-  {
-    std::cerr << "At least one of 'receptor_output' and 'ligand_output' required.\n" << "\nCorrect usage:\n"
-            << desc << '\n';
-    return 1;
-  }
-*/
-
   if(visopts.frags_only && visopts.atoms_only)
   {
     std::cerr << "Cannot use 'frags_only' and 'atoms_only' together.\n" << "\nCorrect usage:\n"
@@ -167,7 +158,7 @@ int main(int argc, char* argv[])
   }
   else
   {
-      std::cerr << "Specified vis_method not known. Use \"removal\", \"lrp\", or \"gradient\"\n";
+      std::cerr << "Specified vis_method not known. Use \"masking\", \"lrp\", or \"gradient\"\n";
       return 1;
   }
 }

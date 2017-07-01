@@ -57,7 +57,7 @@ class cnn_visualization
     std::vector<std::string> rec_map;
     std::vector<std::string> lig_map;
     float score(const std::string &molString, bool isRec);
-    void write_scores(std::vector<float> scoreList, bool isRec, std::string method);
+    void write_scores(std::vector<float> scores, bool isRec, std::string method);
     bool check_in_range(std::unordered_set<int> atomList);
     float transform_score_diff(float diff_val);
     void remove_residues();
