@@ -113,6 +113,14 @@ struct CUDA_ALIGN(4 * sizeof(float)) vec {
 	}
 
     __host__ __device__
+	vec(fl x, fl y, fl z, fl w) {
+		data[0] = x;
+		data[1] = y;
+		data[2] = z;
+        pad[0] = w;
+	}
+
+    __host__ __device__
 	const fl& operator[](sz i) const { assert(i < 3); return data[i]; }
     __host__ __device__
 	      fl& operator[](sz i)       { assert(i < 3); return data[i]; }

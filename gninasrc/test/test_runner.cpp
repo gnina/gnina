@@ -1,7 +1,11 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
+#include <cmath>
 #include <random>
 #include "common.h"
+#include "tee.h"
+#include "non_cache.h"
+#include "non_cache_gpu.h"
 #include "model.h"
 #include "curl.h"
 #include "weighted_terms.h"
@@ -11,9 +15,10 @@
 
 //TODO: logging, user-provided random seed
 
-void make_mol(std::vector<atom_params>& atoms,
+void make_mol(std::vector<atom_params>& atoms, std::vector<smt>& types, 
              std::mt19937 engine,
-             size_t natoms=0, size_t min_atoms=1, size_t max_atoms=200) {
+             size_t natoms=0, size_t min_atoms=1, size_t max_atoms=200, 
+             float max_x=25, float max_y=25, float max_z=25) {
 
     if (!natoms) {
     //if not provided, randomly generate the number of atoms
@@ -23,162 +28,36 @@ void make_mol(std::vector<atom_params>& atoms,
 
     //randomly seed reasonable-ish coordinates and types
     //TODO: get charge from type?
-    std::uniform_real_distribution<float> coords_dist(0, std::nextafter(50, FLT_MAX));
+    std::uniform_real_distribution<float> coords_dists[3];
+    coords_dists[0] = std::uniform_real_distribution<float>(-25, std::nextafter(max_x, FLT_MAX));
+    coords_dists[1] = std::uniform_real_distribution<float>(-25, std::nextafter(max_y, FLT_MAX));
+    coords_dists[2] = std::uniform_real_distribution<float>(-25, std::nextafter(max_z, FLT_MAX));
     std::uniform_int_distribution<int> charge_dist(-2, 3);
-    std::uniform_int_distribution<int> type_dist(0, 28); //what is NumTypes?
+    std::uniform_int_distribution<int> type_dist(0, smina_atom_type::NumTypes-1);
 
-    //set up vector of atoms
-    for (size_t i=0; i<n_atoms; ++i) {
+    //set up vector of atoms as well as types
+    for (size_t i=0; i<natoms; ++i) {
         atom_params atom;
         atom.charge = charge_dist(engine);
         for (size_t j=0; j<3; ++j) 
-            atom.coords[j] = coords_dist(engine);
+            atom.coords[j] = coords_dists[j](engine);
         atoms.push_back(atom);
+        atoms[i].charge = charge_dist(engine);
+        types.push_back(static_cast<smt>(type_dist(engine)));
     }
-}
-
-void make_dinfo(GPUNonCacheInfo& dinfo, 
-        std::mt19937 engine, size_t nlig_atoms, std::vector<unsigned>& lig_types, 
-        std::vector<atom_params>& rec_atoms, std::vector<unsigned>& rec_types, 
-        size_t nrec_atoms=0, size_t min_recatoms=10, size_t max_recatoms=2500) {
-
-    if (!nrec_atoms) {
-        std::uniform_int_distribution<int> natoms_dist(min_recatoms, max_recatoms+1);
-        nrec_atoms = natoms_dist(engine);
-    }
-
-    std::uniform_real_distribution<float> coords_dist(0, std::nextafter(150, FLT_MAX));
-    std::uniform_int_distribution<int> charge_dist(-2, 3);
-    std::uniform_int_distribution<int> type_dist(0, 28); //what is NumTypes?
-
-    //set up vector of rec atoms
-    for (size_t i=0; i<nrec_atoms; ++i) {
-        atom_params atom;
-        atom.charge = charge_dist(engine);
-        for (size_t j=0; j<3; ++j) 
-            atom.coords[j] = coords_dist(engine);
-        rec_atoms.push_back(atom);
-        rec_types.push_back(type_dist(engine));
-    }
-
-    CUDA_CHECK_GNINA(cudaMalloc(&dinfo.rec_atoms, sizeof(atom_params)*rec_atoms.size()));
-    CUDA_CHECK_GNINA(cudaMemcpy(dinfo.rec_atoms, &rec_atoms[0], sizeof(atom_params)*rec_atoms.size(), cudaMemcpyHostToDevice));
-    CUDA_CHECK_GNINA(cudaMalloc(&dinfo.rectypes, sizeof(unsigned)*rec_types.size()));
-    CUDA_CHECK_GNINA(cudaMemcpy(dinfo.rectypes, &rec_types[0], sizeof(unsigned)*rec_types.size(), cudaMemcpyHostToDevice));
-
-    //TODO: test receptor flexibility too
-    dinfo.num_movable_atoms = nlig_atoms;
-    dinfo.nrec_atoms = nrec_atoms;
-    dinfo.cutoff_sq = 100;
-    dinfo.slope = 10;
-    
-    for (size_t i=0; i<nlig_atoms; ++i)
-        lig_types.push_back(type_dist(engine));
-
-    unsigned* glig_types;
-    CUDA_CHECK_GNINA(cudaMalloc(&glig_types, sizeof(unsigned)*lig_types.size()));
-    CUDA_CHECK_GNINA(cudaMemcpy(glig_types, &lig_types[0], sizeof(unsigned)*lig_types.size(), cudaMemcpyHostToDevice));
-    dinfo.types = glig_types;
-}
-
-fl check_bounds_deriv(const vec& a_coords, vec& adjusted_a_coords, vec& out_of_bounds_deriv, grid_dims& gd, float slope) 
-{
-	fl out_of_bounds_penalty = 0;
-	adjusted_a_coords = a_coords;
-	VINA_FOR_IN(j, gd)
-	{
-		if (gd[j].n > 0)
-		{
-			if (a_coords[j] < gd[j].begin)
-			{
-				adjusted_a_coords[j] = gd[j].begin;
-				out_of_bounds_deriv[j] = -1;
-				out_of_bounds_penalty += std::abs(
-						a_coords[j] - gd[j].begin);
-			}
-			else if (a_coords[j] > gd[j].end)
-			{
-				adjusted_a_coords[j] = gd[j].end;
-				out_of_bounds_deriv[j] = 1;
-				out_of_bounds_penalty += std::abs(a_coords[j] - gd[j].end);
-			}
-		}
-	}
-	out_of_bounds_penalty *= slope;
-	out_of_bounds_deriv *= slope;
-	return out_of_bounds_penalty;
-}
-
-float eval_inter_cpu(const precalculate_splines* p, unsigned num_movable_atoms, const std::vector<atom_params>& lig_atoms, const std::vector<atom_params>& rec_atoms, const std::vector<unsigned>& lig_types, const std::vector<unsigned>& rec_types, std::vector<force_energy_tup>& minus_forces, grid_dims& gd, float slope, float v) {
-    //derived from non_cache::eval_deriv but modified such that it does not
-    //depend on the existence of a model object. might be desirable to put this
-    //somewhere else, but currently it's only used here anyway
-	fl e = 0;
-	const fl cutoff_sqr = p->cutoff_sqr();
-
-    //TODO: generalize
-	sz n = 27;
-
-	VINA_FOR(i, num_movable_atoms)
-	{
-		const auto& a = lig_atoms[i];
-		auto t1 = lig_types[i];
-		if (t1 >= n || is_hydrogen((smina_atom_type::type)t1))
-		{
-			minus_forces[i] = force_energy_tup(0,0,0,0);
-			continue;
-		}
-
-		const vec& a_coords = vec(a.coords[0], a.coords[1], a.coords[2]);
-		vec adjusted_a_coords;
-		vec out_of_bounds_deriv(0, 0, 0);
-		fl out_of_bounds_penalty = check_bounds_deriv(a_coords, adjusted_a_coords, out_of_bounds_deriv, gd, slope);
-		
-		fl this_e = 0;
-		vec deriv(0, 0, 0);
-		VINA_FOR_IN(j, rec_atoms)
-		{
-			const auto& b = rec_atoms[j];
-			auto t2 = rec_types[j];
-			vec r_ba;
-			r_ba = adjusted_a_coords - vec(b.coords[0], b.coords[1], b.coords[2]);
-			fl r2 = sqr(r_ba);
-			if (r2 < cutoff_sqr)
-			{
-				if (r2 < epsilon_fl) {
-					throw std::runtime_error(
-							"Ligand atom exactly overlaps receptor atom.  I can't deal with this.");
-				}
-                //construct correct atom_base objects
-                atom_base a_ab;
-                a_ab.sm = (smina_atom_type::type)lig_types[i];
-                a_ab.charge = lig_atoms[i].charge;
-                atom_base b_ab;
-                b_ab.sm = (smina_atom_type::type)rec_types[j];
-                b_ab.charge = rec_atoms[j].charge;
-
-				pr e_dor = p->eval_deriv(a_ab, b_ab, r2);
-				this_e += e_dor.first;
-				deriv += e_dor.second * r_ba;
-			}
-		}
-		curl(this_e, deriv, v);
-        vec tmp = deriv + out_of_bounds_deriv;
-		minus_forces[i] = *(force_energy_tup*)(&tmp);
-		e += this_e + out_of_bounds_penalty;
-	}
-	return e;
 }
 
 int main() {
     //TODO: include progress bar?
     //set up c++11 random number engine
-    auto const seed = std::random_device()();
-    std::mt19937 engine(seed);
+    // auto const seed = std::random_device()();
+    std::mt19937 engine(1);
 
-    //set up logging 
-    int ntests = 1;
-    int* failed_tests[ntests];
+    //set up logging
+    bool quiet = true;
+    tee log(quiet);
+    log.init("log.test");
+    // log << "test" << "\n";
 
     //set up scoring function
     custom_terms t;
@@ -193,6 +72,7 @@ int main() {
     const fl approx_factor = 10;
     const fl granularity = 0.375;
     const vec v = vec(10, 10, 10);
+    const fl slope = 10;
 
     weighted_terms wt(&t, t.weights());
 
@@ -202,11 +82,10 @@ int main() {
 
     //set up fake lig and rec for testing
     std::vector<atom_params> lig_atoms;
-    std::vector<atom_params> rec_atoms;
+    std::vector<smt> lig_types;
     fl max_x = -HUGE_VALF, max_y = -HUGE_VALF, max_z = -HUGE_VALF;
     fl min_x = HUGE_VALF, min_y = HUGE_VALF, min_z = HUGE_VALF;
-    make_mol(lig_atoms, engine);
-    make_mol(rec_atoms, engine);
+    make_mol(lig_atoms, lig_types, engine);
 
     //set up grid
     for (auto& atom : lig_atoms) {
@@ -236,41 +115,53 @@ int main() {
         gd[i].end = gd[i].begin + real_span;
     }
 
-    model* m = new model;
-
-    //set up dinfo, mostly involves randomly generating some receptor atoms.
-    //to my knowledge lig_penalties is never used, so I don't even bother
-    //mallocing it here; if I'm wrong a segfault is a good way to find out
-    GPUNonCacheInfo dinfo;
-    dinfo.gridends = float3(gd[0].begin, gd[1].begin, gd[2].begin);
-    dinfo.gridbegins = float3(gd[0].end, gd[1].end, gd[2].end);
-    dinfo.ntypes = gprec->num_types();
-    dinfo.splineInfo = gprec->getDeviceData();
-
-    std::vector<unsigned> lig_types;
+    //make rec
     std::vector<atom_params> rec_atoms;
-    std::vector<unsigned> rec_types;
-    make_dinfo(dinfo, engine, lig_atoms.size(), lig_types, rec_atoms, rec_types);
-    std::vector<force_energy_tup> minus_forces(lig_atoms.size());
-    force_energy_tup* d_forces;
-    cudaMalloc(&d_forces, sizeof(force_energy_tup)*minus_forces.size());
-    cudaMemcpy(d_forces, &minus_forces[0], sizeof(force_energy_tup)*minus_forces.size(), cudaMemcpyHostToDevice);
+    std::vector<smt> rec_types;
+    const float cutoff_sqr = prec->cutoff_sqr();
+    const float cutoff = std::sqrt(cutoff_sqr);
+    make_mol(rec_atoms, rec_types, engine, 0, 10, 2500, max_x + cutoff, max_y + 
+            cutoff, max_z + cutoff);
 
-    //malloc and copy lig_atoms
-    atom_params* glig_atoms;
-    cudaMalloc(&glig_atoms, sizeof(atom_params) * lig_atoms.size());
-    cudaMemcpy(glig_atoms, &lig_atoms[0], sizeof(atom_params) * lig_atoms.size(), cudaMemcpyHostToDevice);
+    //manually initialize model object
+    model* m = new model;
+    m->m_num_movable_atoms = lig_atoms.size();
+    m->minus_forces = std::vector<vec>(m->m_num_movable_atoms);
+
+    for (size_t i=0; i <lig_atoms.size(); ++i) {
+        m->coords.push_back(*(vec*)&lig_atoms[i]);
+        m->atoms.push_back(atom());
+        m->atoms[i].sm = lig_types[i];
+        m->atoms[i].charge = lig_atoms[i].charge;
+        m->atoms[i].coords = *(vec*)&lig_atoms[i];
+    }
+
+    for (size_t i=0; i<rec_atoms.size(); ++i) {
+        m->grid_atoms.push_back(atom());
+        m->grid_atoms[i].sm = rec_types[i];
+        m->grid_atoms[i].charge = rec_atoms[i].charge;
+        m->grid_atoms[i].coords = *(vec*)&rec_atoms[i];
+    }
+
+    szv_grid_cache gridcache(*m, cutoff_sqr);
+    non_cache* nc = new non_cache(gridcache, gd, prec);
+    non_cache_gpu* nc_gpu = new non_cache_gpu(gridcache, gd, gprec, slope);
+    m->initialize_gpu();
+    grid user_grid;
+    gpu_data& gdat = m->gdata;
+    cudaMemset(gdat.minus_forces, 0, m->minus_forces.size()*sizeof(decltype(gdat.minus_forces[0])));
 
     //get intermolecular energy, check agreement
-    float g_out = single_point_calc(dinfo, glig_atoms, d_forces, v[0]);
-    // float c_out = eval_inter_cpu(prec, dinfo.num_movable_atoms, lig_atoms, rec_atoms, lig_types, rec_types, minus_forces, gd, dinfo.slope, v[1]);
+    float g_out = single_point_calc(nc_gpu->info, gdat.coords, gdat.minus_forces, v[0]);
+    float c_out = nc->eval_deriv(*m, v[0], user_grid);
 
     std::cout << g_out << "\n";
-    // printf("%f\n", c_out);
+    std::cout << c_out << "\n";
 
-    cudaFree(glig_atoms);
-    cudaFree(d_forces);
-    cudaFree(dinfo.types);
+    m->deallocate_gpu();
     delete gprec;
     delete prec;
+    delete nc;
+    delete nc_gpu;
+    delete m;
 }
