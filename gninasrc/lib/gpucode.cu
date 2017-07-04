@@ -259,23 +259,25 @@ void interaction_energy(const GPUNonCacheInfo dinfo, //intentionally copying fro
 
 	//TODO: remove hydrogen atoms completely
 	if (t > 1) { //ignore hydrogens
-	    //evaluate for out of boundsness
-	    for (unsigned i = 0; i < 3; i++) {
-	    	float min = dinfo.gridbegins[i];
-	    	float max = dinfo.gridends[i];
-	    	if (xyz[i] < min) {
-	    		out_of_bounds_deriv[i] = -1;
-	    		out_of_bounds_penalty += fabs(min - xyz[i]);
-	    		xyz[i] = min;
-	    	} else if (xyz[i] > max) {
-	    		out_of_bounds_deriv[i] = 1;
-	    		out_of_bounds_penalty += fabs(max - xyz[i]);
-	    		xyz[i] = max;
-	    	}
-	    	out_of_bounds_deriv[i] *= slope;
-	    }
+        if (blockIdx.y == 0 && threadIdx.x == 0 && remainder_offset == 0) {
+	        //evaluate for out of boundsness
+	        for (unsigned i = 0; i < 3; i++) {
+	        	float min = dinfo.gridbegins[i];
+	        	float max = dinfo.gridends[i];
+	        	if (xyz[i] < min) {
+	        		out_of_bounds_deriv[i] = -1;
+	        		out_of_bounds_penalty += fabs(min - xyz[i]);
+	        		xyz[i] = min;
+	        	} else if (xyz[i] > max) {
+	        		out_of_bounds_deriv[i] = 1;
+	        		out_of_bounds_penalty += fabs(max - xyz[i]);
+	        		xyz[i] = max;
+	        	}
+	        	out_of_bounds_deriv[i] *= slope;
+	        }
 
-	    out_of_bounds_penalty *= slope;
+	        out_of_bounds_penalty *= slope;
+        }
 
 		//now consider interaction with every possible receptor atom
         if (ridx < dinfo.nrec_atoms) {

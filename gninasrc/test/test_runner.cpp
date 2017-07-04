@@ -1,5 +1,6 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
+#include <boost/program_options.hpp>
 #include <cmath>
 #include <random>
 #include "common.h"
@@ -49,14 +50,26 @@ void make_mol(std::vector<atom_params>& atoms, std::vector<smt>& types,
 
 int main() {
     //TODO: include progress bar?
+    //set up program options
+    std::string logname("log.test");
+    auto seed = std::random_device()();
+    namespace po = boost::program_options;
+    po::options_description inputs("Input");
+    inputs.add_options()
+        ("seed,s", po::value<unsigned>(&seed), "seed for random number generator")
+        ("log", po::value<std::string>(&logname), "specify logfile, default is log.test");
+    po::options_description desc, desc_simple;
+    desc.add(inputs);
+    desc_simple.add(inputs);
+
+    seed = 0;
     //set up c++11 random number engine
-    // auto const seed = std::random_device()();
-    std::mt19937 engine(1);
+    std::mt19937 engine(seed);
 
     //set up logging
     bool quiet = true;
     tee log(quiet);
-    log.init("log.test");
+    log.init(logname);
     // log << "test" << "\n";
 
     //set up scoring function
