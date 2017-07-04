@@ -48,21 +48,40 @@ void make_mol(std::vector<atom_params>& atoms, std::vector<smt>& types,
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     //TODO: include progress bar?
     //set up program options
-    std::string logname("log.test");
-    auto seed = std::random_device()();
+    std::string logname;
+    unsigned seed;
     namespace po = boost::program_options;
+	po::positional_options_description positional; // remains empty
     po::options_description inputs("Input");
     inputs.add_options()
         ("seed,s", po::value<unsigned>(&seed), "seed for random number generator")
-        ("log", po::value<std::string>(&logname), "specify logfile, default is log.test");
+        ("log", po::value<std::string>(&logname), "specify logfile, default is test.log");
     po::options_description desc, desc_simple;
     desc.add(inputs);
     desc_simple.add(inputs);
-
-    seed = 0;
+    po::variables_map vm;
+    try
+    {
+        po::store(
+                po::command_line_parser(argc, argv).options(desc)
+                .style(
+                    po::command_line_style::default_style
+                    ^ po::command_line_style::allow_guessing)
+                .positional(positional).run(), vm);
+        notify(vm);
+    } catch (po::error& e)
+    {
+		std::cerr << "Command line parse error: " << e.what() << '\n'
+				<< "\nCorrect usage:\n" << desc_simple << '\n';
+		return 1;
+	}
+    if (!vm.count("seed"))
+        seed = std::random_device()();
+    if (!vm.count("logname"))
+        logname = "test.log";
     //set up c++11 random number engine
     std::mt19937 engine(seed);
 
