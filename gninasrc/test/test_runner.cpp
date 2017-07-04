@@ -4,6 +4,7 @@
 #include <cmath>
 #include <random>
 #include "common.h"
+#include "gpu_debug.h"
 #include "tee.h"
 #include "non_cache.h"
 #include "non_cache_gpu.h"
@@ -13,9 +14,8 @@
 #include "custom_terms.h"
 #include "precalculate_gpu.h"
 #include "gpucode.h"
-
-//TODO: logging, user-provided random seed
-
+//TODO: doesn't explicitly prevent/check atoms from overlapping, which could
+//theoretically lead to runtime errors later
 void make_mol(std::vector<atom_params>& atoms, std::vector<smt>& types, 
              std::mt19937 engine,
              size_t natoms=0, size_t min_atoms=1, size_t max_atoms=200, 
@@ -89,7 +89,6 @@ int main(int argc, char* argv[]) {
     bool quiet = true;
     tee log(quiet);
     log.init(logname);
-    // log << "test" << "\n";
 
     //set up scoring function
     custom_terms t;
@@ -117,7 +116,7 @@ int main(int argc, char* argv[]) {
     std::vector<smt> lig_types;
     fl max_x = -HUGE_VALF, max_y = -HUGE_VALF, max_z = -HUGE_VALF;
     fl min_x = HUGE_VALF, min_y = HUGE_VALF, min_z = HUGE_VALF;
-    make_mol(lig_atoms, lig_types, engine);
+    make_mol(lig_atoms, lig_types, engine, 10);
 
     //set up grid
     for (auto& atom : lig_atoms) {
@@ -152,7 +151,7 @@ int main(int argc, char* argv[]) {
     std::vector<smt> rec_types;
     const float cutoff_sqr = prec->cutoff_sqr();
     const float cutoff = std::sqrt(cutoff_sqr);
-    make_mol(rec_atoms, rec_types, engine, 0, 10, 2500, max_x + cutoff, max_y + 
+    make_mol(rec_atoms, rec_types, engine, 1377, 10, 2500, max_x + cutoff, max_y + 
             cutoff, max_z + cutoff);
 
     //manually initialize model object
@@ -181,11 +180,17 @@ int main(int argc, char* argv[]) {
     m->initialize_gpu();
     grid user_grid;
     gpu_data& gdat = m->gdata;
-    cudaMemset(gdat.minus_forces, 0, m->minus_forces.size()*sizeof(decltype(gdat.minus_forces[0])));
+    cudaMemset(gdat.minus_forces, 0, m->minus_forces.size()*sizeof(gdat.minus_forces[0]));
+    std::cout << rec_atoms.size() << "\n";
+    std::cout << lig_atoms.size() << "\n";
 
     //get intermolecular energy, check agreement
     float g_out = single_point_calc(nc_gpu->info, gdat.coords, gdat.minus_forces, v[0]);
     float c_out = nc->eval_deriv(*m, v[0], user_grid);
+    vec g_forces[m->minus_forces.size()];
+    cudaMemcpy(g_forces, gdat.minus_forces, m->minus_forces.size()*sizeof(gdat.minus_forces[0]), cudaMemcpyDeviceToHost);
+    pretty_print_vec_array(g_forces, m->minus_forces.size(), "gpu forces");
+    pretty_print_vec_array(&m->minus_forces[0], m->minus_forces.size(), "cpu forces");
 
     std::cout << g_out << "\n";
     std::cout << c_out << "\n";
