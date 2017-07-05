@@ -317,9 +317,9 @@ fl model::get_minus_forces_magnitude()
 	{
 		if (!atoms[i].is_hydrogen()) // no hydrogen forces
 		{
-			m += std::sqrt(minus_forces[i].data[0]^2
-			             + minus_forces[i].data[1]^2
-			             + minus_forces[i].data[2]^2)
+			m += sqrt(pow(minus_forces[i].data[0], 2)
+			        + pow(minus_forces[i].data[1], 2)
+			        + pow(minus_forces[i].data[2], 2));
 		}
 	}
 	return m;

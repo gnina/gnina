@@ -259,6 +259,9 @@ struct model {
 	void set_name(const std::string& n) { name = n; }
 	const std::string& get_name() const { return name; }
 
+	void set_pose_num(int n) { pose_num = n; }
+	int get_pose_num() const { return pose_num; }
+
 	conf_size get_size() const;
 	// torsions = 0, orientations = identity, ligand positions = current
 	conf get_initial_conf() const; 
@@ -508,6 +511,7 @@ private:
 	sz m_num_movable_atoms;
 
 	std::string name;
+	int pose_num;
 };
 
 

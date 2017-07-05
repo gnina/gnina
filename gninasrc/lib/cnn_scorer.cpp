@@ -210,18 +210,15 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff)
 			//has affinity prediction
 			const Dtype* aff = affblob->cpu_data();
 			affinity += aff[0];
-			cout << "#Rotate " << out[1] << " " << aff[0] << "\n";
 		}
 		else
 		{
-			cout << "#Rotate " << out[1] << "\n";
 		}
 		if (compute_gradient)
 		{
 			net->Backward();
 			mgrid->getLigandGradient(0, gradient);
 			m.add_minus_forces(gradient); //TODO divide by cnt?
-			cout << "gradient = " << m.get_minus_forces_magnitude() << "\n";
 		}
 		cnt++;
 	}
