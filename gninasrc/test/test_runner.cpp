@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
     std::vector<smt> lig_types;
     fl max_x = -HUGE_VALF, max_y = -HUGE_VALF, max_z = -HUGE_VALF;
     fl min_x = HUGE_VALF, min_y = HUGE_VALF, min_z = HUGE_VALF;
-    make_mol(lig_atoms, lig_types, engine, 10);
+    make_mol(lig_atoms, lig_types, engine, 0);
 
     //set up grid
     for (auto& atom : lig_atoms) {
@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
     std::vector<smt> rec_types;
     const float cutoff_sqr = prec->cutoff_sqr();
     const float cutoff = std::sqrt(cutoff_sqr);
-    make_mol(rec_atoms, rec_types, engine, 1377, 10, 2500, max_x + cutoff, max_y + 
+    make_mol(rec_atoms, rec_types, engine, 0, 10, 2500, max_x + cutoff, max_y + 
             cutoff, max_z + cutoff);
 
     //manually initialize model object
