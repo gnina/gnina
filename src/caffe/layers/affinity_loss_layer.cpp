@@ -80,6 +80,12 @@ void AffinityLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }*/
 }
 
+template <typename Dtype>
+void AffinityLossLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
+{
+    Backward_cpu(top, propagate_down, bottom);
+}
 
 INSTANTIATE_CLASS(AffinityLossLayer);
 REGISTER_LAYER_CLASS(AffinityLoss);
