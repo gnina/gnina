@@ -19,10 +19,10 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   int count = bottom[0]->count();
   Dtype sum = 0.0;
   Dtype gap = this->layer_param_.affinity_loss_param().gap() / 2.0;
-  Dtype scale = this->layer_param_.affinity_loss_param().scale();
+  Dtype delta = this->layer_param_.affinity_loss_param().delta();
   bool huber = this->layer_param_.affinity_loss_param().pseudohuber();
 
-  Dtype scale2 = scale*scale;
+  Dtype delta2 = delta*delta;
   const Dtype *labels = bottom[1]->cpu_data();
   const Dtype *preds = bottom[0]->cpu_data();
   Dtype *d = diff_.mutable_cpu_data();
@@ -53,8 +53,8 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 
     if(huber) {
       //https://en.wikipedia.org/wiki/Huber_loss
-      Dtype hval = diff/scale;
-      sum += scale2*(sqrt(1+hval*hval) - 1.0);
+      Dtype hval = diff/delta;
+      sum += delta2*(sqrt(1+hval*hval) - 1.0);
     }
     else {
       sum += diff * diff;
@@ -72,18 +72,20 @@ void AffinityLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 
   bool huber = this->layer_param_.affinity_loss_param().pseudohuber();
   Dtype scale = this->layer_param_.affinity_loss_param().scale();
+  Dtype delta = this->layer_param_.affinity_loss_param().delta();
 
   for (int i = 0; i < 2; ++i) {
     if (propagate_down[i]) {
-
+      const Dtype sign = (i == 0) ? 1 : -1;
       if(huber) {
-        //x/(1+(x/scale)^2)
+        //x/(1+(x/delta)^2)
         const Dtype *diff = diff_.cpu_data();
         Dtype *out = bottom[i]->mutable_cpu_diff();
+	Dtype mult = sign * scale * top[0]->cpu_diff()[0] / bottom[i]->num();
         for(unsigned j = 0, n = bottom[i]->count(); j < n; j++) {
           Dtype x = diff[j];
-          Dtype val = x/scale;
-          out[j] = x/(1.0 + val*val);
+          Dtype val = x/delta;
+          out[j] = mult * x/(1.0 + val*val);
         }
       } else {
         const Dtype sign = (i == 0) ? 1 : -1;
