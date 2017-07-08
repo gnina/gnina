@@ -9,6 +9,7 @@
 #include "tee.h"
 #include "non_cache.h"
 #include "non_cache_gpu.h"
+#include "tree_gpu.h"
 #include "model.h"
 #include "curl.h"
 #include "weighted_terms.h"
@@ -186,7 +187,6 @@ void test_eval_intra(unsigned seed, tee& log, size_t natoms=0, size_t min_atoms=
     //set up a bunch of constants
     const fl approx_factor = 10;
     const fl v = 10;
-    const fl granularity = 0.375;
     const fl slope = 10;
     
     weighted_terms wt(&t, t.weights());
@@ -232,13 +232,16 @@ void test_eval_intra(unsigned seed, tee& log, size_t natoms=0, size_t min_atoms=
     gpu_data& gdat = m->gdata;
     m->initialize_gpu();
     cudaMemset(gdat.minus_forces, 0, m->minus_forces.size()*sizeof(gdat.minus_forces[0]));
+    GPUNonCacheInfo dinfo;
+    dinfo.cutoff_sq = prec->cutoff_sqr();
+    dinfo.splineInfo = gprec->deviceData;
 
     //compute intra energy and compare
-    fl c_out = m->eval_interacting_pairs_deriv(*prec, v, m->other_pairs, m->coords, m->minus_forces);
-    // fl g_out = gdat.eval_interacting_pairs_deriv_gpu(nc_gpu->info, v, gdat.other_pairs, m->other_pairs.size());
+    fl c_out = m->eval_interacting_pairs_deriv(*prec, v, m->other_pairs, m->coords, m->minus_forces);    fl g_out = gdat.eval_interacting_pairs_deriv_gpu(dinfo, v, gdat.other_pairs, 
+            m->other_pairs.size());
 
     std::cout << c_out << "\n";
-    // std::cout << g_out << "\n";
+    std::cout << g_out << "\n";
 
     m->deallocate_gpu();
     delete m;
