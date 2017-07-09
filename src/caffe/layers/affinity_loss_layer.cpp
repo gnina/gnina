@@ -40,11 +40,8 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       }
     } else if (label < 0 && pred > -label) { //hinge like
       diff = pred + label;
-      if (diff < 0) {
-        diff = std::min(diff + gap, Dtype(0));
-      } else {
-        diff = std::max(diff - gap, Dtype(0));
-      }
+      diff = std::max(diff - gap, Dtype(0));
+      
     } else { //ignore
       diff = 0;
     }
@@ -73,6 +70,7 @@ void AffinityLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   bool huber = this->layer_param_.affinity_loss_param().pseudohuber();
   Dtype scale = this->layer_param_.affinity_loss_param().scale();
   Dtype delta = this->layer_param_.affinity_loss_param().delta();
+  Dtype maxgrad = this->layer_param_.affinity_loss_param().maxgrad();
 
   for (int i = 0; i < 2; ++i) {
     if (propagate_down[i]) {
@@ -98,10 +96,22 @@ void AffinityLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       }
     }
   }
-  /*LOG(INFO) << "AFFGRADS";
+
+  if(maxgrad > 0) {
+	  //cap the maximum value of the gradient
+	  for(unsigned i = 0, n = bottom[0]->num(); i < n; i++) {
+		  Dtype x = bottom[0]->cpu_diff()[i];
+		  Dtype sign = x < 0 ? -1 : 1;
+		  x = fabs(x);
+		  bottom[0]->mutable_cpu_diff()[i] = sign*maxgrad*x/(x+maxgrad);
+	  }
+  }
+ /* 
+  LOG(INFO) << "AFFGRADS";
    for(unsigned i = 0, n = bottom[0]->num(); i < n; i++) {
    LOG(INFO) << bottom[0]->cpu_diff()[i];
-   }*/
+   }
+  */
 }
 
 INSTANTIATE_CLASS(AffinityLossLayer);
