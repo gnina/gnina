@@ -106,7 +106,7 @@ void test_interaction_energy(unsigned seed, tee& log) {
     vec center(center_x, center_y, center_z);
     grid_dims gd;
 
-    for (size_t i; i < 3; ++i) {
+    for (size_t i=0; i < 3; ++i) {
         gd[i].n = sz(std::ceil(span[i] / granularity));
         fl real_span = granularity * gd[i].n;
         gd[i].begin = center[i] - real_span / 2;
@@ -255,8 +255,7 @@ void test_gpucode(unsigned seed, bool many_iters, tee& log) {
     //time
     test_interaction_energy(seed, log);
     test_eval_intra(seed, log);
-    //TODO: WHY IS THIS BROKEN ARGHHHHH
-    if (false) {
+    if (many_iters) {
         for (size_t i=0; i<1; ++i) {
             seed = std::random_device()();
             test_interaction_energy(seed, log);
