@@ -495,6 +495,7 @@ message AffinityLossParameter {
 	optional bool pseudohuber = 4 [default = false]; //use pseudohuber loss with delta as alpha
 	optional float delta = 5 [default = 2.0]; //delta value for pseudohuber, larger -> more L2 like
 	optional float maxgrad = 6 [default = 0.0]; //if set, max value of gradient, dampens with x*max/(x+max) 
+	optional float penalty = 7 [default = 0.0]; //additional spacing for negative values (opposite of gap)
 }
 
 message ArgMaxParameter {

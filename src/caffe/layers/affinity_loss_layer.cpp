@@ -20,6 +20,7 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   Dtype sum = 0.0;
   Dtype gap = this->layer_param_.affinity_loss_param().gap() / 2.0;
   Dtype delta = this->layer_param_.affinity_loss_param().delta();
+  Dtype penalty = this->layer_param_.affinity_loss_param().penalty();
   bool huber = this->layer_param_.affinity_loss_param().pseudohuber();
 
   Dtype delta2 = delta*delta;
@@ -39,7 +40,7 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
         diff = std::max(diff - gap, Dtype(0));
       }
     } else if (label < 0 && pred > -label) { //hinge like
-      diff = pred + label;
+      diff = pred + label + penalty;
       diff = std::max(diff - gap, Dtype(0));
       
     } else { //ignore
