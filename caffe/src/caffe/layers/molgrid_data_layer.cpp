@@ -484,7 +484,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
     }
     center /= cnt;
   }
-  else
+  else if(!boost::algorithm::ends_with(file,"none")) //reserved word
   {
     //read mol from file and set mol info (atom coords and grid positions)
     //types are mapped using atommap values plus offset
