@@ -1,6 +1,4 @@
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
-#enable automated test running with cmake
-enable_testing()
 
 find_package(CUDA REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options system iostreams timer
@@ -131,15 +129,7 @@ cuda_add_executable(gninavis gninavis/gninavis.cpp lib/CommandLine2/CommandLine.
 target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT})
 
-#set up testing
-foreach(testSrc ${TEST_SRCS}) 
-    get_filename_component(testName ${testSrc} NAME_WE) 
-    cuda_add_executable(${testName} ${testSrc}) 
-    target_link_libraries(${testName}
-        ${Boost_LIBRARIES} gninalib ${CUDA_DEV_RT}) 
-    add_test(NAME ${testName} 
-        WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-        COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${testName}) 
-endforeach(testSrc)
+cuda_add_executable(check ${TEST_SRCS})
+target_link_libraries(check gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
 
 install(TARGETS gnina gninagrid gninatyper fromgnina tognina gninavis RUNTIME DESTINATION bin)
