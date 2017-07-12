@@ -5,10 +5,11 @@
 struct parsed_args {
     unsigned seed;
     bool many_iters;
+    unsigned iter_count;
     tee log;
     std::vector<unsigned> params;
 
-    parsed_args(bool quiet = true) : many_iters(false), log(quiet) {}
+    parsed_args(bool quiet = true) : many_iters(false), iter_count(0), log(quiet) {}
 };
 
 #endif

@@ -1,4 +1,5 @@
 #include "test_gpucode.h"
+#include "test_utils.h"
 
 extern parsed_args p_args;
 
@@ -37,7 +38,9 @@ void make_mol(std::vector<atom_params>& atoms, std::vector<smt>& types,
 }
 
 void test_interaction_energy(fl& c_out, fl& g_out) {
-    p_args.log << "Using random seed: " << p_args.seed;
+    p_args.log << "Interaction Energy Test \n";
+    p_args.log << "Using random seed: " << p_args.seed << "\n";
+    p_args.log << "Iteration " << p_args.iter_count;
     p_args.log.endl();
     //set up c++11 random number engine
     std::mt19937 engine(p_args.seed);
@@ -145,6 +148,11 @@ void test_interaction_energy(fl& c_out, fl& g_out) {
     vec g_forces[m->minus_forces.size()];
     cudaMemcpy(g_forces, gdat.minus_forces, m->minus_forces.size()*sizeof(gdat.minus_forces[0]), cudaMemcpyDeviceToHost);
 
+    //log the mols and results
+    print_mol(rec_atoms, rec_types, p_args.log);
+    print_mol(lig_atoms, lig_types, p_args.log);
+    p_args.log << "CPU energy: " << c_out << " GPU energy: " << g_out << "\n\n";
+
     //clean up after yourself
     delete nc;
     delete nc_gpu;
@@ -157,7 +165,9 @@ void test_interaction_energy(fl& c_out, fl& g_out) {
 void test_eval_intra(fl& c_out, fl& g_out, size_t natoms, size_t min_atoms, 
                      size_t max_atoms) {
 
-    p_args.log << "Using random seed: " << p_args.seed;
+    p_args.log << "Intramolecular Energy Test \n";
+    p_args.log << "Using random seed: " << p_args.seed << "\n";
+    p_args.log << "Iteration " << p_args.iter_count;
     p_args.log.endl();
 
     //set up scoring function
@@ -226,6 +236,11 @@ void test_eval_intra(fl& c_out, fl& g_out, size_t natoms, size_t min_atoms,
     g_out = gdat.eval_interacting_pairs_deriv_gpu(dinfo, v, gdat.other_pairs, 
             m->other_pairs.size());
 
+    //log the mols and results
+    print_mol(atoms, types, p_args.log);
+    p_args.log << "CPU energy: " << c_out << " GPU energy: " << g_out << "\n\n";
+
+    //clean up
     m->deallocate_gpu();
     delete m;
     delete gprec;
