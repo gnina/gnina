@@ -24,6 +24,6 @@ void make_mol(std::vector<atom_params>& atoms, std::vector<smt>& types,
 
 void test_interaction_energy(fl& c_out, fl& g_out);
 
-void test_eval_intra(unsigned seed, size_t natoms=0, size_t min_atoms=1, 
+void test_eval_intra(fl& c_out, fl& g_out, size_t natoms=0, size_t min_atoms=1, 
                      size_t max_atoms=200);
 #endif

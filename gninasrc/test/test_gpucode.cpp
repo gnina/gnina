@@ -154,10 +154,10 @@ void test_interaction_energy(fl& c_out, fl& g_out) {
     delete m;
 }
 
-void test_eval_intra(unsigned seed, size_t natoms, size_t min_atoms, 
+void test_eval_intra(fl& c_out, fl& g_out, size_t natoms, size_t min_atoms, 
                      size_t max_atoms) {
 
-    p_args.log << "Using random seed: " << seed;
+    p_args.log << "Using random seed: " << p_args.seed;
     p_args.log.endl();
 
     //set up scoring function
@@ -181,7 +181,7 @@ void test_eval_intra(unsigned seed, size_t natoms, size_t min_atoms,
     const precalculate_splines* prec = new precalculate_splines(wt, approx_factor);
 
     //generate the mol
-    std::mt19937 engine(seed);
+    std::mt19937 engine(p_args.seed);
     std::vector<atom_params> atoms;
     std::vector<smt> types;
     make_mol(atoms, types, engine, natoms, min_atoms, max_atoms);
@@ -222,7 +222,8 @@ void test_eval_intra(unsigned seed, size_t natoms, size_t min_atoms,
     dinfo.splineInfo = gprec->deviceData;
 
     //compute intra energy and compare
-    fl c_out = m->eval_interacting_pairs_deriv(*prec, v, m->other_pairs, m->coords, m->minus_forces);    fl g_out = gdat.eval_interacting_pairs_deriv_gpu(dinfo, v, gdat.other_pairs, 
+    c_out = m->eval_interacting_pairs_deriv(*prec, v, m->other_pairs, m->coords, m->minus_forces);
+    g_out = gdat.eval_interacting_pairs_deriv_gpu(dinfo, v, gdat.other_pairs, 
             m->other_pairs.size());
 
     m->deallocate_gpu();
