@@ -17,15 +17,9 @@ parsed_args p_args;
 BOOST_AUTO_TEST_SUITE(gpucode)
 
 BOOST_AUTO_TEST_CASE(interaction_energy) {
-    p_args.iter_count = 0;
-    for (auto& param : p_args.params) {
-        p_args.seed = param;
-        fl c_out;
-        fl g_out;
-        test_interaction_energy(c_out, g_out);
-        BOOST_CHECK_CLOSE(c_out, g_out, 0.0001);
-        p_args.iter_count++;
-    }
+    std::vector<vec> (*interaction_energy_ptr)(fl, fl, force_energy_tup*) = 
+        &test_interaction_energy;
+    boost_multi_energy_test(interaction_energy_ptr);
 }
 
 BOOST_AUTO_TEST_CASE(eval_intra) {
