@@ -2,7 +2,7 @@
 #include <iostream>
 #include "parsed_args.h"
 #include "test_gpucode.h"
-#define N_ITERS 1
+#define N_ITERS 10
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_NO_MAIN
 #include <boost/test/unit_test.hpp>
@@ -11,27 +11,23 @@ namespace ut = boost::unit_test;
 namespace po = boost::program_options;
 
 parsed_args p_args;
+
+//forward declaration
+void boost_loop_test(void (*func)());
+
 //TODO: when we are running with a boost version > 1.58, start using UTF
 //datasets with BOOST_PARAM_TEST_CASE
 
 BOOST_AUTO_TEST_SUITE(gpucode)
 
 BOOST_AUTO_TEST_CASE(interaction_energy) {
-    std::vector<vec> (*interaction_energy_ptr)(fl, fl, force_energy_tup*) = 
-        &test_interaction_energy;
-    boost_multi_energy_test(interaction_energy_ptr);
+    void (*interaction_energy_ptr)() = &test_interaction_energy;
+    boost_loop_test(interaction_energy_ptr);
 }
 
 BOOST_AUTO_TEST_CASE(eval_intra) {
-    p_args.iter_count = 0;
-    for (auto& param : p_args.params) {
-        p_args.seed = param;
-        fl c_out;
-        fl g_out;
-        test_eval_intra(c_out, g_out);
-        BOOST_CHECK_CLOSE(c_out, g_out, 0.0001);
-        p_args.iter_count++;
-    }
+    void (*eval_intra_ptr)() = &test_eval_intra;
+    boost_loop_test(eval_intra_ptr);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -1,5 +1,19 @@
+#include <numeric>
+#include <cmath>
+#include <random>
+#include "non_cache.h"
+#include "non_cache_gpu.h"
+#include "tree_gpu.h"
+#include "model.h"
+#include "curl.h"
+#include "weighted_terms.h"
+#include "custom_terms.h"
+#include "precalculate_gpu.h"
+#include "parsed_args.h"
 #include "test_gpucode.h"
 #include "test_utils.h"
+#define BOOST_TEST_DYN_LINK
+#include <boost/test/unit_test.hpp>
 
 extern parsed_args p_args;
 
@@ -37,7 +51,7 @@ void make_mol(std::vector<atom_params>& atoms, std::vector<smt>& types,
     }
 }
 
-void test_interaction_energy(fl& c_out, fl& g_out) {
+void test_interaction_energy() {
     p_args.log << "Interaction Energy Test \n";
     p_args.log << "Using random seed: " << p_args.seed << "\n";
     p_args.log << "Iteration " << p_args.iter_count;
@@ -141,17 +155,24 @@ void test_interaction_energy(fl& c_out, fl& g_out) {
     gpu_data& gdat = m->gdata;
     cudaMemset(gdat.minus_forces, 0, m->minus_forces.size()*sizeof(gdat.minus_forces[0]));
 
-    //get intermolecular energy, check agreement
-    g_out = single_point_calc(nc_gpu->info, gdat.coords, gdat.minus_forces, v);
-    c_out = nc->eval_deriv(*m, v, user_grid);
-    //TODO: check whether the forces match, too
+    //get intermolecular energy and forces
+    fl g_out = single_point_calc(nc_gpu->info, gdat.coords, gdat.minus_forces, v);
+    fl c_out = nc->eval_deriv(*m, v, user_grid);
+
     vec g_forces[m->minus_forces.size()];
     cudaMemcpy(g_forces, gdat.minus_forces, m->minus_forces.size()*sizeof(gdat.minus_forces[0]), cudaMemcpyDeviceToHost);
 
-    //log the mols and results
+    //log the mols and check results
     print_mol(rec_atoms, rec_types, p_args.log);
     print_mol(lig_atoms, lig_types, p_args.log);
     p_args.log << "CPU energy: " << c_out << " GPU energy: " << g_out << "\n\n";
+
+    BOOST_CHECK_CLOSE(c_out, g_out, 0.0001);
+    //TODO: enhanced boost collections support in more recent versions will
+    //improve concision for this check
+    for (size_t i=0; i<m->minus_forces.size(); ++i)
+        for (size_t j=0; j<3; ++j)
+            BOOST_CHECK_CLOSE(m->minus_forces[i][j], g_forces[i][j], 0.01);
 
     //clean up after yourself
     delete nc;
@@ -162,8 +183,7 @@ void test_interaction_energy(fl& c_out, fl& g_out) {
     delete m;
 }
 
-void test_eval_intra(fl& c_out, fl& g_out, size_t natoms, size_t min_atoms, 
-                     size_t max_atoms) {
+void test_eval_intra() {
 
     p_args.log << "Intramolecular Energy Test \n";
     p_args.log << "Using random seed: " << p_args.seed << "\n";
@@ -183,6 +203,9 @@ void test_eval_intra(fl& c_out, fl& g_out, size_t natoms, size_t min_atoms,
     const fl approx_factor = 10;
     const fl v = 10;
     const fl slope = 10;
+    const size_t natoms=0;
+    const size_t min_atoms=1;
+    const size_t max_atoms=200;
     
     weighted_terms wt(&t, t.weights());
 
@@ -231,14 +254,23 @@ void test_eval_intra(fl& c_out, fl& g_out, size_t natoms, size_t min_atoms,
     dinfo.cutoff_sq = prec->cutoff_sqr();
     dinfo.splineInfo = gprec->deviceData;
 
-    //compute intra energy and compare
-    c_out = m->eval_interacting_pairs_deriv(*prec, v, m->other_pairs, m->coords, m->minus_forces);
-    g_out = gdat.eval_interacting_pairs_deriv_gpu(dinfo, v, gdat.other_pairs, 
+    //compute intra energy 
+    fl c_out = m->eval_interacting_pairs_deriv(*prec, v, m->other_pairs, m->coords, m->minus_forces);
+    fl g_out = gdat.eval_interacting_pairs_deriv_gpu(dinfo, v, gdat.other_pairs, 
             m->other_pairs.size());
 
-    //log the mols and results
+    //copy device forces
+    vec g_forces[m->minus_forces.size()];
+    cudaMemcpy(g_forces, gdat.minus_forces, m->minus_forces.size()*sizeof(gdat.minus_forces[0]), cudaMemcpyDeviceToHost);
+
+    //log the mols and check results
     print_mol(atoms, types, p_args.log);
     p_args.log << "CPU energy: " << c_out << " GPU energy: " << g_out << "\n\n";
+
+    BOOST_CHECK_CLOSE(c_out, g_out, 0.0001);
+    for (size_t i=0; i<m->minus_forces.size(); ++i)
+        for (size_t j=0; j<3; ++j)
+            BOOST_CHECK_CLOSE(m->minus_forces[i][j], g_forces[i][j], 0.01);
 
     //clean up
     m->deallocate_gpu();
