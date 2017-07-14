@@ -152,12 +152,12 @@ void AffinityLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
           bottom[0]->mutable_cpu_diff()[i] = sign*maxgrad*x/(x+maxgrad);
       }
   }
- /* 
+  /*
   LOG(INFO) << "AFFGRADS";
    for(unsigned i = 0, n = bottom[0]->num(); i < n; i++) {
    LOG(INFO) << bottom[0]->cpu_diff()[i];
    }
-  */
+   */
 }
 
 template<typename Dtype>
@@ -242,7 +242,7 @@ void AffinityLossLayer<Dtype>::compute_pair_gradient(
 
     //scale by number of pairs, which is computed in forward
     CHECK_GT(nranklosspairs, 0) << "Invalid nranklosspairs";
-    d /= nranklosspairs;
+    d /= nranklosspairs / num; //and also by batch size
     //also by total loss
     Dtype scale = top[0]->cpu_diff()[0];
     d *= scale*mult; //and mult
