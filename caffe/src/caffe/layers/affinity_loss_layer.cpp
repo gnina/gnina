@@ -242,7 +242,7 @@ void AffinityLossLayer<Dtype>::compute_pair_gradient(
 
     //scale by number of pairs, which is computed in forward
     CHECK_GT(nranklosspairs, 0) << "Invalid nranklosspairs";
-    d /= nranklosspairs / num; //and also by batch size
+    d /= nranklosspairs; //and also by batch size
     //also by total loss
     Dtype scale = top[0]->cpu_diff()[0];
     d *= scale*mult; //and mult
