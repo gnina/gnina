@@ -144,47 +144,73 @@ template <typename Dtype>
 void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom){
 
+    //recalculate z_ij, otherwise relu is applied
+    Forward_cpu(bottom, top);
 
-    const float eps = .00001;
-
+    /*
     float top_sum = 0.0;
     for (int i = 0; i < top[0]->count(); ++i)
     {
         top_sum += top[0]->cpu_diff()[i];
     }
     std::cout << "INNERPROD TOP SUM : " << top_sum << '\n';
+    */
 
     for (int i = 0; i < top.size(); ++i)
     {
+        const Dtype* top_data = top[i]->cpu_data();
         const Dtype* top_diff = top[i]->cpu_diff();
         const Dtype* bottom_data = bottom[i]->cpu_data();
         Dtype* bottom_diff = bottom[i]->mutable_cpu_diff();
-
         caffe_set(bottom[i]->count(), Dtype(0.0), bottom_diff);
 
-        const Dtype* top_data = top[i]->cpu_data();
-        Blob<Dtype> top_data_with_eps((top[i])->shape());
+        Blob<Dtype> buffer_blob((top[i])->shape());
+        Dtype* relevance = buffer_blob.mutable_cpu_data();
 
-        int outcount = top_data_with_eps.count();
+        int top_count = buffer_blob.count();
+     
+        caffe_copy<Dtype>(top_count, top_diff, relevance);
 
-        Dtype* relevance = top_data_with_eps.mutable_cpu_data();
-        caffe_copy<Dtype>(outcount, top_diff, relevance);
+        //sum up relevance coming from top nodes with value of 0
+        //also sum up total relevance for proportion calculation
+        Dtype zero_top_data_sum = 0;
+        Dtype total_top_data = 0;
+        for(int i = 0; i < top_count; i++)
+        {
+            Dtype bias = this->blobs_[1]->cpu_data()[i];
+            Dtype val = top_data[i] - bias;
+            if (val == 0)
+            {
+                zero_top_data_sum += relevance[i];
+            }
+            total_top_data += val;
+        }
 
-        for (int c = 0; c < outcount; ++c)
+        //distribute relevance from dead nodes proportionally to remaining nodes
+        for(int i = 0; i < top_count; i++)
+        {
+            Dtype bias = this->blobs_[1]->cpu_data()[i];
+            Dtype val = top_data[i] - bias;
+            relevance[i] += (val / total_top_data) * zero_top_data_sum;
+        }
+
+        for (int c = 0; c < top_count; ++c)
         {
             Dtype bias = this->blobs_[1]->cpu_data()[c];
             Dtype val = top_data[c] - bias;
             if (val > 0)
             {
-              relevance[c] /= val + eps;
+              relevance[c] /= val;
             }
             if (val < 0)
             {
-              relevance[c] /= val - eps;
+              relevance[c] /= val;
             }
         }
 
-        caffe_cpu_gemm<Dtype> (CblasNoTrans, CblasNoTrans, M_, K_, N_, (Dtype) 1., relevance, this->blobs_[0]->cpu_data(), (Dtype) 0., bottom[i]->mutable_cpu_diff());
+        caffe_cpu_gemm<Dtype> (CblasNoTrans, CblasNoTrans, M_, K_, N_,
+                (Dtype) 1., relevance, this->blobs_[0]->cpu_data(), 
+                (Dtype) 0., bottom[i]->mutable_cpu_diff());
 
         for(int d = 0; d < M_ * K_; ++d)
         {
@@ -192,103 +218,17 @@ void InnerProductLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
         }
     }
 
+    /*
     float bottom_sum = 0.0;
     for (int i = 0; i < bottom[0]->count(); ++i)
     {
         bottom_sum += bottom[0]->cpu_diff()[i];
     }
     std::cout << "INNERPROD BOTTOM SUM : " << bottom_sum << '\n';
+    */
+
 }
 
-
-
-	/*
-        float top_sum = 0.0;
-        for (int i = 0; i < top[0]->count(); ++i)
-        {
-            top_sum += top[0]->cpu_diff()[i];
-        }
-        std::cout << "INNERPROD TOP SUM : " << top_sum << '\n';
-        float alpha = 2;
-        float beta = 1;
-
-        //for (int i = 0; i < top.size(); ++i)
-        //{
-                int i = 0;
-                const Dtype* top_diff = top[i]->cpu_diff();
-                const Dtype* bottom_data = bottom[i]->cpu_data();
-
-                const Dtype* weights = this->blobs_[0]->cpu_data();
-
-                Dtype* bottom_diff = bottom[i]->mutable_cpu_diff();
-
-                caffe_set(bottom[i]->count(), Dtype(0.0), bottom_diff);
-
-                Blob < Dtype > pos_sums(1,1,M_,N_);
-                Blob < Dtype > neg_sums(1,1,M_,N_);
-
-                Dtype * pos_sums_data = pos_sums.mutable_cpu_data();
-                Dtype * neg_sums_data = neg_sums.mutable_cpu_data();
-
-                memset(pos_sums_data, 0, sizeof(Dtype) * M_ *N_);
-                memset(neg_sums_data, 0, sizeof(Dtype) * M_ *N_);
-
-                //calculate total positive and negative relevance for layer
-                for (long m = 0; m < M_; ++m)
-                {
-                    for(long n = 0; n < N_; ++n)
-                    {
-                        Dtype bias = bias_multiplier_.cpu_data()[m] * this->blobs_[1]->cpu_data()[n];
-                        for(long k = 0; k < K_; ++k)
-                        {
-                            pos_sums_data[m * N_ + n] += 
-                                std::max(Dtype(0.), bottom_data[m * K_ + k] * weights[n * K_ + k]
-                                                                            + bias / K_);
-                            neg_sums_data[m * N_ + n] += 
-                                std::min(Dtype(0.), bottom_data[m * K_ + k] * weights[n * K_ + k]
-                                                                            + bias / K_);
-
-                        }
-                    }
-                }
-
-                for (long m = 0; m < M_; ++m)
-                {
-                    for (long n = 0; n < N_; ++n)
-                    {
-                        Dtype bias = bias_multiplier_.cpu_data()[m] * this->blobs_[1]->cpu_data()[n];
-
-                        Dtype z1 = 0;
-                        if (pos_sums_data[m * N_ + n] > 0)
-                        {
-                            z1 = top_diff[m * N_ + n] / pos_sums_data[m * N_ + n];
-                        }
-                        Dtype z2 = 0;
-
-                        if (neg_sums_data[m * N_ + n] < 0)
-                        {
-                            z2 = top_diff[m * N_ + n] / neg_sums_data[m * N_ + n];
-                        }
-
-                        for(long k = 0; k < K_; ++k)
-                        {
-                            bottom_diff[m * K_ + k] +=
-                                alpha * std::max(Dtype(0.), bottom_data[m * K_ + k]
-                                      * weights[n * K_ + k] + bias / K_) 
-                                      * z1
-                                - beta * std::min(Dtype(0.), bottom_data[m * K_ + k]
-                                      * weights[n * K_ + k] + bias / K_) 
-                                      * z2;
-                        }
-                    }
-                }
-        }
-
-
-*/
-
-
-        
 #ifdef CPU_ONLY
 STUB_GPU(InnerProductLayer);
 #endif

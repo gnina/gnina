@@ -95,6 +95,7 @@ void SoftmaxLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     bottom_diff[0] = top[0]->cpu_data()[1]; //positive class
     bottom_diff[1] = 0 - top[0]->cpu_data()[0]; //negative class
 
+    /*
     for (int i = 0; i < top[0]->count(); ++i)
     {
             std::cout << "TOP[" << i << "]: " << top[0]->cpu_data()[i] << '\n';
@@ -106,6 +107,7 @@ void SoftmaxLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
         sum += bottom[0]->cpu_diff()[i];
     }
     std::cout << "SOFTLOSS BOTTOM SUM: " << sum << '\n';
+    */
 }
 
 

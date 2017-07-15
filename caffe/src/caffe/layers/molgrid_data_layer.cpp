@@ -272,11 +272,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     LOG(INFO) << "Total number of grid points (" << numgridpoints << ") is not evenly divisible by 512.";
 
   //shape must come from parameters
-  const int batch_size = param.batch_size();
-  CHECK_GT(batch_size, 0) << "Positive batch size required";
-
-  //keep track of atoms and transformations for each example in batch
-  batch_transform.resize(batch_size);
+  int batch_size = param.batch_size();
 
   if(!inmem)
   {
@@ -327,6 +323,14 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       }
     }
   }
+  else //in memory always batch size of 1
+  {
+    batch_size = 1;
+  }
+
+  CHECK_GT(batch_size, 0) << "Positive batch size required";
+  //keep track of atoms and transformations for each example in batch
+  batch_transform.resize(batch_size);
 
   //initialize atom type maps
   string recmap = param.recmap();
@@ -480,7 +484,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
     }
     center /= cnt;
   }
-  else
+  else if(!boost::algorithm::ends_with(file,"none")) //reserved word
   {
     //read mol from file and set mol info (atom coords and grid positions)
     //types are mapped using atommap values plus offset
@@ -853,16 +857,16 @@ template <typename Dtype>
 void MolGridDataLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
 
+  /*
   float top_sum = 0.0;
 
-  //std::cout << "MOLGRID TOP:";
+  std::cout << "MOLGRID TOP:";
   for(int i = 0; i < top[0]->count(); i++)
   {
-          //std::cout << top[0]->cpu_diff()[i] << "|";
           top_sum += top[0]->cpu_diff()[i];
   }
-  //std::cout << '\n';
   std::cout << "MOLGRID TOP: " << top_sum << '\n';
+  */
 
   Dtype *diff = top[0]->mutable_cpu_diff(); //TODO: implement gpu
 

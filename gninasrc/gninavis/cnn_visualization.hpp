@@ -10,8 +10,8 @@ struct vis_options
 {
   std::string ligand_name;
   std::string receptor_name;
-  std::string receptor_output;
-  std::string ligand_output;
+  bool skip_receptor_output;
+  bool skip_ligand_output;
   std::string additivity;
 
   bool frags_only;
@@ -19,9 +19,9 @@ struct vis_options
   bool verbose;
   bool output_files;
   bool skip_bound_check;
-  bool outputdx;
   int gpu;
 
+  bool outputdx;
   float box_size;
 
   vis_options(): frags_only(false), atoms_only(false), verbose(false),
@@ -33,7 +33,8 @@ class cnn_visualization
     public:
     cnn_visualization(const vis_options &visopts, const cnn_options &cnnopts, const vec &center);
     void lrp();
-    void removal();
+    void gradient_vis();
+    void masking();
     void print();
 
     private:
@@ -56,7 +57,7 @@ class cnn_visualization
     std::vector<std::string> rec_map;
     std::vector<std::string> lig_map;
     float score(const std::string &molString, bool isRec);
-    void write_scores(std::vector<float> scoreList, bool isRec, bool removal);
+    void write_scores(std::vector<float> scoreList, bool isRec, std::string method);
     bool check_in_range(std::unordered_set<int> atomList);
     float transform_score_diff(float diff_val);
     void remove_residues();

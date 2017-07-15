@@ -492,6 +492,10 @@ message AccuracyParameter {
 message AffinityLossParameter {
 	optional float scale = 2 [default = 1.0]; //multiply difference to reduce size of gradient
 	optional float gap = 3 [default = 0.0]; //region of zero gradient
+	optional bool pseudohuber = 4 [default = false]; //use pseudohuber loss with delta as alpha
+	optional float delta = 5 [default = 2.0]; //delta value for pseudohuber, larger -> more L2 like
+	optional float maxgrad = 6 [default = 0.0]; //if set, max value of gradient, dampens with x*max/(x+max) 
+	optional float penalty = 7 [default = 0.0]; //additional spacing for negative values (opposite of gap)
 }
 
 message ArgMaxParameter {
