@@ -15,13 +15,20 @@ void Layer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
             }
             else
             {
+                std::cout << "aborting in default layer\n";
                 abort(); // you need to implement
             }
         }
     }
 }
 
-
+template <typename Dtype>
+void Layer<Dtype>::Backward_relevance_split(const vector<Blob<Dtype>*>& top,
+                const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom,
+                const int blob_to_propagate)
+{
+    Backward_relevance(top, propagate_down, bottom);
+}
 
 INSTANTIATE_CLASS(Layer);
 
