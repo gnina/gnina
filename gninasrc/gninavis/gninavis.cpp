@@ -31,7 +31,9 @@ int main(int argc, char* argv[])
     ("cnn_model", value<std::string>(&cnnopts.cnn_model),
                   "CNN model file (*.model)")
     ("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
-                  "CNN weights file (*.caffemodel)");
+                  "CNN weights file (*.caffemodel)")
+    ("target", value<std::string>(&visopts.target)->default_value(""),
+                  "target for visualization (usually \"pose\" or \"affinity\")");
   
   options_description output("Output");
   output.add_options()

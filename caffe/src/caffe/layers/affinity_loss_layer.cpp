@@ -84,8 +84,12 @@ template <typename Dtype>
 void AffinityLossLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
-    Backward_cpu(top, propagate_down, bottom);
+    //Backward_cpu(top, propagate_down, bottom);
+    std::cout << "aff loss bottom[0]: " << bottom[0]->cpu_data()[0] << '\n';
+    //std::cout << "aff loss bottom[1]: " << bottom[1]->cpu_data()[0] << '\n';
+    bottom[0]->mutable_cpu_diff()[0] = bottom[0]->cpu_data()[0];
 }
+
 
 INSTANTIATE_CLASS(AffinityLossLayer);
 REGISTER_LAYER_CLASS(AffinityLoss);

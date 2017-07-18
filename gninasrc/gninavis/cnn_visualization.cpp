@@ -61,7 +61,8 @@ void cnn_visualization::lrp() {
     receptor.append(ligand);
 
     float aff;
-    std::cout << "CNN SCORE: " << scorer.score(receptor, true) << '\n';
+    std::cout << "CNN SCORE: " << scorer.score(receptor, false, aff, true) << '\n';
+    std::cout << "AFF: " << aff << '\n';
 
 	boost::filesystem::path rec_name_path(visopts.receptor_name);
 	std::string rec_output_name = "lrp_" + rec_name_path.stem().string() + ".xyz";
@@ -69,7 +70,7 @@ void cnn_visualization::lrp() {
 	boost::filesystem::path lig_name_path(visopts.ligand_name);
 	std::string lig_output_name = "lrp_" + lig_name_path.stem().string() + ".xyz";
 
-    scorer.lrp(receptor, rec_output_name, lig_output_name);
+    scorer.lrp(receptor, rec_output_name, lig_output_name, visopts.target);
     std::vector<float> lig_scores = scorer.get_scores_per_atom(false, true);
     std::vector<float> rec_scores = scorer.get_scores_per_atom(true, true);
 

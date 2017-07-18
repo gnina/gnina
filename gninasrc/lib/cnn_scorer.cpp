@@ -176,7 +176,7 @@ std::vector<float> CNNScorer::get_scores_per_atom(bool receptor, bool relevance)
     return scores;
 }
 
-void CNNScorer::lrp(const model& m, const string& recname, const string& ligname)
+void CNNScorer::lrp(const model& m, const string& recname, const string& ligname, const string& target)
 {
     boost::lock_guard<boost::mutex> guard(*mtx);
     
@@ -186,7 +186,14 @@ void CNNScorer::lrp(const model& m, const string& recname, const string& ligname
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
     
     net->Forward();
-    net->Backward_relevance();
+    if(target == "")
+    {
+        net->Backward_relevance();
+    }
+    else
+    {
+        net->Backward_relevance(target);
+    }
    	
 	/*( 
     outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));

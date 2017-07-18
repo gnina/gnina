@@ -49,7 +49,6 @@ void ReLULayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
             bottom_diff[i] = top_diff[i];
     }
 
-    /*
     float top_sum = 0;
     for (int i = 0; i < top[0]->count(); i++)
     {
@@ -64,7 +63,6 @@ void ReLULayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
         bottom_sum += bottom[0]->cpu_diff()[i];
     }
     std::cout << "RELU BOTTOM: " << bottom_sum << '\n';
-    */
 }
 
 

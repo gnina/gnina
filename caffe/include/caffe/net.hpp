@@ -74,7 +74,8 @@ class Net {
   void BackwardFrom(int start);
   void BackwardTo(int end);
 
-  void Backward_relevance();
+  //target is either "pose" or "affinity"
+  void Backward_relevance(std::string target = "");
 
   /**
    * @brief Reshape all layers from bottom to top.

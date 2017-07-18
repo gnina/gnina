@@ -13,6 +13,7 @@ struct vis_options
   bool skip_receptor_output;
   bool skip_ligand_output;
   std::string additivity;
+  std::string target;
 
   bool frags_only;
   bool atoms_only;
