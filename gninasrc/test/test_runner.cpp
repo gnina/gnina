@@ -12,7 +12,6 @@ namespace po = boost::program_options;
 
 parsed_args p_args;
 
-//forward declaration
 void boost_loop_test(void (*func)());
 
 //TODO: when we are running with a boost version > 1.58, start using UTF
@@ -21,13 +20,11 @@ void boost_loop_test(void (*func)());
 BOOST_AUTO_TEST_SUITE(gpucode)
 
 BOOST_AUTO_TEST_CASE(interaction_energy) {
-    void (*interaction_energy_ptr)() = &test_interaction_energy;
-    boost_loop_test(interaction_energy_ptr);
+    boost_loop_test(&test_interaction_energy);
 }
 
 BOOST_AUTO_TEST_CASE(eval_intra) {
-    void (*eval_intra_ptr)() = &test_eval_intra;
-    boost_loop_test(eval_intra_ptr);
+    boost_loop_test(&test_eval_intra);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
@@ -77,29 +74,37 @@ bool init_unit_test()
 }
 
 int main(int argc, char* argv[]) {
-    //TODO: de-uglify
     //The following exists so that passing --help prints both the UTF help and our
-    //specific program options
-    unsigned dummy1;
-    std::string dummy2;
-    bool dummy3 = true;
+    //specific program options - I can't see any way of doing this without
+    //parsing the args twice, because UTF chomps args it thinks it owns
+    unsigned _dumvar1;
+    std::string _dumvar2;
+    bool help = false;
     po::positional_options_description positional;
-    po::options_description _inputs("Input");
-    _inputs.add_options()
-        ("seed,s", po::value<unsigned>(&dummy1), "seed for random number generator")
-        ("log", po::value<std::string>(&dummy2), "specify logfile, default is test.log");
-    po::options_description _info("Information");
-    _info.add_options()
-        ("help", po::bool_switch(&dummy3), "print usage information");
+    po::options_description inputs("Input");
+    inputs.add_options()
+        ("seed,s", po::value<unsigned>(&_dumvar1), "seed for random number generator")
+        ("log", po::value<std::string>(&_dumvar2), "specify logfile, default is test.log");
+    po::options_description info("Information");
+    info.add_options()
+        ("help", po::bool_switch(&help), "print usage information");
     po::options_description desc, desc_simple;
-    desc.add(_inputs).add(_info);
-    desc_simple.add(_inputs).add(_info);
-    std::vector<std::string> raw_input(argv, argv + argc);
-    for (auto& arg : raw_input) {
-        if (arg.find("help") != std::string::npos) {
-            	std::cout << desc_simple << '\n';
-                break;
-            }
+    desc.add(inputs).add(info);
+    desc_simple.add(inputs).add(info);
+    po::variables_map vm;
+    try {
+        po::store(
+                po::command_line_parser(argc, argv).options(desc)
+                .style(
+                    po::command_line_style::default_style
+                    ^ po::command_line_style::allow_guessing)
+                .positional(positional).run(), vm);
+        notify(vm);
+    } catch (po::error& e) {
     }
+    
+    if (help)
+        std::cout << desc_simple << '\n';
+
     return ut::unit_test_main( &init_unit_test, argc, argv );
 }
