@@ -122,35 +122,59 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 }
 
 
-//returns relevance scores per atom
-std::vector<float> CNNScorer::get_relevances(bool receptor)
+//returns relevance or gradient scores per atom
+//assumes necessary pass (backward or backward_relevance) has already been done
+//default is gradient
+std::vector<float> CNNScorer::get_scores_per_atom(bool receptor, bool relevance)
 {
-    vector<float4> atoms;
-    vector<float3> gradient; 
 
     if (receptor)
     {
-        atoms = mgrid->getReceptorAtoms(0);
-        gradient = mgrid->getReceptorGradient(0);
+        mgrid->getReceptorAtoms(0, atoms);
+		if (relevance)
+		{
+        	mgrid->getReceptorGradient(0,gradient, true);
+		}
+		else
+		{
+        	mgrid->getReceptorGradient(0, gradient, false);
+		}
     }
     else
     {
-        atoms = mgrid->getLigandAtoms(0);
-        gradient = mgrid->getLigandGradient(0);
+        mgrid->getLigandAtoms(0, atoms);
+		if (relevance)
+		{
+        	mgrid->getLigandGradient(0, gradient, true);
+		}
+		else
+		{
+        	mgrid->getLigandGradient(0, gradient, false);
+		}
     }
 
-    std::vector<float> relevances(atoms.size());
+    //PDBQT atoms are 1-indexed, cnn_visualization expects index:score mapping
+    std::vector<float> scores(atoms.size() + 1);
 
-    for (unsigned i = 0, n = atoms.size(); i < n; ++i)
+    for (unsigned i = 1, n = gradient.size() + 1; i < n; ++i)
     {
-        //relevances summed to x field of gradient, will be fixed
-        relevances[i] = gradient[i].x;
-        std::cout << "OUTPUT GRADIENT: " << gradient[i].x << '\n';
+		if(relevance)
+		{
+        	scores[i] = gradient[i - 1].x;
+		}
+		else //gradient
+		{
+			//sqrt(x^2 + y^2 + z^2)
+			float x = pow(gradient[i - 1].x, 2);
+			float y = pow(gradient[i - 1].y, 2);
+			float z = pow(gradient[i - 1].z, 2);
+			scores[i] = pow((x + y + z), 0.5);
+		}
+
     }
 
-    return relevances;
+    return scores;
 }
-
 
 void CNNScorer::lrp(const model& m, const string& recname, const string& ligname)
 {
@@ -160,24 +184,59 @@ void CNNScorer::lrp(const model& m, const string& recname, const string& ligname
 
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
-
+    
     net->Forward();
     net->Backward_relevance();
-    
-    //outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
-    outputXYZ(ligname, mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
-    outputXYZ(recname, mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
+   	
+	/*( 
+    outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
+	mgrid->getLigandGradient(0, gradient);
+	mgrid->getLigandAtoms(0, atoms);
+	mgrid->getLigandChannels(0, channels);
+    outputXYZ(ligname, atoms, channels, gradient);
+
+	mgrid->getReceptorGradient(0, gradient);
+	mgrid->getReceptorAtoms(0, atoms);
+	mgrid->getReceptorChannels(0, channels);
+    outputXYZ(recname, atoms, channels, gradient);
+	*/
 }
 
+//do forward and backward pass for gradient visualization
+void CNNScorer::gradient_setup(const model& m, const string& recname, const string& ligname)
+{
+    boost::lock_guard<boost::mutex> guard(*mtx);
+    
+    caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
+
+    mgrid->setReceptor<atom>(m.get_fixed_atoms());
+    mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
+    
+    net->Forward();
+    net->Backward();
+   	
+    //outputXYZ("gradient_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
+	/*
+	mgrid->getLigandGradient(0, gradient);
+	mgrid->getLigandAtoms(0, atoms);
+	mgrid->getLigandChannels(0, channels);
+    outputXYZ(ligname, atoms, channels, gradient);
+
+	mgrid->getReceptorGradient(0, gradient);
+	mgrid->getReceptorAtoms(0, atoms);
+	mgrid->getReceptorChannels(0, channels);
+    outputXYZ(recname, atoms, channels, gradient);
+	*/
+}
 //has an affinity prediction layer
 bool CNNScorer::has_affinity() const
 {
-	return (bool)net->blob_by_name("predaff");
+    return (bool)net->blob_by_name("predaff");
 }
 
 //return score of model, assumes receptor has not changed from initialization
 //if compute_gradient is set, also adds cnn atom gradient to m.minus_forces
-float CNNScorer::score(model& m, bool compute_gradient, float& aff)
+float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 {
 	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
@@ -204,16 +263,23 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff)
 			//has affinity prediction
 			const Dtype* aff = affblob->cpu_data();
 			affinity += aff[0];
-			cout << "#Rotate " << out[1] << " " << aff[0] << "\n";
+			if (!silent)
+			{
+				cout << "#Rotate " << out[1] << " " << aff[0] << "\n";
+			}
 		}
 		else
 		{
-			cout << "#Rotate " << out[1] << "\n";
+			if (!silent)
+			{
+				cout << "#Rotate " << out[1] << "\n";
+			}
 		}
 		if (compute_gradient)
 		{
 			net->Backward();
-			m.add_minus_forces(mgrid->getLigandGradient(0)); //TODO divide by cnt
+			mgrid->getLigandGradient(0, gradient);
+			m.add_minus_forces(gradient); //TODO divide by cnt?
 		}
 		cnt++;
 	}
@@ -226,8 +292,15 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff)
 			net->Backward();
 		const string& ligname = m.get_name() + "_lig";
 		const string& recname = m.get_name() + "_rec";
-		outputXYZ(ligname, mgrid->getLigandAtoms(0), mgrid->getLigandChannels(0), mgrid->getLigandGradient(0));
-		outputXYZ(recname, mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
+		mgrid->getLigandGradient(0, gradient);
+		mgrid->getLigandAtoms(0, atoms);
+		mgrid->getLigandChannels(0, channels);
+		outputXYZ(ligname, atoms, channels, gradient);
+
+		mgrid->getReceptorGradient(0, gradient);
+		mgrid->getReceptorAtoms(0, atoms);
+		mgrid->getReceptorChannels(0, channels);
+		outputXYZ(recname, atoms, channels, gradient);
 	}
 
 	//TODO m.scale_minus_forces(1 / cnt);
@@ -237,75 +310,76 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff)
 
 
 //return only score
-float CNNScorer::score(model& m)
+float CNNScorer::score(model& m, bool silent)
 {
-	float aff = 0;
-	return score(m, false, aff);
+    float aff = 0;
+    return score(m, false, aff, silent);
 }
 
 
 //dump dx files of the diff
-void CNNScorer::outputDX(const string& prefix, double scale, bool relevance)
+void CNNScorer::outputDX(const string& prefix, double scale, const float relevance_eps)
 {
-	const caffe::shared_ptr<Blob<Dtype> > datablob = net->blob_by_name("data");
-	const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
-	if(datablob) {
-		//this is a big more fragile than I would like.. if there is a pooling layer before
-		//the first convoluational of fully connected layer and it is a max pooling layer,
-		//change it to average before the backward to avoid a discontinuous map
-		PoolingLayer<Dtype> *pool = NULL;
-		for(unsigned i = 1, nl = layers.size(); i < nl; i++)
-		{
-			pool = dynamic_cast<PoolingLayer<Dtype>*>(layers[i].get());
-			if(pool)
-				break; //found it
-			else if(layers[i]->type() == string("Convolution"))
-				break; //give up
-			else if(layers[i]->type() == string("InnerProduct"))
-				break;
-		}
-		if(pool) {
-			if(pool->pool() == PoolingParameter_PoolMethod_MAX) {
-				pool->set_pool(PoolingParameter_PoolMethod_AVE);
-			} else {
-				pool = NULL; //no need to reset to max
-			}
-		}
+    const caffe::shared_ptr<Blob<Dtype> > datablob = net->blob_by_name("data");
+    const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
+    if(datablob) {
+        //this is a big more fragile than I would like.. if there is a pooling layer before
+        //the first convoluational of fully connected layer and it is a max pooling layer,
+        //change it to average before the backward to avoid a discontinuous map
+        PoolingLayer<Dtype> *pool = NULL;
+        for(unsigned i = 1, nl = layers.size(); i < nl; i++)
+        {
+            pool = dynamic_cast<PoolingLayer<Dtype>*>(layers[i].get());
+            if(pool)
+                break; //found it
+            else if(layers[i]->type() == string("Convolution"))
+                break; //give up
+            else if(layers[i]->type() == string("InnerProduct"))
+                break;
+        }
+        if(pool) {
+            if(pool->pool() == PoolingParameter_PoolMethod_MAX) {
+                pool->set_pool(PoolingParameter_PoolMethod_AVE);
+            } else {
+                pool = NULL; //no need to reset to max
+            }
+        }
 
-		//must redo backwards with average pooling
-		if(relevance)
-			net->Backward_relevance();
-		else
-			net->Backward();
+        //must redo backwards with average pooling
+        if(relevance_eps > 0)
+        {
+            net->Backward_relevance();
+        }
+        else
+            net->Backward();
 
-		string p = prefix;
-		if(p.length() == 0) p = "dx";
-		mgrid->dumpDiffDX(p, datablob.get(), scale);
+        string p = prefix;
+        if(p.length() == 0) p = "dx";
+        mgrid->dumpDiffDX(p, datablob.get(), scale);
 
-		if(pool) {
-			pool->set_pool(PoolingParameter_PoolMethod_MAX);
-		}
+        if(pool) {
+            pool->set_pool(PoolingParameter_PoolMethod_MAX);
+        }
 
-	}
+    }
 }
 
 
 void CNNScorer::outputXYZ(const string& base, const vector<float4>& atoms, const vector<short>& whichGrid, const vector<float3>& gradient)
 {
-	const char* sym[] = {"C", "C", "C", "C", "Ca", "Fe", "Mg", "N", "N", "N", "N", "O", "O", "P", "S", "Zn",
-			     "C", "C", "C", "C", "Br", "Cl", "F",  "N", "N", "N", "N", "O", "O", "O", "P", "S", "S", "I"};
+    const char* sym[] = {"C", "C", "C", "C", "Ca", "Fe", "Mg", "N", "N", "N", "N", "O", "O", "P", "S", "Zn",
+                 "C", "C", "C", "C", "Br", "Cl", "F",  "N", "N", "N", "N", "O", "O", "O", "P", "S", "S", "I"};
 
-	const string& fname = base + ".xyz";
-	ofstream out(fname.c_str());
-	out.precision(5);
+    ofstream out(base.c_str());
+    out.precision(5);
 
-	out << atoms.size() << "\n\n";
-	for (unsigned i = 0, n = atoms.size(); i < n; ++i)
-	{
-		out << sym[whichGrid[i]] << " ";
-		out << atoms[i].x << " " << atoms[i].y << " " << atoms[i].z << " ";
-		out << gradient[i].x << " " << gradient[i].y << " " << gradient[i].z;
-		if (i + 1 < n) out << "\n";
-	}
+    out << atoms.size() << "\n\n";
+    for (unsigned i = 0, n = atoms.size(); i < n; ++i)
+    {
+        out << sym[whichGrid[i]] << " ";
+        out << atoms[i].x << " " << atoms[i].y << " " << atoms[i].z << " ";
+        out << gradient[i].x << " " << gradient[i].y << " " << gradient[i].z;
+        if (i + 1 < n) out << "\n";
+    }
 }
 

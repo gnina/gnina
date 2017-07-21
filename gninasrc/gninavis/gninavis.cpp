@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
 
   using namespace boost::program_options;
 
-  int vis_method = -1;
+  std::string vis_method;
 
   options_description inputs("Input");
   inputs.add_options()
@@ -32,11 +32,13 @@ int main(int argc, char* argv[])
                   "CNN model file (*.model)")
     ("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
                   "CNN weights file (*.caffemodel)");
-  options_description outputs("Output"); outputs.add_options()
-    ("receptor_output", value<std::string>(&visopts.receptor_output),
-                  "output file for colored receptor (omit to skip receptor coloring)")
-    ("ligand_output", value<std::string>(&visopts.ligand_output),
-                  "output file for colored ligand (omit to skip ligand coloring)");
+  
+  options_description output("Output");
+  output.add_options()
+    ("skip_ligand_output", bool_switch(&visopts.skip_ligand_output),
+                  "skip ligand visualization")
+    ("skip_receptor_output", bool_switch(&visopts.skip_receptor_output),
+                  "skip receptor visualization");
 
   options_description options("Misc options");
   options.add_options()
@@ -50,8 +52,8 @@ int main(int argc, char* argv[])
                   "print full output, including removed atom lists")
     ("gpu", value<int>(&visopts.gpu)->default_value(-1),
                     "gpu id for accelerated scoring")
-    ("vis_method", value<int>(&vis_method)->default_value(0),
-                    "visualization method (default 0 for removal, 1 for lrp, 2 for both)")
+    ("vis_method", value<std::string>(&vis_method)->default_value("removal"),
+                    "visualization method (lrp, removal, gradient, or all)")
     ("outputdx", bool_switch(&visopts.outputdx)->default_value(false),
                    "output DX grid files (lrp only)");
 
@@ -64,7 +66,7 @@ int main(int argc, char* argv[])
     ("skip_bound_check", bool_switch(&visopts.skip_bound_check)->default_value(false),
                     "score all residues, regardless of proximity to ligand");
   options_description desc;
-  desc.add(inputs).add(cnn).add(outputs).add(options).add(debug);
+  desc.add(inputs).add(cnn).add(output).add(options).add(debug);
 
   positional_options_description positional; // remains empty?
   variables_map vm;
@@ -118,12 +120,14 @@ int main(int argc, char* argv[])
     return 1;
   }
 
+	/*
   if(vm.count("receptor_output") <= 0 && vm.count("ligand_output") <= 0)
   {
     std::cerr << "At least one of 'receptor_output' and 'ligand_output' required.\n" << "\nCorrect usage:\n"
             << desc << '\n';
     return 1;
   }
+*/
 
   if(visopts.frags_only && visopts.atoms_only)
   {
@@ -137,17 +141,33 @@ int main(int argc, char* argv[])
 
   cnn_visualization vis = cnn_visualization(visopts, cnnopts, center);
 
-  if (0 == vis_method)
+  if ("masking" == vis_method)
   {
-    vis.removal();
+    vis.masking();
   }
-  if (1 == vis_method)
+  else if ("lrp" == vis_method)
   {
     vis.lrp();
   }
-  if (2 == vis_method)
+  else if ("gradient" == vis_method)
   {
-    vis.removal();
-    vis.lrp();
+	vis.gradient_vis();
+  }
+  else if ("all" == vis_method)
+  {
+	std::cout << "\nGradient\n";
+	std::cout << "------------\n";
+	vis.gradient_vis();
+	std::cout << "\nLRP\n";
+	std::cout << "------------\n";
+	vis.lrp();
+	std::cout << "\nMasking\n";
+	std::cout << "------------\n";
+	vis.masking();
+  }
+  else
+  {
+      std::cerr << "Specified vis_method not known. Use \"removal\", \"lrp\", or \"gradient\"\n";
+      return 1;
   }
 }

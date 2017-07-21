@@ -153,6 +153,7 @@ class Layer {
 
   virtual void Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
   /**
    * @brief Returns the vector of learnable parameter blobs.
    */

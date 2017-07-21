@@ -88,6 +88,77 @@ void NNGridder::outputDXGrid(ostream& out, Grid& grid)
   }
 }
 
+//read a dx file into grid
+bool NNGridder::readDXGrid(istream& in, vec& center, double& res, Grid& grid)
+{
+	string line;
+	vector<string> tokens;
+
+	res = 0;
+	getline(in, line);
+	split(tokens, line, is_any_of(" \t"), token_compress_on);
+	if(tokens.size() != 8) return false;
+	unsigned n = lexical_cast<unsigned>(tokens[7]);
+	if(lexical_cast<unsigned>(tokens[6]) != n) return false;
+	if(lexical_cast<unsigned>(tokens[5]) != n) return false;
+
+	//the center
+	getline(in, line);
+	split(tokens, line, is_any_of(" \t"), token_compress_on);
+	if(tokens.size() != 4) return false;
+	double x = lexical_cast<double>(tokens[1]);
+	double y = lexical_cast<double>(tokens[2]);
+	double z = lexical_cast<double>(tokens[3]);
+
+	//the transformation matrix, which has the resolution
+	getline(in, line);
+	split(tokens, line, is_any_of(" \t"), token_compress_on);
+	if(tokens.size() != 4) return false;
+	res = lexical_cast<float>(tokens[1]);
+
+	getline(in, line);
+	split(tokens, line, is_any_of(" \t"), token_compress_on);
+	if(tokens.size() != 4) return false;
+	if(res != lexical_cast<float>(tokens[2])) return false;
+
+	getline(in, line);
+	split(tokens, line, is_any_of(" \t"), token_compress_on);
+	if(tokens.size() != 4) return false;
+	if(res != lexical_cast<float>(tokens[3])) return false;
+
+	//figure out center
+	double half = res*n/2.0;
+	center[0] = x+half;
+	center[1] = y+half;
+	center[2] = z+half;
+
+	//grid connections
+	getline(in, line);
+	//object 3
+	getline(in, line);
+
+	//data begins
+	grid.resize(extents[n][n][n]);
+	fill_n(grid.data(), grid.num_elements(), 0.0);
+
+	unsigned total = 0;
+	for (unsigned i = 0; i < n; i++)
+	{
+		for (unsigned j = 0; j < n; j++)
+		{
+			for (unsigned k = 0; k < n; k++)
+			{
+				in >> grid[i][j][k];
+				total++;
+			}
+		}
+	}
+	if(total != n*n*n) return false;
+
+	return true;
+}
+
+
 //return a string representation of the atom type(s) represented by index
 //in map - this isn't particularly efficient, but is only for debug purposes
 string NNGridder::getIndexName(const vector<int>& map, unsigned index) const
@@ -117,7 +188,7 @@ string NNGridder::getParamString(bool outputrec, bool outputlig) const
 	unsigned n = dims[0].n + 1;
 	unsigned chan = 0;
 	if (outputrec)
-		chan += receptorGrids.size();
+		chan += receptorGrids.size()+userGrids.size();
 	if (outputlig)
 		chan += ligandGrids.size();
 	return lexical_cast<string>(n) + "." + lexical_cast<string>(chan);
@@ -193,10 +264,14 @@ void NNGridder::outputDX(const string& base)
 void NNGridder::outputBIN(ostream& out, bool outputrec, bool outputlig)
 {
 	unsigned n = dims[0].n + 1;
-	if (outputrec)
+
+	if(outputrec)
 	{
+		//receptor
 		for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
 		{
+			assert(receptorGrids[a].shape()[0] == n);
+
 			for (unsigned i = 0; i < n; i++)
 			{
 				for (unsigned j = 0; j < n; j++)
@@ -211,11 +286,31 @@ void NNGridder::outputBIN(ostream& out, bool outputrec, bool outputlig)
 				}
 			}
 		}
+
+		//user grids
+		for (unsigned a = 0, na = userGrids.size(); a < na; a++)
+		{
+			assert(userGrids[a].shape()[0] == n);
+			for (unsigned i = 0; i < n; i++)
+			{
+				for (unsigned j = 0; j < n; j++)
+				{
+					for (unsigned k = 0; k < n; k++)
+					{
+						out.write((char*) &userGrids[a][i][j][k],
+								sizeof(float));
+					}
+				}
+			}
+		}
 	}
-	if (outputlig)
+
+	if(outputlig)
 	{
+		//ligand
 		for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
 		{
+			assert(ligandGrids[a].shape()[0] == n);
 			for (unsigned i = 0; i < n; i++)
 			{
 				for (unsigned j = 0; j < n; j++)
@@ -229,6 +324,7 @@ void NNGridder::outputBIN(ostream& out, bool outputrec, bool outputlig)
 			}
 		}
 	}
+
 }
 
 void NNGridder::outputMem(vector<float>& out)
@@ -302,6 +398,11 @@ bool NNGridder::compareGrids(Grid& g1, Grid& g2, const char *name, int index)
 
 void NNGridder::setCenter(double x, double y, double z)
 {
+	if(userGrids.size() > 0)
+	{
+		cerr << "Attempting to re-set grid center with user specified grids.\n";
+		abort();
+	}
 	gmaker.setCenter(x,y,z);
 
 	trans = vec(x, y, z);
@@ -391,6 +492,65 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 		}
 	}
 
+	vec savedcenter;
+	userGrids.resize(0); userGrids.reserve(opt.usergrids.size());
+	for(unsigned i = 0, ng = opt.usergrids.size(); i < ng; i++)
+	{
+		//load dx file
+		ifstream gridfile(opt.usergrids[i].c_str());
+		if(!gridfile)
+		{
+			cerr << "Could not open grid file " << opt.usergrids[i] << "\n";
+			abort();
+		}
+		vec gridcenter;
+		double gridres = 0;
+		Grid g;
+		if(!readDXGrid(gridfile,gridcenter, gridres, g))
+		{
+			cerr << "I couldn't understand the provided dx file " << opt.usergrids[i] << ". I apologize for not being more informative and possibly being too picky about my file formats.\n";
+			abort();
+		}
+
+		unsigned npts = g.shape()[0];
+
+		//check resolution/dimensions
+		if(i == 0)
+		{
+			resolution = gridres;
+			savedcenter = gridcenter;
+			dimension = resolution*(npts-1); //fencepost
+			setCenter(savedcenter[0],savedcenter[1],savedcenter[2]);
+		}
+		else
+		{
+			if(gridres != resolution)
+			{
+				cerr << "Inconsistent resolutions in grids: " << gridres << " vs " << resolution << "\n";
+				abort();
+			}
+			double dim = resolution*(npts-1);
+			if(dim != dimension)
+			{
+				cerr << "Inconsistent dimensions in grids: " << dim << " vs " << dimension << "\n";
+				abort();
+			}
+
+			for(unsigned c = 0; c < 3; c++)
+			{
+				if(savedcenter[c] != gridcenter[c])
+				{
+					cerr << "Inconsistent center in grids at position " << c << ": " << savedcenter[c] << " vs " << gridcenter[c] << "\n";
+					abort();
+				}
+			}
+		}
+
+		//add grid
+		userGrids.push_back(g);
+
+	}
+
 }
 
 
@@ -471,34 +631,48 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 	//compute center from ligand
 	const atomv& atoms = m.get_movable_atoms();
 	assert(atoms.size() == m.coordinates().size());
-	vec center(0,0,0);
-	for (unsigned i = 0, n = atoms.size(); i < n; i++)
-	{
-		center += m.coordinates()[i];
-	}
-	center /= atoms.size();
 
-	//apply random modifications
-	if (randrotate)
+	if(userGrids.size() > 0)
 	{
-		double d = rand() / double(RAND_MAX);
-		double r1 = rand() / double(RAND_MAX);
-		double r2 = rand() / double(RAND_MAX);
-		double r3 = rand() / double(RAND_MAX);
-		Q = NNGridder::quaternion(1, r1 / d, r2 / d, r3 / d);
+		//use grid specified by user
+		if(randrotate || randtranslate)
+		{
+			cerr << "Random rotation/translation is not supported with user grids.\n";
+			abort();
+		}
+		//the grid is already set - do nothing
 	}
-
-	if (randtranslate)
+	else //center around ligand
 	{
-		double offx = rand() / double(RAND_MAX / 2.0) - 1.0;
-		double offy = rand() / double(RAND_MAX / 2.0) - 1.0;
-		double offz = rand() / double(RAND_MAX / 2.0) - 1.0;
-		center[0] += offx * randtranslate;
-		center[1] += offy * randtranslate;
-		center[2] += offz * randtranslate;
-	}
+		vec center(0,0,0);
+		for (unsigned i = 0, n = atoms.size(); i < n; i++)
+		{
+			center += m.coordinates()[i];
+		}
+		center /= atoms.size();
 
-	setCenter(center[0], center[1], center[2]);
+		//apply random modifications
+		if (randrotate)
+		{
+			double d = rand() / double(RAND_MAX);
+			double r1 = rand() / double(RAND_MAX);
+			double r2 = rand() / double(RAND_MAX);
+			double r3 = rand() / double(RAND_MAX);
+			Q = NNGridder::quaternion(1, r1 / d, r2 / d, r3 / d);
+		}
+
+		if (randtranslate)
+		{
+			double offx = rand() / double(RAND_MAX / 2.0) - 1.0;
+			double offy = rand() / double(RAND_MAX / 2.0) - 1.0;
+			double offz = rand() / double(RAND_MAX / 2.0) - 1.0;
+			center[0] += offx * randtranslate;
+			center[1] += offy * randtranslate;
+			center[2] += offz * randtranslate;
+		}
+
+		setCenter(center[0], center[1], center[2]);
+	}
 
 	//set constant arrays if needed
 	if(recAInfo.size() == 0 || reinitrec)

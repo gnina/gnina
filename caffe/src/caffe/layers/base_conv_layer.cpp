@@ -7,7 +7,6 @@
 #include "caffe/util/math_functions.hpp"
 
 namespace caffe {
-
 template <typename Dtype>
 void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
@@ -390,11 +389,10 @@ void BaseConvolutionLayer<Dtype>::backward_gpu_bias(Dtype* bias,
 }
 
 template <typename Dtype>
-Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
-    const Dtype* upper_relevances,
-    const Dtype* weights, const Dtype* input,
+void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
+    const Dtype* upper_relevances, const Dtype* top_data,
+    const Dtype* weights, const Dtype* bottom_data,
     Dtype * lower_relevances) 
-
 {
     int K = kernel_dim_;
     int I = conv_out_spatial_dim_;
@@ -403,82 +401,91 @@ Dtype* BaseConvolutionLayer<Dtype>::alphabeta(
     //weights are R x K
     //upper relevances are R x I
 
-    float beta = 1;
-    float alpha = 2;
+    const Dtype* bottom_data_buffer = bottom_data;
+    conv_im2col_cpu(bottom_data, col_buffer_.mutable_cpu_data());
+    bottom_data_buffer = col_buffer_.cpu_data();
 
-    const Dtype* col_buff = col_buffer_.cpu_data();
+    //for some reason it's necessary to make another blob for buffer values
+    Blob<Dtype> buffer_blob(col_buffer_.shape());
 
-    Dtype * col_buff_new = col_buffer_.mutable_cpu_diff();
-    memset(col_buff_new, 0, sizeof(Dtype) * col_buffer_.count());
+    //used to store upper_relevance / top_data
+    Dtype * top_buffer = buffer_blob.mutable_cpu_diff();
+    caffe_copy<Dtype>(R*I, upper_relevances, top_buffer); 
 
-    Blob<Dtype> pos_sums(1,1,R,I);
-    Blob<Dtype> neg_sums(1,1,R,I);
-    Dtype* pos_sums_data = pos_sums.mutable_cpu_data();
-    Dtype* neg_sums_data = neg_sums.mutable_cpu_data();
+    //used to store lower_relevances before col2im transformation
+    Dtype * relevance_buffer = col_buffer_.mutable_cpu_diff();
+    memset(relevance_buffer, 0, sizeof(Dtype) * col_buffer_.count());
 
-    //x is col_buff[k, i]
-    //w is weights[r, k]
+    Dtype zero_top_data_sum = 0;
+    Dtype total_top_data = 0;
 
-    for (int g = 0; g < group_; ++g)
+    int top_size = R * I;
+    int numzero = 0; 
+    //sum up relevance coming from top nodes with value of 0
+    //also sum up total relevance for proportion calculation
+    for(int i = 0; i < top_size; i++)
     {
-        memset(pos_sums_data, 0, sizeof(Dtype) * R * I);
-        memset(neg_sums_data, 0, sizeof(Dtype) * R * I);
-        
-        //sum bottom data inputs * weights + bias
-        for (long i = 0; i < I; ++i)
+        Dtype bias = this->blobs_[1]->cpu_data()[i/I];
+        Dtype val = top_data[i] - bias;
+        if (val == 0)
         {
-            for (long r = 0; r < R; ++r)
-            {
-                Dtype bias = this->blobs_[1]->cpu_data()[r] * bias_multiplier_.cpu_data()[i];
-                for (long k = 0; k < K; ++k)
-                {
-                	Dtype val = col_buff[col_offset_ * g + k * I + i]
-                                         * weights[weight_offset_ * g + r * K + k] +
-                                         + bias / K;
-                    pos_sums_data[r * I + i] += std::max(Dtype(0.), val);
-
-                    neg_sums_data[r * I + i] += std::min(Dtype(0.), val);
-                }
-            }
+            zero_top_data_sum += top_buffer[i];
+	    numzero++;
         }
-
-        for (long i = 0; i < I; ++i)
-        {
-            for (long r = 0; r < R; ++r)
-            {
-                Dtype bias = this->blobs_[1]->cpu_data()[r] * bias_multiplier_.cpu_data()[i];
-
-                Dtype z1 = 0;
-                Dtype z2 = 0;
-                if (pos_sums_data[r * I + i] > 0)
-                {
-                    z1 = upper_relevances[output_offset_ * g + r * I + i]
-                        / pos_sums_data[r * I + i];
-                }
-                if (neg_sums_data[r * I + i] < 0)
-                {
-                    z2 = upper_relevances[output_offset_ * g + r * I + i]
-                        / neg_sums_data[r * I + i];
-                }
-
-
-                for(long k = 0; k < K; ++k)
-                {
-                	Dtype val = col_buff[col_offset_ * g + k * I + i]
-                                         * weights[weight_offset_ * g + r * K + k]
-                                         + bias / K;
-                    col_buff_new[col_offset_ * g + k * I + i] +=
-                        alpha * std::max(Dtype(0.), val) * z1
-                        - beta * std::min(Dtype(0.), val) * z2;
-                }
-            }
-        }
+        total_top_data += val;
+    }
+    std::cout << "Zero fraction: " << numzero/(float)top_size << "\n";
+    //redistribute relevance from dead nodes proportionally to those remaining
+    for(int i = 0; i < top_size; i++)
+    {
+        Dtype bias = this->blobs_[1]->cpu_data()[i/I];
+        Dtype val = top_data[i] - bias;
+        top_buffer[i] += (val / total_top_data) * zero_top_data_sum;
     }
 
-    //memset(col_buff_new, 10, sizeof(Dtype) * col_buffer_.count());
-    conv_col2im_cpu(col_buff_new, lower_relevances);
+    //divide relevance by top_data
+    for(int c = 0; c < top_size; ++c)
+    {
+        Dtype bias = this->blobs_[1]->cpu_data()[c/I];
+        Dtype val = top_data[c] - bias;
 
-    return lower_relevances;
+        if(val > 0)
+        {
+            top_buffer[c] /=  val;
+        }
+        else if(val < 0)
+        {
+            top_buffer[c] /=  val;
+        }
+        else
+        {
+            top_buffer[c] = 0;
+        }
+        
+    }
+
+    //multiply (relevance / top_data) *  (inputs * weights)
+    for (int g = 0; g < group_; ++g) 
+    {
+        for (long i = 0; i < I; ++i)
+        {
+            for (long r = 0; r < R; ++r)
+            {
+                for (long k = 0; k < K; ++k)
+                {
+                    Dtype top_rel = top_buffer[r * I + i]; //already relevance / top_data
+                    Dtype bottom_data  = bottom_data_buffer[col_offset_ * g + k * I + i]; //transformed bottom data
+                    Dtype weight = weights[weight_offset_ * g + r * K + k];
+                    Dtype val = bottom_data * weight * top_rel;
+                    relevance_buffer[col_offset_ * g + k * I + i] += val;
+                }
+            }
+        }
+
+    }
+
+    //transform back to original dimensions
+    conv_col2im_cpu(relevance_buffer, lower_relevances); 
 }
 
 

@@ -82,6 +82,8 @@ struct user_settings
 	bool include_atom_info;
 	bool gpu_on;
     bool true_score;
+
+    cnn_options cnnopts;
 	bool cnn_scoring;
 
 	//reasonable defaults
@@ -145,7 +147,7 @@ fl do_randomization(model& m, const vec& corner1,
 		log << "Using random seed: " << seed;
 		log.endl();
 	}
-	const sz attempts = 10000;
+	const sz attempts = 100;
 	conf best_conf = init_conf;
 	fl best_clash_penalty = 0;
 	VINA_FOR(i, attempts)
@@ -158,6 +160,7 @@ fl do_randomization(model& m, const vec& corner1,
 		{
 			best_conf = c;
 			best_clash_penalty = penalty;
+			if(penalty == 0) break;
 		}
 	}
 	m.set(best_conf);
@@ -496,9 +499,11 @@ void main_procedure(model& m, precalculate& prec,
 	const fl slope = 1e6; // FIXME: too large? used to be 100
 	if (settings.randomize_only)
 	{
-		fl e = do_randomization(m, corner1, corner2, settings.seed,
+		for(unsigned i = 0; i < settings.num_modes; i++) {
+			fl e = do_randomization(m, corner1, corner2, settings.seed+i,
 				settings.verbosity, log);
-		results.push_back(result_info(e, -1, 0, -1, m));
+			results.push_back(result_info(e, -1, 0, -1, m));
+		}
 		return;
 	}
 	else
@@ -506,9 +511,8 @@ void main_procedure(model& m, precalculate& prec,
 		non_cache *nc = NULL;
 		if (settings.gpu_on)
 		{
-			if (settings.cnn_scoring)
+			if (settings.cnnopts.cnn_scoring)
 			{
-                                //TODO implement non_cache_cnn_gpu
 				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
 			}
 			else
@@ -521,7 +525,7 @@ void main_procedure(model& m, precalculate& prec,
 		}
 		else
 		{
-			if (settings.cnn_scoring)
+			if (settings.cnnopts.cnn_scoring)
 			{
 				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
 			}
@@ -939,7 +943,7 @@ void write_out(std::vector<result_info> &results, ozfile &outfile,
 		//write out flexible residue data data
 		for (unsigned j = 0, nr = results.size(); j < nr; j++)
 		{
-			results[j].writeFlex(outflex, outfext);
+			results[j].writeFlex(outflex, outfext,j+1);
 		}
 	}
 	if (atomoutfile)
@@ -1067,8 +1071,9 @@ Thank you!\n";
 		bool strip_hydrogens = false;
 		bool no_lig = false;
 
-		cnn_options cnnopts;
 		user_settings settings;
+		cnn_options& cnnopts = settings.cnnopts;
+
 		minimization_params minparms;
 		ApproxType approx = LinearApprox;
 		fl approx_factor = 32;
@@ -1576,45 +1581,55 @@ Thank you!\n";
 				&outflex, &outfext, &nligs, &ligcount_final);
 
 
-		//loop over input ligands, adding them to the work queue
-		for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
-		{
-			doing(settings.verbosity, "Reading input", log);
-			const std::string ligand_name = ligand_names[l];
-			mols.setInputFile(ligand_name);
-
-			unsigned i = 0;
-
-			for (;;)
+		try {
+			//loop over input ligands, adding them to the work queue
+			for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
 			{
-				model* m = new model;
+				doing(settings.verbosity, "Reading input", log);
+				const std::string ligand_name = ligand_names[l];
+				mols.setInputFile(ligand_name);
 
-				if (!mols.readMoleculeIntoModel(*m))
+				unsigned i = 0;
+
+				for (;;)
 				{
-					delete m;
-					break;
+					model* m = new model;
+
+					if (!mols.readMoleculeIntoModel(*m))
+					{
+						delete m;
+						break;
+					}
+
+					if (settings.local_only || settings.true_score)
+					{
+						gd = m->movable_atoms_box(autobox_add, granularity);
+					}
+
+					if (settings.local_only && settings.true_score) {
+						m->print_during_minimization = true;
+						m->gdata.print_during_minimization = true;
+					}
+
+					done(settings.verbosity, log);
+					std::vector<result_info>* results =
+							new std::vector<result_info>();
+					worker_job j(i, m, results, gd);
+					wrkq.push(j);
+
+					i++;
+					if (no_lig)
+						break;
 				}
-
-				if (settings.local_only || settings.true_score)
-				{
-					gd = m->movable_atoms_box(autobox_add, granularity);
-				}
-
-                if (settings.local_only && settings.true_score) {
-                    m->print_during_minimization = true;
-                    m->gdata.print_during_minimization = true;
-                }
-
-				done(settings.verbosity, log);
-				std::vector<result_info>* results =
-						new std::vector<result_info>();
-				worker_job j(i, m, results, gd);
-				wrkq.push(j);
-
-				i++;
-				if (no_lig)
-					break;
 			}
+		} catch (...)
+		{
+			//clean up threads before passing along exception
+			work_done = true;
+			worker_threads.join_all();
+			writer_thread.join();
+	        cudaDeviceSynchronize();
+			throw;
 		}
 
 		//join all the threads when their work is done
