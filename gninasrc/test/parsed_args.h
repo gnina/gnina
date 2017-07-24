@@ -5,6 +5,7 @@
 struct parsed_args {
     unsigned seed;
     bool many_iters;
+    unsigned n_iters;
     unsigned iter_count;
     tee log;
     std::vector<unsigned> params;

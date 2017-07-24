@@ -14,6 +14,7 @@
 #include "test_utils.h"
 #define BOOST_TEST_DYN_LINK
 #include <boost/test/unit_test.hpp>
+#include <boost/test/floating_point_comparison.hpp>
 
 extern parsed_args p_args;
 
@@ -167,12 +168,12 @@ void test_interaction_energy() {
     print_mol(lig_atoms, lig_types, p_args.log);
     p_args.log << "CPU energy: " << c_out << " GPU energy: " << g_out << "\n\n";
 
-    BOOST_CHECK_CLOSE(c_out, g_out, 0.0001);
+    BOOST_REQUIRE_SMALL(c_out - g_out, (float)0.01);
     //TODO: enhanced boost collections support in more recent versions will
     //improve concision for this check
     for (size_t i=0; i<m->minus_forces.size(); ++i)
         for (size_t j=0; j<3; ++j)
-            BOOST_CHECK_CLOSE(m->minus_forces[i][j], g_forces[i][j], 0.01);
+            BOOST_REQUIRE_SMALL(m->minus_forces[i][j] - g_forces[i][j], (float)0.01);
 
     //clean up after yourself
     delete nc;
@@ -267,10 +268,10 @@ void test_eval_intra() {
     print_mol(atoms, types, p_args.log);
     p_args.log << "CPU energy: " << c_out << " GPU energy: " << g_out << "\n\n";
 
-    BOOST_CHECK_CLOSE(c_out, g_out, 0.0001);
+    BOOST_REQUIRE_SMALL(c_out - g_out, (float)0.01);
     for (size_t i=0; i<m->minus_forces.size(); ++i)
         for (size_t j=0; j<3; ++j)
-            BOOST_CHECK_CLOSE(m->minus_forces[i][j], g_forces[i][j], 0.01);
+            BOOST_REQUIRE_SMALL(m->minus_forces[i][j] -  g_forces[i][j], (float)0.01);
 
     //clean up
     m->deallocate_gpu();
