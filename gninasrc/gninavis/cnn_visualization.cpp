@@ -53,16 +53,12 @@ void cnn_visualization::lrp() {
     model receptor = parse_receptor_pdbqt("", rec_stream);
     CNNScorer scorer(cnnopts, *center, receptor);
 
-    std::cout << "has_affinity: " << scorer.has_affinity() << '\n';
-
     std::stringstream lig_stream(lig_string);
     model ligand = parse_ligand_stream_pdbqt("", lig_stream);
 
     receptor.append(ligand);
 
     float aff;
-    std::cout << "CNN SCORE: " << scorer.score(receptor, false, aff, true) << '\n';
-    std::cout << "AFF: " << aff << '\n';
 
 	boost::filesystem::path rec_name_path(visopts.receptor_name);
 	std::string rec_output_name = "lrp_" + rec_name_path.stem().string() + ".xyz";
@@ -70,7 +66,7 @@ void cnn_visualization::lrp() {
 	boost::filesystem::path lig_name_path(visopts.ligand_name);
 	std::string lig_output_name = "lrp_" + lig_name_path.stem().string() + ".xyz";
 
-    scorer.lrp(receptor, rec_output_name, lig_output_name, visopts.target);
+    scorer.lrp(receptor, rec_output_name, lig_output_name, visopts.layer_to_ignore);
     std::vector<float> lig_scores = scorer.get_scores_per_atom(false, true);
     std::vector<float> rec_scores = scorer.get_scores_per_atom(true, true);
 

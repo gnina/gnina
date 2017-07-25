@@ -32,8 +32,8 @@ int main(int argc, char* argv[])
                   "CNN model file (*.model)")
     ("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
                   "CNN weights file (*.caffemodel)")
-    ("target", value<std::string>(&visopts.target)->default_value(""),
-                  "target for visualization (usually \"pose\" or \"affinity\")");
+    ("ignore_layer", value<std::string>(&visopts.layer_to_ignore)->default_value(""),
+                  "zero values in layer with provided name, in the case of split output");
   
   options_description output("Output");
   output.add_options()

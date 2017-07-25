@@ -980,95 +980,23 @@ const shared_ptr<Layer<Dtype> > Net<Dtype>::layer_by_name(
 }
 
 template<typename Dtype>
-void Net<Dtype>::Backward_relevance(std::string target){
+void Net<Dtype>::Backward_relevance(std::string layer_to_ignore){
 
     int end = 0 ;
     int start = layers_.size()-1;
 
-    //behave normally, propagate through all layers
-    if(target == "")
+    for(int i = start; i >= end; i--)
     {
-        for(int i = start; i >= end; i--)
+        //zero out layer if specified
+        if (layer_names_[i] == layer_to_ignore)
         {
-            if (layer_need_backward_[i]) 
-            {
-                layers_[i]->Backward_relevance(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
-            }
+            int blob_count = top_vecs_[i][0]->count();
+            Dtype* top_diff = top_vecs_[i][0]->mutable_cpu_diff();
+            caffe_set(blob_count, static_cast<Dtype>(0), top_diff);
         }
-    }
-    else
-    {
-        int split_layer_id = -1;
-        int aff_fc_id = -1;
-        int output_fc_id = -1;
-
-        int blob_to_propagate;
-
-        //determine layer order for choosing correct top blob to propagate down
-        //higher layer will be top[1], lower will be top[0]
-        for (int i = start; i >= end; --i) {
-            if(layer_names()[i] == "split_guy_split_guy_0_split")
-            {
-                split_layer_id = i;
-            }
-            else if (layer_names()[i] == "output_fc")
-            {
-                output_fc_id = i;
-            }
-            else if (layer_names()[i] == "output_fc_aff")
-            {
-                aff_fc_id  = i;
-            }
-        }
-
-        if (split_layer_id < 0 || output_fc_id < 0 || aff_fc_id < 0)
+        if (layer_need_backward_[i]) 
         {
-            std::cout << "layers not detected correctly, aborting...\n";
-            abort();
-        }
-
-        if("affinity" == target)
-        {
-            if(output_fc_id < aff_fc_id)
-            {
-                blob_to_propagate = 1;
-            }
-            else
-            {
-                blob_to_propagate = 0;
-            }
-        }
-        else if("pose" == target)
-        {
-            if(output_fc_id < aff_fc_id)
-            {
-                blob_to_propagate = 0;
-            }
-            else
-            {
-                blob_to_propagate = 1;
-            }
-        }
-        else
-        {
-            std::cout << "lrp target is neither \"pose\" nor \"affinity\", aborting...\n";
-            abort();
-        }
-
-        for (int i = start; i >= end; --i) 
-        {
-            if (layer_need_backward_[i]) 
-            {
-                if(i == split_layer_id)
-                {
-                    layers_[i]->Backward_relevance_split(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i], 
-                            blob_to_propagate);
-                }
-                else
-                {
-                    layers_[i]->Backward_relevance(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
-                }
-            }
+            layers_[i]->Backward_relevance(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
         }
     }
 }
