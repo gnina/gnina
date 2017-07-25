@@ -154,10 +154,6 @@ class Layer {
   virtual void Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
-  virtual void Backward_relevance_split(const vector<Blob<Dtype>*>& top,
-    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom,
-    const int blob_to_propagate = -1);
-
   /**
    * @brief Returns the vector of learnable parameter blobs.
    */

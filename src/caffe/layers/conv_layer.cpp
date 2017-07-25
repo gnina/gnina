@@ -80,6 +80,7 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
     //recalculate z_ij, otherwise relu is applied
     Forward_cpu(bottom, top);
 
+    /*
     Dtype top_sum = 0;
 
     for(int i = 0; i < top[0]->count(); ++i)
@@ -87,6 +88,7 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
         top_sum += top[0]->cpu_diff()[i];
     }
     std::cout << "CONV TOP SUM: " << top_sum << '\n';
+    */
 
     const Dtype* weight = this->blobs_[0]->cpu_data();
 
@@ -103,12 +105,14 @@ void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
         this->manual_relevance_backward(top_diff, top_data, weight, bottom_data, bottom_diff);
     }
 
+    /*
     float bottom_sum = 0;
     for (int i = 0; i < bottom[0]->count(); ++i)
     {
         bottom_sum += bottom[0]->cpu_diff()[i];
     }
     std::cout << "CONV BOTTOM SUM: " << bottom_sum << '\n';
+    */
 
 }
 
