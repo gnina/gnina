@@ -176,7 +176,7 @@ std::vector<float> CNNScorer::get_scores_per_atom(bool receptor, bool relevance)
     return scores;
 }
 
-void CNNScorer::lrp(const model& m, const string& recname, const string& ligname, const string& target)
+void CNNScorer::lrp(const model& m, const string& recname, const string& ligname, const string& layer_to_ignore)
 {
     boost::lock_guard<boost::mutex> guard(*mtx);
     
@@ -186,7 +186,7 @@ void CNNScorer::lrp(const model& m, const string& recname, const string& ligname
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
     
     net->Forward();
-    if(target == "")
+    if(layer_to_ignore == "")
     {
         net->Backward_relevance();
     }

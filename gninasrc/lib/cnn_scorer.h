@@ -70,7 +70,7 @@ public:
                const vector<short>& whichGrid, const vector<float3>& gradient);
     std::vector<float> get_scores_per_atom(bool receptor, bool relevance = false);
 
-    void lrp(const model& m, const string& recname, const string& ligname, const string& target = "");
+    void lrp(const model& m, const string& recname, const string& ligname, const string& layer_to_ignore = "");
     void gradient_setup(const model& m, const string& recname, const string& ligname);
 };
 
