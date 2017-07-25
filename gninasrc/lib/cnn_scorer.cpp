@@ -192,7 +192,7 @@ void CNNScorer::lrp(const model& m, const string& recname, const string& ligname
     }
     else
     {
-        net->Backward_relevance(target);
+        net->Backward_relevance(layer_to_ignore);
     }
    	
 	/*( 

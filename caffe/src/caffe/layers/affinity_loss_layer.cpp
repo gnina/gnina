@@ -22,6 +22,7 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   Dtype delta = this->layer_param_.affinity_loss_param().delta();
   Dtype penalty = this->layer_param_.affinity_loss_param().penalty();
   bool huber = this->layer_param_.affinity_loss_param().pseudohuber();
+  Dtype ranklossm = this->layer_param_.affinity_loss_param().ranklossmult();
 
   Dtype delta2 = delta*delta;
   const Dtype *labels = bottom[1]->cpu_data();
@@ -60,7 +61,29 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 
   }
 
-  Dtype loss = sum / bottom[0]->num() / Dtype(2);
+  Dtype rankloss = 0;
+  if(ranklossm > 0) {
+    //compute a rank loss
+    nranklosspairs = 0; //save for backwards
+    int num = bottom[0]->num();
+    for (unsigned i = 0; i < num; i++) {
+      Dtype labeli = labels[i];
+      for (unsigned j = i + 1; j < num; j++) {
+          Dtype labelj = labels[j];
+          //correctly rank good poses
+          if( (labeli > 0 && labelj > 0) ||
+              //and bad-good poses where the bad can't be better than good
+              (labeli > 0 && labelj < 0 && labeli > -labelj) ||
+              (labeli < 0 && labelj > 0 && labelj > -labeli)) {
+            rankloss += compute_pair_loss(bottom, i, j, ranklossm);
+            nranklosspairs++;
+          }
+        }
+    }
+    rankloss /= nranklosspairs;
+  }
+
+  Dtype loss = sum / bottom[0]->num() / Dtype(2) + rankloss;
   top[0]->mutable_cpu_data()[0] = loss;
 }
 
@@ -72,6 +95,8 @@ void AffinityLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   Dtype scale = this->layer_param_.affinity_loss_param().scale();
   Dtype delta = this->layer_param_.affinity_loss_param().delta();
   Dtype maxgrad = this->layer_param_.affinity_loss_param().maxgrad();
+  Dtype ranklossm = this->layer_param_.affinity_loss_param().ranklossmult();
+  const Dtype *labels = bottom[1]->cpu_data();
 
   for (int i = 0; i < 2; ++i) {
     if (propagate_down[i]) {
@@ -80,7 +105,7 @@ void AffinityLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
         //x/(1+(x/delta)^2)
         const Dtype *diff = diff_.cpu_data();
         Dtype *out = bottom[i]->mutable_cpu_diff();
-	Dtype mult = sign * scale * top[0]->cpu_diff()[0] / bottom[i]->num();
+        Dtype mult = sign * scale * top[0]->cpu_diff()[0] / bottom[i]->num();
         for(unsigned j = 0, n = bottom[i]->count(); j < n; j++) {
           Dtype x = diff[j];
           Dtype val = x/delta;
@@ -98,21 +123,85 @@ void AffinityLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     }
   }
 
-  if(maxgrad > 0) {
-	  //cap the maximum value of the gradient
-	  for(unsigned i = 0, n = bottom[0]->num(); i < n; i++) {
-		  Dtype x = bottom[0]->cpu_diff()[i];
-		  Dtype sign = x < 0 ? -1 : 1;
-		  x = fabs(x);
-		  bottom[0]->mutable_cpu_diff()[i] = sign*maxgrad*x/(x+maxgrad);
-	  }
+
+  if(ranklossm > 0) {
+    //compute a rank loss
+    int num = bottom[0]->num();
+    for (unsigned i = 0; i < num; i++) {
+      Dtype labeli = labels[i];
+      for (unsigned j = i + 1; j < num; j++) {
+          Dtype labelj = labels[j];
+          //correctly rank good poses
+          if( (labeli > 0 && labelj > 0) ||
+              //and bad-good poses where the bad can't be better than good
+              (labeli > 0 && labelj < 0 && labeli > -labelj) ||
+              (labeli < 0 && labelj > 0 && labelj > -labeli)) {
+              compute_pair_gradient(top, bottom, i, j, ranklossm);
+          }
+        }
+    }
   }
- /* 
+
+
+  if(maxgrad > 0) {
+      //cap the maximum value of the gradient
+      for(unsigned i = 0, n = bottom[0]->num(); i < n; i++) {
+          Dtype x = bottom[0]->cpu_diff()[i];
+          Dtype sign = x < 0 ? -1 : 1;
+          x = fabs(x);
+          bottom[0]->mutable_cpu_diff()[i] = sign*maxgrad*x/(x+maxgrad);
+      }
+  }
+  /*
   LOG(INFO) << "AFFGRADS";
    for(unsigned i = 0, n = bottom[0]->num(); i < n; i++) {
    LOG(INFO) << bottom[0]->cpu_diff()[i];
    }
-  */
+   */
+}
+
+template<typename Dtype>
+Dtype AffinityLossLayer<Dtype>::compute_pair_loss(
+        const vector<Blob<Dtype>*>& bottom, unsigned i, unsigned j, Dtype mult) {
+    //bottom[0] should be scores
+    //bottom[1] should be labels
+    //scores can have one or two value (in which case binary classification is assumed)
+    const Dtype* bottom_data = bottom[0]->cpu_data();
+    const Dtype* bottom_label = bottom[1]->cpu_data();
+    int num = bottom[0]->num();
+    int dim = bottom[0]->count() / bottom[0]->num();
+    Dtype loss = 0;
+    Dtype si = 0, sj = 0;
+
+    CHECK_LT(i, num)<< "RankLoss: invalid index i";
+    CHECK_LT(j, num)<< "RankLoss: invalid index j";
+
+    if (dim == 1) {
+        //single scores
+        si = fabs(bottom_data[i]);
+        sj = fabs(bottom_data[j]);
+    } else {
+        CHECK(false) << "RankLoss requires single score per example or binary class probabilities.";
+    }
+
+    Dtype Li = bottom_label[i];
+    Dtype Lj = bottom_label[j];
+    Dtype diff = si - sj;
+    Dtype ediff = exp(diff);
+    Dtype Pij =  1.0;
+    if(std::isfinite(ediff))
+        Pij = ediff / (1 + ediff);
+
+    if (Li > Lj) {
+        Pij = std::max(Pij, Dtype(kLOG_THRESHOLD));
+        loss = -log(Pij);
+    } else {
+        Dtype val = 1-Pij;
+        val = std::max(val, Dtype(kLOG_THRESHOLD));
+        loss = -log(val);
+    }
+//LOG(INFO) << "RANKPAIRLOSS " << i <<","<<j<<" "<<loss<< " " << Pij << " " << ediff << " s: " << si << "," << sj << " L: " << Li << "," << Lj;
+    return mult*loss;
 }
     
 template <typename Dtype>
@@ -123,6 +212,56 @@ void AffinityLossLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& to
     bottom[0]->mutable_cpu_diff()[0] = bottom[0]->cpu_data()[0];
 }
 
+template<typename Dtype>
+void AffinityLossLayer<Dtype>::compute_pair_gradient(
+        const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom,
+        unsigned i, unsigned j, Dtype mult) {
+    const Dtype* bottom_data = bottom[0]->cpu_data();
+    const Dtype* bottom_label = bottom[1]->cpu_data();
+    Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
+
+    int num = bottom[0]->num();
+    int dim = bottom[0]->count() / bottom[0]->num();
+    Dtype si = 0, sj = 0;
+
+    CHECK_LT(i, num)<< "RankLoss: invalid index i";
+    CHECK_LT(j, num)<< "RankLoss: invalid index j";
+
+    if (dim == 1) {
+        //single scores
+        si = fabs(bottom_data[i]);
+        sj = fabs(bottom_data[j]);
+    } else {
+        CHECK(false) << "RankLoss requires single score per example or binary class probabilities.";
+    }
+
+    Dtype Li = bottom_label[i];
+    Dtype Lj = bottom_label[j];
+    Dtype diff = si-sj;
+    Dtype ediff = exp(diff);
+    Dtype d = 0;
+    if(std::isfinite(ediff))
+        d = - 1.0 / (1.0+exp(diff));
+
+    if(Li < Lj) {
+        //reverse sign
+        d = -d;
+    }
+
+    //scale by number of pairs, which is computed in forward
+    CHECK_GT(nranklosspairs, 0) << "Invalid nranklosspairs";
+    d /= nranklosspairs; //and also by batch size
+    //also by total loss
+    Dtype scale = top[0]->cpu_diff()[0];
+    d *= scale*mult; //and mult
+
+    if(dim == 1) {
+        bottom_diff[i] += d;
+        bottom_diff[j] += -d;
+        //LOG(INFO) << "RANKLOSS1 " << i << " L:" << Li << " s:" << si << " "<< d << "\t" << j << " L:" << Lj << " s:" << sj << " " << -d << "\n";
+
+    }
+}
 INSTANTIATE_CLASS(AffinityLossLayer);
 REGISTER_LAYER_CLASS(AffinityLoss);
 
