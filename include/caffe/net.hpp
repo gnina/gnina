@@ -74,7 +74,7 @@ class Net {
   void BackwardFrom(int start);
   void BackwardTo(int end);
 
-  //target is either "pose" or "affinity"
+  //zeros values in specified layer (in the case of split output)
   void Backward_relevance(std::string layer_to_ignore = "");
 
   /**
