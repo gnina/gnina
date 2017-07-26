@@ -203,6 +203,14 @@ Dtype AffinityLossLayer<Dtype>::compute_pair_loss(
 //LOG(INFO) << "RANKPAIRLOSS " << i <<","<<j<<" "<<loss<< " " << Pij << " " << ediff << " s: " << si << "," << sj << " L: " << Li << "," << Lj;
     return mult*loss;
 }
+    
+template <typename Dtype>
+void AffinityLossLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
+{
+    //Backward_cpu(top, propagate_down, bottom);
+    bottom[0]->mutable_cpu_diff()[0] = bottom[0]->cpu_data()[0];
+}
 
 template<typename Dtype>
 void AffinityLossLayer<Dtype>::compute_pair_gradient(

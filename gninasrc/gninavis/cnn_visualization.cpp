@@ -59,7 +59,6 @@ void cnn_visualization::lrp() {
     receptor.append(ligand);
 
     float aff;
-    std::cout << "CNN SCORE: " << scorer.score(receptor, true) << '\n';
 
 	boost::filesystem::path rec_name_path(visopts.receptor_name);
 	std::string rec_output_name = "lrp_" + rec_name_path.stem().string() + ".xyz";
@@ -67,7 +66,7 @@ void cnn_visualization::lrp() {
 	boost::filesystem::path lig_name_path(visopts.ligand_name);
 	std::string lig_output_name = "lrp_" + lig_name_path.stem().string() + ".xyz";
 
-    scorer.lrp(receptor, rec_output_name, lig_output_name);
+    scorer.lrp(receptor, rec_output_name, lig_output_name, visopts.layer_to_ignore);
     std::vector<float> lig_scores = scorer.get_scores_per_atom(false, true);
     std::vector<float> rec_scores = scorer.get_scores_per_atom(true, true);
 
@@ -310,8 +309,8 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string) {
     return score_val;
 }
 
-//input: raw score differences
-void cnn_visualization::write_scores(const std::vector<float> score_diffs,
+//input: scores
+void cnn_visualization::write_scores(const std::vector<float> scores,
         bool isRec, std::string method) {
     std::string file_name;
     std::string mol_string;
@@ -350,48 +349,30 @@ void cnn_visualization::write_scores(const std::vector<float> score_diffs,
             index_string = line.substr(6, 5);
             atom_index = std::stoi(index_string);
 
-            //std::cout << "ATOM INDEX: " << atom_index << '\n';
-            //std::cout << "SCORE: " << score_diffs[atom_index] << '\n';
-
             float score;
 
-            if (atom_index >= score_diffs.size()) {
-                //std::cerr << "Mismatched indices: " << score_diffs.size() << "vs. " << atom_index
-                //        << "\n";
+            if (atom_index >= scores.size()) {
                 score = 0;
-                //abort();
-
             }
             else
             {
-                score = score_diffs[atom_index];
+                score = scores[atom_index];
                 score_sum += score;
             }
-            //if ((score > 0.001)
-             //       || (score < -0.001)) //ignore very small score differences
-                    {
-                //only transform scores if masking
-                if ("masking" == method) {
-                    score = transform_score_diff(score);
-                }
 
-                score_stream << std::fixed << std::setprecision(5) << score;
-                out_file << line.substr(0, 61);
-                score_string = score_stream.str();
-                score_string.resize(5);
-                out_file.width(5);
-                out_file.fill('.');
-                out_file << std::right << score_string;
-                out_file << line.substr(66) << '\n';
-            //}
-            //else {
-            //    out_file << line << '\n';
+			score_stream << std::fixed << std::setprecision(5) << score;
+			out_file << line.substr(0, 61);
+			score_string = score_stream.str();
+			score_string.resize(5);
+			out_file.width(5);
+			out_file.fill('.');
+			out_file << std::right << score_string;
+			out_file << line.substr(66) << '\n';
             }
-        } else {
+		else {
             out_file << line << '\n';
         }
     }
-    //std::cout << "ATOM SCORE SUM: " << score_sum << '\n';
 }
 
 //returns false if not at least one atom within range of center of ligand
@@ -424,6 +405,7 @@ bool cnn_visualization::check_in_range(std::unordered_set<int> atoms) {
     return false;
 }
 
+/*
 //transforms score diff to maximize digits in b-factor
 //field, and to raise small values by square-rooting
 float cnn_visualization::transform_score_diff(float diff_val) {
@@ -439,6 +421,7 @@ float cnn_visualization::transform_score_diff(float diff_val) {
 
     return temp;
 }
+*/
 
 //removes whole residues at a time, and scores the resulting receptor
 void cnn_visualization::remove_residues() {

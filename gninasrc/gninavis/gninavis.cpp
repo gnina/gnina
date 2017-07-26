@@ -31,7 +31,9 @@ int main(int argc, char* argv[])
     ("cnn_model", value<std::string>(&cnnopts.cnn_model),
                   "CNN model file (*.model)")
     ("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
-                  "CNN weights file (*.caffemodel)");
+                  "CNN weights file (*.caffemodel)")
+    ("ignore_layer", value<std::string>(&visopts.layer_to_ignore)->default_value(""),
+                  "zero values in layer with provided name, in the case of split output");
   
   options_description output("Output");
   output.add_options()
@@ -52,8 +54,8 @@ int main(int argc, char* argv[])
                   "print full output, including removed atom lists")
     ("gpu", value<int>(&visopts.gpu)->default_value(-1),
                     "gpu id for accelerated scoring")
-    ("vis_method", value<std::string>(&vis_method)->default_value("removal"),
-                    "visualization method (lrp, removal, gradient, or all)")
+    ("vis_method", value<std::string>(&vis_method)->default_value("masking"),
+                    "visualization method (lrp, masking, gradient, or all)")
     ("outputdx", bool_switch(&visopts.outputdx)->default_value(false),
                    "output DX grid files (lrp only)");
 
@@ -120,15 +122,6 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-	/*
-  if(vm.count("receptor_output") <= 0 && vm.count("ligand_output") <= 0)
-  {
-    std::cerr << "At least one of 'receptor_output' and 'ligand_output' required.\n" << "\nCorrect usage:\n"
-            << desc << '\n';
-    return 1;
-  }
-*/
-
   if(visopts.frags_only && visopts.atoms_only)
   {
     std::cerr << "Cannot use 'frags_only' and 'atoms_only' together.\n" << "\nCorrect usage:\n"
@@ -167,7 +160,7 @@ int main(int argc, char* argv[])
   }
   else
   {
-      std::cerr << "Specified vis_method not known. Use \"removal\", \"lrp\", or \"gradient\"\n";
+      std::cerr << "Specified vis_method not known. Use \"masking\", \"lrp\", or \"gradient\"\n";
       return 1;
   }
 }
