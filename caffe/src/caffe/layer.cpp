@@ -15,7 +15,6 @@ void Layer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
             }
             else
             {
-                std::cout << "aborting in default layer\n";
                 abort(); // you need to implement
             }
         }

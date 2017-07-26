@@ -768,7 +768,6 @@ int cnn_visualization::get_openbabel_index(double x_coordinate) {
 
 //returns average score difference for each index across all fragments
 std::vector<float> cnn_visualization::remove_fragments(int size) {
-    std::cout << "in remove fragments\n";
     OBConversion conv;
 
     OBMol lig_mol_h = lig_mol;
@@ -786,8 +785,6 @@ std::vector<float> cnn_visualization::remove_fragments(int size) {
     RDKit::RWMol rdkit_mol(
             *(RDKit::MolDataStreamToMol(MOL_stream, line, false, true, false))); //removeHs = true
     RDKit::MolOps::removeHs(rdkit_mol, false, false, false); //hydrogens will be added by add_adjacent_hydrogens later
-
-    std::cout << "after making rdkit mol\n";
 
     if (visopts.verbose) {
         //print all bonds in rdkit_mol, to check against fragments
