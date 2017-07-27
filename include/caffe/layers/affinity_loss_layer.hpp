@@ -56,6 +56,9 @@ class AffinityLossLayer : public LossLayer<Dtype> {
   virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
+  virtual void Backward_relevance(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
   Dtype compute_pair_loss(const vector<Blob<Dtype>*>& bottom, unsigned i, unsigned j, Dtype mult);
   void compute_pair_gradient(const vector<Blob<Dtype>*>& top,
           const vector<Blob<Dtype>*>& bottom, unsigned i, unsigned j, Dtype multi);

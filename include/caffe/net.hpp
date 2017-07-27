@@ -74,7 +74,8 @@ class Net {
   void BackwardFrom(int start);
   void BackwardTo(int end);
 
-  void Backward_relevance();
+  //zeros values in specified layer (in the case of split output)
+  void Backward_relevance(std::string layer_to_ignore = "");
 
   /**
    * @brief Reshape all layers from bottom to top.
