@@ -430,11 +430,12 @@ void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
         if (val == 0)
         {
             zero_top_data_sum += top_buffer[i];
-	    numzero++;
+	        //numzero++;
         }
         total_top_data += val;
     }
-    std::cout << "Zero fraction: " << numzero/(float)top_size << "\n";
+    std::cout << "Zero relevance: " << zero_top_data_sum << '\n';
+    //std::cout << "Zero fraction: " << numzero/(float)top_size << "\n";
     //redistribute relevance from dead nodes proportionally to those remaining
     for(int i = 0; i < top_size; i++)
     {
