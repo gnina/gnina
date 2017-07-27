@@ -190,7 +190,11 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove,
     std::stringstream ss;
     std::stringstream mol_stream(mol_string);
 
-    ss << "ROOT\n"; //add necessary lines for gnina parsing
+    //add necessary lines for gnina parsing if not present
+    if(mol_string.find("ROOT\n") == std::string::npos)
+    {
+        ss << "ROOT\n"; 
+    }
 
     bool list_ended = false;
     std::string line;
@@ -215,8 +219,16 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove,
 
         }
     }
-    ss << "ENDROOT\n";
+
+    if(mol_string.find("ENDROOT\n") == std::string::npos)
+    {
+        ss << "ENDROOT\n";
+    }
+
+    if(mol_string.find("TORSDOF") == std::string::npos)
+    {
     ss << "TORSDOF 0\n";
+    }
 
     if (visopts.verbose) {
         std::cout << "]\n";
