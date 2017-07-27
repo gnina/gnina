@@ -71,10 +71,11 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       for (unsigned j = i + 1; j < num; j++) {
           Dtype labelj = labels[j];
           //correctly rank good poses
-          if( (labeli > 0 && labelj > 0) ||
+          if( (labeli > 0 && labelj > 0) )//||
               //and bad-good poses where the bad can't be better than good
-              (labeli > 0 && labelj < 0 && labeli > -labelj) ||
-              (labeli < 0 && labelj > 0 && labelj > -labeli)) {
+      //        (labeli > 0 && labelj < 0 && labeli > -labelj) ||
+      //      (labeli < 0 && labelj > 0 && labelj > -labeli)) {
+	  {
             rankloss += compute_pair_loss(bottom, i, j, ranklossm);
             nranklosspairs++;
           }
@@ -132,10 +133,11 @@ void AffinityLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       for (unsigned j = i + 1; j < num; j++) {
           Dtype labelj = labels[j];
           //correctly rank good poses
-          if( (labeli > 0 && labelj > 0) ||
+          if( (labeli > 0 && labelj > 0) )// ||
               //and bad-good poses where the bad can't be better than good
-              (labeli > 0 && labelj < 0 && labeli > -labelj) ||
-              (labeli < 0 && labelj > 0 && labelj > -labeli)) {
+            //  (labeli > 0 && labelj < 0 && labeli > -labelj) ||
+            // (labeli < 0 && labelj > 0 && labelj > -labeli)) {
+	  {
               compute_pair_gradient(top, bottom, i, j, ranklossm);
           }
         }
@@ -152,12 +154,12 @@ void AffinityLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
           bottom[0]->mutable_cpu_diff()[i] = sign*maxgrad*x/(x+maxgrad);
       }
   }
-  /*
-  LOG(INFO) << "AFFGRADS";
+ /* 
    for(unsigned i = 0, n = bottom[0]->num(); i < n; i++) {
-   LOG(INFO) << bottom[0]->cpu_diff()[i];
+   LOG(INFO) << "AFFGRAD " << i << " " << bottom[0]->cpu_diff()[i];
    }
    */
+   
 }
 
 template<typename Dtype>
@@ -178,8 +180,8 @@ Dtype AffinityLossLayer<Dtype>::compute_pair_loss(
 
     if (dim == 1) {
         //single scores
-        si = fabs(bottom_data[i]);
-        sj = fabs(bottom_data[j]);
+        si = bottom_data[i];
+        sj = bottom_data[j];
     } else {
         CHECK(false) << "RankLoss requires single score per example or binary class probabilities.";
     }
@@ -192,7 +194,7 @@ Dtype AffinityLossLayer<Dtype>::compute_pair_loss(
     if(std::isfinite(ediff))
         Pij = ediff / (1 + ediff);
 
-    if (Li > Lj) {
+    if (Li > Lj) { //if one is negative, then should be less regardless
         Pij = std::max(Pij, Dtype(kLOG_THRESHOLD));
         loss = -log(Pij);
     } else {
@@ -221,8 +223,8 @@ void AffinityLossLayer<Dtype>::compute_pair_gradient(
 
     if (dim == 1) {
         //single scores
-        si = fabs(bottom_data[i]);
-        sj = fabs(bottom_data[j]);
+        si = bottom_data[i];
+        sj = bottom_data[j];
     } else {
         CHECK(false) << "RankLoss requires single score per example or binary class probabilities.";
     }
@@ -235,7 +237,7 @@ void AffinityLossLayer<Dtype>::compute_pair_gradient(
     if(std::isfinite(ediff))
         d = - 1.0 / (1.0+exp(diff));
 
-    if(Li < Lj) {
+    if(Li < Lj) { //we only care about order, so okay if one is negative
         //reverse sign
         d = -d;
     }
