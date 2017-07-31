@@ -248,7 +248,7 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove,
 //files for removal
 void cnn_visualization::process_molecules() {
     rec_mol.AddHydrogens();
-        
+
     lig_mol.AddHydrogens(true, false, 7.4); //add only polar hydrogens
 
     OBConversion conv;
@@ -261,9 +261,19 @@ void cnn_visualization::process_molecules() {
     //generate base ligand pdbqt string
     std::string temp_lig_string = conv.WriteString(&lig_mol);
     std::stringstream lig_stream;
-    lig_stream << "ROOT\n";
+    if(temp_lig_string.find("ROOT") == std::string::npos)
+    {
+        lig_stream << "ROOT\n";
+    }
     lig_stream << temp_lig_string;
-    lig_stream << "ENDROOT\n" << "TORSDOF 0";
+    if(temp_lig_string.find("ENDROOT") == std::string::npos)
+    {
+        lig_stream << "ENDROOT\n";
+    }
+    if(temp_lig_string.find("TORSDOF") == std::string::npos)
+    {
+        lig_stream << "TORSDOF 0";
+    }
     lig_string = lig_stream.str();
 
     //generate base receptor pdbqt string
