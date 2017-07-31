@@ -14,6 +14,7 @@ struct vis_options
   bool skip_ligand_output;
   std::string additivity;
   std::string layer_to_ignore;
+  std::string masking_target;
 
   bool frags_only;
   bool atoms_only;
