@@ -157,12 +157,10 @@ void cnn_visualization::masking() {
 
 
     if (!visopts.skip_receptor_output) {
-        std::cout << "removing_residues\n";
         remove_residues();
     }
 
     if (!visopts.skip_ligand_output) {
-        std::cout << "removing_ligand\n";
         remove_ligand_atoms();
     }
     std::cout << "Masking finished.\n";
@@ -307,18 +305,18 @@ float cnn_visualization::score_modified_receptor(
 
     float aff;
     float score_val = cnn_scorer.score(m, true, aff);
+
+    //use affinity instead of cnn score if required
+    if (visopts.masking_target == "affinity")
+    {
+        score_val =  aff;
+    }
+
     if (visopts.verbose) {
         std::cout << "SCORE: " << score_val << '\n';
     }
 
-    if (visopts.masking_target == "pose")
-    {
-        return score_val;
-    }
-    else if (visopts.masking_target == "affinity")
-    {
-        return aff;
-    }
+    return score_val;
 }
 
 //scores provided ligand string against unmodified ligand
