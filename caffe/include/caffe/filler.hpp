@@ -165,6 +165,111 @@ class XavierFiller : public Filler<Dtype> {
   }
 };
 
+
+/**
+ * @brief Fills a (N x C x W x H x D) Blob with radially symmetric values (in WHD, not the channels) drawn using the xavier approach.
+ * Can specify a percentage of filters to apply symmetry to (others are vanilla xavier).
+ */
+template <typename Dtype>
+class RadialFiller : public Filler<Dtype> {
+ public:
+  explicit RadialFiller(const FillerParameter& param)
+      : Filler<Dtype>(param) {}
+  virtual ~RadialFiller() {}
+
+  //set all reflections of indices in w to val
+  //x,y,z are relative to midpoint
+  void applyReflections(int f, int c, int x, int y, int z, int N, Blob<Dtype>* blob, Dtype val)
+  {
+    vector<int> ind(5,0);
+    ind[0] = f;
+    ind[1] = c;
+    int mid = N/2;
+    Dtype *w = blob->mutable_cpu_data();
+    for(int i = -1; i < 2; i += 2)
+    {
+      ind[2] = x*i+mid;
+      for(int j = -1; j < 2; j += 2)
+      {
+        ind[3] = y*i+mid;
+        for(int k = -1; k < 2; k += 2)
+        {
+          ind[4] = z*i+mid;
+          w[blob->offset(ind)] = val;
+        }
+      }
+    }
+  }
+
+  virtual void Fill(Blob<Dtype>* blob) {
+    CHECK(blob->count());
+    const vector<int>& shape = blob->shape();
+    CHECK_EQ(shape.size(), 5) << "RadialFiller requires 4D data.";
+
+    int fan_in = blob->count() / shape[0];
+    int fan_out = blob->count() / shape[1];
+    double fraction = this->filler_param_.symmetric_fraction();
+
+    //setup xavier
+    Dtype n = fan_in;  // default to fan_in
+    if (this->filler_param_.variance_norm() ==
+        FillerParameter_VarianceNorm_AVERAGE) {
+      n = (fan_in + fan_out) / Dtype(2);
+    } else if (this->filler_param_.variance_norm() ==
+        FillerParameter_VarianceNorm_FAN_OUT) {
+      n = fan_out;
+    }
+    Dtype scale = sqrt(Dtype(3) / n);
+    caffe_rng_uniform<Dtype>(blob->count(), -scale, scale,
+        blob->mutable_cpu_data());
+
+    //now symmetrize fraction number
+    int filters = shape[0];
+    int channels = shape[1];
+    int X = shape[2];
+    CHECK_EQ(X,shape[3]) << "Non-uniform dimensions not supported by RadialFiller: " << X << " vs " << shape[3];
+    CHECK_EQ(X,shape[4]) << "Non-uniform dimensions not supported by RadialFiller" << X << " vs " << shape[4];
+
+    Dtype *weights = blob->mutable_cpu_data();
+    vector<int> indices(5,0);
+    int mid = X/2;
+    filters = filters*fraction;
+    for(int f = 0; f < filters; f++)
+    {
+      indices[0] = f;
+      for(int c = 0; c < channels; c++)
+      {
+        indices[1] = c;
+        //now iterative only the positive quadrant and clone its values to the other quadrants
+        //this is not necessarily the most efficient implementation (some redundancy)
+        for(int x = 0; x <= mid; x++)
+        {
+          indices[2] = mid+x;
+          for(int y = 0; y <= x; y++)
+          {
+            indices[3] = mid+y;
+            for(int z = 0; z <= y; z++)
+            {
+              indices[4] = mid+z;
+              Dtype val = weights[blob->offset(indices)];
+
+              applyReflections(f,c, x, y, z, X, blob, val);
+              applyReflections(f,c, x, z, y, X, blob, val);
+
+              applyReflections(f,c, y, x, z, X, blob, val);
+              applyReflections(f,c, y, z, x, X, blob, val);
+
+              applyReflections(f,c, z, x, y, X, blob, val);
+              applyReflections(f,c, z, y, x, X, blob, val);
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+
 /**
  * @brief Fills a Blob with values @f$ x \sim N(0, \sigma^2) @f$ where
  *        @f$ \sigma^2 @f$ is set inversely proportional to number of incoming
@@ -302,6 +407,8 @@ Filler<Dtype>* GetFiller(const FillerParameter& param) {
     return new BilinearFiller<Dtype>(param);
   } else if (type == "blob_proto") {
     return new BlobProtoFiller<Dtype>(param);
+  } else if (type == "radial") {
+    return new RadialFiller<Dtype>(param);
   } else {
     CHECK(false) << "Unknown filler name: " << param.type();
   }
