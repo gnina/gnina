@@ -18,6 +18,7 @@ int main(int argc, char* argv[])
   using namespace boost::program_options;
 
   std::string vis_method;
+  std::string masking_target;
 
   options_description inputs("Input");
   inputs.add_options()
@@ -56,6 +57,8 @@ int main(int argc, char* argv[])
                     "gpu id for accelerated scoring")
     ("vis_method", value<std::string>(&vis_method)->default_value("masking"),
                     "visualization method (lrp, masking, gradient, or all)")
+    ("masking_target", value<std::string>(&visopts.masking_target)->default_value("pose"),
+                    "scoring method for masking (pose or aff)")
     ("outputdx", bool_switch(&visopts.outputdx)->default_value(false),
                    "output DX grid files (lrp only)");
 
@@ -144,19 +147,19 @@ int main(int argc, char* argv[])
   }
   else if ("gradient" == vis_method)
   {
-	vis.gradient_vis();
+    vis.gradient_vis();
   }
   else if ("all" == vis_method)
   {
-	std::cout << "\nGradient\n";
-	std::cout << "------------\n";
-	vis.gradient_vis();
-	std::cout << "\nLRP\n";
-	std::cout << "------------\n";
-	vis.lrp();
-	std::cout << "\nMasking\n";
-	std::cout << "------------\n";
-	vis.masking();
+    std::cout << "\nGradient\n";
+    std::cout << "------------\n";
+    vis.gradient_vis();
+    std::cout << "\nLRP\n";
+    std::cout << "------------\n";
+    vis.lrp();
+    std::cout << "\nMasking\n";
+    std::cout << "------------\n";
+    vis.masking();
   }
   else
   {
