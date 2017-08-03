@@ -191,10 +191,10 @@ class RadialFiller : public Filler<Dtype> {
       ind[2] = x*i+mid;
       for(int j = -1; j < 2; j += 2)
       {
-        ind[3] = y*i+mid;
+        ind[3] = y*j+mid;
         for(int k = -1; k < 2; k += 2)
         {
-          ind[4] = z*i+mid;
+          ind[4] = z*k+mid;
           w[blob->offset(ind)] = val;
         }
       }
@@ -241,7 +241,7 @@ class RadialFiller : public Filler<Dtype> {
       {
         indices[1] = c;
         //now iterative only the positive quadrant and clone its values to the other quadrants
-        //this is not necessarily the most efficient implementation (some redundancy)
+        //this is not the most efficient implementation (lots of redundancy)
         for(int x = 0; x <= mid; x++)
         {
           indices[2] = mid+x;
