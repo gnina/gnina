@@ -63,23 +63,27 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 
   Dtype rankloss = 0;
   if(ranklossm > 0) {
+    bool includeneg = this->layer_param_.affinity_loss_param().ranklossneg();
     //compute a rank loss
     nranklosspairs = 0; //save for backwards
     int num = bottom[0]->num();
     for (unsigned i = 0; i < num; i++) {
       Dtype labeli = labels[i];
-      for (unsigned j = i + 1; j < num; j++) {
+      if(labeli > 0) {
+        for (unsigned j = i + 1; j < num; j++) {
           Dtype labelj = labels[j];
           //correctly rank good poses
-          if( (labeli > 0 && labelj > 0) )//||
-              //and bad-good poses where the bad can't be better than good
-      //        (labeli > 0 && labelj < 0 && labeli > -labelj) ||
-      //      (labeli < 0 && labelj > 0 && labelj > -labeli)) {
-	  {
+          if(labelj > 0) {
             rankloss += compute_pair_loss(bottom, i, j, ranklossm);
             nranklosspairs++;
           }
         }
+      } else if(includeneg) { //negative, positive should be before
+        if(i > 0 && labels[i-1] > 0 && labels[i-1] == -labels[i]) {
+          rankloss += compute_pair_loss(bottom, i, i-1, ranklossm);
+          nranklosspairs++;
+        }
+      }
     }
     rankloss /= nranklosspairs;
   }
@@ -126,21 +130,26 @@ void AffinityLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 
 
   if(ranklossm > 0) {
+    bool includeneg = this->layer_param_.affinity_loss_param().ranklossneg();
     //compute a rank loss
     int num = bottom[0]->num();
     for (unsigned i = 0; i < num; i++) {
       Dtype labeli = labels[i];
-      for (unsigned j = i + 1; j < num; j++) {
-          Dtype labelj = labels[j];
-          //correctly rank good poses
-          if( (labeli > 0 && labelj > 0) )// ||
-              //and bad-good poses where the bad can't be better than good
-            //  (labeli > 0 && labelj < 0 && labeli > -labelj) ||
-            // (labeli < 0 && labelj > 0 && labelj > -labeli)) {
-	  {
-              compute_pair_gradient(top, bottom, i, j, ranklossm);
-          }
+      if(labeli > 0)
+      {
+        for (unsigned j = i + 1; j < num; j++) {
+            Dtype labelj = labels[j];
+            //correctly rank good poses
+            if(labelj > 0)
+            {
+                compute_pair_gradient(top, bottom, i, j, ranklossm);
+            }
         }
+      } else if(includeneg) { //negative, positive should be before
+        if(i > 0 && labels[i-1] > 0 && labels[i-1] == -labels[i]) {
+          compute_pair_gradient(top, bottom, i, i-1, ranklossm);
+        }
+      }
     }
   }
 

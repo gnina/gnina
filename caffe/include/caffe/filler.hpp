@@ -228,7 +228,7 @@ class RadialFiller : public Filler<Dtype> {
     int channels = shape[1];
     int X = shape[2];
     CHECK_EQ(X,shape[3]) << "Non-uniform dimensions not supported by RadialFiller: " << X << " vs " << shape[3];
-    CHECK_EQ(X,shape[4]) << "Non-uniform dimensions not supported by RadialFiller" << X << " vs " << shape[4];
+    CHECK_EQ(X,shape[4]) << "Non-uniform dimensions not supported by RadialFiller:" << X << " vs " << shape[4];
 
     Dtype *weights = blob->mutable_cpu_data();
     vector<int> indices(5,0);

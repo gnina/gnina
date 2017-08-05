@@ -498,6 +498,7 @@ message AffinityLossParameter {
 	optional float maxgrad = 6 [default = 0.0]; //if set, max value of gradient, dampens with x*max/(x+max) 
 	optional float penalty = 7 [default = 0.0]; //additional spacing for negative values (opposite of gap)
 	optional float ranklossmult = 8 [default = 0.0]; //add rankloss with this multiplier
+	optional bool ranklossneg = 9 [default = false]; // rank neg against positive examples - for balanced only
 }
 
 message ArgMaxParameter {
