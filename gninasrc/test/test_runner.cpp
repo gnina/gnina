@@ -37,6 +37,7 @@ bool init_unit_test()
     po::options_description inputs("Input");
     inputs.add_options()
         ("seed", po::value<unsigned>(&p_args.seed), "seed for random number generator")
+        ("n_iters", po::value<unsigned>(&p_args.n_iters), "number of iterations to repeat relevant tests")
         ("log", po::value<std::string>(&logname), "specify logfile, default is test.log");
     po::options_description desc, desc_simple;
     desc.add(inputs);
@@ -60,6 +61,8 @@ bool init_unit_test()
         p_args.seed = std::random_device()();
         p_args.many_iters = true;
     }
+    if (!vm.count("n_iters"))
+        p_args.n_iters = N_ITERS;
     if (!vm.count("log"))
         logname = "test.log";
 
@@ -67,7 +70,7 @@ bool init_unit_test()
 
     p_args.params = {p_args.seed};
     if (p_args.many_iters) 
-        for (size_t i=0; i<N_ITERS; ++i)
+        for (size_t i=0; i<p_args.n_iters; ++i)
             p_args.params.push_back(std::random_device()());
 
     return true;
@@ -78,13 +81,15 @@ int main(int argc, char* argv[]) {
     //specific program options - I can't see any way of doing this without
     //parsing the args twice, because UTF chomps args it thinks it owns
     unsigned _dumvar1;
-    std::string _dumvar2;
+    unsigned _dumvar2;
+    std::string _dumvar3;
     bool help = false;
     po::positional_options_description positional;
     po::options_description inputs("Input");
     inputs.add_options()
-        ("seed,s", po::value<unsigned>(&_dumvar1), "seed for random number generator")
-        ("log", po::value<std::string>(&_dumvar2), "specify logfile, default is test.log");
+        ("seed", po::value<unsigned>(&_dumvar1), "seed for random number generator")
+        ("n_iters", po::value<unsigned>(&_dumvar2), "number of iterations to repeat relevant tests")
+        ("log", po::value<std::string>(&_dumvar3), "specify logfile, default is test.log");
     po::options_description info("Information");
     info.add_options()
         ("help", po::bool_switch(&help), "print usage information");

@@ -12,6 +12,7 @@
 #include "parsed_args.h"
 #include "test_gpucode.h"
 #include "test_utils.h"
+#include "gpu_debug.h"
 #define BOOST_TEST_DYN_LINK
 #include <boost/test/unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
@@ -238,7 +239,7 @@ void test_eval_intra() {
     }
 
     //set up model
-    m->minus_forces = std::vector<vec>(atoms.size());
+    m->minus_forces = std::vector<vec>(atoms.size(), zero_vec);
     for (size_t i=0; i <atoms.size(); ++i) {
         m->coords.push_back(*(vec*)&atoms[i]);
         m->atoms.push_back(atom());
