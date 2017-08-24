@@ -19,16 +19,13 @@
 
 using namespace OpenBabel;
 
-cnn_visualization::cnn_visualization(const vis_options &visopts,
-        const cnn_options &cnnopts, const vec &center) {
+cnn_visualization::cnn_visualization(const vis_options &viso,
+        const cnn_options &copts, const vec &c):
+            visopts(viso), cnnopts(copts), center(c) {
     if (visopts.gpu > -1) {
         caffe::Caffe::SetDevice(visopts.gpu);
         caffe::Caffe::set_mode(caffe::Caffe::GPU);
     }
-
-    this->visopts = visopts;
-    this->cnnopts = cnnopts;
-    this->center = &center;
 
     OBConversion conv;
     obmol_opener opener;
@@ -51,7 +48,7 @@ void cnn_visualization::lrp() {
 
     std::stringstream rec_stream(rec_string);
     model receptor = parse_receptor_pdbqt("", rec_stream);
-    CNNScorer scorer(cnnopts, *center, receptor);
+    CNNScorer scorer(cnnopts, center, receptor);
 
     std::stringstream lig_stream(lig_string);
     model ligand = parse_ligand_stream_pdbqt("", lig_stream);
@@ -60,13 +57,7 @@ void cnn_visualization::lrp() {
 
     float aff;
 
-    boost::filesystem::path rec_name_path(visopts.receptor_name);
-    std::string rec_output_name = "lrp_" + rec_name_path.stem().string() + ".xyz";
-
-    boost::filesystem::path lig_name_path(visopts.ligand_name);
-    std::string lig_output_name = "lrp_" + lig_name_path.stem().string() + ".xyz";
-
-    scorer.lrp(receptor, rec_output_name, lig_output_name, visopts.layer_to_ignore);
+    scorer.lrp(receptor, visopts.layer_to_ignore);
     std::vector<float> lig_scores = scorer.get_scores_per_atom(false, true);
     std::vector<float> rec_scores = scorer.get_scores_per_atom(true, true);
 
@@ -76,7 +67,9 @@ void cnn_visualization::lrp() {
     if (visopts.outputdx) 
     {
         float scale = 1.0;
-        scorer.outputDX(lig_output_name, scale);
+        boost::filesystem::path lig_name_path(visopts.ligand_name);
+        std::string lig_prefix = "lrp_" + lig_name_path.stem().string();
+        scorer.outputDX(lig_prefix, scale);
     }
     std::cout << "LRP finished.\n";
 }
@@ -87,7 +80,7 @@ void cnn_visualization::gradient_vis() {
 
     std::stringstream rec_stream(rec_string);
     model receptor = parse_receptor_pdbqt("", rec_stream);
-    CNNScorer scorer(cnnopts, *center, receptor);
+    CNNScorer scorer(cnnopts, center, receptor);
 
     std::stringstream lig_stream(lig_string);
     model ligand = parse_ligand_stream_pdbqt("", lig_stream);
@@ -102,7 +95,8 @@ void cnn_visualization::gradient_vis() {
     std::string rec_output_name = "gradient_" + rec_name_path.stem().string() + ".xyz";
 
     boost::filesystem::path lig_name_path(visopts.ligand_name);
-    std::string lig_output_name = "gradient_" + lig_name_path.stem().string() + ".xyz";
+    std::string lig_prefix = "gradient_" + lig_name_path.stem().string();
+    std::string lig_output_name = lig_prefix + ".xyz";
 
     scorer.gradient_setup(receptor, rec_output_name, lig_output_name);
     std::vector<float> lig_scores = scorer.get_scores_per_atom(false, false);
@@ -114,7 +108,7 @@ void cnn_visualization::gradient_vis() {
     if (visopts.outputdx) 
     {
         float scale = 1.0;
-        scorer.outputDX(lig_output_name, scale);
+        scorer.outputDX(lig_prefix, scale);
     }
     std::cout << "Gradient finished.\n";
 }
@@ -130,7 +124,7 @@ void cnn_visualization::masking() {
 
     std::stringstream rec_stream(rec_string);
     unmodified_receptor = parse_receptor_pdbqt("", rec_stream);
-    CNNScorer base_scorer(cnnopts, *center, unmodified_receptor);
+    CNNScorer base_scorer(cnnopts, center, unmodified_receptor);
 
     std::stringstream lig_stream(lig_string);
     unmodified_ligand = parse_ligand_stream_pdbqt("", lig_stream);
@@ -298,7 +292,7 @@ float cnn_visualization::score_modified_receptor(
 
     model m = parse_receptor_pdbqt("", rec_stream);
 
-    CNNScorer cnn_scorer(cnnopts, *center, m);
+    CNNScorer cnn_scorer(cnnopts, center, m);
 
     model l = parse_ligand_stream_pdbqt("", lig_stream);
     m.append(l);
@@ -329,7 +323,7 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string) {
 
     static bool first = true;
     if (first) {
-        cnn_scorer = CNNScorer(cnnopts, *center, temp);
+        cnn_scorer = CNNScorer(cnnopts, center, temp);
         first = false;
     }
 
@@ -384,22 +378,33 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
     std::string score_string;
 
     float score_sum = 0;
+    int Hadjust = 0; //number of hydrogen atoms seen
 
+    //dkoes - this is ridiculously fragile, we are assuming atoms don't change
+    //order from the input string, and have to manually adjust for hydrogens
+    //ideally, the model would output this, but it currently doesn't preserve enough
+    //of the receptor :-(
+    //I am also less than fond of the index by 1 approach
     while (std::getline(mol_stream, line)) {
         if ((line.find("ATOM") < std::string::npos)
                 || (line.find("HETATM") < std::string::npos)) {
             score_stream.str(""); //clear stream for next score
             index_string = line.substr(6, 5);
+            std::string elem = line.substr(77,2);
             atom_index = std::stoi(index_string);
 
-            float score;
+            float score = 0;
 
-            if (atom_index >= scores.size()) {
-                score = 0;
+            if(elem == "H " || elem == "HD") {
+              score = 0;
+              Hadjust++;
+            }
+            else if (atom_index-Hadjust >= scores.size()) {
+                abort(); //about the best sanity check we have..
             }
             else
             {
-                score = scores[atom_index];
+                score = scores[atom_index-Hadjust];
                 score_sum += score;
             }
 
@@ -411,7 +416,7 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
             out_file.fill('.');
             out_file << std::right << score_string;
             out_file << line.substr(66) << '\n';
-            }
+        }
         else {
             out_file << line << '\n';
         }

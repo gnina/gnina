@@ -229,7 +229,9 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	Change p(g);
 	 //std::cout << std::setprecision(8);
 	 //std::cout << "f0 " << f0 << "\n";
-	//std::ofstream fout("minout.sdf");
+	std::ofstream minout;
+	if(params.outputframes > 0)
+		minout.open("minout.sdf");
 	VINA_U_FOR(step, params.maxiters)
 	{
 		minus_mat_vec_product(h, g, p);
@@ -253,15 +255,16 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		fl prevf0 = f0;
 		f0 = f1;
 
-/*
-		for(double factor = 0; factor <= 1.0; factor += 0.025) {
-			Conf xi(x);
-			xi.increment(p, alpha*factor);
-			f.m->set(xi);
-			f.m->write_sdf(fout);
-			fout << "$$$$\n";
+		if(params.outputframes > 0) 
+		{
+			for(double factor = 0; factor <= 1.0; factor += 1.0/params.outputframes) {
+				Conf xi(x);
+				xi.increment(p, alpha*factor);
+				f.m->set(xi);
+				f.m->write_sdf(minout);
+				minout << "$$$$\n";
+			}
 		}
-*/
 		x = x_new;
 
 		if (params.early_term)

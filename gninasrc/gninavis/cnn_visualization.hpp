@@ -46,7 +46,7 @@ class cnn_visualization
     float cenCoords [3];
     vis_options visopts;
     cnn_options cnnopts;
-    const vec* center;
+    vec center;
     model unmodified_receptor;
     model unmodified_ligand;
     bool frags_only, atoms_only,  verbose;
