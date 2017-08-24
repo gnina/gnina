@@ -59,15 +59,14 @@ void cnn_visualization::lrp() {
     receptor.append(ligand);
 
     float aff;
-    std::cout << "CNN SCORE: " << scorer.score(receptor, true) << '\n';
 
-	boost::filesystem::path rec_name_path(visopts.receptor_name);
-	std::string rec_output_name = "lrp_" + rec_name_path.stem().string() + ".xyz";
+    boost::filesystem::path rec_name_path(visopts.receptor_name);
+    std::string rec_output_name = "lrp_" + rec_name_path.stem().string() + ".xyz";
 
-	boost::filesystem::path lig_name_path(visopts.ligand_name);
-	std::string lig_output_name = "lrp_" + lig_name_path.stem().string() + ".xyz";
+    boost::filesystem::path lig_name_path(visopts.ligand_name);
+    std::string lig_output_name = "lrp_" + lig_name_path.stem().string() + ".xyz";
 
-    scorer.lrp(receptor, rec_output_name, lig_output_name);
+    scorer.lrp(receptor, rec_output_name, lig_output_name, visopts.layer_to_ignore);
     std::vector<float> lig_scores = scorer.get_scores_per_atom(false, true);
     std::vector<float> rec_scores = scorer.get_scores_per_atom(true, true);
 
@@ -79,7 +78,7 @@ void cnn_visualization::lrp() {
         float scale = 1.0;
         scorer.outputDX(lig_output_name, scale);
     }
-	std::cout << "LRP finished.\n";
+    std::cout << "LRP finished.\n";
 }
 
 void cnn_visualization::gradient_vis() {
@@ -99,11 +98,11 @@ void cnn_visualization::gradient_vis() {
     float aff;
     std::cout << "CNN SCORE: " << scorer.score(receptor, true) << '\n';
 
-	boost::filesystem::path rec_name_path(visopts.receptor_name);
-	std::string rec_output_name = "gradient_" + rec_name_path.stem().string() + ".xyz";
+    boost::filesystem::path rec_name_path(visopts.receptor_name);
+    std::string rec_output_name = "gradient_" + rec_name_path.stem().string() + ".xyz";
 
-	boost::filesystem::path lig_name_path(visopts.ligand_name);
-	std::string lig_output_name = "gradient_" + lig_name_path.stem().string() + ".xyz";
+    boost::filesystem::path lig_name_path(visopts.ligand_name);
+    std::string lig_output_name = "gradient_" + lig_name_path.stem().string() + ".xyz";
 
     scorer.gradient_setup(receptor, rec_output_name, lig_output_name);
     std::vector<float> lig_scores = scorer.get_scores_per_atom(false, false);
@@ -117,7 +116,7 @@ void cnn_visualization::gradient_vis() {
         float scale = 1.0;
         scorer.outputDX(lig_output_name, scale);
     }
-	std::cout << "Gradient finished.\n";
+    std::cout << "Gradient finished.\n";
 }
 
 
@@ -138,8 +137,24 @@ void cnn_visualization::masking() {
     model temp_rec = unmodified_receptor;
 
     temp_rec.append(unmodified_ligand);
-    original_score = base_scorer.score(temp_rec, true);
-    std::cout << "CNN SCORE: " << original_score << "\n\n";
+    if(visopts.masking_target == "pose")
+    {
+        original_score = base_scorer.score(temp_rec, true);
+        std::cout << "CNN SCORE: " << original_score << "\n\n";
+    }
+    else if(visopts.masking_target == "affinity")
+    {
+        float aff;
+        original_score = base_scorer.score(temp_rec, true, aff, true);
+        original_score = aff;
+        std::cout << "AFF: " << original_score << "\n\n";
+    }
+    else 
+    {
+        std::cout << "Unknown scoring method for masking.\n";
+        return;
+    }
+
 
     if (!visopts.skip_receptor_output) {
         remove_residues();
@@ -148,7 +163,7 @@ void cnn_visualization::masking() {
     if (!visopts.skip_ligand_output) {
         remove_ligand_atoms();
     }
-	std::cout << "Masking finished.\n";
+    std::cout << "Masking finished.\n";
 }
 
 void cnn_visualization::print() {
@@ -191,7 +206,7 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove,
     std::stringstream ss;
     std::stringstream mol_stream(mol_string);
 
-    ss << "ROOT\n"; //add necessary lines for gnina parsing
+    ss << "ROOT\n"; 
 
     bool list_ended = false;
     std::string line;
@@ -216,6 +231,7 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove,
 
         }
     }
+
     ss << "ENDROOT\n";
     ss << "TORSDOF 0\n";
 
@@ -230,7 +246,7 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove,
 //files for removal
 void cnn_visualization::process_molecules() {
     rec_mol.AddHydrogens();
-		
+
     lig_mol.AddHydrogens(true, false, 7.4); //add only polar hydrogens
 
     OBConversion conv;
@@ -243,9 +259,19 @@ void cnn_visualization::process_molecules() {
     //generate base ligand pdbqt string
     std::string temp_lig_string = conv.WriteString(&lig_mol);
     std::stringstream lig_stream;
-    lig_stream << "ROOT\n";
+    if(temp_lig_string.find("ROOT") == std::string::npos)
+    {
+        lig_stream << "ROOT\n";
+    }
     lig_stream << temp_lig_string;
-    lig_stream << "ENDROOT\n" << "TORSDOF 0";
+    if(temp_lig_string.find("ENDROOT") == std::string::npos)
+    {
+        lig_stream << "ENDROOT\n";
+    }
+    if(temp_lig_string.find("TORSDOF") == std::string::npos)
+    {
+        lig_stream << "TORSDOF 0";
+    }
     lig_string = lig_stream.str();
 
     //generate base receptor pdbqt string
@@ -277,7 +303,15 @@ float cnn_visualization::score_modified_receptor(
     model l = parse_ligand_stream_pdbqt("", lig_stream);
     m.append(l);
 
-    float score_val = cnn_scorer.score(m, true);
+    float aff;
+    float score_val = cnn_scorer.score(m, true, aff);
+
+    //use affinity instead of cnn score if required
+    if (visopts.masking_target == "affinity")
+    {
+        score_val =  aff;
+    }
+
     if (visopts.verbose) {
         std::cout << "SCORE: " << score_val << '\n';
     }
@@ -302,16 +336,24 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string) {
     model l = parse_ligand_stream_pdbqt("", lig_stream);
     temp.append(l);
 
-    float score_val = cnn_scorer.score(temp, true);
+    float aff;
+    float score_val = cnn_scorer.score(temp, true, aff, true);
     if (visopts.verbose) {
         std::cout << "SCORE: " << score_val << '\n';
     }
 
-    return score_val;
+    if (visopts.masking_target == "pose")
+    {
+        return score_val;
+    }
+    else if (visopts.masking_target == "affinity")
+    {
+        return aff;
+    }
 }
 
-//input: raw score differences
-void cnn_visualization::write_scores(const std::vector<float> score_diffs,
+//input: scores
+void cnn_visualization::write_scores(const std::vector<float> scores,
         bool isRec, std::string method) {
     std::string file_name;
     std::string mol_string;
@@ -324,13 +366,13 @@ void cnn_visualization::write_scores(const std::vector<float> score_diffs,
         mol_string = lig_string;
     }
 
-	boost::filesystem::path file_name_path(file_name);
-	file_name = method + "_" + file_name_path.stem().string() + ".pdbqt";
+    boost::filesystem::path file_name_path(file_name);
+    file_name = method + "_" + file_name_path.stem().string() + ".pdbqt";
 
     std::ofstream out_file;
     out_file.open(file_name);
 
-	out_file << "VIS METHOD: " << method << '\n';
+    out_file << "VIS METHOD: " << method << '\n';
     out_file << "CNN MODEL: " << cnnopts.cnn_model << '\n';
     out_file << "CNN WEIGHTS: " << cnnopts.cnn_weights << '\n';
 
@@ -350,48 +392,30 @@ void cnn_visualization::write_scores(const std::vector<float> score_diffs,
             index_string = line.substr(6, 5);
             atom_index = std::stoi(index_string);
 
-            //std::cout << "ATOM INDEX: " << atom_index << '\n';
-            //std::cout << "SCORE: " << score_diffs[atom_index] << '\n';
-
             float score;
 
-            if (atom_index >= score_diffs.size()) {
-                //std::cerr << "Mismatched indices: " << score_diffs.size() << "vs. " << atom_index
-                //        << "\n";
+            if (atom_index >= scores.size()) {
                 score = 0;
-                //abort();
-
             }
             else
             {
-                score = score_diffs[atom_index];
+                score = scores[atom_index];
                 score_sum += score;
             }
-            //if ((score > 0.001)
-             //       || (score < -0.001)) //ignore very small score differences
-                    {
-                //only transform scores if masking
-                if ("masking" == method) {
-                    score = transform_score_diff(score);
-                }
 
-                score_stream << std::fixed << std::setprecision(5) << score;
-                out_file << line.substr(0, 61);
-                score_string = score_stream.str();
-                score_string.resize(5);
-                out_file.width(5);
-                out_file.fill('.');
-                out_file << std::right << score_string;
-                out_file << line.substr(66) << '\n';
-            //}
-            //else {
-            //    out_file << line << '\n';
+            score_stream << std::fixed << std::setprecision(5) << score;
+            out_file << line.substr(0, 61);
+            score_string = score_stream.str();
+            score_string.resize(5);
+            out_file.width(5);
+            out_file.fill('.');
+            out_file << std::right << score_string;
+            out_file << line.substr(66) << '\n';
             }
-        } else {
+        else {
             out_file << line << '\n';
         }
     }
-    //std::cout << "ATOM SCORE SUM: " << score_sum << '\n';
 }
 
 //returns false if not at least one atom within range of center of ligand
@@ -424,6 +448,7 @@ bool cnn_visualization::check_in_range(std::unordered_set<int> atoms) {
     return false;
 }
 
+/*
 //transforms score diff to maximize digits in b-factor
 //field, and to raise small values by square-rooting
 float cnn_visualization::transform_score_diff(float diff_val) {
@@ -439,6 +464,7 @@ float cnn_visualization::transform_score_diff(float diff_val) {
 
     return temp;
 }
+*/
 
 //removes whole residues at a time, and scores the resulting receptor
 void cnn_visualization::remove_residues() {

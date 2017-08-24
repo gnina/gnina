@@ -63,14 +63,14 @@ public:
     bool has_affinity() const; //return true if can predict affinity
 
     float score(model& m, bool silent = true);
-    float score(model& m, bool compute_gradient, float& affinity, bool silent = false);
+    float score(model& m, bool compute_gradient, float& affinity, bool silent = true);
 
     void outputDX(const string& prefix, double scale = 1.0, const float relevance_eps = -1.0);
     void outputXYZ(const string& base, const vector<float4>& atoms,
                const vector<short>& whichGrid, const vector<float3>& gradient);
     std::vector<float> get_scores_per_atom(bool receptor, bool relevance = false);
 
-    void lrp(const model& m, const string& recname, const string& ligname);
+    void lrp(const model& m, const string& recname, const string& ligname, const string& layer_to_ignore = "");
     void gradient_setup(const model& m, const string& recname, const string& ligname);
 };
 
