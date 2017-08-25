@@ -165,10 +165,10 @@ std::vector<float> CNNScorer::get_scores_per_atom(bool receptor, bool relevance)
 		else //gradient
 		{
 			//sqrt(x^2 + y^2 + z^2)
-			float x = pow(gradient[i - 1].x, 2);
-			float y = pow(gradient[i - 1].y, 2);
-			float z = pow(gradient[i - 1].z, 2);
-			scores[i] = pow((x + y + z), 0.5);
+			float x = gradient[i - 1].x;
+			float y = gradient[i - 1].y;
+			float z = gradient[i - 1].z;
+			scores[i] = sqrt(x*x + y*y + z*z);
 		}
 
     }
@@ -176,7 +176,7 @@ std::vector<float> CNNScorer::get_scores_per_atom(bool receptor, bool relevance)
     return scores;
 }
 
-void CNNScorer::lrp(const model& m, const string& recname, const string& ligname, const string& layer_to_ignore)
+void CNNScorer::lrp(const model& m, const string& layer_to_ignore)
 {
     boost::lock_guard<boost::mutex> guard(*mtx);
     
@@ -194,19 +194,7 @@ void CNNScorer::lrp(const model& m, const string& recname, const string& ligname
     {
         net->Backward_relevance(layer_to_ignore);
     }
-   	
-	/*( 
-    outputXYZ("LRP_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
-	mgrid->getLigandGradient(0, gradient);
-	mgrid->getLigandAtoms(0, atoms);
-	mgrid->getLigandChannels(0, channels);
-    outputXYZ(ligname, atoms, channels, gradient);
 
-	mgrid->getReceptorGradient(0, gradient);
-	mgrid->getReceptorAtoms(0, atoms);
-	mgrid->getReceptorChannels(0, channels);
-    outputXYZ(recname, atoms, channels, gradient);
-	*/
 }
 
 //do forward and backward pass for gradient visualization
@@ -222,18 +210,22 @@ void CNNScorer::gradient_setup(const model& m, const string& recname, const stri
     net->Forward();
     net->Backward();
    	
-    //outputXYZ("gradient_rec", mgrid->getReceptorAtoms(0), mgrid->getReceptorChannels(0), mgrid->getReceptorGradient(0));
-	/*
-	mgrid->getLigandGradient(0, gradient);
-	mgrid->getLigandAtoms(0, atoms);
-	mgrid->getLigandChannels(0, channels);
-    outputXYZ(ligname, atoms, channels, gradient);
 
-	mgrid->getReceptorGradient(0, gradient);
-	mgrid->getReceptorAtoms(0, atoms);
-	mgrid->getReceptorChannels(0, channels);
-    outputXYZ(recname, atoms, channels, gradient);
-	*/
+    if(ligname.size() > 0)
+    {
+      mgrid->getLigandGradient(0, gradient);
+      mgrid->getLigandAtoms(0, atoms);
+      mgrid->getLigandChannels(0, channels);
+      outputXYZ(ligname, atoms, channels, gradient);
+    }
+
+    if(recname.size() > 0)
+    {
+      mgrid->getReceptorGradient(0, gradient);
+      mgrid->getReceptorAtoms(0, atoms);
+      mgrid->getReceptorChannels(0, channels);
+      outputXYZ(recname, atoms, channels, gradient);
+    }
 }
 //has an affinity prediction layer
 bool CNNScorer::has_affinity() const

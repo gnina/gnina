@@ -56,7 +56,8 @@ struct minimization_params
 	Type type;
 	unsigned maxiters; //maximum number of iterations of algorithm
 	bool early_term; //terminate early based on different of function values
-	minimization_params(): type(BFGSFastLineSearch), maxiters(0), early_term(false)
+	int outputframes;
+	minimization_params(): type(BFGSFastLineSearch), maxiters(0), early_term(false), outputframes(0)
 	{
 
 	}

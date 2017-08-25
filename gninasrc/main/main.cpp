@@ -1169,7 +1169,8 @@ Thank you!\n";
 				"Adjust the verbosity of the output, default: 1")
 		("flex_hydrogens", bool_switch(&flex_hydrogens),
 				"Enable torsions affecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
-        ("true_score", bool_switch(&settings.true_score), "Enable printing for the true GPU-computed score for correctness testing.");
+        ("true_score", bool_switch(&settings.true_score), "Enable printing for the true GPU-computed score for correctness testing.")
+		("outputmin", value<int>(&minparms.outputframes), "output minout.sdf of minimization with provided amount of interpolation");
 
 		options_description cnn("Convolutional neural net (CNN) scoring");
 		cnn.add_options()
