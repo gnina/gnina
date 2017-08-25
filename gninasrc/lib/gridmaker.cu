@@ -27,8 +27,6 @@ __shared__ uint atomMask[THREADSPERBLOCK];
 __shared__ uint scanScratch[THREADSPERBLOCK * 2];
 
 
-
-/*
 //do a scan and return ptr to result (could be either place in double-buffer)
 __shared__ uint scanBuffer[2][THREADSPERBLOCK];
 __device__ uint* scan(int thid)
@@ -51,7 +49,6 @@ __device__ uint* scan(int thid)
 	}
 	return scanBuffer[pout];
 }
-*/
 
 //Almost the same as naive scan1Inclusive, but doesn't need __syncthreads()
 //assuming size <= WARP_SIZE

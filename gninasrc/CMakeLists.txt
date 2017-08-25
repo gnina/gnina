@@ -1,7 +1,8 @@
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 find_package(CUDA REQUIRED)
-find_package(Boost REQUIRED COMPONENTS program_options system iostreams timer thread serialization filesystem date_time regex)
+find_package(Boost REQUIRED COMPONENTS program_options system iostreams timer
+    thread serialization filesystem date_time regex unit_test_framework)
 find_package(RDKit REQUIRED)
 find_package(OpenBabel2 REQUIRED)
 
@@ -81,6 +82,9 @@ lib/tree_gpu.cu
 gninavis/cnn_visualization.cpp
 )
 
+#test
+file(GLOB TEST_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/*.c*)
+
 set(rdkit_lib_line "-lFileParsers -lSmilesParse -lDepictor -lGraphMol -lRDGeometryLib -lRDGeneral -lSubstructMatch -lSubgraphs -lDataStructs")
 
 find_library(CUDA_DEV_RT NAMES cudadevrt PATHS ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
@@ -124,5 +128,8 @@ target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES}
 cuda_add_executable(gninavis gninavis/gninavis.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT})
+
+cuda_add_executable(check ${TEST_SRCS})
+target_link_libraries(check gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
 
 install(TARGETS gnina gninagrid gninatyper fromgnina tognina gninavis RUNTIME DESTINATION bin)

@@ -240,7 +240,7 @@ tree_gpu::tree_gpu(vector_mutable<ligand> &ligands,
         for(int ai = nodes[i].begin; ai < nodes[i].end; ai++)
             cpu_owners[ai] = atoms[ai].owner_idx = i;
 
-	assert(num_nodes = nodes.size());
+	assert(num_nodes == nodes.size());
     num_layers = max_layer + 1;
 
 	cudaMalloc(&device_nodes, sizeof(segment_node)*nodes.size());
