@@ -186,14 +186,18 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore)
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
     
     net->Forward();
+
+    Blob<Dtype> * zero_blob;
     if(layer_to_ignore == "")
     {
-        net->Backward_relevance();
+        zero_blob = net->Backward_relevance();
     }
     else
     {
-        net->Backward_relevance(layer_to_ignore);
+        zero_blob = net->Backward_relevance(layer_to_ignore);
     }
+
+    outputDX("zero_blob", 1.0, zero_blob);
 
 }
 
@@ -317,11 +321,22 @@ float CNNScorer::score(model& m, bool silent)
 
 
 //dump dx files of the diff
-void CNNScorer::outputDX(const string& prefix, double scale, const float relevance_eps)
+void CNNScorer::outputDX(const string& prefix, double scale, caffe::Blob<Dtype> * input_blob)
+
 {
-    const caffe::shared_ptr<Blob<Dtype> > datablob = net->blob_by_name("data");
+    caffe::Blob<Dtype> * blob_data;
+    if (input_blob == NULL)
+    {
+        const caffe::shared_ptr<Blob<Dtype>> datablob = net->blob_by_name("data");
+        blob_data = datablob.get();
+    }
+    else
+    {
+        blob_data = input_blob;
+    }
+
     const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
-    if(datablob) {
+//    if(datablob) {
         //this is a big more fragile than I would like.. if there is a pooling layer before
         //the first convoluational of fully connected layer and it is a max pooling layer,
         //change it to average before the backward to avoid a discontinuous map
@@ -345,7 +360,7 @@ void CNNScorer::outputDX(const string& prefix, double scale, const float relevan
         }
 
         //must redo backwards with average pooling
-        if(relevance_eps > 0)
+        if(input_blob != NULL)
         {
             net->Backward_relevance();
         }
@@ -354,13 +369,14 @@ void CNNScorer::outputDX(const string& prefix, double scale, const float relevan
 
         string p = prefix;
         if(p.length() == 0) p = "dx";
-        mgrid->dumpDiffDX(p, datablob.get(), scale);
+        //mgrid->dumpDiffDX(p, datablob.get(), scale);
+        mgrid->dumpDiffDX(p, blob_data, scale);
 
         if(pool) {
             pool->set_pool(PoolingParameter_PoolMethod_MAX);
         }
 
-    }
+ //   }
 }
 
 

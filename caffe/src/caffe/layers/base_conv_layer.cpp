@@ -389,6 +389,34 @@ void BaseConvolutionLayer<Dtype>::backward_gpu_bias(Dtype* bias,
 }
 
 template <typename Dtype>
+Blob<Dtype> * BaseConvolutionLayer<Dtype>::get_zero_relevance_blob_base(
+        const Dtype * upper_relevances, const Dtype* top_data, const Dtype* bottom_data)
+{
+    std::cout << "in base conv get zero\n";
+    //set up blob and zero out
+    Blob<Dtype> zeroes(col_buffer_.shape());
+    Dtype * zeroes_data = zeroes.mutable_cpu_data();
+    caffe_set(col_buffer_.count(), static_cast<Dtype>(0), zeroes_data);
+
+    int K = kernel_dim_;
+    int I = conv_out_spatial_dim_;
+    int R = conv_out_channels_ / group_;
+
+    int top_size = R * I;
+    
+    for(int i = 0; i < top_size; i++)
+    {
+        Dtype bias = this->blobs_[1]->cpu_data()[i/I];
+        Dtype val = top_data[i] - bias;
+        if (val == 0)
+        {
+            zeroes_data[i] = upper_relevances[i];
+        }
+    }
+
+    return &zeroes;
+}
+template <typename Dtype>
 void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
     const Dtype* upper_relevances, const Dtype* top_data,
     const Dtype* weights, const Dtype* bottom_data,

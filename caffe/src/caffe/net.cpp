@@ -9,6 +9,7 @@
 
 #include "caffe/common.hpp"
 #include "caffe/layer.hpp"
+#include "caffe/layers/conv_layer.hpp"
 #include "caffe/net.hpp"
 #include "caffe/parallel.hpp"
 #include "caffe/proto/caffe.pb.h"
@@ -980,8 +981,9 @@ const shared_ptr<Layer<Dtype> > Net<Dtype>::layer_by_name(
 }
 
 template<typename Dtype>
-void Net<Dtype>::Backward_relevance(std::string layer_to_ignore){
+Blob<Dtype> * Net<Dtype>::Backward_relevance(std::string layer_to_ignore){
 
+    Blob<Dtype> * return_ptr;
     int end = 0 ;
     int start = layers_.size()-1;
 
@@ -994,12 +996,19 @@ void Net<Dtype>::Backward_relevance(std::string layer_to_ignore){
             Dtype* top_diff = top_vecs_[i][0]->mutable_cpu_diff();
             caffe_set(blob_count, static_cast<Dtype>(0), top_diff);
         }
-        if (layer_need_backward_[i]) 
+        if (layer_need_backward_[i])
         {
             layers_[i]->Backward_relevance(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
+            if (layer_names_[i] == "unit1_conv1")
+            {
+                caffe::ConvolutionLayer<Dtype> * conv_layer = dynamic_cast<caffe::ConvolutionLayer<Dtype> *>(layers_[i].get());
+                return_ptr = conv_layer->get_zero_relevance_blob(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
+            }
         }
     }
+    return return_ptr;
 }
+
 
 INSTANTIATE_CLASS(Net);
 

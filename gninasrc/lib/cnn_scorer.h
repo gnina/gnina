@@ -65,7 +65,7 @@ public:
     float score(model& m, bool silent = true);
     float score(model& m, bool compute_gradient, float& affinity, bool silent = true);
 
-    void outputDX(const string& prefix, double scale = 1.0, const float relevance_eps = -1.0);
+    void outputDX(const string& prefix, double scale = 1.0, caffe::Blob<Dtype> * input_blob = NULL);
     void outputXYZ(const string& base, const vector<float4>& atoms,
                const vector<short>& whichGrid, const vector<float3>& gradient);
     std::vector<float> get_scores_per_atom(bool receptor, bool relevance = false);
