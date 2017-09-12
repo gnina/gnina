@@ -75,7 +75,7 @@ class Net {
   void BackwardTo(int end);
 
   //zeros values in specified layer (in the case of split output)
-  void Backward_relevance(std::string layer_to_ignore = "");
+  Blob<Dtype> * Backward_relevance(std::string layer_to_ignore = "");
 
   /**
    * @brief Reshape all layers from bottom to top.

@@ -73,6 +73,16 @@ void ConvolutionLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 }
 
 template <typename Dtype>
+Blob<Dtype> * ConvolutionLayer<Dtype>::get_zero_relevance_blob(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
+{
+    std::cout << "in conv get zero\n";
+    const Dtype* top_data = top[0]->cpu_data();
+    const Dtype* top_diff = top[0]->cpu_diff();
+    const Dtype* bottom_data = bottom[0]->cpu_data();
+
+    return this->get_zero_relevance_blob_base(top_diff, top_data, bottom_data);
+}
+template <typename Dtype>
 void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
