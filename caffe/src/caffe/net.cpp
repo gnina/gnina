@@ -981,9 +981,8 @@ const shared_ptr<Layer<Dtype> > Net<Dtype>::layer_by_name(
 }
 
 template<typename Dtype>
-Blob<Dtype> * Net<Dtype>::Backward_relevance(std::string layer_to_ignore){
+void Net<Dtype>::Backward_relevance(std::string layer_to_ignore, bool zero_values){
 
-    Blob<Dtype> * return_ptr;
     int end = 0 ;
     int start = layers_.size()-1;
 
@@ -998,15 +997,21 @@ Blob<Dtype> * Net<Dtype>::Backward_relevance(std::string layer_to_ignore){
         }
         if (layer_need_backward_[i])
         {
-            layers_[i]->Backward_relevance(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
-            if (layer_names_[i] == "unit1_conv1")
+            if (zero_values && layer_names_[i] == "unit1_conv1")
             {
-                caffe::ConvolutionLayer<Dtype> * conv_layer = dynamic_cast<caffe::ConvolutionLayer<Dtype> *>(layers_[i].get());
-                return_ptr = conv_layer->get_zero_relevance_blob(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
+                caffe::ConvolutionLayer<Dtype> * conv_layer =
+                    dynamic_cast<caffe::ConvolutionLayer<Dtype> *>(layers_[i].get());
+
+                conv_layer->zero_backward_relevance(top_vecs_[i], 
+                        bottom_need_backward_[i], bottom_vecs_[i]);
+
+            }
+            else
+            {
+                layers_[i]->Backward_relevance(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
             }
         }
     }
-    return return_ptr;
 }
 
 

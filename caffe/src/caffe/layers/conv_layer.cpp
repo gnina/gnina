@@ -72,15 +72,18 @@ void ConvolutionLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
+//runs in place of normal backward relevance pass, but zeroes out everything but dead nodes
 template <typename Dtype>
-Blob<Dtype> * ConvolutionLayer<Dtype>::get_zero_relevance_blob(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
+void ConvolutionLayer<Dtype>::zero_backward_relevance(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
-    std::cout << "in conv get zero\n";
+    std::cout << "in conv zero\n";
+    const Dtype* weight = this->blobs_[0]->cpu_data();
     const Dtype* top_data = top[0]->cpu_data();
     const Dtype* top_diff = top[0]->cpu_diff();
     const Dtype* bottom_data = bottom[0]->cpu_data();
+    Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
 
-    return this->get_zero_relevance_blob_base(top_diff, top_data, bottom_data);
+    return this->manual_relevance_backward(top_diff, top_data, weight, bottom_data, bottom_diff, true); //zero_values = true
 }
 template <typename Dtype>
 void ConvolutionLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,

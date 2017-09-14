@@ -176,7 +176,7 @@ std::vector<float> CNNScorer::get_scores_per_atom(bool receptor, bool relevance)
     return scores;
 }
 
-void CNNScorer::lrp(const model& m, const string& layer_to_ignore)
+void CNNScorer::lrp(const model& m, const string& layer_to_ignore, bool zero_values)
 {
     boost::lock_guard<boost::mutex> guard(*mtx);
     
@@ -186,18 +186,23 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore)
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
     
     net->Forward();
-
-    Blob<Dtype> * zero_blob;
-    if(layer_to_ignore == "")
+    if(zero_values)
     {
-        zero_blob = net->Backward_relevance();
+        std::cout << "lrp zero values\n";
+        outputDX("zero_blob", 1.0, true, layer_to_ignore, zero_values);
     }
     else
     {
-        zero_blob = net->Backward_relevance(layer_to_ignore);
+        if(layer_to_ignore == "")
+        {
+            net->Backward_relevance();
+        }
+        else
+        {
+            net->Backward_relevance(layer_to_ignore);
+        }
     }
 
-    outputDX("zero_blob", 1.0, zero_blob);
 
 }
 
@@ -321,19 +326,11 @@ float CNNScorer::score(model& m, bool silent)
 
 
 //dump dx files of the diff
-void CNNScorer::outputDX(const string& prefix, double scale, caffe::Blob<Dtype> * input_blob)
+//zero_values: run backward relevance with only dead node values
+void CNNScorer::outputDX(const string& prefix, double scale, bool lrp, string layer_to_ignore, bool zero_values)
 
 {
-    caffe::Blob<Dtype> * blob_data;
-    if (input_blob == NULL)
-    {
-        const caffe::shared_ptr<Blob<Dtype>> datablob = net->blob_by_name("data");
-        blob_data = datablob.get();
-    }
-    else
-    {
-        blob_data = input_blob;
-    }
+    const caffe::shared_ptr<Blob<Dtype>> datablob = net->blob_by_name("data");
 
     const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
 //    if(datablob) {
@@ -360,9 +357,9 @@ void CNNScorer::outputDX(const string& prefix, double scale, caffe::Blob<Dtype> 
         }
 
         //must redo backwards with average pooling
-        if(input_blob != NULL)
+        if(lrp)
         {
-            net->Backward_relevance();
+            net->Backward_relevance(layer_to_ignore, zero_values);
         }
         else
             net->Backward();
@@ -370,7 +367,7 @@ void CNNScorer::outputDX(const string& prefix, double scale, caffe::Blob<Dtype> 
         string p = prefix;
         if(p.length() == 0) p = "dx";
         //mgrid->dumpDiffDX(p, datablob.get(), scale);
-        mgrid->dumpDiffDX(p, blob_data, scale);
+        mgrid->dumpDiffDX(p, datablob.get(), scale);
 
         if(pool) {
             pool->set_pool(PoolingParameter_PoolMethod_MAX);

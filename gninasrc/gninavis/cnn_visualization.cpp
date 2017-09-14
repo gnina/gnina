@@ -44,6 +44,7 @@ cnn_visualization::cnn_visualization(const vis_options &viso,
 
 void cnn_visualization::lrp() {
 
+    std::cout << "LRP\n-----------\n";
     process_molecules();
 
     std::stringstream rec_stream(rec_string);
@@ -57,7 +58,11 @@ void cnn_visualization::lrp() {
 
     float aff;
 
-    scorer.lrp(receptor, visopts.layer_to_ignore);
+    if(visopts.zero_values)
+    {
+        std::cout << "Only propagating from dead nodes.\n";
+    }
+    scorer.lrp(receptor, visopts.layer_to_ignore, visopts.zero_values);
     std::vector<float> lig_scores = scorer.get_scores_per_atom(false, true);
     std::vector<float> rec_scores = scorer.get_scores_per_atom(true, true);
 
@@ -69,7 +74,7 @@ void cnn_visualization::lrp() {
         float scale = 1.0;
         boost::filesystem::path lig_name_path(visopts.ligand_name);
         std::string lig_prefix = "lrp_" + lig_name_path.stem().string();
-        scorer.outputDX(lig_prefix, scale);
+        scorer.outputDX(lig_prefix, scale, true, visopts.layer_to_ignore);
     }
     std::cout << "LRP finished.\n";
 }
