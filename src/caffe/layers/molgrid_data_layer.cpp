@@ -707,6 +707,8 @@ void MolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
 {
 	Grids grids(top->mutable_cpu_diff(),
 			boost::extents[numReceptorTypes + numLigandTypes][dim][dim][dim]);
+
+
     CHECK_GT(mem_lig.atoms.size(),0) << "DX dump only works with in-memory ligand";
     CHECK_EQ(randrotate, false) << "DX dump requires no rotation";
 	for (unsigned a = 0, na = numReceptorTypes; a < na; a++) {
