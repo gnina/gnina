@@ -6,6 +6,14 @@ Help
 ====
 **Reminder: gnina is not yet intended for production use**.  However, if you would like to evaluate it or use it as a research platform, please [subscribe to our slack team](http://bits.csb.pitt.edu/slack). 
 
+Citation
+========
+If you find gnina useful, please cite our paper (hopefully more to come):
+Protein–Ligand Scoring with Convolutional Neural Networks
+M Ragoza, J Hochuli, E Idrobo, J Sunseri, DR Koes - J. Chem. Inf. Model, 2017
+[link](http://pubs.acs.org/doi/full/10.1021/acs.jcim.6b00740)[arXiv version](https://arxiv.org/abs/1612.02751)
+
+
 Installation
 ============
 
