@@ -62,6 +62,7 @@ message FillerParameter {
   }
   optional VarianceNorm variance_norm = 8 [default = FAN_IN];
   optional string source = 9;
+  optional float symmetric_fraction = 10 [default = 1.0]; //number of filters that are symmetric in RadialFilter
 }
 
 message NetParameter {
@@ -496,6 +497,8 @@ message AffinityLossParameter {
 	optional float delta = 5 [default = 2.0]; //delta value for pseudohuber, larger -> more L2 like
 	optional float maxgrad = 6 [default = 0.0]; //if set, max value of gradient, dampens with x*max/(x+max) 
 	optional float penalty = 7 [default = 0.0]; //additional spacing for negative values (opposite of gap)
+	optional float ranklossmult = 8 [default = 0.0]; //add rankloss with this multiplier
+	optional bool ranklossneg = 9 [default = false]; // rank neg against positive examples - for balanced only
 }
 
 message ArgMaxParameter {
