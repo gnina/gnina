@@ -367,63 +367,82 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
 
     boost::filesystem::path file_name_path(file_name);
     file_name = method + "_" + file_name_path.stem().string() + ".pdbqt";
+    std::string extended_file_name = file_name + ".ext";
 
-    std::ofstream out_file;
-    out_file.open(file_name);
-
-    out_file << "VIS METHOD: " << method << '\n';
-    out_file << "CNN MODEL: " << cnnopts.cnn_model << '\n';
-    out_file << "CNN WEIGHTS: " << cnnopts.cnn_weights << '\n';
-
-    std::stringstream mol_stream(mol_string);
-    std::string line;
-    std::string index_string;
-    int atom_index;
-    std::stringstream score_stream;
-    std::string score_string;
-
-    float score_sum = 0;
-    int Hadjust = 0; //number of hydrogen atoms seen
-
-    //dkoes - this is ridiculously fragile, we are assuming atoms don't change
-    //order from the input string, and have to manually adjust for hydrogens
-    //ideally, the model would output this, but it currently doesn't preserve enough
-    //of the receptor :-(
-    //I am also less than fond of the index by 1 approach
-    while (std::getline(mol_stream, line)) {
-        if ((line.find("ATOM") < std::string::npos)
-                || (line.find("HETATM") < std::string::npos)) {
-            score_stream.str(""); //clear stream for next score
-            index_string = line.substr(6, 5);
-            std::string elem = line.substr(77,2);
-            atom_index = std::stoi(index_string);
-
-            float score = 0;
-
-            if(elem == "H " || elem == "HD") {
-              score = 0;
-              Hadjust++;
-            }
-            else if (atom_index-Hadjust >= scores.size()) {
-                abort(); //about the best sanity check we have..
-            }
-            else
-            {
-                score = scores[atom_index-Hadjust];
-                score_sum += score;
-            }
-
-            score_stream << std::fixed << std::setprecision(5) << score;
-            out_file << line.substr(0, 61);
-            score_string = score_stream.str();
-            score_string.resize(5);
-            out_file.width(5);
-            out_file.fill('.');
-            out_file << std::right << score_string;
-            out_file << line.substr(66) << '\n';
+    for(int i = 0; i < 2; i++)
+    {
+        std::ofstream curr_out_file;
+        if(i  == 0)
+        {
+            curr_out_file.open(file_name);
         }
-        else {
-            out_file << line << '\n';
+        else
+        {
+            curr_out_file.open(extended_file_name);
+        }
+
+        curr_out_file << "VIS METHOD: " << method << '\n';
+        curr_out_file << "CNN MODEL: " << cnnopts.cnn_model << '\n';
+        curr_out_file << "CNN WEIGHTS: " << cnnopts.cnn_weights << '\n';
+
+        std::stringstream mol_stream(mol_string);
+        std::string line;
+        std::string index_string;
+        int atom_index;
+        std::stringstream score_stream;
+        std::string score_string;
+
+        float score_sum = 0;
+        int Hadjust = 0; //number of hydrogen atoms seen
+
+        //dkoes - this is ridiculously fragile, we are assuming atoms don't change
+        //order from the input string, and have to manually adjust for hydrogens
+        //ideally, the model would output this, but it currently doesn't preserve enough
+        //of the receptor :-(
+        //I am also less than fond of the index by 1 approach
+        while (std::getline(mol_stream, line)) {
+            if ((line.find("ATOM") < std::string::npos)
+                    || (line.find("HETATM") < std::string::npos)) {
+                score_stream.str(""); //clear stream for next score
+                index_string = line.substr(6, 5);
+                std::string elem = line.substr(77,2);
+                atom_index = std::stoi(index_string);
+
+                float score = 0;
+
+                if(elem == "H " || elem == "HD") {
+                  score = 0;
+                  Hadjust++;
+                }
+                else if (atom_index-Hadjust >= scores.size()) {
+                    abort(); //about the best sanity check we have..
+                }
+                else
+                {
+                    score = scores[atom_index-Hadjust];
+                    score_sum += score;
+                }
+
+                score_stream << std::fixed << std::setprecision(5) << score;
+                curr_out_file << line.substr(0, 61);
+                score_string = score_stream.str();
+                if(i == 0)
+                {
+                    curr_out_file.width(5);
+                    score_string.resize(5);
+                }
+                else
+                {
+                    curr_out_file.width(7);
+                    score_string.resize(7);
+                }
+                curr_out_file.fill('.');
+                curr_out_file << std::right << score_string;
+                curr_out_file << line.substr(66) << '\n';
+            }
+            else {
+                curr_out_file << line << '\n';
+            }
         }
     }
 }
