@@ -288,10 +288,6 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
     // Read source file(s) with labels and structures,
     // each line is label [affinity] [rmsd] receptor_file ligand_file
-    LOG(INFO) << "Opening file " << source;
-    std::ifstream infile(source.c_str());
-    CHECK((bool)infile) << "Could not open " << source;
-
     data = create_example_data(param);
     populate_data(root_folder, source, data, hasaffinity, hasrmsd);
 
@@ -299,7 +295,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     {
       CHECK_GE(data_ratio, 0) << "Must provide non-negative ratio for two data sources";
       data2 = create_example_data(param);
-      populate_data(root_folder2, source, data2, hasaffinity, hasrmsd);
+      populate_data(root_folder2, source2, data2, hasaffinity, hasrmsd);
     }
 
     LOG(INFO) << "Total examples: " << data->size() + (data2 ? data2->size() : 0);
