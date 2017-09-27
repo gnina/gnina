@@ -233,7 +233,7 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 	set(c);
 
 	fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
-    fl ie = 0;
+	fl ie = 0;
 
 	if(!ig.skip_interacting_pairs()) {
 		ie += eval_interacting_pairs_deriv(p, v[2], other_pairs, coords,
@@ -244,9 +244,9 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 					minus_forces); // adds to minus_forces
 		e += ie;
 
-        if (print_during_minimization) 
-            do_minimization_printing(eval_deriv_counter, (force_energy_tup*)&minus_forces[0],
-                    minus_forces.size(), e, ie);
+		if (print_during_minimization) 
+			do_minimization_printing(eval_deriv_counter, (force_energy_tup*)&minus_forces[0],
+					minus_forces.size(), e, ie);
 	}
 	// calculate derivatives
 	ligands.derivative(coords, minus_forces, g.ligands);
@@ -310,16 +310,16 @@ void model::sub_minus_forces(const std::vector<float3>& forces)
 	}
 }
 
-fl model::get_minus_forces_magnitude()
+fl model::get_minus_forces_magnitude() const
 {
 	fl m = 0;
 	VINA_FOR(i, m_num_movable_atoms)
 	{
 		if (!atoms[i].is_hydrogen()) // no hydrogen forces
 		{
-			m += sqrt(pow(minus_forces[i].data[0], 2)
-			        + pow(minus_forces[i].data[1], 2)
-			        + pow(minus_forces[i].data[2], 2));
+			m += pow(minus_forces[i].data[0], 2)
+			   + pow(minus_forces[i].data[1], 2)
+			   + pow(minus_forces[i].data[2], 2);
 		}
 	}
 	return m;
