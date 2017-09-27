@@ -28,10 +28,8 @@
 
 struct non_cache_gpu: public non_cache
 {
-private:
+    //TODO: info was private, but I needed to access it in test_runner - reprotect?
 	GPUNonCacheInfo info; //host struct of device pointers
-
-public:
 	non_cache_gpu(szv_grid_cache& gcache, const grid_dims& gd_,
                   const precalculate_gpu* p_, fl slope_);
     virtual void setSlope(fl sl);

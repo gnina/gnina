@@ -18,6 +18,7 @@ int main(int argc, char* argv[])
   using namespace boost::program_options;
 
   std::string vis_method;
+  std::string masking_target;
 
   options_description inputs("Input");
   inputs.add_options()
@@ -31,7 +32,9 @@ int main(int argc, char* argv[])
     ("cnn_model", value<std::string>(&cnnopts.cnn_model),
                   "CNN model file (*.model)")
     ("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
-                  "CNN weights file (*.caffemodel)");
+                  "CNN weights file (*.caffemodel)")
+    ("ignore_layer", value<std::string>(&visopts.layer_to_ignore)->default_value(""),
+                  "zero values in layer with provided name, in the case of split output");
   
   options_description output("Output");
   output.add_options()
@@ -52,8 +55,10 @@ int main(int argc, char* argv[])
                   "print full output, including removed atom lists")
     ("gpu", value<int>(&visopts.gpu)->default_value(-1),
                     "gpu id for accelerated scoring")
-    ("vis_method", value<std::string>(&vis_method)->default_value("removal"),
-                    "visualization method (lrp, removal, gradient, or all)")
+    ("vis_method", value<std::string>(&vis_method)->default_value("masking"),
+                    "visualization method (lrp, masking, gradient, or all)")
+    ("masking_target", value<std::string>(&visopts.masking_target)->default_value("pose"),
+                    "scoring method for masking (pose or aff)")
     ("outputdx", bool_switch(&visopts.outputdx)->default_value(false),
                    "output DX grid files (lrp only)");
 
@@ -120,15 +125,6 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-	/*
-  if(vm.count("receptor_output") <= 0 && vm.count("ligand_output") <= 0)
-  {
-    std::cerr << "At least one of 'receptor_output' and 'ligand_output' required.\n" << "\nCorrect usage:\n"
-            << desc << '\n';
-    return 1;
-  }
-*/
-
   if(visopts.frags_only && visopts.atoms_only)
   {
     std::cerr << "Cannot use 'frags_only' and 'atoms_only' together.\n" << "\nCorrect usage:\n"
@@ -151,23 +147,23 @@ int main(int argc, char* argv[])
   }
   else if ("gradient" == vis_method)
   {
-	vis.gradient_vis();
+    vis.gradient_vis();
   }
   else if ("all" == vis_method)
   {
-	std::cout << "\nGradient\n";
-	std::cout << "------------\n";
-	vis.gradient_vis();
-	std::cout << "\nLRP\n";
-	std::cout << "------------\n";
-	vis.lrp();
-	std::cout << "\nMasking\n";
-	std::cout << "------------\n";
-	vis.masking();
+    std::cout << "\nGradient\n";
+    std::cout << "------------\n";
+    vis.gradient_vis();
+    std::cout << "\nLRP\n";
+    std::cout << "------------\n";
+    vis.lrp();
+    std::cout << "\nMasking\n";
+    std::cout << "------------\n";
+    vis.masking();
   }
   else
   {
-      std::cerr << "Specified vis_method not known. Use \"removal\", \"lrp\", or \"gradient\"\n";
+      std::cerr << "Specified vis_method not known. Use \"masking\", \"lrp\", or \"gradient\"\n";
       return 1;
   }
 }

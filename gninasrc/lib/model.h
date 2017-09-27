@@ -429,9 +429,17 @@ struct model {
 	~model() { deallocate_gpu(); };
 
     /* TODO:protect */
+	fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
+                                  const interacting_pairs& pairs,
+                                  const vecv& coords, vecv& forces) const;
     vecv coords;
+	vecv minus_forces;
     gpu_data gdata;
     vector_mutable<ligand> ligands;
+	sz m_num_movable_atoms;
+	atomv atoms; // movable, inflex
+	atomv grid_atoms;
+	interacting_pairs other_pairs; 
 
 private:
 	//my, aren't we friendly!
@@ -489,27 +497,26 @@ private:
 
 	fl eval_interacting_pairs(const precalculate& p, fl v,
                             const interacting_pairs& pairs, const vecv& coords) const;
-	fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
-                                  const interacting_pairs& pairs,
-                                  const vecv& coords, vecv& forces) const;
+	// fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
+                                  // const interacting_pairs& pairs,
+                                  // const vecv& coords, vecv& forces) const;
 
 	bool hydrogens_stripped;
 	vecv internal_coords;
 	/* TODO:reprivate */
 	/* vecv coords; */
 	//This contains the accumulated directional deltas for each atom
-	vecv minus_forces;
+	/* vecv minus_forces; */
+	/*sz m_num_movable_atoms; */
+	/*atomv atoms; // movable, inflex*/
+	/*atomv grid_atoms;*/
 
-	atomv grid_atoms;
-	atomv atoms; // movable, inflex
 
 	vector_mutable<residue> flex;
 	context flex_context;
 	// all except internal to one ligand: ligand-other ligands;
 	// ligand-flex/inflex; flex-flex/inflex
-	interacting_pairs other_pairs; 
-
-	sz m_num_movable_atoms;
+	// interacting_pairs other_pairs; 
 
 	std::string name;
 	int pose_num;

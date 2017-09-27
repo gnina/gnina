@@ -19,16 +19,13 @@
 
 using namespace OpenBabel;
 
-cnn_visualization::cnn_visualization(const vis_options &visopts,
-        const cnn_options &cnnopts, const vec &center) {
+cnn_visualization::cnn_visualization(const vis_options &viso,
+        const cnn_options &copts, const vec &c):
+            visopts(viso), cnnopts(copts), center(c) {
     if (visopts.gpu > -1) {
         caffe::Caffe::SetDevice(visopts.gpu);
         caffe::Caffe::set_mode(caffe::Caffe::GPU);
     }
-
-    this->visopts = visopts;
-    this->cnnopts = cnnopts;
-    this->center = &center;
 
     OBConversion conv;
     obmol_opener opener;
@@ -51,7 +48,7 @@ void cnn_visualization::lrp() {
 
     std::stringstream rec_stream(rec_string);
     model receptor = parse_receptor_pdbqt("", rec_stream);
-    CNNScorer scorer(cnnopts, *center, receptor);
+    CNNScorer scorer(cnnopts, center, receptor);
 
     std::stringstream lig_stream(lig_string);
     model ligand = parse_ligand_stream_pdbqt("", lig_stream);
@@ -59,15 +56,8 @@ void cnn_visualization::lrp() {
     receptor.append(ligand);
 
     float aff;
-    std::cout << "CNN SCORE: " << scorer.score(receptor, true) << '\n';
 
-	boost::filesystem::path rec_name_path(visopts.receptor_name);
-	std::string rec_output_name = "lrp_" + rec_name_path.stem().string() + ".xyz";
-
-	boost::filesystem::path lig_name_path(visopts.ligand_name);
-	std::string lig_output_name = "lrp_" + lig_name_path.stem().string() + ".xyz";
-
-    scorer.lrp(receptor, rec_output_name, lig_output_name);
+    scorer.lrp(receptor, visopts.layer_to_ignore);
     std::vector<float> lig_scores = scorer.get_scores_per_atom(false, true);
     std::vector<float> rec_scores = scorer.get_scores_per_atom(true, true);
 
@@ -77,9 +67,11 @@ void cnn_visualization::lrp() {
     if (visopts.outputdx) 
     {
         float scale = 1.0;
-        scorer.outputDX(lig_output_name, scale);
+        boost::filesystem::path lig_name_path(visopts.ligand_name);
+        std::string lig_prefix = "lrp_" + lig_name_path.stem().string();
+        scorer.outputDX(lig_prefix, scale);
     }
-	std::cout << "LRP finished.\n";
+    std::cout << "LRP finished.\n";
 }
 
 void cnn_visualization::gradient_vis() {
@@ -88,7 +80,7 @@ void cnn_visualization::gradient_vis() {
 
     std::stringstream rec_stream(rec_string);
     model receptor = parse_receptor_pdbqt("", rec_stream);
-    CNNScorer scorer(cnnopts, *center, receptor);
+    CNNScorer scorer(cnnopts, center, receptor);
 
     std::stringstream lig_stream(lig_string);
     model ligand = parse_ligand_stream_pdbqt("", lig_stream);
@@ -99,11 +91,12 @@ void cnn_visualization::gradient_vis() {
     float aff;
     std::cout << "CNN SCORE: " << scorer.score(receptor, true) << '\n';
 
-	boost::filesystem::path rec_name_path(visopts.receptor_name);
-	std::string rec_output_name = "gradient_" + rec_name_path.stem().string() + ".xyz";
+    boost::filesystem::path rec_name_path(visopts.receptor_name);
+    std::string rec_output_name = "gradient_" + rec_name_path.stem().string() + ".xyz";
 
-	boost::filesystem::path lig_name_path(visopts.ligand_name);
-	std::string lig_output_name = "gradient_" + lig_name_path.stem().string() + ".xyz";
+    boost::filesystem::path lig_name_path(visopts.ligand_name);
+    std::string lig_prefix = "gradient_" + lig_name_path.stem().string();
+    std::string lig_output_name = lig_prefix + ".xyz";
 
     scorer.gradient_setup(receptor, rec_output_name, lig_output_name);
     std::vector<float> lig_scores = scorer.get_scores_per_atom(false, false);
@@ -115,9 +108,9 @@ void cnn_visualization::gradient_vis() {
     if (visopts.outputdx) 
     {
         float scale = 1.0;
-        scorer.outputDX(lig_output_name, scale);
+        scorer.outputDX(lig_prefix, scale);
     }
-	std::cout << "Gradient finished.\n";
+    std::cout << "Gradient finished.\n";
 }
 
 
@@ -131,15 +124,31 @@ void cnn_visualization::masking() {
 
     std::stringstream rec_stream(rec_string);
     unmodified_receptor = parse_receptor_pdbqt("", rec_stream);
-    CNNScorer base_scorer(cnnopts, *center, unmodified_receptor);
+    CNNScorer base_scorer(cnnopts, center, unmodified_receptor);
 
     std::stringstream lig_stream(lig_string);
     unmodified_ligand = parse_ligand_stream_pdbqt("", lig_stream);
     model temp_rec = unmodified_receptor;
 
     temp_rec.append(unmodified_ligand);
-    original_score = base_scorer.score(temp_rec, true);
-    std::cout << "CNN SCORE: " << original_score << "\n\n";
+    if(visopts.masking_target == "pose")
+    {
+        original_score = base_scorer.score(temp_rec, true);
+        std::cout << "CNN SCORE: " << original_score << "\n\n";
+    }
+    else if(visopts.masking_target == "affinity")
+    {
+        float aff;
+        original_score = base_scorer.score(temp_rec, true, aff, true);
+        original_score = aff;
+        std::cout << "AFF: " << original_score << "\n\n";
+    }
+    else 
+    {
+        std::cout << "Unknown scoring method for masking.\n";
+        return;
+    }
+
 
     if (!visopts.skip_receptor_output) {
         remove_residues();
@@ -148,7 +157,7 @@ void cnn_visualization::masking() {
     if (!visopts.skip_ligand_output) {
         remove_ligand_atoms();
     }
-	std::cout << "Masking finished.\n";
+    std::cout << "Masking finished.\n";
 }
 
 void cnn_visualization::print() {
@@ -191,7 +200,7 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove,
     std::stringstream ss;
     std::stringstream mol_stream(mol_string);
 
-    ss << "ROOT\n"; //add necessary lines for gnina parsing
+    ss << "ROOT\n"; 
 
     bool list_ended = false;
     std::string line;
@@ -216,6 +225,7 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove,
 
         }
     }
+
     ss << "ENDROOT\n";
     ss << "TORSDOF 0\n";
 
@@ -230,7 +240,7 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove,
 //files for removal
 void cnn_visualization::process_molecules() {
     rec_mol.AddHydrogens();
-		
+
     lig_mol.AddHydrogens(true, false, 7.4); //add only polar hydrogens
 
     OBConversion conv;
@@ -243,9 +253,19 @@ void cnn_visualization::process_molecules() {
     //generate base ligand pdbqt string
     std::string temp_lig_string = conv.WriteString(&lig_mol);
     std::stringstream lig_stream;
-    lig_stream << "ROOT\n";
+    if(temp_lig_string.find("ROOT") == std::string::npos)
+    {
+        lig_stream << "ROOT\n";
+    }
     lig_stream << temp_lig_string;
-    lig_stream << "ENDROOT\n" << "TORSDOF 0";
+    if(temp_lig_string.find("ENDROOT") == std::string::npos)
+    {
+        lig_stream << "ENDROOT\n";
+    }
+    if(temp_lig_string.find("TORSDOF") == std::string::npos)
+    {
+        lig_stream << "TORSDOF 0";
+    }
     lig_string = lig_stream.str();
 
     //generate base receptor pdbqt string
@@ -272,12 +292,20 @@ float cnn_visualization::score_modified_receptor(
 
     model m = parse_receptor_pdbqt("", rec_stream);
 
-    CNNScorer cnn_scorer(cnnopts, *center, m);
+    CNNScorer cnn_scorer(cnnopts, center, m);
 
     model l = parse_ligand_stream_pdbqt("", lig_stream);
     m.append(l);
 
-    float score_val = cnn_scorer.score(m, true);
+    float aff;
+    float score_val = cnn_scorer.score(m, true, aff);
+
+    //use affinity instead of cnn score if required
+    if (visopts.masking_target == "affinity")
+    {
+        score_val =  aff;
+    }
+
     if (visopts.verbose) {
         std::cout << "SCORE: " << score_val << '\n';
     }
@@ -295,23 +323,31 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string) {
 
     static bool first = true;
     if (first) {
-        cnn_scorer = CNNScorer(cnnopts, *center, temp);
+        cnn_scorer = CNNScorer(cnnopts, center, temp);
         first = false;
     }
 
     model l = parse_ligand_stream_pdbqt("", lig_stream);
     temp.append(l);
 
-    float score_val = cnn_scorer.score(temp, true);
+    float aff;
+    float score_val = cnn_scorer.score(temp, true, aff, true);
     if (visopts.verbose) {
         std::cout << "SCORE: " << score_val << '\n';
     }
 
-    return score_val;
+    if (visopts.masking_target == "pose")
+    {
+        return score_val;
+    }
+    else if (visopts.masking_target == "affinity")
+    {
+        return aff;
+    }
 }
 
-//input: raw score differences
-void cnn_visualization::write_scores(const std::vector<float> score_diffs,
+//input: scores
+void cnn_visualization::write_scores(const std::vector<float> scores,
         bool isRec, std::string method) {
     std::string file_name;
     std::string mol_string;
@@ -324,13 +360,13 @@ void cnn_visualization::write_scores(const std::vector<float> score_diffs,
         mol_string = lig_string;
     }
 
-	boost::filesystem::path file_name_path(file_name);
-	file_name = method + "_" + file_name_path.stem().string() + ".pdbqt";
+    boost::filesystem::path file_name_path(file_name);
+    file_name = method + "_" + file_name_path.stem().string() + ".pdbqt";
 
     std::ofstream out_file;
     out_file.open(file_name);
 
-	out_file << "VIS METHOD: " << method << '\n';
+    out_file << "VIS METHOD: " << method << '\n';
     out_file << "CNN MODEL: " << cnnopts.cnn_model << '\n';
     out_file << "CNN WEIGHTS: " << cnnopts.cnn_weights << '\n';
 
@@ -342,56 +378,49 @@ void cnn_visualization::write_scores(const std::vector<float> score_diffs,
     std::string score_string;
 
     float score_sum = 0;
+    int Hadjust = 0; //number of hydrogen atoms seen
 
+    //dkoes - this is ridiculously fragile, we are assuming atoms don't change
+    //order from the input string, and have to manually adjust for hydrogens
+    //ideally, the model would output this, but it currently doesn't preserve enough
+    //of the receptor :-(
+    //I am also less than fond of the index by 1 approach
     while (std::getline(mol_stream, line)) {
         if ((line.find("ATOM") < std::string::npos)
                 || (line.find("HETATM") < std::string::npos)) {
             score_stream.str(""); //clear stream for next score
             index_string = line.substr(6, 5);
+            std::string elem = line.substr(77,2);
             atom_index = std::stoi(index_string);
 
-            //std::cout << "ATOM INDEX: " << atom_index << '\n';
-            //std::cout << "SCORE: " << score_diffs[atom_index] << '\n';
+            float score = 0;
 
-            float score;
-
-            if (atom_index >= score_diffs.size()) {
-                //std::cerr << "Mismatched indices: " << score_diffs.size() << "vs. " << atom_index
-                //        << "\n";
-                score = 0;
-                //abort();
-
+            if(elem == "H " || elem == "HD") {
+              score = 0;
+              Hadjust++;
+            }
+            else if (atom_index-Hadjust >= scores.size()) {
+                abort(); //about the best sanity check we have..
             }
             else
             {
-                score = score_diffs[atom_index];
+                score = scores[atom_index-Hadjust];
                 score_sum += score;
             }
-            //if ((score > 0.001)
-             //       || (score < -0.001)) //ignore very small score differences
-                    {
-                //only transform scores if masking
-                if ("masking" == method) {
-                    score = transform_score_diff(score);
-                }
 
-                score_stream << std::fixed << std::setprecision(5) << score;
-                out_file << line.substr(0, 61);
-                score_string = score_stream.str();
-                score_string.resize(5);
-                out_file.width(5);
-                out_file.fill('.');
-                out_file << std::right << score_string;
-                out_file << line.substr(66) << '\n';
-            //}
-            //else {
-            //    out_file << line << '\n';
-            }
-        } else {
+            score_stream << std::fixed << std::setprecision(5) << score;
+            out_file << line.substr(0, 61);
+            score_string = score_stream.str();
+            score_string.resize(5);
+            out_file.width(5);
+            out_file.fill('.');
+            out_file << std::right << score_string;
+            out_file << line.substr(66) << '\n';
+        }
+        else {
             out_file << line << '\n';
         }
     }
-    //std::cout << "ATOM SCORE SUM: " << score_sum << '\n';
 }
 
 //returns false if not at least one atom within range of center of ligand
@@ -424,6 +453,7 @@ bool cnn_visualization::check_in_range(std::unordered_set<int> atoms) {
     return false;
 }
 
+/*
 //transforms score diff to maximize digits in b-factor
 //field, and to raise small values by square-rooting
 float cnn_visualization::transform_score_diff(float diff_val) {
@@ -439,6 +469,7 @@ float cnn_visualization::transform_score_diff(float diff_val) {
 
     return temp;
 }
+*/
 
 //removes whole residues at a time, and scores the resulting receptor
 void cnn_visualization::remove_residues() {

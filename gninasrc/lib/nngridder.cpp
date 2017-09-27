@@ -562,7 +562,7 @@ NNMolsGridder::NNMolsGridder(const gridoptions& opt)
 	tee log(true);
 	FlexInfo finfo(log); //dummy
 	mols.create_init_model(opt.receptorfile, "", finfo, log);
-
+        setModel(mols.getInitModel(), false, true);
 	//set ligand file
 	mols.setInputFile(opt.ligandfile);
 }

@@ -980,17 +980,24 @@ const shared_ptr<Layer<Dtype> > Net<Dtype>::layer_by_name(
 }
 
 template<typename Dtype>
-void Net<Dtype>::Backward_relevance(){
-    
-    int end = 0;
+void Net<Dtype>::Backward_relevance(std::string layer_to_ignore){
+
+    int end = 0 ;
     int start = layers_.size()-1;
 
-    for (int i = start; i >= end; --i) {
-
-      if (layer_need_backward_[i]) {
-        layers_[i]->Backward_relevance(
-            top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
-      }
+    for(int i = start; i >= end; i--)
+    {
+        //zero out layer if specified
+        if (layer_names_[i] == layer_to_ignore)
+        {
+            int blob_count = top_vecs_[i][0]->count();
+            Dtype* top_diff = top_vecs_[i][0]->mutable_cpu_diff();
+            caffe_set(blob_count, static_cast<Dtype>(0), top_diff);
+        }
+        if (layer_need_backward_[i]) 
+        {
+            layers_[i]->Backward_relevance(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
+        }
     }
 }
 
