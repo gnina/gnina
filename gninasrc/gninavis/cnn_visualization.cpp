@@ -379,8 +379,11 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
     std::string score_string;
 
     //TODO: don't assume default map!
-    vector<int> rmap; //map atom types to position in grid vectors
-    GridMaker::createDefaultRecMap(rmap);
+    vector<int> typemap; //map atom types to position in grid vectors
+    if(isRec)
+      GridMaker::createDefaultRecMap(typemap);
+    else
+      GridMaker::createDefaultLigMap(typemap);
 
     float score_sum = 0;
     int Hadjust = 0; //number of hydrogen atoms seen
@@ -400,7 +403,7 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
             parsed_atom pa = parse_pdbqt_atom_string(line);
 
             float score = 0;
-            if(rmap[pa.sm] < 0) { //could be other types besides hydrogens
+            if(typemap[pa.sm] < 0) { //could be other types besides hydrogens
               score = 0;
               Hadjust++;
             }
