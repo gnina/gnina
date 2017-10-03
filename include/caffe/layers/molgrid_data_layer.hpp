@@ -26,7 +26,7 @@
 
 namespace caffe {
 
-/**
+/*
  * @brief Provides data to the Net from n-dimension  files of raw floating point data.
  *
  * TODO(dox): thorough documentation for Forward and proto params.
