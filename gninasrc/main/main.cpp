@@ -394,16 +394,19 @@ void do_search(model& m, const boost::optional<model>& ref,
 		if (!out_cont.empty())
 		{
 			out_cont.sort();
-			const fl best_mode_intramolecular_energy = m.eval_intramolecular(
-					prec, authentic_v, out_cont[0].c);
+            non_cache_cnn* nc_cnn = dynamic_cast<non_cache_cnn*>(&nc);
+            if (!nc_cnn) {
+			    const fl best_mode_intramolecular_energy = m.eval_intramolecular(
+			    		prec, authentic_v, out_cont[0].c);
 
-			VINA_FOR_IN(i, out_cont)
-				if (not_max(out_cont[i].e))
-					out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
-							out_cont[i].c, best_mode_intramolecular_energy,
-							user_grid);
-			// the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
-			out_cont.sort();
+			    VINA_FOR_IN(i, out_cont)
+			    	if (not_max(out_cont[i].e))
+			    		out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
+			    				out_cont[i].c, best_mode_intramolecular_energy,
+			    				user_grid);
+			    // the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
+			    out_cont.sort();
+            }
 		}
 		out_cont = remove_redundant(out_cont, settings.out_min_rmsd);
 
@@ -437,9 +440,13 @@ void do_search(model& m, const boost::optional<model>& ref,
 					<< std::setw(9) << std::setprecision(3) << ub; // FIXME need user-readable error messages in case of failures
 
 			log.endl();
-
-			//dkoes - setup result_info
-			results.push_back(result_info(out_cont[i].e, -1, 0, -1, -1, m));
+      
+	  	float cnnaffinity = -1;
+	  	float cnngradient = -1;
+	  	cnnscore = cnn.score(m, true, cnnaffinity);
+		  cnngradient = m.get_minus_forces_magnitude();
+      //dkoes - setup result_info
+			results.push_back(result_info(out_cont[i].e, cnnscore, cnnaffinity, cnngradient, -1, m));
 
 			if (compute_atominfo)
 				results.back().setAtomValues(m, &sf);
