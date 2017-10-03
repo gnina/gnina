@@ -435,7 +435,16 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
                 score_stream << std::fixed << std::setprecision(5) << score;
                 curr_out_file << line.substr(0, 61);
                 score_string = score_stream.str();
-                score_string.resize(5);
+                if(i == 0)
+                {
+                    curr_out_file.width(5);
+                    score_string.resize(5);
+                }
+                else
+                {
+                    curr_out_file.width(7);
+                    score_string.resize(7);
+                }
                 curr_out_file.width(5);
                 curr_out_file.fill('.');
                 curr_out_file << std::right << score_string;
