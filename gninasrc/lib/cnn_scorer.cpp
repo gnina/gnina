@@ -278,7 +278,6 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 
 	if (outputdx) {
 		outputDX(m.get_name());
-	}
 		const string& ligname = m.get_name() + "_lig";
 		const string& recname = m.get_name() + "_rec";
 		mgrid->getLigandGradient(0, gradient);
