@@ -244,7 +244,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 			alpha = fast_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
 
 		if(alpha == 0) {
-			//std::cout << "alpha 0\n";
+			std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | wrong direction\n";
 			break; //line direction was wrong, give up
 		}
 
@@ -281,6 +281,8 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 
 		fl gradnormsq = scalar_product(g, g, n);
 		//std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+		std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | step " << step;
+		std::cout << " | f0 " << f0 << " | gradnormsq " << gradnormsq << " | alpha " << alpha << "\n";
 
 		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
 		{

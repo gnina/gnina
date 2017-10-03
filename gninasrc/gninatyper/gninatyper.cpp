@@ -48,30 +48,73 @@ int main(int argc, char *argv[])
 
 	if(argc >= 3)
 	{
-		ofstream out(argv[2]);
-		if(!out) {
-			cerr << "Error opening output file " << argv[2] << "\n";
-			exit(1);
-		}
-		if(!algorithm::ends_with(argv[2],".gninatypes"))
+		if(algorithm::ends_with(argv[2],".gninatypes"))
 		{
-			cerr << "Warning: output file lacks .gninatypes suffix.\n";
-		}
+			ofstream out(argv[2]);
+			if(!out) {
+				cerr << "Error opening output file " << argv[2] << "\n";
+				exit(1);
+			}
+			//convert only the first molecule
+			OBMol mol;
+			conv.Read(&mol);
+			if(mol.NumAtoms() == 0) {
+				cerr << "Problem reading molecule " << argv[1] << "\n";
+				exit(1);
+			}
+			mol.AddHydrogens();
 
-		OBMol mol;
-		conv.Read(&mol); //single molecule
-		if(mol.NumAtoms() == 0) {
-			cerr << "Problem reading molecule " << argv[1] << "\n";
-			exit(1);
+			FOR_ATOMS_OF_MOL(a, mol)
+			{
+				smt t = obatom_to_smina_type(*a);
+				atom_info ainfo(a->x(), a->y(), a->z(), t);
+				out.write((char*)&ainfo, sizeof(ainfo));
+			}
 		}
-		mol.AddHydrogens();
-
-	  FOR_ATOMS_OF_MOL(a, mol)
-	  {
-	    smt t = obatom_to_smina_type(*a);
-	    atom_info ainfo(a->x(), a->y(), a->z(), t);
-	    out.write((char*)&ainfo, sizeof(ainfo));
-	  }
+		else
+		{
+			//convert all molecules, generating output file names using provided base name
+			filesystem::path p(argv[1]);
+			if (algorithm::ends_with(argv[1], ".gz"))
+				p.replace_extension("");
+			bool issdf = p.extension() == ".sdf";
+			OBMol mol;
+			int cnt = 0;
+			std::istream* in = conv.GetInStream();
+			while (*in)
+			{
+				while (conv.Read(&mol))
+				{
+					mol.AddHydrogens();
+					string base(argv[2]);
+					string outname = base + "_" + lexical_cast<string>(cnt) + ".gninatypes";
+					ofstream out(outname.c_str());
+					if (!out)
+					{
+						cerr << "Error opening output file " << outname << "\n";
+						exit(1);
+					}
+					FOR_ATOMS_OF_MOL(a, mol)
+					{
+						smt t = obatom_to_smina_type(*a);
+						atom_info ainfo(a->x(), a->y(), a->z(), t);
+						out.write((char*)&ainfo, sizeof(ainfo));
+					}
+					out.close();
+					cnt++;
+				}
+				if (issdf && *in)
+				{ //tolerate molecular errors
+					string line;
+					while (getline(*in, line))
+					{
+						if (line == "$$$$")
+							break;
+					}
+					if (*in) cerr << "Encountered invalid molecule " << cnt << "; trying to recover\n";
+				}
+			}
+		}
 	}
 	else
 	{

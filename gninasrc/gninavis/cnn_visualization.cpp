@@ -11,6 +11,7 @@
 #include "obmolopener.h"
 #include "model.h"
 #include "parse_pdbqt.h"
+#include "parsing.h"
 #include <GraphMol/Subgraphs/Subgraphs.h>
 #include <GraphMol/RDKitBase.h>
 #include <RDGeneral/Invariant.h>
@@ -392,9 +393,15 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
         std::stringstream score_stream;
         std::string score_string;
 
+        //TODO: don't assume default map!
+        vector<int> typemap; //map atom types to position in grid vectors
+        if(isRec)
+          GridMaker::createDefaultRecMap(typemap);
+        else
+          GridMaker::createDefaultLigMap(typemap);
+
         float score_sum = 0;
         int Hadjust = 0; //number of hydrogen atoms seen
-
         //dkoes - this is ridiculously fragile, we are assuming atoms don't change
         //order from the input string, and have to manually adjust for hydrogens
         //ideally, the model would output this, but it currently doesn't preserve enough
@@ -408,15 +415,17 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
                 std::string elem = line.substr(77,2);
                 atom_index = std::stoi(index_string);
 
-                float score = 0;
+                parsed_atom pa = parse_pdbqt_atom_string(line);
 
-                if(elem == "H " || elem == "HD") {
+                float score = 0;
+                if(typemap[pa.sm] < 0) { //could be other types besides hydrogens
                   score = 0;
                   Hadjust++;
                 }
                 else if (atom_index-Hadjust >= scores.size()) {
                     abort(); //about the best sanity check we have..
                 }
+
                 else
                 {
                     score = scores[atom_index-Hadjust];
@@ -426,20 +435,12 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
                 score_stream << std::fixed << std::setprecision(5) << score;
                 curr_out_file << line.substr(0, 61);
                 score_string = score_stream.str();
-                if(i == 0)
-                {
-                    curr_out_file.width(5);
-                    score_string.resize(5);
-                }
-                else
-                {
-                    curr_out_file.width(7);
-                    score_string.resize(7);
-                }
+                score_string.resize(5);
+                curr_out_file.width(5);
                 curr_out_file.fill('.');
                 curr_out_file << std::right << score_string;
-                curr_out_file << line.substr(66) << '\n';
-            }
+                curr_out_file << line.substr(66) << '\n'; 
+                }
             else {
                 curr_out_file << line << '\n';
             }

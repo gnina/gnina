@@ -13,6 +13,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "")
 endif()
 
 SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+set(CMAKE_CXX_FLAGS "-Wno-deprecated-declarations")
 
 include(caffe/cmake/Utils.cmake)
 include(caffe/cmake/Cuda.cmake)
