@@ -89,7 +89,7 @@ fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const
 		e += this_e + out_of_bounds_penalty;
 	}
 	fl aff = 0;
-	e = -cnn_scorer.score(m, true, aff);
+	e += -cnn_scorer.score(m, true, aff);
 	return e;
 }
 

@@ -259,6 +259,9 @@ struct model {
 	void set_name(const std::string& n) { name = n; }
 	const std::string& get_name() const { return name; }
 
+	void set_pose_num(int n) { pose_num = n; }
+	int get_pose_num() const { return pose_num; }
+
 	conf_size get_size() const;
 	// torsions = 0, orientations = identity, ligand positions = current
 	conf get_initial_conf() const; 
@@ -410,6 +413,8 @@ struct model {
 	void add_minus_forces(const std::vector<float3>& forces);
 	void sub_minus_forces(const std::vector<float3>& forces);
 
+	fl get_minus_forces_magnitude() const;
+
 	//allocate gpu memory, model must be setup
 	//also copies over data that does not change during minimization
 	//if model changes, must re-initialize
@@ -514,6 +519,7 @@ private:
 	// interacting_pairs other_pairs; 
 
 	std::string name;
+	int pose_num;
 };
 
 

@@ -246,6 +246,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 	mgrid->setReceptor<atom>(m.get_fixed_atoms());
 	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates());
 
+	m.clear_minus_forces();
 	double score = 0.0;
 	double affinity = 0.0;
 	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
@@ -262,19 +263,11 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 			//has affinity prediction
 			const Dtype* aff = affblob->cpu_data();
 			affinity += aff[0];
-			if (!silent)
-			{
-				cout << "#Rotate " << out[1] << " " << aff[0] << "\n";
-			}
 		}
 		else
 		{
-			if (!silent)
-			{
-				cout << "#Rotate " << out[1] << "\n";
-			}
 		}
-		if (compute_gradient)
+		if (compute_gradient || outputxyz)
 		{
 			net->Backward();
 			mgrid->getLigandGradient(0, gradient);
@@ -285,10 +278,6 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 
 	if (outputdx) {
 		outputDX(m.get_name());
-	}
-	if (outputxyz) {
-		if (!compute_gradient)
-			net->Backward();
 		const string& ligname = m.get_name() + "_lig";
 		const string& recname = m.get_name() + "_rec";
 		mgrid->getLigandGradient(0, gradient);

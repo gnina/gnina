@@ -176,6 +176,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 		output_type& out, const vec& cap, const minimization_params& minparm,
 		grid& user_grid)
 {
+	std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
 	change g(m.get_size());
 
 	quasi_newton quasi_newton_par(minparm);
@@ -195,6 +196,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 		{
 			break;
 		}
+		std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | ligand outside box\n";
 		slope *= 10;
 	}
 	out.coords = m.get_heavy_atom_movable_coords();
@@ -268,14 +270,20 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< " (kcal/mol)";
 		log.endl();
 
-		float aff = 0;
-		cnnscore = cnn.score(m, false, aff);
+		float cnnaffinity = -1;
+		float cnngradient = -1;
+		cnnscore = cnn.score(m, true, cnnaffinity);
+		cnngradient = m.get_minus_forces_magnitude();
 		if (cnnscore >= 0.0)
 		{
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
 			log.endl();
-			if (aff > 0) {
-				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << aff;
+			if (cnnaffinity >= 0) {
+				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
+				log.endl();
+			}
+			if (cnngradient >= 0) {
+				log << "CNNgradient: " << std::fixed << std::setprecision(10) << cnngradient;
 				log.endl();
 			}
 		}
@@ -305,7 +313,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		}
 		log << '\n';
 
-		results.push_back(result_info(e, cnnscore, aff, -1, m));
+		results.push_back(result_info(e, cnnscore, cnnaffinity, cnngradient, -1, m));
 
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
@@ -341,15 +349,20 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< " (kcal/mol)\nRMSD: " << rmsd;
 		log.endl();
 
-		float aff = 0;
-		cnnscore = cnn.score(m, false, aff);
+		float cnnaffinity = -1;
+		float cnngradient = -1;
+		cnnscore = cnn.score(m, true, cnnaffinity);
+		cnngradient = m.get_minus_forces_magnitude();
 		if (cnnscore >= 0.0)
 		{
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
 			log.endl();
-			if (aff > 0)
-			{
-				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << aff;
+			if (cnnaffinity >= 0) {
+				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
+				log.endl();
+			}
+			if (cnngradient >= 0) {
+				log << "CNNgradient: " << std::fixed << std::setprecision(10) << cnngradient;
 				log.endl();
 			}
 		}
@@ -359,7 +372,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 		m.set(out.c);
 		done(settings.verbosity, log);
-		results.push_back(result_info(e, cnnscore, aff, rmsd, m));
+		results.push_back(result_info(e, cnnscore, cnnaffinity, cnngradient, rmsd, m));
 
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
@@ -427,11 +440,13 @@ void do_search(model& m, const boost::optional<model>& ref,
 					<< std::setw(9) << std::setprecision(3) << ub; // FIXME need user-readable error messages in case of failures
 
 			log.endl();
-
-            float aff = 0;
-            cnnscore = cnn.score(m, false, aff);
-			//dkoes - setup result_info
-			results.push_back(result_info(out_cont[i].e, cnnscore, aff, -1, m));
+      
+	  	float cnnaffinity = -1;
+	  	float cnngradient = -1;
+	  	cnnscore = cnn.score(m, true, cnnaffinity);
+		  cnngradient = m.get_minus_forces_magnitude();
+      //dkoes - setup result_info
+			results.push_back(result_info(out_cont[i].e, cnnscore, cnnaffinity, cnngradient, -1, m));
 
 			if (compute_atominfo)
 				results.back().setAtomValues(m, &sf);
@@ -507,7 +522,7 @@ void main_procedure(model& m, precalculate& prec,
 		for(unsigned i = 0; i < settings.num_modes; i++) {
 			fl e = do_randomization(m, corner1, corner2, settings.seed+i,
 				settings.verbosity, log);
-			results.push_back(result_info(e, -1, 0, -1, m));
+			results.push_back(result_info(e, -1, 0, -1, -1, m));
 		}
 		return;
 	}
@@ -1606,6 +1621,7 @@ Thank you!\n";
 						delete m;
 						break;
 					}
+					m->set_pose_num(i);
 
 					if (settings.local_only || settings.true_score)
 					{
