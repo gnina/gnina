@@ -11,6 +11,7 @@
 #include "obmolopener.h"
 #include "model.h"
 #include "parse_pdbqt.h"
+#include "parsing.h"
 #include <GraphMol/Subgraphs/Subgraphs.h>
 #include <GraphMol/RDKitBase.h>
 #include <RDGeneral/Invariant.h>
@@ -377,9 +378,12 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
     std::stringstream score_stream;
     std::string score_string;
 
+    //TODO: don't assume default map!
+    vector<int> rmap; //map atom types to position in grid vectors
+    GridMaker::createDefaultRecMap(rmap);
+
     float score_sum = 0;
     int Hadjust = 0; //number of hydrogen atoms seen
-
     //dkoes - this is ridiculously fragile, we are assuming atoms don't change
     //order from the input string, and have to manually adjust for hydrogens
     //ideally, the model would output this, but it currently doesn't preserve enough
@@ -393,9 +397,10 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
             std::string elem = line.substr(77,2);
             atom_index = std::stoi(index_string);
 
-            float score = 0;
+            parsed_atom pa = parse_pdbqt_atom_string(line);
 
-            if(elem == "H " || elem == "HD") {
+            float score = 0;
+            if(rmap[pa.sm] < 0) { //could be other types besides hydrogens
               score = 0;
               Hadjust++;
             }

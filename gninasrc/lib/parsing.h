@@ -244,6 +244,7 @@ void serialize(Archive & ar, parsing_struct::node_t<parsing_struct>& node, const
 extern void add_pdbqt_context(context& c, const std::string& str);
 extern void postprocess_ligand(non_rigid_parsed& nr, parsing_struct& p, context& c, unsigned torsdof);
 extern void postprocess_residue(non_rigid_parsed& nr, parsing_struct& p, context& c);
+extern parsed_atom parse_pdbqt_atom_string(const std::string& str);
 
 struct pdbqt_initializer {
 	model m;
