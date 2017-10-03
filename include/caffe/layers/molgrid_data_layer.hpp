@@ -202,6 +202,10 @@ public:
         center += coord;
         acnt++;
       }
+      else
+      {
+        CHECK_LE(t, 1) << "Unsupported atom type " << smina_type_to_string(t);
+      }
     }
     center /= acnt; //not ligand.size() because of hydrogens
 
