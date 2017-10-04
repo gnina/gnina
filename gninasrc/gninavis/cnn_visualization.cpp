@@ -321,6 +321,14 @@ float cnn_visualization::score_modified_receptor(
 
 //scores provided ligand string against unmodified ligand
 float cnn_visualization::score_modified_ligand(const std::string &mol_string) {
+
+    //check if any ATOM fields present (removed fragment might be whole
+    //molecule)
+    if (mol_string.find("ATOM") == std::string::npos)
+    {
+        return 0;
+    }
+
     std::stringstream lig_stream(mol_string);
     std::stringstream rec_stream(rec_string);
 
