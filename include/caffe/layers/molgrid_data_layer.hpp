@@ -405,6 +405,7 @@ public:
 
     void next(example& ex)
     {
+      CHECK_GT(examples.size(), 0) << "No valid stratified examples.";
       if(currentk >= K)
       {
         currentk = 0; //on to next receptor
@@ -417,6 +418,7 @@ public:
         if(randomize) shuffle(examples.begin(), examples.end(), caffe::caffe_rng());
       }
 
+      CHECK_GT(examples[currenti].size(), 0) << "No valid sub-stratified examples.";
       examples[currenti].next(ex);
       currentk++;
     }
