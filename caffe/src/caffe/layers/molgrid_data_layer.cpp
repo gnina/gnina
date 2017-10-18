@@ -563,6 +563,11 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
   }
 }
 
+//sample uniformly between 0 and 1
+static double unit_sample(rng_t *rng)
+{
+  return ((*rng)() - rng->min()) / double(rng->max() - rng->min());
+}
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer<Dtype>::mol_info& recatoms,
@@ -581,16 +586,25 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
 
   //figure out transformation
   transform.Q = quaternion(1,0,0,0);
+
   if(current_rotation == 0 && !randrotate)
-    transform.Q = quaternion(0,0,0,0); //check real part to avoid mult
+    transform.Q = quaternion(1,0,0,0); //check real part to avoid mult
   rng_t* rng = caffe_rng();
   if (randrotate)
   {
-    double d =  ((*rng)() - rng->min()) / double(rng->max());
-    double r1 = ((*rng)() - rng->min()) / double(rng->max());
-    double r2 = ((*rng)() - rng->min()) / double(rng->max());
-    double r3 = ((*rng)() - rng->min()) / double(rng->max());
-    transform.Q = quaternion(1, r1 / d, r2 / d, r3 / d);
+    //http://planning.cs.uiuc.edu/node198.html
+    //sample 3 numbers from 0-1
+    double u1 = unit_sample(rng);
+    double u2 = unit_sample(rng);
+    double u3 = unit_sample(rng);
+    double sq1 = sqrt(1-u1);
+    double sqr = sqrt(u1);
+    double r1 = sq1*sin(2*M_PI*u2);
+    double r2 = sq1*cos(2*M_PI*u2);
+    double r3 = sqr*sin(2*M_PI*u3);
+    double r4 = sqr*cos(2*M_PI*u3);
+
+    transform.Q = quaternion(r1,r2,r3,r4);
   }
 
   transform.center[0] = transform.mol.center[0];
@@ -598,9 +612,9 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
   transform.center[2] = transform.mol.center[2];
   if (randtranslate)
   {
-    double offx = ((*rng)() - rng->min()) / double(rng->max()/2.0)-1.0;
-    double offy = ((*rng)() - rng->min()) / double(rng->max()/2.0)-1.0;
-    double offz = ((*rng)() - rng->min()) / double(rng->max()/2.0)-1.0;
+    double offx = unit_sample(rng)*2.0-1.0;
+    double offy = unit_sample(rng)*2.0-1.0;
+    double offz = unit_sample(rng)*2.0-1.0;
     transform.center[0] += offx * randtranslate;
     transform.center[1] += offy * randtranslate;
     transform.center[2] += offz * randtranslate;

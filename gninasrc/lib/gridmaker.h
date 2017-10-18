@@ -19,6 +19,7 @@
 #include <boost/math/quaternion.hpp>
 #include <boost/algorithm/string.hpp>
 
+
 #ifndef VINA_ATOM_CONSTANTS_H
 #include "gninasrc/lib/atom_constants.h"
 #endif
@@ -362,20 +363,20 @@ public:
     }
   }
 
-  //summ up gradient values overlapping atoms
-  template<typename Grids>
-  void setAtomRelevanceCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
-                           const Grids& grids, vector<float3>& agrad)
-  {
-    zeroAtomGradientsCPU(agrad);
-    for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
-    {
-      int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
-      if (whichgrid >= 0) {
-        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i],true);
-      }
-    }
-  }
+	//summ up gradient values overlapping atoms
+	template<typename Grids>
+	void setAtomRelevanceCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
+						   const Grids& grids, vector<float3>& agrad)
+	{
+	zeroAtomGradientsCPU(agrad);
+	for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
+	{
+	  int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
+	  if (whichgrid >= 0) {
+		setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i],true);
+	  }
+	}
+	}
 
 	static unsigned createDefaultMap(const char *names[], vector<int>& map)
 	{
@@ -384,20 +385,27 @@ public:
 		unsigned cnt = 0;
 		while (*nameptr != NULL)
 		{
-			string name(*nameptr);
-			//note that if we every start using merged atom types by default
-			//this code will have to be updated
-			smt t = string_to_smina_type(name);
-			if (t < smina_atom_type::NumTypes) //valid
+			string line(*nameptr);
+			vector<string> names;
+			boost::algorithm::split(names, line, boost::is_space(), boost::algorithm::token_compress_on);
+			for(unsigned i = 0, n = names.size(); i < n; i++)
 			{
-				map[t] = cnt;
-				cnt++;
+				string name = names[i];
+				smt t = string_to_smina_type(name);
+				if(t < smina_atom_type::NumTypes) //valid
+				{
+					map[t] = cnt;
+				}
+				else //should never happen
+				{
+					cerr << "Invalid atom type " << name << "\n";
+					exit(-1);
+				}
 			}
-			else //should never happen
-			{
-				cerr << "Invalid atom type " << name << "\n";
-				exit(-1);
-			}
+
+			if(names.size()) //skip empty lines
+			  cnt++;
+
 			nameptr++;
 		}
 		return cnt;
