@@ -39,6 +39,7 @@ struct non_cache : public igrid {
 	bool within(const model& m, fl margin = 0.0001) const;
 	fl getSlope() { return slope; }
 	virtual void setSlope(fl sl) { slope = sl; }
+    grid_dims get_grid_dims() {return gd; }
 
 protected:
 	fl slope;

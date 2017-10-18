@@ -426,7 +426,7 @@ struct model {
 
 	model() : m_num_movable_atoms(0), hydrogens_stripped(false), print_during_minimization(false), 
     eval_deriv_counter(0) {};
-	~model() { deallocate_gpu(); };
+	~model() { };
 
     /* TODO:protect */
 	fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
