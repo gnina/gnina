@@ -176,7 +176,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 		output_type& out, const vec& cap, const minimization_params& minparm,
 		grid& user_grid)
 {
-	std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
+	// std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
 	change g(m.get_size());
 
 	quasi_newton quasi_newton_par(minparm);
