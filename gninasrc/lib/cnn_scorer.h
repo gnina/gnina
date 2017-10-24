@@ -28,6 +28,7 @@ struct cnn_options {
     bool cnn_scoring; //if true, do cnn_scoring of final pose
     bool outputdx;
     bool outputxyz;
+    std::string xyzprefix;
     unsigned seed; //random seed
 
     cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), outputdx(false), outputxyz(false), seed(0) {}
@@ -44,17 +45,18 @@ class CNNScorer {
     unsigned seed;
     bool outputdx;
     bool outputxyz;
+    std::string xyzprefix;
 
     caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
 
-	//scratch vectors to avoid memory reallocation
-	vector<float3> gradient;
+    //scratch vectors to avoid memory reallocation
+    vector<float3> gradient;
     vector<float4> atoms;
     vector<short> channels;
 
 public:
-	CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), outputxyz(false), mtx(new boost::mutex) {}
-	virtual ~CNNScorer() {}
+    CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), outputxyz(false), mtx(new boost::mutex) {}
+    virtual ~CNNScorer() {}
 
     CNNScorer(const cnn_options& cnnopts, const vec& center, const model& m);
 
