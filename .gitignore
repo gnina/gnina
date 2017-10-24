@@ -98,3 +98,6 @@ doxygen
 docs/dev
 >>>>>>> c86433aaf1ecec5e82ab19a61330c008d1980dab
 
+# tag files
+TAGS
+tags
