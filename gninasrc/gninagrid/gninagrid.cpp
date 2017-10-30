@@ -58,6 +58,8 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	("resolution", value<double>(&o.res), "Cubic grid resolution (Angstroms)")
 	("binary_occupancy", bool_switch(&o.binary),
 			"Output binary occupancies (still as floats)")
+	("spherical_mask", bool_switch(&o.spherize),
+	    "Mask out a sphere")
 	("random_rotation", bool_switch(&o.randrotate),
 			"Apply random rotation to input")
 	("random_translation", value<fl>(&o.randtranslate),

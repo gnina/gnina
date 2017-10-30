@@ -562,7 +562,7 @@ NNMolsGridder::NNMolsGridder(const gridoptions& opt)
 	tee log(true);
 	FlexInfo finfo(log); //dummy
 	mols.create_init_model(opt.receptorfile, "", finfo, log);
-        setModel(mols.getInitModel(), false, true);
+	setModel(mols.getInitModel(), false, true);
 	//set ligand file
 	mols.setInputFile(opt.ligandfile);
 }
@@ -577,7 +577,7 @@ void NNGridder::initialize(const gridoptions& opt)
 	gpu = opt.gpu;
 	Q = quaternion(0, 0, 0, 0);
 
-	gmaker.initialize(resolution, opt.dim, radiusmultiple, binary);
+	gmaker.initialize(resolution, opt.dim, radiusmultiple, binary, opt.spherize);
 
 	if (binary)
 		radiusmultiple = 1.0;
@@ -626,6 +626,11 @@ void NNGridder::setLigGPU()
 	}
 }
 
+static double unit_sample()
+{
+  return (double)(rand())/(double)RAND_MAX;
+}
+
 void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 {
 	//compute center from ligand
@@ -654,11 +659,19 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 		//apply random modifications
 		if (randrotate)
 		{
-			double d = rand() / double(RAND_MAX);
-			double r1 = rand() / double(RAND_MAX);
-			double r2 = rand() / double(RAND_MAX);
-			double r3 = rand() / double(RAND_MAX);
-			Q = NNGridder::quaternion(1, r1 / d, r2 / d, r3 / d);
+		  std::cout << "RANDOM\n";
+	    //http://planning.cs.uiuc.edu/node198.html
+	    //sample 3 numbers from 0-1
+	    double u1 = unit_sample();
+	    double u2 = unit_sample();
+	    double u3 = unit_sample();
+	    double sq1 = sqrt(1-u1);
+	    double sqr = sqrt(u1);
+	    double r1 = sq1*sin(2*M_PI*u2);
+	    double r2 = sq1*cos(2*M_PI*u2);
+	    double r3 = sqr*sin(2*M_PI*u3);
+	    double r4 = sqr*cos(2*M_PI*u3);
+			Q = NNGridder::quaternion(r1,r2,r3,r4);
 		}
 
 		if (randtranslate)

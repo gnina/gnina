@@ -890,6 +890,7 @@ message MolGridDataParameter {
   optional float stratify_affinity_min = 29 [default = 0.0];
   optional float stratify_affinity_max = 30 [default = 0.0];
   optional float stratify_affinity_step = 31 [default = 0.0];
+  optional bool spherical_mask = 32 [default = false]; //mask out a sphere on the grid using atom centers
 }
 
 message NDimDataParameter {
