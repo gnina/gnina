@@ -253,6 +253,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   dimension = param.dimension();
   resolution = param.resolution();
   binary = param.binary_occupancy();
+  bool spherize = param.spherical_mask();
   randtranslate = param.random_translate();
   randrotate = param.random_rotation();
   radiusmultiple = param.radius_multiple();
@@ -264,7 +265,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   if(binary) radiusmultiple = 1.0;
 
-  gmaker.initialize(resolution, dimension, radiusmultiple, binary);
+  gmaker.initialize(resolution, dimension, radiusmultiple, binary, spherize);
 
   dim = round(dimension/resolution)+1; //number of grid points on a side
   numgridpoints = dim*dim*dim;
