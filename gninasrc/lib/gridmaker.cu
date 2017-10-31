@@ -333,8 +333,9 @@ float4 applyQ(float4 coord, float3 center, float4 Q)
 	float4 conjQ = quaternion_conj(Q);
 	float normQ = quaternion_mult(Q,conjQ).w;
 	float4 nconj = quaternion_scalar(conjQ, 1.0/normQ);
-	p = quaternion_mult(quaternion_mult(Q,p), nconj);
-	
+	float4 tmp = quaternion_mult(Q,p);
+	p = quaternion_mult(tmp, nconj);
+
 	return make_float4(p.x+center.x, p.y+center.y, p.z+center.z,coord.w); 
 }
 
@@ -345,7 +346,7 @@ void gpu_coord_rotate(float3 center, float4 Q, int n, float4 *ainfos)
 	unsigned aindex = blockIdx.x*blockDim.x+threadIdx.x;
 	if(aindex < n) {
 		float4 ai = ainfos[aindex];
-		float4 rotated = applyQ(ai, center, Q); 
+		float4 rotated = applyQ(ai, center, Q);
 		ainfos[aindex] = rotated;
 	}
 }
@@ -369,6 +370,7 @@ void gpu_mask_atoms(float3 gridcenter, float rsq, int n, float4 *ainfos, bool *m
   }
 }
 
+//WARNING: if Q is not the identify, will modify coordinates in ainfos in-place
 template<typename Dtype>
 void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, quaternion Q, unsigned ngrids,Dtype *grids)
 {

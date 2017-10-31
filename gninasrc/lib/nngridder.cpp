@@ -602,7 +602,6 @@ void NNGridder::initialize(const gridoptions& opt)
 void NNGridder::setRecGPU()
 {
 	if(gpu_receptorAInfo == NULL) {
-		assert(sizeof(vec) == sizeof(float3));
 		CUDA_CHECK(cudaMalloc(&gpu_receptorAInfo, recAInfo.size()*sizeof(float4)));
 		CUDA_CHECK(cudaMemcpy(gpu_receptorAInfo, &recAInfo[0], recAInfo.size()*sizeof(float4),cudaMemcpyHostToDevice));
 	}
@@ -654,12 +653,12 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 		{
 			center += m.coordinates()[i];
 		}
-		center /= atoms.size();
+		if(atoms.size() > 0)
+		  center /= atoms.size();
 
 		//apply random modifications
 		if (randrotate)
 		{
-		  std::cout << "RANDOM\n";
 	    //http://planning.cs.uiuc.edu/node198.html
 	    //sample 3 numbers from 0-1
 	    double u1 = unit_sample();
@@ -739,6 +738,10 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 		unsigned nlatoms = m.coordinates().size();
 		CUDA_CHECK(cudaMemcpy(gpu_ligandAInfo, &ainfo[0], nlatoms*sizeof(float4),cudaMemcpyHostToDevice));
 		//cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 1024*1024*4);
+		if(randrotate) {
+		  //gpu coordinates are modified in place, so have to reset to original receptor
+	    CUDA_CHECK(cudaMemcpy(gpu_receptorAInfo, &recAInfo[0], recAInfo.size()*sizeof(float4),cudaMemcpyHostToDevice));
+		}
 
 		gmaker.setAtomsGPU<float>(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);
 		cudaCopyGrids(receptorGrids, gpu_receptorGrids);

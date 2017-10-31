@@ -195,7 +195,6 @@ public:
 	  { //apply rotation
 	    quaternion p(0, ainfo.x-center.x, ainfo.y-center.y, ainfo.z-center.z);
 	    p = Q * p * (conj(Q) / norm(Q));
-
 	    coords.x = p.R_component_2() + center.x;
 	    coords.y = p.R_component_3() + center.y;
 	    coords.z = p.R_component_4() + center.z;
