@@ -1,5 +1,6 @@
 #include <iostream>
 #include <iomanip>
+#include <stdlib.h>
 #include <set>
 #include <openbabel/obconversion.h>
 #include <openbabel/obiter.h>
@@ -41,12 +42,14 @@ cnn_visualization::cnn_visualization(const vis_options &viso,
                 << "\" for reading\n";
         exit(1);
     }
+
+       setup();
 }
 
 void cnn_visualization::lrp() {
 
     std::cout << "LRP\n-----------\n";
-    process_molecules();
+    //process_molecules();
 
     std::stringstream rec_stream(rec_string);
     model receptor = parse_receptor_pdbqt("", rec_stream);
@@ -82,7 +85,7 @@ void cnn_visualization::lrp() {
 
 void cnn_visualization::gradient_vis() {
 
-    process_molecules();
+    //process_molecules();
 
     std::stringstream rec_stream(rec_string);
     model receptor = parse_receptor_pdbqt("", rec_stream);
@@ -120,8 +123,7 @@ void cnn_visualization::gradient_vis() {
 }
 
 
-void cnn_visualization::masking() {
-
+void cnn_visualization::setup(){
     if (visopts.verbose) {
         print();
     }
@@ -137,12 +139,12 @@ void cnn_visualization::masking() {
     model temp_rec = unmodified_receptor;
 
     temp_rec.append(unmodified_ligand);
-    if(visopts.masking_target == "pose")
+    if(visopts.target == "pose")
     {
         original_score = base_scorer.score(temp_rec, true);
         std::cout << "CNN SCORE: " << original_score << "\n\n";
     }
-    else if(visopts.masking_target == "affinity")
+    else if(visopts.target == "affinity")
     {
         float aff;
         original_score = base_scorer.score(temp_rec, true, aff, true);
@@ -154,8 +156,10 @@ void cnn_visualization::masking() {
         std::cout << "Unknown scoring method for masking.\n";
         return;
     }
+}
 
 
+void cnn_visualization::masking() {
     if (!visopts.skip_receptor_output) {
         remove_residues();
     }
@@ -307,7 +311,7 @@ float cnn_visualization::score_modified_receptor(
     float score_val = cnn_scorer.score(m, true, aff);
 
     //use affinity instead of cnn score if required
-    if (visopts.masking_target == "affinity")
+    if (visopts.target == "affinity")
     {
         score_val =  aff;
     }
@@ -350,11 +354,11 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string) {
         std::cout << "SCORE: " << score_val << '\n';
     }
 
-    if (visopts.masking_target == "pose")
+    if (visopts.target == "pose")
     {
         return score_val;
     }
-    else if (visopts.masking_target == "affinity")
+    else if (visopts.target == "affinity")
     {
         return aff;
     }
@@ -391,8 +395,30 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
         }
 
         curr_out_file << "VIS METHOD: " << method << '\n';
-        curr_out_file << "CNN MODEL: " << cnnopts.cnn_model << '\n';
-        curr_out_file << "CNN WEIGHTS: " << cnnopts.cnn_weights << '\n';
+        if(method == "masking")
+        {
+            curr_out_file << "MASKING TARGET: " << visopts.target << '\n';
+        }
+        if(method == "gradient" || method == "lrp")
+        {
+            curr_out_file << "LAYER IGNORED: " << visopts.layer_to_ignore << '\n';
+        }
+
+        if(visopts.target == "pose")
+        {
+            curr_out_file << "POSE SCORE: " << original_score << '\n';
+        }
+        if(visopts.target == "affinity")
+        {
+            curr_out_file << "AFFINITY SCORE: " << original_score << '\n';
+        }
+        else
+        {
+            curr_out_file << "CNN SCORE: " << original_score << '\n';
+        }
+
+        curr_out_file << "MODEL: " << cnnopts.cnn_model << '\n';
+        curr_out_file << "WEIGHTS: " << cnnopts.cnn_weights << '\n';
 
         std::stringstream mol_stream(mol_string);
         std::string line;
@@ -752,6 +778,9 @@ void cnn_visualization::write_additivity(std::vector<float> single_score_diffs,
     float single_total = 0;
     float frag_total = 0;
     int num_atoms = lig_mol.NumAtoms();
+ 
+    char full_path[200];
+    realpath(visopts.ligand_name.c_str(), full_path);
 
     if (!visopts.frags_only) {
         for (int i = 1; i < single_score_diffs.size(); ++i) {
@@ -789,7 +818,7 @@ void cnn_visualization::write_additivity(std::vector<float> single_score_diffs,
         }
     }
 
-    out_file << visopts.ligand_name << " " << original_score << " "
+    out_file << full_path << " " << original_score << " "
             << single_total << " " << frag_total << "\n";
 
 }

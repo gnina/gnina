@@ -14,7 +14,7 @@ struct vis_options
   bool skip_ligand_output;
   std::string additivity;
   std::string layer_to_ignore;
-  std::string masking_target;
+  std::string target;
 
   bool frags_only;
   bool atoms_only;
@@ -35,6 +35,7 @@ class cnn_visualization
 {
     public:
     cnn_visualization(const vis_options &visopts, const cnn_options &cnnopts, const vec &center);
+    void setup();
     void lrp();
     void gradient_vis();
     void masking();
