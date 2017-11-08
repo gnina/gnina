@@ -12,8 +12,8 @@ extern parsed_args p_args;
 //theoretically lead to runtime errors later
 void make_mol(std::vector<atom_params>& atoms, std::vector<smt>& types, 
              std::mt19937 engine,
-             size_t natoms, size_t min_atoms, size_t max_atoms, 
-             float max_x, float max_y, float max_z) {
+             size_t natoms=0, size_t min_atoms=1, size_t max_atoms=200, 
+             float max_x=25, float max_y=25, float max_z=25) {
 
     if (!natoms) {
     //if not provided, randomly generate the number of atoms
@@ -54,17 +54,9 @@ void print_mol(std::vector<atom_params>& atoms, std::vector<smt>& types, tee& lo
 }
 
 //pretty print tree info for logging
-void print_tree(atom_params* atoms, unsigned coords_size, 
-        std::vector<unsigned>& ranges, tee& log) {
-    unsigned node = 0;
-    for (size_t i=0; i<coords_size, ++i) {
-        for (size_t j=0; j<ranges.size(); ++j) {
-            if (i < ranges[j]) {
-                node = j;
-                break;
-            }
-        }
-        log << "atom" << i << " " << "node" << node << " " << atoms[i].coords[0] << 
+void print_tree(atom_params* atoms, unsigned coords_size, tee& log) {
+    for (size_t i=0; i<coords_size; ++i) {
+        log << "atom" << i << " " << atoms[i].coords[0] << 
             " " << atoms[i].coords[1] << " " << atoms[i].coords[2] << "\n";
     }
     log << "\n";

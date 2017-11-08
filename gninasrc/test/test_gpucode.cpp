@@ -1,6 +1,8 @@
 #include <numeric>
 #include <cmath>
 #include <random>
+#include "common.h"
+#include "gpucode.h"
 #include "non_cache.h"
 #include "non_cache_gpu.h"
 #include "tree_gpu.h"
