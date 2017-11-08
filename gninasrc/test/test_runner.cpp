@@ -2,6 +2,7 @@
 #include <iostream>
 #include "parsed_args.h"
 #include "test_gpucode.h"
+#include "test_tree.h"
 #define N_ITERS 10
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_NO_MAIN
@@ -25,6 +26,14 @@ BOOST_AUTO_TEST_CASE(interaction_energy) {
 
 BOOST_AUTO_TEST_CASE(eval_intra) {
     boost_loop_test(&test_eval_intra);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE(tree_gpu)
+
+BOOST_AUTO_TEST_CASE(set_conf) {
+    boost_loop_test(&test_set_conf);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

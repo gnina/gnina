@@ -43,6 +43,7 @@ typedef std::vector<interacting_pair> interacting_pairs;
 
 typedef std::pair<std::string, boost::optional<sz> > parsed_line;
 typedef std::vector<parsed_line> pdbqtcontext;
+void test_eval_intra();
 
 struct gpu_data {
 	//put all pointers to gpu data into a struct that provides a lightweight 
@@ -428,10 +429,6 @@ struct model {
     eval_deriv_counter(0) {};
 	~model() { };
 
-    /* TODO:protect */
-	fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
-                                  const interacting_pairs& pairs,
-                                  const vecv& coords, vecv& forces) const;
     vecv coords;
 	vecv minus_forces;
     gpu_data gdata;
@@ -455,6 +452,7 @@ private:
 	friend class appender;
 	friend struct pdbqt_initializer;
 	friend struct model_test;
+    friend void test_eval_intra();
 
 	const atom& get_atom(const atom_index& i) const {
 		return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]);
@@ -497,9 +495,9 @@ private:
 
 	fl eval_interacting_pairs(const precalculate& p, fl v,
                             const interacting_pairs& pairs, const vecv& coords) const;
-	// fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
-                                  // const interacting_pairs& pairs,
-                                  // const vecv& coords, vecv& forces) const;
+	fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
+                                  const interacting_pairs& pairs,
+                                  const vecv& coords, vecv& forces) const;
 
 	bool hydrogens_stripped;
 	vecv internal_coords;
