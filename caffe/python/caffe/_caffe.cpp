@@ -457,6 +457,8 @@ BOOST_PYTHON_MODULE(_caffe) {
     .def("solve", static_cast<void (Solver<Dtype>::*)(const char*)>(
           &Solver<Dtype>::Solve), SolveOverloads())
     .def("step", &Solver<Dtype>::Step)
+    .def("apply_update", &Solver<Dtype>::ApplyUpdate)
+    .def("increment_iter", &Solver<Dtype>::increment_iter)
     .def("restore", &Solver<Dtype>::Restore)
     .def("testall", &Solver<Dtype>::TestAll)
     .def("get_base_lr", &Solver<Dtype>::get_base_lr)
