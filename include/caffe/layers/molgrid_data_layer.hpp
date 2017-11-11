@@ -45,7 +45,7 @@ public:
       BaseDataLayer<Dtype>(param), data(NULL), data2(NULL), data_ratio(0),
       num_rotations(0), current_rotation(0),
       example_size(0), inmem(false), resolution(0.5),
-      dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0),
+      dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
       binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
       gpu_gridatoms(NULL), gpu_gridwhich(NULL) {}
@@ -57,7 +57,9 @@ public:
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int ExactNumTopBlobs() const { return 2+
       this->layer_param_.molgrid_data_param().has_affinity()+
-      this->layer_param_.molgrid_data_param().has_rmsd(); }
+      this->layer_param_.molgrid_data_param().has_rmsd()+
+      this->layer_param_.molgrid_data_param().peturb_ligand();
+  }
 
   virtual inline void resetRotation() { current_rotation = 0; }
 
@@ -539,11 +541,66 @@ public:
 
     void transform_and_append(const mol_info& a, const mol_transform& transform)
     {
-      //TODO
-      abort();
+      //copy atoms from a into this, transforming the coordinates according to transform
+      for(unsigned i = 0, n = a.atoms.size(); i < n; i++) {
+        //non-coordinate stuff
+        whichGrid.push_back(a.whichGrid[i]);
+        gradient.push_back(a.gradient[i]); //NOT rotating, but that shouldn't matter, right?
+
+        float4 atom = a.atoms[i];
+        quaternion p(0, atom.x-a.center[0], atom.y-a.center[1], atom.z-a.center[2]);
+        p = transform.Q * p * (conj(transform.Q) / norm(transform.Q));
+        atom.x = p.R_component_2() + a.center[0] + transform.center[0];
+        atom.y = p.R_component_3() + a.center[1] + transform.center[1];
+        atom.z = p.R_component_4() + a.center[2] + transform.center[2];
+        atoms.push_back(atom);
+
+        LOG(INFO) << "Transforming " << a.atoms[i].x<<","<<a.atoms[i].y<<","<<a.atoms[i].z<<" to "<<atom.x<<","<<atom.y<<","<<atom.z;
+      }
     }
   };
 
+  //6 numbers representing a transformation
+  struct output_transform {
+    Dtype x;
+    Dtype y;
+    Dtype z;
+    Dtype pitch;
+    Dtype yaw;
+    Dtype roll;
+
+    output_transform(): x(0), y(0), z(0), pitch(0), yaw(0), roll(0) {}
+
+    output_transform(Dtype X, Dtype Y, Dtype, Dtype Z, const quaternion& Q): x(X), y(Y), z(Z) {
+      set_from_quaternion(Q);
+    }
+
+    void set_from_quaternion(const quaternion& Q) {
+      //convert to euler angles
+      //https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
+      // roll (x-axis rotation)
+      double w = Q.R_component_1();
+      double x = Q.R_component_2();
+      double y = Q.R_component_3();
+      double z = Q.R_component_4();
+
+      double sinr = 2.0 * (w*x + y*z);
+      double cosr = 1.0 - 2.0 * (x*x + y*y);
+      roll = atan2(sinr, cosr);
+
+      // pitch (y-axis rotation)
+      double sinp = 2.0 * (w*y - z*x);
+      if (fabs(sinp) >= 1)
+        pitch = copysign(M_PI / 2, sinp);// use 90 degrees if out of range
+      else
+        pitch = asin(sinp);
+
+      // yaw (z-axis rotation)
+      double siny = 2.0 * (w*z + x*y);
+      double cosy = 1.0 - 2.0 * (y*y + z*z);
+      yaw = atan2(siny, cosy);
+    }
+  };
   struct mol_transform {
     mol_info mol;
     quaternion Q;  // rotation
@@ -611,6 +668,7 @@ public:
   vector<Dtype> labels;
   vector<Dtype> affinities;
   vector<Dtype> rmsds;
+  vector<output_transform> perturbations;
 
   //grid stuff
   GridMaker gmaker;
@@ -619,6 +677,7 @@ public:
   double radiusmultiple; //extra to consider past vdw radius
   double fixedradius;
   double randtranslate;
+  double ligpeturb_translate;
   bool binary; //produce binary occupancies
   bool randrotate;
   bool ligpeturb; //for spatial transformer
@@ -653,8 +712,10 @@ public:
 
   quaternion axial_quaternion();
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
-  void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder, mol_transform& transform, bool gpu);
-  void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms, mol_transform& transform, bool gpu);
+  void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
+                    mol_transform& transform, output_transform& pertub, bool gpu);
+  void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms,
+                    mol_transform& transform, output_transform& peturb, bool gpu);
 
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
   void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu);
