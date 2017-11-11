@@ -256,6 +256,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   bool spherize = param.spherical_mask();
   randtranslate = param.random_translate();
   randrotate = param.random_rotation();
+  ligpeturb = param.peturb_ligand();
   radiusmultiple = param.radius_multiple();
   fixedradius = param.fixed_radius();
   bool hasaffinity = param.has_affinity();
@@ -564,11 +565,6 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
   }
 }
 
-//sample uniformly between 0 and 1
-static double unit_sample(rng_t *rng)
-{
-  return ((*rng)() - rng->min()) / double(rng->max() - rng->min());
-}
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer<Dtype>::mol_info& recatoms,
@@ -576,11 +572,20 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
 {
   //set grid values from mol info
   //first clear transform from the previous batch
+  rng_t* rng = caffe_rng();
   transform = mol_transform();
+  mol_transform ligtrans;
 
   //include receptor and ligand atoms
   transform.mol.append(recatoms);
-  transform.mol.append(ligatoms);
+
+  if(ligpeturb) {
+    ligtrans.set_random_quaternion(rng);
+    ligtrans.add_random_displacement(rng, 4); //TODO: remove magic number
+    transform.mol.transform_and_append(ligatoms, ligtrans);
+  } else {
+    transform.mol.append(ligatoms);
+  }
 
   //set center to ligand center
   transform.mol.center = ligatoms.center;
@@ -590,22 +595,10 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
 
   if(current_rotation == 0 && !randrotate)
     transform.Q = quaternion(1,0,0,0); //check real part to avoid mult
-  rng_t* rng = caffe_rng();
+
   if (randrotate)
   {
-    //http://planning.cs.uiuc.edu/node198.html
-    //sample 3 numbers from 0-1
-    double u1 = unit_sample(rng);
-    double u2 = unit_sample(rng);
-    double u3 = unit_sample(rng);
-    double sq1 = sqrt(1-u1);
-    double sqr = sqrt(u1);
-    double r1 = sq1*sin(2*M_PI*u2);
-    double r2 = sq1*cos(2*M_PI*u2);
-    double r3 = sqr*sin(2*M_PI*u3);
-    double r4 = sqr*cos(2*M_PI*u3);
-
-    transform.Q = quaternion(r1,r2,r3,r4);
+    transform.set_random_quaternion(rng);
   }
 
   transform.center[0] = transform.mol.center[0];
@@ -613,12 +606,7 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
   transform.center[2] = transform.mol.center[2];
   if (randtranslate)
   {
-    double offx = unit_sample(rng)*2.0-1.0;
-    double offy = unit_sample(rng)*2.0-1.0;
-    double offz = unit_sample(rng)*2.0-1.0;
-    transform.center[0] += offx * randtranslate;
-    transform.center[1] += offy * randtranslate;
-    transform.center[2] += offz * randtranslate;
+    transform.add_random_displacement(rng, randtranslate);
   }
 
   if(current_rotation > 0) {

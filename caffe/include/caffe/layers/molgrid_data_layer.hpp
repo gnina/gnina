@@ -26,6 +26,13 @@
 
 namespace caffe {
 
+
+//sample uniformly between 0 and 1
+inline double unit_sample(rng_t *rng)
+{
+  return ((*rng)() - rng->min()) / double(rng->max() - rng->min());
+}
+
 /*
  * @brief Provides data to the Net from n-dimension  files of raw floating point data.
  *
@@ -39,7 +46,7 @@ public:
       num_rotations(0), current_rotation(0),
       example_size(0), inmem(false), resolution(0.5),
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0),
-      binary(false), randrotate(false), dim(0), numgridpoints(0),
+      binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
       gpu_gridatoms(NULL), gpu_gridwhich(NULL) {}
   virtual ~MolGridDataLayer();
@@ -514,6 +521,7 @@ public:
     }
   };
 
+  struct mol_transform;
   struct mol_info {
     vector<float4> atoms;
     vector<short> whichGrid; //separate for better memory layout on gpu
@@ -528,6 +536,12 @@ public:
       whichGrid.insert(whichGrid.end(), a.whichGrid.begin(), a.whichGrid.end());
       gradient.insert(gradient.end(), a.gradient.begin(), a.gradient.end());
     }
+
+    void transform_and_append(const mol_info& a, const mol_transform& transform)
+    {
+      //TODO
+      abort();
+    }
   };
 
   struct mol_transform {
@@ -540,6 +554,36 @@ public:
       Q = quaternion(0,0,0,0);
       center[0] = center[1] = center[2] = 0;
     }
+
+    //add upto randtranslate in displacement (plus or minus) along each direction
+    void add_random_displacement(rng_t* rng, double randtranslate)
+    {
+      double offx = unit_sample(rng)*2.0-1.0;
+      double offy = unit_sample(rng)*2.0-1.0;
+      double offz = unit_sample(rng)*2.0-1.0;
+      center[0] += offx * randtranslate;
+      center[1] += offy * randtranslate;
+      center[2] += offz * randtranslate;
+    }
+
+    //set random quaternion
+    void set_random_quaternion(rng_t* rng)
+    {
+      //http://planning.cs.uiuc.edu/node198.html
+      //sample 3 numbers from 0-1
+      double u1 = unit_sample(rng);
+      double u2 = unit_sample(rng);
+      double u3 = unit_sample(rng);
+      double sq1 = sqrt(1-u1);
+      double sqr = sqrt(u1);
+      double r1 = sq1*sin(2*M_PI*u2);
+      double r2 = sq1*cos(2*M_PI*u2);
+      double r3 = sqr*sin(2*M_PI*u3);
+      double r4 = sqr*cos(2*M_PI*u3);
+
+      Q = quaternion(r1,r2,r3,r4);
+    }
+
   };
 
   ///////////////////   PROTECTED DATA   ////////////////
@@ -577,6 +621,7 @@ public:
   double randtranslate;
   bool binary; //produce binary occupancies
   bool randrotate;
+  bool ligpeturb; //for spatial transformer
 
   unsigned dim; //grid points on one side
   unsigned numgridpoints; //dim*dim*dim
