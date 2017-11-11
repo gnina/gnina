@@ -257,6 +257,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   randtranslate = param.random_translate();
   randrotate = param.random_rotation();
   ligpeturb = param.peturb_ligand();
+  ligpeturb_translate = param.peturb_ligand_translate();
   radiusmultiple = param.radius_multiple();
   fixedradius = param.fixed_radius();
   bool hasaffinity = param.has_affinity();
@@ -374,6 +375,13 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   else if(hasrmsd)
   {
     top[2]->Reshape(label_shape);
+  }
+
+  if(ligpeturb) {
+    vector<int> peturbshape(2);
+    peturbshape[0] = batch_size;
+    peturbshape[1] = 6; //trans+orient
+    top.back()->Reshape(peturbshape);
   }
 }
 
@@ -536,7 +544,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dtype>::example& ex,
-    const string& root_folder, MolGridDataLayer<Dtype>::mol_transform& transform, bool gpu)
+    const string& root_folder, MolGridDataLayer<Dtype>::mol_transform& transform, output_transform& peturb, bool gpu)
 {
   //set grid values for example
   //cache atom info
@@ -553,7 +561,7 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
       set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, molcache[ex.ligand]);
     }
 
-    set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, gpu);
+    set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, peturb, gpu);
   }
   else
   {
@@ -561,14 +569,15 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
     mol_info lig;
     set_mol_info(root_folder+ex.receptor, rmap, 0, rec);
     set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, lig);
-    set_grid_minfo(data, rec, lig, transform, gpu);
+    set_grid_minfo(data, rec, lig, transform, peturb, gpu);
   }
 }
 
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer<Dtype>::mol_info& recatoms,
-  const MolGridDataLayer<Dtype>::mol_info& ligatoms, MolGridDataLayer<Dtype>::mol_transform& transform, bool gpu)
+  const MolGridDataLayer<Dtype>::mol_info& ligatoms, MolGridDataLayer<Dtype>::mol_transform& transform,
+  output_transform& peturb, bool gpu)
 {
   //set grid values from mol info
   //first clear transform from the previous batch
@@ -581,8 +590,17 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
 
   if(ligpeturb) {
     ligtrans.set_random_quaternion(rng);
-    ligtrans.add_random_displacement(rng, 4); //TODO: remove magic number
+    ligtrans.add_random_displacement(rng, ligpeturb_translate);
     transform.mol.transform_and_append(ligatoms, ligtrans);
+
+    //store the inverse transformation
+    peturb.x = -ligtrans.center[0];
+    peturb.y = -ligtrans.center[1];
+    peturb.z = -ligtrans.center[2];
+
+    quaternion qinv = conj(ligtrans.Q)/norm(ligtrans.Q); //not Cayley, not euclidean norm - already squared
+    peturb.set_from_quaternion(qinv);
+
   } else {
     transform.mol.append(ligatoms);
   }
@@ -748,7 +766,9 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
   labels.clear();
   affinities.clear();
   rmsds.clear();
+  perturbations.clear();
   unsigned batch_size = top_shape[0];
+  output_transform peturb;
 
   //if in memory must be set programmatically
   if(inmem)
@@ -756,7 +776,9 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     CHECK_GT(mem_rec.atoms.size(),0) << "Receptor not set in MolGridDataLayer";
     CHECK_GT(mem_lig.atoms.size(),0) << "Ligand not set in MolGridDataLayer";
     //memory is now available
-    set_grid_minfo(top_data, mem_rec, mem_lig, batch_transform[0], gpu); //TODO how do we know what batch position?
+    set_grid_minfo(top_data, mem_rec, mem_lig, batch_transform[0], peturb, gpu); //TODO how do we know what batch position?
+    perturbations.push_back(peturb);
+
     if (num_rotations > 0) {
       current_rotation = (current_rotation+1)%num_rotations;
     }
@@ -788,7 +810,8 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       rmsds.push_back(ex.rmsd);
 
       int offset = batch_idx*example_size;
-      set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], gpu);
+      set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], peturb, gpu);
+      perturbations.push_back(peturb);
       //NOTE: num_rotations not actually implemented!
     }
 
@@ -804,6 +827,11 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     	  caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_gpu_data());
       }
 
+      if(ligpeturb) {
+        //trusting struct layout is normal
+        caffe_copy(perturbations.size()*6, (Dtype*)&perturbations[0], top.back()->mutable_gpu_data());
+      }
+
     }
     else {
       caffe_copy(labels.size(), &labels[0], top[1]->mutable_cpu_data());
@@ -814,6 +842,10 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     	  }
       } else if(hasrmsd) {
     	  caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_cpu_data());
+      }
+      if(ligpeturb) {
+        //trusting struct layout is normal
+        caffe_copy(perturbations.size()*6, (Dtype*)&perturbations[0], top.back()->mutable_cpu_data());
       }
     }
   }
