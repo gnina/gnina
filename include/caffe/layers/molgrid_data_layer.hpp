@@ -542,6 +542,7 @@ public:
     void transform_and_append(const mol_info& a, const mol_transform& transform)
     {
       //copy atoms from a into this, transforming the coordinates according to transform
+      LOG(INFO) << "About to transform " << a.atoms.size() << " atoms";
       for(unsigned i = 0, n = a.atoms.size(); i < n; i++) {
         //non-coordinate stuff
         whichGrid.push_back(a.whichGrid[i]);
