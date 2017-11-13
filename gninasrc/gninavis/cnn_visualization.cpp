@@ -167,7 +167,6 @@ void cnn_visualization::masking() {
     if (!visopts.skip_ligand_output) {
         remove_ligand_atoms();
     }
-    std::cout << "Masking finished.\n";
 }
 
 void cnn_visualization::print() {
@@ -778,9 +777,9 @@ void cnn_visualization::write_additivity(std::vector<float> single_score_diffs,
     float single_total = 0;
     float frag_total = 0;
     int num_atoms = lig_mol.NumAtoms();
- 
-    char full_path[200];
-    realpath(visopts.ligand_name.c_str(), full_path);
+
+    boost::filesystem::path local_name(visopts.ligand_name);
+    boost::filesystem::path full_name = boost::filesystem::canonical(local_name);
 
     if (!visopts.frags_only) {
         for (int i = 1; i < single_score_diffs.size(); ++i) {
@@ -818,8 +817,10 @@ void cnn_visualization::write_additivity(std::vector<float> single_score_diffs,
         }
     }
 
-    out_file << full_path << " " << original_score << " "
+    out_file << full_name.string() << " " << original_score << " "
             << single_total << " " << frag_total << "\n";
+
+    out_file.close();
 
 }
 
@@ -980,7 +981,7 @@ std::vector<float> cnn_visualization::remove_fragments(int size) {
         }
     }
 
-    std::vector<float> avg_score_diffs(lig_mol.NumAtoms(), 0.00);
+    std::vector<float> avg_score_diffs(lig_mol.NumAtoms() + 1, 0.00);
     for (auto i = rdkit_mol.beginAtoms(); i != rdkit_mol.endAtoms(); ++i) {
         int r_index = (*i)->getIdx();
         int index = r_index + 1;
