@@ -10,7 +10,7 @@ extern parsed_args p_args;
 
 //TODO: doesn't explicitly prevent/check atoms from overlapping, which could
 //theoretically lead to runtime errors later
-void make_mol(std::vector<atom_params>& atoms, std::vector<smt>& types, 
+inline void make_mol(std::vector<atom_params>& atoms, std::vector<smt>& types, 
              std::mt19937 engine,
              size_t natoms=0, size_t min_atoms=1, size_t max_atoms=200, 
              float max_x=25, float max_y=25, float max_z=25) {
@@ -43,7 +43,7 @@ void make_mol(std::vector<atom_params>& atoms, std::vector<smt>& types,
 }
 
 //pretty print molecule info for logging
-void print_mol(std::vector<atom_params>& atoms, std::vector<smt>& types, tee& log) {
+inline void print_mol(std::vector<atom_params>& atoms, std::vector<smt>& types, tee& log) {
     std::string pad = "    ";
     log << "\n";
     for (size_t i=0; i<atoms.size(); ++i) {
@@ -54,7 +54,7 @@ void print_mol(std::vector<atom_params>& atoms, std::vector<smt>& types, tee& lo
 }
 
 //pretty print tree info for logging
-void print_tree(atom_params* atoms, unsigned coords_size, tee& log) {
+inline void print_tree(atom_params* atoms, unsigned coords_size, tee& log) {
     for (size_t i=0; i<coords_size; ++i) {
         log << "atom" << i << " " << atoms[i].coords[0] << 
             " " << atoms[i].coords[1] << " " << atoms[i].coords[2] << "\n";
@@ -63,7 +63,7 @@ void print_tree(atom_params* atoms, unsigned coords_size, tee& log) {
 }
 
 //loop boost test case for energy/force calculations
-void boost_loop_test(void (*func)())
+inline void boost_loop_test(void (*func)())
 {
     p_args.iter_count = 0;
     for (auto& param : p_args.params) {

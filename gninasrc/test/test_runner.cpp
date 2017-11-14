@@ -3,6 +3,7 @@
 #include "parsed_args.h"
 #include "test_gpucode.h"
 #include "test_tree.h"
+#include "test_utils.h"
 #define N_ITERS 10
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_NO_MAIN
