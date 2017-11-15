@@ -149,7 +149,6 @@ void test_interaction_energy() {
     delete nc_gpu;
     delete gprec;
     delete prec;
-    m->deallocate_gpu();
     delete m;
 }
 
@@ -243,7 +242,6 @@ void test_eval_intra() {
             BOOST_REQUIRE_SMALL(m->minus_forces[i][j] -  g_forces[i][j], (float)0.01);
 
     //clean up
-    m->deallocate_gpu();
     delete m;
     delete gprec;
     delete prec;

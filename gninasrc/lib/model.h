@@ -426,7 +426,7 @@ struct model {
 
 	model() : m_num_movable_atoms(0), hydrogens_stripped(false), print_during_minimization(false), 
     eval_deriv_counter(0) {};
-	~model() { };
+	~model() {deallocate_gpu();};
 
     vecv coords;
 	vecv minus_forces;

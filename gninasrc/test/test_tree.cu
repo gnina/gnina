@@ -135,7 +135,6 @@ void test_set_conf() {
             BOOST_REQUIRE_SMALL(m->coords[i][j] - gpu_coords[i].coords[j], 
                     (float)0.01);
 
-    m->deallocate_gpu();
     delete m;
 }
 
@@ -190,6 +189,5 @@ void test_derivative() {
         }
     }
 
-    m->deallocate_gpu();
     delete m;
 }
