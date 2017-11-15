@@ -281,8 +281,8 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 
 		fl gradnormsq = scalar_product(g, g, n);
 		//std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
-		std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | step " << step;
-		std::cout << " | f0 " << f0 << " | gradnormsq " << gradnormsq << " | alpha " << alpha << "\n";
+		// std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | step " << step;
+		// std::cout << " | f0 " << f0 << " | gradnormsq " << gradnormsq << " | alpha " << alpha << "\n";
 
 		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
 		{

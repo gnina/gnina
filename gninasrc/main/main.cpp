@@ -176,7 +176,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 		output_type& out, const vec& cap, const minimization_params& minparm,
 		grid& user_grid)
 {
-	std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
+	// std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
 	change g(m.get_size());
 
 	quasi_newton quasi_newton_par(minparm);
@@ -396,12 +396,13 @@ void do_search(model& m, const boost::optional<model>& ref,
 			out_cont.sort();
             non_cache_cnn* nc_cnn = dynamic_cast<non_cache_cnn*>(&nc);
             if (!nc_cnn) {
+                non_cache nc_base = *(dynamic_cast<non_cache*>(&nc));
 			    const fl best_mode_intramolecular_energy = m.eval_intramolecular(
 			    		prec, authentic_v, out_cont[0].c);
 
 			    VINA_FOR_IN(i, out_cont)
 			    	if (not_max(out_cont[i].e))
-			    		out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
+			    		out_cont[i].e = m.eval_adjusted(sf, prec, nc_base, authentic_v,
 			    				out_cont[i].c, best_mode_intramolecular_energy,
 			    				user_grid);
 			    // the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
@@ -461,6 +462,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 					<< "WARNING: Check that it is large enough for all movable atoms, including those in the flexible side chains.";
 			log.endl();
 		}
+        m.deallocate_gpu();
 	}
 	std::cout << "Refine time " << time.elapsed().wall/1000000000.0 << "\n";
 }
