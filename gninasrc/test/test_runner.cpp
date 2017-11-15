@@ -37,6 +37,10 @@ BOOST_AUTO_TEST_CASE(set_conf) {
     boost_loop_test(&test_set_conf);
 }
 
+BOOST_AUTO_TEST_CASE(derivative) {
+    boost_loop_test(&test_derivative);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 bool init_unit_test()

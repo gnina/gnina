@@ -77,7 +77,17 @@ void set_conf_kernel(gpu_data* gdata, const conf_gpu c) {
     gdata->treegpu->set_conf(gdata->atom_coords, (vec*)gdata->coords, &c);
 }
 
+__global__
+void derivatives_kernel(tree_gpu *t, const vec * coords, const vec* forces,
+                        change_gpu c) {
+	t->derivative(coords, forces, &c);
+}
+
 void test_set_conf() {
+    p_args.log << "Set Coords Test\n";
+    p_args.log << "Using random seed; " << p_args.seed << "\n";
+    p_args.log << "Iteration " << p_args.iter_count;
+    p_args.log.endl();
     model* m = new model;
     make_tree(m);
     conf x_cpu = m->get_initial_conf();
@@ -114,6 +124,7 @@ void test_set_conf() {
     CUDA_CHECK_GNINA(cudaMemcpy(&gpu_coords[0], m->gdata.coords, 
                 sizeof(gpu_coords[0]) * m->gdata.coords_size, 
                 cudaMemcpyDeviceToHost));
+    cudaDeviceSynchronize();
     p_args.log << "CPU tree \n";
     print_tree((atom_params*)(&m->coords[0]), m->coords.size(), p_args.log);
     p_args.log << "GPU tree \n";
@@ -123,6 +134,61 @@ void test_set_conf() {
         for (size_t j=0; j<3; ++j)
             BOOST_REQUIRE_SMALL(m->coords[i][j] - gpu_coords[i].coords[j], 
                     (float)0.01);
+
+    m->deallocate_gpu();
+    delete m;
+}
+
+void test_derivative() {
+    model* m = new model;
+    make_tree(m);
+    //for this one we need to generate forces and provide a change object to be set
+    change g_cpu(m->get_size());
+    change_gpu g_gpu(g_cpu, m->gdata, test_buffer);
+    std::mt19937 engine(p_args.seed);
+    std::uniform_real_distribution<float> forces_dist(-10, 10);
+    for (size_t i=0; i < m->coords.size(); ++i) 
+        for (size_t j=0; j < 3; ++j)
+            m->minus_forces[i][j] = forces_dist(engine);
+
+    CUDA_CHECK_GNINA(cudaMemcpy(m->gdata.minus_forces, &m->minus_forces[0],
+                sizeof(m->minus_forces[0]) * m->gdata.forces_size,
+                cudaMemcpyHostToDevice));
+    m->ligands.derivative(m->coords, m->minus_forces, g_cpu.ligands);
+    derivatives_kernel<<<1, m->coords.size()>>>(m->gdata.treegpu,
+            (vec*)m->gdata.coords, (vec*)m->gdata.minus_forces, g_gpu);
+    std::vector<float> gpu_out;
+    gpu_out.resize(g_gpu.n);
+    CUDA_CHECK_GNINA(cudaMemcpy(&gpu_out[0], g_gpu.values,
+                sizeof(gpu_out[0]) * g_gpu.n,
+                cudaMemcpyDeviceToHost));
+    cudaDeviceSynchronize();
+
+    //log change and check results
+    p_args.log << "Derivative Test\n";
+    p_args.log << "Using random seed; " << p_args.seed << "\n";
+    p_args.log << "Iteration " << p_args.iter_count;
+    p_args.log.endl();
+    for (size_t i=0; i < g_gpu.n; ++i) {
+        if (i < 3) {
+            BOOST_REQUIRE_SMALL(g_cpu.ligands[0].rigid.position[i] - 
+                    gpu_out[i], (float)0.01);
+            p_args.log << "CPU " << g_cpu.ligands[0].rigid.position[i] << 
+                " GPU " << gpu_out[i] << "\n";
+        }
+        else if (i < 6) {
+            BOOST_REQUIRE_SMALL(g_cpu.ligands[0].rigid.orientation[i-3] - 
+                    gpu_out[i], (float)0.01);
+            p_args.log << "CPU " << g_cpu.ligands[0].rigid.orientation[i-3] << 
+                " GPU " << gpu_out[i] << "\n";
+        }
+        else {
+            BOOST_REQUIRE_SMALL(g_cpu.ligands[0].torsions[i-6] - 
+                    gpu_out[i], (float)0.01);
+            p_args.log << "CPU " << g_cpu.ligands[0].torsions[i-6] << 
+                " GPU " << gpu_out[i] << "\n";
+        }
+    }
 
     m->deallocate_gpu();
     delete m;
