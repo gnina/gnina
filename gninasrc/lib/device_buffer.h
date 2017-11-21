@@ -23,6 +23,8 @@ public:
     device_buffer(size_t capacity=10000);
 
     void resize(size_t n_bytes);
+    template<typename T>
+    T* copy(T* cpu_object, size_t n_requested, cudaMemcpyKind kind); //returns ptr to segment
     void reinitialize() {next_alloc = begin;}
 
     ~device_buffer();

@@ -604,12 +604,12 @@ void NNGridder::setRecGPU()
 	if(gpu_receptorAInfo == NULL) {
 		assert(sizeof(vec) == sizeof(float3));
 		CUDA_CHECK(cudaMalloc(&gpu_receptorAInfo, recAInfo.size()*sizeof(float4)));
-		CUDA_CHECK(cudaMemcpy(gpu_receptorAInfo, &recAInfo[0], recAInfo.size()*sizeof(float4),cudaMemcpyHostToDevice));
+		CUDA_CHECK(definitelyPinnedMemcpy(gpu_receptorAInfo, &recAInfo[0], recAInfo.size()*sizeof(float4),cudaMemcpyHostToDevice));
 	}
 
 	if(gpu_recWhichGrid == NULL) {
 		CUDA_CHECK(cudaMalloc(&gpu_recWhichGrid, recWhichGrid.size()*sizeof(float3)));
-		CUDA_CHECK(cudaMemcpy(gpu_recWhichGrid, &recWhichGrid[0], recWhichGrid.size()*sizeof(float3),cudaMemcpyHostToDevice));
+		CUDA_CHECK(definitelyPinnedMemcpy(gpu_recWhichGrid, &recWhichGrid[0], recWhichGrid.size()*sizeof(float3),cudaMemcpyHostToDevice));
 	}
 }
 
@@ -622,7 +622,7 @@ void NNGridder::setLigGPU()
 
 	if(gpu_ligWhichGrid == NULL) {
 		CUDA_CHECK(cudaMalloc(&gpu_ligWhichGrid, ligWhichGrid.size()*sizeof(short)));
-		CUDA_CHECK(cudaMemcpy(gpu_ligWhichGrid, &ligWhichGrid[0], ligWhichGrid.size()*sizeof(short),cudaMemcpyHostToDevice));
+		CUDA_CHECK(definitelyPinnedMemcpy(gpu_ligWhichGrid, &ligWhichGrid[0], ligWhichGrid.size()*sizeof(short),cudaMemcpyHostToDevice));
 	}
 }
 
@@ -724,7 +724,7 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 	if(gpu)
 	{
 		unsigned nlatoms = m.coordinates().size();
-		CUDA_CHECK(cudaMemcpy(gpu_ligandAInfo, &ainfo[0], nlatoms*sizeof(float4),cudaMemcpyHostToDevice));
+		CUDA_CHECK(definitelyPinnedMemcpy(gpu_ligandAInfo, &ainfo[0], nlatoms*sizeof(float4),cudaMemcpyHostToDevice));
 		//cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 1024*1024*4);
 
 		gmaker.setAtomsGPU<float>(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);

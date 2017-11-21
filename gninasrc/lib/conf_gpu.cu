@@ -48,7 +48,7 @@ size_t conf_gpu::idx_cpu2gpu(size_t cpu_node_idx, size_t offset_in_node, const g
     return gpu_flat_idx;
 }
 
-change_gpu::change_gpu(const change& src, const gpu_data& d, float_buffer& buffer) :
+change_gpu::change_gpu(const change& src, const gpu_data& d, device_buffer& buffer) :
     n(src.num_floats())
 {
     std::unique_ptr<fl[]> data(new fl[n]);
@@ -67,7 +67,7 @@ change_gpu::change_gpu(const change& src, const gpu_data& d, float_buffer& buffe
 }
 
 //allocate and copy
-change_gpu::change_gpu(const change_gpu& src, float_buffer& buffer) :
+change_gpu::change_gpu(const change_gpu& src, device_buffer& buffer) :
 		n(src.n), values(NULL)
 {
     values = buffer.copy(src.values, n+1, cudaMemcpyDeviceToDevice);
@@ -151,7 +151,7 @@ bool constructor_valid(const conf_gpu& gpu, const conf& src, const gpu_data& d){
     return true;
 }
 
-conf_gpu::conf_gpu(const conf& src, const gpu_data& d, float_buffer& buffer) :
+conf_gpu::conf_gpu(const conf& src, const gpu_data& d, device_buffer& buffer) :
     n(src.num_floats())
 {
     std::unique_ptr<fl[]> data(new fl[n]);
@@ -190,7 +190,7 @@ void conf_gpu::set_cpu(conf& dst, const gpu_data& d) const {
 }
 
 //copy within buffer
-conf_gpu::conf_gpu(const conf_gpu& src, float_buffer& buffer) :
+conf_gpu::conf_gpu(const conf_gpu& src, device_buffer& buffer) :
 		n(src.n), values(NULL) {
     values = buffer.copy(src.values, n, cudaMemcpyDeviceToDevice);
 }

@@ -371,7 +371,7 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
 	return out->energy;
     #else
     float cpu_out;
-    cudaMemcpy(&cpu_out, &out->energy, sizeof(float), cudaMemcpyDeviceToHost);
+    definitelyPinnedMemcpy(&cpu_out, &out->energy, sizeof(float), cudaMemcpyDeviceToHost);
     return cpu_out;
     #endif
 }
@@ -420,4 +420,30 @@ void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
 			}*/
 		}
 	}
+}
+
+void *getHostMem(){
+    void *r = nullptr;
+    CUDA_CHECK_GNINA(cudaHostAlloc(&r, 4096 * 1024, cudaHostAllocDefault));
+    return r;
+}
+
+cudaError definitelyPinnedMemcpy(void* dst, const void *src, size_t n, cudaMemcpyKind k){
+    assert(k != cudaMemcpyDefault);
+    if(k == cudaMemcpyDeviceToDevice || k == cudaMemcpyHostToHost)
+        return cudaMemcpy(dst, src, n, k);
+    thread_local void *buf = getHostMem();
+    assert(n < 4096 * 1024);
+    if(k == cudaMemcpyHostToDevice){
+        memcpy(buf, src, n);
+        CUDA_CHECK_GNINA(cudaMemcpyAsync(dst, buf, n, k, cudaStreamPerThread));
+        CUDA_CHECK_GNINA(cudaStreamSynchronize(cudaStreamPerThread));
+    }else{
+        assert(k == cudaMemcpyDeviceToHost);
+
+        CUDA_CHECK_GNINA(cudaMemcpyAsync(buf, src, n, k, cudaStreamPerThread));
+        CUDA_CHECK_GNINA(cudaStreamSynchronize(cudaStreamPerThread));
+        memcpy(dst, buf, n);
+    }
+    return cudaSuccess;
 }
