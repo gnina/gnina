@@ -14,6 +14,8 @@ Currently also have all eval methods (cpu or gpu) here for easy reference.
 #include <boost/algorithm/string/predicate.hpp>
 #include "non_cache_gpu.h"
 #include "loop_timer.h"
+#include "gpu_debug.h"
+#include "device_buffer.h"
 
 #define MAX_THREADS 1024
 
@@ -74,7 +76,7 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
     #ifdef __CUDA_ARCH__
     scratch[0] = 0;
     #else
-    cudaMemset(scratch, 0, sizeof(float));
+    cudaMemsetAsync(scratch, 0, sizeof(float), cudaStreamPerThread);
     #endif
 
 	if(pairs_sz< CUDA_THREADS_PER_BLOCK) {

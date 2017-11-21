@@ -42,6 +42,8 @@ struct change_gpu {
     __host__ __device__
 	sz num_floats() const;
 
+    __device__
+    void print() const;
 private:
     static
     size_t idx_cpu2gpu(size_t cpu_node_idx, size_t offset_in_node, const gpu_data& d);
@@ -70,6 +72,8 @@ struct conf_gpu {
 
 	void set_data(std::vector<float>& d) const;
 
+    __device__
+    void print() const;
 private:
     static
     size_t idx_cpu2gpu(size_t cpu_node_idx, size_t offset_in_node, const gpu_data& d);

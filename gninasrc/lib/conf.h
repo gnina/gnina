@@ -413,7 +413,7 @@ struct conf {
 		return 0; // shouldn't happen, placating the compiler
 	}
 
-	fl& operator()(sz index);
+	fl& flat_index(sz index);
 
     sz num_floats() const {
 		sz tmp = 0;

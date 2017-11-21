@@ -35,7 +35,7 @@
         if(threadIdx.x == 0){                               \
             printf(arr_name ":[");                          \
             for(size_t i = 0; i < num_vecs; i++){           \
-                printf("    %lu-[%f %f %f]\n  ",             \
+                printf("    %d-[%f %f %f]\n  ",             \
                        i,                                   \
                        arr[i][0],                           \
                        arr[i][1],                           \
@@ -51,7 +51,7 @@
         sz num_vecs = _num_vecs;                            \
         printf(arr_name ":[");                              \
         for(size_t i = 0; i < num_vecs; i++){               \
-            printf("    %lu-[%f %f %f]\n  ",                 \
+            printf("    %d-[%f %f %f]\n  ",                 \
                    i,                                       \
                    arr[i][0],                               \
                    arr[i][1],                               \

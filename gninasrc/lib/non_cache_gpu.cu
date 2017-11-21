@@ -1,7 +1,9 @@
 #include "non_cache_gpu.h"
 #include "loop_timer.h"
 #include "gpu_math.h"
+#include "device_buffer.h"
 
+static thread_local device_buffer non_cache_buf(32 * 4096);
 
 non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
                              const grid_dims& gd_,
@@ -13,12 +15,14 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
   info.cutoff_sq = p->cutoff_sqr();
   info.slope = slope;
 
+  non_cache_buf.reinitialize();
+
   unsigned num_movable_atoms = m.num_movable_atoms();
   info.num_movable_atoms = num_movable_atoms;
   //allocate memory for positions, partial charges, and atom types of movable atoms
   //TODO: remove penalties? I think this is never being used
-  cudaMalloc(&info.lig_penalties, sizeof(force_energy_tup[num_movable_atoms]));
-  cudaMalloc(&info.types, sizeof(unsigned[num_movable_atoms]));
+  non_cache_buf.alloc(&info.lig_penalties, sizeof(force_energy_tup[num_movable_atoms]));
+  non_cache_buf.alloc(&info.types, sizeof(unsigned[num_movable_atoms]));
 
   //initialize atom types and partial charges
   std::vector<unsigned> htypes(num_movable_atoms);
@@ -30,7 +34,7 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
     ((atom_params *) &m.coords[0])[i].charge = m.atoms[i].charge;
     /* lig_atoms_scratch[i].charge = 101010; */
   }
-  cudaMemcpy(info.types, &htypes[0], sizeof(unsigned[num_movable_atoms]),
+  definitelyPinnedMemcpy(info.types, &htypes[0], sizeof(unsigned[num_movable_atoms]),
              cudaMemcpyHostToDevice);
 
   info.gridbegins = float3(gd[0].begin, gd[1].begin, gd[2].begin);
@@ -44,8 +48,8 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
 
   //allocate memory for positions, atom types, and partial charges of all
   //possibly relevant receptor atoms
-  cudaMalloc(&info.rec_atoms, sizeof(atom_params[nrec_atoms]));
-  cudaMalloc(&info.rectypes, sizeof(unsigned[nrec_atoms]));
+  non_cache_buf.alloc(&info.rec_atoms, sizeof(atom_params[nrec_atoms]));
+  non_cache_buf.alloc(&info.rectypes, sizeof(unsigned[nrec_atoms]));
 
   //initialize
   std::vector<atom_params> hrec_atoms(nrec_atoms);
@@ -62,9 +66,9 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
         
     hrectypes[i] = m.grid_atoms[index].get();
   }
-  cudaMemcpy(info.rec_atoms, &hrec_atoms[0], sizeof(atom_params[nrec_atoms]),
+  definitelyPinnedMemcpy(info.rec_atoms, &hrec_atoms[0], sizeof(atom_params[nrec_atoms]),
              cudaMemcpyHostToDevice);
-  cudaMemcpy(info.rectypes, &hrectypes[0], sizeof(unsigned[nrec_atoms]),
+  definitelyPinnedMemcpy(info.rectypes, &hrectypes[0], sizeof(unsigned[nrec_atoms]),
              cudaMemcpyHostToDevice);
 
   info.ntypes = p_->num_types();
@@ -74,11 +78,11 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
 non_cache_gpu::~non_cache_gpu()
 {
   //deallocate device memory
-  cudaFree(info.lig_penalties);
-  cudaFree(info.types);
+  non_cache_buf.dealloc(info.lig_penalties);
+  non_cache_buf.dealloc(info.types);
     
-  cudaFree(info.rec_atoms);
-  cudaFree(info.rectypes);
+  non_cache_buf.dealloc(info.rec_atoms);
+  non_cache_buf.dealloc(info.rectypes);
 
   /* print_hits(); */
 }
