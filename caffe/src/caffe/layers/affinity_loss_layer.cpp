@@ -23,6 +23,7 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   Dtype penalty = this->layer_param_.affinity_loss_param().penalty();
   bool huber = this->layer_param_.affinity_loss_param().pseudohuber();
   Dtype ranklossm = this->layer_param_.affinity_loss_param().ranklossmult();
+  bool fractional_gap = this->layer_param_.affinity_loss_param().fractional_gap();
 
   Dtype delta2 = delta*delta;
   const Dtype *labels = bottom[1]->cpu_data();
@@ -35,6 +36,9 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     Dtype diff = 0.0;
     if (label > 0) { //normal euclidean
       diff = pred - label;
+      if(fractional_gap && gap > 0) {
+        gap = fabs(diff)/gap;
+      }
       if (diff < 0) {
         diff = std::min(diff + gap, Dtype(0));
       } else {
@@ -42,6 +46,9 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       }
     } else if (label < 0 && pred > -label) { //hinge like
       diff = pred + label + penalty;
+      if(fractional_gap && gap > 0) {
+        gap = fabs(diff)/gap;
+      }
       diff = std::max(diff - gap, Dtype(0));
       
     } else { //ignore
