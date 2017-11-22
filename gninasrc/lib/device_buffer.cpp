@@ -33,8 +33,8 @@ cudaError_t device_free(void *buf) {
     return thread_buffer.dealloc(buf);
 }
 
-void device_buffer<T>::resize(size_t n_bytes) {
-    assert(begin == next_alloc || !(std::cerr << "Device buffer only supports resize when buffer is empty.\n"))
+void device_buffer::resize(size_t n_bytes) {
+    assert(begin == next_alloc || !(std::cerr << "Device buffer only supports resize when buffer is empty.\n"));
     if (n_bytes > capacity) {
         CUDA_CHECK_GNINA(cudaFree(begin));
         CUDA_CHECK_GNINA(cudaMalloc(&begin, n_bytes));
