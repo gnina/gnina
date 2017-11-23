@@ -88,6 +88,7 @@ file(GLOB TEST_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/*.c*)
 set(rdkit_lib_line "-lFileParsers -lSmilesParse -lDepictor -lGraphMol -lRDGeometryLib -lRDGeneral -lSubstructMatch -lSubgraphs -lDataStructs")
 
 find_library(CUDA_DEV_RT NAMES cudadevrt PATHS ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
+find_library(CUDA NAMES cuda PATHS ${CUDA_TOOLKIT_ROOT_DIR}/lib64/stubs)
 cuda_add_library(gninalib ${LIB_SRCS} OPTIONS ${NVCC_FLAGS_EXTRA} --shared)
 set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
 target_link_libraries(gninalib caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES})
@@ -105,32 +106,32 @@ include_directories(gninavis)
 # compile in libgnina - there are enough dependencies to deal with
 cuda_add_executable(gnina main/main.cpp ${LIB_SRCS})
 target_link_libraries(gnina caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES}
-    ${RDKIT_LIBRARIES} ${CUDA_DEV_RT})
+    ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
 
 add_subdirectory(gninaserver)
 
 cuda_add_executable(fromgnina fromgnina/fromgnina.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(fromgnina  caffe gninalib ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT})
+    ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
 
 cuda_add_executable(gninagrid gninagrid/gninagrid.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(gninagrid  caffe gninalib ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT})
+    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
 
 cuda_add_executable(gninatyper gninatyper/gninatyper.cpp lib/CommandLine2/CommandLine.cpp ${LIB_SRCS})
 target_link_libraries(gninatyper  caffe ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT})
+    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
 
 cuda_add_executable(tognina tognina/tognina.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT})
+    ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
 
 cuda_add_executable(gninavis gninavis/gninavis.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT})
+    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
 
 cuda_add_executable(check ${TEST_SRCS} ${LIB_SRCS})
 target_link_libraries(check ${RDKIT_LIBRARIES} ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT} caffe)
+    ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT} caffe ${CUDA})
 
 install(TARGETS gnina gninagrid gninatyper fromgnina tognina gninavis RUNTIME DESTINATION bin)

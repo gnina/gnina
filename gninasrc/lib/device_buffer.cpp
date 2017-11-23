@@ -6,6 +6,8 @@
 #include <cmath>
 #include "gpu_util.h"
 #include <cassert>
+#include <boost/thread/thread.hpp>
+#include <cuda.h>
 
 #define align_down_pow2(n, size)            \
     ((decltype (n)) ((uintptr_t) (n) & ~((size) - 1)))
@@ -13,7 +15,20 @@
 #define align_up_pow2(n, size)                                    \
     ((decltype (n)) align_down_pow2((uintptr_t) (n) + (size) - 1, size))
 
-thread_local device_buffer thread_buffer(32 * 4096);
+size_t free_mem() {
+   size_t free, total;
+   CUresult res;
+   res = cuMemGetInfo(&free, &total);
+   if (res != CUDA_SUCCESS) {
+       std::cerr << "cuMemGetInfo returned status " << res << "\n";
+       return 1;
+    }
+   uint max_threads = boost::thread::hardware_concurrency();
+   //TODO: herp derp 
+   return (free / max_threads) - ceil(120 / max_threads);
+}
+
+thread_local device_buffer thread_buffer(free_mem());
 
 device_buffer::device_buffer(size_t capacity) : capacity(capacity){
     CUDA_CHECK_GNINA(cudaMalloc(&begin, capacity));

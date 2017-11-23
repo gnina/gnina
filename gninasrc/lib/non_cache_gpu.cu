@@ -3,8 +3,6 @@
 #include "gpu_math.h"
 #include "device_buffer.h"
 
-static thread_local device_buffer non_cache_buf(32 * 4096);
-
 non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
                              const grid_dims& gd_,
                              const precalculate_gpu* p_,
@@ -15,14 +13,12 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
   info.cutoff_sq = p->cutoff_sqr();
   info.slope = slope;
 
-  non_cache_buf.reinitialize();
-
   unsigned num_movable_atoms = m.num_movable_atoms();
   info.num_movable_atoms = num_movable_atoms;
   //allocate memory for positions, partial charges, and atom types of movable atoms
   //TODO: remove penalties? I think this is never being used
-  non_cache_buf.alloc(&info.lig_penalties, sizeof(force_energy_tup[num_movable_atoms]));
-  non_cache_buf.alloc(&info.types, sizeof(unsigned[num_movable_atoms]));
+  thread_buffer.alloc(&info.lig_penalties, sizeof(force_energy_tup[num_movable_atoms]));
+  thread_buffer.alloc(&info.types, sizeof(unsigned[num_movable_atoms]));
 
   //initialize atom types and partial charges
   std::vector<unsigned> htypes(num_movable_atoms);
@@ -48,8 +44,8 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
 
   //allocate memory for positions, atom types, and partial charges of all
   //possibly relevant receptor atoms
-  non_cache_buf.alloc(&info.rec_atoms, sizeof(atom_params[nrec_atoms]));
-  non_cache_buf.alloc(&info.rectypes, sizeof(unsigned[nrec_atoms]));
+  thread_buffer.alloc(&info.rec_atoms, sizeof(atom_params[nrec_atoms]));
+  thread_buffer.alloc(&info.rectypes, sizeof(unsigned[nrec_atoms]));
 
   //initialize
   std::vector<atom_params> hrec_atoms(nrec_atoms);
@@ -78,13 +74,7 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache,
 non_cache_gpu::~non_cache_gpu()
 {
   //deallocate device memory
-  non_cache_buf.dealloc(info.lig_penalties);
-  non_cache_buf.dealloc(info.types);
-    
-  non_cache_buf.dealloc(info.rec_atoms);
-  non_cache_buf.dealloc(info.rectypes);
-
-  /* print_hits(); */
+  thread_buffer.reinitialize();
 }
 
 fl non_cache_gpu::eval(const model& m, fl v) const

@@ -183,7 +183,6 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	//dkoes - you don't need a very strong constraint to keep ligands in the box,
 	//but this factor can really bias the energy landscape
 	fl slope = 10;
-    //TODO: add buffer resize
 	VINA_FOR(p, 5)
 	{
 		nc.setSlope(slope);
