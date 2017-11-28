@@ -253,6 +253,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 	const caffe::shared_ptr<Blob<Dtype> > affblob = net->blob_by_name("predaff");
 
 	unsigned cnt = 0;
+	mgrid->setLabels(1); //for now pose optimization only
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{
 		net->Forward(); //do all rotations at once if requested
@@ -264,9 +265,8 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 			const Dtype* aff = affblob->cpu_data();
 			affinity += aff[0];
 		}
-		else
-		{
-		}
+
+
 		if (compute_gradient || outputxyz)
 		{
 			net->Backward();
