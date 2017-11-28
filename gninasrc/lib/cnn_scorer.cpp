@@ -258,15 +258,15 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 		net->Forward(); //do all rotations at once if requested
 		const Dtype* out = outblob->cpu_data();
 		score += out[1];
+		if(rotations > 1) std::cout << "RotateScore: " << out[1] << "\n";
 		if (affblob)
 		{
 			//has affinity prediction
 			const Dtype* aff = affblob->cpu_data();
 			affinity += aff[0];
+			if(rotations > 1) std::cout << "RotateAff: " << aff[0] << "\n";
 		}
-		else
-		{
-		}
+
 		if (compute_gradient || outputxyz)
 		{
 			net->Backward();

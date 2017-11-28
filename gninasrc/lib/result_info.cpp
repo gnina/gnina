@@ -143,7 +143,7 @@ void result_info::write(std::ostream& out, std::string& ext,
 			out << std::fixed  << std::setprecision(10) << cnnscore << "\n\n";
 		}
 
-		if(cnnaffinity >= 0)
+		if(cnnaffinity != 0)
 		{
 			out << "> <CNNaffinity>\n";
 			out << std::fixed  << std::setprecision(10) << cnnaffinity << "\n\n";
@@ -173,7 +173,7 @@ void result_info::write(std::ostream& out, std::string& ext,
 		out << "REMARK minimizedAffinity " << boost::lexical_cast<std::string>((float) energy);
 		if(rmsd >= 0) out << "REMARK minimizedRMSD " << boost::lexical_cast<std::string>((float) rmsd);
 		if(cnnscore >= 0) out << "REMARK CNNscore " << boost::lexical_cast<std::string>((float) cnnscore);
-		if(cnnaffinity >= 0) out << "REMARK CNNaffinity " << boost::lexical_cast<std::string>((float) cnnaffinity);
+		if(cnnaffinity != 0) out << "REMARK CNNaffinity " << boost::lexical_cast<std::string>((float) cnnaffinity);
 		out << molstr;
 		out << "ENDMDL\n";
 	}
@@ -204,7 +204,7 @@ void result_info::write(std::ostream& out, std::string& ext,
 					"CNNscore",
 					boost::lexical_cast<std::string>((float) cnnscore));
 		}
-		if (cnnaffinity >= 0)
+		if (cnnaffinity != 0)
 		{
 			setMolData(format, mol,
 					"CNNaffinity",
