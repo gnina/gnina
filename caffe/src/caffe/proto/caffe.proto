@@ -500,6 +500,7 @@ message AffinityLossParameter {
 	optional float ranklossmult = 8 [default = 0.0]; //add rankloss with this multiplier
 	optional bool ranklossneg = 9 [default = false]; // rank neg against positive examples - for balanced only
 	optional bool fractional_gap = 10 [default = false]; // actual gap is abs(diff)/gap, i.e. larger for larger values
+	optional float diff_for_zero = 11 [default = 0.0]; //default gradient for examples with zero affinity
 }
 
 message ArgMaxParameter {

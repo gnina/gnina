@@ -24,6 +24,7 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   bool huber = this->layer_param_.affinity_loss_param().pseudohuber();
   Dtype ranklossm = this->layer_param_.affinity_loss_param().ranklossmult();
   bool fractional_gap = this->layer_param_.affinity_loss_param().fractional_gap();
+  Dtype defaultzero = this->layer_param_.affinity_loss_param().diff_for_zero();
 
   Dtype delta2 = delta*delta;
   const Dtype *labels = bottom[1]->cpu_data();
@@ -52,7 +53,7 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       diff = std::max(diff - gap, Dtype(0));
       
     } else { //ignore
-      diff = 0;
+      diff = defaultzero;
     }
 
     d[i] = diff;
