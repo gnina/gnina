@@ -62,7 +62,7 @@ public:
 
     bool has_affinity() const; //return true if can predict affinity
 
-    float score(model& m, bool silent = true);
+    float score_simple(model& m, bool silent = true);
     float score(model& m, bool compute_gradient, float& affinity, bool silent = true);
 
     void outputDX(const string& prefix, double scale = 1.0, bool relevance = false, string layer_to_ignore = "", bool zero_values = false);
@@ -71,7 +71,7 @@ public:
     std::vector<float> get_scores_per_atom(bool receptor, bool relevance = false);
 
     void lrp(const model& m, const string& layer_to_ignore = "", bool zero_values = false);
-    void gradient_setup(const model& m, const string& recname, const string& ligname);
+    void gradient_setup(const model& m, const string& recname, const string& ligname, const string& layer_to_ignore = "");
 };
 
 #endif /* SRC_LIB_CNN_SCORER_H_ */

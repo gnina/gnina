@@ -78,6 +78,10 @@ class Net {
   //zero_values: runs backward pass with only dead node values
   void Backward_relevance(std::string layer_to_ignore = "", bool zero_values = false);
 
+
+  //skips provided layer (in case of split output) for gradient visualization
+  void Backward_ignore_layer(std::string layer_to_ignore = "");
+
   /**
    * @brief Reshape all layers from bottom to top.
    *

@@ -131,26 +131,26 @@ std::vector<float> CNNScorer::get_scores_per_atom(bool receptor, bool relevance)
     if (receptor)
     {
         mgrid->getReceptorAtoms(0, atoms);
-		if (relevance)
-		{
-        	mgrid->getReceptorGradient(0,gradient, true);
-		}
-		else
-		{
-        	mgrid->getReceptorGradient(0, gradient, false);
-		}
+        if (relevance)
+        {
+            mgrid->getReceptorGradient(0,gradient, true);
+        }
+        else
+        {
+            mgrid->getReceptorGradient(0, gradient, false);
+        }
     }
     else
     {
         mgrid->getLigandAtoms(0, atoms);
-		if (relevance)
-		{
-        	mgrid->getLigandGradient(0, gradient, true);
-		}
-		else
-		{
-        	mgrid->getLigandGradient(0, gradient, false);
-		}
+        if (relevance)
+        {
+            mgrid->getLigandGradient(0, gradient, true);
+        }
+        else
+        {
+            mgrid->getLigandGradient(0, gradient, false);
+        }
     }
 
     //PDBQT atoms are 1-indexed, cnn_visualization expects index:score mapping
@@ -158,18 +158,18 @@ std::vector<float> CNNScorer::get_scores_per_atom(bool receptor, bool relevance)
 
     for (unsigned i = 1, n = gradient.size() + 1; i < n; ++i)
     {
-		if(relevance)
-		{
-        	scores[i] = gradient[i - 1].x;
-		}
-		else //gradient
-		{
-			//sqrt(x^2 + y^2 + z^2)
-			float x = gradient[i - 1].x;
-			float y = gradient[i - 1].y;
-			float z = gradient[i - 1].z;
-			scores[i] = sqrt(x*x + y*y + z*z);
-		}
+        if(relevance)
+        {
+            scores[i] = gradient[i - 1].x;
+        }
+        else //gradient
+        {
+            //sqrt(x^2 + y^2 + z^2)
+            float x = gradient[i - 1].x;
+            float y = gradient[i - 1].y;
+            float z = gradient[i - 1].z;
+            scores[i] = sqrt(x*x + y*y + z*z);
+        }
 
     }
 
@@ -207,18 +207,27 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore, bool zero_val
 }
 
 //do forward and backward pass for gradient visualization
-void CNNScorer::gradient_setup(const model& m, const string& recname, const string& ligname)
+void CNNScorer::gradient_setup(const model& m, const string& recname, const string& ligname, const string& layer_to_ignore)
 {
     boost::lock_guard<boost::mutex> guard(*mtx);
-    
+
     caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
-    
+
     net->Forward();
-    net->Backward();
-   	
+
+    if(layer_to_ignore.length() == 0)
+    {
+        std::cout << "doing backward\n";
+        net->Backward();
+    }
+    else //have to skip layer
+    {
+        net->Backward_ignore_layer(layer_to_ignore);
+    }
+
 
     if(ligname.size() > 0)
     {
@@ -246,70 +255,72 @@ bool CNNScorer::has_affinity() const
 //if compute_gradient is set, also adds cnn atom gradient to m.minus_forces
 float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 {
-	boost::lock_guard<boost::mutex> guard(*mtx);
-	if (!initialized())
-		return -1.0;
+    boost::lock_guard<boost::mutex> guard(*mtx);
+    if (!initialized())
+        return -1.0;
 
-	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
+    caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
-	mgrid->setReceptor<atom>(m.get_fixed_atoms());
-	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates());
+    mgrid->setReceptor<atom>(m.get_fixed_atoms());
+    mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates());
 
-	m.clear_minus_forces();
-	double score = 0.0;
-	double affinity = 0.0;
-	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
-	const caffe::shared_ptr<Blob<Dtype> > affblob = net->blob_by_name("predaff");
+    m.clear_minus_forces();
+    double score = 0.0;
+    double affinity = 0.0;
+    const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
+    const caffe::shared_ptr<Blob<Dtype> > affblob = net->blob_by_name("predaff");
 
-	unsigned cnt = 0;
-	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
-	{
-		net->Forward(); //do all rotations at once if requested
-		const Dtype* out = outblob->cpu_data();
-		score += out[1];
-		if (affblob)
-		{
-			//has affinity prediction
-			const Dtype* aff = affblob->cpu_data();
-			affinity += aff[0];
-		}
-		else
-		{
-		}
-		if (compute_gradient || outputxyz)
-		{
-			net->Backward();
-			mgrid->getLigandGradient(0, gradient);
-			m.add_minus_forces(gradient); //TODO divide by cnt?
-		}
-		cnt++;
-	}
+    unsigned cnt = 0;
+    for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
+    {
+        net->Forward(); //do all rotations at once if requested
+        const Dtype* out = outblob->cpu_data();
+        score += out[1];
+        if (affblob)
+        {
+            //has affinity prediction
+            const Dtype* aff = affblob->cpu_data();
+            affinity += aff[0];
+        }
+        else
+        {
+        }
+        std::cout << "cg: " << compute_gradient << "|o: " << outputxyz << '\n';
+        if (compute_gradient || outputxyz)
+        {
+            net->Backward();
+            mgrid->getLigandGradient(0, gradient);
+            m.add_minus_forces(gradient); //TODO divide by cnt?
+        }
+        cnt++;
+    }
 
-	if (outputdx) {
-		outputDX(m.get_name());
-		const string& ligname = m.get_name() + "_lig";
-		const string& recname = m.get_name() + "_rec";
-		mgrid->getLigandGradient(0, gradient);
-		mgrid->getLigandAtoms(0, atoms);
-		mgrid->getLigandChannels(0, channels);
-		outputXYZ(ligname, atoms, channels, gradient);
+    if (outputdx) {
+        outputDX(m.get_name());
+        const string& ligname = m.get_name() + "_lig";
+        const string& recname = m.get_name() + "_rec";
+        mgrid->getLigandGradient(0, gradient);
+        mgrid->getLigandAtoms(0, atoms);
+        mgrid->getLigandChannels(0, channels);
+        outputXYZ(ligname, atoms, channels, gradient);
 
-		mgrid->getReceptorGradient(0, gradient);
-		mgrid->getReceptorAtoms(0, atoms);
-		mgrid->getReceptorChannels(0, channels);
-		outputXYZ(recname, atoms, channels, gradient);
-	}
+        mgrid->getReceptorGradient(0, gradient);
+        mgrid->getReceptorAtoms(0, atoms);
+        mgrid->getReceptorChannels(0, channels);
+        outputXYZ(recname, atoms, channels, gradient);
+    }
 
-	//TODO m.scale_minus_forces(1 / cnt);
-	aff = affinity / cnt;
-	return score / cnt;
+    //TODO m.scale_minus_forces(1 / cnt);
+    aff = affinity / cnt;
+    return score / cnt;
 }
 
 
 //return only score
-float CNNScorer::score(model& m, bool silent)
+float CNNScorer::score_simple(model& m, bool silent)
 {
     float aff = 0;
+    std::cout << "in score wrapper\n";
     return score(m, false, aff, silent);
 }
 

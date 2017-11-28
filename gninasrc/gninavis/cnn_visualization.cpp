@@ -96,9 +96,8 @@ void cnn_visualization::gradient_vis() {
 
     receptor.append(ligand);
 
-
     float aff;
-    std::cout << "CNN SCORE: " << scorer.score(receptor, true) << '\n';
+    std::cout << "CNN SCORE: " << scorer.score_simple(receptor, true) << '\n';
 
     boost::filesystem::path rec_name_path(visopts.receptor_name);
     std::string rec_output_name = "gradient_" + rec_name_path.stem().string() + ".xyz";
@@ -107,14 +106,22 @@ void cnn_visualization::gradient_vis() {
     std::string lig_prefix = "gradient_" + lig_name_path.stem().string();
     std::string lig_output_name = lig_prefix + ".xyz";
 
-    scorer.gradient_setup(receptor, rec_output_name, lig_output_name);
+    if(visopts.layer_to_ignore.length() > 0)
+    {
+        std::cout << "Ignoring layer: \"" << visopts.layer_to_ignore << "\"\n";
+        scorer.gradient_setup(receptor, rec_output_name, lig_output_name, visopts.layer_to_ignore);
+    }
+    else
+    {
+        scorer.gradient_setup(receptor, rec_output_name, lig_output_name);
+    }
     std::vector<float> lig_scores = scorer.get_scores_per_atom(false, false);
     std::vector<float> rec_scores = scorer.get_scores_per_atom(true, false);
 
     write_scores(lig_scores, false, "gradient");
     write_scores(rec_scores, true, "gradient");
 
-    if (visopts.outputdx) 
+    if (visopts.outputdx)
     {
         float scale = 1.0;
         scorer.outputDX(lig_prefix, scale);
@@ -130,6 +137,7 @@ void cnn_visualization::setup(){
 
     process_molecules();
 
+    std::cout << "cnnopts outputxyz:" << cnnopts.outputxyz << '\n';
     std::stringstream rec_stream(rec_string);
     unmodified_receptor = parse_receptor_pdbqt("", rec_stream);
     CNNScorer base_scorer(cnnopts, center, unmodified_receptor);
@@ -141,13 +149,13 @@ void cnn_visualization::setup(){
     temp_rec.append(unmodified_ligand);
     if(visopts.target == "pose")
     {
-        original_score = base_scorer.score(temp_rec, true);
+        original_score = base_scorer.score_simple(temp_rec, true);
         std::cout << "CNN SCORE: " << original_score << "\n\n";
     }
     else if(visopts.target == "affinity")
     {
         float aff;
-        original_score = base_scorer.score(temp_rec, true, aff, true);
+        original_score = base_scorer.score(temp_rec, false, aff, true);
         original_score = aff;
         std::cout << "AFF: " << original_score << "\n\n";
     }
