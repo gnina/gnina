@@ -84,6 +84,92 @@ MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache&
 }
 
 
+//for in-memory inputs, set the desired label (for gradient computation)
+//note that zero affinity/rmsd means to ignore these
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::setLabels(Dtype pose, Dtype affinity, Dtype rmsd)
+{
+  labels.clear();
+  affinities.clear();
+  rmsds.clear();
+  labels.push_back(pose);
+  affinities.push_back(affinity);
+  rmsds.push_back(rmsd);
+}
+
+
+//the following really shouldn't be recalculated each evaluation (not including gradients)
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getReceptorAtoms(int batch_idx, vector<float4>& atoms)
+{
+  atoms.resize(0);
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+    if (mol.whichGrid[i] < numReceptorTypes)
+      atoms.push_back(mol.atoms[i]);
+}
+
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getLigandAtoms(int batch_idx, vector<float4>& atoms)
+{
+  atoms.resize(0);
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+    if (mol.whichGrid[i] >= numReceptorTypes)
+      atoms.push_back(mol.atoms[i]);
+}
+
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getReceptorChannels(int batch_idx, vector<short>& whichGrid)
+{
+  whichGrid.resize(0);
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+    if (mol.whichGrid[i] < numReceptorTypes)
+      whichGrid.push_back(mol.whichGrid[i]);
+}
+
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getLigandChannels(int batch_idx, vector<short>& whichGrid)
+{
+  whichGrid.resize(0);
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+    if (mol.whichGrid[i] >= numReceptorTypes)
+      whichGrid.push_back(mol.whichGrid[i]);
+}
+
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<float3>& gradient, bool lrp)
+{
+  gradient.resize(0);
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+    if (mol.whichGrid[i] < numReceptorTypes)
+    {
+      if(lrp)
+      {
+          gradient.push_back(mol.gradient[i]);
+      }
+      else
+      {
+          gradient.push_back(-mol.gradient[i]);
+      }
+    }
+}
+
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& gradient, bool lrp)
+{
+  gradient.resize(0);
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+    if (mol.whichGrid[i] >= numReceptorTypes)
+    {
+      gradient.push_back(mol.gradient[i]);
+    }
+}
+
 //modify examples to remove any without both actives an inactives
 //factored this into its own function due to the need to fully specialize setup below
 template<typename Dtype>
@@ -762,10 +848,6 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
   else
     top_data = top[0]->mutable_cpu_data();
 
-  //clear batch labels
-  labels.clear();
-  affinities.clear();
-  rmsds.clear();
   perturbations.clear();
   unsigned batch_size = top_shape[0];
   output_transform peturb;
@@ -782,9 +864,17 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     if (num_rotations > 0) {
       current_rotation = (current_rotation+1)%num_rotations;
     }
+
+    CHECK_GT(labels.size(),0) << "Did not set labels in memory based molgrid";
+
   }
   else
   {
+    //clear batch labels
+    labels.clear();
+    affinities.clear();
+    rmsds.clear();
+
     //percent of batch from first data source
     unsigned dataswitch = batch_size;
     if (data2)
@@ -815,40 +905,41 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       //NOTE: num_rotations not actually implemented!
     }
 
+  }
 
-    if(gpu) {
-      caffe_copy(labels.size(), &labels[0], top[1]->mutable_gpu_data());
-      if(hasaffinity) {
-    	  caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_gpu_data());
-    	  if(hasrmsd) {
-    		  caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_gpu_data());
-    	  }
-      } else if(hasrmsd) {
-    	  caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_gpu_data());
+  if(gpu) {
+    caffe_copy(labels.size(), &labels[0], top[1]->mutable_gpu_data());
+    if(hasaffinity) {
+      caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_gpu_data());
+      if(hasrmsd) {
+        caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_gpu_data());
       }
-
-      if(ligpeturb) {
-        //trusting struct layout is normal
-        caffe_copy(perturbations.size()*6, (Dtype*)&perturbations[0], top.back()->mutable_gpu_data());
-      }
-
+    } else if(hasrmsd) {
+      caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_gpu_data());
     }
-    else {
-      caffe_copy(labels.size(), &labels[0], top[1]->mutable_cpu_data());
-      if(hasaffinity) {
-    	  caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_cpu_data());
-    	  if(hasrmsd) {
-    		  caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_cpu_data());
-    	  }
-      } else if(hasrmsd) {
-    	  caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_cpu_data());
+
+    if(ligpeturb) {
+      //trusting struct layout is normal
+      caffe_copy(perturbations.size()*6, (Dtype*)&perturbations[0], top.back()->mutable_gpu_data());
+    }
+
+  }
+  else {
+    caffe_copy(labels.size(), &labels[0], top[1]->mutable_cpu_data());
+    if(hasaffinity) {
+      caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_cpu_data());
+      if(hasrmsd) {
+        caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_cpu_data());
       }
-      if(ligpeturb) {
-        //trusting struct layout is normal
-        caffe_copy(perturbations.size()*6, (Dtype*)&perturbations[0], top.back()->mutable_cpu_data());
-      }
+    } else if(hasrmsd) {
+      caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_cpu_data());
+    }
+    if(ligpeturb) {
+      //trusting struct layout is normal
+      caffe_copy(perturbations.size()*6, (Dtype*)&perturbations[0], top.back()->mutable_cpu_data());
     }
   }
+
 }
 
 
