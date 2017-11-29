@@ -64,8 +64,6 @@ struct gpu_data {
   	unsigned forces_size;
   	unsigned pairs_size;
     unsigned other_pairs_size;
-    bool print_during_minimization;
-    size_t eval_deriv_counter;
 
     //TODO delete
     size_t nlig_roots;
@@ -74,8 +72,7 @@ struct gpu_data {
   			treegpu(NULL), interacting_pairs(NULL), other_pairs(NULL), 
             dfs_order_bfs_indices(NULL), bfs_order_dfs_indices(NULL), 
             scratch(NULL), coords_size(0),
-  			atom_coords_size(0), forces_size(0), pairs_size(0), other_pairs_size(0), 
-            print_during_minimization(false), eval_deriv_counter(0) {}
+  			atom_coords_size(0), forces_size(0), pairs_size(0), other_pairs_size(0) {}
 
     __host__ __device__
 	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v, interacting_pair* pairs, unsigned pairs_sz) const;
@@ -401,8 +398,6 @@ struct model {
 	void check_internal_pairs() const;
 	void print_stuff() const; // FIXME rm
     void print_counts(unsigned nrec_atoms) const;
-    bool print_during_minimization;
-    size_t eval_deriv_counter;
 
 	fl clash_penalty() const;
 
@@ -424,8 +419,7 @@ struct model {
 	//deallocate gpu memory
 	void deallocate_gpu();
 
-	model() : m_num_movable_atoms(0), hydrogens_stripped(false), print_during_minimization(false), 
-    eval_deriv_counter(0) {};
+	model() : m_num_movable_atoms(0), hydrogens_stripped(false) {};
 	~model() {deallocate_gpu();};
 
     vecv coords;
