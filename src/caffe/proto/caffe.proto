@@ -499,6 +499,8 @@ message AffinityLossParameter {
 	optional float penalty = 7 [default = 0.0]; //additional spacing for negative values (opposite of gap)
 	optional float ranklossmult = 8 [default = 0.0]; //add rankloss with this multiplier
 	optional bool ranklossneg = 9 [default = false]; // rank neg against positive examples - for balanced only
+	optional bool fractional_gap = 10 [default = false]; // actual gap is abs(diff)/gap, i.e. larger for larger values
+	optional float diff_for_zero = 11 [default = 0.0]; //default gradient for examples with zero affinity
 }
 
 message ArgMaxParameter {
@@ -890,6 +892,10 @@ message MolGridDataParameter {
   optional float stratify_affinity_min = 29 [default = 0.0];
   optional float stratify_affinity_max = 30 [default = 0.0];
   optional float stratify_affinity_step = 31 [default = 0.0];
+  optional bool spherical_mask = 32 [default = false]; //mask out a sphere on the grid using atom centers
+  optional bool peturb_ligand = 33 [default = false]; //apply additional random displacement/rotation to ligand, generate output of inverse transform
+  optional float peturb_ligand_translate = 34 [default = 2.0]; //max amount to translate ligand by
+
 }
 
 message NDimDataParameter {
