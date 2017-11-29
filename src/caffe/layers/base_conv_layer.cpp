@@ -456,7 +456,6 @@ void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
 
     if(zero_values)
     {
-        std::cout << "base conv zero values\n";
         for(int i = 0; i < top_size; i++)
         {
             Dtype bias = this->blobs_[1]->cpu_data()[i/I];
@@ -467,10 +466,9 @@ void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
             }
         }
 
-        //do not divide by top_data here, would blow up values
 
-        //propagate relevance down normally
-        //multiply (relevance) *  (inputs * weights)
+        //have to just send relevance values down
+        //dividing by top_data would blow up values
         for (int g = 0; g < group_; ++g) 
         {
             for (long i = 0; i < I; ++i)
@@ -479,14 +477,7 @@ void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
                 {
                     for (long k = 0; k < K; ++k)
                     {
-                        Dtype top_rel = top_buffer[r * I + i]; //already relevance / top_data
-                        Dtype bottom_data  = bottom_data_buffer[col_offset_ * g + k * I + i]; //transformed bottom data
-                        Dtype weight = weights[weight_offset_ * g + r * K + k];
-                        Dtype val = top_rel;
-                        if (val != 0)
-                        {
-                            std::cout << "VAL: " << val << '\n';
-                        }
+                        Dtype val = top_buffer[r * I + i]; //already relevance / top_data
                         relevance_buffer[col_offset_ * g + k * I + i] += val;
                     }
                 }
@@ -507,8 +498,7 @@ void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
             }
             total_top_data += val;
         }
-        //std::cout << "Zero relevance: " << zero_top_data_sum << '\n';
-        //std::cout << "Zero fraction: " << numzero/(float)top_size << "\n";
+
         //redistribute relevance from dead nodes proportionally to those remaining
         for(int i = 0; i < top_size; i++)
         {
