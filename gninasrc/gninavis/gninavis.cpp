@@ -154,14 +154,8 @@ int main(int argc, char* argv[])
   }
   else if ("all" == vis_method)
   {
-    std::cout << "\nGradient\n";
-    std::cout << "------------\n";
     vis.gradient_vis();
-    std::cout << "\nLRP\n";
-    std::cout << "------------\n";
     vis.lrp();
-    std::cout << "\nMasking\n";
-    std::cout << "------------\n";
     vis.masking();
   }
   else

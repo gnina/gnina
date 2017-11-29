@@ -184,11 +184,11 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore, bool zero_val
 
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
-    
+    mgrid->setLabels(1); //for now pose optimization only
+
     net->Forward();
     if(zero_values)
     {
-        std::cout << "lrp zero values\n";
         outputDX("zero_blob", 1.0, true, layer_to_ignore, zero_values);
     }
     else

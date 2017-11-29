@@ -48,8 +48,7 @@ cnn_visualization::cnn_visualization(const vis_options &viso,
 
 void cnn_visualization::lrp() {
 
-    std::cout << "LRP\n-----------\n";
-    //process_molecules();
+    std::cout << "Doing LRP...\n";
 
     std::stringstream rec_stream(rec_string);
     model receptor = parse_receptor_pdbqt("", rec_stream);
@@ -64,14 +63,18 @@ void cnn_visualization::lrp() {
 
     if(visopts.zero_values)
     {
-        std::cout << "Only propagating from dead nodes.\n";
+        std::cout << "Only propagating from zero nodes.\n";
     }
     scorer.lrp(receptor, visopts.layer_to_ignore, visopts.zero_values);
     std::vector<float> lig_scores = scorer.get_scores_per_atom(false, true);
     std::vector<float> rec_scores = scorer.get_scores_per_atom(true, true);
 
-    write_scores(lig_scores, false, "lrp");
-    write_scores(rec_scores, true, "lrp");
+    //don't write pdbqt output if zeroing values, will be just zeroes
+    if(!visopts.zero_values)
+    {
+        write_scores(lig_scores, false, "lrp");
+        write_scores(rec_scores, true, "lrp");
+    }
 
     if (visopts.outputdx) 
     {
@@ -85,7 +88,7 @@ void cnn_visualization::lrp() {
 
 void cnn_visualization::gradient_vis() {
 
-    //process_molecules();
+    std::cout << "Doing gradient...\n";
 
     std::stringstream rec_stream(rec_string);
     model receptor = parse_receptor_pdbqt("", rec_stream);
@@ -164,6 +167,8 @@ void cnn_visualization::setup(){
 
 
 void cnn_visualization::masking() {
+
+    std::cout << "Doing masking...\n";
     if (!visopts.skip_receptor_output) {
         remove_residues();
     }
@@ -171,6 +176,8 @@ void cnn_visualization::masking() {
     if (!visopts.skip_ligand_output) {
         remove_ligand_atoms();
     }
+
+    std::cout << "Masking finished.\n";
 }
 
 void cnn_visualization::print() {
