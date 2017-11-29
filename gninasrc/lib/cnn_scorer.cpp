@@ -215,12 +215,12 @@ void CNNScorer::gradient_setup(const model& m, const string& recname, const stri
 
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
+    mgrid->setLabels(1); //for now pose optimization only
 
     net->Forward();
 
     if(layer_to_ignore.length() == 0)
     {
-        std::cout << "doing backward\n";
         net->Backward();
     }
     else //have to skip layer
@@ -321,10 +321,9 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 
 
 //return only score
-float CNNScorer::score_simple(model& m, bool silent)
+float CNNScorer::score(model& m, bool silent)
 {
-    float aff = 0;
-    std::cout << "in score wrapper\n";
+    float aff;
     return score(m, false, aff, silent);
 }
 

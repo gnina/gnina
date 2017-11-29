@@ -150,7 +150,6 @@ int main(int argc, char* argv[])
   }
   else if ("gradient" == vis_method)
   {
-    std::cout << "calling gradient from gninavis\n";
     vis.gradient_vis();
   }
   else if ("all" == vis_method)

@@ -577,20 +577,6 @@ void Net<Dtype>::BackwardFromTo(int start, int end) {
     if (layer_need_backward_[i]) {
       layers_[i]->Backward(
           top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
-        std::cout << layer_names_[i] << '\n';
-
-            std::cout << layer_names_[i] << '\n';
-            for(int j = 0; j < 10; j++)
-            {
-                std::cout << top_vecs_[i][0]->cpu_diff()[j] << '\n';
-            }
-            std::cout << "------------------\n";
-            for(int j = 0; j < 10; j++)
-            {
-                std::cout << bottom_vecs_[i][0]->cpu_diff()[j] << '\n';
-            }
-            std::cout << "==================\n";
-
       if (debug_info_) { BackwardDebugInfo(i); }
     }
     for (int c = 0; c < after_backward_.size(); ++c) {
@@ -722,7 +708,6 @@ void Net<Dtype>::BackwardTo(int end) {
 
 template <typename Dtype>
 void Net<Dtype>::Backward() {
-    std::cout << "doing normal backward\n";
   BackwardFromTo(layers_.size() - 1, 0);
   if (debug_info_) {
     Dtype asum_data = 0, asum_diff = 0, sumsq_data = 0, sumsq_diff = 0;
@@ -1034,63 +1019,27 @@ void Net<Dtype>::Backward_ignore_layer(std::string layer_to_ignore)
 {
     int end = 0 ;
     int start = layers_.size() - 1;
+
     CHECK_GE(end, 0);
     CHECK_LT(start, layers_.size());
+
     for (int i = start; i >= end; i--)
     {
         for (int c = 0; c < before_backward_.size(); ++c)
         {
             before_backward_[c]->run(i);
         }
-        //if (layer_need_backward_[i])
+
+        if (layer_need_backward_[i] && layer_names_[i] != layer_to_ignore)
         {
-            Dtype* top_diff = top_vecs_[i][0]->mutable_cpu_diff();
-            //zero out layer if specified
-            if (layer_names_[i] == layer_to_ignore)
-            {
-                std::cout << "found layer to skip: " << layer_to_ignore << "\n";
-
-                int blob_count = top_vecs_[i][0]->count();
-                //Dtype* top_diff = top_vecs_[i][0]->mutable_cpu_diff();
-                caffe_set(blob_count, static_cast<Dtype>(0), top_diff);
-
-                bottom_need_backward_[i][0] = false;
-            }
-
             layers_[i]->Backward(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
 
             if (debug_info_)
             {
                 BackwardDebugInfo(i);
             }
-
-            if (layer_names_[i] == layer_to_ignore)
-            {
-                //reset bottom_need_backward_
-                bottom_need_backward_[i][0] = true;
-            }
-
-            double sum = 0;
-
-            /*
-            std::cout << layer_names_[i] << '\n';
-            std::cout << "need_backward: " << bottom_need_backward_[i][0] << '\n';
-            for(int j = 0; j < 10; j++)
-            {
-                std::cout << top_vecs_[i][0]->cpu_diff()[j] << '\n';
-                sum += top_vecs_[i][0]->cpu_diff()[j];
-            }
-            std::cout << "Sum: " << sum << '\n';
-            std::cout << "------------------\n";
-            for(int j = 0; j < 10; j++)
-            {
-                std::cout << bottom_vecs_[i][0]->cpu_diff()[j] << '\n';
-                sum += top_vecs_[i][0]->cpu_diff()[j];
-            }
-            std::cout << "Sum: " << sum << '\n';
-            std::cout << "==================\n";
-            */
         }
+
         for (int c = 0; c < after_backward_.size(); ++c)
         {
             after_backward_[c]->run(i);

@@ -43,7 +43,7 @@ cnn_visualization::cnn_visualization(const vis_options &viso,
         exit(1);
     }
 
-       setup();
+    setup();
 }
 
 void cnn_visualization::lrp() {
@@ -96,9 +96,6 @@ void cnn_visualization::gradient_vis() {
 
     receptor.append(ligand);
 
-    float aff;
-    std::cout << "CNN SCORE: " << scorer.score_simple(receptor, true) << '\n';
-
     boost::filesystem::path rec_name_path(visopts.receptor_name);
     std::string rec_output_name = "gradient_" + rec_name_path.stem().string() + ".xyz";
 
@@ -137,7 +134,6 @@ void cnn_visualization::setup(){
 
     process_molecules();
 
-    std::cout << "cnnopts outputxyz:" << cnnopts.outputxyz << '\n';
     std::stringstream rec_stream(rec_string);
     unmodified_receptor = parse_receptor_pdbqt("", rec_stream);
     CNNScorer base_scorer(cnnopts, center, unmodified_receptor);
@@ -149,7 +145,7 @@ void cnn_visualization::setup(){
     temp_rec.append(unmodified_ligand);
     if(visopts.target == "pose")
     {
-        original_score = base_scorer.score_simple(temp_rec, true);
+        original_score = base_scorer.score(temp_rec, true);
         std::cout << "CNN SCORE: " << original_score << "\n\n";
     }
     else if(visopts.target == "affinity")
@@ -161,7 +157,7 @@ void cnn_visualization::setup(){
     }
     else 
     {
-        std::cout << "Unknown scoring method for masking.\n";
+        std::cout << "Unknown scoring target\n";
         return;
     }
 }

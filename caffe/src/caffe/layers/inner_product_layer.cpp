@@ -106,7 +106,6 @@ void InnerProductLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
         const Dtype* top_diff = top[0]->cpu_diff();
         const Dtype* bottom_data = bottom[0]->cpu_data();
         // Gradient with respect to weight
-        std::cout << "doing inner backward\n";
         if (transpose_) {
           caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans,
               K_, N_, M_,
