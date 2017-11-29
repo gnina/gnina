@@ -19,6 +19,7 @@
 #include <boost/math/quaternion.hpp>
 #include <boost/algorithm/string.hpp>
 
+
 #ifndef VINA_ATOM_CONSTANTS_H
 #include "gninasrc/lib/atom_constants.h"
 #endif
@@ -32,27 +33,31 @@ class GridMaker {
   float radiusmultiple;
   float resolution;
   float dimension;
+  float rsq; //radius squared (dimension/2)^2
   unsigned dim; //number of points on each side (cube)
 	bool binary;
+	bool spherize; //mask out atoms not within sphere of center
 
 public:
 	typedef boost::math::quaternion<float> quaternion;
 
 
-	GridMaker(float res=0, float d=0, float rm = 1.5, bool b = false):
-		radiusmultiple(rm), resolution(res), dimension(d), binary(b)
+	GridMaker(float res=0, float d=0, float rm = 1.5, bool b = false, bool s = false):
+		radiusmultiple(rm), resolution(res), dimension(d), binary(b), spherize(s)
 	{
-	  initialize(res,d,rm,b);
+	  initialize(res,d,rm,b,s);
 	}
 
 	virtual ~GridMaker() {}
 
-	void initialize(float res, float d, float rm = 1.5, bool b = false) {
+	void initialize(float res, float d, float rm = 1.5, bool b = false, bool s = false) {
 		resolution = res;
 		dimension = d;
 		radiusmultiple = rm;
 		binary = b;
-	  dim = ::round(dimension/resolution)+1; //number of grid points on a size
+		spherize = s;
+	  dim = ::round(dimension/resolution)+1; //number of grid points on a side
+	  rsq = (dimension/2)*(dimension/2);
 	  center.x = center.y = center.z = 0;
 	}
 	//mus set center before gridding
@@ -173,11 +178,23 @@ public:
 		float radius = ainfo.w;
 	  float r = radius * radiusmultiple;
 	  float3 coords;
+
+	  if(spherize)
+	  {
+	    float xdiff = ainfo.x-center.x;
+	    float ydiff = ainfo.y-center.y;
+	    float zdiff = ainfo.z-center.z;
+	    float distsq = xdiff*xdiff+ydiff*ydiff+zdiff*zdiff;
+	    if(distsq > rsq)
+	    {
+	      return; //ignore
+	    }
+	  }
+
 	  if (Q.real() != 0)
 	  { //apply rotation
 	    quaternion p(0, ainfo.x-center.x, ainfo.y-center.y, ainfo.z-center.z);
 	    p = Q * p * (conj(Q) / norm(Q));
-
 	    coords.x = p.R_component_2() + center.x;
 	    coords.y = p.R_component_3() + center.y;
 	    coords.z = p.R_component_4() + center.z;
@@ -362,20 +379,20 @@ public:
     }
   }
 
-  //summ up gradient values overlapping atoms
-  template<typename Grids>
-  void setAtomRelevanceCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
-                           const Grids& grids, vector<float3>& agrad)
-  {
-    zeroAtomGradientsCPU(agrad);
-    for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
-    {
-      int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
-      if (whichgrid >= 0) {
-        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i],true);
-      }
-    }
-  }
+	//summ up gradient values overlapping atoms
+	template<typename Grids>
+	void setAtomRelevanceCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
+						   const Grids& grids, vector<float3>& agrad)
+	{
+	zeroAtomGradientsCPU(agrad);
+	for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
+	{
+	  int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
+	  if (whichgrid >= 0) {
+		setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i],true);
+	  }
+	}
+	}
 
 	static unsigned createDefaultMap(const char *names[], vector<int>& map)
 	{
@@ -384,20 +401,27 @@ public:
 		unsigned cnt = 0;
 		while (*nameptr != NULL)
 		{
-			string name(*nameptr);
-			//note that if we every start using merged atom types by default
-			//this code will have to be updated
-			smt t = string_to_smina_type(name);
-			if (t < smina_atom_type::NumTypes) //valid
+			string line(*nameptr);
+			vector<string> names;
+			boost::algorithm::split(names, line, boost::is_space(), boost::algorithm::token_compress_on);
+			for(unsigned i = 0, n = names.size(); i < n; i++)
 			{
-				map[t] = cnt;
-				cnt++;
+				string name = names[i];
+				smt t = string_to_smina_type(name);
+				if(t < smina_atom_type::NumTypes) //valid
+				{
+					map[t] = cnt;
+				}
+				else //should never happen
+				{
+					cerr << "Invalid atom type " << name << "\n";
+					exit(-1);
+				}
 			}
-			else //should never happen
-			{
-				cerr << "Invalid atom type " << name << "\n";
-				exit(-1);
-			}
+
+			if(names.size()) //skip empty lines
+			  cnt++;
+
 			nameptr++;
 		}
 		return cnt;

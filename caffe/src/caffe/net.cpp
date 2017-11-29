@@ -1072,6 +1072,7 @@ void Net<Dtype>::Backward_ignore_layer(std::string layer_to_ignore)
 
             double sum = 0;
 
+            /*
             std::cout << layer_names_[i] << '\n';
             std::cout << "need_backward: " << bottom_need_backward_[i][0] << '\n';
             for(int j = 0; j < 10; j++)
@@ -1088,6 +1089,7 @@ void Net<Dtype>::Backward_ignore_layer(std::string layer_to_ignore)
             }
             std::cout << "Sum: " << sum << '\n';
             std::cout << "==================\n";
+            */
         }
         for (int c = 0; c < after_backward_.size(); ++c)
         {

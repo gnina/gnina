@@ -119,7 +119,7 @@ const info default_data[NumTypes] = { //el, ad, xs
 		{Iron, "Iron", "Fe", 26, 0.650000,	0.010000,	-0.001100,	1.840000,	1.250000,	1.200000,	false,	true,	false,	true},
 		{GenericMetal, "GenericMetal", "M", 0, 1.200000,	0.000000,	-0.001100,	22.449300,	1.750000,	1.200000,	false,	true,	false,	true},
 		//note AD4 doesn't have boron, so copying from carbon
-		{Boron, "Boron", "B", 5, 2.000000,   0.150000,   -0.001430,  33.510300,  0.90,   1.920000,   true,   false,  false,  false}
+		{Boron, "Boron", "B", 5, 2.04,   0.180000,   -0.0011,  12.052,  0.90,   1.920000,   true,   false,  false,  false}
 
 };
 
