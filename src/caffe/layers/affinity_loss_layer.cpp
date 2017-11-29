@@ -110,10 +110,6 @@ void AffinityLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   Dtype maxgrad = this->layer_param_.affinity_loss_param().maxgrad();
   Dtype ranklossm = this->layer_param_.affinity_loss_param().ranklossmult();
   const Dtype *labels = bottom[1]->cpu_data();
-  for(int i = 0; i < 10; i++)
-  {
-      std::cout << "affinity loss label: " << labels[i] << '\n';
-  }
 
   for (int i = 0; i < 2; ++i) {
     if (propagate_down[i]) {
