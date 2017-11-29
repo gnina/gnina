@@ -25,7 +25,7 @@ using namespace std;
 CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
         const model& m) :
         rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
-        outputdx(cnnopts.outputdx), outputxyz(cnnopts.outputxyz),
+        outputdx(cnnopts.outputdx), outputxyz(cnnopts.outputxyz), xyzprefix(cnnopts.xyzprefix),
         mtx(new boost::mutex) {
 
     if (cnnopts.cnn_scoring)
@@ -279,8 +279,12 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 
 	if (outputdx) {
 		outputDX(m.get_name());
-		const string& ligname = m.get_name() + "_lig";
-		const string& recname = m.get_name() + "_rec";
+	}
+
+	if (outputxyz) {
+		const string& ligname = xyzprefix + "_lig.xyz";
+		const string& recname = xyzprefix + "_rec.xyz";
+
 		mgrid->getLigandGradient(0, gradient);
 		mgrid->getLigandAtoms(0, atoms);
 		mgrid->getLigandChannels(0, channels);
