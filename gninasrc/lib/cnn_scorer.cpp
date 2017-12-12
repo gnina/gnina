@@ -184,7 +184,8 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore)
 
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
-    
+    mgrid->setLabels(1); 
+
     net->Forward();
     if(layer_to_ignore == "")
     {
