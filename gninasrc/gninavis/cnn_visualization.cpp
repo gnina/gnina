@@ -43,6 +43,17 @@ cnn_visualization::cnn_visualization(const vis_options &viso,
         exit(1);
     }
 
+    std::ifstream lig_fstream(visopts.ligand_name);
+    std::ifstream rec_fstream(visopts.receptor_name);
+
+    std::stringstream buffer;
+    buffer << lig_fstream.rdbuf();
+    original_lig_string = buffer.str();
+
+    buffer.str("");
+    buffer << rec_fstream.rdbuf();
+    original_rec_string = buffer.str();
+
     setup();
 }
 
@@ -382,10 +393,10 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
 
     if (isRec) {
         file_name = visopts.receptor_name;
-        mol_string = rec_string;
+        mol_string = original_rec_string;
     } else {
         file_name = visopts.ligand_name;
-        mol_string = lig_string;
+        mol_string = original_lig_string;
     }
 
     boost::filesystem::path file_name_path(file_name);
