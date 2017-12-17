@@ -420,7 +420,7 @@ struct model {
 	void deallocate_gpu();
 
 	model() : m_num_movable_atoms(0), hydrogens_stripped(false) {};
-	~model() {deallocate_gpu();};
+	~model() {};
 
     vecv coords;
 	vecv minus_forces;

@@ -443,9 +443,9 @@ void do_search(model& m, const boost::optional<model>& ref,
 					<< "WARNING: Check that it is large enough for all movable atoms, including those in the flexible side chains.";
 			log.endl();
 		}
-        m.deallocate_gpu();
 	}
 	std::cout << "Refine time " << time.elapsed().wall/1000000000.0 << "\n";
+    m.deallocate_gpu();
 }
 
 void load_ent_values(const grid_dims& gd, std::istream& user_in,
