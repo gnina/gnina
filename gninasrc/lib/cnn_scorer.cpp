@@ -125,19 +125,20 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 //returns relevance or gradient scores per atom
 //assumes necessary pass (backward or backward_relevance) has already been done
 //default is gradient
-std::vector<float> CNNScorer::get_scores_per_atom(bool receptor, bool relevance)
+std::unordered_map<string, float> CNNScorer::get_scores_per_atom(bool receptor, bool relevance)
 {
+    std::unordered_map<string, float3> gradient;
 
     if (receptor)
     {
         mgrid->getReceptorAtoms(0, atoms);
         if (relevance)
         {
-            mgrid->getReceptorGradient(0,gradient, true);
+            mgrid->getMappedReceptorGradient(0,gradient, true);
         }
         else
         {
-            mgrid->getReceptorGradient(0, gradient, false);
+            mgrid->getMappedReceptorGradient(0, gradient, false);
         }
     }
     else
@@ -145,30 +146,29 @@ std::vector<float> CNNScorer::get_scores_per_atom(bool receptor, bool relevance)
         mgrid->getLigandAtoms(0, atoms);
         if (relevance)
         {
-            mgrid->getLigandGradient(0, gradient, true);
+            mgrid->getMappedLigandGradient(0, gradient, true);
         }
         else
         {
-            mgrid->getLigandGradient(0, gradient, false);
+            mgrid->getMappedLigandGradient(0, gradient, false);
         }
     }
 
-    //PDBQT atoms are 1-indexed, cnn_visualization expects index:score mapping
-    std::vector<float> scores(atoms.size() + 1);
+    std::unordered_map<string, float> scores;
 
-    for (unsigned i = 1, n = gradient.size() + 1; i < n; ++i)
+    for(std::pair<string, gfloat3> item: gradient)
     {
         if(relevance)
         {
-            scores[i] = gradient[i - 1].x;
+            scores[item.first] = item.second.x;
         }
         else //gradient
         {
             //sqrt(x^2 + y^2 + z^2)
-            float x = gradient[i - 1].x;
-            float y = gradient[i - 1].y;
-            float z = gradient[i - 1].z;
-            scores[i] = sqrt(x*x + y*y + z*z);
+            float x = item.second.x;
+            float y = item.second.y;
+            float z = item.second.z;
+            scores[item.first] = sqrt(x*x + y*y + z*z);
         }
 
     }

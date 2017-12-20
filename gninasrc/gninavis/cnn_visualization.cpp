@@ -7,6 +7,7 @@
 #include <openbabel/mol.h>
 #include "cnn_visualization.hpp"
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 #include "cnn_scorer.h"
 #include "molgetter.h"
 #include "obmolopener.h"
@@ -77,8 +78,8 @@ void cnn_visualization::lrp() {
         std::cout << "Only propagating from zero nodes.\n";
     }
     scorer.lrp(receptor, visopts.layer_to_ignore, visopts.zero_values);
-    std::vector<float> lig_scores = scorer.get_scores_per_atom(false, true);
-    std::vector<float> rec_scores = scorer.get_scores_per_atom(true, true);
+    std::unordered_map<std::string, float> lig_scores = scorer.get_scores_per_atom(false, true);
+    std::unordered_map<std::string, float> rec_scores = scorer.get_scores_per_atom(true, true);
 
     //don't write pdbqt output if zeroing values, will be just zeroes
     if(!visopts.zero_values)
@@ -126,8 +127,8 @@ void cnn_visualization::gradient_vis() {
     {
         scorer.gradient_setup(receptor, rec_output_name, lig_output_name);
     }
-    std::vector<float> lig_scores = scorer.get_scores_per_atom(false, false);
-    std::vector<float> rec_scores = scorer.get_scores_per_atom(true, false);
+    std::unordered_map<std::string, float> lig_scores = scorer.get_scores_per_atom(false, false);
+    std::unordered_map<std::string, float> rec_scores = scorer.get_scores_per_atom(true, false);
 
     write_scores(lig_scores, false, "gradient");
     write_scores(rec_scores, true, "gradient");
@@ -204,14 +205,10 @@ void cnn_visualization::print() {
     std::cout << "verbose: " << visopts.verbose << "\n\n";
 }
 
-std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove,
+std::string cnn_visualization::modify_pdbqt(const std::unordered_set<std::string> &atoms_to_remove,
         bool isRec) {
     std::string mol_string;
     OBMol mol;
-
-    std::sort(atoms_to_remove.begin(), atoms_to_remove.end()); //sort for efficient check when outputting pdbqt
-    auto last = std::unique(atoms_to_remove.begin(), atoms_to_remove.end());
-    atoms_to_remove.erase(last, atoms_to_remove.end()); //remove duplicates
 
     if (isRec) {
         mol_string = rec_string;
@@ -219,13 +216,6 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove,
     } else {
         mol_string = lig_string;
         mol = lig_mol;
-    }
-
-    int i = 0; //holds position in removal list
-
-    if (visopts.verbose) {
-        std::cout << "Removing: [";
-        std::cout << atoms_to_remove[i];
     }
 
     std::stringstream ss;
@@ -237,23 +227,61 @@ std::string cnn_visualization::modify_pdbqt(std::vector<int> atoms_to_remove,
     std::string line;
     while (std::getline(mol_stream, line)) {
         if ((line.find("ATOM") < std::string::npos)) {
-            if (!list_ended) {
-                std::string index_string = line.substr(7, 5);
-                int atom_index = std::stoi(index_string);
-                if (atom_index != atoms_to_remove[i]) {
-                    ss << line << '\n';
-                } else {
-                    i++; //move to next item to check for skip
-                    if (i >= atoms_to_remove.size()) {
-                        list_ended = true;
-                    } else if (visopts.verbose) {
-                        std::cout << ", " << atoms_to_remove[i];
-                    }
-                }
-            } else {
+
+            std::string xyz = get_xyz(line);
+            if(atoms_to_remove.find(xyz) == atoms_to_remove.end())
+            {
                 ss << line << '\n';
             }
+        }
+    }
 
+    ss << "ENDROOT\n";
+    ss << "TORSDOF 0\n";
+
+    if (visopts.verbose) {
+        std::cout << "]\n";
+    }
+
+    return ss.str();
+}
+
+
+std::string cnn_visualization::modify_pdbqt(const std::unordered_set<int> &atoms_to_remove,
+        bool isRec) {
+    std::string mol_string;
+    OBMol mol;
+
+    if (isRec) {
+        mol_string = rec_string;
+        mol = rec_mol;
+    } else {
+        mol_string = lig_string;
+        mol = lig_mol;
+    }
+
+    std::stringstream ss;
+    std::stringstream mol_stream(mol_string);
+
+    ss << "ROOT\n"; 
+
+    bool list_ended = false;
+    std::string line;
+    while (std::getline(mol_stream, line)) {
+        if ((line.find("ATOM") < std::string::npos)) {
+            std::string index_string = line.substr(7, 5);
+            int atom_index = std::stoi(index_string);
+            bool in_list = false;
+
+                if(atoms_to_remove.find(atom_index) != atoms_to_remove.end())
+                {
+                    in_list = true;
+                }
+
+            if (!in_list)
+            {
+                ss << line << '\n';
+            }
         }
     }
 
@@ -385,18 +413,34 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string) {
     }
 }
 
-//input: scores
-void cnn_visualization::write_scores(const std::vector<float> scores,
+//wrapper for vector, converts to xyz map
+void cnn_visualization::write_scores(const std::vector<float> &scores,
+        bool isRec, std::string method)
+{
+    std::unordered_map<std::string, float> score_map;
+    for(int i = 0; i < scores.size(); i++)
+    {
+        //only include nonzero scores in set:
+        if(scores[i] != 0.0000)
+        {
+            score_map[get_xyz_from_index(i, isRec)] = scores[i];
+        }
+    }
+    write_scores(score_map, isRec, method);
+}
+
+//map: xyz coordinates concatenated:scores
+void cnn_visualization::write_scores(std::unordered_map<std::string, float> scores,
         bool isRec, std::string method) {
     std::string file_name;
     std::string mol_string;
 
     if (isRec) {
         file_name = visopts.receptor_name;
-        mol_string = original_rec_string;
+        mol_string = rec_string;
     } else {
         file_name = visopts.ligand_name;
-        mol_string = original_lig_string;
+        mol_string = lig_string;
     }
 
     boost::filesystem::path file_name_path(file_name);
@@ -448,20 +492,14 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
         std::stringstream score_stream;
         std::string score_string;
 
-        //TODO: don't assume default map!
-        vector<int> typemap; //map atom types to position in grid vectors
-        if(isRec)
-          GridMaker::createDefaultRecMap(typemap);
-        else
-          GridMaker::createDefaultLigMap(typemap);
-
         float score_sum = 0;
-        int Hadjust = 0; //number of hydrogen atoms seen
-        //dkoes - this is ridiculously fragile, we are assuming atoms don't change
-        //order from the input string, and have to manually adjust for hydrogens
-        //ideally, the model would output this, but it currently doesn't preserve enough
-        //of the receptor :-(
-        //I am also less than fond of the index by 1 approach
+        int found = 0;
+        std::unordered_map<std::string, bool> found_scores;
+        for(auto i: scores)
+        {
+            found_scores[i.first] = false;
+        }
+
         while (std::getline(mol_stream, line)) {
             if ((line.find("ATOM") < std::string::npos)
                     || (line.find("HETATM") < std::string::npos)) {
@@ -470,21 +508,20 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
                 std::string elem = line.substr(77,2);
                 atom_index = std::stoi(index_string);
 
-                parsed_atom pa = parse_pdbqt_atom_string(line);
+                std::string xyz = get_xyz(line);
 
-                float score = 0;
-                if(typemap[pa.sm] < 0) { //could be other types besides hydrogens
-                  score = 0;
-                  Hadjust++;
-                }
-                else if (atom_index-Hadjust >= scores.size()) {
-                    abort(); //about the best sanity check we have..
+                float score;
+                //if present, assign score
+                if ( scores.find(xyz) == scores.end())
+                {
+                    score = 0.0;
                 }
 
                 else
                 {
-                    score = scores[atom_index-Hadjust];
-                    score_sum += score;
+                    score = scores[xyz];
+                    found++;
+                    found_scores[xyz] = true;
                 }
 
                 score_stream << std::fixed << std::setprecision(5) << score;
@@ -509,11 +546,21 @@ void cnn_visualization::write_scores(const std::vector<float> scores,
                 curr_out_file << line << '\n';
             }
         }
+        std::cout << "found count: " << found << '\n';
+        std::cout << "score size: " << scores.size() << '\n';
+        for(auto i : found_scores)
+        {
+            if(i.second == false)
+            {
+                std::cout << "missed: " << i.first << '\n';
+            }
+        }
+
     }
 }
 
 //returns false if not at least one atom within range of center of ligand
-bool cnn_visualization::check_in_range(std::unordered_set<int> atoms) {
+bool cnn_visualization::check_in_range(const std::unordered_set<std::string> &atom_xyzs) {
     float x = cenCoords[0];
     float y = cenCoords[1];
     float z = cenCoords[2];
@@ -523,13 +570,9 @@ bool cnn_visualization::check_in_range(std::unordered_set<int> atoms) {
 
     OBAtom* atom;
 
-    for (auto i = atoms.begin(); i != atoms.end(); ++i) {
+    for (auto i = atom_xyzs.begin(); i != atom_xyzs.end(); ++i) {
 
-        if (*i >= num_atoms) {
-            return false;
-        }
-
-        atom = rec_mol.GetAtom(*i);
+        atom = rec_mol.GetAtom(get_openbabel_index(*i, true));
         if (atom->GetX() < x + allowed_dist)
             if (atom->GetY() < y + allowed_dist)
                 if (atom->GetZ() < z + allowed_dist)
@@ -560,35 +603,48 @@ float cnn_visualization::transform_score_diff(float diff_val) {
 }
 */
 
+//returns concatenated xyz string of a given atom line
+//for identifying atoms
+std::string cnn_visualization::get_xyz(const std::string &line)
+{
+    std::string x = line.substr(31,7);
+    std::string y = line.substr(39,7);
+    std::string z = line.substr(48,6);
+    boost::trim_left(x);
+    boost::trim_left(y);
+    boost::trim_left(z);
+    std::string xyz = x + y + z;
+    return xyz;
+}
+
 //removes whole residues at a time, and scores the resulting receptor
 void cnn_visualization::remove_residues() {
-    std::vector<float> score_diffs(rec_mol.NumAtoms() + 1, 0.00);
-    std::string last_res = "";
-    std::string curr_res;
-    std::vector<int> atoms_to_remove;
-    std::set<std::string> res_list;
+    std::unordered_map<std::string, float> score_diffs;
+    std::unordered_set<std::string> atoms_to_remove;
+    std::unordered_map<std::string, std::unordered_set<std::string> > residues;
 
     std::string mol_string = rec_string;
     std::stringstream mol_stream(mol_string);
     std::string line;
 
-    //add all residues to res_list
-    while (std::getline(mol_stream, line)) {
-        if (line.find("ATOM") < std::string::npos) {
-            curr_res = line.substr(23, 4);
-            if (line.substr(23, 4) != last_res) {
-                res_list.insert(curr_res);
-                last_res = curr_res;
-            }
+    while (std::getline(mol_stream, line))
+    {
+        if (line.find("ATOM") < std::string::npos)
+        {
+            std::string res = line.substr(23, 4);
+            residues[res].insert(get_xyz(line));
         }
     }
 
-    int res_count = res_list.size();
+    int res_count = residues.size();
     int counter = 1;
 
     //iterate through residues
-    for (auto i = res_list.begin(); i != res_list.end(); ++i) {
-        if (!visopts.verbose) {
+    //for (auto res = residues.begin(); res != residues.end(); ++res)
+    for(const auto& res: residues)
+    {
+        if (!visopts.verbose)
+        {
             std::cout << "Scoring residues: " << counter << '/' << res_count
                     << '\r' << std::flush;
             counter++;
@@ -597,20 +653,19 @@ void cnn_visualization::remove_residues() {
         mol_stream.clear();
         mol_stream.str(mol_string);
 
-        //add each atom in residue to removal list
-        while (std::getline(mol_stream, line)) {
-            if ((line.find("ATOM") < std::string::npos)) {
-                if (line.substr(23, 4).compare(*i) == 0) {
-                    atoms_to_remove.push_back(std::stoi(line.substr(6, 5)));
-                }
-            }
+        atoms_to_remove = res.second;
+
+        int counter = 0;
+        for(auto atom : atoms_to_remove)
+        {
+            counter++;
         }
 
         bool remove = true;
 
         if (!visopts.skip_bound_check) {
             //make set for check_in_range test
-            std::unordered_set<int> remove_set;
+            std::unordered_set<std::string> remove_set;
             for (auto i : atoms_to_remove) {
                 remove_set.insert(i);
             }
@@ -619,24 +674,15 @@ void cnn_visualization::remove_residues() {
         }
 
         if (remove) {
-            std::string modified_mol_string = modify_pdbqt(atoms_to_remove,
-                    true);
+            std::string modified_mol_string = modify_pdbqt(atoms_to_remove, true);
 
             float score_val = score_modified_receptor(modified_mol_string);
 
             for (auto f : atoms_to_remove) {
-                if (f) {
                     float score_diff = original_score - score_val;
                     score_diffs[f] = score_diff;
-                }
-            }
-
-            if (visopts.output_files) {
-                output_modified_string(modified_mol_string, atoms_to_remove,
-                        true);
             }
         }
-
         atoms_to_remove.clear();
     }
 
@@ -646,7 +692,7 @@ void cnn_visualization::remove_residues() {
 
 //checks all input indices for hydrogen neighbors, and appends them
 void cnn_visualization::add_adjacent_hydrogens(
-        std::vector<int> &atoms_to_remove, bool isRec) {
+        std::unordered_set<int> &atoms_to_remove, bool isRec) {
     OBMol mol;
 
     if (isRec) {
@@ -659,16 +705,12 @@ void cnn_visualization::add_adjacent_hydrogens(
         mol.AddHydrogens();
     }
 
-    int original_size = atoms_to_remove.size(); //atoms_to_remove will have atoms appended
-    for (int i = 0; i < original_size; ++i) {
-        OBAtom* atom = mol.GetAtom(atoms_to_remove[i]);
+    for (auto i : atoms_to_remove) {
+        OBAtom* atom = mol.GetAtom(i);
         OBAtom* neighbor;
-        if (atoms_to_remove[i] > 0) //an index of 0 segfaults
-                {
-            for (OBAtomAtomIter neighbor(atom); neighbor; ++neighbor) {
-                if (neighbor->GetAtomicNum() == 1) {
-                    atoms_to_remove.push_back(neighbor->GetIdx());
-                }
+        for (OBAtomAtomIter neighbor(atom); neighbor; ++neighbor) {
+            if (neighbor->GetAtomicNum() == 1) {
+                atoms_to_remove.insert(neighbor->GetIdx());
             }
         }
     }
@@ -696,7 +738,7 @@ std::vector<float> cnn_visualization::remove_each_atom() {
 
     std::string index_string;
     int atom_index;
-    std::vector<int> atoms_to_remove;
+    std::unordered_set<int> atoms_to_remove;
     float score_val;
 
     int counter = 1;
@@ -716,7 +758,7 @@ std::vector<float> cnn_visualization::remove_each_atom() {
 
             if (lig_mol.GetAtom(atom_index)->GetAtomicNum() != 1) //don't remove hydrogens individually
                     {
-                atoms_to_remove.push_back(atom_index);
+                atoms_to_remove.insert(atom_index);
                 add_adjacent_hydrogens(atoms_to_remove, false);
 
                 modified_mol_string = modify_pdbqt(atoms_to_remove, false);
@@ -725,13 +767,7 @@ std::vector<float> cnn_visualization::remove_each_atom() {
                 score_diffs[atom_index] = original_score - score_val;
             }
 
-            if (visopts.output_files) {
-                output_modified_string(modified_mol_string, atoms_to_remove,
-                        false);
-            }
-
             atoms_to_remove.clear();
-
         }
     }
 
@@ -794,8 +830,8 @@ void cnn_visualization::output_modified_string(
 
 //writes sum of score differences for each atom along with original score to
 //file for analysis
-void cnn_visualization::write_additivity(std::vector<float> single_score_diffs,
-        std::vector<float> frag_score_diffs) {
+void cnn_visualization::write_additivity(const std::vector<float> &single_score_diffs,
+        const std::vector<float> &frag_score_diffs) {
     float single_total = 0;
     float frag_total = 0;
     int num_atoms = lig_mol.NumAtoms();
@@ -883,29 +919,109 @@ void cnn_visualization::remove_ligand_atoms() {
 
 }
 
-//returns openbabel index of atom with supplied x coordinate
-//necessary because rdkit indexing seems inconsistent with openbabel
-int cnn_visualization::get_openbabel_index(double x_coordinate) {
+
+std::string cnn_visualization::get_xyz_from_index(int index, bool rec) {
     static bool first = true;
-    static std::map<double, int> coord_to_index;
+    static std::map<int, std::string> rec_indices;
+    static std::map<int, std::string> lig_indices;
 
     //fill map on first run
-    if (first) {
-        for (int i = 1; i < lig_mol.NumAtoms(); ++i) {
-            double * coord = lig_mol.GetAtom(i)->GetCoordinate();
+    if (first)
+    {
+        std::stringstream mol_stream;
+        std::string line;
+        mol_stream = std::stringstream(lig_string);
+        while (std::getline(mol_stream, line))
+        {
+            if (line.find("ATOM") < std::string::npos ||
+                 line.find("HETATM") < std::string::npos)
+            {
+                std::string line_xyz = get_xyz(line);
 
-            if (visopts.verbose) {
-                std::cout << *coord << ":" << i << '\n';
+                std::string index_string = line.substr(7, 5);
+                int atom_index = std::stoi(index_string);
+
+                lig_indices[atom_index] = line_xyz;
             }
-
-            coord_to_index[*coord] = i;
         }
 
+        mol_stream = std::stringstream(rec_string);
+        while (std::getline(mol_stream, line))
+        {
+            if (line.find("ATOM") < std::string::npos ||
+                 line.find("HETATM") < std::string::npos)
+            {
+                std::string line_xyz = get_xyz(line);
+
+                std::string index_string = line.substr(7, 5);
+                int atom_index = std::stoi(index_string);
+
+                rec_indices[atom_index] = line_xyz;
+            }
+        }
         first = false;
     }
 
-    return coord_to_index[x_coordinate];
+    if(rec)
+    {
+        return rec_indices[index];
+    }
+    else
+    {
+        return lig_indices[index];
+    }
+}
+//returns openbabel index of atom with supplied xyz coordinate
+int cnn_visualization::get_openbabel_index(const std::string &xyz, bool rec) {
+    static bool first = true;
+    static std::map<std::string, int> rec_indices;
+    static std::map<std::string, int> lig_indices;
 
+    //fill map on first run
+    if (first) 
+    {
+        std::stringstream mol_stream;
+        std::string line;
+        mol_stream = std::stringstream(lig_string);
+        while (std::getline(mol_stream, line))
+        {
+            if (line.find("ATOM") < std::string::npos ||
+                 line.find("HETATM") < std::string::npos)
+            {
+                std::string line_xyz = get_xyz(line);
+
+                std::string index_string = line.substr(7, 5);
+                int atom_index = std::stoi(index_string);
+
+                lig_indices[line_xyz] = atom_index;
+            }
+        }
+
+        mol_stream = std::stringstream(rec_string);
+        while (std::getline(mol_stream, line))
+        {
+            if (line.find("ATOM") < std::string::npos ||
+                 line.find("HETATM") < std::string::npos)
+            {
+                std::string line_xyz = get_xyz(line);
+
+                std::string index_string = line.substr(7, 5);
+                int atom_index = std::stoi(index_string);
+
+                rec_indices[line_xyz] = atom_index;
+            }
+        }
+        first = false;
+    }
+
+    if(rec)
+    {
+        return rec_indices[xyz];
+    }
+    else
+    {
+        return lig_indices[xyz];
+    }
 }
 
 //returns average score difference for each index across all fragments
@@ -933,11 +1049,10 @@ std::vector<float> cnn_visualization::remove_fragments(int size) {
         for (auto i = rdkit_mol.beginBonds(); i != rdkit_mol.endBonds(); ++i) {
             int first = (*i)->getBeginAtomIdx() + 1;
             int second = (*i)->getEndAtomIdx() + 1;
-            std::cout << first << "-" << second << '\n';
         }
     }
 
-    std::vector<int> atoms_to_remove;
+    std::unordered_set<int> atoms_to_remove;
 
     //map of path length: list of paths
     RDKit::INT_PATH_LIST_MAP paths = RDKit::findAllSubgraphsOfLengthsMtoN(
@@ -980,10 +1095,9 @@ std::vector<float> cnn_visualization::remove_fragments(int size) {
                 RDKit::Bond bond = *(rdkit_mol.getBondWithIdx(bond_list[i]));
                 int first = bond.getBeginAtomIdx();
                 int second = bond.getEndAtomIdx();
-                double first_coord = conf.getAtomPos(first).x;
-                double second_coord = conf.getAtomPos(second).x;
-                atoms_to_remove.push_back(get_openbabel_index(first_coord));
-                atoms_to_remove.push_back(get_openbabel_index(second_coord));
+
+                atoms_to_remove.insert(first + 1);
+                atoms_to_remove.insert(second + 1);
             }
 
             int size_without_hydrogens = atoms_to_remove.size();
@@ -992,11 +1106,10 @@ std::vector<float> cnn_visualization::remove_fragments(int size) {
             std::string modified_ligand = modify_pdbqt(atoms_to_remove, false);
             float score = score_modified_ligand(modified_ligand);
 
-            for (int i = 0; i < atoms_to_remove.size(); ++i) {
-                int atom_index = atoms_to_remove[i];
-                score_diffs[atoms_to_remove[i]] += (original_score - score)
+            for (auto index: atoms_to_remove) {
+                score_diffs[index] += (original_score - score)
                         / size_without_hydrogens; //give each atom in removal equal portion of score difference
-                score_counts[atoms_to_remove[i]] += 1;
+                score_counts[index] += 1;
             }
 
             atoms_to_remove.clear(); //clear for next group of atoms to be removed
