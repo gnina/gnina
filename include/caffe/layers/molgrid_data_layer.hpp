@@ -4,6 +4,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <unordered_map>
 
 #include <boost/array.hpp>
 #include <boost/thread/locks.hpp>
@@ -80,8 +81,9 @@ public:
   void getReceptorChannels(int batch_idx, vector<short>& whichGrid);
   void getLigandChannels(int batch_idx, vector<short>& whichGrid);
   void getReceptorGradient(int batch_idx, vector<float3>& gradient, bool lrp = false);
+  void getMappedReceptorGradient(int batch_idx, unordered_map<string ,float3>& gradient, bool lrp);
   void getLigandGradient(int batch_idx, vector<float3>& gradient, bool lrp = false);
-
+  void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient, bool lrp);
   //set in memory buffer
   template<typename Atom>
   void setReceptor(const vector<Atom>& receptor)
