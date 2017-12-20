@@ -493,7 +493,7 @@ void cnn_visualization::write_scores(std::unordered_map<std::string, float> scor
         std::string score_string;
 
         float score_sum = 0;
-        int found = 0;
+        int found_count = 0;
         std::unordered_map<std::string, bool> found_scores;
         for(auto i: scores)
         {
@@ -520,7 +520,7 @@ void cnn_visualization::write_scores(std::unordered_map<std::string, float> scor
                 else
                 {
                     score = scores[xyz];
-                    found++;
+                    found_count++;
                     found_scores[xyz] = true;
                 }
 
@@ -546,8 +546,11 @@ void cnn_visualization::write_scores(std::unordered_map<std::string, float> scor
                 curr_out_file << line << '\n';
             }
         }
-        std::cout << "found count: " << found << '\n';
-        std::cout << "score size: " << scores.size() << '\n';
+
+        assert(found_count == scores.size());
+
+        //print any scores not output
+        /*
         for(auto i : found_scores)
         {
             if(i.second == false)
@@ -555,6 +558,7 @@ void cnn_visualization::write_scores(std::unordered_map<std::string, float> scor
                 std::cout << "missed: " << i.first << '\n';
             }
         }
+        */
 
     }
 }
