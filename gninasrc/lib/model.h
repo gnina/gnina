@@ -90,6 +90,10 @@ struct gpu_data {
 	void copy_from_gpu(model& m);
 
     size_t node_idx_cpu2gpu(size_t cpu_idx) const;
+
+    private:
+    gpu_data(const gpu_data&) = default;
+    friend struct quasi_newton_aux_gpu;
 };
 
 // dkoes - as an alternative to pdbqt, this stores information
@@ -238,6 +242,15 @@ struct pdbqt_initializer; // forward declaration - only declared in parse_pdbqt.
 struct model_test;
 
 struct model {
+
+    model(const model& m) : tree_width(m.tree_width), coords(m.coords), 
+    ligands(m.ligands), minus_forces(m.minus_forces), 
+    m_num_movable_atoms(m.m_num_movable_atoms), atoms(m.atoms), 
+    grid_atoms(m.grid_atoms), other_pairs(m.other_pairs), 
+    hydrogens_stripped(m.hydrogens_stripped), 
+    internal_coords(m.internal_coords), flex(m.flex), 
+    flex_context(m.flex_context), name(m.name), pose_num(m.pose_num) {}
+
 	void append(const model& m);
 	void strip_hydrogens();
 
@@ -420,7 +433,7 @@ struct model {
 	void deallocate_gpu();
 
 	model() : m_num_movable_atoms(0), hydrogens_stripped(false) {};
-	~model() {};
+	~model() {deallocate_gpu();};
 
     vecv coords;
 	vecv minus_forces;

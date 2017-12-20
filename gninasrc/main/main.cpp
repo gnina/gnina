@@ -445,7 +445,6 @@ void do_search(model& m, const boost::optional<model>& ref,
 		}
 	}
 	std::cout << "Refine time " << time.elapsed().wall/1000000000.0 << "\n";
-    m.deallocate_gpu();
 }
 
 void load_ent_values(const grid_dims& gd, std::istream& user_in,
