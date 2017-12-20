@@ -518,7 +518,7 @@ void main_procedure(model& m, precalculate& prec,
 	par.display_progress = true;
 
 	szv_grid_cache gridcache(m, prec.cutoff_sqr());
-	const fl slope = 1e6; // FIXME: too large? used to be 100
+	const fl slope = 1e3; // FIXME: too large? used to be 100
 	if (settings.randomize_only)
 	{
 		for(unsigned i = 0; i < settings.num_modes; i++) {

@@ -38,6 +38,8 @@ class ScaleLayer: public Layer<Dtype> {
   virtual inline int MaxBottomBlobs() const { return 2; }
   virtual inline int ExactNumTopBlobs() const { return 1; }
 
+  virtual void Clear() { temp_.Clear(); } //sums?
+
  protected:
   /**
    * In the below shape specifications, @f$ i @f$ denotes the value of the

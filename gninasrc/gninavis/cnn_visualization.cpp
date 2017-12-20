@@ -482,46 +482,57 @@ float cnn_visualization::transform_score_diff(float diff_val) {
 //removes whole residues at a time, and scores the resulting receptor
 void cnn_visualization::remove_residues() {
     std::vector<float> score_diffs(rec_mol.NumAtoms() + 1, 0.00);
-    std::string last_res = "";
-    std::string curr_res;
     std::vector<int> atoms_to_remove;
-    std::set<std::string> res_list;
 
     std::string mol_string = rec_string;
     std::stringstream mol_stream(mol_string);
     std::string line;
 
+    //TODO: don't assume default map!
+    vector<int> typemap; //map atom types to position in grid vectors
+    GridMaker::createDefaultRecMap(typemap);
+
+    std::unordered_set<int> badatoms;
+    std::unordered_map<std::string, std::vector<std::string> > residues;
+    std::vector<string> res_list;
+
     //add all residues to res_list
+    std::vector<int> indexmap; //map atom number to position in score diff
+
     while (std::getline(mol_stream, line)) {
+        cout << line << "\n";
+
         if (line.find("ATOM") < std::string::npos) {
-            curr_res = line.substr(23, 4);
-            if (line.substr(23, 4) != last_res) {
-                res_list.insert(curr_res);
-                last_res = curr_res;
-            }
+            string curr_res = line.substr(23, 4);
+            if(residues.count(curr_res) == 0)
+              res_list.push_back(curr_res);
+            residues[curr_res].push_back(line);
         }
     }
 
-    int res_count = res_list.size();
-    int counter = 1;
 
+    int res_count = residues.size();
+    int counter = 1;
+    unsigned Hadjust = 0; //score_diffs should be heavy-atom dense
     //iterate through residues
-    for (auto i = res_list.begin(); i != res_list.end(); ++i) {
+    for (auto res = res_list.begin(); res != res_list.end(); ++res) {
         if (!visopts.verbose) {
             std::cout << "Scoring residues: " << counter << '/' << res_count
                     << '\r' << std::flush;
             counter++;
         }
 
-        mol_stream.clear();
-        mol_stream.str(mol_string);
-
-        //add each atom in residue to removal list
-        while (std::getline(mol_stream, line)) {
-            if ((line.find("ATOM") < std::string::npos)) {
-                if (line.substr(23, 4).compare(*i) == 0) {
-                    atoms_to_remove.push_back(std::stoi(line.substr(6, 5)));
-                }
+        unsigned numheavy = 0;
+        for(unsigned a = 0, na = residues[*res].size(); a < na; a++) {
+          line = residues[*res][a];
+            int atomid = std::stoi(line.substr(6, 5));
+            atoms_to_remove.push_back(atomid);
+            parsed_atom pa = parse_pdbqt_atom_string(line);
+            float score = 0;
+            if(typemap[pa.sm] < 0) { //could be other types besides hydrogens
+              badatoms.insert(atomid);
+            } else {
+              numheavy++;
             }
         }
 
@@ -542,17 +553,21 @@ void cnn_visualization::remove_residues() {
                     true);
 
             float score_val = score_modified_receptor(modified_mol_string);
-
+            std::cout << "Residue " << *res << "  " << score_val << "\n";
             for (auto f : atoms_to_remove) {
-                if (f) {
-                    float score_diff = original_score - score_val;
-                    score_diffs[f] = score_diff;
+
+                if(badatoms.count(f) > 0) {
+                  Hadjust++;
+                }
+                else {
+                    float score_diff = (original_score - score_val)/numheavy;
+                    std::cout << " Atom " << f << "  " << score_diff << "\n";
+                    score_diffs[f-Hadjust] = score_diff;
                 }
             }
 
             if (visopts.output_files) {
-                output_modified_string(modified_mol_string, atoms_to_remove,
-                        true);
+                output_modified_string(modified_mol_string, atoms_to_remove, true);
             }
         }
 
