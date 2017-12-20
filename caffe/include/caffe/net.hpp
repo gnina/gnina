@@ -89,6 +89,11 @@ class Net {
    * a forward pass, e.g. to compute output feature size.
    */
   void Reshape();
+  
+  /**
+   * @brief Deallocate blob memory
+   */
+  void ClearBlobs();
 
   Dtype ForwardBackward() {
     Dtype loss;
