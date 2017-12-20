@@ -732,6 +732,13 @@ void Net<Dtype>::Reshape() {
 }
 
 template <typename Dtype>
+void Net<Dtype>::ClearBlobs() {
+  for (int i = 0; i < blobs_.size(); ++i) {
+    blobs_[i]->Clear();
+  }
+}
+
+template <typename Dtype>
 void Net<Dtype>::CopyTrainedLayersFrom(const NetParameter& param) {
   int num_source_layers = param.layer_size();
   for (int i = 0; i < num_source_layers; ++i) {
