@@ -25,7 +25,7 @@ using namespace std;
 CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
         const model& m) :
         rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
-        outputdx(cnnopts.outputdx), outputxyz(cnnopts.outputxyz),
+        outputdx(cnnopts.outputdx), outputxyz(cnnopts.outputxyz), xyzprefix(cnnopts.xyzprefix),
         mtx(new boost::mutex) {
 
     if (cnnopts.cnn_scoring)
@@ -184,7 +184,8 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore)
 
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
-    
+    mgrid->setLabels(1); 
+
     net->Forward();
     if(layer_to_ignore == "")
     {
@@ -253,20 +254,21 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 	const caffe::shared_ptr<Blob<Dtype> > affblob = net->blob_by_name("predaff");
 
 	unsigned cnt = 0;
+	mgrid->setLabels(1); //for now pose optimization only
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{
 		net->Forward(); //do all rotations at once if requested
 		const Dtype* out = outblob->cpu_data();
 		score += out[1];
+		if(rotations > 1) std::cout << "RotateScore: " << out[1] << "\n";
 		if (affblob)
 		{
 			//has affinity prediction
 			const Dtype* aff = affblob->cpu_data();
 			affinity += aff[0];
+			if(rotations > 1) std::cout << "RotateAff: " << aff[0] << "\n";
 		}
-		else
-		{
-		}
+
 		if (compute_gradient || outputxyz)
 		{
 			net->Backward();
@@ -278,8 +280,12 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 
 	if (outputdx) {
 		outputDX(m.get_name());
-		const string& ligname = m.get_name() + "_lig";
-		const string& recname = m.get_name() + "_rec";
+	}
+
+	if (outputxyz) {
+		const string& ligname = xyzprefix + "_lig.xyz";
+		const string& recname = xyzprefix + "_rec.xyz";
+
 		mgrid->getLigandGradient(0, gradient);
 		mgrid->getLigandAtoms(0, atoms);
 		mgrid->getLigandChannels(0, channels);

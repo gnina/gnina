@@ -36,6 +36,21 @@ SyncedMemory::~SyncedMemory() {
 #endif  // CPU_ONLY
 }
 
+//deallocate memory and set to uninitialied
+void SyncedMemory::clear() {
+  check_device();
+  if (cpu_ptr_ && own_cpu_data_) {
+    CaffeFreeHost(cpu_ptr_, cpu_malloc_use_cuda_);
+  }
+
+#ifndef CPU_ONLY
+  if (gpu_ptr_ && own_gpu_data_) {
+    CUDA_CHECK(cudaFree(gpu_ptr_));
+  }
+#endif  // CPU_ONLY
+  head_ = UNINITIALIZED;
+}
+
 inline void SyncedMemory::to_cpu() {
   check_device();
   switch (head_) {

@@ -26,6 +26,13 @@
 
 namespace caffe {
 
+
+//sample uniformly between 0 and 1
+inline double unit_sample(rng_t *rng)
+{
+  return ((*rng)() - rng->min()) / double(rng->max() - rng->min());
+}
+
 /*
  * @brief Provides data to the Net from n-dimension  files of raw floating point data.
  *
@@ -38,8 +45,8 @@ public:
       BaseDataLayer<Dtype>(param), data(NULL), data2(NULL), data_ratio(0),
       num_rotations(0), current_rotation(0),
       example_size(0), inmem(false), resolution(0.5),
-      dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0),
-      binary(false), randrotate(false), dim(0), numgridpoints(0),
+      dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
+      binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
       gpu_gridatoms(NULL), gpu_gridwhich(NULL) {}
   virtual ~MolGridDataLayer();
@@ -50,7 +57,9 @@ public:
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int ExactNumTopBlobs() const { return 2+
       this->layer_param_.molgrid_data_param().has_affinity()+
-      this->layer_param_.molgrid_data_param().has_rmsd(); }
+      this->layer_param_.molgrid_data_param().has_rmsd()+
+      this->layer_param_.molgrid_data_param().peturb_ligand();
+  }
 
   virtual inline void resetRotation() { current_rotation = 0; }
 
@@ -63,78 +72,15 @@ public:
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
-  //the following really shouldn't be recalculated each evaluation (not including gradients)
-  void getReceptorAtoms(int batch_idx, vector<float4>& atoms)
-  {
-    atoms.resize(0);
-    mol_info& mol = batch_transform[batch_idx].mol;
-    for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
-      if (mol.whichGrid[i] < numReceptorTypes)
-        atoms.push_back(mol.atoms[i]);
-  }
+  void setLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0);
 
-  void getLigandAtoms(int batch_idx, vector<float4>& atoms)
-  {
-    atoms.resize(0);
-    mol_info& mol = batch_transform[batch_idx].mol;
-    for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
-      if (mol.whichGrid[i] >= numReceptorTypes)
-        atoms.push_back(mol.atoms[i]);
-  }
+  void getReceptorAtoms(int batch_idx, vector<float4>& atoms);
+  void getLigandAtoms(int batch_idx, vector<float4>& atoms);
 
-  void getReceptorChannels(int batch_idx, vector<short>& whichGrid)
-  {
-    whichGrid.resize(0);
-    mol_info& mol = batch_transform[batch_idx].mol;
-    for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
-      if (mol.whichGrid[i] < numReceptorTypes)
-        whichGrid.push_back(mol.whichGrid[i]);
-  }
-
-  void getLigandChannels(int batch_idx, vector<short>& whichGrid)
-  {
-    whichGrid.resize(0);
-    mol_info& mol = batch_transform[batch_idx].mol;
-    for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
-      if (mol.whichGrid[i] >= numReceptorTypes)
-        whichGrid.push_back(mol.whichGrid[i]);
-  }
-
-  void getReceptorGradient(int batch_idx, vector<float3>& gradient, bool lrp = false)
-  {
-    gradient.resize(0);
-    mol_info& mol = batch_transform[batch_idx].mol;
-    for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
-      if (mol.whichGrid[i] < numReceptorTypes)
-      {
-        if(lrp)
-        {
-            gradient.push_back(mol.gradient[i]);
-        }
-        else
-        {
-            gradient.push_back(-mol.gradient[i]);
-        }
-      }
-  }
-
-  void getLigandGradient(int batch_idx, vector<float3>& gradient, bool lrp = false)
-  {
-    gradient.resize(0);
-    mol_info& mol = batch_transform[batch_idx].mol;
-    for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
-      if (mol.whichGrid[i] >= numReceptorTypes)
-      {
-        if(lrp)
-        {
-            gradient.push_back(mol.gradient[i]);
-        }
-        else
-        {
-            gradient.push_back(-mol.gradient[i]);
-        }
-      }
-  }
+  void getReceptorChannels(int batch_idx, vector<short>& whichGrid);
+  void getLigandChannels(int batch_idx, vector<short>& whichGrid);
+  void getReceptorGradient(int batch_idx, vector<float3>& gradient, bool lrp = false);
+  void getLigandGradient(int batch_idx, vector<float3>& gradient, bool lrp = false);
 
   //set in memory buffer
   template<typename Atom>
@@ -514,6 +460,7 @@ public:
     }
   };
 
+  struct mol_transform;
   struct mol_info {
     vector<float4> atoms;
     vector<short> whichGrid; //separate for better memory layout on gpu
@@ -528,8 +475,70 @@ public:
       whichGrid.insert(whichGrid.end(), a.whichGrid.begin(), a.whichGrid.end());
       gradient.insert(gradient.end(), a.gradient.begin(), a.gradient.end());
     }
+
+    void transform_and_append(const mol_info& a, const mol_transform& transform)
+    {
+      //copy atoms from a into this, transforming the coordinates according to transform
+      LOG(INFO) << "About to transform " << a.atoms.size() << " atoms";
+      for(unsigned i = 0, n = a.atoms.size(); i < n; i++) {
+        //non-coordinate stuff
+        whichGrid.push_back(a.whichGrid[i]);
+        gradient.push_back(a.gradient[i]); //NOT rotating, but that shouldn't matter, right?
+
+        float4 atom = a.atoms[i];
+        quaternion p(0, atom.x-a.center[0], atom.y-a.center[1], atom.z-a.center[2]);
+        p = transform.Q * p * (conj(transform.Q) / norm(transform.Q));
+        atom.x = p.R_component_2() + a.center[0] + transform.center[0];
+        atom.y = p.R_component_3() + a.center[1] + transform.center[1];
+        atom.z = p.R_component_4() + a.center[2] + transform.center[2];
+        atoms.push_back(atom);
+
+        LOG(INFO) << "Transforming " << a.atoms[i].x<<","<<a.atoms[i].y<<","<<a.atoms[i].z<<" to "<<atom.x<<","<<atom.y<<","<<atom.z;
+      }
+    }
   };
 
+  //6 numbers representing a transformation
+  struct output_transform {
+    Dtype x;
+    Dtype y;
+    Dtype z;
+    Dtype pitch;
+    Dtype yaw;
+    Dtype roll;
+
+    output_transform(): x(0), y(0), z(0), pitch(0), yaw(0), roll(0) {}
+
+    output_transform(Dtype X, Dtype Y, Dtype, Dtype Z, const quaternion& Q): x(X), y(Y), z(Z) {
+      set_from_quaternion(Q);
+    }
+
+    void set_from_quaternion(const quaternion& Q) {
+      //convert to euler angles
+      //https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
+      // roll (x-axis rotation)
+      double w = Q.R_component_1();
+      double x = Q.R_component_2();
+      double y = Q.R_component_3();
+      double z = Q.R_component_4();
+
+      double sinr = 2.0 * (w*x + y*z);
+      double cosr = 1.0 - 2.0 * (x*x + y*y);
+      roll = atan2(sinr, cosr);
+
+      // pitch (y-axis rotation)
+      double sinp = 2.0 * (w*y - z*x);
+      if (fabs(sinp) >= 1)
+        pitch = copysign(M_PI / 2, sinp);// use 90 degrees if out of range
+      else
+        pitch = asin(sinp);
+
+      // yaw (z-axis rotation)
+      double siny = 2.0 * (w*z + x*y);
+      double cosy = 1.0 - 2.0 * (y*y + z*z);
+      yaw = atan2(siny, cosy);
+    }
+  };
   struct mol_transform {
     mol_info mol;
     quaternion Q;  // rotation
@@ -540,6 +549,36 @@ public:
       Q = quaternion(0,0,0,0);
       center[0] = center[1] = center[2] = 0;
     }
+
+    //add upto randtranslate in displacement (plus or minus) along each direction
+    void add_random_displacement(rng_t* rng, double randtranslate)
+    {
+      double offx = unit_sample(rng)*2.0-1.0;
+      double offy = unit_sample(rng)*2.0-1.0;
+      double offz = unit_sample(rng)*2.0-1.0;
+      center[0] += offx * randtranslate;
+      center[1] += offy * randtranslate;
+      center[2] += offz * randtranslate;
+    }
+
+    //set random quaternion
+    void set_random_quaternion(rng_t* rng)
+    {
+      //http://planning.cs.uiuc.edu/node198.html
+      //sample 3 numbers from 0-1
+      double u1 = unit_sample(rng);
+      double u2 = unit_sample(rng);
+      double u3 = unit_sample(rng);
+      double sq1 = sqrt(1-u1);
+      double sqr = sqrt(u1);
+      double r1 = sq1*sin(2*M_PI*u2);
+      double r2 = sq1*cos(2*M_PI*u2);
+      double r3 = sqr*sin(2*M_PI*u3);
+      double r4 = sqr*cos(2*M_PI*u3);
+
+      Q = quaternion(r1,r2,r3,r4);
+    }
+
   };
 
   ///////////////////   PROTECTED DATA   ////////////////
@@ -567,6 +606,7 @@ public:
   vector<Dtype> labels;
   vector<Dtype> affinities;
   vector<Dtype> rmsds;
+  vector<output_transform> perturbations;
 
   //grid stuff
   GridMaker gmaker;
@@ -575,8 +615,10 @@ public:
   double radiusmultiple; //extra to consider past vdw radius
   double fixedradius;
   double randtranslate;
+  double ligpeturb_translate;
   bool binary; //produce binary occupancies
   bool randrotate;
+  bool ligpeturb; //for spatial transformer
 
   unsigned dim; //grid points on one side
   unsigned numgridpoints; //dim*dim*dim
@@ -608,8 +650,10 @@ public:
 
   quaternion axial_quaternion();
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
-  void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder, mol_transform& transform, bool gpu);
-  void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms, mol_transform& transform, bool gpu);
+  void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
+                    mol_transform& transform, output_transform& pertub, bool gpu);
+  void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms,
+                    mol_transform& transform, output_transform& peturb, bool gpu);
 
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
   void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu);

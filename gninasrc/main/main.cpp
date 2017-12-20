@@ -1192,7 +1192,9 @@ Thank you!\n";
 		("cnn_outputdx", bool_switch(&cnnopts.outputdx)->default_value(false),
 		               "Dump .dx files of atom grid gradient.")
 		("cnn_outputxyz", bool_switch(&cnnopts.outputxyz)->default_value(false),
-		               "Dump .xyz files of atom gradient.");
+		               "Dump .xyz files of atom gradient.")
+		("cnn_xyzprefix", value<std::string>(&cnnopts.xyzprefix),
+		               "Prefix for atom gradient .xyz files");
 
 		options_description misc("Misc (optional)");
 		misc.add_options()

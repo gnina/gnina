@@ -60,6 +60,13 @@ void Blob<Dtype>::ReshapeLike(const Blob<Dtype>& other) {
 }
 
 template <typename Dtype>
+void Blob<Dtype>::Clear() {
+  data_->clear();
+  diff_->clear();
+}
+
+
+template <typename Dtype>
 Blob<Dtype>::Blob(const int num, const int channels, const int height,
     const int width)
   // capacity_ must be initialized before calling Reshape

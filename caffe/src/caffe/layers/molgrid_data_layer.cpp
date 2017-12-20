@@ -84,6 +84,92 @@ MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache&
 }
 
 
+//for in-memory inputs, set the desired label (for gradient computation)
+//note that zero affinity/rmsd means to ignore these
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::setLabels(Dtype pose, Dtype affinity, Dtype rmsd)
+{
+  labels.clear();
+  affinities.clear();
+  rmsds.clear();
+  labels.push_back(pose);
+  affinities.push_back(affinity);
+  rmsds.push_back(rmsd);
+}
+
+
+//the following really shouldn't be recalculated each evaluation (not including gradients)
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getReceptorAtoms(int batch_idx, vector<float4>& atoms)
+{
+  atoms.resize(0);
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+    if (mol.whichGrid[i] < numReceptorTypes)
+      atoms.push_back(mol.atoms[i]);
+}
+
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getLigandAtoms(int batch_idx, vector<float4>& atoms)
+{
+  atoms.resize(0);
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+    if (mol.whichGrid[i] >= numReceptorTypes)
+      atoms.push_back(mol.atoms[i]);
+}
+
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getReceptorChannels(int batch_idx, vector<short>& whichGrid)
+{
+  whichGrid.resize(0);
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+    if (mol.whichGrid[i] < numReceptorTypes)
+      whichGrid.push_back(mol.whichGrid[i]);
+}
+
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getLigandChannels(int batch_idx, vector<short>& whichGrid)
+{
+  whichGrid.resize(0);
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+    if (mol.whichGrid[i] >= numReceptorTypes)
+      whichGrid.push_back(mol.whichGrid[i]);
+}
+
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<float3>& gradient, bool lrp)
+{
+  gradient.resize(0);
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+    if (mol.whichGrid[i] < numReceptorTypes)
+    {
+      if(lrp)
+      {
+          gradient.push_back(mol.gradient[i]);
+      }
+      else
+      {
+          gradient.push_back(-mol.gradient[i]);
+      }
+    }
+}
+
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& gradient, bool lrp)
+{
+  gradient.resize(0);
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+    if (mol.whichGrid[i] >= numReceptorTypes)
+    {
+      gradient.push_back(mol.gradient[i]);
+    }
+}
+
 //modify examples to remove any without both actives an inactives
 //factored this into its own function due to the need to fully specialize setup below
 template<typename Dtype>
@@ -253,8 +339,11 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   dimension = param.dimension();
   resolution = param.resolution();
   binary = param.binary_occupancy();
+  bool spherize = param.spherical_mask();
   randtranslate = param.random_translate();
   randrotate = param.random_rotation();
+  ligpeturb = param.peturb_ligand();
+  ligpeturb_translate = param.peturb_ligand_translate();
   radiusmultiple = param.radius_multiple();
   fixedradius = param.fixed_radius();
   bool hasaffinity = param.has_affinity();
@@ -264,7 +353,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   if(binary) radiusmultiple = 1.0;
 
-  gmaker.initialize(resolution, dimension, radiusmultiple, binary);
+  gmaker.initialize(resolution, dimension, radiusmultiple, binary, spherize);
 
   dim = round(dimension/resolution)+1; //number of grid points on a side
   numgridpoints = dim*dim*dim;
@@ -372,6 +461,13 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   else if(hasrmsd)
   {
     top[2]->Reshape(label_shape);
+  }
+
+  if(ligpeturb) {
+    vector<int> peturbshape(2);
+    peturbshape[0] = batch_size;
+    peturbshape[1] = 6; //trans+orient
+    top.back()->Reshape(peturbshape);
   }
 }
 
@@ -534,7 +630,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dtype>::example& ex,
-    const string& root_folder, MolGridDataLayer<Dtype>::mol_transform& transform, bool gpu)
+    const string& root_folder, MolGridDataLayer<Dtype>::mol_transform& transform, output_transform& peturb, bool gpu)
 {
   //set grid values for example
   //cache atom info
@@ -551,7 +647,7 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
       set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, molcache[ex.ligand]);
     }
 
-    set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, gpu);
+    set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, peturb, gpu);
   }
   else
   {
@@ -559,27 +655,41 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
     mol_info lig;
     set_mol_info(root_folder+ex.receptor, rmap, 0, rec);
     set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, lig);
-    set_grid_minfo(data, rec, lig, transform, gpu);
+    set_grid_minfo(data, rec, lig, transform, peturb, gpu);
   }
 }
 
-//sample uniformly between 0 and 1
-static double unit_sample(rng_t *rng)
-{
-  return ((*rng)() - rng->min()) / double(rng->max() - rng->min());
-}
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer<Dtype>::mol_info& recatoms,
-  const MolGridDataLayer<Dtype>::mol_info& ligatoms, MolGridDataLayer<Dtype>::mol_transform& transform, bool gpu)
+  const MolGridDataLayer<Dtype>::mol_info& ligatoms, MolGridDataLayer<Dtype>::mol_transform& transform,
+  output_transform& peturb, bool gpu)
 {
   //set grid values from mol info
   //first clear transform from the previous batch
+  rng_t* rng = caffe_rng();
   transform = mol_transform();
+  mol_transform ligtrans;
 
   //include receptor and ligand atoms
   transform.mol.append(recatoms);
-  transform.mol.append(ligatoms);
+
+  if(ligpeturb) {
+    ligtrans.set_random_quaternion(rng);
+    ligtrans.add_random_displacement(rng, ligpeturb_translate);
+    transform.mol.transform_and_append(ligatoms, ligtrans);
+
+    //store the inverse transformation
+    peturb.x = -ligtrans.center[0];
+    peturb.y = -ligtrans.center[1];
+    peturb.z = -ligtrans.center[2];
+
+    quaternion qinv = conj(ligtrans.Q)/norm(ligtrans.Q); //not Cayley, not euclidean norm - already squared
+    peturb.set_from_quaternion(qinv);
+
+  } else {
+    transform.mol.append(ligatoms);
+  }
 
   //set center to ligand center
   transform.mol.center = ligatoms.center;
@@ -589,22 +699,10 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
 
   if(current_rotation == 0 && !randrotate)
     transform.Q = quaternion(1,0,0,0); //check real part to avoid mult
-  rng_t* rng = caffe_rng();
+
   if (randrotate)
   {
-    //http://planning.cs.uiuc.edu/node198.html
-    //sample 3 numbers from 0-1
-    double u1 = unit_sample(rng);
-    double u2 = unit_sample(rng);
-    double u3 = unit_sample(rng);
-    double sq1 = sqrt(1-u1);
-    double sqr = sqrt(u1);
-    double r1 = sq1*sin(2*M_PI*u2);
-    double r2 = sq1*cos(2*M_PI*u2);
-    double r3 = sqr*sin(2*M_PI*u3);
-    double r4 = sqr*cos(2*M_PI*u3);
-
-    transform.Q = quaternion(r1,r2,r3,r4);
+    transform.set_random_quaternion(rng);
   }
 
   transform.center[0] = transform.mol.center[0];
@@ -612,12 +710,7 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
   transform.center[2] = transform.mol.center[2];
   if (randtranslate)
   {
-    double offx = unit_sample(rng)*2.0-1.0;
-    double offy = unit_sample(rng)*2.0-1.0;
-    double offz = unit_sample(rng)*2.0-1.0;
-    transform.center[0] += offx * randtranslate;
-    transform.center[1] += offy * randtranslate;
-    transform.center[2] += offz * randtranslate;
+    transform.add_random_displacement(rng, randtranslate);
   }
 
   if(current_rotation > 0) {
@@ -755,11 +848,9 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
   else
     top_data = top[0]->mutable_cpu_data();
 
-  //clear batch labels
-  labels.clear();
-  affinities.clear();
-  rmsds.clear();
+  perturbations.clear();
   unsigned batch_size = top_shape[0];
+  output_transform peturb;
 
   //if in memory must be set programmatically
   if(inmem)
@@ -767,13 +858,23 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     CHECK_GT(mem_rec.atoms.size(),0) << "Receptor not set in MolGridDataLayer";
     CHECK_GT(mem_lig.atoms.size(),0) << "Ligand not set in MolGridDataLayer";
     //memory is now available
-    set_grid_minfo(top_data, mem_rec, mem_lig, batch_transform[0], gpu); //TODO how do we know what batch position?
+    set_grid_minfo(top_data, mem_rec, mem_lig, batch_transform[0], peturb, gpu); //TODO how do we know what batch position?
+    perturbations.push_back(peturb);
+
     if (num_rotations > 0) {
       current_rotation = (current_rotation+1)%num_rotations;
     }
+
+    CHECK_GT(labels.size(),0) << "Did not set labels in memory based molgrid";
+
   }
   else
   {
+    //clear batch labels
+    labels.clear();
+    affinities.clear();
+    rmsds.clear();
+
     //percent of batch from first data source
     unsigned dataswitch = batch_size;
     if (data2)
@@ -799,35 +900,46 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       rmsds.push_back(ex.rmsd);
 
       int offset = batch_idx*example_size;
-      set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], gpu);
+      set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], peturb, gpu);
+      perturbations.push_back(peturb);
       //NOTE: num_rotations not actually implemented!
     }
 
+  }
 
-    if(gpu) {
-      caffe_copy(labels.size(), &labels[0], top[1]->mutable_gpu_data());
-      if(hasaffinity) {
-    	  caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_gpu_data());
-    	  if(hasrmsd) {
-    		  caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_gpu_data());
-    	  }
-      } else if(hasrmsd) {
-    	  caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_gpu_data());
+  if(gpu) {
+    caffe_copy(labels.size(), &labels[0], top[1]->mutable_gpu_data());
+    if(hasaffinity) {
+      caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_gpu_data());
+      if(hasrmsd) {
+        caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_gpu_data());
       }
-
+    } else if(hasrmsd) {
+      caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_gpu_data());
     }
-    else {
-      caffe_copy(labels.size(), &labels[0], top[1]->mutable_cpu_data());
-      if(hasaffinity) {
-    	  caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_cpu_data());
-    	  if(hasrmsd) {
-    		  caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_cpu_data());
-    	  }
-      } else if(hasrmsd) {
-    	  caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_cpu_data());
+
+    if(ligpeturb) {
+      //trusting struct layout is normal
+      caffe_copy(perturbations.size()*6, (Dtype*)&perturbations[0], top.back()->mutable_gpu_data());
+    }
+
+  }
+  else {
+    caffe_copy(labels.size(), &labels[0], top[1]->mutable_cpu_data());
+    if(hasaffinity) {
+      caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_cpu_data());
+      if(hasrmsd) {
+        caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_cpu_data());
       }
+    } else if(hasrmsd) {
+      caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_cpu_data());
+    }
+    if(ligpeturb) {
+      //trusting struct layout is normal
+      caffe_copy(perturbations.size()*6, (Dtype*)&perturbations[0], top.back()->mutable_cpu_data());
     }
   }
+
 }
 
 
