@@ -140,26 +140,19 @@ void MolGridDataLayer<Dtype>::getLigandChannels(int batch_idx, vector<short>& wh
 }
 
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<float3>& gradient, bool lrp)
+void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<float3>& gradient)
 {
   gradient.resize(0);
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
     if (mol.whichGrid[i] < numReceptorTypes)
     {
-      if(lrp)
-      {
-          gradient.push_back(mol.gradient[i]);
-      }
-      else
-      {
-          gradient.push_back(-mol.gradient[i]);
-      }
+      gradient.push_back(mol.gradient[i]);
     }
 }
 
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered_map<string ,float3>& gradient, bool lrp)
+void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered_map<string, float3>& gradient)
 {
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
@@ -178,21 +171,14 @@ void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered
 
     if (mol.whichGrid[i] < numReceptorTypes)
     {
-      if(lrp)
-      {
-          gradient[xyz] = mol.gradient[i];
-      }
-      else
-      {
-          gradient[xyz] = -mol.gradient[i];
-      }
+      gradient[xyz] = mol.gradient[i];
     }
   }
 }
 
 
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& gradient, bool lrp)
+void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& gradient)
 {
   gradient.resize(0);
   mol_info& mol = batch_transform[batch_idx].mol;
@@ -204,7 +190,7 @@ void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& g
 }
 
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient, bool lrp)
+void MolGridDataLayer<Dtype>::getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient)
 {
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
@@ -871,8 +857,6 @@ void MolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
 {
 	Grids grids(top->mutable_cpu_diff(),
 			boost::extents[numReceptorTypes + numLigandTypes][dim][dim][dim]);
-
-
     CHECK_GT(mem_lig.atoms.size(),0) << "DX dump only works with in-memory ligand";
     CHECK_EQ(randrotate, false) << "DX dump requires no rotation";
 	for (unsigned a = 0, na = numReceptorTypes; a < na; a++) {

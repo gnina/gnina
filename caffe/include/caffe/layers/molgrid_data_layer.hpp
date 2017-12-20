@@ -80,10 +80,10 @@ public:
 
   void getReceptorChannels(int batch_idx, vector<short>& whichGrid);
   void getLigandChannels(int batch_idx, vector<short>& whichGrid);
-  void getReceptorGradient(int batch_idx, vector<float3>& gradient, bool lrp = false);
-  void getMappedReceptorGradient(int batch_idx, unordered_map<string ,float3>& gradient, bool lrp);
-  void getLigandGradient(int batch_idx, vector<float3>& gradient, bool lrp = false);
-  void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient, bool lrp);
+  void getReceptorGradient(int batch_idx, vector<float3>& gradient);
+  void getMappedReceptorGradient(int batch_idx, unordered_map<string ,float3>& gradient);
+  void getLigandGradient(int batch_idx, vector<float3>& gradient);
+  void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient);
   //set in memory buffer
   template<typename Atom>
   void setReceptor(const vector<Atom>& receptor)

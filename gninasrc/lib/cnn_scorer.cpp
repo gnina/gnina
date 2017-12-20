@@ -122,9 +122,8 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 }
 
 
-//returns relevance or gradient scores per atom
+//returns gradient scores per atom
 //assumes necessary pass (backward or backward_relevance) has already been done
-//default is gradient
 std::unordered_map<string, float> CNNScorer::get_scores_per_atom(bool receptor, bool relevance)
 {
     std::unordered_map<string, float3> gradient;
@@ -132,43 +131,29 @@ std::unordered_map<string, float> CNNScorer::get_scores_per_atom(bool receptor, 
     if (receptor)
     {
         mgrid->getReceptorAtoms(0, atoms);
-        if (relevance)
-        {
-            mgrid->getMappedReceptorGradient(0,gradient, true);
-        }
-        else
-        {
-            mgrid->getMappedReceptorGradient(0, gradient, false);
-        }
+        mgrid->getMappedReceptorGradient(0, gradient);
     }
     else
     {
         mgrid->getLigandAtoms(0, atoms);
-        if (relevance)
-        {
-            mgrid->getMappedLigandGradient(0, gradient, true);
-        }
-        else
-        {
-            mgrid->getMappedLigandGradient(0, gradient, false);
-        }
+        mgrid->getMappedLigandGradient(0, gradient);
     }
 
     std::unordered_map<string, float> scores;
 
-    for(std::pair<string, gfloat3> item: gradient)
+    for(std::pair<string, gfloat3> pair: gradient)
     {
         if(relevance)
         {
-            scores[item.first] = item.second.x;
+            scores[pair.first] = pair.second.x;
         }
         else //gradient
         {
             //sqrt(x^2 + y^2 + z^2)
-            float x = item.second.x;
-            float y = item.second.y;
-            float z = item.second.z;
-            scores[item.first] = sqrt(x*x + y*y + z*z);
+            float x = pair.second.x;
+            float y = pair.second.y;
+            float z = pair.second.z;
+            scores[pair.first] = sqrt(x*x + y*y + z*z);
         }
 
     }
@@ -323,7 +308,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 //return only score
 float CNNScorer::score(model& m, bool silent)
 {
-    float aff;
+    float aff = 0;
     return score(m, false, aff, silent);
 }
 
@@ -369,14 +354,12 @@ void CNNScorer::outputDX(const string& prefix, double scale, bool lrp, string la
 
         string p = prefix;
         if(p.length() == 0) p = "dx";
-        //mgrid->dumpDiffDX(p, datablob.get(), scale);
         mgrid->dumpDiffDX(p, datablob.get(), scale);
 
         if(pool) {
             pool->set_pool(PoolingParameter_PoolMethod_MAX);
         }
 
- //   }
 }
 
 
