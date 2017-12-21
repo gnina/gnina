@@ -14,6 +14,8 @@ Currently also have all eval methods (cpu or gpu) here for easy reference.
 #include <boost/algorithm/string/predicate.hpp>
 #include "non_cache_gpu.h"
 #include "loop_timer.h"
+#include "gpu_debug.h"
+#include "device_buffer.h"
 
 #define MAX_THREADS 1024
 
@@ -74,7 +76,7 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
     #ifdef __CUDA_ARCH__
     scratch[0] = 0;
     #else
-    cudaMemset(scratch, 0, sizeof(float));
+    cudaMemsetAsync(scratch, 0, sizeof(float), cudaStreamPerThread);
     #endif
 
 	if(pairs_sz< CUDA_THREADS_PER_BLOCK) {
@@ -94,7 +96,7 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
 	return scratch[0];
     #else
     float out;
-    cudaMemcpy(&out, scratch, sizeof(float), cudaMemcpyDeviceToHost);
+    definitelyPinnedMemcpy(&out, scratch, sizeof(float), cudaMemcpyDeviceToHost);
     return out;
     #endif
 }
@@ -172,9 +174,8 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
                             const conf_gpu& c, change_gpu& g) {
 	// static loop_timer t;
 	// t.resume();
-    fl e, ie;
+    fl e, ie = 0;
     if (threadIdx.x == 0) {
-        ie = 0;
 	    set_conf_kernel<<<1,treegpu->num_atoms>>>(treegpu,
                                                atom_coords, (vec*)coords, c);
         memset(minus_forces, 0, sizeof(force_energy_tup) *
@@ -212,8 +213,8 @@ fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
 //for performance metrics, just correctness, which is what you should do. 
 fl gpu_data::eval(const GPUNonCacheInfo& info, const float v) {
     fl e;
-    cudaMemset(minus_forces, 0, sizeof(force_energy_tup) *
-            info.num_movable_atoms);
+    cudaMemsetAsync(minus_forces, 0, sizeof(force_energy_tup) *
+            info.num_movable_atoms, cudaStreamPerThread);
     e = single_point_calc(info, coords, minus_forces, v);
     return e;
 }
@@ -428,11 +429,11 @@ void model::initialize_gpu() {
 	//TODO: only re-malloc if need larger size
 	deallocate_gpu();
 
-	CUDA_CHECK_GNINA(cudaMalloc(&gdata.coords, sizeof(vec) * coords.size()));
-	CUDA_CHECK_GNINA(cudaMalloc(&gdata.atom_coords, sizeof(vec) * atoms.size()));
+	CUDA_CHECK_GNINA(device_malloc(&gdata.coords, sizeof(vec) * coords.size()));
+	CUDA_CHECK_GNINA(device_malloc(&gdata.atom_coords, sizeof(vec) * atoms.size()));
 	CUDA_CHECK_GNINA(
-			cudaMalloc(&gdata.minus_forces, sizeof(vec) * minus_forces.size()));
-	CUDA_CHECK_GNINA(cudaMalloc(&gdata.scratch, sizeof(float)));
+			device_malloc(&gdata.minus_forces, sizeof(vec) * minus_forces.size()));
+	CUDA_CHECK_GNINA(device_malloc(&gdata.scratch, sizeof(float)));
 
 	gdata.coords_size = coords.size();
 	gdata.atom_coords_size = atoms.size();
@@ -448,19 +449,19 @@ void model::initialize_gpu() {
 	    gdata.pairs_size = ligand_pairs.size();
 
 	    CUDA_CHECK_GNINA(
-	    		cudaMalloc(&gdata.interacting_pairs,
+	    		device_malloc(&gdata.interacting_pairs,
 	    				sizeof(interacting_pair) * ligand_pairs.size()));
 	    CUDA_CHECK_GNINA(
-	    		cudaMemcpy(gdata.interacting_pairs, &ligand_pairs[0],
+	    		definitelyPinnedMemcpy(gdata.interacting_pairs, &ligand_pairs[0],
 	    				sizeof(interacting_pair) * ligand_pairs.size(),
 	    				cudaMemcpyHostToDevice));
     }
 
     //all flexible pairs, but not intra
     if (other_pairs.size()) {
-        CUDA_CHECK_GNINA(cudaMalloc(&gdata.other_pairs, sizeof(interacting_pair) *
+        CUDA_CHECK_GNINA(device_malloc(&gdata.other_pairs, sizeof(interacting_pair) *
                     other_pairs.size()));
-        CUDA_CHECK_GNINA(cudaMemcpy(gdata.other_pairs, &other_pairs[0],
+        CUDA_CHECK_GNINA(definitelyPinnedMemcpy(gdata.other_pairs, &other_pairs[0],
                     sizeof(interacting_pair) * other_pairs.size(),
                     cudaMemcpyHostToDevice));
         gdata.other_pairs_size = other_pairs.size();
@@ -477,33 +478,33 @@ void model::initialize_gpu() {
 	tree_gpu tg(ligands, flex, &acoords[0], gdata.dfs_order_bfs_indices,
             gdata.bfs_order_dfs_indices);
     gdata.nlig_roots = tg.nlig_roots;
-	CUDA_CHECK_GNINA(cudaMalloc(&gdata.treegpu, sizeof(tree_gpu)));
+	CUDA_CHECK_GNINA(device_malloc(&gdata.treegpu, sizeof(tree_gpu)));
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(gdata.treegpu, &tg, sizeof(tree_gpu),
+			definitelyPinnedMemcpy(gdata.treegpu, &tg, sizeof(tree_gpu),
 					cudaMemcpyHostToDevice));
    
     //this contains the marked_coords for all the atoms and therefore all the
     //nodes in both trees
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(gdata.atom_coords, &acoords[0],
+			definitelyPinnedMemcpy(gdata.atom_coords, &acoords[0],
 					sizeof(vec) * atoms.size(), cudaMemcpyHostToDevice));
 
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(gdata.coords, &coords[0], coords.size() *
+			definitelyPinnedMemcpy(gdata.coords, &coords[0], coords.size() *
                 sizeof(atom_params), cudaMemcpyHostToDevice));
 }
 
 void model::deallocate_gpu() {
 	if (gdata.coords) {
-		CUDA_CHECK_GNINA(cudaFree(gdata.coords));
+		CUDA_CHECK_GNINA(device_free(gdata.coords));
 		gdata.coords = NULL;
 	}
 	if (gdata.atom_coords) {
-		CUDA_CHECK_GNINA(cudaFree(gdata.atom_coords));
+		CUDA_CHECK_GNINA(device_free(gdata.atom_coords));
 		gdata.atom_coords = NULL;
 	}
 	if (gdata.minus_forces) {
-		CUDA_CHECK_GNINA(cudaFree(gdata.minus_forces));
+		CUDA_CHECK_GNINA(device_free(gdata.minus_forces));
 		gdata.minus_forces = NULL;
 	}
 	if (gdata.treegpu) {
@@ -511,7 +512,7 @@ void model::deallocate_gpu() {
 		gdata.treegpu = NULL;
 	}
 	if (gdata.scratch) {
-		CUDA_CHECK_GNINA(cudaFree(gdata.scratch));
+		CUDA_CHECK_GNINA(device_free(gdata.scratch));
 		gdata.scratch = NULL;
 	}
     if (gdata.dfs_order_bfs_indices) {
@@ -524,7 +525,7 @@ void model::deallocate_gpu() {
     }
 
 	if (gdata.interacting_pairs) {
-		CUDA_CHECK_GNINA(cudaFree(gdata.interacting_pairs));
+		CUDA_CHECK_GNINA(device_free(gdata.interacting_pairs));
 		gdata.interacting_pairs = NULL;
 	}
 	gdata.coords_size = gdata.atom_coords_size = gdata.forces_size =
@@ -534,7 +535,7 @@ void model::deallocate_gpu() {
 //copy relevant data to gpu buffers
 void gpu_data::copy_to_gpu(model& m) {
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(coords, &m.coords[0], coords_size * sizeof(vec),
+			definitelyPinnedMemcpy(coords, &m.coords[0], coords_size * sizeof(vec),
 					cudaMemcpyHostToDevice));
 
 	//minus_forces gets initialized in eval_deriv
@@ -545,9 +546,8 @@ void gpu_data::copy_to_gpu(model& m) {
 void gpu_data::copy_from_gpu(model& m) {
 	assert(coords);
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(&m.coords[0], coords, coords_size * sizeof(vec),
+			definitelyPinnedMemcpy(&m.coords[0], coords, coords_size * sizeof(vec),
 					cudaMemcpyDeviceToHost));
-    cudaDeviceSynchronize();
 }
 
 size_t gpu_data::node_idx_cpu2gpu(size_t cpu_idx) const

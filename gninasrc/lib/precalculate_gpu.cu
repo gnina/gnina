@@ -36,8 +36,8 @@ void precalculate_gpu::evaluate_splines(const GPUSplineInfo& spInfo,float r,
 
 	evaluate_splines_host(spInfo, r, device_vals, device_derivs);
 
-	cudaMemcpy(&vals[0], device_vals, n * sizeof(float), cudaMemcpyDeviceToHost);
-	cudaMemcpy(&derivs[0], device_derivs, n * sizeof(float),
+	definitelyPinnedMemcpy(&vals[0], device_vals, n * sizeof(float), cudaMemcpyDeviceToHost);
+	definitelyPinnedMemcpy(&derivs[0], device_derivs, n * sizeof(float),
 			cudaMemcpyDeviceToHost);
 }
 
@@ -139,14 +139,14 @@ precalculate_gpu::precalculate_gpu(const scoring_function& sf,fl factor_) : // s
 	cudaMalloc(&deviceAllSplineData,
 			sizeof(FloatSplineData) * allSplineData.size());
 
-	cudaMemcpy(deviceAllSplineData, &allSplineData[0],
+	definitelyPinnedMemcpy(deviceAllSplineData, &allSplineData[0],
 			sizeof(FloatSplineData) * allSplineData.size(), cudaMemcpyHostToDevice);
 	for(sz i = 0, j = locations.size(); i < j; i++){
 		deviceMem.push_back((FloatSplineData*) deviceAllSplineData + locations[i]);
 	}
 
 	cudaMalloc(&splines, sizeof(FloatSplineData*) * deviceMem.size());
-	cudaMemcpy(splines, &deviceMem[0],
+	definitelyPinnedMemcpy(splines, &deviceMem[0],
 			sizeof(FloatSplineData*) * deviceMem.size(), cudaMemcpyHostToDevice);
 
 	assert(indices.size() == datasize);
@@ -158,7 +158,7 @@ precalculate_gpu::precalculate_gpu(const scoring_function& sf,fl factor_) : // s
 	//copy device data
 
 	cudaMalloc(&deviceData, sizeof(GPUSplineInfo) * datasize);
-	cudaMemcpy(deviceData, devicedata, sizeof(GPUSplineInfo) * datasize,
+	definitelyPinnedMemcpy(deviceData, devicedata, sizeof(GPUSplineInfo) * datasize,
 			cudaMemcpyHostToDevice);
 
 	//allocate buffers for spline host-device computation
@@ -184,7 +184,7 @@ precalculate_gpu::~precalculate_gpu(){
 			const GPUSplineInfo& info = data(i, j);
 			if(info.splines){
 				void *splines[info.n];
-				cudaMemcpy(splines, info.splines, sizeof(float*) * info.n,
+				definitelyPinnedMemcpy(splines, info.splines, sizeof(float*) * info.n,
 						cudaMemcpyDeviceToHost);
 				for(unsigned k = 0; k < info.n; k++){
 					if(splines[k])

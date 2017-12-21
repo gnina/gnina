@@ -19,9 +19,9 @@ struct change_gpu {
 	fl *values;
 	int n; //size of ligand change_values is 6+torsions; residue is just torsions
 
-	change_gpu(const change& src, const gpu_data& d, float_buffer& buffer);
+	change_gpu(const change& src, const gpu_data& d, device_buffer& buffer);
 
-	change_gpu(const change_gpu& src, float_buffer& buffer);
+	change_gpu(const change_gpu& src, device_buffer& buffer);
 
     change_gpu(const change_gpu& src) = default;
 
@@ -42,6 +42,8 @@ struct change_gpu {
     __host__ __device__
 	sz num_floats() const;
 
+    __device__
+    void print() const;
 private:
     static
     size_t idx_cpu2gpu(size_t cpu_node_idx, size_t offset_in_node, const gpu_data& d);
@@ -53,11 +55,11 @@ struct conf_gpu {
 	float *values;
     int n; //size of ligand conf_values is 7+torsions; residue is just torsions
 
-	conf_gpu(const conf& src, const gpu_data& d, float_buffer& buffer);
+	conf_gpu(const conf& src, const gpu_data& d, device_buffer& buffer);
 
 	void set_cpu(conf& dst, const gpu_data& d) const;
 
-	conf_gpu(const conf_gpu& src, float_buffer& buffer);
+	conf_gpu(const conf_gpu& src, device_buffer& buffer);
 
     conf_gpu(const conf_gpu& src) = default;
 
@@ -70,6 +72,8 @@ struct conf_gpu {
 
 	void set_data(std::vector<float>& d) const;
 
+    __device__
+    void print() const;
 private:
     static
     size_t idx_cpu2gpu(size_t cpu_node_idx, size_t offset_in_node, const gpu_data& d);

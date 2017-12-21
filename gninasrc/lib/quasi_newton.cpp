@@ -22,8 +22,7 @@
 
 #include "quasi_newton.h"
 #include "bfgs.h"
-
-extern thread_local float_buffer buffer;
+#include "device_buffer.h"
 
 struct quasi_newton_aux {
 	model* m;
@@ -46,6 +45,7 @@ void quasi_newton::operator()(model& m,const precalculate& p,const igrid& ig,
     // g must have correct size
 	const non_cache_gpu* gpu = dynamic_cast<const non_cache_gpu*>(&ig);
 	if(gpu) {
+        thread_buffer.reinitialize();
 		m.initialize_gpu();
 		assert(m.gpu_initialized());
         if(user_grid.initialized())
@@ -54,8 +54,8 @@ void quasi_newton::operator()(model& m,const precalculate& p,const igrid& ig,
           exit(-1);
         }
 		quasi_newton_aux_gpu aux(m.gdata, gpu->get_info(), v, &m);
-		change_gpu gchange(g, m.gdata, buffer);
-		conf_gpu gconf(out.c, m.gdata, buffer);
+		change_gpu gchange(g, m.gdata, thread_buffer);
+		conf_gpu gconf(out.c, m.gdata, thread_buffer);
 		fl res = bfgs(aux, gconf, gchange, average_required_improvement, params);
 		gconf.set_cpu(out.c, m.gdata);
 		out.e = res;

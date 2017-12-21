@@ -6,6 +6,7 @@
 
 #include "conf_gpu.h"
 #include "model.h"
+#include "gpu_debug.h"
 
 #define CUDA_KERNEL_LOOP(i, n) \
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
@@ -47,7 +48,7 @@ size_t conf_gpu::idx_cpu2gpu(size_t cpu_node_idx, size_t offset_in_node, const g
     return gpu_flat_idx;
 }
 
-change_gpu::change_gpu(const change& src, const gpu_data& d, float_buffer& buffer) :
+change_gpu::change_gpu(const change& src, const gpu_data& d, device_buffer& buffer) :
     n(src.num_floats())
 {
     std::unique_ptr<fl[]> data(new fl[n]);
@@ -66,7 +67,7 @@ change_gpu::change_gpu(const change& src, const gpu_data& d, float_buffer& buffe
 }
 
 //allocate and copy
-change_gpu::change_gpu(const change_gpu& src, float_buffer& buffer) :
+change_gpu::change_gpu(const change_gpu& src, device_buffer& buffer) :
 		n(src.n), values(NULL)
 {
     values = buffer.copy(src.values, n+1, cudaMemcpyDeviceToDevice);
@@ -76,7 +77,7 @@ __device__
 change_gpu& change_gpu::operator=(const change_gpu& src) {
     assert(values && n == src.n);
 #ifndef __CUDA_ARCH__
-    CUDA_CHECK_GNINA(cudaMemcpy(values, src.values, sizeof(float) * n,
+    CUDA_CHECK_GNINA(definitelyPinnedMemcpy(values, src.values, sizeof(float) * n,
             cudaMemcpyDeviceToDevice));
 #else
     memcpy(values, src.values, sizeof(float) * n);
@@ -150,7 +151,7 @@ bool constructor_valid(const conf_gpu& gpu, const conf& src, const gpu_data& d){
     return true;
 }
 
-conf_gpu::conf_gpu(const conf& src, const gpu_data& d, float_buffer& buffer) :
+conf_gpu::conf_gpu(const conf& src, const gpu_data& d, device_buffer& buffer) :
     n(src.num_floats())
 {
     std::unique_ptr<fl[]> data(new fl[n]);
@@ -184,12 +185,12 @@ void conf_gpu::set_cpu(conf& dst, const gpu_data& d) const {
         assert(offset_in_node < 7);
         assert(cpu_node_idx < n);
 
-        dst(i) = data[conf_gpu::idx_cpu2gpu(cpu_node_idx, offset_in_node, d)];
+        dst.flat_index(i) = data[conf_gpu::idx_cpu2gpu(cpu_node_idx, offset_in_node, d)];
     }
 }
 
 //copy within buffer
-conf_gpu::conf_gpu(const conf_gpu& src, float_buffer& buffer) :
+conf_gpu::conf_gpu(const conf_gpu& src, device_buffer& buffer) :
 		n(src.n), values(NULL) {
     values = buffer.copy(src.values, n, cudaMemcpyDeviceToDevice);
 }
@@ -199,7 +200,7 @@ conf_gpu& conf_gpu::operator=(const conf_gpu& src) {
     assert(values && n == src.n);
 #ifndef __CUDA_ARCH__
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(values, src.values, sizeof(float) * n,
+			definitelyPinnedMemcpy(values, src.values, sizeof(float) * n,
 					cudaMemcpyDeviceToDevice));
 #else
     memcpy(values, src.values, sizeof(float) * n);
@@ -245,14 +246,22 @@ __device__ void conf_gpu::increment(const change_gpu& c, fl factor, gpu_data*
 void conf_gpu::get_data(std::vector<float>& d) const {
 	d.resize(n);
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(&d[0], values, n * sizeof(float),
+			definitelyPinnedMemcpy(&d[0], values, n * sizeof(float),
 					cudaMemcpyDeviceToHost));
-    sync_and_errcheck();
 }
 
 void conf_gpu::set_data(std::vector<float>& d) const {
 	CUDA_CHECK_GNINA(
-			cudaMemcpy(values, &d[0], n * sizeof(float),
+			definitelyPinnedMemcpy(values, &d[0], n * sizeof(float),
 					cudaMemcpyHostToDevice));
-    sync_and_errcheck();
+}
+
+__device__
+void change_gpu::print() const {
+    pretty_print_array(values, n, "change_gpu", "%f");
+}
+
+__device__
+void conf_gpu::print() const {
+    pretty_print_array(values, n, "conf_gpu", "%f");
 }
