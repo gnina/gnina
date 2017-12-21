@@ -157,21 +157,22 @@ void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
   {
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(3) << mol.atoms[i].x;
-    std::string rounded_x = ss.str();
-    ss.str("");
-    ss << std::fixed << std::setprecision(3) << mol.atoms[i].y;
-    std::string rounded_y = ss.str();
-    ss.str("");
-    ss << std::fixed << std::setprecision(3) << mol.atoms[i].z;
-    std::string rounded_z = ss.str();
-
-    string xyz = rounded_x + rounded_y + rounded_z;
-
     if (mol.whichGrid[i] < numReceptorTypes)
     {
-      gradient[xyz] = mol.gradient[i];
+        //round to same coordinate precision as pdb
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(3) << mol.atoms[i].x;
+        std::string rounded_x = ss.str();
+        ss.str("");
+        ss << std::fixed << std::setprecision(3) << mol.atoms[i].y;
+        std::string rounded_y = ss.str();
+        ss.str("");
+        ss << std::fixed << std::setprecision(3) << mol.atoms[i].z;
+        std::string rounded_z = ss.str();
+
+        string xyz = rounded_x + rounded_y + rounded_z;
+
+        gradient[xyz] = mol.gradient[i];
     }
   }
 }
@@ -195,23 +196,22 @@ void MolGridDataLayer<Dtype>::getMappedLigandGradient(int batch_idx, unordered_m
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
   {
-
-    //round to same coordinate precision as pdb
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(3) << mol.atoms[i].x;
-    std::string rounded_x = ss.str();
-    ss.str("");
-    ss << std::fixed << std::setprecision(3) << mol.atoms[i].y;
-    std::string rounded_y = ss.str();
-    ss.str("");
-    ss << std::fixed << std::setprecision(3) << mol.atoms[i].z;
-    std::string rounded_z = ss.str();
-
-    string xyz = rounded_x + rounded_y + rounded_z;
-
     if (mol.whichGrid[i] >= numReceptorTypes)
     {
-      gradient[xyz] = mol.gradient[i];
+        //round to same coordinate precision as pdb
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(3) << mol.atoms[i].x;
+        std::string rounded_x = ss.str();
+        ss.str("");
+        ss << std::fixed << std::setprecision(3) << mol.atoms[i].y;
+        std::string rounded_y = ss.str();
+        ss.str("");
+        ss << std::fixed << std::setprecision(3) << mol.atoms[i].z;
+        std::string rounded_z = ss.str();
+
+        string xyz = rounded_x + rounded_y + rounded_z;
+
+        gradient[xyz] = mol.gradient[i];
     }
   }
 }

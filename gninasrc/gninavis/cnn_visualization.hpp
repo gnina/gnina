@@ -54,7 +54,6 @@ class cnn_visualization
     bool frags_only, atoms_only,  verbose;
 
     void process_molecules();
-    std::string modify_pdbqt(const std::unordered_set<int> &atoms_to_remove, bool isRec);
     std::string modify_pdbqt(const std::unordered_set<std::string> &atoms_to_remove, bool isRec);
     float score_modified_receptor(const std::string &modified_rec_string);
     float score_modified_ligand(const std::string &modified_lig_string);
@@ -66,17 +65,14 @@ class cnn_visualization
     std::string original_lig_string;
     float score(const std::string &molString, bool isRec);
     void write_scores(const std::unordered_map<std::string,float> scores, bool isRec, std::string method);
-    void write_scores(const std::vector<float> &scores, bool isRec, std::string method);
     bool check_in_range(const std::unordered_set<std::string> &atom_xyzs);
     float transform_score_diff(float diff_val);
     void remove_residues();
-    std::vector<float> remove_each_atom();
-    void output_modified_string(const std::string &modified_string, const std::vector<int> &atoms_removed,
-                                  bool receptor);
-    void write_additivity(const std::vector<float> &single_score_diffs, const std::vector<float> &frag_score_diffs);
-    std::vector<float> remove_fragments(int size);
+    std::unordered_map<std::string, float> remove_each_atom();
+    void write_additivity(const std::unordered_map<std::string, float> &single_score_diffs, const std::unordered_map<std::string, float> &frag_score_diffs);
+    std::unordered_map<std::string, float> remove_fragments(int size);
     void remove_ligand_atoms();
-    void add_adjacent_hydrogens(std::unordered_set<int> &atoms_to_remove, bool isRec);
+    void add_adjacent_hydrogens(std::unordered_set<std::string> &atoms_to_remove, bool isRec);
     int get_openbabel_index(const std::string &xyz, bool rec);
     std::string get_xyz_from_index(int index, bool rec);
     std::string get_xyz(const std::string &line);
