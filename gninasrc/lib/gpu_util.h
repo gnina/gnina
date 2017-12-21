@@ -38,8 +38,6 @@ __host__ __device__ static inline void sync_and_errcheck(void){
 #define CUDA_CHECK_GNINA(condition) condition
 #endif
 
-cudaError definitelyPinnedMemcpy(void* dst, const void *src, size_t n, cudaMemcpyKind k);
-
 #define GNINA_CUDA_NUM_THREADS (512)
 #define WARPSIZE (32)
 #define CUDA_THREADS_PER_BLOCK (512)
