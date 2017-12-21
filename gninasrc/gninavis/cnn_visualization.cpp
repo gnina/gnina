@@ -577,7 +577,6 @@ void cnn_visualization::remove_residues() {
     int counter = 1;
 
     //iterate through residues
-    //for (auto res = residues.begin(); res != residues.end(); ++res)
     for(const auto& res: residues)
     {
         if (!visopts.verbose)
@@ -614,9 +613,10 @@ void cnn_visualization::remove_residues() {
             std::string modified_mol_string = modify_pdbqt(atoms_to_remove, true);
 
             float score_val = score_modified_receptor(modified_mol_string);
+            float score_diff = original_score - score_val;
+            score_diff = score_diff / atoms_to_remove.size();
 
             for (auto f : atoms_to_remove) {
-                    float score_diff = original_score - score_val;
                     score_diffs[f] = score_diff;
             }
         }
@@ -634,12 +634,10 @@ void cnn_visualization::add_adjacent_hydrogens(
 
     if (isRec) {
         mol = rec_mol;
-        mol.AddHydrogens();
     }
 
     else {
         mol = lig_mol;
-        mol.AddHydrogens();
     }
 
     std::unordered_set<std::string> hydrogens;
@@ -674,8 +672,6 @@ void cnn_visualization::print_vector(const std::vector<int> &atoms_to_remove) {
 
 //removes individual atoms, scores them, and returns the diffs
 std::unordered_map<std::string, float> cnn_visualization::remove_each_atom() {
-    OBMol lig_mol_h = lig_mol;
-    lig_mol_h.AddHydrogens(); //just in case hydrogen numbers don't add up
 
     std::unordered_map<std::string, float> score_diffs;
     std::stringstream lig_stream(lig_string);
@@ -808,12 +804,10 @@ void cnn_visualization::remove_ligand_atoms() {
 
         write_scores(both_score_diffs, false, "masking");
 
+        if (visopts.additivity.length() > 0) {
+            write_additivity(individual_score_diffs, frag_score_diffs);
+        }
     }
-
-    if (visopts.additivity.length() > 0) {
-        write_additivity(individual_score_diffs, frag_score_diffs);
-    }
-
 }
 
 
@@ -925,8 +919,8 @@ int cnn_visualization::get_openbabel_index(const std::string &xyz, bool rec) {
 std::unordered_map<std::string, float> cnn_visualization::remove_fragments(int size) {
     OBConversion conv;
 
-    OBMol lig_mol_h = lig_mol;
-    lig_mol_h.AddHydrogens(); //just in case hydrogen numbers don't add up
+    //OBMol lig_mol_h = lig_mol;
+    //lig_mol_h.AddHydrogens(); //just in case hydrogen numbers don't add up
 
     std::unordered_map<std::string, float> score_diffs;
     std::unordered_map<std::string, float> score_counts;
