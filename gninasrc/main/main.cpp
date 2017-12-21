@@ -60,6 +60,8 @@
 using namespace boost::iostreams;
 using boost::filesystem::path;
 
+extern thread_local float_buffer buffer;
+
 //just a collection of user-specified configurations
 struct user_settings
 {
@@ -187,6 +189,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	VINA_FOR(p, 5)
 	{
 		nc.setSlope(slope);
+        buffer.reinitialize();
 		quasi_newton_par(m, prec, nc, out, g, cap, user_grid); //quasi_newton operator
 		m.set(out.c); // just to be sure
 		if (nc.within(m))
@@ -439,11 +442,11 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 			log.endl();
       
-			float cnnaffinity = -1;
-	  		float cnngradient = -1;
-	  		cnnscore = cnn.score(m, true, cnnaffinity);
-			cnngradient = m.get_minus_forces_magnitude();
-			//dkoes - setup result_info
+	  	float cnnaffinity = -1;
+	  	float cnngradient = -1;
+	  	cnnscore = cnn.score(m, true, cnnaffinity);
+		  cnngradient = m.get_minus_forces_magnitude();
+      //dkoes - setup result_info
 			results.push_back(result_info(out_cont[i].e, cnnscore, cnnaffinity, cnngradient, -1, m));
 
 			if (compute_atominfo)

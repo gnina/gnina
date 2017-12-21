@@ -243,15 +243,14 @@ tree_gpu::tree_gpu(vector_mutable<ligand> &ligands,
 	assert(num_nodes == nodes.size());
     num_layers = max_layer + 1;
 
-	device_malloc(&device_nodes, sizeof(segment_node)*nodes.size());
-	definitelyPinnedMemcpy(device_nodes, &nodes[0], sizeof(segment_node)*nodes.size(), cudaMemcpyHostToDevice);
+	cudaMalloc(&device_nodes, sizeof(segment_node)*nodes.size());
+	cudaMemcpy(device_nodes, &nodes[0], sizeof(segment_node)*nodes.size(), cudaMemcpyHostToDevice);
 
-	device_malloc(&force_torques, sizeof(gfloat4p)*nodes.size());
-	cudaMemsetAsync(force_torques, 0, sizeof(gfloat4p)*nodes.size(),
-            cudaStreamPerThread);
+	cudaMalloc(&force_torques, sizeof(gfloat4p)*nodes.size());
+	cudaMemset(force_torques, 0, sizeof(gfloat4p)*nodes.size());
 
-    device_malloc(&owners, sizeof(uint) * natoms);
-    definitelyPinnedMemcpy(owners, cpu_owners, sizeof(uint) * natoms, cudaMemcpyHostToDevice);
+    cudaMalloc(&owners, sizeof(uint) * natoms);
+    cudaMemcpy(owners, cpu_owners, sizeof(uint) * natoms, cudaMemcpyHostToDevice);
 
     /* assert(num_nodes == source.count_torsions() + 1); */
 
@@ -267,10 +266,10 @@ tree_gpu::tree_gpu(vector_mutable<ligand> &ligands,
 //given a gpu point, deallocate all the memory
 void tree_gpu::deallocate(tree_gpu *t) {
 	tree_gpu cpu;
-	definitelyPinnedMemcpy(&cpu, t, sizeof(tree_gpu), cudaMemcpyDeviceToHost);
-	device_free(cpu.device_nodes);
-	device_free(cpu.force_torques);
-	device_free(t);
+	cudaMemcpy(&cpu, t, sizeof(tree_gpu), cudaMemcpyDeviceToHost);
+	cudaFree(cpu.device_nodes);
+	cudaFree(cpu.force_torques);
+	cudaFree(t);
 }
 
 __device__

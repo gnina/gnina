@@ -2,53 +2,21 @@
 #include "conf_gpu.h"
 #include "matrix.h"
 #include "bfgs.h"
-#include "device_buffer.h"
 
 #include <cuda_runtime.h>
 
-static __device__
-fl new_lambdamin_val(fl p_val, fl x_val, fl cur_val)
-{
-    // return fabsf(p.values[i]) / fmaxf(fabsf(x.values[i]),
-    //                                   1.0f);
-    fl v = fabsf(p_val / fmaxf(fabsf(x_val), 1.0f));
-    return fmaxf(v, cur_val);
-}
+thread_local float_buffer buffer;
 
-__device__ fl compute_lambdamin(const change_gpu& p, const conf_gpu& x, sz n, const gpu_data& d)
+__device__ fl compute_lambdamin(const change_gpu& p, const conf_gpu& x, sz n)
 
 {
-    const tree_gpu& tree = *d.treegpu;
     fl test = 0;
-	for (sz i = 0; i < tree.num_nodes; i++)
+	for (sz i = 0; i < n; i++)
 	{
-        if(i < tree.nlig_roots){
-            float* conf_start = &x.values[i * 7];
-            float* change_start = &p.values[i * 6];
-
-            for(sz i = 0; i < 3; i++)
-                test = new_lambdamin_val(change_start[i], conf_start[i], test);
-
-            qt orientation(conf_start[3],
-                           conf_start[4],
-                           conf_start[5],
-                           conf_start[6]);
-            // qt *orientation = (qt *)(void*) &conf_start[3];
-            vec angle = quaternion_to_angle(orientation);
-            for(sz i = 0; i < 3; i++)
-                test = new_lambdamin_val(change_start[3 + i], angle[i], test);
-
-        } else {
-            float* conf_start = &x.values[i + tree.nlig_roots * 6];
-            float* change_start = &p.values[i + tree.nlig_roots * 5];
-            test = new_lambdamin_val(*change_start, *conf_start, test);
-        }
-
-
-		// fl temp = fabsf(p.values[i]) / fmaxf(fabsf(x.values[i]),
-        //                                      1.0f);
-		// if (temp > test)
-		// 	test = temp;
+		fl temp = fabsf(p.values[i]) / fmaxf(fabsf(x.values[i]),
+                                                    1.0f);
+		if (temp > test)
+			test = temp;
 	}
     return test;
 }
@@ -103,7 +71,7 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
 		return 0;
 	}
     if (idx == 0) {
-	    test = compute_lambdamin(p, x, n, f.gdata);
+	    test = compute_lambdamin(p, x, n);
 
 	    alamin = epsilon_fl / test;
 	    alpha = FIRST; //single newton step
@@ -316,20 +284,20 @@ fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
     flmat_gpu h(n);
 
     // Initialize and copy additional conf and change objects
-	change_gpu g_orig(g, thread_buffer);
-	change_gpu g_new(g, thread_buffer);
+	change_gpu g_orig(g, buffer);
+	change_gpu g_new(g, buffer);
     
-	conf_gpu x_orig(x, thread_buffer);
-	conf_gpu x_new(x, thread_buffer);
+	conf_gpu x_orig(x, buffer);
+	conf_gpu x_new(x, buffer);
 
-	change_gpu p(g, thread_buffer);
-    change_gpu y(g, thread_buffer);
+	change_gpu p(g, buffer);
+    change_gpu y(g, buffer);
 
-    change_gpu minus_hy(g, thread_buffer);
+    change_gpu minus_hy(g, buffer);
     float* f0;
     float out_energy;
 
-    CUDA_CHECK_GNINA(device_malloc(&f0, sizeof(float)));
+    CUDA_CHECK_GNINA(cudaMalloc(&f0, sizeof(float)));
     //TODO: make safe for the case where num_movable_atoms > 1024
     assert(f.ig.num_movable_atoms <= 1024);
     bfgs_gpu<<<1,max(WARPSIZE,f.ig.num_movable_atoms)>>>(f,
@@ -337,8 +305,10 @@ fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
                       g, g_orig, g_new,
                       p, y, h, minus_hy,
                       average_required_improvement, params, f0);
-    CUDA_CHECK_GNINA(definitelyPinnedMemcpy(&out_energy,
+    sync_and_errcheck();
+    CUDA_CHECK_GNINA(cudaFree(h.m_data));
+    CUDA_CHECK_GNINA(cudaMemcpy(&out_energy,
                                 f0, sizeof(float), cudaMemcpyDeviceToHost));
-    CUDA_CHECK_GNINA(device_free(f0));
+    CUDA_CHECK_GNINA(cudaFree(f0));
 	return out_energy;
 }
