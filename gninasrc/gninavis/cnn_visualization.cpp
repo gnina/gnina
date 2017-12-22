@@ -8,6 +8,7 @@
 #include "cnn_visualization.hpp"
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
+#include "caffe/layers/molgrid_data_layer.hpp"
 #include "cnn_scorer.h"
 #include "molgetter.h"
 #include "obmolopener.h"
@@ -987,33 +988,12 @@ std::unordered_map<std::string, float> cnn_visualization::remove_fragments(int s
                 RDKit::Bond bond = *(rdkit_mol.getBondWithIdx(bond_list[i]));
                 int first_index = bond.getBeginAtomIdx();
                 int second_index = bond.getEndAtomIdx();
+
                 RDGeom::Point3D first_coords = conf.getAtomPos(first_index);
                 RDGeom::Point3D second_coords = conf.getAtomPos(second_index);
 
-                //round to same coordinate precision as pdb
-                std::stringstream ss;
-                ss << std::fixed << std::setprecision(3) << first_coords.x;
-                std::string rounded_x = ss.str();
-                ss.str("");
-                ss << std::fixed << std::setprecision(3) << first_coords.y;
-                std::string rounded_y = ss.str();
-                ss.str("");
-                ss << std::fixed << std::setprecision(3) << first_coords.z;
-                std::string rounded_z = ss.str();
-
-                std::string first_xyz = rounded_x + rounded_y + rounded_z;
-
-                ss.str("");
-                ss << std::fixed << std::setprecision(3) << second_coords.x;
-                rounded_x = ss.str();
-                ss.str("");
-                ss << std::fixed << std::setprecision(3) << second_coords.y;
-                rounded_y = ss.str();
-                ss.str("");
-                ss << std::fixed << std::setprecision(3) << second_coords.z;
-                rounded_z = ss.str();
-
-                std::string second_xyz = rounded_x + rounded_y + rounded_z;
+                std::string first_xyz = xyz_to_string<double>(first_coords.x, first_coords.y, first_coords.z);
+                std::string second_xyz = xyz_to_string<double>(second_coords.x, second_coords.y, second_coords.z);
 
                 atoms_to_remove.insert(first_xyz);
                 atoms_to_remove.insert(second_xyz);

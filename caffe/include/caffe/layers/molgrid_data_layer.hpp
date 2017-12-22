@@ -165,6 +165,7 @@ public:
 
   void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
 
+
  protected:
 
   ///////////////////////////   PROTECTED DATA TYPES   //////////////////////////////
@@ -669,5 +670,25 @@ public:
 
 
 }  // namespace caffe
+
+//round coordinates to same precision as pdb
+//for identifying atoms
+template<typename T>
+static string xyz_to_string(T x, T y, T z)
+{
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(3) << x;
+    std::string rounded_x = ss.str();
+    ss.str("");
+    ss << std::fixed << std::setprecision(3) << y;
+    std::string rounded_y = ss.str();
+    ss.str("");
+    ss << std::fixed << std::setprecision(3) << z;
+    std::string rounded_z = ss.str();
+
+    string xyz = rounded_x + rounded_y + rounded_z;
+    return xyz;
+}
+
 
 #endif  // CAFFE_MOLGRID_DATA_LAYER_HPP_
