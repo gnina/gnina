@@ -38,6 +38,16 @@ void SplitLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     caffe_copy(count_, top[0]->cpu_diff(), bottom[0]->mutable_cpu_diff());
     return;
   }
+
+  /*
+  for(int i = 0; i < 10; i++)
+  {
+      std::cout << top[0]->cpu_diff()[i];
+      std::cout << "|" << top[1]->cpu_diff()[i];
+      std::cout << "\n";
+  }
+  */
+
   caffe_add(count_, top[0]->cpu_diff(), top[1]->cpu_diff(),
             bottom[0]->mutable_cpu_diff());
   // Add remaining top blob diffs.

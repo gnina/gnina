@@ -45,7 +45,7 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   void manual_relevance_backward(
     const Dtype* upper_relevances, const Dtype* top_data,
     const Dtype* weights, const Dtype* input,
-    Dtype * lower_relevances);
+    Dtype * lower_relevances, bool zero_values = false);
 
 #ifndef CPU_ONLY
   void forward_gpu_gemm(const Dtype* col_input, const Dtype* weights,
