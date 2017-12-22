@@ -241,6 +241,10 @@ void BatchNormLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   caffe_div(temp_.count(), bottom_diff, temp_.cpu_data(), bottom_diff);
 }
 
+template <typename Dtype>
+void BatchNormLayer<Dtype>::Clear() {
+  num_by_chans_.Clear(); //others aren't temp
+}
 
 #ifdef CPU_ONLY
 STUB_GPU(BatchNormLayer);

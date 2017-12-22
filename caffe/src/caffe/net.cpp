@@ -737,6 +737,9 @@ void Net<Dtype>::ClearBlobs() {
   for (int i = 0; i < blobs_.size(); ++i) {
     blobs_[i]->Clear();
   }
+  for (int i = 0; i < layers_.size(); ++i) {
+    layers_[i]->Clear();
+  }
 }
 
 template <typename Dtype>

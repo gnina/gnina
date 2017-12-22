@@ -577,7 +577,6 @@ void cnn_visualization::remove_residues() {
     int res_count = residues.size();
     int counter = 1;
 
-    //iterate through residues
     for(const auto& res: residues)
     {
         if (!visopts.verbose)
@@ -586,7 +585,7 @@ void cnn_visualization::remove_residues() {
                     << '\r' << std::flush;
             counter++;
         }
-
+      
         mol_stream.clear();
         mol_stream.str(mol_string);
 
@@ -597,7 +596,7 @@ void cnn_visualization::remove_residues() {
         {
             counter++;
         }
-
+      
         bool remove = true;
 
         if (!visopts.skip_bound_check) {
