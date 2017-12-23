@@ -3,18 +3,18 @@
 #include <float.h>
 
 #include <cuda_runtime.h>
-
+#include "thread_buffer.h"
 #include "common.h"
 
 /* This exists solely to provide constructor and [] operator
    funcs. Produced binaries are identical to those using vanilla
    float3. */
 struct gfloat3 : float3{
-    __host__ __device__ __inline__
+    __host__ __device__ inline
     gfloat3() = default;
-	__host__ __device__ __inline__
+	__host__ __device__ inline
     gfloat3( float3 f): float3(f) {}
-    __host__ __device__ __inline__ 
+    __host__ __device__ inline 
     gfloat3(float x, float y, float z) : float3(make_float3(x,y,z)){};
     
     __host__ __device__
@@ -35,7 +35,7 @@ struct gfloat3 : float3{
     gfloat3 &operator=(const gfloat3 &b) = default;
 
     
-    __host__ __device__ __inline__
+    __host__ __device__ inline
     float3 &operator=(const vec &b) {
         x = b[0];
         y = b[1];
@@ -55,7 +55,7 @@ struct gfloat3 : float3{
 
 #ifdef __CUDACC__
 
-__device__ __inline__ static
+__device__ inline static
 float3 __shfl_down(const float3 &a, int delta) {
     return float3(__shfl_down(a.x, delta),
                   __shfl_down(a.y, delta),
@@ -63,7 +63,7 @@ float3 __shfl_down(const float3 &a, int delta) {
 }
 
 template<class T>
-__device__ __inline__ static
+__device__ inline static
 T pseudoAtomicAdd(T* address, T value) {
     return T(atomicAdd(&((*address)[0]), value[0]),
             atomicAdd(&((*address)[1]), value[1]),
@@ -87,12 +87,12 @@ inline bool almostEqual(float a, float b) {
 }
 
 
-__host__ __device__ __inline__ static
+__host__ __device__ inline static
 float dot(float3 a, float3 b) {
 	return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-__host__ __device__ __inline__ static
+__host__ __device__ inline static
 float &get(float3 &a, int b){
     return
            b == 0 ? a.x :
@@ -100,7 +100,7 @@ float &get(float3 &a, int b){
            a.z;
 }
 
-__host__ __device__ __inline__ static
+__host__ __device__ inline static
 const float &get(const float3 &a, int b){
     return
            b == 0 ? a.x :
@@ -108,37 +108,67 @@ const float &get(const float3 &a, int b){
            a.z;
 }
 
-__host__ __device__ __inline__ static
+__host__ __device__ inline static
 float3 operator-(const float3 &a) {
 	return float3(-a.x, -a.y, -a.z);
 }
 
-__host__ __device__ __inline__ static
+__host__ __device__ inline static
 float3 operator+(const float3 &a, const float3 &b) {
 	return float3(a.x + b.x, a.y + b.y, a.z + b.z);
 }
 
-__host__ __device__ __inline__ static
+__host__ __device__ inline static
 float3 operator-(const float3 &a, const float3 &b) {
 	return float3(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
-__host__ __device__ __inline__ static
+__host__ __device__ inline static
 float3 operator+=(float3 &a, const float3 &b) {
 	return a = a + b;
 }
 
 template<typename T>
-__host__ __device__  __inline__ static
+__host__ __device__  inline static
 float3 operator*(float3 a, T b) {
 	return float3(a.x * b, a.y * b, a.z * b);
 }
 
 template<typename T>
-__host__ __device__ __inline__ static
+__host__ __device__ inline static
 float3 operator*(T b, float3 a) {
 	return float3(a.x * b, a.y * b, a.z * b);
 }
 
+template<typename T>
+class array3d {
+    sz i {}, j {}, k {};
+    T* data {};
+public:
+    array3d(sz i, sz j, sz k) : i(i), j(j), k(k), data(i * j * k) {}
+
+	__device__  sz dim0() const { return i; }
+	__device__  sz dim1() const { return j; }
+	__device__  sz dim2() const { return k; }
+	__device__  sz dim(sz i) const {
+		switch(i) {
+			case 0: return i;
+			case 1: return j;
+			case 2: return k;
+		}
+	}
+    __device__  fl resize(sz i, sz j, sz k) {// no attempt is made to preserve data; 
+        this->i = i;                   //this is only used in grid.init
+        this->j = j;
+        this->k = k;
+        CUDA_CHECK_GNINA(thread_buffer.alloc(&data, i * j * k * sizeof(T)));
+    }
+	__device__  T& operator()(sz i, sz j, sz k)       { 
+        return data[i + this->i*(j + this->j*k)]; 
+    }
+	__device__  const T& operator()(sz i, sz j, sz k) const { 
+        return m_data[i + this->i*(j + this->j*k)]; 
+    }
+};
 
 #endif
