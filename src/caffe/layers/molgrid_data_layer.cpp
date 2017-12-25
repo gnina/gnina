@@ -140,26 +140,34 @@ void MolGridDataLayer<Dtype>::getLigandChannels(int batch_idx, vector<short>& wh
 }
 
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<float3>& gradient, bool lrp)
+void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<float3>& gradient)
 {
   gradient.resize(0);
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
     if (mol.whichGrid[i] < numReceptorTypes)
     {
-      if(lrp)
-      {
-          gradient.push_back(mol.gradient[i]);
-      }
-      else
-      {
-          gradient.push_back(-mol.gradient[i]);
-      }
+      gradient.push_back(mol.gradient[i]);
     }
 }
 
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& gradient, bool lrp)
+void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered_map<string, float3>& gradient)
+{
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+  {
+    if (mol.whichGrid[i] < numReceptorTypes)
+    {
+        string xyz = xyz_to_string(mol.atoms[i].x, mol.atoms[i].y, mol.atoms[i].z);
+        gradient[xyz] = mol.gradient[i];
+    }
+  }
+}
+
+
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& gradient)
 {
   gradient.resize(0);
   mol_info& mol = batch_transform[batch_idx].mol;
@@ -169,6 +177,21 @@ void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& g
       gradient.push_back(mol.gradient[i]);
     }
 }
+
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient)
+{
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+  {
+    if (mol.whichGrid[i] >= numReceptorTypes)
+    {
+        string xyz = xyz_to_string(mol.atoms[i].x, mol.atoms[i].y, mol.atoms[i].z);
+        gradient[xyz] = mol.gradient[i];
+    }
+  }
+}
+
 
 //modify examples to remove any without both actives an inactives
 //factored this into its own function due to the need to fully specialize setup below
