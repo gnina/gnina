@@ -3,6 +3,7 @@
 #include <float.h>
 
 #include <cuda_runtime.h>
+#include <random>
 
 #include "common.h"
 

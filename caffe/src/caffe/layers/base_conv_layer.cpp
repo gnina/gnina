@@ -388,11 +388,12 @@ void BaseConvolutionLayer<Dtype>::backward_gpu_bias(Dtype* bias,
       input, bias_multiplier_.gpu_data(), 1., bias);
 }
 
+//@param zero_values: only propagate relevance from nodes with zero pre-activation
 template <typename Dtype>
 void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
     const Dtype* upper_relevances, const Dtype* top_data,
     const Dtype* weights, const Dtype* bottom_data,
-    Dtype * lower_relevances) 
+    Dtype * lower_relevances, bool zero_values)
 {
     int K = kernel_dim_;
     int I = conv_out_spatial_dim_;
@@ -421,67 +422,98 @@ void BaseConvolutionLayer<Dtype>::manual_relevance_backward(
 
     int top_size = R * I;
 
-    //sum up relevance coming from top nodes with value of 0
-    //also sum up total relevance for proportion calculation
-    for(int i = 0; i < top_size; i++)
+    if(zero_values)
     {
-        Dtype bias = this->blobs_[1]->cpu_data()[i/I];
-        Dtype val = top_data[i] - bias;
-        if (val == 0)
+        for(int i = 0; i < top_size; i++)
         {
-            zero_top_data_sum += top_buffer[i];
-        }
-        total_top_data += val;
-    }
-    std::cout << "Zero relevance: " << zero_top_data_sum << '\n';
-    //std::cout << "Zero fraction: " << numzero/(float)top_size << "\n";
-    //redistribute relevance from dead nodes proportionally to those remaining
-    for(int i = 0; i < top_size; i++)
-    {
-        Dtype bias = this->blobs_[1]->cpu_data()[i/I];
-        Dtype val = top_data[i] - bias;
-        top_buffer[i] += (val / total_top_data) * zero_top_data_sum;
-    }
-
-    //divide relevance by top_data
-    for(int c = 0; c < top_size; ++c)
-    {
-        Dtype bias = this->blobs_[1]->cpu_data()[c/I];
-        Dtype val = top_data[c] - bias;
-
-        if(val > 0)
-        {
-            top_buffer[c] /=  val;
-        }
-        else if(val < 0)
-        {
-            top_buffer[c] /=  val;
-        }
-        else
-        {
-            top_buffer[c] = 0;
-        }
-        
-    }
-
-    //multiply (relevance / top_data) *  (inputs * weights)
-    for (int g = 0; g < group_; ++g) 
-    {
-        for (long i = 0; i < I; ++i)
-        {
-            for (long r = 0; r < R; ++r)
+            Dtype bias = this->blobs_[1]->cpu_data()[i/I];
+            Dtype val = top_data[i] - bias;
+            if (val != 0)
             {
-                for (long k = 0; k < K; ++k)
-                {
-                    Dtype top_rel = top_buffer[r * I + i]; //already relevance / top_data
-                    Dtype bottom_data  = bottom_data_buffer[col_offset_ * g + k * I + i]; //transformed bottom data
-                    Dtype weight = weights[weight_offset_ * g + r * K + k];
-                    Dtype val = bottom_data * weight * top_rel;
-                    relevance_buffer[col_offset_ * g + k * I + i] += val;
-                }
+                top_buffer[i] = 0;
             }
         }
 
+
+        //have to just send relevance values down
+        //dividing by top_data would blow up values
+        for (int g = 0; g < group_; ++g) 
+        {
+            for (long i = 0; i < I; ++i)
+            {
+                for (long r = 0; r < R; ++r)
+                {
+                    for (long k = 0; k < K; ++k)
+                    {
+                        Dtype val = top_buffer[r * I + i]; //already relevance / top_data
+                        relevance_buffer[col_offset_ * g + k * I + i] += val;
+                    }
+                }
+            }
+        }
+    }
+    else //run normal backward relevance
+    {
+        //sum up relevance coming from top nodes with value of 0
+        //also sum up total relevance for proportion calculation
+        for(int i = 0; i < top_size; i++)
+        {
+            Dtype bias = this->blobs_[1]->cpu_data()[i/I];
+            Dtype val = top_data[i] - bias;
+            if (val == 0)
+            {
+                zero_top_data_sum += top_buffer[i];
+            }
+            total_top_data += val;
+        }
+
+        //redistribute relevance from dead nodes proportionally to those remaining
+        for(int i = 0; i < top_size; i++)
+        {
+            Dtype bias = this->blobs_[1]->cpu_data()[i/I];
+            Dtype val = top_data[i] - bias;
+            top_buffer[i] += (val / total_top_data) * zero_top_data_sum;
+        }
+
+        //divide relevance by top_data
+        for(int c = 0; c < top_size; ++c)
+        {
+            Dtype bias = this->blobs_[1]->cpu_data()[c/I];
+            Dtype val = top_data[c] - bias;
+
+            if(val > 0)
+            {
+                top_buffer[c] /=  val;
+            }
+            else if(val < 0)
+            {
+                top_buffer[c] /=  val;
+            }
+            else
+            {
+                top_buffer[c] = 0;
+            }
+        }
+
+        //multiply (relevance / top_data) *  (inputs * weights)
+        for (int g = 0; g < group_; ++g) 
+        {
+            for (long i = 0; i < I; ++i)
+            {
+                for (long r = 0; r < R; ++r)
+                {
+                    for (long k = 0; k < K; ++k)
+                    {
+                        Dtype top_rel = top_buffer[r * I + i]; //already relevance / top_data
+                        Dtype bottom_data  = bottom_data_buffer[col_offset_ * g + k * I + i]; //transformed bottom data
+                        Dtype weight = weights[weight_offset_ * g + r * K + k];
+                        Dtype val = bottom_data * weight * top_rel;
+                        relevance_buffer[col_offset_ * g + k * I + i] += val;
+                    }
+                }
+            }
+
+        }
     }
 
     //transform back to original dimensions

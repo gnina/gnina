@@ -4,6 +4,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <unordered_map>
 
 #include <boost/array.hpp>
 #include <boost/thread/locks.hpp>
@@ -79,9 +80,10 @@ public:
 
   void getReceptorChannels(int batch_idx, vector<short>& whichGrid);
   void getLigandChannels(int batch_idx, vector<short>& whichGrid);
-  void getReceptorGradient(int batch_idx, vector<float3>& gradient, bool lrp = false);
-  void getLigandGradient(int batch_idx, vector<float3>& gradient, bool lrp = false);
-
+  void getReceptorGradient(int batch_idx, vector<float3>& gradient);
+  void getMappedReceptorGradient(int batch_idx, unordered_map<string ,float3>& gradient);
+  void getLigandGradient(int batch_idx, vector<float3>& gradient);
+  void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient);
   //set in memory buffer
   template<typename Atom>
   void setReceptor(const vector<Atom>& receptor)
@@ -162,6 +164,7 @@ public:
   double getResolution() const { return resolution; }
 
   void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
+
 
  protected:
 
@@ -667,5 +670,25 @@ public:
 
 
 }  // namespace caffe
+
+//round coordinates to same precision as pdb
+//for identifying atoms
+template<typename T>
+static string xyz_to_string(T x, T y, T z)
+{
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(3) << x;
+    std::string rounded_x = ss.str();
+    ss.str("");
+    ss << std::fixed << std::setprecision(3) << y;
+    std::string rounded_y = ss.str();
+    ss.str("");
+    ss << std::fixed << std::setprecision(3) << z;
+    std::string rounded_z = ss.str();
+
+    string xyz = rounded_x + rounded_y + rounded_z;
+    return xyz;
+}
+
 
 #endif  // CAFFE_MOLGRID_DATA_LAYER_HPP_
