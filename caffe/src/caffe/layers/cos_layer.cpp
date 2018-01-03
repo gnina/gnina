@@ -40,5 +40,6 @@ STUB_GPU(CosLayer);
 #endif
 
 INSTANTIATE_CLASS(CosLayer);
+REGISTER_LAYER_CLASS(Cos);
 
 }  // namespace caffe
