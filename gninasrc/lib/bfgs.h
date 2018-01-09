@@ -227,8 +227,10 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	Conf x_orig(x);
 
 	Change p(g);
-	 //std::cout << std::setprecision(8);
-	 //std::cout << "f0 " << f0 << "\n";
+	if(params.outputframes > 0) {
+	  std::cout << std::setprecision(8);
+	  std::cout << "f0 " << f0 << "\n";
+	}
 	std::ofstream minout;
 	if(params.outputframes > 0)
 		minout.open("minout.sdf");
@@ -264,6 +266,9 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 				f.m->write_sdf(minout);
 				minout << "$$$$\n";
 			}
+
+			std::cout << "change: ";
+			g_new.print();
 		}
 		x = x_new;
 
@@ -280,9 +285,12 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		g = g_new; // dkoes - check the convergence of the new gradient
 
 		fl gradnormsq = scalar_product(g, g, n);
-		//std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
-		// std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | step " << step;
-		// std::cout << " | f0 " << f0 << " | gradnormsq " << gradnormsq << " | alpha " << alpha << "\n";
+
+		if(params.outputframes > 0) {
+		  std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+		  std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | step " << step;
+		  std::cout << " | f0 " << f0 << " | gradnormsq " << gradnormsq << " | alpha " << alpha << "\n";
+		}
 
 		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
 		{
@@ -306,7 +314,10 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		x = x_orig;
 		g = g_orig;
 	}
-//	std::cout << "final f0 " << f0 << "\n";
+
+	if(params.outputframes > 0) {
+	  std::cout << "final f0 " << f0 << "\n";
+	}
 
 	return f0;
 }
