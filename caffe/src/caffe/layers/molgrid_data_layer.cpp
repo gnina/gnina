@@ -807,8 +807,8 @@ void MolGridDataLayer<Dtype>::outputDXGrid(std::ostream& out, Grids& grid, unsig
   out << "object 2 class gridconnections counts " << n << " " << n << " " << " " << n << "\n";
   out << "object 3 class array type double rank 0 items [ " << n*n*n << "] data follows\n";
   //now coordinates - x,y,z
-
-  out.precision(10);
+  out << scientific;
+  out.precision(6);
   unsigned total = 0;
   for (unsigned i = 0; i < n; i++)
   {
