@@ -238,6 +238,7 @@ bool CNNScorer::has_affinity() const
 
 //return score of model, assumes receptor has not changed from initialization
 //if compute_gradient is set, also adds cnn atom gradient to m.minus_forces
+//ALERT: clears minus forces
 float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 {
 	boost::lock_guard<boost::mutex> guard(*mtx);

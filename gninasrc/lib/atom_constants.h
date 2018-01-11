@@ -27,6 +27,7 @@
 #include <openbabel/atom.h>
 #include <openbabel/mol.h>
 #include <openbabel/obiter.h>
+#include <openbabel/elements.h>
 
 
 //SMINA unified atom types - these must represent all possible combinations of autodock and x-scale atom types
@@ -305,14 +306,14 @@ inline smt obatom_to_smina_type(OpenBabel::OBAtom& atom)
 {
 	using namespace OpenBabel;
 	//from pdbqt format
-	const char *element_name = OpenBabel::etab.GetSymbol(atom.GetAtomicNum());
+	const char *element_name = OpenBabel::OBElements::GetSymbol(atom.GetAtomicNum());
 	std::string ename(element_name);
 
-  if (atom.IsHydrogen()) ename = "HD";
-  else if ((atom.IsCarbon()) && (atom.IsAromatic())) ename = "A";
-  else if (atom.IsOxygen()) ename = "OA";
-  else if ((atom.IsNitrogen()) && (atom.IsHbondAcceptor())) ename = "NA";
-  else if ((atom.IsSulfur()) && (atom.IsHbondAcceptor())) ename = "SA";
+  if (atom.GetAtomicNum() == 1) ename = "HD";
+  else if ((atom.GetAtomicNum() == 6) && (atom.IsAromatic())) ename = "A";
+  else if (atom.GetAtomicNum() == 8) ename = "OA";
+  else if ((atom.GetAtomicNum() == 7) && (atom.IsHbondAcceptor())) ename = "NA";
+  else if ((atom.GetAtomicNum() == 16) && (atom.IsHbondAcceptor())) ename = "SA";
 
   smt atype = string_to_smina_type(ename);
 
@@ -321,9 +322,9 @@ inline smt obatom_to_smina_type(OpenBabel::OBAtom& atom)
 
   FOR_NBORS_OF_ATOM(neigh, atom)
   {
-  	if(neigh->IsHydrogen())
+  	if(neigh->GetAtomicNum() == 1)
   		hbonded = true;
-  	else if(!neigh->IsCarbon())
+  	else if(neigh->GetAtomicNum() != 6)
   		heteroBonded = true; //hetero anything that is not hydrogen and not carbon
   }
 

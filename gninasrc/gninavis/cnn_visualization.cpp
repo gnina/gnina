@@ -167,7 +167,7 @@ void cnn_visualization::setup(){
     else if(visopts.target == "affinity")
     {
         float aff;
-        original_score = base_scorer.score(temp_rec, false, aff, true);
+        original_score = base_scorer.score(temp_rec, false, aff);
         original_score = aff;
         std::cout << "AFF: " << original_score << "\n\n";
     }
@@ -345,7 +345,7 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string) {
     temp.append(l);
 
     float aff;
-    float score_val = cnn_scorer.score(temp, true, aff, true);
+    float score_val = cnn_scorer.score(temp, true, aff);
     if (visopts.verbose) {
         std::cout << "SCORE: " << score_val << '\n';
     }

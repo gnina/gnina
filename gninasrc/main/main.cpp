@@ -81,7 +81,7 @@ struct user_settings
 	bool dominimize;
 	bool include_atom_info;
 	bool gpu_on;
-    bool true_score;
+	bool true_score;
 
     cnn_options cnnopts;
 	bool cnn_scoring;
@@ -93,7 +93,7 @@ struct user_settings
 					device(0), exhaustiveness(10),
 					score_only(false), randomize_only(false), local_only(false),
 					dominimize(false), include_atom_info(false), gpu_on(false),
-                    true_score(false)
+                    true_score(false), cnn_scoring(false)
 	{
 
 	}

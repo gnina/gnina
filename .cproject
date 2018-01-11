@@ -21,14 +21,14 @@
 					<folderInfo id="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.1093790188" name="/" resourcePath="">
 						<toolChain id="com.nvidia.cuda.ide.toolchain.eight_zero.1188415168" name="CUDA Toolkit 8.0" superClass="com.nvidia.cuda.ide.toolchain.eight_zero">
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.1139368227" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
-							<builder buildPath="${workspace_loc:/gnina/build}" id="com.nvidia.cuda.ide.builder.332766382" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="CUDA Toolkit 9.0 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
+							<builder buildPath="${workspace_loc:/gnina/build}" id="com.nvidia.cuda.ide.builder.332766382" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="CUDA Toolkit 8.0 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
 							<tool id="nvcc.compiler.base.1650384495" name="NVCC Compiler" superClass="nvcc.compiler.base">
 								<option id="nvcc.compiler.pic.1262079282" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic"/>
 								<option id="nvcc.compiler.include.paths.1217552990" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina/caffe/include/}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/openbabel-2.0"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/rdkit"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina/caffe/include/}&quot;"/>
 								</option>
 								<inputType id="nvcc.compiler.input.cu.1807711013" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.105662138" superClass="nvcc.compiler.input.cpp"/>
@@ -140,10 +140,10 @@
 							<tool id="nvcc.compiler.base.1416572274" name="NVCC Compiler" superClass="nvcc.compiler.base">
 								<option id="nvcc.compiler.pic.746481049" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic"/>
 								<option id="nvcc.compiler.include.paths.1587470023" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina/caffe/include/}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/openbabel-2.0"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/rdkit"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina/caffe/include/}&quot;"/>
 								</option>
 								<inputType id="nvcc.compiler.input.cu.229460419" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.1571737780" superClass="nvcc.compiler.input.cpp"/>
@@ -188,8 +188,12 @@
 			<resource resourceType="PROJECT" workspacePath="/gnina"/>
 		</configuration>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 	<storageModule moduleId="scannerConfiguration">
 		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.407239;com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.407239.;nvcc.compiler.base.1416572274;nvcc.compiler.input.c.1641309732">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
+		</scannerConfigBuildInfo>
 		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.224611667;com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.224611667.;nvcc.compiler.base.410704247;nvcc.compiler.input.cpp.471711388">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
 		</scannerConfigBuildInfo>
@@ -205,9 +209,14 @@
 		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275;com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.1093790188;nvcc.compiler.base.1650384495;nvcc.compiler.input.cpp.105662138">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
 		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.407239;com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.407239.;nvcc.compiler.base.1416572274;nvcc.compiler.input.cpp.1571737780">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.407239;com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.407239.;nvcc.compiler.base.1416572274;nvcc.compiler.input.cu.229460419">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
+		</scannerConfigBuildInfo>
 		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.224611667;com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.224611667.;nvcc.compiler.base.410704247;nvcc.compiler.input.cu.70567738">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
 		</scannerConfigBuildInfo>
 	</storageModule>
-	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cproject>
