@@ -337,6 +337,7 @@ void CNNScorer::outputDX(const string& prefix, double scale, bool lrp, string la
             else if(layers[i]->type() == string("InnerProduct"))
                 break;
         }
+
         if(pool) {
             if(pool->pool() == PoolingParameter_PoolMethod_MAX) {
                 pool->set_pool(PoolingParameter_PoolMethod_AVE);
