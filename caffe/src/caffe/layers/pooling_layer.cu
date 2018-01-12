@@ -559,6 +559,7 @@ __global__ void AvePoolBackward(const int nthreads, const Dtype* top_diff,
     int im_loc[MAX_SPATIAL_AXES];  // NOLINT(runtime/arrays)
     int starts[MAX_SPATIAL_AXES];  // NOLINT(runtime/arrays)
     int ends[MAX_SPATIAL_AXES];  // NOLINT(runtime/arrays)
+    //note im_shape has channels in first dimension, but pooled_shape does not
   CUDA_KERNEL_LOOP(index, nthreads) {
     // ind2sub
     int k = index;
@@ -602,6 +603,7 @@ __global__ void AvePoolBackward(const int nthreads, const Dtype* top_diff,
         }
       }
     } else if (num_axes == 3) {
+      //these for loops will only go 0 or 1 times
       for (int ph = starts[0]; ph < ends[0]; ++ph) {
         for (int pw = starts[1]; pw < ends[1]; ++pw) {
           for (int pz = starts[2]; pz < ends[2]; ++pz) {
@@ -648,105 +650,6 @@ __global__ void AvePoolBackward(const int nthreads, const Dtype* top_diff,
   }
 }
 
-/*
-template <typename Dtype>
-__global__ void AvePoolBackward(const int nthreads, const Dtype* top_diff,
-    int num, int channels, int num_axes,
-    const int* im_shape, const int* pooled_shape,
-    const int* kernel_shape, const int* stride, const int* pad,
-    Dtype* bottom_diff) {
-
-  CUDA_KERNEL_LOOP(index, nthreads) {
-
-    const int pad_h = pad[0];
-    const int pad_w = pad[1];
-    //im shape has changes at 0
-    const int height = im_shape[1];
-    const int width = im_shape[2];
-    const int pooled_height = pooled_shape[0];
-    const int pooled_width = pooled_shape[1];
-    const int stride_h = stride[0];
-    const int stride_w = stride[1];
-    const int kernel_h = kernel_shape[0];
-    const int kernel_w = kernel_shape[1];
-
-    if(num_axes == 2) {
-      // find out the local index
-      // find out the local offset
-      const int w = index % width + pad_w;
-      const int h = (index / width) % height + pad_h;
-      const int c = (index / width / height) % channels;
-      const int n = index / width / height / channels;
-      const int phstart = (h < kernel_h) ? 0 : (h - kernel_h) / stride_h + 1;
-      const int phend = min(h / stride_h + 1, pooled_height);
-      const int pwstart = (w < kernel_w) ? 0 : (w - kernel_w) / stride_w + 1;
-      const int pwend = min(w / stride_w + 1, pooled_width);
-      Dtype gradient = 0;
-      const Dtype* const top_diff_slice =
-          top_diff + (n * channels + c) * pooled_height * pooled_width;
-      for (int ph = phstart; ph < phend; ++ph) {
-        for (int pw = pwstart; pw < pwend; ++pw) {
-          // figure out the pooling size
-          int hstart = ph * stride_h - pad_h;
-          int wstart = pw * stride_w - pad_w;
-          int hend = min(hstart + kernel_h, height + pad_h);
-          int wend = min(wstart + kernel_w, width + pad_w);
-          int pool_size = (hend - hstart) * (wend - wstart);
-          gradient += top_diff_slice[ph * pooled_width + pw] / pool_size;
-        }
-      }
-      bottom_diff[index] = gradient;
-    }
-    else if(num_axes == 3) {
-      //dkoes - so much easier to understand if we hardcode 3..
-      const int depth = im_shape[3];
-      const int pad_d = pad[2];
-      const int pooled_depth = pooled_shape[2];
-      const int stride_d = stride[2];
-      const int kernel_d = kernel_shape[2];
-
-      const int d = index % depth + pad_d;
-      const int w = (index/depth) % width + pad_w;
-      const int h = (index / depth / width) % height + pad_h;
-      const int c = (index / depth / width / height) % channels;
-      const int n = index / depth/ width / height / channels;
-
-      const int phstart = (h < kernel_h) ? 0 : (h - kernel_h) / stride_h + 1;
-      const int phend = min(h / stride_h + 1, pooled_height);
-      const int pwstart = (w < kernel_w) ? 0 : (w - kernel_w) / stride_w + 1;
-      const int pwend = min(w / stride_w + 1, pooled_width);
-      const int pdstart = (d < kernel_d) ? 0 : (d - kernel_d) / stride_d + 1;
-      const int pdend = min(d / stride_d + 1, pooled_depth);
-
-      Dtype gradient = 0;
-      const Dtype* const top_diff_slice =
-          top_diff + (n * channels + c) * pooled_height * pooled_width * pooled_depth;
-      for (int ph = phstart; ph < phend; ++ph) {
-        for (int pw = pwstart; pw < pwend; ++pw) {
-          for (int pd = pdstart; pd < pdend; ++pd) {
-            // figure out the pooling size
-            int hstart = ph * stride_h - pad_h;
-            int wstart = pw * stride_w - pad_w;
-            int dstart = pd * stride_d - pad_d;
-
-            int hend = min(hstart + kernel_h, height + pad_h);
-            int wend = min(wstart + kernel_w, width + pad_w);
-            int dend = min(dstart + kernel_d, depth + pad_d);
-
-            int pool_size = (hend - hstart) * (wend - wstart) * (dend - dstart);
-            gradient += top_diff_slice[(ph * pooled_width + pw) * pooled_depth + pd] / pool_size;
-          }
-        }
-      }
-      bottom_diff[index] = gradient;
-    }
-    else {
-      assert(0);
-    }
-
-  }
-}
-*/
 
 template <typename Dtype>
 __global__ void StoPoolBackward(const int nthreads,

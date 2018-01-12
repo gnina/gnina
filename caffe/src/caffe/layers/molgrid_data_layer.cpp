@@ -984,7 +984,6 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const ve
   else
     diff = top[0]->mutable_cpu_diff();
 
-  std::cout << "DIFF[2] " << diff[2] << "\n";
   //propagate gradient grid onto atom positions
   unsigned batch_size = top_shape[0];
   for (int item_id = 0; item_id < batch_size; ++item_id) {
