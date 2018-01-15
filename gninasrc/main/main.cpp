@@ -54,6 +54,7 @@
 #include <boost/bind.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <boost/unordered_map.hpp>
+#include "sem.h"
 
 #include <cuda_profiler_api.h>
 
@@ -877,6 +878,39 @@ struct writer_job
 	;
 };
 
+template <typename T>
+struct job_queue
+{
+    job_queue() :
+        jobs(0)
+    {
+    }
+    ;
+    
+    void push(T& job){
+        jobs.push(job);
+        has_work.signal();
+    }
+
+    // Returns false and doesn't modify job iff the queue has been
+    // closed. Should not be called again in the same thread afterwards.
+    bool wait_and_pop(T& job){
+        has_work.wait();
+        return !jobs.pop(job);
+    }
+
+    // Signal that all jobs are done. num_possible_waiters will be waiting
+    // on the sem, so arrange for them to wake. They'll find an empty
+    // queue that distinguishes these special signals.
+    void close(size_t num_possible_waiters){
+        for(size_t i = 0; i < num_possible_waiters; i++)
+            has_work.signal();
+    }
+    
+    sem has_work;
+    boost::lockfree::queue<T> jobs;
+};
+
 //A struct of parameters that define the current run. These are packed together
 //because of boost's restriction on the number of arguments you can 
 //give to bind (max args is 9, but I need 10+ for the following thread
@@ -906,40 +940,32 @@ struct global_state
 };
 
 //function to occupy the worker threads with individual ligands from the work queue
-void threads_at_work(boost::lockfree::queue<worker_job>* wrkq,
-		boost::lockfree::queue<writer_job>* writerq, global_state* gs,
+void threads_at_work(job_queue<worker_job>* wrkq,
+		job_queue<writer_job>* writerq, global_state* gs,
 		MolGetter* mols,
-		bool* work_done, int* nligs, bool* ligcount_final)
+		int* nligs)
 {
 	if(gs->settings->gpu_on) {
 		initializeCUDA(gs->settings->device);
     }
 
-	while (!*work_done || !wrkq->empty())
+    worker_job j;
+    while (!wrkq->wait_and_pop(j))
 	{
-		worker_job j;
-		if (wrkq->pop(j))
-		{
-			__sync_fetch_and_add(nligs, 1);
+        __sync_fetch_and_add(nligs, 1);
 
-			main_procedure(*(j.m), *gs->prec, boost::optional<model>(),
-					*gs->settings,
-					false, // no_cache == false
-					gs->atomoutfile->is_open()
-							|| gs->settings->include_atom_info, j.gd,
-							*gs->minparms, *gs->wt, *gs->log, *(j.results),
-					*gs->user_grid, gs->cnn_scorer);
+        main_procedure(*(j.m), *gs->prec, boost::optional<model>(),
+                       *gs->settings,
+                       false, // no_cache == false
+                       gs->atomoutfile->is_open()
+                       || gs->settings->include_atom_info, j.gd,
+                       *gs->minparms, *gs->wt, *gs->log, *(j.results),
+                       *gs->user_grid, gs->cnn_scorer);
 
-			writer_job k(j.molid, j.results);
-			writerq->push(k);
-			delete j.m;
-		}
-		else
-		{
-			boost::thread::yield();
-		}
+        writer_job k(j.molid, j.results);
+        writerq->push(k);
+        delete j.m;
 	}
-	*ligcount_final = true;
 }
 
 void write_out(std::vector<result_info> &results, ozfile &outfile,
@@ -974,44 +1000,37 @@ void write_out(std::vector<result_info> &results, ozfile &outfile,
 }
 
 //function for the writing thread to write ligands in order to output file
-void thread_a_writing(boost::lockfree::queue<writer_job>* writerq,
+void thread_a_writing(job_queue<writer_job>* writerq,
 		global_state* gs,
 		ozfile* outfile, std::string* outext, ozfile* outflex,
 		std::string* outfext,
-		int* nligs, bool* ligcount_final)
+		int* nligs)
 {
 	int nwritten = 0;
 	boost::unordered_map<int, std::vector<result_info>*> proc_out;
-	while (!*ligcount_final || nwritten < *nligs)
+    writer_job j;    
+	while (!writerq->wait_and_pop(j))
 	{
-		writer_job j;
-		if (writerq->pop(j))
-		{
-			if (j.molid == nwritten)
-			{
-				write_out(*j.results, *outfile, *outext, *gs->settings, *gs->wt,
-						*outflex, *outfext, *gs->atomoutfile);
-				nwritten++;
-				delete j.results;
-				for (boost::unordered_map<int, std::vector<result_info>*>::iterator i;
-						(i = proc_out.find(nwritten)) != proc_out.end();)
-				{
-					write_out(*i->second, *outfile, *outext, *gs->settings,
-							*gs->wt,
-							*outflex, *outfext, *gs->atomoutfile);
-					nwritten++;
-					delete i->second;
-				}
-			}
-			else
-			{
-				proc_out[j.molid] = j.results;
-			}
-		}
-		else
-		{
-			boost::thread::yield();
-		}
+        if (j.molid == nwritten)
+        {
+            write_out(*j.results, *outfile, *outext, *gs->settings, *gs->wt,
+                      *outflex, *outfext, *gs->atomoutfile);
+            nwritten++;
+            delete j.results;
+            for (boost::unordered_map<int, std::vector<result_info>*>::iterator i;
+                 (i = proc_out.find(nwritten)) != proc_out.end();)
+            {
+                write_out(*i->second, *outfile, *outext, *gs->settings,
+                          *gs->wt,
+                          *outflex, *outfext, *gs->atomoutfile);
+                nwritten++;
+                delete i->second;
+            }
+        }
+        else
+        {
+            proc_out[j.molid] = j.results;
+        }
 	}
 }
 
@@ -1570,13 +1589,9 @@ Thank you!\n";
 			log << "\n";
 		}
 
-		boost::lockfree::queue<worker_job> wrkq(0);
-		//This should probably be a different type of queue that blocks
-		//instead of doing busy waiting
-		boost::lockfree::queue<writer_job> writerq(0);
+		job_queue<worker_job> wrkq;
+		job_queue<writer_job> writerq;
 		int nligs = 0;
-		bool ligcount_final = false;
-		bool work_done = false;
 		unsigned int nthreads = settings.cpu;
 		global_state gs(&settings, prec, &minparms, &wt, &user_grid,
 				&log, &atomoutfile, cnn_scorer);
@@ -1590,14 +1605,14 @@ Thank you!\n";
 		for (int i = 0; i < nthreads; i++)
 		{
 			worker_threads.create_thread(boost::bind(threads_at_work, &wrkq,
-					&writerq, &gs, &mols, &work_done,
-					&nligs, &ligcount_final));
+					&writerq, &gs, &mols,
+                    &nligs));
 		}
 
 		//launch writer thread to write results wherever they go
 		boost::thread writer_thread(thread_a_writing, &writerq, &gs, &outfile,
 				&outext,
-				&outflex, &outfext, &nligs, &ligcount_final);
+				&outflex, &outfext, &nligs);
 
 
 		try {
@@ -1645,16 +1660,18 @@ Thank you!\n";
 		} catch (...)
 		{
 			//clean up threads before passing along exception
-			work_done = true;
+            wrkq.close(nthreads);
 			worker_threads.join_all();
+            writerq.close(1);
 			writer_thread.join();
 	        cudaDeviceSynchronize();
 			throw;
 		}
 
 		//join all the threads when their work is done
-		work_done = true;
+        wrkq.close(nthreads);
 		worker_threads.join_all();
+        writerq.close(1);
 		writer_thread.join();
 
         cudaDeviceSynchronize();
