@@ -61,8 +61,6 @@
 using namespace boost::iostreams;
 using boost::filesystem::path;
 
-size_t nthreads = 0;
-
 //just a collection of user-specified configurations
 struct user_settings
 {
@@ -949,6 +947,7 @@ void threads_at_work(job_queue<worker_job>* wrkq,
 {
 	if(gs->settings->gpu_on) {
 		initializeCUDA(gs->settings->device);
+        thread_buffer.init(free_mem(gs->settings->cpu));
     }
 
     worker_job j;
@@ -1357,8 +1356,10 @@ Thank you!\n";
 				approx_factor = 10;
 		}
 
-        if (settings.gpu_on)
+        if (settings.gpu_on) {
+            cudaDeviceReset();
             cudaDeviceSetLimit(cudaLimitStackSize, 5120);
+        }
 
 		if (accurate_line)
 		{
@@ -1594,7 +1595,7 @@ Thank you!\n";
 		job_queue<worker_job> wrkq;
 		job_queue<writer_job> writerq;
 		int nligs = 0;
-		nthreads = settings.cpu;
+		size_t nthreads = settings.cpu;
 		global_state gs(&settings, prec, &minparms, &wt, &user_grid,
 				&log, &atomoutfile, cnn_scorer);
 		boost::thread_group worker_threads;
