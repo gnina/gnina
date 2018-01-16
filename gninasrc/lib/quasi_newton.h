@@ -25,7 +25,6 @@
 
 #include "model.h"
 #include "conf_gpu.h"
-#include "non_cache_gpu.h"
 
 class quasi_newton {
 	minimization_params params;
@@ -36,12 +35,12 @@ public:
 	void operator()(model& m, const precalculate& p, const igrid& ig, output_type& out, change& g, const vec& v, const grid& user_grid) const; // g must have correct size
 };
 
-struct quasi_newton_aux_gpu {
+template<typename infoT> struct quasi_newton_aux_gpu {
 	gpu_data gdata;
-	const GPUNonCacheInfo ig;
+	const infoT ig;
 	const vec v;
     model* m;
-	quasi_newton_aux_gpu(gpu_data& gdata_,const GPUNonCacheInfo& ig_,
+	quasi_newton_aux_gpu(gpu_data& gdata_, const infoT& ig_,
 			const vec& v_, model* m_) :
 			gdata(gdata_), ig(ig_), v(v_), m(m_) {
 		// gdata.copy_to_gpu(*m);

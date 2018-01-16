@@ -551,12 +551,17 @@ void main_procedure(model& m, precalculate& prec,
 
 			if (cache_needed)
 				doing(settings.verbosity, "Analyzing the binding site", log);
-			cache c("scoring_function_version001", gd, slope);
+            if (settings.gpu_on)
+                cache_gpu c("scoring_function_version001", gd, slope);
+            else
+			    cache c("scoring_function_version001", gd, slope);
 			if (cache_needed)
 			{
 				std::vector<smt> atom_types_needed;
 				m.get_movable_atom_types(atom_types_needed);
 				c.populate(m, prec, atom_types_needed, user_grid);
+                if (settings.gpu_on)
+                    c.initialize();
 			}
 			if (cache_needed)
 				done(settings.verbosity, log);

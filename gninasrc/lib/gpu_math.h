@@ -141,11 +141,18 @@ float3 operator*(T b, float3 a) {
 }
 
 template<typename T>
-class array3d {
-    sz i {}, j {}, k {};
+class array3d_gpu {
+    sz i, j, k;
     T* data {};
 public:
-    array3d(sz i, sz j, sz k) : i(i), j(j), k(k), data(i * j * k) {}
+    array3d_gpu(array3d cpu_array) : i(cpu_array.m_i), j(cpu_array.m_j), 
+                                     k(cpu_array.m_k) {
+        CUDA_CHECK_GNINA(thread_buffer.alloc(&data, i * j * k * sizeof(T)));
+        definitelyPinnedMemcpy(data, &cpu_array.m_data[0], sizeof(T) * 
+                cpu_array.m_data.size(), cudaMemcpyHostToDevice);
+    }
+
+    array3d_gpu(array3d_gpu gpu_array) : default;
 
 	__device__  sz dim0() const { return i; }
 	__device__  sz dim1() const { return j; }

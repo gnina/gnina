@@ -7,8 +7,8 @@
 // CUDA runtime
 #include <cuda_runtime.h>
 #include <vector>
-#include "gpu_math.h"
 #include "interacting_pairs.h"
+#include "grid_gpu.h"
 
 struct GPUSplineInfo
 {
@@ -85,6 +85,17 @@ struct GPUNonCacheInfo
   //triangular matrix of spline data, indexed by type, device pointer
   unsigned ntypes; //number of atom types; also, dimension of triangular splineInfo
   GPUSplineInfo *splineInfo;
+};
+
+struct GPUCacheInfo
+{
+  float3 gridends;
+  float3 gridbegins;
+  fl slope;
+
+  //grids used to interpolate atom energies
+  grid_gpu* grids;
+  unsigned ngrids;
 };
 
 void evaluate_splines_host(const GPUSplineInfo& spInfo, float r,
