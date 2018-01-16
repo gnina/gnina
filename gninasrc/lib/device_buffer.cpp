@@ -15,6 +15,7 @@
 #define align_up_pow2(n, size)                                    \
     ((decltype (n)) align_down_pow2((uintptr_t) (n) + (size) - 1, size))
 
+extern size_t nthreads;
 size_t free_mem() {
    size_t free, total;
    CUresult res;
@@ -22,13 +23,9 @@ size_t free_mem() {
    if (res != CUDA_SUCCESS) {
        std::cerr << "cuMemGetInfo returned status " << res << "\n";
        return 1;
-    }
-   uint max_threads = boost::thread::hardware_concurrency();
-   //TODO: herp derp 
-   return (free / max_threads) - ceil(120 / max_threads);
+   }
+   return (free / nthreads) * .8;
 }
-
-thread_local device_buffer thread_buffer(free_mem());
 
 device_buffer::device_buffer(size_t capacity) : capacity(capacity){
     CUDA_CHECK_GNINA(cudaMalloc(&begin, capacity));
@@ -41,11 +38,11 @@ bool device_buffer::has_space(size_t n_bytes) {
 }
 
 cudaError_t device_alloc_bytes(void **alloc, size_t n_bytes) {
+    // static here gives us lazy initialization and saves us from
+    // constructing a thread_buffer for non-worker threads not included in
+    // the free_mem() calculation.
+    static thread_local device_buffer thread_buffer(free_mem());
     return thread_buffer.alloc((char **) alloc, n_bytes);
-}
-
-cudaError_t device_free(void *buf) {
-    return thread_buffer.dealloc(buf);
 }
 
 void device_buffer::resize(size_t n_bytes) {

@@ -61,6 +61,8 @@
 using namespace boost::iostreams;
 using boost::filesystem::path;
 
+size_t nthreads = 0;
+
 //just a collection of user-specified configurations
 struct user_settings
 {
@@ -1592,7 +1594,7 @@ Thank you!\n";
 		job_queue<worker_job> wrkq;
 		job_queue<writer_job> writerq;
 		int nligs = 0;
-		unsigned int nthreads = settings.cpu;
+		nthreads = settings.cpu;
 		global_state gs(&settings, prec, &minparms, &wt, &user_grid,
 				&log, &atomoutfile, cnn_scorer);
 		boost::thread_group worker_threads;
@@ -1607,6 +1609,7 @@ Thank you!\n";
 			worker_threads.create_thread(boost::bind(threads_at_work, &wrkq,
 					&writerq, &gs, &mols,
                     &nligs));
+            
 		}
 
 		//launch writer thread to write results wherever they go
