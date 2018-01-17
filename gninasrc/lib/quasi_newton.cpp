@@ -43,10 +43,9 @@ struct quasi_newton_aux {
 void quasi_newton::operator()(model& m,const precalculate& p,const igrid& ig,
 		output_type& out,change& g,const vec& v,const grid& user_grid) const{ 
     // g must have correct size
-	const non_cache_gpu* gpu = dynamic_cast<const non_cache_gpu*>(&ig);
-    if (!gpu)
-        const cache_gpu* gpu = dynamic_cast<const cache_gpu*>(&ig);
-	if(gpu) {
+	const non_cache_gpu* n_gpu = dynamic_cast<const non_cache_gpu*>(&ig);
+    const cache_gpu* c_gpu = dynamic_cast<const cache_gpu*>(&ig);
+	if(n_gpu || c_gpu) {
 		m.initialize_gpu();
 		assert(m.gpu_initialized());
         if(user_grid.initialized())
@@ -54,10 +53,17 @@ void quasi_newton::operator()(model& m,const precalculate& p,const igrid& ig,
           std::cerr << "usergrid not supported in gpu code yet\n";
           exit(-1);
         }
-		quasi_newton_aux_gpu aux(m.gdata, gpu->get_info(), v, &m);
 		change_gpu gchange(g, m.gdata, thread_buffer);
 		conf_gpu gconf(out.c, m.gdata, thread_buffer);
-		fl res = bfgs(aux, gconf, gchange, average_required_improvement, params);
+        fl res;
+        if (n_gpu) {
+		    quasi_newton_aux_gpu<GPUNonCacheInfo> aux(m.gdata, n_gpu->get_info(), v, &m);
+		    res = bfgs(aux, gconf, gchange, average_required_improvement, params);
+        }
+        else {
+		    quasi_newton_aux_gpu<GPUCacheInfo> aux(m.gdata, c_gpu->get_info(), v, &m);
+		    res = bfgs(aux, gconf, gchange, average_required_improvement, params);
+        }
 		gconf.set_cpu(out.c, m.gdata);
 		out.e = res;
 	} else {

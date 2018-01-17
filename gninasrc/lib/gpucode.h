@@ -92,6 +92,7 @@ struct GPUCacheInfo
   float3 gridends;
   float3 gridbegins;
   fl slope;
+  unsigned num_movable_atoms, nrec_atoms=0;
 
   //grids used to interpolate atom energies
   grid_gpu* grids;

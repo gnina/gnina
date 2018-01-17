@@ -7,6 +7,25 @@
 #define THREADS_PER_BLOCK 1024
 #define warpSize 32
 
+__device__ 
+void GPUNonCacheInfo::get_launch_params(unsigned& nfull_blocks, unsigned& nthreads_remain, 
+                                        unsigned& nthreads, dim3& nblocks) {
+    nfull_blocks = nrec_atoms / THREADS_PER_BLOCK;
+    nthreads_remain = nrec_atoms % THREADS_PER_BLOCK;
+    nblocks = dim3(num_movable_atoms, nfull_blocks);
+    nthreads = THREADS_PER_BLOCK;
+}
+
+__device__ 
+void GPUCacheInfo::get_launch_params(unsigned& nfull_blocks, unsigned& nthreads_remain, 
+                                        unsigned& nthreads, dim3& nblocks) {
+    assert(num_movable_atoms <= 1024);
+    nfull_blocks = 1;
+    nthreads_remain = 0;
+    nblocks = dim3(num_movable_atoms);
+    nthreads = num_movable_atoms;
+}
+
 __global__
 void evaluate_splines(float **splines, float r, float fraction, float cutoff,
 		float *vals, float *derivs) {
@@ -32,7 +51,6 @@ void evaluate_splines(float **splines, float r, float fraction, float cutoff,
 	derivs[i] = (3 * a * lx + 2 * b) * lx + c;
 }
 
-//TODO: buy compute 3.0 or greater card and implement dynamic paralellism
 //evaluate a single spline
 __device__
 float evaluate_spline(float *spline, float r, float fraction, float cutoff,
@@ -333,8 +351,20 @@ __global__ void reduce_energy(force_energy_tup *result, int n,
 
 /* } */
 
+//the cached version of the energy eval.
+//leaving the bool templating to avoid special casing the code in
+//single_point_calc for now
+template<bool remainder> __global__
+void interaction_energy(const GPUCacheInfo dinfo, //intentionally copying from host to device
+                        unsigned remainder_offset, 
+                        const atom_params *ligs, force_energy_tup *out)
+{
+    
+}
+
+template <typename infoT>
 __host__ __device__
-float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
+float single_point_calc(const infoT &info, atom_params *ligs,
                         force_energy_tup *out, float v)
 {
 	/* Assumed by warp_sum */
@@ -343,15 +373,14 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
     unsigned nrec_atoms = info.nrec_atoms;
 
 	//this will calculate the per-atom energies and forces.
-	//there is one execution stream for the blocks with
+	//TODO: there could be one execution stream for the blocks with
 	//a full complement of threads and a separate stream
 	//for the blocks that have the remaining threads
-	unsigned nfull_blocks = nrec_atoms / THREADS_PER_BLOCK;
-	unsigned nthreads_remain = nrec_atoms % THREADS_PER_BLOCK;
+	unsigned nfull_blocks, nthreads_remain, nthreads;
+    dim3 nblocks;
 
 	if (nfull_blocks)
-		interaction_energy<0> <<<dim3(num_movable_atoms, nfull_blocks),
-				THREADS_PER_BLOCK>>>(info, 0, ligs, out);
+		interaction_energy<0> <<<nblocks, nthreads>>>(info, 0, ligs, out);
 	if (nthreads_remain)
 		interaction_energy<1> <<<num_movable_atoms, ROUND_TO_WARP(nthreads_remain)>>>(info,
 				nrec_atoms - nthreads_remain, ligs, out);
@@ -447,3 +476,6 @@ cudaError definitelyPinnedMemcpy(void* dst, const void *src, size_t n, cudaMemcp
     }
     return cudaSuccess;
 }
+
+template <> single_point_calc(const GPUNonCacheInfo&);
+template <> single_point_calc(const GPUCacheInfo&);

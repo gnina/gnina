@@ -561,7 +561,7 @@ void main_procedure(model& m, precalculate& prec,
 				m.get_movable_atom_types(atom_types_needed);
 				c.populate(m, prec, atom_types_needed, user_grid);
                 if (settings.gpu_on)
-                    c.initialize();
+                    c.initialize(m);
 			}
 			if (cache_needed)
 				done(settings.verbosity, log);

@@ -79,7 +79,8 @@ __device__ inline void minus_mat_vec_product(const flmat_gpu& m,
 }
 
 __device__
-fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
+template<typename infoT>
+fl accurate_line_search_gpu(quasi_newton_aux_gpu<infoT>& f, sz n, const conf_gpu& x,
                             const change_gpu& g, const fl f0,
                             const change_gpu& p, conf_gpu& x_new,
                             change_gpu& g_new, fl& f1)
@@ -215,8 +216,9 @@ void bfgs_update(flmat_gpu& h, const change_gpu& p,
     // s * s == alpha * alpha * p * p	} *
 }
 
+template<typename infoT>
 __global__
-void bfgs_gpu(quasi_newton_aux_gpu f,
+void bfgs_gpu(quasi_newton_aux_gpu<infoT> f,
               conf_gpu x, conf_gpu x_orig, conf_gpu x_new,
               change_gpu g, change_gpu g_orig, change_gpu g_new,
               change_gpu p, change_gpu y, flmat_gpu h, change_gpu minus_hy,
@@ -307,7 +309,8 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
     }
 }
 
-fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
+template<typename infoT> 
+fl bfgs(quasi_newton_aux_gpu<infoT> &f, conf_gpu& x,
         change_gpu& g, const fl average_required_improvement,
 		const minimization_params& params) {
     sz n = g.num_floats();
@@ -342,3 +345,12 @@ fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
     CUDA_CHECK_GNINA(device_free(f0));
 	return out_energy;
 }
+
+template <> fl accurate_line_search_gpu(quasi_newton_aux_gpu<GPUNonCacheInfo>&);
+template <> fl accurate_line_search_gpu(quasi_newton_aux_gpu<GPUCacheInfo>&);
+
+template <> void bfgs_gpu(quasi_newton_aux_gpu<GPUNonCacheInfo>);
+template <> void bfgs_gpu(quasi_newton_aux_gpu<GPUCacheInfo>);
+
+template <> fl bfgs(quasi_newton_aux_gpu<GPUNonCacheInfo>&);
+template <> fl bfgs(quasi_newton_aux_gpu<GPUCacheInfo>&);
