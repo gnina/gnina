@@ -110,7 +110,7 @@ __device__ float change_gpu::dot(const change_gpu& rhs) const {
 	    //now warp reduce with shuffle
 
 	    for(uint offset = WARPSIZE>>1; offset > 0; offset >>= 1)
-	    	val += __shfl_down(val, offset);
+	    	val += shuffle_down(val, offset);
 
 	    if(start == 0)
 	    	out = val;
