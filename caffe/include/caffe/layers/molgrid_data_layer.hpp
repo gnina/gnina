@@ -152,7 +152,8 @@ public:
       }
       else
       {
-        CHECK_LE(t, 1) << "Unsupported atom type " << smina_type_to_string(t);
+        //CHECK_LE(t, 1) << "Unsupported atom type " << smina_type_to_string(t);
+        if(t > 1) std::cerr << "Ignoring unsupported atom type " << smina_type_to_string(t) << "\n";
       }
     }
     center /= acnt; //not ligand.size() because of hydrogens
