@@ -49,7 +49,7 @@ public:
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
       binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
-      gpu_gridatoms(NULL), gpu_gridwhich(NULL) {}
+      gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
   virtual ~MolGridDataLayer();
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -74,6 +74,7 @@ public:
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
   void setLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0);
+  void enableAtomGradients() { compute_atom_gradients = true; } //enable atom gradient computation
 
   void getReceptorAtoms(int batch_idx, vector<float4>& atoms);
   void getLigandAtoms(int batch_idx, vector<float4>& atoms);
@@ -482,7 +483,7 @@ public:
     void transform_and_append(const mol_info& a, const mol_transform& transform)
     {
       //copy atoms from a into this, transforming the coordinates according to transform
-      //LOG(INFO) << "About to transform " << a.atoms.size() << " atoms";
+      LOG(INFO) << "About to transform " << a.atoms.size() << " atoms";
       for(unsigned i = 0, n = a.atoms.size(); i < n; i++) {
         //non-coordinate stuff
         whichGrid.push_back(a.whichGrid[i]);
@@ -496,7 +497,7 @@ public:
         atom.z = p.R_component_4() + a.center[2] + transform.center[2];
         atoms.push_back(atom);
 
-        //LOG(INFO) << "Transforming " << a.atoms[i].x<<","<<a.atoms[i].y<<","<<a.atoms[i].z<<" to "<<atom.x<<","<<atom.y<<","<<atom.z;
+        LOG(INFO) << "Transforming " << a.atoms[i].x<<","<<a.atoms[i].y<<","<<a.atoms[i].z<<" to "<<atom.x<<","<<atom.y<<","<<atom.z;
       }
     }
   };
@@ -635,6 +636,7 @@ public:
   unsigned gpu_alloc_size;
   float4 *gpu_gridatoms;
   short *gpu_gridwhich;
+  bool compute_atom_gradients;
 
   //need to remember how mols were transformed for backward pass
   vector<mol_transform> batch_transform;
@@ -659,7 +661,7 @@ public:
                     mol_transform& transform, output_transform& peturb, bool gpu);
 
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
-  void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu, const vector<bool>& propagate_down);
+  void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu);
   void Backward_relevance(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
   //stuff for outputing dx grids
