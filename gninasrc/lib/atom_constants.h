@@ -27,7 +27,14 @@
 #include <openbabel/atom.h>
 #include <openbabel/mol.h>
 #include <openbabel/obiter.h>
-#include <openbabel/elements.h>
+#include <openbabel/babelconfig.h>
+
+#if (OB_VERSION >= OB_VERSION_CHECK(2,4,90))
+# include <openbabel/elements.h>
+# define GET_SYMBOL OpenBabel::OBElements::GetSymbol
+#else
+# define GET_SYMBOL etab.GetSymbol
+#endif
 
 
 //SMINA unified atom types - these must represent all possible combinations of autodock and x-scale atom types
@@ -306,7 +313,7 @@ inline smt obatom_to_smina_type(OpenBabel::OBAtom& atom)
 {
 	using namespace OpenBabel;
 	//from pdbqt format
-	const char *element_name = OpenBabel::OBElements::GetSymbol(atom.GetAtomicNum());
+	const char *element_name = GET_SYMBOL(atom.GetAtomicNum());
 	std::string ename(element_name);
 
   if (atom.GetAtomicNum() == 1) ename = "HD";

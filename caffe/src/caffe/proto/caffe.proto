@@ -895,7 +895,6 @@ message MolGridDataParameter {
   optional bool spherical_mask = 32 [default = false]; //mask out a sphere on the grid using atom centers
   optional bool peturb_ligand = 33 [default = false]; //apply additional random displacement/rotation to ligand, generate output of inverse transform
   optional float peturb_ligand_translate = 34 [default = 2.0]; //max amount to translate ligand by
-
 }
 
 message NDimDataParameter {

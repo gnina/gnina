@@ -24,7 +24,7 @@ using namespace std;
 //throw error if missing required info
 CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
         const model& m) :
-        rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
+        mgrid(NULL), mgridparam(NULL), rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
         outputdx(cnnopts.outputdx), outputxyz(cnnopts.outputxyz), xyzprefix(cnnopts.xyzprefix),
         mtx(new boost::mutex) {
 
@@ -49,7 +49,7 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
         param.mutable_state()->set_phase(TEST);
         LayerParameter *first = param.mutable_layer(0);
         //must be ndim
-        MolGridDataParameter *mgridparam = first->mutable_molgrid_data_param();
+        mgridparam = first->mutable_molgrid_data_param();
         if (mgridparam == NULL)
         {
             throw usage_error("First layer of model must be MolGridData.");
@@ -201,6 +201,7 @@ void CNNScorer::gradient_setup(const model& m, const string& recname, const stri
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
     mgrid->setLabels(1); //for now pose optimization only
+    mgrid->enableAtomGradients();
 
     net->Forward();
 
@@ -274,6 +275,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 
 		if (compute_gradient || outputxyz)
 		{
+		  mgrid->enableAtomGradients();
 			net->Backward();
 			mgrid->getLigandGradient(0, gradient);
 			m.add_minus_forces(gradient); //TODO divide by cnt?

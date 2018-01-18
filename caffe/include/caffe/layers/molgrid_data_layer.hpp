@@ -49,7 +49,7 @@ public:
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
       binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
-      gpu_gridatoms(NULL), gpu_gridwhich(NULL) {}
+      gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
   virtual ~MolGridDataLayer();
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -74,6 +74,7 @@ public:
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
   void setLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0);
+  void enableAtomGradients() { compute_atom_gradients = true; } //enable atom gradient computation
 
   void getReceptorAtoms(int batch_idx, vector<float4>& atoms);
   void getLigandAtoms(int batch_idx, vector<float4>& atoms);
@@ -636,6 +637,7 @@ public:
   unsigned gpu_alloc_size;
   float4 *gpu_gridatoms;
   short *gpu_gridwhich;
+  bool compute_atom_gradients;
 
   //need to remember how mols were transformed for backward pass
   vector<mol_transform> batch_transform;
