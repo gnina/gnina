@@ -482,7 +482,7 @@ public:
     void transform_and_append(const mol_info& a, const mol_transform& transform)
     {
       //copy atoms from a into this, transforming the coordinates according to transform
-      LOG(INFO) << "About to transform " << a.atoms.size() << " atoms";
+      //LOG(INFO) << "About to transform " << a.atoms.size() << " atoms";
       for(unsigned i = 0, n = a.atoms.size(); i < n; i++) {
         //non-coordinate stuff
         whichGrid.push_back(a.whichGrid[i]);
@@ -496,7 +496,7 @@ public:
         atom.z = p.R_component_4() + a.center[2] + transform.center[2];
         atoms.push_back(atom);
 
-        LOG(INFO) << "Transforming " << a.atoms[i].x<<","<<a.atoms[i].y<<","<<a.atoms[i].z<<" to "<<atom.x<<","<<atom.y<<","<<atom.z;
+        //LOG(INFO) << "Transforming " << a.atoms[i].x<<","<<a.atoms[i].y<<","<<a.atoms[i].z<<" to "<<atom.x<<","<<atom.y<<","<<atom.z;
       }
     }
   };
