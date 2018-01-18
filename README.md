@@ -22,14 +22,9 @@ Installation
 apt-get install build-essential git wget libopenbabel-dev libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-serial-dev libatlas-base-dev python-dev cmake librdkit-dev python-numpy
 ```
 
-[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA.  Or:
+[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA.  *Note* we are in the process of transitioning to CUDA 9.1.
 
-```
-wget https://developer.nvidia.com/compute/cuda/8.0/Prod2/local_installers/cuda-repo-ubuntu1604-8-0-local-ga2_8.0.61-1_amd64-deb
-dpkg -i cuda-repo-ubuntu1604-8-0-local_8.0.44-1_amd64-deb 
-apt-get update
-apt-get install cuda
-```
+
 ```
 git clone https://github.com/gnina/gnina.git
 cd gnina
