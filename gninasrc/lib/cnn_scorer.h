@@ -41,6 +41,7 @@ class CNNScorer {
     typedef float Dtype;
     caffe::shared_ptr<caffe::Net<Dtype> > net;
     caffe::MolGridDataLayer<Dtype> *mgrid;
+    caffe::MolGridDataParameter *mgridparam;
     unsigned rotations;
     unsigned seed;
     bool outputdx;
