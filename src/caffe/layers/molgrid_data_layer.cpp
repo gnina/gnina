@@ -976,8 +976,11 @@ void MolGridDataLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom,
-    bool gpu)
+    bool gpu, const vector<bool>& propagate_down)
 {
+  if(!propagate_down[0])
+    return; //this is a fairly expensive, (currently) non-gpu optimized operation, skip if possible
+
   Dtype *diff = NULL;
   if(gpu)
     diff = top[0]->mutable_cpu_diff(); //TODO
