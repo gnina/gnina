@@ -10,7 +10,6 @@
 #include "gpu_math.h"
 
 struct gfloat4 : float4{
-    __host__ __device__
     gfloat4() = default;
     __host__ __device__
     gfloat4(float x, float y, float z, float w) : float4{x,y,z,w}{}
@@ -46,7 +45,6 @@ typedef gpair<gfloat4, gfloat4> gfloat4p;
 struct gpu_mat{
     gfloat4 vecs[3];
 
-    __host__ __device__
     gpu_mat() = default;
     __host__ __device__
     gpu_mat(const mat &m);
