@@ -401,7 +401,7 @@ void Solver<Dtype>::Test(const int test_net_id) {
 }
 
 template <typename Dtype>
-void Solver<Dtype>::Snapshot() {
+string Solver<Dtype>::Snapshot() {
   CHECK(Caffe::root_solver());
   string model_filename;
   switch (param_.snapshot_format()) {
@@ -416,6 +416,7 @@ void Solver<Dtype>::Snapshot() {
   }
 
   SnapshotSolverState(model_filename);
+  return model_filename;
 }
 
 template <typename Dtype>

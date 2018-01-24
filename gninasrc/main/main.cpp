@@ -1200,10 +1200,6 @@ Thank you!\n";
 				"caffe cnn model file; if not specified a default model will be used")
 		("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
 				"caffe cnn weights file (*.caffemodel); if not specified default weights (trained on the default model) will be used")
-		("cnn_recmap", value<std::string>(&cnnopts.cnn_recmap),
-				"receptor atom type to channel mapping")
-		("cnn_ligmap", value<std::string>(&cnnopts.cnn_ligmap),
-				"ligand atom type to channel mapping")
 		("cnn_resolution", value<fl>(&cnnopts.resolution)->default_value(0.5),
 				"resolution of grids, don't change unless you really know what you are doing")
 		("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
