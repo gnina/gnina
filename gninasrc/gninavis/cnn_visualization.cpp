@@ -546,7 +546,7 @@ std::string cnn_visualization::get_xyz(const std::string &line)
 {
     std::string x = line.substr(31,7);
     std::string y = line.substr(39,7);
-    std::string z = line.substr(48,6);
+    std::string z = line.substr(47,7);
     boost::trim_left(x);
     boost::trim_left(y);
     boost::trim_left(z);
