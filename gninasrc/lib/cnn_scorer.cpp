@@ -170,6 +170,7 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore, bool zero_val
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
     mgrid->setLabels(1); //for now pose optimization only
+    mgrid->enableAtomGradients();
 
     net->Forward();
     if(zero_values)
