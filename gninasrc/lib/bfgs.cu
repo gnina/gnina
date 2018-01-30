@@ -335,7 +335,7 @@ fl bfgs(quasi_newton_aux_gpu<infoT> &f, conf_gpu& x,
     CUDA_CHECK_GNINA(device_malloc(&f0, sizeof(float)));
     //TODO: make safe for the case where num_movable_atoms > 1024
     assert(f.ig.num_movable_atoms <= 1024);
-    bfgs_gpu<<<1,max(WARPSIZE,f.ig.num_movable_atoms)>>>(f,
+    bfgs_gpu<<<1,ROUND_TO_WARP(max(WARPSIZE,f.ig.num_movable_atoms))>>>(f,
                       x, x_orig, x_new,
                       g, g_orig, g_new,
                       p, y, h, minus_hy,

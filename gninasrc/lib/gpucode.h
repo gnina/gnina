@@ -12,12 +12,12 @@
 
 struct GPUSplineInfo
 {
-  unsigned n; //number of components
-  float **splines; //pointer to spline data in device memory, size is number of components
-  float fraction; //how spline is binned
-  float cutoff; //where to stop
+    unsigned n; //number of components
+    float **splines; //pointer to spline data in device memory, size is number of components
+    float fraction; //how spline is binned
+    float cutoff; //where to stop
 
-GPUSplineInfo(): n(0), splines(NULL), fraction(0), cutoff(0) {}
+    GPUSplineInfo(): n(0), splines(NULL), fraction(0), cutoff(0) {}
 };
 
 /* float3 reads/writes can't be coalesced into a single load/store. But
@@ -25,8 +25,8 @@ GPUSplineInfo(): n(0), splines(NULL), fraction(0), cutoff(0) {}
    pack it in with a relevant piece of 1-dimensional data. NB: without
    __align__, the compiler can't do this coalescing. */
 struct __align__(sizeof(float4)) atom_params{
-  float3 coords;
-  float charge;
+    float3 coords;
+    float charge;
 };
 
 struct __align__(sizeof(float4)) force_energy_tup{
@@ -92,7 +92,7 @@ struct GPUCacheInfo
   float3 gridends;
   float3 gridbegins;
   fl slope;
-  unsigned num_movable_atoms, nrec_atoms=0;
+  unsigned num_movable_atoms;
 
   //grids used to interpolate atom energies
   grid_gpu* grids;

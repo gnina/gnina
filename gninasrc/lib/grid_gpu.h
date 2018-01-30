@@ -16,4 +16,10 @@ struct grid_gpu
                        m_factor(g.m_factor), m_dim_fl_minus_1(g.m_dim_fl_minus_1), 
                        m_factor_inv(g.m_factor_inv), data(g.data), 
                        chargedata(g.chargedata) {}
+
+    __device__ evaluate(const atom_params& a, float slope, float v, force_energy_tup& deriv) const ;
+
+    __device__ evaluate_aux(array3d_gpu<fl>& data, const atom_params& a, float slope, float v, force_energy_tup& deriv) const;
+
+    __device__ evaluate_user(const atom_params& a, float slope, force_energy_tup& deriv) const ;
 }
