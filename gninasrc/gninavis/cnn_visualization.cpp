@@ -546,9 +546,15 @@ float cnn_visualization::transform_score_diff(float diff_val) {
 //for identifying atoms
 std::string cnn_visualization::get_xyz(const std::string &line)
 {
-    std::string x = line.substr(31,7);
-    std::string y = line.substr(39,7);
-    std::string z = line.substr(47,7);
+    std::string x = line.substr(30,8);
+    std::string y = line.substr(38,8);
+    std::string z = line.substr(46,8);
+
+    //avoid negative zeros in string representation
+    if(x == "-0.000") x = "0.000";
+    if(y == "-0.000") y = "0.000";
+    if(z == "-0.000") z = "0.000";
+
     boost::trim_left(x);
     boost::trim_left(y);
     boost::trim_left(z);
