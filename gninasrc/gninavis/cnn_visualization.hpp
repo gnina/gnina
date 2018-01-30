@@ -57,14 +57,17 @@ private:
   model unmodified_ligand;
   bool frags_only, atoms_only, verbose;
 
-  std::unordered_map<std::string, int> rec_map;
-  std::unordered_map<std::string, int> lig_map;
+  std::unordered_map<std::string, int> rec_xyz_to_index;
+  std::unordered_map<std::string, int> lig_xyz_to_index;
+  std::unordered_map<int, std::string> rec_index_to_xyz;
+  std::unordered_map<int, std::string> lig_index_to_xyz;
 
   std::string original_rec_string;
   std::string original_lig_string;
 
 
-  void populate_coordinate_map(const std::string& molstring, std::unordered_map<std::string, int>& map);
+  void populate_xyz_to_index(const std::string& molstring, std::unordered_map<std::string, int>& map);
+  void populate_index_to_xyz(const std::string& molstring, std::unordered_map<int, std::string>& map);
   void process_molecules();
   std::string modify_pdbqt(
       const std::unordered_set<std::string> &atoms_to_remove, bool isRec);

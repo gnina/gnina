@@ -273,7 +273,8 @@ void cnn_visualization::process_molecules() {
         lig_stream << "TORSDOF 0";
     }
     lig_string = lig_stream.str();
-    populate_coordinate_map(lig_string, lig_map);
+    populate_xyz_to_index(lig_string, lig_xyz_to_index);
+    populate_index_to_xyz(lig_string, lig_index_to_xyz);
 
     //generate base receptor pdbqt string
     std::string temp_rec_string = conv.WriteString(&rec_mol);
@@ -282,7 +283,8 @@ void cnn_visualization::process_molecules() {
     rec_stream << temp_rec_string;
     rec_stream << "ENDROOT\n" << "TORSDOF 0";
     rec_string = rec_stream.str();
-    populate_coordinate_map(rec_string, rec_map);
+    populate_xyz_to_index(rec_string, rec_xyz_to_index);
+    populate_index_to_xyz(rec_string, rec_index_to_xyz);
 
     OBMol lig_copy = lig_mol; //Center() will change atom coordinates, so use copy
 
@@ -820,60 +822,23 @@ void cnn_visualization::remove_ligand_atoms() {
 
 
 std::string cnn_visualization::get_xyz_from_index(int index, bool rec) {
-    static bool first = true;
-    static std::map<int, std::string> rec_indices;
-    static std::map<int, std::string> lig_indices;
-
-    //fill map on first run
-    if (first)
-    {
-        std::stringstream mol_stream;
-        std::string line;
-        mol_stream = std::stringstream(lig_string);
-        while (std::getline(mol_stream, line))
-        {
-            if(boost::algorithm::starts_with(line, "ATOM")
-                    || boost::algorithm::starts_with(line, "HETATM"))
-            {
-                std::string line_xyz = get_xyz(line);
-
-                std::string index_string = line.substr(7, 5);
-                int atom_index = std::stoi(index_string);
-
-                lig_indices[atom_index] = line_xyz;
-            }
-        }
-
-        mol_stream = std::stringstream(rec_string);
-        while (std::getline(mol_stream, line))
-        {
-            if(boost::algorithm::starts_with(line, "ATOM")
-                    || boost::algorithm::starts_with(line, "HETATM"))
-            {
-                std::string line_xyz = get_xyz(line);
-
-                std::string index_string = line.substr(7, 5);
-                int atom_index = std::stoi(index_string);
-
-                rec_indices[atom_index] = line_xyz;
-            }
-        }
-        first = false;
-    }
-
     if(rec)
     {
-        return rec_indices[index];
+        if(rec_index_to_xyz.count(index) > 0 ) {
+            return rec_index_to_xyz[index];
+        }
     }
     else
     {
-        return lig_indices[index];
+        if(rec_index_to_xyz.count(index) > 0 ) {
+            return rec_index_to_xyz[index];
+        }
     }
 }
 
-//fill in map with a mapping from xyz coordinates (pdb foramt) to atom serial number (pdb)
+//fill in map with a mapping from xyz coordinates (pdb format) to atom serial number (pdb)
 //clears map
-void cnn_visualization::populate_coordinate_map(const std::string& molstring, std::unordered_map<std::string, int>& map) {
+void cnn_visualization::populate_xyz_to_index(const std::string& molstring, std::unordered_map<std::string, int>& map) {
   std::stringstream mol_stream;
   std::string line;
   mol_stream = std::stringstream(molstring);
@@ -892,23 +857,46 @@ void cnn_visualization::populate_coordinate_map(const std::string& molstring, st
   }
 }
 
+//fill in map with a mapping from atom serial number (pdb) to xyz coordinates (pdb format)
+//clears map
+void cnn_visualization::populate_index_to_xyz(const std::string& molstring, std::unordered_map<int, std::string>& map) {
+  std::stringstream mol_stream;
+  std::string line;
+  mol_stream = std::stringstream(molstring);
+  map.clear();
+  while (std::getline(mol_stream, line))
+  {
+      if(boost::algorithm::starts_with(line, "ATOM")
+              || boost::algorithm::starts_with(line, "HETATM"))
+      {
+          std::string line_xyz = get_xyz(line);
+
+          std::string index_string = line.substr(6, 5);
+          int atom_index = std::stoi(index_string);
+          map[atom_index] = line_xyz;
+      }
+  }
+}
+
+
 //returns openbabel index of atom with supplied xyz coordinate
 int cnn_visualization::get_openbabel_index(const std::string &xyz, bool rec)
 {
 
   if (rec)
   {
-    if(rec_map.count(xyz) > 0 ) {
-      return rec_map[xyz];
+    if(rec_xyz_to_index.count(xyz) > 0 ) {
+      return rec_xyz_to_index[xyz];
     }
   }
   else
   {
-    if(lig_map.count(xyz) > 0) {
-      return lig_map[xyz];
+    if(lig_xyz_to_index.count(xyz) > 0) {
+      return lig_xyz_to_index[xyz];
     }
   }
   std::cerr << "Could not find atom with coordinates " << xyz << " in atom map\n";
+  abort();
   return 0;
 }
 
