@@ -273,6 +273,7 @@ void cnn_visualization::process_molecules() {
         lig_stream << "TORSDOF 0";
     }
     lig_string = lig_stream.str();
+    populate_coordinate_map(lig_string, lig_map);
 
     //generate base receptor pdbqt string
     std::string temp_rec_string = conv.WriteString(&rec_mol);
@@ -281,6 +282,7 @@ void cnn_visualization::process_molecules() {
     rec_stream << temp_rec_string;
     rec_stream << "ENDROOT\n" << "TORSDOF 0";
     rec_string = rec_stream.str();
+    populate_coordinate_map(rec_string, rec_map);
 
     OBMol lig_copy = lig_mol; //Center() will change atom coordinates, so use copy
 
@@ -544,9 +546,15 @@ float cnn_visualization::transform_score_diff(float diff_val) {
 //for identifying atoms
 std::string cnn_visualization::get_xyz(const std::string &line)
 {
-    std::string x = line.substr(31,7);
-    std::string y = line.substr(39,7);
-    std::string z = line.substr(48,6);
+    std::string x = line.substr(30,8);
+    std::string y = line.substr(38,8);
+    std::string z = line.substr(46,8);
+
+    //avoid negative zeros in string representation
+    if(x == "-0.000") x = "0.000";
+    if(y == "-0.000") y = "0.000";
+    if(z == "-0.000") z = "0.000";
+
     boost::trim_left(x);
     boost::trim_left(y);
     boost::trim_left(z);
@@ -862,57 +870,46 @@ std::string cnn_visualization::get_xyz_from_index(int index, bool rec) {
         return lig_indices[index];
     }
 }
+
+//fill in map with a mapping from xyz coordinates (pdb foramt) to atom serial number (pdb)
+//clears map
+void cnn_visualization::populate_coordinate_map(const std::string& molstring, std::unordered_map<std::string, int>& map) {
+  std::stringstream mol_stream;
+  std::string line;
+  mol_stream = std::stringstream(molstring);
+  map.clear();
+  while (std::getline(mol_stream, line))
+  {
+      if(boost::algorithm::starts_with(line, "ATOM")
+              || boost::algorithm::starts_with(line, "HETATM"))
+      {
+          std::string line_xyz = get_xyz(line);
+
+          std::string index_string = line.substr(6, 5);
+          int atom_index = std::stoi(index_string);
+          map[line_xyz] = atom_index;
+      }
+  }
+}
+
 //returns openbabel index of atom with supplied xyz coordinate
-int cnn_visualization::get_openbabel_index(const std::string &xyz, bool rec) {
-    static bool first = true;
-    static std::unordered_map<std::string, int> rec_indices;
-    static std::unordered_map<std::string, int> lig_indices;
+int cnn_visualization::get_openbabel_index(const std::string &xyz, bool rec)
+{
 
-    //fill map on first run
-    if (first) 
-    {
-        std::stringstream mol_stream;
-        std::string line;
-        mol_stream = std::stringstream(lig_string);
-        while (std::getline(mol_stream, line))
-        {
-            if(boost::algorithm::starts_with(line, "ATOM")
-                    || boost::algorithm::starts_with(line, "HETATM"))
-            {
-                std::string line_xyz = get_xyz(line);
-
-                std::string index_string = line.substr(7, 5);
-                int atom_index = std::stoi(index_string);
-
-                lig_indices[line_xyz] = atom_index;
-            }
-        }
-
-        mol_stream = std::stringstream(rec_string);
-        while (std::getline(mol_stream, line))
-        {
-            if(boost::algorithm::starts_with(line, "ATOM")
-                    || boost::algorithm::starts_with(line, "HETATM"))
-            {
-                std::string line_xyz = get_xyz(line);
-
-                std::string index_string = line.substr(7, 5);
-                int atom_index = std::stoi(index_string);
-
-                rec_indices[line_xyz] = atom_index;
-            }
-        }
-        first = false;
+  if (rec)
+  {
+    if(rec_map.count(xyz) > 0 ) {
+      return rec_map[xyz];
     }
-
-    if(rec)
-    {
-        return rec_indices[xyz];
+  }
+  else
+  {
+    if(lig_map.count(xyz) > 0) {
+      return lig_map[xyz];
     }
-    else
-    {
-        return lig_indices[xyz];
-    }
+  }
+  std::cerr << "Could not find atom with coordinates " << xyz << " in atom map\n";
+  return 0;
 }
 
 //returns average score difference for each index across all fragments
