@@ -201,7 +201,6 @@ __device__
 void eval_intra_st(const GPUSplineInfo * spinfo, const atom_params * atoms,
 		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr,
 		float v, float *st_e) {
-
 	float total = 0.0;
 	for (unsigned i = 0; i < npairs; i += 1) {
 
@@ -288,32 +287,31 @@ void interaction_energy(const GPUNonCacheInfo dinfo,
 	}
 }
 
-/*Cached version of GPU energy/deriv eval*/
-__device__
-void interaction_energy(const GPUCacheInfo dinfo,  
-                        const atom_params *ligs, force_energy_tup *out
-                        float v) {
-    force_energy_tup val = force_energy_tup(0,0,0,0);
-	sz nat = num_atom_types();
-
-    unsigned idx = threadIdx.x;
-    if (idx < dinfo.num_movable_atoms) {
-        const atom_params& a = ligs[idx];
-        smt t = a.get();
-		if (t < nat && !is_hydrogen(t)) {
-            const grid_gpu& g = dinfo.grids[t];
-            g.evaluate(a, slope, v, val);
-            out[i] = val;
-        }
-    }
-    reduce_energy(out, val.energy)
-}
-
 __device__ void reduce_energy(force_energy_tup *result, float energy) {
     unsigned idx = threadIdx.x;
 	float e = block_sum<float>(energy);
 	if (idx == 0)
 		result[0].energy = e;
+}
+
+/*Cached version of GPU energy/deriv eval*/
+__device__
+void interaction_energy(const GPUCacheInfo dinfo,  
+                        const atom_params *ligs, force_energy_tup *out, 
+                        float v) {
+    force_energy_tup val = force_energy_tup(0,0,0,0);
+
+    unsigned idx = threadIdx.x;
+    if (idx < dinfo.num_movable_atoms) {
+        const atom_params& a = ligs[idx];
+        unsigned t = dinfo.types[idx];
+		if (t > 1) {
+            const grid_gpu& g = dinfo.grids[t];
+            g.evaluate(a, dinfo.slope, v, val);
+            out[idx] = val;
+        }
+    }
+    reduce_energy(out, val.energy);
 }
 
 __global__ void reduce_energy(force_energy_tup *result, int n, 
@@ -487,5 +485,3 @@ cudaError definitelyPinnedMemcpy(void* dst, const void *src, size_t n, cudaMemcp
     return cudaSuccess;
 }
 
-template <> single_point_calc(const GPUNonCacheInfo&);
-template <> single_point_calc(const GPUCacheInfo&);

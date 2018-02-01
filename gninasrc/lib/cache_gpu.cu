@@ -7,6 +7,7 @@ cache_gpu::initialize(model& m)
     info.gridends = float3(gd[0].end, gd[1].end, gd[2].end);
     info.slope = slope;
     info.num_movable_atoms = m.num_movable_atoms();
+    thread_buffer.alloc(&info.types, sizeof(unsigned[num_movable_atoms]));
 
     //set up grids
     ngrids = grids.size();

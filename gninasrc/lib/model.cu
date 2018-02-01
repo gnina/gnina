@@ -530,5 +530,10 @@ size_t gpu_data::node_idx_cpu2gpu(size_t cpu_idx) const
     return dfs_order_bfs_indices[cpu_idx];
 }
 
-template <> fl gpu_data::eval_deriv_gpu(const <GPUNonCacheInfo>&);
-template <> fl gpu_data::eval_deriv_gpu(const <GPUCacheInfo>&);
+template<> __device__
+fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
+                            const conf_gpu& c, change_gpu& g) {
+template<> __device__
+fl gpu_data::eval_deriv_gpu(const GPUCacheInfo& info, const vec& v,
+                            const conf_gpu& c, change_gpu& g) {
+

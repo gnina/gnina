@@ -311,7 +311,8 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	return f0;
 }
 
-fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
+template<typename infoT> 
+fl bfgs(quasi_newton_aux_gpu<infoT> &f, conf_gpu& x,
         change_gpu& g, const fl average_required_improvement,
 		const minimization_params& params);
 

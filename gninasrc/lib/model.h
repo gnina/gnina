@@ -77,8 +77,8 @@ struct gpu_data {
     __host__ __device__
 	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v, interacting_pair* pairs, unsigned pairs_sz) const;
 
-    __device__
-	fl eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
+    template<typename infoT> __device__
+	fl eval_deriv_gpu(const infoT& info, const vec& v,
 	                     const conf_gpu& c, change_gpu& g);
    
     size_t node_idx_dfs2bfs(const size_t node_idx);
@@ -93,7 +93,7 @@ struct gpu_data {
 
     private:
     gpu_data(const gpu_data&) = default;
-    friend struct quasi_newton_aux_gpu;
+    template<typename T> friend struct quasi_newton_aux_gpu;
 };
 
 // dkoes - as an alternative to pdbqt, this stores information
@@ -525,7 +525,5 @@ private:
 	std::string name;
 	int pose_num;
 };
-
-
 
 #endif

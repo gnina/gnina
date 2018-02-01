@@ -26,8 +26,6 @@
 #include <exception> // std::bad_alloc
 #include "common.h"
 
-#ifndef __CUDA_ARCH__
-
 inline sz checked_multiply(sz i, sz j) {
 	if(i == 0 || j == 0) return 0;
 	const sz tmp = i * j;
@@ -44,6 +42,7 @@ template<typename T>
 class array3d {
 	sz m_i, m_j, m_k;
 	std::vector<T> m_data;
+    template<typename U, typename V> friend class array3d_gpu;
 	friend class boost::serialization::access;
 	template<typename Archive>
 	void serialize(Archive& ar, const unsigned version) {
@@ -76,5 +75,4 @@ public:
 	const T& operator()(sz i, sz j, sz k) const { return m_data[i + m_i*(j + m_j*k)]; }
 };
 
-#endif
 #endif

@@ -94,6 +94,8 @@ struct GPUCacheInfo
   fl slope;
   unsigned num_movable_atoms;
 
+  //lig atom types
+  unsigned *types; 
   //grids used to interpolate atom energies
   grid_gpu* grids;
   unsigned ngrids;

@@ -346,11 +346,29 @@ fl bfgs(quasi_newton_aux_gpu<infoT> &f, conf_gpu& x,
 	return out_energy;
 }
 
-template <> fl accurate_line_search_gpu(quasi_newton_aux_gpu<GPUNonCacheInfo>&);
-template <> fl accurate_line_search_gpu(quasi_newton_aux_gpu<GPUCacheInfo>&);
+template <> fl accurate_line_search_gpu(quasi_newton_aux_gpu<GPUNonCacheInfo>&,
+        sz, const conf_gpu&, const change_gpu&, const fl, const change_gpu&, 
+        conf_gpu&, change_gpu&, fl&);
+template <> fl accurate_line_search_gpu(quasi_newton_aux_gpu<GPUCacheInfo>&,
+        sz, const conf_gpu&, const change_gpu&, const fl, const change_gpu&, 
+        conf_gpu&, change_gpu&, fl&);
 
-template <> void bfgs_gpu(quasi_newton_aux_gpu<GPUNonCacheInfo>);
-template <> void bfgs_gpu(quasi_newton_aux_gpu<GPUCacheInfo>);
+template <> void bfgs_gpu(quasi_newton_aux_gpu<GPUNonCacheInfo>,
+              conf_gpu x, conf_gpu x_orig, conf_gpu x_new,
+              change_gpu g, change_gpu g_orig, change_gpu g_new,
+              change_gpu p, change_gpu y, flmat_gpu h, change_gpu minus_hy,
+              const fl average_required_improvement,
+              const minimization_params params,
+              float* out_energy);
+template <> void bfgs_gpu(quasi_newton_aux_gpu<GPUCacheInfo>,
+              conf_gpu x, conf_gpu x_orig, conf_gpu x_new,
+              change_gpu g, change_gpu g_orig, change_gpu g_new,
+              change_gpu p, change_gpu y, flmat_gpu h, change_gpu minus_hy,
+              const fl average_required_improvement,
+              const minimization_params params,
+              float* out_energy);
 
-template <> fl bfgs(quasi_newton_aux_gpu<GPUNonCacheInfo>&);
-template <> fl bfgs(quasi_newton_aux_gpu<GPUCacheInfo>&);
+template <> fl bfgs(quasi_newton_aux_gpu<GPUNonCacheInfo>&, conf_gpu&,
+        change_gpu&, const fl, const minimization_params&);
+template <> fl bfgs(quasi_newton_aux_gpu<GPUCacheInfo>&, conf_gpu&,
+        change_gpu&, const fl, const minimization_params&);
