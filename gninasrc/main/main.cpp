@@ -17,6 +17,7 @@
 #include "parallel_mc.h"
 #include "file.h"
 #include "cache.h"
+#include "cache_gpu.h"
 #include "non_cache.h"
 #include "naive_non_cache.h"
 #include "non_cache_gpu.h"
@@ -551,20 +552,15 @@ void main_procedure(model& m, precalculate& prec,
 
 			if (cache_needed)
 				doing(settings.verbosity, "Analyzing the binding site", log);
-            if (settings.gpu_on)
-                cache_gpu c("scoring_function_version001", gd, slope);
-            else
-			    cache c("scoring_function_version001", gd, slope);
+            cache&& c = settings.gpu_on ? cache_gpu("scoring_function_version001", gd, slope, 
+                    dynamic_cast<precalculate_gpu*>(&prec)) : cache("scoring_function_version001", gd, slope);
 			if (cache_needed)
 			{
 				std::vector<smt> atom_types_needed;
 				m.get_movable_atom_types(atom_types_needed);
 				c.populate(m, prec, atom_types_needed, user_grid);
-                if (settings.gpu_on)
-                    c.initialize(m);
-			}
-			if (cache_needed)
 				done(settings.verbosity, log);
+			}
 			do_search(m, ref, wt, prec, c, *nc, corner1, corner2, par,
 					settings, compute_atominfo, log,
 					wt.unweighted_terms(), user_grid, cnn, results);

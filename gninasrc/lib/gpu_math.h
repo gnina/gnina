@@ -4,8 +4,10 @@
 #include "array3d.h"
 
 #include <cuda_runtime.h>
-#include "thread_buffer.h"
+#include "device_buffer.h"
 #include "common.h"
+#include "array3d.h"
+#include "gpu_util.h"
 
 /* This exists solely to provide constructor and [] operator
    funcs. Produced binaries are identical to those using vanilla
@@ -17,6 +19,8 @@ struct gfloat3 : float3{
     gfloat3( float3 f): float3(f) {}
     __host__ __device__ inline 
     gfloat3(float x, float y, float z) : float3(make_float3(x,y,z)){};
+    __host__ __device__ inline 
+    gfloat3(vec v) : float3(make_float3(v[0],v[1],v[2])){};
     
     __host__ __device__
     float& operator[](int b){
@@ -129,6 +133,11 @@ float3 operator+=(float3 &a, const float3 &b) {
 	return a = a + b;
 }
 
+__host__ __device__ inline static
+float3 operator*(const float3 &a, const float3 &b) {
+    return make_float3(a[0] * b[0], a[1] * b[1], a[2] * b[2]);
+}
+
 template<typename T>
 __host__ __device__  inline static
 float3 operator*(float3 a, T b) {
@@ -141,22 +150,17 @@ float3 operator*(T b, float3 a) {
 	return float3(a.x * b, a.y * b, a.z * b);
 }
 
-template<typename T>
+template<typename T, typename U>
 class array3d_gpu {
     sz i, j, k;
     T* data {};
 public:
-    array3d_gpu(array3d<T> cpu_array) : i(cpu_array.m_i), j(cpu_array.m_j), 
-                                     k(cpu_array.m_k) {
+    array3d_gpu(const array3d<U>& carr) : i(carr.m_i), j(carr.m_j), 
+                                     k(carr.m_k) {
         CUDA_CHECK_GNINA(thread_buffer.alloc(&data, i * j * k * sizeof(T)));
-        definitelyPinnedMemcpy(data, &cpu_array.m_data[0], sizeof(T) * 
-                cpu_array.m_data.size(), cudaMemcpyHostToDevice);
+        definitelyPinnedMemcpy(data, &carr.m_data[0], sizeof(T) * 
+                carr.m_data.size(), cudaMemcpyHostToDevice);
     }
-
-    array3d_gpu(const array3d_gpu& gpu_array) : i(gpu_array.i), j(gpu_array.j),
-                                                k(gpu_array.k) {
-        memcpy(data, gpu_array.data, sizeof(T) * )
-                                                };
 
 	__device__  sz dim0() const { return i; }
 	__device__  sz dim1() const { return j; }
@@ -168,17 +172,12 @@ public:
 			case 2: return k;
 		}
 	}
-    __device__  fl resize(sz i, sz j, sz k) {// no attempt is made to preserve data; 
-        this->i = i;                   //this is only used in grid.init
-        this->j = j;
-        this->k = k;
-        CUDA_CHECK_GNINA(thread_buffer.alloc(&data, i * j * k * sizeof(T)));
-    }
+
 	__device__  T& operator()(sz i, sz j, sz k)       { 
         return data[i + this->i*(j + this->j*k)]; 
     }
 	__device__  const T& operator()(sz i, sz j, sz k) const { 
-        return m_data[i + this->i*(j + this->j*k)]; 
+        return data[i + this->i*(j + this->j*k)]; 
     }
 };
 

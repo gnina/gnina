@@ -23,6 +23,7 @@
 #ifndef VINA_CURL_H
 #define VINA_CURL_H
 
+#include "gpu_math.h"
 #include "common.h"
 
 #if 1 // prefer this to "hard curl"?
@@ -39,6 +40,19 @@ inline void curl(fl& e, fl v) {
 	if(e > 0 && not_max(v)) {
 		fl tmp = (v < epsilon_fl) ? 0 : (v / (v + e));
 		e *= tmp;
+	}
+}
+
+//curl function to scale back positive energies and match vina calculations
+//assume v is reasonable
+__device__
+inline void curl(fl& e, float3& deriv, fl v) {
+	if (e > 0) {
+		float tmp = (v / (v + e));
+		e *= tmp;
+		tmp *= tmp;
+		for (unsigned i = 0; i < 3; i++)
+			deriv[i] *= tmp;
 	}
 }
 

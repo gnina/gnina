@@ -92,11 +92,15 @@ struct GPUCacheInfo
   float3 gridends;
   float3 gridbegins;
   fl slope;
+  float cutoff_sq;
   unsigned num_movable_atoms;
 
+  //lig atom types
+  unsigned *types; 
   //grids used to interpolate atom energies
   grid_gpu* grids;
   unsigned ngrids;
+  GPUSplineInfo *splineInfo;
 };
 
 void evaluate_splines_host(const GPUSplineInfo& spInfo, float r,
@@ -105,8 +109,14 @@ void evaluate_splines_host(const GPUSplineInfo& spInfo, float r,
 __host__ __device__
 float single_point_calc(const GPUNonCacheInfo &dinfo, atom_params *lig,
                         force_energy_tup *out, float v);
+
+__device__
+float single_point_calc(const GPUCacheInfo &dinfo, atom_params *lig,
+                        force_energy_tup *out, float v);
+
+template <typename infoT>
 __global__
-void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
+void eval_intra_kernel(const infoT& info, const atom_params * atoms,
 		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr, float v, force_energy_tup *out, float *e);
 
 #endif

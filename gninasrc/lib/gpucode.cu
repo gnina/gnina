@@ -1,8 +1,7 @@
-#include <thrust/reduce.h>
-#include <thrust/device_ptr.h>
 #include <stdio.h>
 #include "gpu_util.h"
 #include "gpucode.h"
+#include "curl.h"
 
 #define THREADS_PER_BLOCK 1024
 #define warpSize 32
@@ -124,20 +123,6 @@ float eval_deriv_gpu(const GPUSplineInfo* splineInfo, unsigned t, float charge,
 	return ret;
 }
 
-
-//curl function to scale back positive energies and match vina calculations
-//assume v is reasonable
-__device__
-void curl(float& e, float3& deriv, float v) {
-	if (e > 0) {
-		float tmp = (v / (v + e));
-		e *= tmp;
-		tmp *= tmp;
-		for (unsigned i = 0; i < 3; i++)
-			deriv[i] *= tmp;
-	}
-}
-
 template<typename T> T __device__ __host__ zero(void);
 template<> float3 zero(void) {
 	return float3(0, 0, 0);
@@ -198,10 +183,9 @@ __device__  __forceinline__ T block_sum(T mySum) {
 }
 
 __device__
-void eval_intra_st(const GPUSplineInfo * spinfo, const atom_params * atoms,
+void eval_intra_st(const GPUNonCacheInfo& dinfo, const atom_params * atoms,
 		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr,
 		float v, float *st_e) {
-
 	float total = 0.0;
 	for (unsigned i = 0; i < npairs; i += 1) {
 
@@ -213,7 +197,7 @@ void eval_intra_st(const GPUSplineInfo * spinfo, const atom_params * atoms,
 			float dor;
 			unsigned t1 = ip.t1;
 			unsigned t2 = ip.t2;
-			float energy = eval_deriv_gpu(spinfo, t1, atoms[ip.a].charge, t2,
+			float energy = eval_deriv_gpu(dinfo.splineInfo, t1, atoms[ip.a].charge, t2,
 					atoms[ip.b].charge, r2, dor);
 			deriv = r * dor;
 			curl(energy, deriv, v);
@@ -288,32 +272,31 @@ void interaction_energy(const GPUNonCacheInfo dinfo,
 	}
 }
 
-/*Cached version of GPU energy/deriv eval*/
-__device__
-void interaction_energy(const GPUCacheInfo dinfo,  
-                        const atom_params *ligs, force_energy_tup *out
-                        float v) {
-    force_energy_tup val = force_energy_tup(0,0,0,0);
-	sz nat = num_atom_types();
-
-    unsigned idx = threadIdx.x;
-    if (idx < dinfo.num_movable_atoms) {
-        const atom_params& a = ligs[idx];
-        smt t = a.get();
-		if (t < nat && !is_hydrogen(t)) {
-            const grid_gpu& g = dinfo.grids[t];
-            g.evaluate(a, slope, v, val);
-            out[i] = val;
-        }
-    }
-    reduce_energy(out, val.energy)
-}
-
 __device__ void reduce_energy(force_energy_tup *result, float energy) {
     unsigned idx = threadIdx.x;
 	float e = block_sum<float>(energy);
 	if (idx == 0)
 		result[0].energy = e;
+}
+
+/*Cached version of GPU energy/deriv eval*/
+__device__
+void interaction_energy(const GPUCacheInfo dinfo,  
+                        const atom_params *ligs, force_energy_tup *out, 
+                        float v) {
+    force_energy_tup val = force_energy_tup(0,0,0,0);
+
+    unsigned idx = threadIdx.x;
+    if (idx < dinfo.num_movable_atoms) {
+        const atom_params& a = ligs[idx];
+        unsigned t = dinfo.types[idx];
+		if (t > 1) {
+            const grid_gpu& g = dinfo.grids[t];
+            g.evaluate(a, dinfo.slope, v, val);
+            out[idx] = val;
+        }
+    }
+    reduce_energy(out, val.energy);
 }
 
 __global__ void reduce_energy(force_energy_tup *result, int n, 
@@ -418,8 +401,9 @@ float single_point_calc(const GPUCacheInfo &info, atom_params *ligs,
 /* evaluate contribution of interacting pairs, add to forces and place total */
 /* energy in e (which must be zero initialized). */
 
+template <typename infoT>
 __global__
-void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
+void eval_intra_kernel(const infoT& info, const atom_params * atoms,
                        const interacting_pair* pairs, unsigned npairs,
                        float cutoff_sqr, float v, force_energy_tup *out,
                        float *e)
@@ -437,7 +421,7 @@ void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
 			float dor;
 			unsigned t1 = ip.t1;
 			unsigned t2 = ip.t2;
-			float energy = eval_deriv_gpu(spinfo, t1, atoms[ip.a].charge, t2,
+			float energy = eval_deriv_gpu(info.splineInfo, t1, atoms[ip.a].charge, t2,
 					atoms[ip.b].charge, r2, dor);
 			deriv = r * dor;
 			curl(energy, deriv, v);
@@ -487,5 +471,13 @@ cudaError definitelyPinnedMemcpy(void* dst, const void *src, size_t n, cudaMemcp
     return cudaSuccess;
 }
 
-template <> single_point_calc(const GPUNonCacheInfo&);
-template <> single_point_calc(const GPUCacheInfo&);
+template __global__
+void eval_intra_kernel<GPUNonCacheInfo>(const GPUNonCacheInfo& info, const atom_params * atoms,
+                       const interacting_pair* pairs, unsigned npairs,
+                       float cutoff_sqr, float v, force_energy_tup *out,
+                       float *e);
+template __global__
+void eval_intra_kernel<GPUCacheInfo>(const GPUCacheInfo& info, const atom_params * atoms,
+                       const interacting_pair* pairs, unsigned npairs,
+                       float cutoff_sqr, float v, force_energy_tup *out,
+                       float *e);

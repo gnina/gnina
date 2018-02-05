@@ -48,7 +48,7 @@ inline bool eq(const grid_dim& a, const grid_dim& b) {
 	return a.n == b.n && eq(a.begin, b.begin) && eq(a.end, b.end);
 }
 
-typedef grid_dim[3] grid_dims;
+typedef boost::array<grid_dim, 3> grid_dims;
 
 inline bool eq(const grid_dims& a, const grid_dims& b) {
 	return eq(a[0], b[0]) && eq(a[1], b[1]) && eq(a[2], b[2]);
