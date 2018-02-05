@@ -1,6 +1,7 @@
 #ifndef GPU_MATH_H
 #define GPU_MATH_H
 #include <float.h>
+#include "array3d.h"
 
 #include <cuda_runtime.h>
 #include "thread_buffer.h"
@@ -145,14 +146,17 @@ class array3d_gpu {
     sz i, j, k;
     T* data {};
 public:
-    array3d_gpu(array3d cpu_array) : i(cpu_array.m_i), j(cpu_array.m_j), 
+    array3d_gpu(array3d<T> cpu_array) : i(cpu_array.m_i), j(cpu_array.m_j), 
                                      k(cpu_array.m_k) {
         CUDA_CHECK_GNINA(thread_buffer.alloc(&data, i * j * k * sizeof(T)));
         definitelyPinnedMemcpy(data, &cpu_array.m_data[0], sizeof(T) * 
                 cpu_array.m_data.size(), cudaMemcpyHostToDevice);
     }
 
-    array3d_gpu(array3d_gpu gpu_array) : default;
+    array3d_gpu(const array3d_gpu& gpu_array) : i(gpu_array.i), j(gpu_array.j),
+                                                k(gpu_array.k) {
+        memcpy(data, gpu_array.data, sizeof(T) * )
+                                                };
 
 	__device__  sz dim0() const { return i; }
 	__device__  sz dim1() const { return j; }
