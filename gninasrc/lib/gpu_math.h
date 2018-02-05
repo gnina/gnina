@@ -6,6 +6,7 @@
 #include "device_buffer.h"
 #include "common.h"
 #include "array3d.h"
+#include "gpu_util.h"
 
 /* This exists solely to provide constructor and [] operator
    funcs. Produced binaries are identical to those using vanilla
@@ -17,6 +18,8 @@ struct gfloat3 : float3{
     gfloat3( float3 f): float3(f) {}
     __host__ __device__ inline 
     gfloat3(float x, float y, float z) : float3(make_float3(x,y,z)){};
+    __host__ __device__ inline 
+    gfloat3(vec v) : float3(make_float3(v[0],v[1],v[2])){};
     
     __host__ __device__
     float& operator[](int b){
@@ -127,6 +130,11 @@ float3 operator-(const float3 &a, const float3 &b) {
 __host__ __device__ inline static
 float3 operator+=(float3 &a, const float3 &b) {
 	return a = a + b;
+}
+
+__host__ __device__ inline static
+float3 operator*(const float3 &a, const float3 &b) {
+    return make_float3(a[0] * b[0], a[1] * b[1], a[2] * b[2]);
 }
 
 template<typename T>

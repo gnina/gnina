@@ -40,6 +40,7 @@ lib/bfgs.cu
 lib/box.cpp
 lib/builtinscoring.cpp
 lib/cache.cpp
+lib/cache_gpu.cpp
 lib/cnn_scorer.cpp
 lib/coords.cpp
 lib/custom_terms.cpp
@@ -48,6 +49,7 @@ lib/everything.cpp
 lib/flexinfo.cpp
 lib/GninaConverter.cpp
 lib/grid.cpp
+lib/grid_gpu.cu
 lib/model.cpp
 lib/molgetter.cpp
 lib/monte_carlo.cpp

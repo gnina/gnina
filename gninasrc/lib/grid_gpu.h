@@ -7,11 +7,11 @@ struct force_energy_tup;
 
 struct grid_gpu
 {
-	vec m_init;
-	vec m_range;
-	vec m_factor;
-	vec m_dim_fl_minus_1;
-	vec m_factor_inv;
+	float3 m_init;
+	float3 m_range;
+	float3 m_factor;
+	float3 m_dim_fl_minus_1;
+	float3 m_factor_inv;
     array3d_gpu<fl, fl> data;
 	array3d_gpu<fl, fl> chargedata; //needs to be multiplied by atom charge
 
@@ -22,7 +22,7 @@ struct grid_gpu
 
     __device__ void evaluate(const atom_params& a, float slope, float v, force_energy_tup& deriv) const ;
 
-    __device__ void evaluate_aux(array3d_gpu<fl, fl>& data, const atom_params& a, float slope, float v, force_energy_tup& deriv) const;
+    __device__ void evaluate_aux(const array3d_gpu<fl, fl>& data, const atom_params& a, float slope, float v, force_energy_tup& deriv) const;
 
     __device__ void evaluate_user(const atom_params& a, float slope, force_energy_tup& deriv) const ;
 };

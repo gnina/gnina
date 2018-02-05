@@ -62,8 +62,9 @@ fl model::eval_interacting_pairs_deriv(const precalculate& p, fl v,
 }
 
 //evaluates interacting pairs (which is all of them) on the gpu
+template <typename infoT>
 __host__ __device__
-fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
+fl gpu_data::eval_interacting_pairs_deriv_gpu(const infoT& info,
 		fl v, interacting_pair* pairs, unsigned pairs_sz) const { // adds to forces  // clean up
 
 	float e = 0;
@@ -79,15 +80,16 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info,
     cudaMemsetAsync(scratch, 0, sizeof(float), cudaStreamPerThread);
     #endif
 
+    //TODO: this should not be a dynamic launch...
 	if(pairs_sz< CUDA_THREADS_PER_BLOCK) {
-		eval_intra_kernel<<<1,pairs_sz>>>(info.splineInfo, coords,
+		eval_intra_kernel<<<1,pairs_sz>>>(info, coords,
                 pairs, pairs_sz, cutoff_sqr, v, minus_forces, scratch);
 
 	} 
 	else { 
 		eval_intra_kernel<<<CUDA_GET_BLOCKS(pairs_sz,
                 1024),
-            CUDA_THREADS_PER_BLOCK>>>(info.splineInfo, coords,
+            CUDA_THREADS_PER_BLOCK>>>(info, coords,
                     pairs, pairs_sz, cutoff_sqr, v, minus_forces,
                     scratch);
 	}
@@ -152,8 +154,8 @@ void set_conf_kernel(tree_gpu *t, const vec *atom_coords, vec *coords,
 	t->set_conf(atom_coords, coords, &c);
 }
 
-__device__
 template<typename infoT>
+__device__
 fl gpu_data::eval_deriv_gpu(const infoT& info, const vec& v,
                             const conf_gpu& c, change_gpu& g) {
 	// static loop_timer t;
@@ -530,10 +532,22 @@ size_t gpu_data::node_idx_cpu2gpu(size_t cpu_idx) const
     return dfs_order_bfs_indices[cpu_idx];
 }
 
-template<> __device__
-fl gpu_data::eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
-                            const conf_gpu& c, change_gpu& g) {
-template<> __device__
-fl gpu_data::eval_deriv_gpu(const GPUCacheInfo& info, const vec& v,
-                            const conf_gpu& c, change_gpu& g) {
+template 
+__host__ __device__
+fl gpu_data::eval_interacting_pairs_deriv_gpu<GPUNonCacheInfo>(const
+        GPUNonCacheInfo& info, fl v, interacting_pair* pairs, unsigned
+        pairs_sz) const;
+
+template 
+__host__ __device__
+fl gpu_data::eval_interacting_pairs_deriv_gpu<GPUCacheInfo>(const
+        GPUCacheInfo& info, fl v, interacting_pair* pairs, unsigned
+        pairs_sz) const;
+
+template __device__
+fl gpu_data::eval_deriv_gpu<GPUNonCacheInfo>(const GPUNonCacheInfo& info, const vec& v,
+                            const conf_gpu& c, change_gpu& g);
+template __device__
+fl gpu_data::eval_deriv_gpu<GPUCacheInfo>(const GPUCacheInfo& info, const vec& v,
+                            const conf_gpu& c, change_gpu& g);
 

@@ -20,6 +20,8 @@
 
  */
 
+#include "non_cache_gpu.h"
+#include "cache_gpu.h"
 #include "quasi_newton.h"
 #include "bfgs.h"
 #include "device_buffer.h"

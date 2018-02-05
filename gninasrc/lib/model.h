@@ -74,8 +74,9 @@ struct gpu_data {
             scratch(NULL), coords_size(0),
   			atom_coords_size(0), forces_size(0), pairs_size(0), other_pairs_size(0) {}
 
+    template<typename infoT>
     __host__ __device__
-	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v, interacting_pair* pairs, unsigned pairs_sz) const;
+	fl eval_interacting_pairs_deriv_gpu(const infoT& info, fl v, interacting_pair* pairs, unsigned pairs_sz) const;
 
     template<typename infoT> __device__
 	fl eval_deriv_gpu(const infoT& info, const vec& v,

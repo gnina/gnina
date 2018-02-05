@@ -1,7 +1,9 @@
 #include "grid_gpu.h"
+#include "gpucode.h"
+#include "curl.h"
 
 /*evaluate using grid; TODO: establish code path for energy-only eval*/
-__device__ void evaluate(const atom_params& a, float slope, float v, force_energy_tup&
+__device__ void grid_gpu::evaluate(const atom_params& a, float slope, float v, force_energy_tup&
         e_and_deriv) const {
 	//charge indep
 	evaluate_aux(data, a, slope, v, e_and_deriv);
@@ -9,17 +11,17 @@ __device__ void evaluate(const atom_params& a, float slope, float v, force_energ
 	{
 		//charge dependent
 		force_energy_tup cderiv(0,0,0,0);
-		evaluate_aux(chargedata, a, slope, v, &cderiv);
+		evaluate_aux(chargedata, a, slope, v, cderiv);
         e_and_deriv.energy += a.charge * cderiv.energy;
 		e_and_deriv.minus_force += a.charge * cderiv.minus_force;
 	}
 }
 
-__device__ void evaluate_user(const atom_params& a, float slope, force_energy_tup& deriv) const {
-    evaluate_aux(data, a.coords, slope, (fl) 1000, deriv);
+__device__ void grid_gpu::evaluate_user(const atom_params& a, float slope, force_energy_tup& deriv) const {
+    evaluate_aux(data, a, slope, (fl) 1000, deriv);
 }
 
-__device__ void evaluate_aux(array3d_gpu<fl>& data, const atom_params& atom, float slope,
+__device__ void grid_gpu::evaluate_aux(const array3d_gpu<fl, fl>& data, const atom_params& atom, float slope,
         float v, force_energy_tup& e_and_deriv) const {
 	float3 s = (atom.coords - m_init) * m_factor;
 	
@@ -40,8 +42,8 @@ __device__ void evaluate_aux(array3d_gpu<fl>& data, const atom_params& atom, flo
 		{
 			miss[i] = s[i] - m_dim_fl_minus_1[i];
 			region[i] = 1;
-			assert(m_data.dim(i) >= 2);
-			a[i] = m_data.dim(i) - 2;
+			assert(data.dim(i) >= 2);
+			a[i] = data.dim(i) - 2;
 			s[i] = 1;
 		}
 		else
@@ -53,7 +55,7 @@ __device__ void evaluate_aux(array3d_gpu<fl>& data, const atom_params& atom, flo
 		assert(s[i] >= 0);
 		assert(s[i] <= 1);
 		assert(a[i] >= 0);
-		assert(a[i]+1 < m_data.dim(i));
+		assert(a[i]+1 < data.dim(i));
 	}
 	const fl penalty = slope * dot(miss, m_factor_inv); // FIXME check that inv_factor is correctly initialized and serialized
 	assert(penalty > -epsilon_fl);
@@ -66,14 +68,14 @@ __device__ void evaluate_aux(array3d_gpu<fl>& data, const atom_params& atom, flo
 	const sz y1 = y0 + 1;
 	const sz z1 = z0 + 1;
 
-	const fl f000 = m_data(x0, y0, z0);
-	const fl f100 = m_data(x1, y0, z0);
-	const fl f010 = m_data(x0, y1, z0);
-	const fl f110 = m_data(x1, y1, z0);
-	const fl f001 = m_data(x0, y0, z1);
-	const fl f101 = m_data(x1, y0, z1);
-	const fl f011 = m_data(x0, y1, z1);
-	const fl f111 = m_data(x1, y1, z1);
+	const fl f000 = data(x0, y0, z0);
+	const fl f100 = data(x1, y0, z0);
+	const fl f010 = data(x0, y1, z0);
+	const fl f110 = data(x1, y1, z0);
+	const fl f001 = data(x0, y0, z1);
+	const fl f101 = data(x1, y0, z1);
+	const fl f011 = data(x0, y1, z1);
+	const fl f111 = data(x1, y1, z1);
 
 	const fl x = s[0];
 	const fl y = s[1];
@@ -134,6 +136,6 @@ __device__ void evaluate_aux(array3d_gpu<fl>& data, const atom_params& atom, flo
 		e_and_deriv.minus_force[i] += m_factor[i] * gradient_everywhere[i]
 				+ slope * region[i];
 	}
-    e_and_deriv.energy += f + penalty
+    e_and_deriv.energy += f + penalty;
 }
 
