@@ -255,6 +255,9 @@ optional arguments:
   --weights WEIGHTS     Set of weights to initialize the model with
 ```
 
+The DUD-E docked poses used in the original paper can be found [here](http://bits.csb.pitt.edu/files/docked_dude.tar).  
+We will make additional datasets (beyond what is available in [models/data](https://github.com/gnina/models/tree/master/data) available as they are requested.   Feel free to contact us.
+
 User Grids
 ----------
 
