@@ -193,6 +193,7 @@ train.py -m models/refmodel3/refmodel3.model -p models/data/csar/all
 ```
 
 This will perform cross-validation using the `alltrain[0-2].types` and `alltest[0-2].types` files.
+Note that `refmodel3.model` requires the file `models/refmodel3/ligmap.old` to be in the current directory.
 
 There are quite a few options to `train.py` for modifying training:
 ```

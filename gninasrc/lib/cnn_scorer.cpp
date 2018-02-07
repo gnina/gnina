@@ -249,7 +249,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
 	mgrid->setReceptor<atom>(m.get_fixed_atoms());
-	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates());
+	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(),false);
 
 	m.clear_minus_forces();
 	double score = 0.0;
