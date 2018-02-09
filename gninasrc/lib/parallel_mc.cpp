@@ -24,6 +24,8 @@
 #include "parallel_mc.h"
 #include "coords.h"
 #include "parallel_progress.h"
+#include "gpucode.h"
+#include "device_buffer.h"
 
 struct parallel_mc_task
 {
@@ -33,6 +35,21 @@ struct parallel_mc_task
 	parallel_mc_task(const model& m_, int seed) :
 			m(m_), generator(static_cast<rng::result_type>(seed))
 	{
+        if (run_on_gpu) {
+            m.gdata.coords = m_.gdata.coords;
+            m.gdata.atom_coords = m_.gdata.atom_coords;
+            m.gdata.minus_forces = m_.gdata.minus_forces;
+            m.gdata.treegpu = m_.gdata.treegpu;
+            m.gdata.interacting_pairs = m_.gdata.interacting_pairs;
+            m.gdata.other_pairs = m_.gdata.other_pairs;
+            m.gdata.dfs_order_bfs_indices = m_.gdata.dfs_order_bfs_indices;
+            m.gdata.bfs_order_dfs_indices = m_.gdata.bfs_order_dfs_indices;
+            m.gdata.coords_size = m_.gdata.coords_size;
+            m.gdata.atom_coords_size = m_.gdata.atom_coords_size;
+            m.gdata.forces_size = m_.gdata.forces_size;
+            m.gdata.pairs_size = m_.gdata.pairs_size;
+            m.gdata.other_pairs_size = m_.gdata.other_pairs_size;
+        }
 	}
 };
 
@@ -57,6 +74,41 @@ struct parallel_mc_aux
 	}
 	void operator()(parallel_mc_task& t) const
 	{
+        if (run_on_gpu) {
+            thread_buffer.reinitialize();
+            //update our copy of gpu_data to have local buffers for the fields
+            //we intend to modify
+            atom_params *coords;
+            thread_buffer.alloc(&coords, sizeof(t.m.gdata.coords[t.m.gdata.coords_size]));
+            definitelyPinnedMemcpy(coords, t.m.gdata.coords, sizeof(t.m.gdata.coords[t.m.gdata.coords_size]), cudaMemcpyDeviceToDevice);
+            t.m.gdata.coords = coords;
+
+            force_energy_tup *minus_forces;
+            thread_buffer.alloc(&minus_forces, sizeof(t.m.gdata.minus_forces[t.m.gdata.forces_size]));
+            definitelyPinnedMemcpy(minus_forces, t.m.gdata.minus_forces, sizeof(t.m.gdata.minus_forces[t.m.gdata.forces_size]), cudaMemcpyDeviceToDevice);
+            t.m.gdata.minus_forces = minus_forces;
+
+            segment_node *device_nodes;
+            gfloat4p *force_torques;
+
+            //TODO: we really just want to copy data device-to-device
+            tree_gpu old_tree;
+            definitelyPinnedMemcpy(&old_tree, t.m.gdata.treegpu, sizeof(tree_gpu), cudaMemcpyDeviceToHost);
+            unsigned num_nodes = old_tree.num_nodes;
+            thread_buffer.alloc(&device_nodes, sizeof(old_tree.device_nodes[num_nodes]));
+            thread_buffer.alloc(&force_torques, sizeof(old_tree.force_torques[num_nodes]));
+            definitelyPinnedMemcpy(device_nodes, old_tree.device_nodes, sizeof(old_tree.device_nodes[num_nodes]), cudaMemcpyDeviceToDevice);
+            definitelyPinnedMemcpy(force_torques, old_tree.force_torques, sizeof(old_tree.force_torques[num_nodes]), cudaMemcpyDeviceToDevice);
+            tree_gpu* new_tree;
+            thread_buffer.alloc(&new_tree, sizeof(tree_gpu));
+            old_tree.device_nodes = device_nodes;
+            old_tree.force_torques = force_torques;
+            definitelyPinnedMemcpy(new_tree, &old_tree, sizeof(tree_gpu), cudaMemcpyHostToDevice);
+            t.m.gdata.treegpu = new_tree;
+
+            thread_buffer.alloc(&t.m.gdata.scratch, sizeof(float));
+        }
+
 		(*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
 	}
 };

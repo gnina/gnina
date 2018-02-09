@@ -48,7 +48,6 @@ void quasi_newton::operator()(model& m,const precalculate& p,const igrid& ig,
 	const non_cache_gpu* n_gpu = dynamic_cast<const non_cache_gpu*>(&ig);
     const cache_gpu* c_gpu = dynamic_cast<const cache_gpu*>(&ig);
 	if(n_gpu || c_gpu) {
-		m.initialize_gpu();
 		assert(m.gpu_initialized());
         if(user_grid.initialized())
         {

@@ -32,6 +32,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition.hpp>
 
+void initializeCUDA(int device);
 
 template<typename F, bool Sync = false>
 struct parallel_for : private boost::thread_group {
@@ -75,7 +76,11 @@ private:
 		sz offset;
         parallel_for* par;
 		aux(sz offset, parallel_for* par) : offset(offset), par(par) {}
-		void operator()() const { par->loop(offset); }
+		void operator()() const { 
+            if (run_on_gpu)
+                initializeCUDA(cuda_dev_id);
+            par->loop(offset); 
+        }
     };
     const F* m_f; // does not keep a local copy!
     boost::condition cond;
@@ -133,7 +138,11 @@ private:
     struct aux {
         parallel_for* par;
         aux() : par(NULL) {}
-		void operator()() const { par->loop(); }
+		void operator()() const { 
+            if (run_on_gpu)
+                initializeCUDA(cuda_dev_id);
+            par->loop(); 
+        }
     };
     aux a;
     const F* m_f; // does not keep a local copy!

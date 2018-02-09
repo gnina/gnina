@@ -47,6 +47,8 @@
 
 typedef float fl;
 
+extern bool run_on_gpu;
+extern int cuda_dev_id;
 
 //collection of parameters specifying how minimization should be done
 struct minimization_params

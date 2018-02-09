@@ -114,9 +114,8 @@ __device__
 float single_point_calc(const GPUCacheInfo &dinfo, atom_params *lig,
                         force_energy_tup *out, float v);
 
-template <typename infoT>
 __global__
-void eval_intra_kernel(const infoT& info, const atom_params * atoms,
+void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
 		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr, float v, force_energy_tup *out, float *e);
 
 #endif
