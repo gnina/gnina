@@ -55,14 +55,24 @@ struct gfloat3 : float3{
 
 __device__ __inline__ float shuffle_down(float val, int offset) {
   //wrapper for sync for normal flaot type
+#if __CUDACC_VER_MAJOR__ >= 9
   return __shfl_down_sync(0xffffffff, val, offset);
+#else
+  return __shfl_down(val,offset);
+#endif
 }
 
 __device__ __inline__ static
 float3 shuffle_down(const float3 &a, int delta) {
+#if __CUDACC_VER_MAJOR__ >= 9
     return float3(__shfl_down_sync(0xffffffff,a.x, delta),
                   __shfl_down_sync(0xffffffff,a.y, delta),
                   __shfl_down_sync(0xffffffff,a.z, delta));
+#else
+    return float3(__shfl_down(a.x, delta),
+		  __shfl_down(a.y, delta),
+		  __shfl_down_sync(a.z, delta));
+#endif
 }
 
 template<class T>
