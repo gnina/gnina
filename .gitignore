@@ -96,7 +96,7 @@ docs/gathered
 _site
 doxygen
 docs/dev
->>>>>>> c86433aaf1ecec5e82ab19a61330c008d1980dab
+compile_commands.json
 
 # tag files
 TAGS
