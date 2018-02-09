@@ -43,6 +43,7 @@ typedef std::vector<interacting_pair> interacting_pairs;
 typedef std::pair<std::string, boost::optional<sz> > parsed_line;
 typedef std::vector<parsed_line> pdbqtcontext;
 void test_eval_intra();
+struct parallel_mc_task;
 
 struct gpu_data {
 	//put all pointers to gpu data into a struct that provides a lightweight 
@@ -95,6 +96,7 @@ struct gpu_data {
     private:
     gpu_data(const gpu_data&) = default;
     template<typename T> friend struct quasi_newton_aux_gpu;
+    friend parallel_mc_task;
 };
 
 // dkoes - as an alternative to pdbqt, this stores information

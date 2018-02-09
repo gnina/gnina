@@ -61,6 +61,9 @@
 using namespace boost::iostreams;
 using boost::filesystem::path;
 
+bool run_on_gpu = false;
+int cuda_dev_id = 0;
+
 //just a collection of user-specified configurations
 struct user_settings
 {
@@ -237,6 +240,7 @@ void do_search(model& m, const boost::optional<model>& ref,
     fl intramolecular_energy = max_fl;
 	fl cnnscore = -1.0;
 	fl rmsd = 0;
+	m.initialize_gpu();
 	const vec authentic_v(settings.forcecap, settings.forcecap,
 			settings.forcecap); //small cap restricts initial movement from clash
 
@@ -552,16 +556,18 @@ void main_procedure(model& m, precalculate& prec,
 
 			if (cache_needed)
 				doing(settings.verbosity, "Analyzing the binding site", log);
-            cache&& c = settings.gpu_on ? cache_gpu("scoring_function_version001", gd, slope, 
-                    dynamic_cast<precalculate_gpu*>(&prec)) : cache("scoring_function_version001", gd, slope);
+            std::unique_ptr<cache> c (settings.gpu_on ? 
+                new cache_gpu("scoring_function_version001", 
+                gd, slope, dynamic_cast<precalculate_gpu*>(&prec)) : 
+                new cache("scoring_function_version001", gd, slope));
 			if (cache_needed)
 			{
 				std::vector<smt> atom_types_needed;
 				m.get_movable_atom_types(atom_types_needed);
-				c.populate(m, prec, atom_types_needed, user_grid);
+				c->populate(m, prec, atom_types_needed, user_grid);
 				done(settings.verbosity, log);
 			}
-			do_search(m, ref, wt, prec, c, *nc, corner1, corner2, par,
+			do_search(m, ref, wt, prec, *c, *nc, corner1, corner2, par,
 					settings, compute_atominfo, log,
 					wt.unweighted_terms(), user_grid, cnn, results);
 		}
@@ -776,7 +782,7 @@ std::istream& operator>>(std::istream& in, ApproxType& type)
 }
 
 //set the default device to device and exit with error if there are any problems
-static void initializeCUDA(int device)
+void initializeCUDA(int device)
 {
 	cudaError_t error;
 	cudaDeviceProp deviceProp;
@@ -1322,8 +1328,11 @@ Thank you!\n";
 				approx_factor = 10;
 		}
 
-        if (settings.gpu_on)
+        if (settings.gpu_on) {
             cudaDeviceSetLimit(cudaLimitStackSize, 5120);
+            run_on_gpu = true;
+            cuda_dev_id = settings.device;
+        }
 
 		if (accurate_line)
 		{

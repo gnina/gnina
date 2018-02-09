@@ -183,7 +183,7 @@ __device__  __forceinline__ T block_sum(T mySum) {
 }
 
 __device__
-void eval_intra_st(const GPUNonCacheInfo& dinfo, const atom_params * atoms,
+void eval_intra_st(const GPUSplineInfo * spinfo, const atom_params * atoms,
 		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr,
 		float v, float *st_e) {
 	float total = 0.0;
@@ -197,7 +197,7 @@ void eval_intra_st(const GPUNonCacheInfo& dinfo, const atom_params * atoms,
 			float dor;
 			unsigned t1 = ip.t1;
 			unsigned t2 = ip.t2;
-			float energy = eval_deriv_gpu(dinfo.splineInfo, t1, atoms[ip.a].charge, t2,
+			float energy = eval_deriv_gpu(spinfo, t1, atoms[ip.a].charge, t2,
 					atoms[ip.b].charge, r2, dor);
 			deriv = r * dor;
 			curl(energy, deriv, v);
@@ -401,9 +401,8 @@ float single_point_calc(const GPUCacheInfo &info, atom_params *ligs,
 /* evaluate contribution of interacting pairs, add to forces and place total */
 /* energy in e (which must be zero initialized). */
 
-template <typename infoT>
 __global__
-void eval_intra_kernel(const infoT& info, const atom_params * atoms,
+void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
                        const interacting_pair* pairs, unsigned npairs,
                        float cutoff_sqr, float v, force_energy_tup *out,
                        float *e)
@@ -421,7 +420,7 @@ void eval_intra_kernel(const infoT& info, const atom_params * atoms,
 			float dor;
 			unsigned t1 = ip.t1;
 			unsigned t2 = ip.t2;
-			float energy = eval_deriv_gpu(info.splineInfo, t1, atoms[ip.a].charge, t2,
+			float energy = eval_deriv_gpu(spinfo, t1, atoms[ip.a].charge, t2,
 					atoms[ip.b].charge, r2, dor);
 			deriv = r * dor;
 			curl(energy, deriv, v);
@@ -471,13 +470,3 @@ cudaError definitelyPinnedMemcpy(void* dst, const void *src, size_t n, cudaMemcp
     return cudaSuccess;
 }
 
-template __global__
-void eval_intra_kernel<GPUNonCacheInfo>(const GPUNonCacheInfo& info, const atom_params * atoms,
-                       const interacting_pair* pairs, unsigned npairs,
-                       float cutoff_sqr, float v, force_energy_tup *out,
-                       float *e);
-template __global__
-void eval_intra_kernel<GPUCacheInfo>(const GPUCacheInfo& info, const atom_params * atoms,
-                       const interacting_pair* pairs, unsigned npairs,
-                       float cutoff_sqr, float v, force_energy_tup *out,
-                       float *e);

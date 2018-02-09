@@ -82,14 +82,14 @@ fl gpu_data::eval_interacting_pairs_deriv_gpu(const infoT& info,
 
     //TODO: this should not be a dynamic launch...
 	if(pairs_sz< CUDA_THREADS_PER_BLOCK) {
-		eval_intra_kernel<<<1,pairs_sz>>>(info, coords,
+		eval_intra_kernel<<<1,pairs_sz>>>(info.splineInfo, coords,
                 pairs, pairs_sz, cutoff_sqr, v, minus_forces, scratch);
 
 	} 
 	else { 
 		eval_intra_kernel<<<CUDA_GET_BLOCKS(pairs_sz,
                 1024),
-            CUDA_THREADS_PER_BLOCK>>>(info, coords,
+            CUDA_THREADS_PER_BLOCK>>>(info.splineInfo, coords,
                     pairs, pairs_sz, cutoff_sqr, v, minus_forces,
                     scratch);
 	}

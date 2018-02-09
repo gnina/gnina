@@ -8,7 +8,7 @@
 
 struct cache_gpu : public cache{
 	cache_gpu(const std::string& scoring_function_version_, const grid_dims& gd_, fl slope_, precalculate_gpu* prec) : 
-        cache(scoring_function_version_, gd_, slope)
+        cache(scoring_function_version_, gd_, slope_)
     {
         info.splineInfo = prec->getDeviceData(); 
         info.cutoff_sq = prec->cutoff_sqr();
