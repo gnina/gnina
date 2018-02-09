@@ -107,6 +107,11 @@ class Layer {
       const vector<Blob<Dtype>*>& top) = 0;
 
   /**
+   * @brief Deallocate any scratch memory.
+   */
+  virtual void Clear() {}
+
+  /**
    * @brief Given the bottom blobs, compute the top blobs and the loss.
    *
    * @param bottom
@@ -153,6 +158,7 @@ class Layer {
 
   virtual void Backward_relevance(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
   /**
    * @brief Returns the vector of learnable parameter blobs.
    */

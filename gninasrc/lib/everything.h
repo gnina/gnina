@@ -249,6 +249,7 @@ struct hydrophobic: public charge_independent
 	}
 	fl eval(smt t1, smt t2, fl r) const
 	{
+		//std::cout << "HYDRO " << t1 << " " << t2 << " " << r << " " << slope_step(bad, good, r - optimal_distance(t1, t2)) << "\n";
 		if (xs_is_hydrophobic(t1) && xs_is_hydrophobic(t2))
 			return slope_step(bad, good, r - optimal_distance(t1, t2));
 		else

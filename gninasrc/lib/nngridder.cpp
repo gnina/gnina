@@ -401,7 +401,7 @@ void NNGridder::setCenter(double x, double y, double z)
 	if(userGrids.size() > 0)
 	{
 		cerr << "Attempting to re-set grid center with user specified grids.\n";
-		abort();
+		exit(1);
 	}
 	gmaker.setCenter(x,y,z);
 
@@ -492,6 +492,33 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 		}
 	}
 
+	if(opt.separate && opt.examplegrid.size() == 0 && opt.usergrids.size() == 0)
+	{
+		cerr << "--separate specified, but no example or additional grids specified to define coordinate system\n";
+		abort();
+	}
+	
+	if(opt.examplegrid.size() > 0) 
+	{
+		ifstream gridfile(opt.examplegrid.c_str());
+		if(!gridfile)
+		{
+			cerr << "Could not open example grid file " << opt.examplegrid << "\n";
+			abort();
+		}
+		vec gridcenter;
+		double gridres = 0;
+		Grid g;
+		if(!readDXGrid(gridfile,gridcenter, gridres, g))
+		{
+			cerr << "I couldn't understand the provided dx file " << opt.examplegrid << ". I apologize for not being more informative and possibly being too picky about my file formats.\n";
+			exit(1);
+		}
+		setCenter(gridcenter[0],gridcenter[1],gridcenter[2]);
+		resolution = gridres;
+		dimension = resolution*(g.shape()[0]-1);
+	}
+	
 	vec savedcenter;
 	userGrids.resize(0); userGrids.reserve(opt.usergrids.size());
 	for(unsigned i = 0, ng = opt.usergrids.size(); i < ng; i++)
@@ -501,7 +528,7 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 		if(!gridfile)
 		{
 			cerr << "Could not open grid file " << opt.usergrids[i] << "\n";
-			abort();
+			exit(1);
 		}
 		vec gridcenter;
 		double gridres = 0;
@@ -509,7 +536,7 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 		if(!readDXGrid(gridfile,gridcenter, gridres, g))
 		{
 			cerr << "I couldn't understand the provided dx file " << opt.usergrids[i] << ". I apologize for not being more informative and possibly being too picky about my file formats.\n";
-			abort();
+			exit(1);
 		}
 
 		unsigned npts = g.shape()[0];
@@ -527,13 +554,13 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 			if(gridres != resolution)
 			{
 				cerr << "Inconsistent resolutions in grids: " << gridres << " vs " << resolution << "\n";
-				abort();
+				exit(1);
 			}
 			double dim = resolution*(npts-1);
 			if(dim != dimension)
 			{
 				cerr << "Inconsistent dimensions in grids: " << dim << " vs " << dimension << "\n";
-				abort();
+				exit(1);
 			}
 
 			for(unsigned c = 0; c < 3; c++)
@@ -541,7 +568,7 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 				if(savedcenter[c] != gridcenter[c])
 				{
 					cerr << "Inconsistent center in grids at position " << c << ": " << savedcenter[c] << " vs " << gridcenter[c] << "\n";
-					abort();
+					exit(1);
 				}
 			}
 		}
@@ -562,7 +589,7 @@ NNMolsGridder::NNMolsGridder(const gridoptions& opt)
 	tee log(true);
 	FlexInfo finfo(log); //dummy
 	mols.create_init_model(opt.receptorfile, "", finfo, log);
-
+	setModel(mols.getInitModel(), false, true);
 	//set ligand file
 	mols.setInputFile(opt.ligandfile);
 }
@@ -577,7 +604,7 @@ void NNGridder::initialize(const gridoptions& opt)
 	gpu = opt.gpu;
 	Q = quaternion(0, 0, 0, 0);
 
-	gmaker.initialize(resolution, opt.dim, radiusmultiple, binary);
+	gmaker.initialize(resolution, opt.dim, radiusmultiple, binary, opt.spherize);
 
 	if (binary)
 		radiusmultiple = 1.0;
@@ -602,7 +629,6 @@ void NNGridder::initialize(const gridoptions& opt)
 void NNGridder::setRecGPU()
 {
 	if(gpu_receptorAInfo == NULL) {
-		assert(sizeof(vec) == sizeof(float3));
 		CUDA_CHECK(cudaMalloc(&gpu_receptorAInfo, recAInfo.size()*sizeof(float4)));
 		CUDA_CHECK(cudaMemcpy(gpu_receptorAInfo, &recAInfo[0], recAInfo.size()*sizeof(float4),cudaMemcpyHostToDevice));
 	}
@@ -626,6 +652,11 @@ void NNGridder::setLigGPU()
 	}
 }
 
+static double unit_sample()
+{
+  return (double)(rand())/(double)RAND_MAX;
+}
+
 void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 {
 	//compute center from ligand
@@ -638,7 +669,7 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 		if(randrotate || randtranslate)
 		{
 			cerr << "Random rotation/translation is not supported with user grids.\n";
-			abort();
+			exit(1);
 		}
 		//the grid is already set - do nothing
 	}
@@ -649,16 +680,24 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 		{
 			center += m.coordinates()[i];
 		}
-		center /= atoms.size();
+		if(atoms.size() > 0)
+		  center /= atoms.size();
 
 		//apply random modifications
 		if (randrotate)
 		{
-			double d = rand() / double(RAND_MAX);
-			double r1 = rand() / double(RAND_MAX);
-			double r2 = rand() / double(RAND_MAX);
-			double r3 = rand() / double(RAND_MAX);
-			Q = NNGridder::quaternion(1, r1 / d, r2 / d, r3 / d);
+	    //http://planning.cs.uiuc.edu/node198.html
+	    //sample 3 numbers from 0-1
+	    double u1 = unit_sample();
+	    double u2 = unit_sample();
+	    double u3 = unit_sample();
+	    double sq1 = sqrt(1-u1);
+	    double sqr = sqrt(u1);
+	    double r1 = sq1*sin(2*M_PI*u2);
+	    double r2 = sq1*cos(2*M_PI*u2);
+	    double r3 = sqr*sin(2*M_PI*u3);
+	    double r4 = sqr*cos(2*M_PI*u3);
+			Q = NNGridder::quaternion(r1,r2,r3,r4);
 		}
 
 		if (randtranslate)
@@ -726,6 +765,10 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 		unsigned nlatoms = m.coordinates().size();
 		CUDA_CHECK(cudaMemcpy(gpu_ligandAInfo, &ainfo[0], nlatoms*sizeof(float4),cudaMemcpyHostToDevice));
 		//cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 1024*1024*4);
+		if(randrotate) {
+		  //gpu coordinates are modified in place, so have to reset to original receptor
+	    CUDA_CHECK(cudaMemcpy(gpu_receptorAInfo, &recAInfo[0], recAInfo.size()*sizeof(float4),cudaMemcpyHostToDevice));
+		}
 
 		gmaker.setAtomsGPU<float>(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);
 		cudaCopyGrids(receptorGrids, gpu_receptorGrids);

@@ -81,7 +81,7 @@ struct user_settings
 	bool dominimize;
 	bool include_atom_info;
 	bool gpu_on;
-    bool true_score;
+	bool true_score;
 
     cnn_options cnnopts;
 	bool cnn_scoring;
@@ -93,7 +93,7 @@ struct user_settings
 					device(0), exhaustiveness(10),
 					score_only(false), randomize_only(false), local_only(false),
 					dominimize(false), include_atom_info(false), gpu_on(false),
-                    true_score(false)
+                    true_score(false), cnn_scoring(false)
 	{
 
 	}
@@ -147,7 +147,7 @@ fl do_randomization(model& m, const vec& corner1,
 		log << "Using random seed: " << seed;
 		log.endl();
 	}
-	const sz attempts = 10000;
+	const sz attempts = 100;
 	conf best_conf = init_conf;
 	fl best_clash_penalty = 0;
 	VINA_FOR(i, attempts)
@@ -160,6 +160,7 @@ fl do_randomization(model& m, const vec& corner1,
 		{
 			best_conf = c;
 			best_clash_penalty = penalty;
+			if(penalty == 0) break;
 		}
 	}
 	m.set(best_conf);
@@ -175,6 +176,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 		output_type& out, const vec& cap, const minimization_params& minparm,
 		grid& user_grid)
 {
+	// std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
 	change g(m.get_size());
 
 	quasi_newton quasi_newton_par(minparm);
@@ -194,6 +196,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 		{
 			break;
 		}
+		std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | ligand outside box\n";
 		slope *= 10;
 	}
 	out.coords = m.get_heavy_atom_movable_coords();
@@ -267,14 +270,20 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< " (kcal/mol)";
 		log.endl();
 
-		float aff = 0;
-		cnnscore = cnn.score(m, false, aff);
+		float cnnaffinity = -1;
+		float cnngradient = -1;
+		cnnscore = cnn.score(m, true, cnnaffinity);
+		cnngradient = m.get_minus_forces_magnitude();
 		if (cnnscore >= 0.0)
 		{
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
 			log.endl();
-			if (aff > 0) {
-				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << aff;
+			if (cnnaffinity >= 0) {
+				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
+				log.endl();
+			}
+			if (cnngradient >= 0) {
+				log << "CNNgradient: " << std::fixed << std::setprecision(10) << cnngradient;
 				log.endl();
 			}
 		}
@@ -304,7 +313,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		}
 		log << '\n';
 
-		results.push_back(result_info(e, cnnscore, aff, -1, m));
+		results.push_back(result_info(e, cnnscore, cnnaffinity, cnngradient, -1, m));
 
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
@@ -340,15 +349,20 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< " (kcal/mol)\nRMSD: " << rmsd;
 		log.endl();
 
-		float aff = 0;
-		cnnscore = cnn.score(m, false, aff);
+		float cnnaffinity = -1;
+		float cnngradient = -1;
+		cnnscore = cnn.score(m, true, cnnaffinity);
+		cnngradient = m.get_minus_forces_magnitude();
 		if (cnnscore >= 0.0)
 		{
 			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
 			log.endl();
-			if (aff > 0)
-			{
-				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << aff;
+			if (cnnaffinity >= 0) {
+				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
+				log.endl();
+			}
+			if (cnngradient >= 0) {
+				log << "CNNgradient: " << std::fixed << std::setprecision(10) << cnngradient;
 				log.endl();
 			}
 		}
@@ -358,7 +372,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 		m.set(out.c);
 		done(settings.verbosity, log);
-		results.push_back(result_info(e, cnnscore, aff, rmsd, m));
+		results.push_back(result_info(e, cnnscore, cnnaffinity, cnngradient, rmsd, m));
 
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
@@ -380,16 +394,20 @@ void do_search(model& m, const boost::optional<model>& ref,
 		if (!out_cont.empty())
 		{
 			out_cont.sort();
-			const fl best_mode_intramolecular_energy = m.eval_intramolecular(
-					prec, authentic_v, out_cont[0].c);
+            non_cache_cnn* nc_cnn = dynamic_cast<non_cache_cnn*>(&nc);
+            if (!nc_cnn) {
+                non_cache nc_base = *(dynamic_cast<non_cache*>(&nc));
+			    const fl best_mode_intramolecular_energy = m.eval_intramolecular(
+			    		prec, authentic_v, out_cont[0].c);
 
-			VINA_FOR_IN(i, out_cont)
-				if (not_max(out_cont[i].e))
-					out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
-							out_cont[i].c, best_mode_intramolecular_energy,
-							user_grid);
-			// the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
-			out_cont.sort();
+			    VINA_FOR_IN(i, out_cont)
+			    	if (not_max(out_cont[i].e))
+			    		out_cont[i].e = m.eval_adjusted(sf, prec, nc_base, authentic_v,
+			    				out_cont[i].c, best_mode_intramolecular_energy,
+			    				user_grid);
+			    // the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
+			    out_cont.sort();
+            }
 		}
 		out_cont = remove_redundant(out_cont, settings.out_min_rmsd);
 
@@ -423,9 +441,13 @@ void do_search(model& m, const boost::optional<model>& ref,
 					<< std::setw(9) << std::setprecision(3) << ub; // FIXME need user-readable error messages in case of failures
 
 			log.endl();
-
-			//dkoes - setup result_info
-			results.push_back(result_info(out_cont[i].e, -1, 0, -1, m));
+      
+	  	float cnnaffinity = -1;
+	  	float cnngradient = -1;
+	  	cnnscore = cnn.score(m, true, cnnaffinity);
+		  cnngradient = m.get_minus_forces_magnitude();
+      //dkoes - setup result_info
+			results.push_back(result_info(out_cont[i].e, cnnscore, cnnaffinity, cnngradient, -1, m));
 
 			if (compute_atominfo)
 				results.back().setAtomValues(m, &sf);
@@ -440,6 +462,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 					<< "WARNING: Check that it is large enough for all movable atoms, including those in the flexible side chains.";
 			log.endl();
 		}
+        m.deallocate_gpu();
 	}
 	std::cout << "Refine time " << time.elapsed().wall/1000000000.0 << "\n";
 }
@@ -495,12 +518,14 @@ void main_procedure(model& m, precalculate& prec,
 	par.display_progress = true;
 
 	szv_grid_cache gridcache(m, prec.cutoff_sqr());
-	const fl slope = 1e6; // FIXME: too large? used to be 100
+	const fl slope = 1e3; // FIXME: too large? used to be 100
 	if (settings.randomize_only)
 	{
-		fl e = do_randomization(m, corner1, corner2, settings.seed,
+		for(unsigned i = 0; i < settings.num_modes; i++) {
+			fl e = do_randomization(m, corner1, corner2, settings.seed+i,
 				settings.verbosity, log);
-		results.push_back(result_info(e, -1, 0, -1, m));
+			results.push_back(result_info(e, -1, 0, -1, -1, m));
+		}
 		return;
 	}
 	else
@@ -1166,7 +1191,8 @@ Thank you!\n";
 				"Adjust the verbosity of the output, default: 1")
 		("flex_hydrogens", bool_switch(&flex_hydrogens),
 				"Enable torsions affecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
-        ("true_score", bool_switch(&settings.true_score), "Enable printing for the true GPU-computed score for correctness testing.");
+        ("true_score", bool_switch(&settings.true_score), "Enable printing for the true GPU-computed score for correctness testing.")
+		("outputmin", value<int>(&minparms.outputframes), "output minout.sdf of minimization with provided amount of interpolation");
 
 		options_description cnn("Convolutional neural net (CNN) scoring");
 		cnn.add_options()
@@ -1174,10 +1200,6 @@ Thank you!\n";
 				"caffe cnn model file; if not specified a default model will be used")
 		("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
 				"caffe cnn weights file (*.caffemodel); if not specified default weights (trained on the default model) will be used")
-		("cnn_recmap", value<std::string>(&cnnopts.cnn_recmap),
-				"receptor atom type to channel mapping")
-		("cnn_ligmap", value<std::string>(&cnnopts.cnn_ligmap),
-				"ligand atom type to channel mapping")
 		("cnn_resolution", value<fl>(&cnnopts.resolution)->default_value(0.5),
 				"resolution of grids, don't change unless you really know what you are doing")
 		("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
@@ -1187,7 +1209,9 @@ Thank you!\n";
 		("cnn_outputdx", bool_switch(&cnnopts.outputdx)->default_value(false),
 		               "Dump .dx files of atom grid gradient.")
 		("cnn_outputxyz", bool_switch(&cnnopts.outputxyz)->default_value(false),
-		               "Dump .xyz files of atom gradient.");
+		               "Dump .xyz files of atom gradient.")
+		("cnn_xyzprefix", value<std::string>(&cnnopts.xyzprefix)->default_value("gradient"),
+		               "Prefix for atom gradient .xyz files");
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
@@ -1597,6 +1621,7 @@ Thank you!\n";
 						delete m;
 						break;
 					}
+					m->set_pose_num(i);
 
 					if (settings.local_only || settings.true_score)
 					{

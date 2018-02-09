@@ -212,6 +212,30 @@ inline void subtract_change(change& b, const change& a, sz n)
 		b(i) -= a(i);
 }
 
+//compute numerical gradient of F(x) and put it in g
+template<typename F>
+void numerical_gradient(F& f, conf&x, change& g)
+{
+  unsigned n = g.num_floats();
+  change diff(g);
+  diff.clear();
+  conf newx = x;
+  fl fold = f(x,diff);
+  for(unsigned i = 0; i < n; i++) {
+    diff.clear();
+    fl temp = x(i);
+    newx = x;
+    fl h = 5*epsilon_fl;
+    if(h == 0.0) h = epsilon_fl;
+    diff(i) = h;
+    newx.increment(diff,1.0);
+    diff(i) = 0.0;
+    fl fh = f(newx, diff);
+    g(i) = (fh-fold)/h;
+    //std::cout << "ng " << i << " " << fh << " " << fold << " " << h << " " << temp << "\n";
+  }
+}
+
 template<typename F, typename Conf, typename Change>
 fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		const minimization_params& params)
@@ -227,9 +251,17 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	Conf x_orig(x);
 
 	Change p(g);
-	 //std::cout << std::setprecision(8);
-	 //std::cout << "f0 " << f0 << "\n";
-	//std::ofstream fout("minout.sdf");
+	if(params.outputframes > 0) {
+	  std::cout << std::setprecision(8);
+	  std::cout << "f0 " << f0 << "\n";
+	  std::cout << "numerical gradient: ";
+	  change ngrad(g); ngrad.clear();
+	  //numerical_gradient(f, x,g);
+	  //ngrad.print();
+	}
+	std::ofstream minout;
+	if(params.outputframes > 0)
+		minout.open("minout.sdf");
 	VINA_U_FOR(step, params.maxiters)
 	{
 		minus_mat_vec_product(h, g, p);
@@ -241,8 +273,21 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		else
 			alpha = fast_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
 
+		if(params.outputframes > 0)
+		{
+		  std::cout << "p: ";
+		  p.print();
+      std::cout << "g: ";
+      g.print();
+      std::cout << "g_new: ";
+      g_new.print();
+      //numerical_gradient(f, x_new,g_new);
+      //std::cout << "numerical g_new: ";
+      //g_new.print();
+		}
+
 		if(alpha == 0) {
-			//std::cout << "alpha 0\n";
+			std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | wrong direction\n";
 			break; //line direction was wrong, give up
 		}
 
@@ -253,12 +298,16 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		fl prevf0 = f0;
 		f0 = f1;
 
-		/*
-				f.m->set(x);
-				f.m->write_sdf(fout);
-				fout << "$$$$\n";
-		*/
-
+		if(params.outputframes > 0) 
+		{
+			for(double factor = 0; factor <= 1.0; factor += 1.0/params.outputframes) {
+				Conf xi(x);
+				xi.increment(p, alpha*factor);
+				f.m->set(xi);
+				f.m->write_sdf(minout);
+				minout << "$$$$\n";
+			}
+		}
 		x = x_new;
 
 		if (params.early_term)
@@ -274,7 +323,12 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		g = g_new; // dkoes - check the convergence of the new gradient
 
 		fl gradnormsq = scalar_product(g, g, n);
-		std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+
+		if(params.outputframes > 0) {
+		  std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+		  std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | step " << step;
+		  std::cout << " | f0 " << f0 << " | gradnormsq " << gradnormsq << " | alpha " << alpha << "\n";
+		}
 
 		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
 		{
@@ -289,7 +343,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 				set_diagonal(h, alpha * scalar_product(y, p, n) / yy);
 		}
 
-		bool h_updated = bfgs_update(h, p, y, alpha);
+		bfgs_update(h, p, y, alpha);
 	}
 
 	if (!(f0 <= f_orig))
@@ -298,7 +352,10 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		x = x_orig;
 		g = g_orig;
 	}
-//	std::cout << "final f0 " << f0 << "\n";
+
+	if(params.outputframes > 0) {
+	  std::cout << "final f0 " << f0 << "\n";
+	}
 
 	return f0;
 }

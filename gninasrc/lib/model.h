@@ -30,7 +30,6 @@
 #include "file.h"
 #include "tree.h"
 #include "tree_gpu.h"
-#include "conf_gpu.h"
 #include "matrix.h"
 #include "precalculate.h"
 #include "igrid.h"
@@ -43,6 +42,7 @@ typedef std::vector<interacting_pair> interacting_pairs;
 
 typedef std::pair<std::string, boost::optional<sz> > parsed_line;
 typedef std::vector<parsed_line> pdbqtcontext;
+void test_eval_intra();
 
 struct gpu_data {
 	//put all pointers to gpu data into a struct that provides a lightweight 
@@ -259,6 +259,9 @@ struct model {
 	void set_name(const std::string& n) { name = n; }
 	const std::string& get_name() const { return name; }
 
+	void set_pose_num(int n) { pose_num = n; }
+	int get_pose_num() const { return pose_num; }
+
 	conf_size get_size() const;
 	// torsions = 0, orientations = identity, ligand positions = current
 	conf get_initial_conf() const; 
@@ -410,6 +413,8 @@ struct model {
 	void add_minus_forces(const std::vector<float3>& forces);
 	void sub_minus_forces(const std::vector<float3>& forces);
 
+	fl get_minus_forces_magnitude() const;
+
 	//allocate gpu memory, model must be setup
 	//also copies over data that does not change during minimization
 	//if model changes, must re-initialize
@@ -421,12 +426,16 @@ struct model {
 
 	model() : m_num_movable_atoms(0), hydrogens_stripped(false), print_during_minimization(false), 
     eval_deriv_counter(0) {};
-	~model() { deallocate_gpu(); };
+	~model() {deallocate_gpu();};
 
-    /* TODO:protect */
     vecv coords;
+	vecv minus_forces;
     gpu_data gdata;
     vector_mutable<ligand> ligands;
+	sz m_num_movable_atoms;
+	atomv atoms; // movable, inflex
+	atomv grid_atoms;
+	interacting_pairs other_pairs; 
 
 private:
 	//my, aren't we friendly!
@@ -442,6 +451,7 @@ private:
 	friend class appender;
 	friend struct pdbqt_initializer;
 	friend struct model_test;
+    friend void test_eval_intra();
 
 	const atom& get_atom(const atom_index& i) const {
 		return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]);
@@ -493,20 +503,20 @@ private:
 	/* TODO:reprivate */
 	/* vecv coords; */
 	//This contains the accumulated directional deltas for each atom
-	vecv minus_forces;
+	/* vecv minus_forces; */
+	/*sz m_num_movable_atoms; */
+	/*atomv atoms; // movable, inflex*/
+	/*atomv grid_atoms;*/
 
-	atomv grid_atoms;
-	atomv atoms; // movable, inflex
 
 	vector_mutable<residue> flex;
 	context flex_context;
 	// all except internal to one ligand: ligand-other ligands;
 	// ligand-flex/inflex; flex-flex/inflex
-	interacting_pairs other_pairs; 
-
-	sz m_num_movable_atoms;
+	// interacting_pairs other_pairs; 
 
 	std::string name;
+	int pose_num;
 };
 
 

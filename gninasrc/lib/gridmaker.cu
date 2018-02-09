@@ -27,8 +27,6 @@ __shared__ uint atomMask[THREADSPERBLOCK];
 __shared__ uint scanScratch[THREADSPERBLOCK * 2];
 
 
-
-/*
 //do a scan and return ptr to result (could be either place in double-buffer)
 __shared__ uint scanBuffer[2][THREADSPERBLOCK];
 __device__ uint* scan(int thid)
@@ -51,7 +49,6 @@ __device__ uint* scan(int thid)
 	}
 	return scanBuffer[pout];
 }
-*/
 
 //Almost the same as naive scan1Inclusive, but doesn't need __syncthreads()
 //assuming size <= WARP_SIZE
@@ -247,7 +244,7 @@ bool scanValid(unsigned idx,uint *scanresult)
 //grids are the output and are assumed to be zeroed
 template<bool Binary, typename Dtype> __global__ 
 //__launch_bounds__(THREADSPERBLOCK, 64)
-void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, float4 *ainfos, short *gridindex, Dtype *grids)
+void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, float4 *ainfos, short *gridindex, Dtype *grids, bool *mask)
 {
 	unsigned tIndex = ((threadIdx.z*BLOCKDIM) + threadIdx.y)*BLOCKDIM+threadIdx.x;
 
@@ -257,10 +254,13 @@ void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, 
 		//first parallelize over atoms to figure out if they might overlap this block
 		unsigned aindex = atomoffset+tIndex;
 		
-		if(aindex < n)
+		if(aindex < n) {
 			atomMask[tIndex] = atomOverlapsBlock(aindex, origin, resolution, ainfos, gridindex, rmult);
-		else
+			if(mask) atomMask[tIndex] &= !(mask[aindex]);
+		}
+		else {
 			atomMask[tIndex] = 0;
+		}
 
 		__syncthreads();
 		
@@ -333,8 +333,9 @@ float4 applyQ(float4 coord, float3 center, float4 Q)
 	float4 conjQ = quaternion_conj(Q);
 	float normQ = quaternion_mult(Q,conjQ).w;
 	float4 nconj = quaternion_scalar(conjQ, 1.0/normQ);
-	p = quaternion_mult(quaternion_mult(Q,p), nconj);
-	
+	float4 tmp = quaternion_mult(Q,p);
+	p = quaternion_mult(tmp, nconj);
+
 	return make_float4(p.x+center.x, p.y+center.y, p.z+center.z,coord.w); 
 }
 
@@ -345,11 +346,31 @@ void gpu_coord_rotate(float3 center, float4 Q, int n, float4 *ainfos)
 	unsigned aindex = blockIdx.x*blockDim.x+threadIdx.x;
 	if(aindex < n) {
 		float4 ai = ainfos[aindex];
-		float4 rotated = applyQ(ai, center, Q); 
+		float4 rotated = applyQ(ai, center, Q);
 		ainfos[aindex] = rotated;
 	}
 }
 
+//set mask bits to one if atom should be ignored
+__global__
+void gpu_mask_atoms(float3 gridcenter, float rsq, int n, float4 *ainfos, bool *mask)
+{
+  unsigned aindex = blockIdx.x*blockDim.x+threadIdx.x;
+  if(aindex < n) {
+    float4 ai = ainfos[aindex];
+    float xdiff = ai.x-gridcenter.x;
+    float ydiff = ai.y-gridcenter.y;
+    float zdiff = ai.z-gridcenter.z;
+    float distsq = xdiff*xdiff + ydiff*ydiff + zdiff*zdiff;
+    if(distsq > rsq) {
+      mask[aindex] = 1;
+    } else {
+      mask[aindex] = 0;
+    }
+  }
+}
+
+//WARNING: if Q is not the identify, will modify coordinates in ainfos in-place
 template<typename Dtype>
 void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, quaternion Q, unsigned ngrids,Dtype *grids)
 {
@@ -362,19 +383,33 @@ void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, qua
 	unsigned gsize = ngrids * dim * dim * dim;
 	CUDA_CHECK(cudaMemset(grids, 0, gsize * sizeof(float)));	//TODO: see if faster to do in kernel - it isn't, but this still may not be fastest
 	
+	if(natoms == 0) return;
+
+	bool *mask = NULL;
+  unsigned natomblocks = (natoms+THREADSPERBLOCK-1)/THREADSPERBLOCK;
+	if(spherize) {
+	  cudaMalloc(&mask, sizeof(bool)*natoms);
+	  cudaMemset(mask, 0, sizeof(bool)*natoms);
+	  gpu_mask_atoms<<<natomblocks, THREADSPERBLOCK>>>(center, rsq, natoms, ainfos, mask);
+    CUDA_CHECK(cudaPeekAtLastError() );
+	}
+
 	if(Q.R_component_1() != 0) { 
-		unsigned natomblocks = (natoms+THREADSPERBLOCK-1)/THREADSPERBLOCK;
 		float4 q = make_float4(Q.R_component_2(),Q.R_component_3(),Q.R_component_4(),Q.R_component_1()); //w is R1
 		gpu_coord_rotate<<<natomblocks,THREADSPERBLOCK>>>(center, q, natoms, ainfos);
 	}
 	if(binary){
-		gpu_grid_set<true><<<blocks,threads>>>(origin, dim, resolution, radiusmultiple, natoms, ainfos, gridindex, grids);
+		gpu_grid_set<true><<<blocks,threads>>>(origin, dim, resolution, radiusmultiple, natoms, ainfos, gridindex, grids, mask);
 		CUDA_CHECK (cudaPeekAtLastError() );
 	}
 	else
 	{
-		gpu_grid_set<false><<<blocks,threads>>>(origin, dim, resolution, radiusmultiple, natoms, ainfos, gridindex, grids);
+		gpu_grid_set<false><<<blocks,threads>>>(origin, dim, resolution, radiusmultiple, natoms, ainfos, gridindex, grids, mask);
 		CUDA_CHECK(cudaPeekAtLastError() );
+	}
+
+	if(mask) {
+	  cudaFree(mask);
 	}
 }
 

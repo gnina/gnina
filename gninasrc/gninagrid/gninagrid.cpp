@@ -41,8 +41,8 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	("receptor,r", value<std::string>(&o.receptorfile)->required(),
 			"receptor file")
 	("ligand,l", value<std::string>(&o.ligandfile)->required(), "ligand(s)")
-	("grid,g", value<std::vector<std::string> >(&o.usergrids)->multitoken(), "grid(s) dx format");
-
+	("grid,g", value<std::vector<std::string> >(&o.usergrids)->multitoken(), "grid(s) dx format")
+	("example_grid", value<string>(&o.examplegrid), "example grid for positioning with --separate");
 	options_description outputs("Output");
 	outputs.add_options()
 	("out,o", value<std::string>(&o.outname)->required(),
@@ -58,6 +58,8 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	("resolution", value<double>(&o.res), "Cubic grid resolution (Angstroms)")
 	("binary_occupancy", bool_switch(&o.binary),
 			"Output binary occupancies (still as floats)")
+	("spherical_mask", bool_switch(&o.spherize),
+	    "Mask out a sphere")
 	("random_rotation", bool_switch(&o.randrotate),
 			"Apply random rotation to input")
 	("random_translation", value<fl>(&o.randtranslate),
@@ -65,7 +67,7 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	("random_seed", value<int>(&o.seed), "Random seed to use")
 	("recmap", value<string>(&o.recmap), "Atom type mapping for receptor atoms")
 	("ligmap", value<string>(&o.ligmap), "Atom type mapping for ligand atoms")
-	("separate", bool_switch(&o.separate), "Output separate rec and lig files - only valid with user grids.")
+	("separate", bool_switch(&o.separate), "Output separate rec and lig files.")
 	("gpu", bool_switch(&o.gpu), "Use GPU to compute grids");
 
 	options_description info("Information (optional)");
@@ -127,11 +129,6 @@ int main(int argc, char *argv[])
 
 		if(opt.separate)
 		{
-			if(opt.usergrids.size() == 0)
-			{
-				cerr << "Separate receptor/ligand output is only valid with user supplied grid inputs.\n";
-				abort();
-			}
 			string outname = opt.outname + "." + gridder.getParamString(true,false) + ".binmap";
 			ofstream binout(outname.c_str());
 			if (!binout)

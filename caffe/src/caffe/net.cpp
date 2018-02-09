@@ -9,6 +9,7 @@
 
 #include "caffe/common.hpp"
 #include "caffe/layer.hpp"
+#include "caffe/layers/conv_layer.hpp"
 #include "caffe/net.hpp"
 #include "caffe/parallel.hpp"
 #include "caffe/proto/caffe.pb.h"
@@ -732,6 +733,16 @@ void Net<Dtype>::Reshape() {
 }
 
 template <typename Dtype>
+void Net<Dtype>::ClearBlobs() {
+  for (int i = 0; i < blobs_.size(); ++i) {
+    blobs_[i]->Clear();
+  }
+  for (int i = 0; i < layers_.size(); ++i) {
+    layers_[i]->Clear();
+  }
+}
+
+template <typename Dtype>
 void Net<Dtype>::CopyTrainedLayersFrom(const NetParameter& param) {
   int num_source_layers = param.layer_size();
   for (int i = 0; i < num_source_layers; ++i) {
@@ -980,19 +991,73 @@ const shared_ptr<Layer<Dtype> > Net<Dtype>::layer_by_name(
 }
 
 template<typename Dtype>
-void Net<Dtype>::Backward_relevance(){
-    
-    int end = 0;
+void Net<Dtype>::Backward_relevance(std::string layer_to_ignore, bool zero_values){
+
+    int end = 0 ;
     int start = layers_.size()-1;
 
-    for (int i = start; i >= end; --i) {
+    for(int i = start; i >= end; i--)
+    {
+        //zero out layer if specified
+        if (layer_names_[i] == layer_to_ignore)
+        {
+            int blob_count = top_vecs_[i][0]->count();
+            Dtype* top_diff = top_vecs_[i][0]->mutable_cpu_diff();
+            caffe_set(blob_count, static_cast<Dtype>(0), top_diff);
+        }
+        if (layer_need_backward_[i])
+        {
+            if (zero_values && layer_names_[i] == "unit1_conv1")
+            {
+                caffe::ConvolutionLayer<Dtype> * conv_layer =
+                    dynamic_cast<caffe::ConvolutionLayer<Dtype> *>(layers_[i].get());
 
-      if (layer_need_backward_[i]) {
-        layers_[i]->Backward_relevance(
-            top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
-      }
+                conv_layer->zero_backward_relevance(top_vecs_[i],
+                        bottom_need_backward_[i], bottom_vecs_[i]);
+
+            }
+            else
+            {
+                layers_[i]->Backward_relevance(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
+            }
+        }
     }
 }
+
+template<typename Dtype>
+void Net<Dtype>::Backward_ignore_layer(std::string layer_to_ignore)
+{
+    int end = 0 ;
+    int start = layers_.size() - 1;
+
+    CHECK_GE(end, 0);
+    CHECK_LT(start, layers_.size());
+
+    for (int i = start; i >= end; i--)
+    {
+        for (int c = 0; c < before_backward_.size(); ++c)
+        {
+            before_backward_[c]->run(i);
+        }
+
+        if (layer_need_backward_[i] && layer_names_[i] != layer_to_ignore)
+        {
+            layers_[i]->Backward(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
+
+            if (debug_info_)
+            {
+                BackwardDebugInfo(i);
+            }
+        }
+
+        for (int c = 0; c < after_backward_.size(); ++c)
+        {
+            after_backward_[c]->run(i);
+        }
+    }
+}
+
+
 
 INSTANTIATE_CLASS(Net);
 

@@ -15,6 +15,7 @@ struct gridoptions
 	string recmap;
 	string ligmap;
 	vector<string> usergrids;
+	string examplegrid;
 	double dim;
 	double res;
 	fl randtranslate;
@@ -27,13 +28,14 @@ struct gridoptions
 	bool outmap;
 	bool outdx; //unfortunately mutually exclusive with outmap
 	bool binary;
+	bool spherize;
 	bool gpu;
 	bool separate;
 	gridoptions() :
 		//a default dimension of 23.5 yields 48x48x48 gridpoints
 			dim(23.5), res(0.5), verbosity(1), seed((int)time(NULL)),
 			randrotate(false), randtranslate(0.0),
-			help(false), version(false), timeit(false), outmap(false), binary(false), gpu(false), separate(false)
+			help(false), version(false), timeit(false), outmap(false), binary(false), spherize(false), gpu(false), separate(false)
 	{
 	}
 };

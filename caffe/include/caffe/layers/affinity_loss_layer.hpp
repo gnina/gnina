@@ -33,7 +33,7 @@ template <typename Dtype>
 class AffinityLossLayer : public LossLayer<Dtype> {
  public:
   explicit AffinityLossLayer(const LayerParameter& param)
-      : LossLayer<Dtype>(param), diff_() {}
+      : LossLayer<Dtype>(param), diff_(), nranklosspairs(0) {}
 
   virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -49,7 +49,6 @@ class AffinityLossLayer : public LossLayer<Dtype> {
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
 
-
   /**
    * @brief Computes the error gradient w.r.t. the inputs.
    *
@@ -57,7 +56,15 @@ class AffinityLossLayer : public LossLayer<Dtype> {
   virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
+  virtual void Backward_relevance(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
+  Dtype compute_pair_loss(const vector<Blob<Dtype>*>& bottom, unsigned i, unsigned j, Dtype mult);
+  void compute_pair_gradient(const vector<Blob<Dtype>*>& top,
+          const vector<Blob<Dtype>*>& bottom, unsigned i, unsigned j, Dtype multi);
+
   Blob<Dtype> diff_;
+  unsigned nranklosspairs;
 };
 
 }  // namespace caffe

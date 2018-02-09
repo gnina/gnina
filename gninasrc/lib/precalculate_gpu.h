@@ -37,12 +37,13 @@ public:
 	unsigned num_types() const { return data.dim(); }
 	result_components eval_fast(smt t1, smt t2, fl r2) const;
     pr eval_deriv(const atom_base& a, const atom_base& b, fl r2) const;
+    //TODO: reprivate
+	GPUSplineInfo *deviceData;
 
 private:
 
 	triangular_matrix<GPUSplineInfo> data;
 	triangular_matrix<spline_cache> cpudata;
-	GPUSplineInfo *deviceData;
     float *device_vals, *device_derivs;
 	fl delta;
 	fl factor;

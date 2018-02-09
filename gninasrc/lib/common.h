@@ -56,7 +56,8 @@ struct minimization_params
 	Type type;
 	unsigned maxiters; //maximum number of iterations of algorithm
 	bool early_term; //terminate early based on different of function values
-	minimization_params(): type(BFGSFastLineSearch), maxiters(0), early_term(false)
+	int outputframes;
+	minimization_params(): type(BFGSFastLineSearch), maxiters(0), early_term(false), outputframes(0)
 	{
 
 	}
@@ -110,6 +111,14 @@ struct CUDA_ALIGN(4 * sizeof(float)) vec {
 		data[0] = x;
 		data[1] = y;
 		data[2] = z;
+	}
+
+    __host__ __device__
+	vec(fl x, fl y, fl z, fl w) {
+		data[0] = x;
+		data[1] = y;
+		data[2] = z;
+        pad[0] = w;
 	}
 
     __host__ __device__

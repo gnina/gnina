@@ -182,6 +182,7 @@ fl non_cache::eval_deriv(model& m, fl v, const grid& user_grid) const
 				pr e_dor = p->eval_deriv(a, b, r2);
 				this_e += e_dor.first;
 				deriv += e_dor.second * r_ba;
+                vec out_deriv = e_dor.second * r_ba;
 			}
 		}
 		if (user_grid.initialized())

@@ -6,22 +6,25 @@ Help
 ====
 **Reminder: gnina is not yet intended for production use**.  However, if you would like to evaluate it or use it as a research platform, please [subscribe to our slack team](http://bits.csb.pitt.edu/slack). 
 
+Citation
+========
+If you find gnina useful, please cite our paper (hopefully more to come):  
+**Protein–Ligand Scoring with Convolutional Neural Networks**  
+M Ragoza, J Hochuli, E Idrobo, J Sunseri, DR Koes. *J. Chem. Inf. Model*, 2017  
+[link](http://pubs.acs.org/doi/full/10.1021/acs.jcim.6b00740) [arXiv version](https://arxiv.org/abs/1612.02751)
+
+
 Installation
 ============
 
-To install (Ubuntu 16.04):
+### Ubuntu 16.04
 ```
 apt-get install build-essential git wget libopenbabel-dev libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-serial-dev libatlas-base-dev python-dev cmake librdkit-dev python-numpy
 ```
 
-[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA.  Or:
+[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA.  *Note* we are in the process of transitioning to CUDA 9.1.
 
-```
-wget https://developer.nvidia.com/compute/cuda/8.0/Prod2/local_installers/cuda-repo-ubuntu1604-8-0-local-ga2_8.0.61-1_amd64-deb
-dpkg -i cuda-repo-ubuntu1604-8-0-local_8.0.44-1_amd64-deb 
-apt-get update
-apt-get install cuda
-```
+
 ```
 git clone https://github.com/gnina/gnina.git
 cd gnina
@@ -33,7 +36,7 @@ make install
 ```
 # 
 
-To install on (CentOS 7):
+### CentOS 7
 
 The program will not build in a computer with a gpu with computer capability < 3.5 unless
 you force a different architecture. The program will compile but will not run in that computer due to the GPU architecture difference.
@@ -190,6 +193,7 @@ train.py -m models/refmodel3/refmodel3.model -p models/data/csar/all
 ```
 
 This will perform cross-validation using the `alltrain[0-2].types` and `alltest[0-2].types` files.
+Note that `refmodel3.model` requires the file `models/refmodel3/ligmap.old` to be in the current directory.
 
 There are quite a few options to `train.py` for modifying training:
 ```
@@ -251,6 +255,9 @@ optional arguments:
   --power POWER         Power, default 1
   --weights WEIGHTS     Set of weights to initialize the model with
 ```
+
+The DUD-E docked poses used in the original paper can be found [here](http://bits.csb.pitt.edu/files/docked_dude.tar).  
+We will make additional datasets (beyond what is available in [models/data](https://github.com/gnina/models/tree/master/data) available as they are requested.   Feel free to contact us.
 
 User Grids
 ----------

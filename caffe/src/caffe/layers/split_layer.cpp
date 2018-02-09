@@ -38,6 +38,16 @@ void SplitLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     caffe_copy(count_, top[0]->cpu_diff(), bottom[0]->mutable_cpu_diff());
     return;
   }
+
+  /*
+  for(int i = 0; i < 10; i++)
+  {
+      std::cout << top[0]->cpu_diff()[i];
+      std::cout << "|" << top[1]->cpu_diff()[i];
+      std::cout << "\n";
+  }
+  */
+
   caffe_add(count_, top[0]->cpu_diff(), top[1]->cpu_diff(),
             bottom[0]->mutable_cpu_diff());
   // Add remaining top blob diffs.
@@ -50,7 +60,17 @@ void SplitLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 
 template <typename Dtype>
 void SplitLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
-      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
+{
+    /*
+    float sum = 0;
+    for (int i = 0; i < top[0]->count(); ++i)
+    {
+        sum += top[0]->cpu_diff()[i];
+    }
+    std::cout << "SPLIT TOP SUM: " << sum << '\n';
+    */
+    
     //take average
     unsigned n = bottom[0]->count();
     Dtype *bottom_diff = bottom[0]->mutable_cpu_diff();
@@ -64,14 +84,14 @@ void SplitLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
     //average
     //caffe_scal<Dtype>(n, 1.0/top.size(), bottom_diff);
 
-    float sum = 0;
+    /*
+    sum = 0;
     for (int i = 0; i < bottom[0]->count(); ++i)
     {
         sum += bottom[0]->cpu_diff()[i];
     }
     std::cout << "SPLIT BOTTOM SUM: " << sum << '\n';
-
-
+    */
 }
 #ifdef CPU_ONLY
 STUB_GPU(SplitLayer);
