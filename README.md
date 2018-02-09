@@ -88,7 +88,7 @@ cd build
 ```
 **If you are using anaconda python the you need to check that all the python variables are set correctly or set them manually.**
 ```
-export ANACONDA_PY_HOME=/home/$USER/anaconda
+export ANACONDA_PY_HOME=/home/$USER/(anaconda2 or miniconda2)
 cmake -DPYTHON_EXECUTABLE=$ANACONDA_PY_HOME/bin/python -DPYTHON_INCLUDE_DIR=$ANACONDA_PY_HOME/include/python2.7 -DPYTHON_LIBRARY=$ANACONDA_PY_HOME/lib/libpython2.7.so -DPYTHON_NUMPY_INCLUDE_PATH=$ANACONDA_PY_HOME/lib/python2.7/site-packages/numpy/core/include ..
 make
 ctest
