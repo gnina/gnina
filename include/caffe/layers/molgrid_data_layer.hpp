@@ -687,6 +687,11 @@ public:
 template<typename T>
 static string xyz_to_string(T x, T y, T z)
 {
+    //avoid negative zeros in string representation
+    if(x == 0) x = 0;
+    if(y == 0) y = 0;
+    if(z == 0) z = 0;
+
     std::stringstream ss;
     ss << std::fixed << std::setprecision(3) << x;
     std::string rounded_x = ss.str();
