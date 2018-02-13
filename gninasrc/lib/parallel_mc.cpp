@@ -36,6 +36,10 @@ struct parallel_mc_task
 			m(m_), generator(static_cast<rng::result_type>(seed))
 	{
         if (run_on_gpu) {
+            //TODO: need to ensure that worker threads using these copies can't
+            //deallocate GPU memory - race condition in
+            //parallel_mc_aux::operator(), plus inefficiency of having to copy
+            //buffers that won't change but could be freed
             m.gdata.coords = m_.gdata.coords;
             m.gdata.atom_coords = m_.gdata.atom_coords;
             m.gdata.minus_forces = m_.gdata.minus_forces;
@@ -49,6 +53,7 @@ struct parallel_mc_task
             m.gdata.forces_size = m_.gdata.forces_size;
             m.gdata.pairs_size = m_.gdata.pairs_size;
             m.gdata.other_pairs_size = m_.gdata.other_pairs_size;
+            m.gdata.nlig_roots = m_.gdata.nlig_roots;
         }
 	}
 };
@@ -76,16 +81,23 @@ struct parallel_mc_aux
 	{
         if (run_on_gpu) {
             thread_buffer.reinitialize();
-            //update our copy of gpu_data to have local buffers for the fields
-            //we intend to modify
+            //update our copy of gpu_data to have local buffers; N.B. this
+            //theoretically could be restricted to fields we intend to modify,
+            //but currently we also need copies of the things that are
+            //deallocated in the model destructor
             atom_params *coords;
-            thread_buffer.alloc(&coords, sizeof(t.m.gdata.coords[t.m.gdata.coords_size]));
-            definitelyPinnedMemcpy(coords, t.m.gdata.coords, sizeof(t.m.gdata.coords[t.m.gdata.coords_size]), cudaMemcpyDeviceToDevice);
+            thread_buffer.alloc(&coords, sizeof(atom_params[t.m.gdata.coords_size]));
+            definitelyPinnedMemcpy(coords, t.m.gdata.coords, sizeof(atom_params[t.m.gdata.coords_size]), cudaMemcpyDeviceToDevice);
             t.m.gdata.coords = coords;
 
+            vec *atom_coords;
+            thread_buffer.alloc(&atom_coords, sizeof(vec[t.m.gdata.atom_coords_size]));
+            definitelyPinnedMemcpy(atom_coords, t.m.gdata.atom_coords, sizeof(vec[t.m.gdata.atom_coords_size]), cudaMemcpyDeviceToDevice);
+            t.m.gdata.atom_coords = atom_coords;
+
             force_energy_tup *minus_forces;
-            thread_buffer.alloc(&minus_forces, sizeof(t.m.gdata.minus_forces[t.m.gdata.forces_size]));
-            definitelyPinnedMemcpy(minus_forces, t.m.gdata.minus_forces, sizeof(t.m.gdata.minus_forces[t.m.gdata.forces_size]), cudaMemcpyDeviceToDevice);
+            thread_buffer.alloc(&minus_forces, sizeof(force_energy_tup[t.m.gdata.forces_size]));
+            definitelyPinnedMemcpy(minus_forces, t.m.gdata.minus_forces, sizeof(force_energy_tup[t.m.gdata.forces_size]), cudaMemcpyDeviceToDevice);
             t.m.gdata.minus_forces = minus_forces;
 
             segment_node *device_nodes;
@@ -95,10 +107,10 @@ struct parallel_mc_aux
             tree_gpu old_tree;
             definitelyPinnedMemcpy(&old_tree, t.m.gdata.treegpu, sizeof(tree_gpu), cudaMemcpyDeviceToHost);
             unsigned num_nodes = old_tree.num_nodes;
-            thread_buffer.alloc(&device_nodes, sizeof(old_tree.device_nodes[num_nodes]));
-            thread_buffer.alloc(&force_torques, sizeof(old_tree.force_torques[num_nodes]));
-            definitelyPinnedMemcpy(device_nodes, old_tree.device_nodes, sizeof(old_tree.device_nodes[num_nodes]), cudaMemcpyDeviceToDevice);
-            definitelyPinnedMemcpy(force_torques, old_tree.force_torques, sizeof(old_tree.force_torques[num_nodes]), cudaMemcpyDeviceToDevice);
+            thread_buffer.alloc(&device_nodes, sizeof(segment_node[num_nodes]));
+            thread_buffer.alloc(&force_torques, sizeof(gfloat4p[num_nodes]));
+            definitelyPinnedMemcpy(device_nodes, old_tree.device_nodes, sizeof(segment_node[num_nodes]), cudaMemcpyDeviceToDevice);
+            definitelyPinnedMemcpy(force_torques, old_tree.force_torques, sizeof(gfloat4p[num_nodes]), cudaMemcpyDeviceToDevice);
             tree_gpu* new_tree;
             thread_buffer.alloc(&new_tree, sizeof(tree_gpu));
             old_tree.device_nodes = device_nodes;
@@ -107,6 +119,14 @@ struct parallel_mc_aux
             t.m.gdata.treegpu = new_tree;
 
             thread_buffer.alloc(&t.m.gdata.scratch, sizeof(float));
+
+            size_t* dfs_order_bfs_indices = new size_t[num_nodes];
+            memcpy(dfs_order_bfs_indices, t.m.gdata.dfs_order_bfs_indices, sizeof(size_t[num_nodes]));
+            t.m.gdata.dfs_order_bfs_indices = dfs_order_bfs_indices;
+
+            size_t* bfs_order_dfs_indices = new size_t[num_nodes]; 
+            memcpy(bfs_order_dfs_indices, t.m.gdata.bfs_order_dfs_indices, sizeof(size_t[num_nodes]));
+            t.m.gdata.bfs_order_dfs_indices = bfs_order_dfs_indices;
         }
 
 		(*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
