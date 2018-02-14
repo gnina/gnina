@@ -15,6 +15,7 @@ struct gridoptions
 	string recmap;
 	string ligmap;
 	vector<string> usergrids;
+	string examplegrid;
 	double dim;
 	double res;
 	fl randtranslate;

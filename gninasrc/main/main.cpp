@@ -1086,6 +1086,7 @@ Thank you!\n";
 		bool help = false, help_hidden = false, version = false;
 		bool quiet = false;
 		bool accurate_line = false;
+		bool simple_ascent = false;
 		bool flex_hydrogens = false;
 		bool print_terms = false;
 		bool print_atom_types = false;
@@ -1169,6 +1170,7 @@ Thank you!\n";
 				"number iterations of steepest descent; default scales with rotors and usually isn't sufficient for convergence")
 		("accurate_line", bool_switch(&accurate_line),
 				"use accurate line search")
+		("simple_ascent", bool_switch(&simple_ascent), "use simple gradient ascent")
 		("minimize_early_term", bool_switch(&minparms.early_term),
 				"Stop minimization before convergence conditions are fully met.")
 		("approximation", value<ApproxType>(&approx),
@@ -1192,7 +1194,9 @@ Thank you!\n";
 		("flex_hydrogens", bool_switch(&flex_hydrogens),
 				"Enable torsions affecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
         ("true_score", bool_switch(&settings.true_score), "Enable printing for the true GPU-computed score for correctness testing.")
-		("outputmin", value<int>(&minparms.outputframes), "output minout.sdf of minimization with provided amount of interpolation");
+		("outputmin", value<int>(&minparms.outputframes), "output minout.sdf of minimization with provided amount of interpolation")
+    ("cnn_gradient_check", bool_switch(&cnnopts.gradient_check)->default_value(false),
+                  "Perform internal checks on gradient.");
 
 		options_description cnn("Convolutional neural net (CNN) scoring");
 		cnn.add_options()
@@ -1200,10 +1204,6 @@ Thank you!\n";
 				"caffe cnn model file; if not specified a default model will be used")
 		("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
 				"caffe cnn weights file (*.caffemodel); if not specified default weights (trained on the default model) will be used")
-		("cnn_recmap", value<std::string>(&cnnopts.cnn_recmap),
-				"receptor atom type to channel mapping")
-		("cnn_ligmap", value<std::string>(&cnnopts.cnn_ligmap),
-				"ligand atom type to channel mapping")
 		("cnn_resolution", value<fl>(&cnnopts.resolution)->default_value(0.5),
 				"resolution of grids, don't change unless you really know what you are doing")
 		("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
@@ -1216,6 +1216,7 @@ Thank you!\n";
 		               "Dump .xyz files of atom gradient.")
 		("cnn_xyzprefix", value<std::string>(&cnnopts.xyzprefix)->default_value("gradient"),
 		               "Prefix for atom gradient .xyz files");
+
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
@@ -1348,6 +1349,11 @@ Thank you!\n";
 		if (accurate_line)
 		{
 			minparms.type = minimization_params::BFGSAccurateLineSearch;
+		}
+
+		if (simple_ascent)
+		{
+		  minparms.type = minimization_params::Simple;
 		}
 
 		bool search_box_needed = !(settings.score_only || settings.local_only); // randomize_only and local_only still need the search space; dkoes - for local get box from ligand

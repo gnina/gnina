@@ -51,6 +51,8 @@ struct quasi_newton_aux_gpu {
 		gdata.copy_from_gpu(*m);
 	}
 
+	void adjust_center() { } //this may have to be implemented for cnn scoring
+
     __device__
 	fl operator()(const conf_gpu& c,change_gpu& g){
 		return gdata.eval_deriv_gpu(ig, v, c, g);

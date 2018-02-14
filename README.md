@@ -47,8 +47,8 @@ sudo yum  install epel-release
 ```
 _[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA.  Or:_
 ```
-wget http://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-repo-rhel7-8.0.61-1.x86_64.rpm
-sudo rpm -i cuda-repo-rhel7-8.0.61-1.x86_64.rpm
+wget http://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-repo-rhel7-9.1.85-1.x86_64.rpm
+sudo rpm -i cuda-repo-rhel7-9.1.85-1.x86_64.rpm
 sudo yum clean all
 sudo yum install cuda
 ```
@@ -80,7 +80,7 @@ git clone https://github.com/gnina/gnina.git
 cd gnina
 wget https://github.com/rdkit/rdkit/archive/Release_2017_03_1.tar.gz
 tar -xvf Release_2017_03_1.tar.gz
-cd Release_2017_03_1
+cd rdkit-Release_2017_03_1
 export RDBASE=`pwd`
 export LD_LIBRARY_PATH=$RDBASE/lib:$LD_LIBRARY_PATH
 mkdir build
@@ -88,7 +88,7 @@ cd build
 ```
 **If you are using anaconda python the you need to check that all the python variables are set correctly or set them manually.**
 ```
-export ANACONDA_PY_HOME=/home/$USER/anaconda
+export ANACONDA_PY_HOME=/home/$USER/(anaconda2 or miniconda2)
 cmake -DPYTHON_EXECUTABLE=$ANACONDA_PY_HOME/bin/python -DPYTHON_INCLUDE_DIR=$ANACONDA_PY_HOME/include/python2.7 -DPYTHON_LIBRARY=$ANACONDA_PY_HOME/lib/libpython2.7.so -DPYTHON_NUMPY_INCLUDE_PATH=$ANACONDA_PY_HOME/lib/python2.7/site-packages/numpy/core/include ..
 make
 ctest
@@ -113,13 +113,14 @@ for i in $(ls -1 *.so.1.2017.03.1); do name=`basename $i .so.1.2017.03.1`; namef
 _Continue with gnina compilation_  
 We need to set the variable for the ATLAS libraries.  
 Use lib**s**atlas.so for serial libraries or lib**t**atlas.so for threaded libraries.  
+Also, we need to set the variables for the HDF5 compilers to avoid a conflict with the provided by anaconda python.
 
 **If you are using anaconda python the you need to check that all the python variables are set correctly or set them manually.**
 ```
 cd /home/$USER/bin/gnina
 mkdir build
 cd build
-cmake -DPYTHON_EXECUTABLE=$ANACONDA_PY_HOME/bin/python -DPYTHON_INCLUDE_DIR=$ANACONDA_PY_HOME/include/python2.7 -DPYTHON_LIBRARY=$ANACONDA_PY_HOME/lib/libpython2.7.so -DAtlas_BLAS_LIBRARY=/usr/lib64/atlas/libtatlas.so -DAtlas_CBLAS_LIBRARY=/usr/lib64/atlas/libtatlas.so -DAtlas_LAPACK_LIBRARY=/usr/lib64/atlas/libtatlas.so ..
+cmake -DPYTHON_EXECUTABLE=$ANACONDA_PY_HOME/bin/python -DPYTHON_INCLUDE_DIR=$ANACONDA_PY_HOME/include/python2.7 -DPYTHON_LIBRARY=$ANACONDA_PY_HOME/lib/libpython2.7.so -DAtlas_BLAS_LIBRARY=/usr/lib64/atlas/libtatlas.so -DAtlas_CBLAS_LIBRARY=/usr/lib64/atlas/libtatlas.so -DAtlas_LAPACK_LIBRARY=/usr/lib64/atlas/libtatlas.so -DHDF5_CXX_COMPILER_EXECUTABLE=/usr/bin/h5c++ -DHDF5_C_COMPILER_EXECUTABLE=/usr/bin/h5cc -DHDF5_DIFF_EXECUTABLE=/usr/bin/h5diff ..
 make 
 make install
 ```
@@ -193,6 +194,7 @@ train.py -m models/refmodel3/refmodel3.model -p models/data/csar/all
 ```
 
 This will perform cross-validation using the `alltrain[0-2].types` and `alltest[0-2].types` files.
+Note that `refmodel3.model` requires the file `models/refmodel3/ligmap.old` to be in the current directory.
 
 There are quite a few options to `train.py` for modifying training:
 ```
@@ -254,6 +256,9 @@ optional arguments:
   --power POWER         Power, default 1
   --weights WEIGHTS     Set of weights to initialize the model with
 ```
+
+The DUD-E docked poses used in the original paper can be found [here](http://bits.csb.pitt.edu/files/docked_dude.tar).  
+We will make additional datasets (beyond what is available in [models/data](https://github.com/gnina/models/tree/master/data) available as they are requested.   Feel free to contact us.
 
 User Grids
 ----------
