@@ -28,10 +28,11 @@ struct cnn_options {
     bool cnn_scoring; //if true, do cnn_scoring of final pose
     bool outputdx;
     bool outputxyz;
+    bool gradient_check;
     std::string xyzprefix;
     unsigned seed; //random seed
 
-    cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), outputdx(false), outputxyz(false), seed(0) {}
+    cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), outputdx(false), outputxyz(false), gradient_check(false), seed(0) {}
 };
 
 /* This class evaluates protein-ligand poses according to a provided
@@ -46,6 +47,8 @@ class CNNScorer {
     unsigned seed;
     bool outputdx;
     bool outputxyz;
+    bool gradient_check;
+    mutable bool reset_center; //potential hack for debugging gradients
     std::string xyzprefix;
 
     caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
@@ -56,7 +59,7 @@ class CNNScorer {
     vector<short> channels;
 
 public:
-    CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), outputxyz(false), mtx(new boost::mutex) {}
+    CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), outputxyz(false), gradient_check(false), reset_center(true), mtx(new boost::mutex) {}
     virtual ~CNNScorer() {}
 
     CNNScorer(const cnn_options& cnnopts, const vec& center, const model& m);
@@ -75,6 +78,13 @@ public:
 
     void lrp(const model& m, const string& layer_to_ignore = "", bool zero_values = false);
     void gradient_setup(const model& m, const string& recname, const string& ligname, const string& layer_to_ignore = "");
+
+    bool adjust_center() const;
+
+protected:
+  void get_net_output(Dtype& score, Dtype& aff);
+  void check_gradient();
+
 };
 
 #endif /* SRC_LIB_CNN_SCORER_H_ */

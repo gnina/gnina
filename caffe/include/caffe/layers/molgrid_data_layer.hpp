@@ -629,6 +629,7 @@ public:
   double fixedradius;
   double randtranslate;
   double ligpeturb_translate;
+  bool ligpeturb_rotate;
   bool binary; //produce binary occupancies
   bool randrotate;
   bool ligpeturb; //for spatial transformer

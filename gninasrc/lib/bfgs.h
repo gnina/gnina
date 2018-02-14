@@ -212,6 +212,13 @@ inline void subtract_change(change& b, const change& a, sz n)
 		b(i) -= a(i);
 }
 
+//b = -a
+inline void set_to_neg(change& b, const change& a, sz n)
+{
+  VINA_FOR(i,n)
+      b(i) = -a(i);
+}
+
 //compute numerical gradient of F(x) and put it in g
 template<typename F>
 void numerical_gradient(F& f, conf&x, change& g)
@@ -236,10 +243,143 @@ void numerical_gradient(F& f, conf&x, change& g)
   }
 }
 
+//use accurate line search to move in opposite direction of gradient each iteration
+template<typename F, typename Conf, typename Change>
+fl simple_gradient_ascent(F& f, Conf& x, Change& g, const fl average_required_improvement,
+    const minimization_params& params)
+{ // x is I/O, final value is returned
+  sz n = g.num_floats();
+  bool didreset = false;
+  Change g_new(g);
+  Conf x_new(x);
+  fl f0 = f(x, g);
+  fl f_orig = f0;
+  Change g_orig(g);
+  Conf x_orig(x);
+
+  Change p(g);
+  if(params.outputframes > 0) {
+    std::cout << std::setprecision(8);
+    std::cout << "f0 " << f0 << "\n";
+    std::cout << "g: ";
+    g.print();
+    std::cout << "x: ";
+    x.print();
+    std::cout << "\n";
+    //std::cout << "numerical gradient: ";
+    //change ngrad(g); ngrad.clear();
+    //numerical_gradient(f, x,g);
+    //ngrad.print();
+  }
+
+  std::ofstream minout;
+  if(params.outputframes > 0)
+    minout.open("minout.sdf");
+
+  VINA_U_FOR(step, params.maxiters)
+  {
+    fl f1 = 0;
+    fl alpha = 0;
+    set_to_neg(p,g,n);
+
+    alpha = accurate_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
+
+    if(params.outputframes > 0)
+    {
+      std::cout << "f1: " << f1 << "\n";
+      std::cout << "p: ";
+      p.print();
+      std::cout << "g: ";
+      g.print();
+      std::cout << "g_new: ";
+      g_new.print();
+      std::cout << "x_new: ";
+      x_new.print();
+      //numerical_gradient(f, x_new,g_new);
+      //std::cout << "numerical g_new: ";
+      //g_new.print();
+    }
+
+    if(alpha == 0) {
+      std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | " << f0 << " wrong direction\n";
+      if(false && f.adjust_center()) {
+        //for cnn scoring, let's try recentering before giving up
+        fl prevf0 = f0;
+        f0 = f(x, g);
+        didreset = true;
+
+        alpha = accurate_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
+        if(alpha == 0) {
+           std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | " << f0 << " really wrong direction\n";
+           f0 = prevf0; // the recentered f0 might be worse than the starting
+           break;
+        }
+      }
+      else
+        break; //line direction was wrong, give up
+    }
+
+    fl prevf0 = f0;
+    f0 = f1;
+
+    if(params.outputframes > 0)
+    {
+      for(double factor = 0; factor <= 1.0; factor += 1.0/params.outputframes) {
+        Conf xi(x);
+        xi.increment(p, alpha*factor);
+        f.m->set(xi);
+        f.m->write_sdf(minout);
+        minout << "$$$$\n";
+      }
+    }
+    x = x_new;
+
+    if (params.early_term)
+    {
+      //dkoes - use the progress in reducing the function value as an indication of when to stop
+      fl diff = prevf0 - f0;
+      if (std::fabs(diff) < 1e-5) //arbitrary cutoff
+      {
+        break;
+      }
+    }
+
+    g = g_new; // dkoes - check the convergence of the new gradient
+
+    fl gradnormsq = scalar_product(g, g, n);
+
+    if(params.outputframes > 0) {
+      std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+      std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | step " << step;
+      std::cout << " | f0 " << f0 << " | gradnormsq " << gradnormsq << " | alpha " << alpha << "\n\n";
+    }
+
+    if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
+    {
+      //std::cout << "gradnormsq " << gradnormsq << "\n";
+      break; // breaks for nans too // FIXME !!??
+    }
+  }
+
+  if (!(f0 <= f_orig))
+  { // succeeds for nans too
+    f0 = f_orig;
+    x = x_orig;
+    g = g_orig;
+  }
+
+  if(params.outputframes > 0) {
+    std::cout << "final f0 " << f0 << "\n";
+  }
+
+  return f0;
+}
+
 template<typename F, typename Conf, typename Change>
 fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		const minimization_params& params)
 { // x is I/O, final value is returned
+  bool didreset = false;
 	sz n = g.num_floats();
 	flmat h(n, 0);
 	set_diagonal(h, 1);
@@ -254,8 +394,13 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	if(params.outputframes > 0) {
 	  std::cout << std::setprecision(8);
 	  std::cout << "f0 " << f0 << "\n";
-	  std::cout << "numerical gradient: ";
-	  change ngrad(g); ngrad.clear();
+    std::cout << "g: ";
+    g.print();
+    std::cout << "x: ";
+    x.print();
+    std::cout << "\n";
+	  //std::cout << "numerical gradient: ";
+	  //change ngrad(g); ngrad.clear();
 	  //numerical_gradient(f, x,g);
 	  //ngrad.print();
 	}
@@ -275,20 +420,39 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 
 		if(params.outputframes > 0)
 		{
+		  std::cout << "f1: " << f1 << "\n";
 		  std::cout << "p: ";
 		  p.print();
       std::cout << "g: ";
       g.print();
       std::cout << "g_new: ";
       g_new.print();
+      std::cout << "x_new: ";
+      x_new.print();
       //numerical_gradient(f, x_new,g_new);
       //std::cout << "numerical g_new: ";
       //g_new.print();
 		}
 
 		if(alpha == 0) {
-			std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | wrong direction\n";
-			break; //line direction was wrong, give up
+			std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | " << f0 << " wrong direction\n";
+			if(false && f.adjust_center()) {
+			  //for cnn scoring, let's try recentering before giving up
+			  fl prevf0 = f0;
+			  f0 = f(x, g);
+			  set_diagonal(h, 1);
+		    minus_mat_vec_product(h, g, p);
+		    didreset = true;
+
+			  alpha = accurate_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
+			  if(alpha == 0) {
+			     std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | " << f0 << " really wrong direction\n";
+			     f0 = prevf0; // the recentered f0 might be worse than the starting
+			     break;
+			  }
+			}
+			else
+			  break; //line direction was wrong, give up
 		}
 
 		Change y(g_new);
@@ -327,7 +491,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		if(params.outputframes > 0) {
 		  std::cout << "step " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
 		  std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | step " << step;
-		  std::cout << " | f0 " << f0 << " | gradnormsq " << gradnormsq << " | alpha " << alpha << "\n";
+		  std::cout << " | f0 " << f0 << " | gradnormsq " << gradnormsq << " | alpha " << alpha << "\n\n";
 		}
 
 		if (!(gradnormsq >= 1e-4)) //slightly arbitrary cutoff - works with fp
@@ -336,9 +500,10 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 			break; // breaks for nans too // FIXME !!??
 		}
 
-		if (step == 0)
+		if (step == 0 || didreset)
 		{
 			const fl yy = scalar_product(y, y, n);
+			didreset = false;
 			if (std::abs(yy) > epsilon_fl)
 				set_diagonal(h, alpha * scalar_product(y, p, n) / yy);
 		}
