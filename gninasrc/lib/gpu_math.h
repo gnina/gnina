@@ -71,7 +71,7 @@ float3 shuffle_down(const float3 &a, int delta) {
 #else
     return float3(__shfl_down(a.x, delta),
 		  __shfl_down(a.y, delta),
-		  __shfl_down_sync(a.z, delta));
+		  __shfl_down(a.z, delta));
 #endif
 }
 
