@@ -110,7 +110,7 @@ __host__ __device__
 float single_point_calc(const GPUNonCacheInfo &dinfo, atom_params *lig,
                         force_energy_tup *out, float v);
 
-__device__
+__host__ __device__
 float single_point_calc(const GPUCacheInfo &dinfo, atom_params *lig,
                         force_energy_tup *out, float v);
 

@@ -7,6 +7,8 @@
 #include "atom_constants.h"
 
 extern parsed_args p_args;
+extern bool run_on_gpu;
+extern int cuda_dev_id;
 
 //TODO: doesn't explicitly prevent/check atoms from overlapping, which could
 //theoretically lead to runtime errors later

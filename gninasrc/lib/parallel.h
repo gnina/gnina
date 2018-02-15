@@ -31,8 +31,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition.hpp>
-
-void initializeCUDA(int device);
+void initializeCUDA(int cuda_dev_id);
 
 template<typename F, bool Sync = false>
 struct parallel_for : private boost::thread_group {

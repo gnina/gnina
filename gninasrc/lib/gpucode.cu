@@ -281,7 +281,7 @@ __device__ void reduce_energy(force_energy_tup *result, float energy) {
 
 /*Cached version of GPU energy/deriv eval*/
 __device__
-void interaction_energy(const GPUCacheInfo dinfo,  
+void interaction_energy(const GPUCacheInfo& dinfo,  
                         const atom_params *ligs, force_energy_tup *out, 
                         float v) {
     force_energy_tup val = force_energy_tup(0,0,0,0);
@@ -367,8 +367,6 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
 		interaction_energy<1> <<<num_movable_atoms, ROUND_TO_WARP(nthreads_remain)>>>(info,
 				nrec_atoms - nthreads_remain, ligs, out);
 
-	//get total energy
-    cudaDeviceSynchronize();
     //TODO: reduce energy only launches one block, thus enforcing the
     //hardware restriction on the number of threads per block for the number of
     //movable atoms. generalize this to remove this unnecessary constraint
@@ -387,15 +385,29 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
     #endif
 }
 
-__device__
+__global__ 
+void cache_gpu_kernel(const GPUCacheInfo info, atom_params *ligs,
+                        force_energy_tup *out, float v) {
+	interaction_energy(info, ligs, out, v);
+}
+
+__host__ __device__
 float single_point_calc(const GPUCacheInfo &info, atom_params *ligs,
                         force_energy_tup *out, float v)
 {
+    #ifdef __CUDA_ARCH__
 	/* Assumed by warp_sum */
 	assert(THREADS_PER_BLOCK <= 1024);
 	interaction_energy(info, ligs, out, v);
-
 	return out->energy;
+    #else
+    cache_gpu_kernel<<<1, ROUND_TO_WARP(info.num_movable_atoms)>>>(info, ligs, out, v);
+    abort_on_gpu_err();
+    float cpu_out;
+    definitelyPinnedMemcpy(&cpu_out, &out->energy, sizeof(float), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
+    return cpu_out;
+    #endif
 }
 
 /* evaluate contribution of interacting pairs, add to forces and place total */
@@ -446,7 +458,7 @@ void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
 
 void *getHostMem(){
     void *r = nullptr;
-    CUDA_CHECK_GNINA(cudaHostAlloc(&r, 4096 * 1024, cudaHostAllocDefault));
+    CUDA_CHECK_GNINA(cudaHostAlloc(&r, 40960 * 1024, cudaHostAllocDefault));
     return r;
 }
 
@@ -455,7 +467,7 @@ cudaError definitelyPinnedMemcpy(void* dst, const void *src, size_t n, cudaMemcp
     if(k == cudaMemcpyDeviceToDevice || k == cudaMemcpyHostToHost)
         return cudaMemcpy(dst, src, n, k);
     thread_local void *buf = getHostMem();
-    assert(n < 4096 * 1024);
+    assert(n < 40960 * 1024);
     if(k == cudaMemcpyHostToDevice){
         memcpy(buf, src, n);
         CUDA_CHECK_GNINA(cudaMemcpyAsync(dst, buf, n, k, cudaStreamPerThread));

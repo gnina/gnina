@@ -133,6 +133,8 @@ struct parallel_mc_aux
 	}
 };
 
+//TODO: null model.gdata pointers at task exit
+
 void merge_output_containers(const output_container& in, output_container& out,
 		fl min_rmsd, sz max_size)
 {

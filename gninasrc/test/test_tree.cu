@@ -6,7 +6,6 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
 
-extern parsed_args p_args;
 thread_local device_buffer test_buffer;
 
 void make_tree(model* m) {
