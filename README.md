@@ -19,7 +19,7 @@ Installation
 
 ### Ubuntu 16.04
 ```
-apt-get install build-essential git wget libopenbabel-dev libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-serial-dev libatlas-base-dev python-dev cmake librdkit-dev python-numpy
+apt-get install build-essential git wget libopenbabel-dev libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-serial-dev libatlas-base-dev python-dev cmake librdkit-dev python-numpy python-pip
 ```
 
 [Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA.  *Note* we are in the process of transitioning to CUDA 9.1.
@@ -35,6 +35,8 @@ make
 make install
 ```
 # 
+
+Note you the scripts provided in `gnina/scripts` have additional python dependencies that must be installed. 
 
 ### CentOS 7
 
@@ -189,7 +191,8 @@ The provided models are templated with `TRAINFILE` and `TESTFILE` arguments, whi
 actual files.  The `train.py` script can be called with a model and a prefix for testing and training files:
 
 ```
-train.py -m models/refmodel3/refmodel3.model -p models/data/csar/all
+cd models/refmodel3
+train.py -m refmodel3.model -p ../data/csar/all -d ../data/csar
 ```
 
 This will perform cross-validation using the `alltrain[0-2].types` and `alltest[0-2].types` files.
