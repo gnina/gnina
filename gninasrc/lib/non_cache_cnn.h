@@ -41,6 +41,7 @@ struct non_cache_cnn : public non_cache {
 	void setSlope(fl sl) { slope = sl; }
 	fl getSlope() { return slope; }
 	virtual bool skip_interacting_pairs() const { return true; }
+	virtual bool adjust_center() const { return cnn_scorer.adjust_center(); }
 protected:
 	fl slope;
 	grid_dims gd;

@@ -28,6 +28,13 @@ void subtract_change(change_gpu& b, const change_gpu& a, sz n)
 	b.sub(a);
 }
 
+__device__ inline
+void set_to_neg(change_gpu& b, const change_gpu& a, sz n)
+{ // b = -a
+  b = a;
+  b.invert();
+}
+
 __device__
 void set_diagonal(flmat_gpu& m, fl x)
 {
