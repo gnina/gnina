@@ -125,8 +125,8 @@ void test_cache_eval_deriv() {
     cudaMemset(gdat.minus_forces, 0, m->minus_forces.size()*sizeof(gdat.minus_forces[0]));
 
     //get intermolecular energy and forces
-    fl g_out = single_point_calc(cg->get_info(), gdat.coords, gdat.minus_forces, v);
     fl c_out = c->eval_deriv(*m, v, user_grid);
+    fl g_out = single_point_calc(cg->get_info(), gdat.coords, gdat.minus_forces, v);
 
     vec g_forces[m->minus_forces.size()];
     cudaMemcpy(g_forces, gdat.minus_forces, m->minus_forces.size()*sizeof(gdat.minus_forces[0]), cudaMemcpyDeviceToHost);

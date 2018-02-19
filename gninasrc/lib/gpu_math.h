@@ -165,8 +165,8 @@ public:
 	__device__  sz dim0() const { return i; }
 	__device__  sz dim1() const { return j; }
 	__device__  sz dim2() const { return k; }
-	__device__  sz dim(sz i) const {
-		switch(i) {
+	__device__  sz dim(sz idx) const {
+		switch(idx) {
 			case 0: return i;
 			case 1: return j;
 			case 2: return k;
