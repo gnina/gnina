@@ -17,10 +17,10 @@
 
 size_t free_mem() {
    size_t free, total;
-   CUresult res;
-   res = cuMemGetInfo(&free, &total);
-   if (res != CUDA_SUCCESS) {
-       std::cerr << "cuMemGetInfo returned status " << res << "\n";
+   cudaError_t res;
+   res = cudaMemGetInfo(&free, &total);
+   if (res != cudaSuccess) {
+       std::cerr << "cudaMemGetInfo returned status " << res << "\n";
        return 1;
     }
    uint max_threads = boost::thread::hardware_concurrency();

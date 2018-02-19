@@ -5,6 +5,7 @@
 #include "gpucode.h"
 #include "parsed_args.h"
 #include "atom_constants.h"
+#include "device_buffer.h"
 
 extern parsed_args p_args;
 extern bool run_on_gpu;
@@ -70,6 +71,7 @@ inline void boost_loop_test(void (*func)())
     p_args.iter_count = 0;
     for (auto& param : p_args.params) {
         p_args.seed = param;
+        thread_buffer.reinitialize();
         func();
         p_args.iter_count++;
     }

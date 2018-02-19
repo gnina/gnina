@@ -94,6 +94,7 @@ void initializeCUDA(int device)
 
 bool init_unit_test()
 {
+    // initializeCUDA(0);
     std::string logname;
     unsigned seed;
     po::positional_options_description positional;
