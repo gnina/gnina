@@ -401,6 +401,7 @@ float single_point_calc(const GPUCacheInfo &info, atom_params *ligs,
 	interaction_energy(info, ligs, out, v);
 	return out->energy;
     #else
+    /*If we're on the CPU we need to launch a kernel to do this eval*/
     cache_gpu_kernel<<<1, ROUND_TO_WARP(info.num_movable_atoms)>>>(info, ligs, out, v);
     abort_on_gpu_err();
     float cpu_out;

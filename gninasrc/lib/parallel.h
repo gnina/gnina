@@ -31,7 +31,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition.hpp>
-void initializeCUDA(int cuda_dev_id);
+// void initializeCUDA(int cuda_dev_id);
 
 template<typename F, bool Sync = false>
 struct parallel_for : private boost::thread_group {
@@ -76,8 +76,8 @@ private:
         parallel_for* par;
 		aux(sz offset, parallel_for* par) : offset(offset), par(par) {}
 		void operator()() const { 
-            if (run_on_gpu)
-                initializeCUDA(cuda_dev_id);
+            // if (run_on_gpu)
+                // initializeCUDA(cuda_dev_id);
             par->loop(offset); 
         }
     };
@@ -138,8 +138,8 @@ private:
         parallel_for* par;
         aux() : par(NULL) {}
 		void operator()() const { 
-            if (run_on_gpu)
-                initializeCUDA(cuda_dev_id);
+            // if (run_on_gpu)
+                // initializeCUDA(cuda_dev_id);
             par->loop(); 
         }
     };

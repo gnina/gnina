@@ -80,6 +80,37 @@ __device__ inline void minus_mat_vec_product(const flmat_gpu& m,
 
 template<typename infoT>
 __device__
+fl fast_line_search(quasi_newton_aux_gpu<infoT>& f, sz n, const conf_gpu& x, const change_gpu& g, const fl f0,
+		const change_gpu& p, conf_gpu& x_new, change_gpu& g_new, fl& f1)
+{ // returns alpha
+	const fl c0 = 0.0001;
+	const unsigned max_trials = 10;
+	const fl multiplier = 0.5;
+	fl alpha = 1;
+    int idx = threadIdx.x;
+
+	const fl pg = scalar_product(p, g, n);
+
+	VINA_U_FOR(trial, max_trials)
+	{
+        if (idx == 0)
+		    x_new = x;
+        __syncthreads();
+        if (idx < x_new.n)
+		    x_new.increment(p, alpha, &f.gdata);
+        __syncthreads();
+        if (idx == 0)
+		    f1 = f(x_new, g_new);
+        __syncthreads();
+		if (f1 - f0 < c0 * alpha * pg) // FIXME check - div by norm(p) ? no?
+			break;
+		alpha *= multiplier;
+	}
+	return alpha;
+}
+
+template<typename infoT>
+__device__
 fl accurate_line_search_gpu(quasi_newton_aux_gpu<infoT>& f, sz n, const conf_gpu& x,
                             const change_gpu& g, const fl f0,
                             const change_gpu& p, conf_gpu& x_new,
@@ -118,6 +149,7 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu<infoT>& f, sz n, const conf_gpu
         if (idx < x_new.n)
 		    x_new.increment(p, alpha, &f.gdata);
 
+        __syncthreads();
         if (idx == 0)
             f1 = f(x_new, g_new);
 
@@ -244,11 +276,13 @@ void bfgs_gpu(quasi_newton_aux_gpu<infoT> f,
 		    minus_mat_vec_product(h, g, p);
             // f1 is the returned energy for the next iteration of eval_deriv_gpu
 		    f1 = 0;
-            //do we even care about the fast_line_search?
-		    // assert(params.type == minimization_params::BFGSAccurateLineSearch);
         }
         __syncthreads();
-		alpha = accurate_line_search_gpu(f, n, x, g, f0,
+		if (params.type == minimization_params::BFGSAccurateLineSearch)
+		    alpha = accurate_line_search_gpu(f, n, x, g, f0,
+                                                p, x_new, g_new, f1);
+        else
+		    alpha = fast_line_search(f, n, x, g, f0,
                                                 p, x_new, g_new, f1);
 		if(alpha == 0) 
 			break;
@@ -350,6 +384,13 @@ template __device__ fl accurate_line_search_gpu(quasi_newton_aux_gpu<GPUNonCache
         sz, const conf_gpu&, const change_gpu&, const fl, const change_gpu&, 
         conf_gpu&, change_gpu&, fl&);
 template __device__ fl accurate_line_search_gpu(quasi_newton_aux_gpu<GPUCacheInfo>&,
+        sz, const conf_gpu&, const change_gpu&, const fl, const change_gpu&, 
+        conf_gpu&, change_gpu&, fl&);
+
+template __device__ fl fast_line_search(quasi_newton_aux_gpu<GPUNonCacheInfo>&,
+        sz, const conf_gpu&, const change_gpu&, const fl, const change_gpu&, 
+        conf_gpu&, change_gpu&, fl&);
+template __device__ fl fast_line_search(quasi_newton_aux_gpu<GPUCacheInfo>&,
         sz, const conf_gpu&, const change_gpu&, const fl, const change_gpu&, 
         conf_gpu&, change_gpu&, fl&);
 
