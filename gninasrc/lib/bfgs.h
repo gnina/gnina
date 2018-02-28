@@ -232,14 +232,24 @@ void numerical_gradient(F& f, conf&x, change& g)
     diff.clear();
     fl temp = x(i);
     newx = x;
-    fl h = 5*epsilon_fl;
+    fl h = 10*epsilon_fl;
     if(h == 0.0) h = epsilon_fl;
     diff(i) = h;
     newx.increment(diff,1.0);
     diff(i) = 0.0;
+    std::cout << "ng newx1 ";
+    newx.print();
     fl fh = f(newx, diff);
-    g(i) = (fh-fold)/h;
-    //std::cout << "ng " << i << " " << fh << " " << fold << " " << h << " " << temp << "\n";
+    diff.clear();
+    diff(i) = -h;
+    newx = x;
+    newx.increment(diff,1.0);
+    diff(i) = 0.0;
+    std::cout << "ng newx2 ";
+    newx.print();
+    fl fh2 = f(newx,diff);
+    g(i) = (fh-fh2)/(2*h);
+    std::cout << "ng " << i << " " << fh << " " << fold << " " << fh2 << " " << h << " " << temp << " " << g(i) << "\n";
   }
 }
 
@@ -266,10 +276,12 @@ fl simple_gradient_ascent(F& f, Conf& x, Change& g, const fl average_required_im
     std::cout << "x: ";
     x.print();
     std::cout << "\n";
-    //std::cout << "numerical gradient: ";
-    //change ngrad(g); ngrad.clear();
-    //numerical_gradient(f, x,g);
-    //ngrad.print();
+/*    std::cout << "numerical gradient: ";
+    change ngrad(g); ngrad.clear();
+    numerical_gradient(f, x,g);
+    ngrad.print();
+    f(x, g); //reset
+    */
   }
 
   std::ofstream minout;
@@ -295,13 +307,16 @@ fl simple_gradient_ascent(F& f, Conf& x, Change& g, const fl average_required_im
       g_new.print();
       std::cout << "x_new: ";
       x_new.print();
-      //numerical_gradient(f, x_new,g_new);
-      //std::cout << "numerical g_new: ";
-      //g_new.print();
+  //    numerical_gradient(f, x_new,g_new);
+  //    std::cout << "numerical g_new: ";
+  //    g_new.print();
     }
 
     if(alpha == 0) {
       std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | " << f0 << " wrong direction\n";
+      fl gradnormsq = scalar_product(g, g, n);
+      std::cout << "wrongdir gradnorm " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+
       if(false && f.adjust_center()) {
         //for cnn scoring, let's try recentering before giving up
         fl prevf0 = f0;
@@ -392,6 +407,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 
 	Change p(g);
 	if(params.outputframes > 0) {
+	  f.set_verbose(true);
 	  std::cout << std::setprecision(8);
 	  std::cout << "f0 " << f0 << "\n";
     std::cout << "g: ";
@@ -436,6 +452,9 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 
 		if(alpha == 0) {
 			std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | " << f0 << " wrong direction\n";
+      fl gradnormsq = scalar_product(g, g, n);
+      std::cout << "wrongdir step,f0,gradnorm,alpha " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+
 			if(false && f.adjust_center()) {
 			  //for cnn scoring, let's try recentering before giving up
 			  fl prevf0 = f0;

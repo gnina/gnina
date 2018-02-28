@@ -68,8 +68,9 @@ public:
 
     bool has_affinity() const; //return true if can predict affinity
 
-    float score(model& m, bool silent = true);
-    float score(model& m, bool compute_gradient, float& affinity, bool silent = true);
+    float score(model& m); //score only - no gradient
+   // float score(model& m, float& affinity); //scores only - no gradient
+    float score(model& m, bool compute_gradient, float& affinity, float& loss, bool silent = true);
 
     void outputDX(const string& prefix, double scale = 1.0, bool relevance = false, string layer_to_ignore = "", bool zero_values = false);
     void outputXYZ(const string& base, const vector<float4>& atoms,
@@ -82,7 +83,7 @@ public:
     bool adjust_center() const;
 
 protected:
-  void get_net_output(Dtype& score, Dtype& aff);
+  void get_net_output(Dtype& score, Dtype& aff, Dtype& loss);
   void check_gradient();
 
 };

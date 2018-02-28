@@ -42,10 +42,12 @@ struct non_cache_cnn : public non_cache {
 	fl getSlope() { return slope; }
 	virtual bool skip_interacting_pairs() const { return true; }
 	virtual bool adjust_center() const { return cnn_scorer.adjust_center(); }
+	virtual void set_verbose(bool verb) const { verbose = verb; }
 protected:
 	fl slope;
 	grid_dims gd;
 	CNNScorer& cnn_scorer;
+	mutable bool verbose;
 };
 
 #endif

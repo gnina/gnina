@@ -29,10 +29,11 @@ non_cache_cnn::non_cache_cnn(szv_grid_cache& gcache,
 			     const precalculate* p_,
 			     fl slope_,
 			     CNNScorer& cnn_scorer_) :
-	non_cache(gcache, gd_, p_, slope_), cnn_scorer(cnn_scorer_)
+	non_cache(gcache, gd_, p_, slope_), cnn_scorer(cnn_scorer_), verbose(false)
 {
 }
 
+//return the LOSS plus any out of bounds penalties
 fl non_cache_cnn::eval(model& m, fl v) const
 {
 	fl e = 0;
@@ -51,18 +52,24 @@ fl non_cache_cnn::eval(model& m, fl v) const
 		e += out_of_bounds_penalty;
 	}
 	fl aff = 0;
-	e += -cnn_scorer.score(m, false, aff);
+	fl loss = 0;
+	cnn_scorer.score(m, false, aff, loss, !verbose);
+	e += loss;
+
 	return e;
 }
 
+//return the cnn loss plus any out of bounds penalties
 fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const
 {
 	fl e = 0;
 	sz n = num_atom_types();
   fl aff = 0;
+  fl loss = 0;
 
   //this is what compute cnn minus_forces
-  e += -cnn_scorer.score(m, true, aff);
+  cnn_scorer.score(m, true, aff, loss, !verbose);
+  e += loss;
 
   //out of bonds forces
 	VINA_FOR(i, m.num_movable_atoms())

@@ -224,6 +224,30 @@ output_container remove_redundant(const output_container& in, fl min_rmsd)
 	return tmp;
 }
 
+//print info to log about cnn scoring
+static void get_cnn_info(model& m, CNNScorer& cnn, tee& log, float& cnnscore, float& cnnaffinity, float& cnnforces)
+{
+   float loss = 0;
+   cnnscore = 0;
+   cnnforces = 0;
+   cnnaffinity = 0;
+   cnnscore = cnn.score(m, true, cnnaffinity, loss);
+   cnnforces = m.get_minus_forces_sum_magnitude();
+   if (cnnscore >= 0.0)
+   {
+     log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
+     log.endl();
+     if (cnnaffinity >= 0) {
+       log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
+       log.endl();
+     }
+     if (cnnforces >= 0) {
+       log << "CNNforcesum: " << std::fixed << std::setprecision(10) << cnnforces;
+       log.endl();
+     }
+   }
+}
+
 //dkoes - return all energies and rmsds to original conf with result
 void do_search(model& m, const boost::optional<model>& ref,
 		const weighted_terms& sf, const precalculate& prec, const igrid& ig,
@@ -240,7 +264,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 	conf c = m.get_initial_conf();
 	fl e = max_fl;
     fl intramolecular_energy = max_fl;
-	fl cnnscore = -1.0;
+	fl cnnscore = 0, cnnaffinity = 0, cnnforces = 0;
 	fl rmsd = 0;
 	const vec authentic_v(settings.forcecap, settings.forcecap,
 			settings.forcecap); //small cap restricts initial movement from clash
@@ -270,23 +294,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< " (kcal/mol)";
 		log.endl();
 
-		float cnnaffinity = -1;
-		float cnngradient = -1;
-		cnnscore = cnn.score(m, true, cnnaffinity);
-		cnngradient = m.get_minus_forces_magnitude();
-		if (cnnscore >= 0.0)
-		{
-			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
-			log.endl();
-			if (cnnaffinity >= 0) {
-				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
-				log.endl();
-			}
-			if (cnngradient >= 0) {
-				log << "CNNgradient: " << std::fixed << std::setprecision(10) << cnngradient;
-				log.endl();
-			}
-		}
+		get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 
 		std::vector<flv> atominfo;
 		flv term_values = t->evale_robust(m);
@@ -313,7 +321,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		}
 		log << '\n';
 
-		results.push_back(result_info(e, cnnscore, cnnaffinity, cnngradient, -1, m));
+		results.push_back(result_info(e, cnnscore, cnnaffinity, cnnforces, -1, m));
 
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
@@ -349,30 +357,14 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< " (kcal/mol)\nRMSD: " << rmsd;
 		log.endl();
 
-		float cnnaffinity = -1;
-		float cnngradient = -1;
-		cnnscore = cnn.score(m, true, cnnaffinity);
-		cnngradient = m.get_minus_forces_magnitude();
-		if (cnnscore >= 0.0)
-		{
-			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
-			log.endl();
-			if (cnnaffinity >= 0) {
-				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
-				log.endl();
-			}
-			if (cnngradient >= 0) {
-				log << "CNNgradient: " << std::fixed << std::setprecision(10) << cnngradient;
-				log.endl();
-			}
-		}
+    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 
 		if (!nc.within(m))
 			log << "WARNING: not all movable atoms are within the search space\n";
 
 		m.set(out.c);
 		done(settings.verbosity, log);
-		results.push_back(result_info(e, cnnscore, cnnaffinity, cnngradient, rmsd, m));
+		results.push_back(result_info(e, cnnscore, cnnaffinity, cnnforces, rmsd, m));
 
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
@@ -443,11 +435,12 @@ void do_search(model& m, const boost::optional<model>& ref,
 			log.endl();
       
 	  	float cnnaffinity = -1;
-	  	float cnngradient = -1;
-	  	cnnscore = cnn.score(m, true, cnnaffinity);
-		  cnngradient = m.get_minus_forces_magnitude();
+	  	float cnnforces = -1;
+	  	float loss = 0;
+	  	cnnscore = cnn.score(m, true, cnnaffinity, loss);
+	  	cnnforces = m.get_minus_forces_sum_magnitude();
       //dkoes - setup result_info
-			results.push_back(result_info(out_cont[i].e, cnnscore, cnnaffinity, cnngradient, -1, m));
+			results.push_back(result_info(out_cont[i].e, cnnscore, cnnaffinity, cnnforces, -1, m));
 
 			if (compute_atominfo)
 				results.back().setAtomValues(m, &sf);

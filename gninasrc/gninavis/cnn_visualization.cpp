@@ -159,15 +159,15 @@ void cnn_visualization::setup(){
     model temp_rec = unmodified_receptor;
 
     temp_rec.append(unmodified_ligand);
+    float aff, loss;
     if(visopts.target == "pose")
     {
-        original_score = base_scorer.score(temp_rec, true);
+        original_score = base_scorer.score(temp_rec, true, aff, loss);
         std::cout << "CNN SCORE: " << original_score << "\n\n";
     }
     else if(visopts.target == "affinity")
     {
-        float aff;
-        original_score = base_scorer.score(temp_rec, false, aff);
+        original_score = base_scorer.score(temp_rec, false, aff, loss);
         original_score = aff;
         std::cout << "AFF: " << original_score << "\n\n";
     }
@@ -305,8 +305,8 @@ float cnn_visualization::score_modified_receptor(
     model l = parse_ligand_stream_pdbqt("", lig_stream);
     m.append(l);
 
-    float aff;
-    float score_val = cnn_scorer.score(m, true, aff);
+    float aff, loss;
+    float score_val = cnn_scorer.score(m, true, aff, loss);
 
     //use affinity instead of cnn score if required
     if (visopts.target == "affinity")
@@ -346,8 +346,8 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string) {
     model l = parse_ligand_stream_pdbqt("", lig_stream);
     temp.append(l);
 
-    float aff;
-    float score_val = cnn_scorer.score(temp, true, aff);
+    float aff, loss;
+    float score_val = cnn_scorer.score(temp, true, aff, loss);
     if (visopts.verbose) {
         std::cout << "SCORE: " << score_val << '\n';
     }

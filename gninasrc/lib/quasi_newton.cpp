@@ -42,6 +42,12 @@ struct quasi_newton_aux
   {
     return ig->adjust_center();
   }
+
+  bool set_verbose(bool verb)
+  {
+    ig->set_verbose(verb);
+  }
+
   fl operator()(const conf& c, change& g)
   {
     return m->eval_deriv(*p, *ig, v, c, g, *user_grid);
