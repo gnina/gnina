@@ -35,7 +35,7 @@ struct parallel_mc_task
 	parallel_mc_task(const model& m_, int seed) :
 			m(m_), generator(static_cast<rng::result_type>(seed))
 	{
-        if (run_on_gpu) {
+        if (m_.gpu_initialized()) {
             //TODO: need to ensure that worker threads using these copies can't
             //deallocate GPU memory - race condition in
             //parallel_mc_aux::operator(), plus inefficiency of having to copy
@@ -79,7 +79,7 @@ struct parallel_mc_aux
 	}
 	void operator()(parallel_mc_task& t) const
 	{
-        if (run_on_gpu) {
+        if (t.m.gpu_initialized()) {
             thread_buffer.reinitialize();
             //update our copy of gpu_data to have local buffers; N.B. this
             //theoretically could be restricted to fields we intend to modify,

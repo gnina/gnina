@@ -61,9 +61,6 @@
 using namespace boost::iostreams;
 using boost::filesystem::path;
 
-bool run_on_gpu = false;
-int cuda_dev_id = 0;
-
 //just a collection of user-specified configurations
 struct user_settings
 {
@@ -1330,8 +1327,6 @@ Thank you!\n";
 
         if (settings.gpu_on) {
             cudaDeviceSetLimit(cudaLimitStackSize, 5120);
-            run_on_gpu = true;
-            cuda_dev_id = settings.device;
         }
 
 		if (accurate_line)

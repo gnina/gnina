@@ -431,7 +431,7 @@ struct model {
 	//if model changes, must re-initialize
 	void initialize_gpu();
 
-	bool gpu_initialized() { return gdata.coords != NULL; } //true if good to go
+	bool gpu_initialized() const { return gdata.coords != NULL; } //true if good to go
 	//deallocate gpu memory
 	void deallocate_gpu();
 
