@@ -15,22 +15,27 @@
 #define align_up_pow2(n, size)                                    \
     ((decltype (n)) align_down_pow2((uintptr_t) (n) + (size) - 1, size))
 
-size_t free_mem() {
+size_t free_mem(size_t num_cpu_threads) {
    size_t free, total;
    cudaError_t res;
    res = cudaMemGetInfo(&free, &total);
    if (res != cudaSuccess) {
        std::cerr << "cudaMemGetInfo returned status " << res << "\n";
        return 1;
-    }
-   uint max_threads = boost::thread::hardware_concurrency();
-   //TODO: herp derp 
-   return (free / max_threads) - ceil(120 / max_threads);
+   }
+   return (free / num_cpu_threads) * .8;
 }
 
-thread_local device_buffer thread_buffer(free_mem());
+thread_local device_buffer thread_buffer;
 
-device_buffer::device_buffer(size_t capacity) : capacity(capacity){
+device_buffer::device_buffer()
+    : capacity(0)
+    , begin(nullptr)
+    , next_alloc(nullptr)
+{}
+
+void device_buffer::init(size_t capacity) {
+    this->capacity = capacity;
     CUDA_CHECK_GNINA(cudaMalloc(&begin, capacity));
     next_alloc = begin;
 }
@@ -41,6 +46,9 @@ bool device_buffer::has_space(size_t n_bytes) {
 }
 
 cudaError_t device_alloc_bytes(void **alloc, size_t n_bytes) {
+    // static here gives us lazy initialization and saves us from
+    // constructing a thread_buffer for non-worker threads not included in
+    // the free_mem() calculation.
     return thread_buffer.alloc((char **) alloc, n_bytes);
 }
 
@@ -61,7 +69,14 @@ cudaError_t device_buffer::alloc_bytes(void** alloc, size_t n_bytes) {
     //N.B. you need to resize appropriately before starting to copy into the
     //buffer. This function avoids resizing so data structures in the buffer can use
     //pointers, and the only internal protection is the following assert.
-    assert(has_space(n_bytes) || !(std::cerr << "Alloc of " << n_bytes << " failed for buffer with " << capacity - (next_alloc - begin) << "/" << capacity << " bytes free.\n"));
+    bool can_alloc = has_space(n_bytes);
+    assert(can_alloc);
+    if (!can_alloc) {
+        std::cerr
+            << "Alloc of " << n_bytes << " failed for buffer with "
+            << capacity - (next_alloc - begin) << "/" << capacity << " bytes free.\n";
+        abort();
+    }
     *alloc = (void *) next_alloc;
     next_alloc = align_up_pow2(next_alloc + n_bytes, 128);
     return cudaSuccess;

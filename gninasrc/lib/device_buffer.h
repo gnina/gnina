@@ -6,6 +6,9 @@
 #ifndef __DEVICE_BUFFER_H
 #define __DEVICE_BUFFER_H
 #include <cuda_runtime.h>
+#include <assert.h>
+
+size_t free_mem(size_t num_cpu_threads);
 
 class device_buffer
 {
@@ -20,7 +23,8 @@ class device_buffer
     bool has_space(size_t n_bytes);
 
 public:
-    device_buffer(size_t capacity=10000);
+    device_buffer();
+    void init(size_t capacity);
 
     void resize(size_t n_bytes);
     template<typename T>
@@ -58,6 +62,8 @@ cudaError_t device_buffer::alloc(T** alloc, size_t n_bytes) {
 
 template<typename T>
 cudaError_t device_buffer::dealloc(T* alloc) {
+    assert(alloc >= begin && alloc < next_alloc);
     return cudaSuccess;
 }
+
 #endif

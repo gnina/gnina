@@ -31,7 +31,8 @@ __host__ __device__ static inline void sync_and_errcheck(void){
   /* Code block avoids redefinition of cudaError_t error */ \
   do { \
     cudaError_t error = condition; \
-    if(error != cudaSuccess) { std::cerr << " " << cudaGetErrorString(error); abort(); } \
+    if(error != cudaSuccess) {                                          \
+        std::cerr << __FILE__ << ":" << __LINE__ << ": " << cudaGetErrorString(error); abort(); } \
   } while (0)
 #else
 // TODO: probably don't want to make API calls on the device.
