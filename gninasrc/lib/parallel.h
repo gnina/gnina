@@ -26,13 +26,14 @@
 #include <vector>
 
 #include "common.h"
+#include "device_buffer.h"
 
 #include <boost/optional.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition.hpp>
 
-template<typename F, bool Sync = false>
+template<typename F, bool Sync = false, bool gpu_on = false>
 struct parallel_for : private boost::thread_group {
 	parallel_for(const F* f, sz num_threads) : m_f(f), destructing(false), size(0), thread_finished(num_threads, true), count_finished(0), num_threads(num_threads) {
         VINA_FOR(i, num_threads)
@@ -58,6 +59,8 @@ struct parallel_for : private boost::thread_group {
     }
 private:
 	void loop(sz offset) {
+        if (gpu_on)
+            thread_buffer.init(free_mem(num_threads));
 		while(boost::optional<sz> sz_option = get_size(offset)) {
 			sz s = sz_option.get();
 			for(sz i = offset; i < s; i += num_threads)
@@ -96,9 +99,9 @@ private:
     }
 };
 
-template<typename F>
-struct parallel_for<F, true> : private boost::thread_group {
-	parallel_for(const F* f, sz num_threads) : m_f(f), destructing(false), size(0), started(0), finished(0) {
+template<typename F, bool gpu_on>
+struct parallel_for<F, true, gpu_on> : private boost::thread_group {
+	parallel_for(const F* f, sz num_threads) : m_f(f), destructing(false), size(0), started(0), finished(0), num_threads(num_threads) {
 		a.par = this; // VC8 warning workaround
         VINA_FOR(i, num_threads)
             create_thread(boost::ref(a));
@@ -122,6 +125,8 @@ struct parallel_for<F, true> : private boost::thread_group {
     }
 private:
 	void loop() {
+        if (gpu_on)
+            thread_buffer.init(free_mem(num_threads));
 		while(boost::optional<sz> i = get_next()) {
 			(*m_f)(i.get());
 			{
@@ -146,6 +151,7 @@ private:
     sz size; // size of the vector given to run() // FIXME?
     sz started; // the number of jobs given to run() the work started on
     sz finished; // the number of jobs given to run() the work finished on
+    sz num_threads;
 	boost::mutex self; // any modification or reading of mutables should lock this first
 	boost::optional<sz> get_next() {
 		boost::mutex::scoped_lock self_lk(self);
@@ -159,7 +165,7 @@ private:
 };
 
 
-template<typename F, typename Container, typename Input, bool Sync = false>
+template<typename F, typename Container, typename Input, bool Sync = false, bool gpu_on = false>
 struct parallel_iter { 
 	parallel_iter(const F* f, sz num_threads) : a(f), pf(&a, num_threads) {}
 	void run(Container& v) {
@@ -177,7 +183,7 @@ private:
 		}
 	};
 	aux a;
-	parallel_for<aux, Sync> pf;
+	parallel_for<aux, Sync, gpu_on> pf;
 };
 
 #endif

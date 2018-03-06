@@ -238,7 +238,8 @@ void do_search(model& m, const boost::optional<model>& ref,
     fl intramolecular_energy = max_fl;
 	fl cnnscore = -1.0;
 	fl rmsd = 0;
-	m.initialize_gpu();
+    if (settings.gpu_on)
+	    m.initialize_gpu();
 	const vec authentic_v(settings.forcecap, settings.forcecap,
 			settings.forcecap); //small cap restricts initial movement from clash
 
