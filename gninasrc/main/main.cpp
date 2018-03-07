@@ -541,7 +541,7 @@ void main_procedure(model& m, precalculate& prec,
 			}
 		}
 
-		if (no_cache)
+		if (no_cache || settings.cnnopts.cnn_scoring)
 		{
 			do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
 					settings, compute_atominfo, log,
