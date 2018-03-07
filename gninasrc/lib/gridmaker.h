@@ -305,6 +305,7 @@ public:
 		}
 		// d_loss/d_atomx = d_atomdist/d_atomx * d_gridpoint/d_atomdist * d_loss/d_gridpoint
 		// sum across all gridpoints
+		//dkoes - the negative sign seems wrong..
 		agrad.x += (-dist_x / dist) * agrad_dist * gridval;
 		agrad.y += (-dist_y / dist) * agrad_dist * gridval;
 		agrad.z += (-dist_z / dist) * agrad_dist * gridval;
@@ -318,7 +319,7 @@ public:
 			float3& agrad, bool isrelevance = false) {
 		float3 coords;
 		if (Q.real() != 0) //apply rotation
-				{
+		{
 			quaternion p(0, ainfo.x - center.x, ainfo.y - center.y,
 					ainfo.z - center.z);
 			p = Q * p * (conj(Q) / norm(Q));
@@ -354,7 +355,8 @@ public:
 					if (isrelevance) {
 						accumulateAtomRelevance(coords, radius, x, y, z,
 								grids[whichgrid][i][j][k], agrad);
-					} else //true gradient, distance matters
+					}
+					else //true gradient, distance matters
 					{
 						accumulateAtomGradient(coords, radius, x, y, z,
 								grids[whichgrid][i][j][k], agrad);

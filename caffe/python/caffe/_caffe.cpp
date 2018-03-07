@@ -426,6 +426,7 @@ BOOST_PYTHON_MODULE(_caffe) {
     .add_property("count",    static_cast<int (Blob<Dtype>::*)() const>(
         &Blob<Dtype>::count))
     .def("reshape",           bp::raw_function(&Blob_Reshape))
+    .def("clear", bp::make_function(&Blob<Dtype>::Clear))
     .add_property("data",     bp::make_function(&Blob<Dtype>::mutable_cpu_data,
           NdarrayCallPolicies()))
     .add_property("diff",     bp::make_function(&Blob<Dtype>::mutable_cpu_diff,
@@ -438,6 +439,7 @@ BOOST_PYTHON_MODULE(_caffe) {
           bp::return_internal_reference<>()))
     .def("setup", &Layer<Dtype>::LayerSetUp)
     .def("reshape", &Layer<Dtype>::Reshape)
+    .def("clear", &Layer<Dtype>::Clear)
     .add_property("type", bp::make_function(&Layer<Dtype>::type));
   BP_REGISTER_SHARED_PTR_TO_PYTHON(Layer<Dtype>);
 

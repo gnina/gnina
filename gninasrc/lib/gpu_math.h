@@ -5,6 +5,8 @@
 
 #include <cuda_runtime.h>
 #include "device_buffer.h"
+#include <random>
+
 #include "common.h"
 #include "array3d.h"
 #include "gpu_util.h"
@@ -13,9 +15,8 @@
    funcs. Produced binaries are identical to those using vanilla
    float3. */
 struct gfloat3 : float3{
-    __host__ __device__ inline
     gfloat3() = default;
-	__host__ __device__ inline
+    __host__ __device__ __inline__
     gfloat3( float3 f): float3(f) {}
     __host__ __device__ inline 
     gfloat3(float x, float y, float z) : float3(make_float3(x,y,z)){};
@@ -36,9 +37,7 @@ struct gfloat3 : float3{
                z;
     };
 
-    __host__ __device__
     gfloat3 &operator=(const gfloat3 &b) = default;
-
     
     __host__ __device__ inline
     float3 &operator=(const vec &b) {
@@ -60,11 +59,26 @@ struct gfloat3 : float3{
 
 #ifdef __CUDACC__
 
-__device__ inline static
-float3 __shfl_down(const float3 &a, int delta) {
+__device__ __inline__ float shuffle_down(float val, int offset) {
+  //wrapper for sync for normal flaot type
+#if __CUDACC_VER_MAJOR__ >= 9
+  return __shfl_down_sync(0xffffffff, val, offset);
+#else
+  return __shfl_down(val,offset);
+#endif
+}
+
+__device__ __inline__ static
+float3 shuffle_down(const float3 &a, int delta) {
+#if __CUDACC_VER_MAJOR__ >= 9
+    return float3(__shfl_down_sync(0xffffffff,a.x, delta),
+                  __shfl_down_sync(0xffffffff,a.y, delta),
+                  __shfl_down_sync(0xffffffff,a.z, delta));
+#else
     return float3(__shfl_down(a.x, delta),
-                  __shfl_down(a.y, delta),
-                  __shfl_down(a.z, delta));
+		  __shfl_down(a.y, delta),
+		  __shfl_down(a.z, delta));
+#endif
 }
 
 template<class T>
@@ -170,6 +184,7 @@ public:
 			case 0: return i;
 			case 1: return j;
 			case 2: return k;
+			default: assert(false); return 0;
 		}
 	}
 

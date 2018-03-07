@@ -50,7 +50,7 @@ typedef float fl;
 //collection of parameters specifying how minimization should be done
 struct minimization_params
 {
-	enum Type {BFGSFastLineSearch, BFGSAccurateLineSearch, ConjugateGradient};
+	enum Type {BFGSFastLineSearch, BFGSAccurateLineSearch, ConjugateGradient, Simple};
 
 	Type type;
 	unsigned maxiters; //maximum number of iterations of algorithm

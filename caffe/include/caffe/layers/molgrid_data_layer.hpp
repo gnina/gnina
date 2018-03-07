@@ -4,6 +4,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <unordered_map>
 
 #include <boost/array.hpp>
 #include <boost/thread/locks.hpp>
@@ -48,7 +49,7 @@ public:
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
       binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
-      gpu_gridatoms(NULL), gpu_gridwhich(NULL) {}
+      gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
   virtual ~MolGridDataLayer();
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -73,14 +74,17 @@ public:
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
   void setLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0);
+  void enableAtomGradients() { compute_atom_gradients = true; } //enable atom gradient computation
 
   void getReceptorAtoms(int batch_idx, vector<float4>& atoms);
   void getLigandAtoms(int batch_idx, vector<float4>& atoms);
 
   void getReceptorChannels(int batch_idx, vector<short>& whichGrid);
   void getLigandChannels(int batch_idx, vector<short>& whichGrid);
-  void getReceptorGradient(int batch_idx, vector<float3>& gradient, bool lrp = false);
-  void getLigandGradient(int batch_idx, vector<float3>& gradient, bool lrp = false);
+  void getReceptorGradient(int batch_idx, vector<float3>& gradient);
+  void getMappedReceptorGradient(int batch_idx, unordered_map<string ,float3>& gradient);
+  void getLigandGradient(int batch_idx, vector<float3>& gradient);
+  void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient);
 
   //set in memory buffer
   template<typename Atom>
@@ -115,9 +119,15 @@ public:
     }
   }
 
+  //set center to use for memory ligand
+  template<typename Vec3>
+  void setCenter(const Vec3& center) {
+    mem_lig.center = center;
+  }
+
   //set in memory buffer
   template<typename Atom, typename Vec3>
-  void setLigand(const vector<Atom>& ligand, const vector<Vec3>& coords)
+  void setLigand(const vector<Atom>& ligand, const vector<Vec3>& coords, bool calcCenter=true)
   {
     mem_lig.atoms.clear();
     mem_lig.whichGrid.clear();
@@ -155,13 +165,16 @@ public:
     }
     center /= acnt; //not ligand.size() because of hydrogens
 
-    mem_lig.center = center;
+    if(calcCenter || isnan(mem_lig.center[0])) {
+      mem_lig.center = center;
+    }
   }
 
   double getDimension() const { return dimension; }
   double getResolution() const { return resolution; }
 
   void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
+
 
  protected:
 
@@ -467,7 +480,7 @@ public:
     vector<float3> gradient;
     vec center; //precalculate centroid, includes any random translation
 
-    mol_info() { center[0] = center[1] = center[2] = 0;}
+    mol_info() { center[0] = center[1] = center[2] = NAN;}
 
     void append(const mol_info& a)
     {
@@ -616,6 +629,7 @@ public:
   double fixedradius;
   double randtranslate;
   double ligpeturb_translate;
+  bool ligpeturb_rotate;
   bool binary; //produce binary occupancies
   bool randrotate;
   bool ligpeturb; //for spatial transformer
@@ -632,6 +646,7 @@ public:
   unsigned gpu_alloc_size;
   float4 *gpu_gridatoms;
   short *gpu_gridwhich;
+  bool compute_atom_gradients;
 
   //need to remember how mols were transformed for backward pass
   vector<mol_transform> batch_transform;
@@ -667,5 +682,30 @@ public:
 
 
 }  // namespace caffe
+
+//round coordinates to same precision as pdb
+//for identifying atoms
+template<typename T>
+static string xyz_to_string(T x, T y, T z)
+{
+    //avoid negative zeros in string representation
+    if(x == 0) x = 0;
+    if(y == 0) y = 0;
+    if(z == 0) z = 0;
+
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(3) << x;
+    std::string rounded_x = ss.str();
+    ss.str("");
+    ss << std::fixed << std::setprecision(3) << y;
+    std::string rounded_y = ss.str();
+    ss.str("");
+    ss << std::fixed << std::setprecision(3) << z;
+    std::string rounded_z = ss.str();
+
+    string xyz = rounded_x + rounded_y + rounded_z;
+    return xyz;
+}
+
 
 #endif  // CAFFE_MOLGRID_DATA_LAYER_HPP_

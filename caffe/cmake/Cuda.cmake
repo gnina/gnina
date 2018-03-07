@@ -4,7 +4,7 @@ endif()
 
 # Known NVIDIA GPU achitectures Caffe can be compiled for.
 # This list will be used for CUDA_ARCH_NAME = All option
-set(Caffe_known_gpu_archs "35 50 60 61")
+set(Caffe_known_gpu_archs "35 50 60 61 70")
 
 ################################################################################################
 # A function for automatic detection of GPUs installed  (if autodetection is enabled)
@@ -30,10 +30,10 @@ function(caffe_detect_installed_gpus out_variable)
       "  return 0;\n"
       "}\n")
 
-    execute_process(COMMAND "${CUDA_NVCC_EXECUTABLE}" "--run" "${__cufile}"
+    execute_process(COMMAND "${CUDA_NVCC_EXECUTABLE}"  "--run" "${__cufile}"
                     WORKING_DIRECTORY "${PROJECT_BINARY_DIR}/CMakeFiles/"
                     RESULT_VARIABLE __nvcc_res OUTPUT_VARIABLE __nvcc_out
-                    ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+                     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
     if(__nvcc_res EQUAL 0)
       string(REPLACE "2.1" "2.1(2.0)" __nvcc_out "${__nvcc_out}")
@@ -56,7 +56,7 @@ endfunction()
 #   caffe_select_nvcc_arch_flags(out_variable)
 function(caffe_select_nvcc_arch_flags out_variable)
   # List of arch names
-  set(__archs_names "Fermi" "Kepler" "Maxwell" "Pascal" "All" "Manual")
+  set(__archs_names "Fermi" "Kepler" "Maxwell" "Pascal" "Volta" "All" "Manual")
   set(__archs_name_default "All")
   if(NOT CMAKE_CROSSCOMPILING)
     list(APPEND __archs_names "Auto")
@@ -91,6 +91,8 @@ function(caffe_select_nvcc_arch_flags out_variable)
     set(__cuda_arch_bin "50")
   elseif(${CUDA_ARCH_NAME} STREQUAL "Pascal")
     set(__cuda_arch_bin "60 61")
+  elseif(${CUDA_ARCH_NAME} STREQUAL "Volta")
+    set(__cuda_arch_bin "70")
   elseif(${CUDA_ARCH_NAME} STREQUAL "All")
     set(__cuda_arch_bin ${Caffe_known_gpu_archs})
   elseif(${CUDA_ARCH_NAME} STREQUAL "Auto")

@@ -427,11 +427,11 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 			log.endl();
       
-			float cnnaffinity = -1;
-	  		float cnngradient = -1;
-	  		cnnscore = cnn.score(m, true, cnnaffinity);
-			cnngradient = m.get_minus_forces_magnitude();
-			//dkoes - setup result_info
+	  	float cnnaffinity = -1;
+	  	float cnngradient = -1;
+	  	cnnscore = cnn.score(m, true, cnnaffinity);
+		  cnngradient = m.get_minus_forces_magnitude();
+      //dkoes - setup result_info
 			results.push_back(result_info(out_cont[i].e, cnnscore, cnnaffinity, cnngradient, -1, m));
 
 			if (compute_atominfo)
@@ -502,7 +502,7 @@ void main_procedure(model& m, precalculate& prec,
 	par.display_progress = true;
 
 	szv_grid_cache gridcache(m, prec.cutoff_sqr());
-	const fl slope = 1e6; // FIXME: too large? used to be 100
+	const fl slope = 1e3; // FIXME: too large? used to be 100
 	if (settings.randomize_only)
 	{
 		for(unsigned i = 0; i < settings.num_modes; i++) {
@@ -1091,6 +1091,7 @@ Thank you!\n";
 		bool help = false, help_hidden = false, version = false;
 		bool quiet = false;
 		bool accurate_line = false;
+		bool simple_ascent = false;
 		bool flex_hydrogens = false;
 		bool print_terms = false;
 		bool print_atom_types = false;
@@ -1174,6 +1175,7 @@ Thank you!\n";
 				"number iterations of steepest descent; default scales with rotors and usually isn't sufficient for convergence")
 		("accurate_line", bool_switch(&accurate_line),
 				"use accurate line search")
+		("simple_ascent", bool_switch(&simple_ascent), "use simple gradient ascent")
 		("minimize_early_term", bool_switch(&minparms.early_term),
 				"Stop minimization before convergence conditions are fully met.")
 		("approximation", value<ApproxType>(&approx),
@@ -1196,7 +1198,9 @@ Thank you!\n";
 				"Adjust the verbosity of the output, default: 1")
 		("flex_hydrogens", bool_switch(&flex_hydrogens),
 				"Enable torsions affecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
-		("outputmin", value<int>(&minparms.outputframes), "output minout.sdf of minimization with provided amount of interpolation");
+		("outputmin", value<int>(&minparms.outputframes), "output minout.sdf of minimization with provided amount of interpolation")
+    ("cnn_gradient_check", bool_switch(&cnnopts.gradient_check)->default_value(false),
+                  "Perform internal checks on gradient.");
 
 		options_description cnn("Convolutional neural net (CNN) scoring");
 		cnn.add_options()
@@ -1204,10 +1208,6 @@ Thank you!\n";
 				"caffe cnn model file; if not specified a default model will be used")
 		("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
 				"caffe cnn weights file (*.caffemodel); if not specified default weights (trained on the default model) will be used")
-		("cnn_recmap", value<std::string>(&cnnopts.cnn_recmap),
-				"receptor atom type to channel mapping")
-		("cnn_ligmap", value<std::string>(&cnnopts.cnn_ligmap),
-				"ligand atom type to channel mapping")
 		("cnn_resolution", value<fl>(&cnnopts.resolution)->default_value(0.5),
 				"resolution of grids, don't change unless you really know what you are doing")
 		("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
@@ -1218,8 +1218,9 @@ Thank you!\n";
 		               "Dump .dx files of atom grid gradient.")
 		("cnn_outputxyz", bool_switch(&cnnopts.outputxyz)->default_value(false),
 		               "Dump .xyz files of atom gradient.")
-		("cnn_xyzprefix", value<std::string>(&cnnopts.xyzprefix),
+		("cnn_xyzprefix", value<std::string>(&cnnopts.xyzprefix)->default_value("gradient"),
 		               "Prefix for atom gradient .xyz files");
+
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
@@ -1354,6 +1355,11 @@ Thank you!\n";
 		if (accurate_line)
 		{
 			minparms.type = minimization_params::BFGSAccurateLineSearch;
+		}
+
+		if (simple_ascent)
+		{
+		  minparms.type = minimization_params::Simple;
 		}
 
 		bool search_box_needed = !(settings.score_only || settings.local_only); // randomize_only and local_only still need the search space; dkoes - for local get box from ligand

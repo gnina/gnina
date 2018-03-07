@@ -26,20 +26,27 @@
 #include "bfgs.h"
 #include "device_buffer.h"
 
-struct quasi_newton_aux {
-	model* m;
-	const precalculate* p;
-	const igrid* ig;
-	const vec v;
-	const grid* user_grid;
-	quasi_newton_aux(model* m_,const precalculate* p_,const igrid* ig_,
-			const vec& v_,const grid* user_grid_) :
-			m(m_), p(p_), ig(ig_), v(v_), user_grid(user_grid_){
-	}
+struct quasi_newton_aux
+{
+  model* m;
+  const precalculate* p;
+  const igrid* ig;
+  const vec v;
+  const grid* user_grid;
+  quasi_newton_aux(model* m_, const precalculate* p_, const igrid* ig_,
+      const vec& v_, const grid* user_grid_) :
+      m(m_), p(p_), ig(ig_), v(v_), user_grid(user_grid_)
+  {
+  }
 
-	fl operator()(const conf& c,change& g){
-		return m->eval_deriv(*p, *ig, v, c, g, *user_grid);
-	}
+  bool adjust_center()
+  {
+    return ig->adjust_center();
+  }
+  fl operator()(const conf& c, change& g)
+  {
+    return m->eval_deriv(*p, *ig, v, c, g, *user_grid);
+  }
 };
 
 void quasi_newton::operator()(model& m,const precalculate& p,const igrid& ig,

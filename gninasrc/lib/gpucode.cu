@@ -145,7 +145,7 @@ void xadd(force_energy_tup *a, const force_energy_tup &b) {
 template<class T>
 __device__  __forceinline__ T warp_sum(T mySum) {
 	for (int offset = warpSize >> 1; offset > 0; offset >>= 1)
-		mySum += __shfl_down(mySum, offset);
+		mySum += shuffle_down(mySum, offset);
 	return mySum;
 }
 

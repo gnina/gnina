@@ -140,27 +140,38 @@ void MolGridDataLayer<Dtype>::getLigandChannels(int batch_idx, vector<short>& wh
 }
 
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<float3>& gradient, bool lrp)
+void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<float3>& gradient)
 {
   gradient.resize(0);
+  CHECK(compute_atom_gradients) << "Gradients requested but not computed";
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
     if (mol.whichGrid[i] < numReceptorTypes)
     {
-      if(lrp)
-      {
-          gradient.push_back(mol.gradient[i]);
-      }
-      else
-      {
-          gradient.push_back(-mol.gradient[i]);
-      }
+      gradient.push_back(mol.gradient[i]);
     }
 }
 
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& gradient, bool lrp)
+void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered_map<string, float3>& gradient)
 {
+  CHECK(compute_atom_gradients) << "Gradients requested but not computed";
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+  {
+    if (mol.whichGrid[i] < numReceptorTypes)
+    {
+        string xyz = xyz_to_string(mol.atoms[i].x, mol.atoms[i].y, mol.atoms[i].z);
+        gradient[xyz] = mol.gradient[i];
+    }
+  }
+}
+
+
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& gradient)
+{
+  CHECK(compute_atom_gradients) << "Gradients requested but not computed";
   gradient.resize(0);
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
@@ -169,6 +180,22 @@ void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& g
       gradient.push_back(mol.gradient[i]);
     }
 }
+
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient)
+{
+  CHECK(compute_atom_gradients) << "Gradients requested but not computed";
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+  {
+    if (mol.whichGrid[i] >= numReceptorTypes)
+    {
+        string xyz = xyz_to_string(mol.atoms[i].x, mol.atoms[i].y, mol.atoms[i].z);
+        gradient[xyz] = mol.gradient[i];
+    }
+  }
+}
+
 
 //modify examples to remove any without both actives an inactives
 //factored this into its own function due to the need to fully specialize setup below
@@ -344,6 +371,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   randrotate = param.random_rotation();
   ligpeturb = param.peturb_ligand();
   ligpeturb_translate = param.peturb_ligand_translate();
+  ligpeturb_rotate = param.peturb_ligand_rotate();
   radiusmultiple = param.radius_multiple();
   fixedradius = param.fixed_radius();
   bool hasaffinity = param.has_affinity();
@@ -675,7 +703,14 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
   transform.mol.append(recatoms);
 
   if(ligpeturb) {
-    ligtrans.set_random_quaternion(rng);
+    if(ligpeturb_rotate)
+    {
+      ligtrans.set_random_quaternion(rng);
+    }
+    else
+    {
+      ligtrans.Q = quaternion(1,0,0,0); //identity
+    }
     ligtrans.add_random_displacement(rng, ligpeturb_translate);
     transform.mol.transform_and_append(ligatoms, ligtrans);
 
@@ -784,8 +819,8 @@ void MolGridDataLayer<Dtype>::outputDXGrid(std::ostream& out, Grids& grid, unsig
   out << "object 2 class gridconnections counts " << n << " " << n << " " << " " << n << "\n";
   out << "object 3 class array type double rank 0 items [ " << n*n*n << "] data follows\n";
   //now coordinates - x,y,z
-
-  out.precision(10);
+  out << scientific;
+  out.precision(6);
   unsigned total = 0;
   for (unsigned i = 0; i < n; i++)
   {
@@ -951,27 +986,33 @@ void MolGridDataLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 }
 
 
+/* backpropagates gradients onto atoms (note there is not actual bottom)
+ * Only performed when compute_atom_gradients is true.
+ * TODO: not yet gpu optimized
+ */
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom,
     bool gpu)
 {
-  Dtype *diff = NULL;
-  if(gpu)
-    diff = top[0]->mutable_cpu_diff(); //TODO
-  else
-    diff = top[0]->mutable_cpu_diff();
+  if(compute_atom_gradients) {
+    Dtype *diff = NULL;
+    if(gpu)
+      diff = top[0]->mutable_cpu_diff(); //TODO
+    else
+      diff = top[0]->mutable_cpu_diff();
 
-  //propagate gradient grid onto atom positions
-  unsigned batch_size = top_shape[0];
-  for (int item_id = 0; item_id < batch_size; ++item_id) {
+    //propagate gradient grid onto atom positions
+    unsigned batch_size = top_shape[0];
+    for (int item_id = 0; item_id < batch_size; ++item_id) {
 
-    int offset = item_id*example_size;
-    Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+      int offset = item_id*example_size;
+      Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
 
-    mol_transform& transform = batch_transform[item_id];
-    gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
-    gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
-        transform.mol.gradient);
+      mol_transform& transform = batch_transform[item_id];
+      gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
+      gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
+          transform.mol.gradient);
+    }
   }
 }
 

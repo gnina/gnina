@@ -28,10 +28,11 @@ struct cnn_options {
     bool cnn_scoring; //if true, do cnn_scoring of final pose
     bool outputdx;
     bool outputxyz;
+    bool gradient_check;
     std::string xyzprefix;
     unsigned seed; //random seed
 
-    cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), outputdx(false), outputxyz(false), seed(0) {}
+    cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), outputdx(false), outputxyz(false), gradient_check(false), seed(0) {}
 };
 
 /* This class evaluates protein-ligand poses according to a provided
@@ -41,10 +42,13 @@ class CNNScorer {
     typedef float Dtype;
     caffe::shared_ptr<caffe::Net<Dtype> > net;
     caffe::MolGridDataLayer<Dtype> *mgrid;
+    caffe::MolGridDataParameter *mgridparam;
     unsigned rotations;
     unsigned seed;
     bool outputdx;
     bool outputxyz;
+    bool gradient_check;
+    mutable bool reset_center; //potential hack for debugging gradients
     std::string xyzprefix;
 
     caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
@@ -55,7 +59,7 @@ class CNNScorer {
     vector<short> channels;
 
 public:
-    CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), outputxyz(false), mtx(new boost::mutex) {}
+    CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), outputxyz(false), gradient_check(false), reset_center(true), mtx(new boost::mutex) {}
     virtual ~CNNScorer() {}
 
     CNNScorer(const cnn_options& cnnopts, const vec& center, const model& m);
@@ -67,13 +71,20 @@ public:
     float score(model& m, bool silent = true);
     float score(model& m, bool compute_gradient, float& affinity, bool silent = true);
 
-    void outputDX(const string& prefix, double scale = 1.0, const float relevance_eps = -1.0);
+    void outputDX(const string& prefix, double scale = 1.0, bool relevance = false, string layer_to_ignore = "", bool zero_values = false);
     void outputXYZ(const string& base, const vector<float4>& atoms,
                const vector<short>& whichGrid, const vector<float3>& gradient);
-    std::vector<float> get_scores_per_atom(bool receptor, bool relevance = false);
+    std::unordered_map<string, float> get_scores_per_atom(bool receptor, bool relevance = false);
 
-    void lrp(const model& m, const string& layer_to_ignore = "");
-    void gradient_setup(const model& m, const string& recname, const string& ligname);
+    void lrp(const model& m, const string& layer_to_ignore = "", bool zero_values = false);
+    void gradient_setup(const model& m, const string& recname, const string& ligname, const string& layer_to_ignore = "");
+
+    bool adjust_center() const;
+
+protected:
+  void get_net_output(Dtype& score, Dtype& aff);
+  void check_gradient();
+
 };
 
 #endif /* SRC_LIB_CNN_SCORER_H_ */
