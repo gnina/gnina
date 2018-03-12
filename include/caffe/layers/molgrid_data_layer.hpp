@@ -125,6 +125,10 @@ public:
     mem_lig.center = center;
   }
 
+  vec getCenter() const {
+    return mem_lig.center;
+  }
+
   //set in memory buffer
   template<typename Atom, typename Vec3>
   void setLigand(const vector<Atom>& ligand, const vector<Vec3>& coords, bool calcCenter=true)
