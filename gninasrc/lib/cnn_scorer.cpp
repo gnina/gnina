@@ -23,11 +23,11 @@ using namespace std;
 
 //initialize from commandline options
 //throw error if missing required info
-CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
-        const model& m) :
+CNNScorer::CNNScorer(const cnn_options& cnnopts, const model& m) :
         mgrid(NULL), mgridparam(NULL), rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
         outputdx(cnnopts.outputdx), outputxyz(cnnopts.outputxyz), gradient_check(cnnopts.gradient_check),
-        reset_center(true), xyzprefix(cnnopts.xyzprefix),
+        maintain_grid_center(cnnopts.keep_minimize_frame), verbose(cnnopts.verbose),
+        xyzprefix(cnnopts.xyzprefix),
         mtx(new boost::mutex) {
 
     if (cnnopts.cnn_scoring)
@@ -244,10 +244,11 @@ bool CNNScorer::has_affinity() const
     return (bool)net->blob_by_name("predaff");
 }
 
-bool CNNScorer::adjust_center() const
+bool CNNScorer::adjust_center(model& m) const
 {
-  if(!reset_center) {
-    reset_center = true;
+  if(maintain_grid_center) {
+    //todo - make this more efficent, i.e. only set center
+    mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(), true);
     return true;
   }
   return false;
@@ -273,8 +274,9 @@ void CNNScorer::get_net_output(Dtype& score, Dtype& aff, Dtype& loss)
 //return score of model, assumes receptor has not changed from initialization
 //also sets affinity (if available) and loss (for use with minimization)
 //if compute_gradient is set, also adds cnn atom gradient to m.minus_forces
+//if maintain center, it will not reposition the molecule
 //ALERT: clears minus forces
-float CNNScorer::score(model& m, bool compute_gradient, float& affinity, float& loss, bool silent)
+float CNNScorer::score(model& m, bool compute_gradient, float& affinity, float& loss)
 {
 	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
@@ -283,12 +285,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity, float& 
 	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
 	mgrid->setReceptor<atom>(m.get_fixed_atoms());
-	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(),reset_center);
-	if(compute_gradient)
-	{
-	  //keep frame of reference the same until adjust_center is called
-	  reset_center = false;
-	}
+	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(),!maintain_grid_center);
 
 	m.clear_minus_forces();
 	double score = 0.0;
@@ -355,8 +352,8 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity, float& 
 	affinity /= cnt;
 	loss /= cnt;
 
-	if(!score)
-	  std::cout << "cnnscore " << score/cnt << "\n";
+	if(verbose)
+	  std::cout <<  std::fixed << std::setprecision(10)  << "cnnscore " << score/cnt << "\n";
 
 	return score / cnt;
 }
@@ -367,7 +364,7 @@ float CNNScorer::score(model& m)
 {
     float aff = 0;
     float loss = 0;
-    return score(m, false, aff, loss, false);
+    return score(m, false, aff, loss);
 }
 
 

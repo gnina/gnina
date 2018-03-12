@@ -37,17 +37,14 @@ struct non_cache_cnn : public non_cache {
 	virtual ~non_cache_cnn() {}
 	virtual fl eval      (model& m, fl v) const; // needs m.coords
 	virtual fl eval_deriv(model& m, fl v, const grid& user_grid) const; // needs m.coords, sets m.minus_forces
-	bool within(const model& m, fl margin = 0.0001) const;
+	virtual bool within(const model& m, fl margin = 0.0001) const;
 	void setSlope(fl sl) { slope = sl; }
 	fl getSlope() { return slope; }
 	virtual bool skip_interacting_pairs() const { return true; }
-	virtual bool adjust_center() const { return cnn_scorer.adjust_center(); }
-	virtual void set_verbose(bool verb) const { verbose = verb; }
+	virtual bool adjust_center(model& m);
 protected:
-	fl slope;
-	grid_dims gd;
 	CNNScorer& cnn_scorer;
-	mutable bool verbose;
+  grid_dims cnn_gd;
 };
 
 #endif

@@ -130,6 +130,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 	if (slope >= 0)
 	{
 		//gradient isn't actually in a decreasing direction
+	  //std::cout << "positive slope" << "\n";
 		x_new = x;
 		g_new.clear(); //dkoes - set gradient to zero
 		return 0;
@@ -147,14 +148,16 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		f1 = f(x_new, g_new);
 
 		//std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
-		if (alpha < alamin || !std::isfinite(alpha)) //convergence
+		if (alpha < alamin || !std::isfinite(alpha)) //too small a step
 		{
+		  //std::cout << "alpha < alamin\n";
 			x_new = x;
 			g_new.clear(); //dkoes - set gradient to zero
 			return 0;
 		}
 		else if (f1 <= f0 + ALF * alpha * slope)
 		{
+		  //std::cout << "sufficient decrease\n";
 			//sufficient function decrease, stop searching
 			return alpha;
 		}
@@ -313,7 +316,6 @@ fl simple_gradient_ascent(F& f, Conf& x, Change& g, const fl average_required_im
     }
 
     if(alpha == 0) {
-      std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | " << f0 << " wrong direction\n";
       fl gradnormsq = scalar_product(g, g, n);
       std::cout << "wrongdir gradnorm " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
 
@@ -407,7 +409,6 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 
 	Change p(g);
 	if(params.outputframes > 0) {
-	  f.set_verbose(true);
 	  std::cout << std::setprecision(8);
 	  std::cout << "f0 " << f0 << "\n";
     std::cout << "g: ";
@@ -451,7 +452,6 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		}
 
 		if(alpha == 0) {
-			std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | " << f0 << " wrong direction\n";
       fl gradnormsq = scalar_product(g, g, n);
       std::cout << "wrongdir step,f0,gradnorm,alpha " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
 

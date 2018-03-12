@@ -65,7 +65,7 @@ void cnn_visualization::lrp() {
 
     std::stringstream rec_stream(rec_string);
     model receptor = parse_receptor_pdbqt("", rec_stream);
-    CNNScorer scorer(cnnopts, center, receptor);
+    CNNScorer scorer(cnnopts, receptor);
 
     std::stringstream lig_stream(lig_string);
     model ligand = parse_ligand_stream_pdbqt("", lig_stream);
@@ -105,7 +105,7 @@ void cnn_visualization::gradient_vis() {
 
     std::stringstream rec_stream(rec_string);
     model receptor = parse_receptor_pdbqt("", rec_stream);
-    CNNScorer scorer(cnnopts, center, receptor);
+    CNNScorer scorer(cnnopts, receptor);
 
     std::stringstream lig_stream(lig_string);
     model ligand = parse_ligand_stream_pdbqt("", lig_stream);
@@ -152,7 +152,7 @@ void cnn_visualization::setup(){
 
     std::stringstream rec_stream(rec_string);
     unmodified_receptor = parse_receptor_pdbqt("", rec_stream);
-    CNNScorer base_scorer(cnnopts, center, unmodified_receptor);
+    CNNScorer base_scorer(cnnopts, unmodified_receptor);
 
     std::stringstream lig_stream(lig_string);
     unmodified_ligand = parse_ligand_stream_pdbqt("", lig_stream);
@@ -300,7 +300,7 @@ float cnn_visualization::score_modified_receptor(
 
     model m = parse_receptor_pdbqt("", rec_stream);
 
-    CNNScorer cnn_scorer(cnnopts, center, m);
+    CNNScorer cnn_scorer(cnnopts, m);
 
     model l = parse_ligand_stream_pdbqt("", lig_stream);
     m.append(l);
@@ -339,7 +339,7 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string) {
 
     static bool first = true;
     if (first) {
-        cnn_scorer = CNNScorer(cnnopts, center, temp);
+        cnn_scorer = CNNScorer(cnnopts, temp);
         first = false;
     }
 

@@ -29,10 +29,12 @@ struct cnn_options {
     bool outputdx;
     bool outputxyz;
     bool gradient_check;
+    bool keep_minimize_frame;
+    bool verbose;
     std::string xyzprefix;
     unsigned seed; //random seed
 
-    cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), outputdx(false), outputxyz(false), gradient_check(false), seed(0) {}
+    cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), outputdx(false), outputxyz(false), gradient_check(false), keep_minimize_frame(false), verbose(false), seed(0) {}
 };
 
 /* This class evaluates protein-ligand poses according to a provided
@@ -48,7 +50,8 @@ class CNNScorer {
     bool outputdx;
     bool outputxyz;
     bool gradient_check;
-    mutable bool reset_center; //potential hack for debugging gradients
+    bool maintain_grid_center; //don't always update center, if this is true, adjust_center must be called manually to change center of first call
+    bool verbose;
     std::string xyzprefix;
 
     caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
@@ -59,18 +62,17 @@ class CNNScorer {
     vector<short> channels;
 
 public:
-    CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), outputxyz(false), gradient_check(false), reset_center(true), mtx(new boost::mutex) {}
+    CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), outputxyz(false), gradient_check(false), maintain_grid_center(true), verbose(false), mtx(new boost::mutex) {}
     virtual ~CNNScorer() {}
 
-    CNNScorer(const cnn_options& cnnopts, const vec& center, const model& m);
+    CNNScorer(const cnn_options& cnnopts, const model& m);
 
     bool initialized() const { return net.get(); }
 
     bool has_affinity() const; //return true if can predict affinity
 
     float score(model& m); //score only - no gradient
-   // float score(model& m, float& affinity); //scores only - no gradient
-    float score(model& m, bool compute_gradient, float& affinity, float& loss, bool silent = true);
+    float score(model& m, bool compute_gradient, float& affinity, float& loss);
 
     void outputDX(const string& prefix, double scale = 1.0, bool relevance = false, string layer_to_ignore = "", bool zero_values = false);
     void outputXYZ(const string& base, const vector<float4>& atoms,
@@ -80,7 +82,10 @@ public:
     void lrp(const model& m, const string& layer_to_ignore = "", bool zero_values = false);
     void gradient_setup(const model& m, const string& recname, const string& ligname, const string& layer_to_ignore = "");
 
-    bool adjust_center() const;
+    bool adjust_center(model &m) const;
+    vec get_center() const { return mgrid->getCenter(); }
+    fl get_grid_dim() const { return mgrid->getDimension(); }
+    fl get_grid_res() const { return mgrid->getResolution(); }
 
 protected:
   void get_net_output(Dtype& score, Dtype& aff, Dtype& loss);

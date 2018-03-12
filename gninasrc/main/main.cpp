@@ -179,6 +179,9 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	// std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
 	change g(m.get_size());
 
+	if(!nc.within(m)) {
+	  std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | initial pose not within box\n";
+	}
 	quasi_newton quasi_newton_par(minparm);
 	const fl slope_orig = nc.getSlope();
 	//try 5 times to get ligand into box
@@ -231,26 +234,26 @@ static void get_cnn_info(model& m, CNNScorer& cnn, tee& log, float& cnnscore, fl
    cnnscore = 0;
    cnnforces = 0;
    cnnaffinity = 0;
-   cnnscore = cnn.score(m, true, cnnaffinity, loss);
-   cnnforces = m.get_minus_forces_sum_magnitude();
-   if (cnnscore >= 0.0)
+   cnnscore = cnn.score(m, false, cnnaffinity, loss);
+   if (cnnscore >= 0)
    {
+     log << "CNNscore1: " << std::fixed << std::setprecision(10) << cnnscore;
+     log.endl();
+     log << "CNNaffinity1: " << std::fixed << std::setprecision(10) << cnnaffinity;
+     log.endl();
+
+     cnn.adjust_center(m);
+     cnnscore = cnn.score(m, false, cnnaffinity, loss);
      log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
      log.endl();
-     if (cnnaffinity >= 0) {
-       log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
-       log.endl();
-     }
-     if (cnnforces >= 0) {
-       log << "CNNforcesum: " << std::fixed << std::setprecision(10) << cnnforces;
-       log.endl();
-     }
+     log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
+     log.endl();
    }
 }
 
 //dkoes - return all energies and rmsds to original conf with result
 void do_search(model& m, const boost::optional<model>& ref,
-		const weighted_terms& sf, const precalculate& prec, const igrid& ig,
+		const weighted_terms& sf, const precalculate& prec, igrid& ig,
 		non_cache& nc, // nc.slope is changed
 		const vec& corner1, const vec& corner2,
 		const parallel_mc& par, const user_settings& settings,
@@ -1203,12 +1206,15 @@ Thank you!\n";
 				"evaluate multiple rotations of pose (max 24)")
 		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
 				"Use a convolutional neural network to score final pose.")
+		("cnn_update_min_frame", bool_switch(&cnnopts.keep_minimize_frame)->default_value(true),
+		    "During minimization, recenter coordinate frame as ligand moves")
 		("cnn_outputdx", bool_switch(&cnnopts.outputdx)->default_value(false),
 		               "Dump .dx files of atom grid gradient.")
 		("cnn_outputxyz", bool_switch(&cnnopts.outputxyz)->default_value(false),
 		               "Dump .xyz files of atom gradient.")
 		("cnn_xyzprefix", value<std::string>(&cnnopts.xyzprefix)->default_value("gradient"),
-		               "Prefix for atom gradient .xyz files");
+		               "Prefix for atom gradient .xyz files")
+		("cnn_verbose", bool_switch(&cnnopts.verbose)->default_value(false),"Enable verbose output for CNN debugging");
 
 
 		options_description misc("Misc (optional)");
@@ -1521,7 +1527,7 @@ Thank you!\n";
 
 		//dkoes - parse in receptor once
 		MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
-		CNNScorer cnn_scorer(cnnopts, vec(center_x, center_y, center_z), mols.getInitModel());
+		CNNScorer cnn_scorer(cnnopts, mols.getInitModel());
 
 		//dkoes, hoist precalculation outside of loop
 		weighted_terms wt(&t, t.weights());
