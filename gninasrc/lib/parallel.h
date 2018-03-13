@@ -31,6 +31,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition.hpp>
+#include "caffe/caffe.hpp"
 
 
 template<typename F, bool Sync = false>
@@ -59,6 +60,12 @@ struct parallel_for : private boost::thread_group {
     }
 private:
 	void loop(sz offset) {
+    if (gpu_on) {
+        //TODO: pass in settings.device
+	    caffe::Caffe::SetDevice(0);
+	    caffe::Caffe::set_mode(caffe::Caffe::GPU);
+        thread_buffer.init(free_mem(num_threads));
+    }
 		while(boost::optional<sz> sz_option = get_size(offset)) {
 			sz s = sz_option.get();
 			for(sz i = offset; i < s; i += num_threads)
@@ -121,6 +128,12 @@ struct parallel_for<F, true> : private boost::thread_group {
     }
 private:
 	void loop() {
+    if (gpu_on) {
+        //TODO: pass in settings.device
+	    caffe::Caffe::SetDevice(0);
+	    caffe::Caffe::set_mode(caffe::Caffe::GPU);
+        thread_buffer.init(free_mem(num_threads));
+    }
 		while(boost::optional<sz> i = get_next()) {
 			(*m_f)(i.get());
 			{
