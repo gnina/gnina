@@ -464,6 +464,12 @@ public:
 		return evaldata(t1, t2, r).first;
 	}
 
+    component_pair eval_pr_fast(smt t1, smt t2, fl r2) const {
+		assert(r2 <= m_cutoff_sqr);
+		fl r = sqrt(r2);
+		return evaldata(t1, t2, r);
+    }
+
 	pr eval_deriv(const atom_base& a, const atom_base& b, fl r2) const
 			{
 		assert(r2 <= m_cutoff_sqr);

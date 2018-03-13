@@ -99,6 +99,7 @@ struct GPUCacheInfo
   unsigned *types; 
   //grids used to interpolate atom energies
   grid_gpu* grids;
+  grid_gpu* deriv_grids;
   unsigned ngrids;
   GPUSplineInfo *splineInfo;
 };

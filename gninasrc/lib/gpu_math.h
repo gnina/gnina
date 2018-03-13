@@ -166,34 +166,53 @@ float3 operator*(T b, float3 a) {
 
 template<typename T, typename U>
 class array3d_gpu {
-    sz i, j, k;
-    T* data {};
+    cudaArray *data;
+    cudaTextureObject_t tex;
+    sz m_i, m_j, m_k;
 public:
-    array3d_gpu(const array3d<U>& carr) : i(carr.m_i), j(carr.m_j), 
-                                     k(carr.m_k) {
-        CUDA_CHECK_GNINA(thread_buffer.alloc(&data, i * j * k * sizeof(T)));
-        definitelyPinnedMemcpy(data, &carr.m_data[0], sizeof(T) * 
-                carr.m_data.size(), cudaMemcpyHostToDevice);
+    array3d_gpu(const array3d<U>& carr) : m_i(carr.m_i), m_j(carr.m_j), m_k(carr.m_k) {
+        cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<T>();
+        cudaExtent volumeSize = make_cudaExtent(m_i, m_j, m_k);
+        CUDA_CHECK_GNINA(cudaMalloc3DArray(&data, &channelDesc, volumeSize));
+
+        // copy data to 3D array
+        cudaMemcpy3DParms copyParams = {0};
+        copyParams.srcPtr   = make_cudaPitchedPtr((void *)&carr.m_data[0], volumeSize.width*sizeof(T), volumeSize.width, volumeSize.height);
+        copyParams.dstArray = data;
+        copyParams.extent   = volumeSize;
+        copyParams.kind     = cudaMemcpyHostToDevice;
+        CUDA_CHECK_GNINA(cudaMemcpy3DAsync(&copyParams));
+
+        // create texture object
+        cudaResourceDesc resDesc;
+        memset(&resDesc, 0, sizeof(resDesc));
+        resDesc.resType = cudaResourceTypeLinear;
+        resDesc.res.linear.devPtr = data;
+        resDesc.res.linear.desc = channelDesc;
+        resDesc.res.linear.sizeInBytes = m_i * m_j * m_k * sizeof(float);
+
+        cudaTextureDesc texDesc;
+        memset(&texDesc, 0, sizeof(texDesc));
+        texDesc.readMode = cudaReadModeNormalizedFloat;
+        texDesc.normalizedCoords = 1;
+
+        cudaCreateTextureObject(&tex, &resDesc, &texDesc, NULL);
     }
 
-	__device__  sz dim0() const { return i; }
-	__device__  sz dim1() const { return j; }
-	__device__  sz dim2() const { return k; }
-	__device__  sz dim(sz idx) const {
-		switch(idx) {
-			case 0: return i;
-			case 1: return j;
-			case 2: return k;
-			default: assert(false); return 0;
+	__device__ sz dim0() const { return m_i; }
+	__device__ sz dim1() const { return m_j; }
+	__device__ sz dim2() const { return m_k; }
+	__device__ sz dim(sz i) const {
+		switch(i) {
+			case 0: return m_i;
+			case 1: return m_j;
+			case 2: return m_k;
+			default: assert(false); return 0; // to get rid of the warning
 		}
 	}
 
-	__device__  T& operator()(sz i, sz j, sz k)       { 
-        return data[i + this->i*(j + this->j*k)]; 
-    }
-	__device__  const T& operator()(sz i, sz j, sz k) const { 
-        return data[i + this->i*(j + this->j*k)]; 
-    }
+	__device__ T& operator()(sz i, sz j, sz k)       { return m_data[i + m_i*(j + m_j*k)]; }
+	__device__ const T& operator()(sz i, sz j, sz k) const { return m_data[i + m_i*(j + m_j*k)]; }
 };
 
 #endif

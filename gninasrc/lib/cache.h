@@ -40,6 +40,7 @@ struct cache : public igrid {
 	fl eval_deriv(      model& m, fl v, const grid& user_grid) const; // needs m.coords, sets m.minus_forces // clean up
 
 	virtual void populate(const model& m, const precalculate& p, const std::vector<smt>& atom_types_needed, grid& user_grid, bool display_progress = true);
+	void populate_deriv(const model& m, const precalculate_splines& p, const std::vector<smt>& atom_types_needed, grid& user_grid, std::vector<grid> deriv_grids, bool display_progress = true);
     virtual ~cache() {};
 private:
 	std::string scoring_function_version;

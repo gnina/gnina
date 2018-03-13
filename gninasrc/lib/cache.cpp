@@ -208,3 +208,111 @@ void cache::populate(const model& m, const precalculate& p,
 		}
 	}
 }
+
+void cache::populate_deriv(const model& m, const precalculate_splines& p,
+		const std::vector<smt>& atom_types_needed, grid& user_grid, 
+        std::vector<grid> deriv_grids, bool display_progress)
+{
+	std::vector<smt> needed;
+	bool haschargeterms = p.has_components();
+
+	VINA_FOR_IN(i, atom_types_needed)
+	{
+		smt t = atom_types_needed[i];
+		if (!grids[t].initialized())
+		{
+			needed.push_back(t);
+			grids[t].init(gd, haschargeterms);
+            deriv_grids[t].init(gd, haschargeterms);
+		}
+	}
+	if (needed.empty())
+		return;
+	flv affinities(needed.size());
+	flv chargeaffinities;
+    flv derivs(needed.size());
+	if(haschargeterms)
+		chargeaffinities.resize(needed.size());
+           
+	sz nat = num_atom_types();
+
+	grid& g = grids[needed.front()];
+    grid& deriv = deriv_grids[needed.front()];
+
+	const fl cutoff_sqr = p.cutoff_sqr();
+
+	szv_grid_cache igcache(m, cutoff_sqr);
+	szv_grid ig(igcache, gd);
+    atom b;
+
+	VINA_FOR(x, g.data.dim0())
+	{
+		VINA_FOR(y, g.data.dim1())
+		{
+			VINA_FOR(z, g.data.dim2())
+			{
+				std::fill(affinities.begin(), affinities.end(), 0);
+				std::fill(chargeaffinities.begin(), chargeaffinities.end(), 0);
+                std::fill(derivs.begin(), derivs.end(), 0);
+				vec probe_coords;
+				probe_coords = g.index_to_argument(x, y, z);
+                b.coords = probe_coords;
+				const szv& possibilities = ig.possibilities(probe_coords);
+				VINA_FOR_IN(possibilities_i, possibilities)
+				{
+					const sz i = possibilities[possibilities_i];
+					const atom& a = m.grid_atoms[i];
+					const smt t1 = a.get();
+					const fl r2 = vec_distance_sqr(a.coords, probe_coords);
+					if (r2 <= cutoff_sqr)
+					{
+						VINA_FOR_IN(j, needed)
+						{
+							const smt t2 = needed[j];
+							assert(t2 < nat);
+                            b.sm = t2;
+							//t1 is the receptor atom, a
+							//t2 is type from the ligand, not corresponding to any
+							//particular atom
+                            fl r = sqrt(r2);
+							component_pair result = p.eval_pr_fast(t1, t2, r2);
+							if (haschargeterms)
+							{
+								//affinities contains the terms that are independent of
+								//the ligand atom charge
+                                //TODO: implied by the type?
+
+								affinities[j] +=
+										result.first[result_components::TypeDependentOnly]
+												+
+												result.first[result_components::AbsAChargeDependent]
+														* fabs(a.charge);
+								//this component must be multiplied by the ligand atom charge
+								chargeaffinities[j] +=
+										result.first[result_components::AbsBChargeDependent] +
+										result.first[result_components::ABChargeDependent]*a.charge; //not abs value
+							}
+							else
+							{
+								affinities[j] +=
+										result.first[result_components::TypeDependentOnly];
+							}
+                            derivs[j] += result.second.eval(a, b) / r;
+						}
+					}
+				}
+				VINA_FOR_IN(j, needed)
+				{
+					sz t = needed[j];
+					assert(t < nat);
+					grids[t].data(x, y, z) = affinities[j]; //+ user_grid.evaluate_user(vec(x, y, z));
+                    deriv_grids[t].data(x, y, z) = derivs[j];
+					if(haschargeterms)
+						grids[t].chargedata(x, y, z) = chargeaffinities[j];
+                    if(user_grid.initialized())
+                        grids[t].data(x, y, z) += user_grid.evaluate_user(vec(x, y ,z), slope);
+				}
+			}
+		}
+	}
+}

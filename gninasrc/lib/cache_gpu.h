@@ -7,8 +7,9 @@
 #include "precalculate_gpu.h"
 
 struct cache_gpu : public cache{
+    std::vector<grid> deriv_grids;
 	cache_gpu(const std::string& scoring_function_version_, const grid_dims& gd_, fl slope_, precalculate_gpu* prec) : 
-        cache(scoring_function_version_, gd_, slope_)
+        cache(scoring_function_version_, gd_, slope_), deriv_grids(num_atom_types())
     {
         info.splineInfo = prec->getDeviceData(); 
         info.cutoff_sq = prec->cutoff_sqr();
