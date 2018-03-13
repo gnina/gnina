@@ -179,6 +179,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	// std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
 	change g(m.get_size());
 
+	nc.adjust_center(m); //for cnn, set cnn box
 	if(!nc.within(m)) {
 	  std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | initial pose not within box\n";
 	}
