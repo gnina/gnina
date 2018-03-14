@@ -149,13 +149,6 @@ void result_info::write(std::ostream& out, std::string& ext,
 			out << std::fixed  << std::setprecision(10) << cnnaffinity << "\n\n";
 		}
 
-		if(cnnforces >= 0)
-		{
-			out << "> <CNNforcesum>\n";
-			out << std::fixed  << std::setprecision(10) << cnnforces << "\n\n";
-		}
-		std::cout << "CNNforcesum = " << cnnforces << "\n";
-
 
 		if (include_atom_terms)
 		{
@@ -209,12 +202,6 @@ void result_info::write(std::ostream& out, std::string& ext,
 			setMolData(format, mol,
 					"CNNaffinity",
 					boost::lexical_cast<std::string>((float) cnnaffinity));
-		}
-		if (cnnforces >= 0)
-		{
-			setMolData(format, mol,
-					"CNNforcesum",
-					boost::lexical_cast<std::string>((float) cnnforces));
 		}
 
 		if (include_atom_terms)
