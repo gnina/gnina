@@ -412,8 +412,9 @@ struct model {
 	void clear_minus_forces();
 	void add_minus_forces(const std::vector<float3>& forces);
 	void sub_minus_forces(const std::vector<float3>& forces);
+  void scale_minus_forces(fl scale);
 
-	fl get_minus_forces_magnitude() const;
+	fl get_minus_forces_sum_magnitude() const;
 
 	//allocate gpu memory, model must be setup
 	//also copies over data that does not change during minimization

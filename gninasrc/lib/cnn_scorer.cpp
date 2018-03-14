@@ -23,11 +23,11 @@ using namespace std;
 
 //initialize from commandline options
 //throw error if missing required info
-CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
-        const model& m) :
+CNNScorer::CNNScorer(const cnn_options& cnnopts, const model& m) :
         mgrid(NULL), mgridparam(NULL), rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
         outputdx(cnnopts.outputdx), outputxyz(cnnopts.outputxyz), gradient_check(cnnopts.gradient_check),
-        reset_center(true), xyzprefix(cnnopts.xyzprefix),
+        maintain_grid_center(cnnopts.keep_minimize_frame), verbose(cnnopts.verbose),
+        xyzprefix(cnnopts.xyzprefix),
         mtx(new boost::mutex) {
 
     if (cnnopts.cnn_scoring)
@@ -244,19 +244,21 @@ bool CNNScorer::has_affinity() const
     return (bool)net->blob_by_name("predaff");
 }
 
-bool CNNScorer::adjust_center() const
+bool CNNScorer::adjust_center(model& m) const
 {
-  if(!reset_center) {
-    reset_center = true;
+  if(maintain_grid_center) {
+    //todo - make this more efficent, i.e. only set center
+    mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(), true);
     return true;
   }
   return false;
 }
 
 //populate score and aff with current network output
-void CNNScorer::get_net_output(Dtype& score, Dtype& aff)
+void CNNScorer::get_net_output(Dtype& score, Dtype& aff, Dtype& loss)
 {
   const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
+  const caffe::shared_ptr<Blob<Dtype> > lossblob = net->blob_by_name("loss");
   const caffe::shared_ptr<Blob<Dtype> > affblob = net->blob_by_name("predaff");
 
   const Dtype* out = outblob->cpu_data();
@@ -266,11 +268,15 @@ void CNNScorer::get_net_output(Dtype& score, Dtype& aff)
   {
     aff = affblob->cpu_data()[0];
   }
+
+  loss = lossblob->cpu_data()[0];
 }
 //return score of model, assumes receptor has not changed from initialization
+//also sets affinity (if available) and loss (for use with minimization)
 //if compute_gradient is set, also adds cnn atom gradient to m.minus_forces
+//if maintain center, it will not reposition the molecule
 //ALERT: clears minus forces
-float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
+float CNNScorer::score(model& m, bool compute_gradient, float& affinity, float& loss)
 {
 	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
@@ -279,27 +285,25 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
 	mgrid->setReceptor<atom>(m.get_fixed_atoms());
-	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(),reset_center);
-	if(compute_gradient)
-	{
-	  //keep frame of reference the same until adjust_center is called
-	  reset_center = false;
-	}
+	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(),!maintain_grid_center);
 
 	m.clear_minus_forces();
 	double score = 0.0;
-	double affinity = 0.0;
+	affinity = 0.0;
+	loss = 0.0;
 	Dtype s = 0.0;
 	Dtype a = 0.0;
+	Dtype l = 0.0;
 
 	unsigned cnt = 0;
 	mgrid->setLabels(1); //for now pose optimization only
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{
 		net->Forward(); //do all rotations at once if requested
-		get_net_output(s,a);
+		get_net_output(s,a,l);
 		score += s;
 		affinity += a;
+		loss += l;
 
 		if(rotations > 1)
 		{
@@ -315,10 +319,6 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 			m.add_minus_forces(gradient); //TODO divide by cnt?
 		}
 		cnt++;
-	}
-
-	if (outputdx) {
-		outputDX(m.get_name());
 	}
 
 	if (outputxyz) {
@@ -339,18 +339,34 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 	if(gradient_check) {
 	  check_gradient();
 	}
-	//TODO m.scale_minus_forces(1 / cnt);
-	aff = affinity / cnt;
+
+  if (outputdx) {
+    //DANGER! This modifies the values in the network
+    outputDX(m.get_name());
+  }
+
+  //if there were rotations, scale appropriately
+  if(cnt > 1) {
+    m.scale_minus_forces(1.0/cnt);
+  }
+	affinity /= cnt;
+	loss /= cnt;
+
+	if(verbose)
+	  std::cout <<  std::fixed << std::setprecision(10)  << "cnnscore " << score/cnt << "\n";
+
 	return score / cnt;
 }
 
 
 //return only score
-float CNNScorer::score(model& m, bool silent)
+float CNNScorer::score(model& m)
 {
     float aff = 0;
-    return score(m, false, aff, silent);
+    float loss = 0;
+    return score(m, false, aff, loss);
 }
+
 
 // To aid in debugging, will compute the gradient at the
 // grid level, apply it with different multiples, and evaluate
@@ -362,15 +378,18 @@ void CNNScorer::check_gradient()
 {
   Dtype origscore = 0;
   Dtype origaff = 0;
+  Dtype origloss = 0;
   Dtype newscore = 0.0;
   Dtype newaff = 0.0;
+  Dtype newloss = 0.0;
 
+  std::cout << std::scientific;
   Dtype lambda = 1.0;
-  for(unsigned i = 0; i < 5; i++)
+  for(unsigned i = 0; i < 4; i++)
   {
     //score pose
     net->Forward();
-    get_net_output(origscore, origaff);
+    get_net_output(origscore, origaff, origloss);
 
     //backprop
     net->Backward();
@@ -387,9 +406,57 @@ void CNNScorer::check_gradient()
     net->ForwardFrom(1);
 
     //compare scores
-    get_net_output(newscore, newaff);
+    get_net_output(newscore, newaff, newloss);
 
-    std::cout << "LAMBDA: " << lambda << "   OLD: " << origscore << "," << origaff << "   NEW: " << newscore << "," << newaff << std::endl;
+    std::cout << "CHECK   " << origscore-newscore  << "    LAMBDA: " << lambda << "   OLD: " << origscore << "," << origaff << "   NEW: " << newscore << "," << newaff << std::endl;
+
+    //test a single channel
+    unsigned channel = 16+15; //compile time constant
+    net->Forward();
+    net->Backward();
+
+    vector<int> inds;
+    inds.push_back(0);
+    inds.push_back(channel);
+    unsigned off = datablob->offset(inds);
+    data = datablob->mutable_cpu_data();
+    diff = datablob->mutable_cpu_diff();
+
+    unsigned n = datablob->count(2);
+    for(unsigned i = 0; i < n; i++) {
+	    if(*(data+off+i) > 0) //only modify if density actually exists
+	    	*(data+off+i) += -lambda* *(diff+off+i);
+    }
+    //caffe_cpu_axpby(datablob->count(2), -lambda, diff+off, 1.0f, data+off);
+    net->ForwardFrom(1);
+    get_net_output(newscore, newaff, newloss);
+
+    std::cout << "CHECKch " << origscore-newscore  << " " << channel << " LAMBDA: " << lambda << "   OLD: " << origscore << "," << origaff << "   NEW: " << newscore << "," << newaff << std::endl;
+
+    //super expensive - evaluate every grid point for channel
+    net->Forward();
+    get_net_output(origscore,origaff,origloss);
+    for(unsigned i = 0; i < n; i++) {
+	    data = datablob->mutable_cpu_data();
+	    diff = datablob->mutable_cpu_diff();
+	    float gval = *(data+off+i);
+	    float gdiff = *(diff+off+i);
+	    if(gval > 0) {
+		  *(data+off+i) += lambda;
+		  net->ForwardFrom(1);
+		  get_net_output(newscore,newaff,newloss);
+		  std::cout << "GRIDch " << i << " gval " << gval << " gdiff " << gdiff << " lambda " << lambda << " change " << origscore-newscore <<"\n";
+		  
+		  data = datablob->mutable_cpu_data();
+		  diff = datablob->mutable_cpu_diff();
+		  *(data+off+i) = max(gval - lambda,0.0f);
+		  net->ForwardFrom(1);
+		  get_net_output(newscore,newaff,newloss);
+		  std::cout << "GRIDch " << i << " gval " << gval << " gdiff " << gdiff << " lambda " << -lambda << " change " << origscore-newscore << "\n";
+		  *(data+off+i) = gval;
+	    }
+    }
+
     lambda /= 10.0;
   }
 

@@ -276,7 +276,7 @@ public:
 
 	//accumulate gradient from grid point x,y,z for provided atom
 	void accumulateAtomGradient(const float3& coords, double ar, float x,
-				    float y, float z, float gridval, float3& agrad)
+				    float y, float z, float gridval, float3& agrad, int whichgrid,int id)
 	{
 		//sum gradient grid values overlapped by the atom times the
 		//derivative of the atom density at each grid point
@@ -305,10 +305,16 @@ public:
 		}
 		// d_loss/d_atomx = d_atomdist/d_atomx * d_gridpoint/d_atomdist * d_loss/d_gridpoint
 		// sum across all gridpoints
-		//dkoes - the negative sign seems wrong..
-		agrad.x += (-dist_x / dist) * agrad_dist * gridval;
-		agrad.y += (-dist_y / dist) * agrad_dist * gridval;
-		agrad.z += (-dist_z / dist) * agrad_dist * gridval;
+		//dkoes - the negative sign is because we are considering the derivative of the center vs grid
+		float gx = -(dist_x / dist) * agrad_dist * gridval;
+		float gy = -(dist_y / dist) * agrad_dist * gridval;
+		float gz = -(dist_z / dist) * agrad_dist * gridval;
+		agrad.x += gx;
+		agrad.y += gy;
+		agrad.z += gz;
+
+//		if(whichgrid == 16+15)
+//		  std::cout << "agrad" <<id << " " << coords.x <<","<<coords.y<<","<<coords.z<< "  " << x<<","<<y<<","<<z<< "  "<< dist << " " << ar*radiusmultiple << "   "<< gx <<","<<gy<<","<<gz << "   " << agrad_dist << "  " << gridval << "\n";
 	}
 
 	//get the atom position gradient from relevant grid points for provided atom
@@ -341,6 +347,9 @@ public:
 		ranges[1] = getrange(dims[1], coords.y, r);
 		ranges[2] = getrange(dims[2], coords.z, r);
 
+    static int id = 0;
+    id++;
+
 		//for every grid point possibly overlapped by this atom
 		for (unsigned i = ranges[0].first, iend = ranges[0].second; i < iend;
 				++i) {
@@ -359,7 +368,7 @@ public:
 					else //true gradient, distance matters
 					{
 						accumulateAtomGradient(coords, radius, x, y, z,
-								grids[whichgrid][i][j][k], agrad);
+								grids[whichgrid][i][j][k], agrad, whichgrid, id);
 					}
 				}
 			}
