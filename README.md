@@ -189,10 +189,11 @@ The provided models are templated with `TRAINFILE` and `TESTFILE` arguments, whi
 actual files.  The `train.py` script can be called with a model and a prefix for testing and training files:
 
 ```
-train.py -m models/refmodel3/refmodel3.model -p models/data/csar/all
+train.py -m models/refmodel3/refmodel3.model -p models/data/csar/all -d models/data/csar
 ```
 
-This will perform cross-validation using the `alltrain[0-2].types` and `alltest[0-2].types` files.
+This will perform cross-validation using the `alltrain[0-2].types` and `alltest[0-2].types` files whic
+refer to gninatypes files in the csar directory.
 
 There are quite a few options to `train.py` for modifying training:
 ```
