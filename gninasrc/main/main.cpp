@@ -489,7 +489,7 @@ void main_procedure(model& m, precalculate& prec,
 	parallel_mc par;
 	sz heuristic = m.num_movable_atoms()
 			+ 10 * m.get_size().num_degrees_of_freedom();
-	par.mc.num_steps = unsigned(70 * 3 * (50 + heuristic) / 2); // 2 * 70 -> 8 * 20 // FIXME
+	par.mc.num_steps = 2;//unsigned(70 * 3 * (50 + heuristic) / 2); // 2 * 70 -> 8 * 20 // FIXME
 	par.mc.ssd_par.evals = unsigned((25 + m.num_movable_atoms()) / 3);
 	if (minparm.maxiters == 0)
 		minparm.maxiters = par.mc.ssd_par.evals;
