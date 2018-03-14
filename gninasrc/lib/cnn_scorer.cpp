@@ -10,6 +10,7 @@
 
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/layers/pooling_layer.hpp"
+#include "caffe/util/math_functions.hpp"
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
@@ -25,7 +26,8 @@ using namespace std;
 CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
         const model& m) :
         mgrid(NULL), mgridparam(NULL), rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
-        outputdx(cnnopts.outputdx), outputxyz(cnnopts.outputxyz), xyzprefix(cnnopts.xyzprefix),
+        outputdx(cnnopts.outputdx), outputxyz(cnnopts.outputxyz), gradient_check(cnnopts.gradient_check),
+        reset_center(true), xyzprefix(cnnopts.xyzprefix),
         mtx(new boost::mutex) {
 
     if (cnnopts.cnn_scoring)
@@ -48,7 +50,7 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 
         param.mutable_state()->set_phase(TEST);
         LayerParameter *first = param.mutable_layer(0);
-        //must be ndim
+        //must be molgrid
         mgridparam = first->mutable_molgrid_data_param();
         if (mgridparam == NULL)
         {
@@ -67,6 +69,10 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
             //I think there's a bug in the axial rotations - they aren't all distinct
             //BUT it turns out this isn't actually faster
             //bsize = nrot;
+        }
+        else
+        {
+          mgridparam->set_random_rotation(false);
         }
 
         param.set_force_backward(true);
@@ -238,6 +244,29 @@ bool CNNScorer::has_affinity() const
     return (bool)net->blob_by_name("predaff");
 }
 
+bool CNNScorer::adjust_center() const
+{
+  if(!reset_center) {
+    reset_center = true;
+    return true;
+  }
+  return false;
+}
+
+//populate score and aff with current network output
+void CNNScorer::get_net_output(Dtype& score, Dtype& aff)
+{
+  const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
+  const caffe::shared_ptr<Blob<Dtype> > affblob = net->blob_by_name("predaff");
+
+  const Dtype* out = outblob->cpu_data();
+  score = out[1];
+  aff = 0.0;
+  if (affblob)
+  {
+    aff = affblob->cpu_data()[0];
+  }
+}
 //return score of model, assumes receptor has not changed from initialization
 //if compute_gradient is set, also adds cnn atom gradient to m.minus_forces
 //ALERT: clears minus forces
@@ -250,28 +279,32 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
 	mgrid->setReceptor<atom>(m.get_fixed_atoms());
-	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates());
+	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(),reset_center);
+	if(compute_gradient)
+	{
+	  //keep frame of reference the same until adjust_center is called
+	  reset_center = false;
+	}
 
 	m.clear_minus_forces();
 	double score = 0.0;
 	double affinity = 0.0;
-	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
-	const caffe::shared_ptr<Blob<Dtype> > affblob = net->blob_by_name("predaff");
+	Dtype s = 0.0;
+	Dtype a = 0.0;
 
 	unsigned cnt = 0;
 	mgrid->setLabels(1); //for now pose optimization only
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{
 		net->Forward(); //do all rotations at once if requested
-		const Dtype* out = outblob->cpu_data();
-		score += out[1];
-		if(rotations > 1) std::cout << "RotateScore: " << out[1] << "\n";
-		if (affblob)
+		get_net_output(s,a);
+		score += s;
+		affinity += a;
+
+		if(rotations > 1)
 		{
-			//has affinity prediction
-			const Dtype* aff = affblob->cpu_data();
-			affinity += aff[0];
-			if(rotations > 1) std::cout << "RotateAff: " << aff[0] << "\n";
+		  std::cout << "RotateScore: " << s << "\n";
+		  if(a) std::cout << "RotateAff: " << a << "\n";
 		}
 
 		if (compute_gradient || outputxyz)
@@ -303,6 +336,9 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 		outputXYZ(recname, atoms, channels, gradient);
 	}
 
+	if(gradient_check) {
+	  check_gradient();
+	}
 	//TODO m.scale_minus_forces(1 / cnt);
 	aff = affinity / cnt;
 	return score / cnt;
@@ -314,6 +350,49 @@ float CNNScorer::score(model& m, bool silent)
 {
     float aff = 0;
     return score(m, false, aff, silent);
+}
+
+// To aid in debugging, will compute the gradient at the
+// grid level, apply it with different multiples, and evaluate
+// the effect. Perhaps may evaluate atom gradients as well?
+//
+// IMPORTANT: assumes model is already setup
+// Prints out the results
+void CNNScorer::check_gradient()
+{
+  Dtype origscore = 0;
+  Dtype origaff = 0;
+  Dtype newscore = 0.0;
+  Dtype newaff = 0.0;
+
+  Dtype lambda = 1.0;
+  for(unsigned i = 0; i < 5; i++)
+  {
+    //score pose
+    net->Forward();
+    get_net_output(origscore, origaff);
+
+    //backprop
+    net->Backward();
+
+    //get grid and diff blobs
+    const caffe::shared_ptr<Blob<Dtype> > datablob = net->blob_by_name("data");
+    Dtype *data = datablob->mutable_cpu_data();
+    Dtype *diff = datablob->mutable_cpu_diff();
+
+    //apply gradient
+    caffe_cpu_axpby(datablob->count(), -lambda, diff, 1.0f, data); //sets data
+
+    //propagate forward, starting _after_ molgrid
+    net->ForwardFrom(1);
+
+    //compare scores
+    get_net_output(newscore, newaff);
+
+    std::cout << "LAMBDA: " << lambda << "   OLD: " << origscore << "," << origaff << "   NEW: " << newscore << "," << newaff << std::endl;
+    lambda /= 10.0;
+  }
+
 }
 
 

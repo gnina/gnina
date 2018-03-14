@@ -41,8 +41,8 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	("receptor,r", value<std::string>(&o.receptorfile)->required(),
 			"receptor file")
 	("ligand,l", value<std::string>(&o.ligandfile)->required(), "ligand(s)")
-	("grid,g", value<std::vector<std::string> >(&o.usergrids)->multitoken(), "grid(s) dx format");
-
+	("grid,g", value<std::vector<std::string> >(&o.usergrids)->multitoken(), "grid(s) dx format")
+	("example_grid", value<string>(&o.examplegrid), "example grid for positioning with --separate");
 	options_description outputs("Output");
 	outputs.add_options()
 	("out,o", value<std::string>(&o.outname)->required(),

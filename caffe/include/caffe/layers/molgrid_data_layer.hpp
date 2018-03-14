@@ -85,6 +85,7 @@ public:
   void getMappedReceptorGradient(int batch_idx, unordered_map<string ,float3>& gradient);
   void getLigandGradient(int batch_idx, vector<float3>& gradient);
   void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient);
+
   //set in memory buffer
   template<typename Atom>
   void setReceptor(const vector<Atom>& receptor)
@@ -118,9 +119,15 @@ public:
     }
   }
 
+  //set center to use for memory ligand
+  template<typename Vec3>
+  void setCenter(const Vec3& center) {
+    mem_lig.center = center;
+  }
+
   //set in memory buffer
   template<typename Atom, typename Vec3>
-  void setLigand(const vector<Atom>& ligand, const vector<Vec3>& coords)
+  void setLigand(const vector<Atom>& ligand, const vector<Vec3>& coords, bool calcCenter=true)
   {
     mem_lig.atoms.clear();
     mem_lig.whichGrid.clear();
@@ -158,7 +165,9 @@ public:
     }
     center /= acnt; //not ligand.size() because of hydrogens
 
-    mem_lig.center = center;
+    if(calcCenter || isnan(mem_lig.center[0])) {
+      mem_lig.center = center;
+    }
   }
 
   double getDimension() const { return dimension; }
@@ -471,7 +480,7 @@ public:
     vector<float3> gradient;
     vec center; //precalculate centroid, includes any random translation
 
-    mol_info() { center[0] = center[1] = center[2] = 0;}
+    mol_info() { center[0] = center[1] = center[2] = NAN;}
 
     void append(const mol_info& a)
     {
@@ -620,6 +629,7 @@ public:
   double fixedradius;
   double randtranslate;
   double ligpeturb_translate;
+  bool ligpeturb_rotate;
   bool binary; //produce binary occupancies
   bool randrotate;
   bool ligpeturb; //for spatial transformer

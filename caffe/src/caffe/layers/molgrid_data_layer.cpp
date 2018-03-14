@@ -371,6 +371,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   randrotate = param.random_rotation();
   ligpeturb = param.peturb_ligand();
   ligpeturb_translate = param.peturb_ligand_translate();
+  ligpeturb_rotate = param.peturb_ligand_rotate();
   radiusmultiple = param.radius_multiple();
   fixedradius = param.fixed_radius();
   bool hasaffinity = param.has_affinity();
@@ -702,7 +703,14 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
   transform.mol.append(recatoms);
 
   if(ligpeturb) {
-    ligtrans.set_random_quaternion(rng);
+    if(ligpeturb_rotate)
+    {
+      ligtrans.set_random_quaternion(rng);
+    }
+    else
+    {
+      ligtrans.Q = quaternion(1,0,0,0); //identity
+    }
     ligtrans.add_random_displacement(rng, ligpeturb_translate);
     transform.mol.transform_and_append(ligatoms, ligtrans);
 

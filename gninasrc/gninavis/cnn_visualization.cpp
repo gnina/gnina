@@ -829,7 +829,7 @@ std::string cnn_visualization::get_xyz_from_index(int index, bool rec) {
     {
         std::stringstream mol_stream;
         std::string line;
-        mol_stream = std::stringstream(lig_string);
+        mol_stream.str(lig_string);
         while (std::getline(mol_stream, line))
         {
             if(boost::algorithm::starts_with(line, "ATOM")
@@ -844,7 +844,7 @@ std::string cnn_visualization::get_xyz_from_index(int index, bool rec) {
             }
         }
 
-        mol_stream = std::stringstream(rec_string);
+        mol_stream.str(rec_string);
         while (std::getline(mol_stream, line))
         {
             if(boost::algorithm::starts_with(line, "ATOM")
@@ -874,9 +874,9 @@ std::string cnn_visualization::get_xyz_from_index(int index, bool rec) {
 //fill in map with a mapping from xyz coordinates (pdb foramt) to atom serial number (pdb)
 //clears map
 void cnn_visualization::populate_coordinate_map(const std::string& molstring, std::unordered_map<std::string, int>& map) {
-  std::stringstream mol_stream;
+  std::stringstream mol_stream(molstring);
   std::string line;
-  mol_stream = std::stringstream(molstring);
+
   map.clear();
   while (std::getline(mol_stream, line))
   {

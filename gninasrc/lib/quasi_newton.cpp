@@ -25,44 +25,64 @@
 
 extern thread_local float_buffer buffer;
 
-struct quasi_newton_aux {
-	model* m;
-	const precalculate* p;
-	const igrid* ig;
-	const vec v;
-	const grid* user_grid;
-	quasi_newton_aux(model* m_,const precalculate* p_,const igrid* ig_,
-			const vec& v_,const grid* user_grid_) :
-			m(m_), p(p_), ig(ig_), v(v_), user_grid(user_grid_){
-	}
+struct quasi_newton_aux
+{
+  model* m;
+  const precalculate* p;
+  const igrid* ig;
+  const vec v;
+  const grid* user_grid;
+  quasi_newton_aux(model* m_, const precalculate* p_, const igrid* ig_,
+      const vec& v_, const grid* user_grid_) :
+      m(m_), p(p_), ig(ig_), v(v_), user_grid(user_grid_)
+  {
+  }
 
-	fl operator()(const conf& c,change& g){
-		return m->eval_deriv(*p, *ig, v, c, g, *user_grid);
-	}
+  bool adjust_center()
+  {
+    return ig->adjust_center();
+  }
+  fl operator()(const conf& c, change& g)
+  {
+    return m->eval_deriv(*p, *ig, v, c, g, *user_grid);
+  }
 };
 
-void quasi_newton::operator()(model& m,const precalculate& p,const igrid& ig,
-		output_type& out,change& g,const vec& v,const grid& user_grid) const{ 
-    // g must have correct size
-	const non_cache_gpu* gpu = dynamic_cast<const non_cache_gpu*>(&ig);
-	if(gpu) {
-		m.initialize_gpu();
-		assert(m.gpu_initialized());
-        if(user_grid.initialized())
-        {
-          std::cerr << "usergrid not supported in gpu code yet\n";
-          exit(-1);
-        }
-		quasi_newton_aux_gpu aux(m.gdata, gpu->get_info(), v, &m);
-		change_gpu gchange(g, m.gdata, buffer);
-		conf_gpu gconf(out.c, m.gdata, buffer);
-		fl res = bfgs(aux, gconf, gchange, average_required_improvement, params);
-		gconf.set_cpu(out.c, m.gdata);
-		out.e = res;
-	} else {
-		quasi_newton_aux aux(&m, &p, &ig, v, &user_grid);
-		fl res = bfgs(aux, out.c, g, average_required_improvement, params);
-		out.e = res;
-	}
+void quasi_newton::operator()(model& m, const precalculate& p, const igrid& ig,
+    output_type& out, change& g, const vec& v, const grid& user_grid) const
+{
+  // g must have correct size
+  const non_cache_gpu* gpu = dynamic_cast<const non_cache_gpu*>(&ig);
+  if (gpu)
+  {
+    m.initialize_gpu();
+    assert(m.gpu_initialized());
+    if (user_grid.initialized())
+    {
+      std::cerr << "usergrid not supported in gpu code yet\n";
+      exit(-1);
+    }
+    quasi_newton_aux_gpu aux(m.gdata, gpu->get_info(), v, &m);
+    change_gpu gchange(g, m.gdata, buffer);
+    conf_gpu gconf(out.c, m.gdata, buffer);
+    fl res = 0;
+    if(params.type == minimization_params::Simple)
+      abort(); //not implemented
+    else
+      res = bfgs(aux, gconf, gchange, average_required_improvement, params);
+    gconf.set_cpu(out.c, m.gdata);
+    out.e = res;
+  }
+  else
+  {
+    quasi_newton_aux aux(&m, &p, &ig, v, &user_grid);
+    aux.adjust_center();
+    fl res = 0;
+    if(params.type == minimization_params::Simple)
+      res = simple_gradient_ascent(aux, out.c, g, average_required_improvement, params);
+    else
+      res = bfgs(aux, out.c, g, average_required_improvement, params);
+    out.e = res;
+  }
 }
 
