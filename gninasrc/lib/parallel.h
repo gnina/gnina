@@ -33,8 +33,8 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition.hpp>
 #include "caffe/caffe.hpp"
-#include "cnn_scorer.h"
 
+struct non_cache_cnn;
 template<typename F, bool Sync = false, bool gpu_on = false>
 struct parallel_for : private boost::thread_group {
 	parallel_for(const F* f, sz num_threads) : m_f(f), destructing(false), size(0), thread_finished(num_threads, true), count_finished(0), num_threads(num_threads) {
@@ -61,7 +61,7 @@ struct parallel_for : private boost::thread_group {
     }
 private:
 	void loop(sz offset) {
-        non_cache_cnn* cnn = dynamic_cast<non_cache_cnn*>(m_f->ig);
+        const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(m_f->ig);
         if (gpu_on) {
 	        caffe::Caffe::SetDevice(m_f->settings->device);
 	        caffe::Caffe::set_mode(caffe::Caffe::GPU);
@@ -133,9 +133,9 @@ struct parallel_for<F, true, gpu_on> : private boost::thread_group {
     }
 private:
 	void loop() {
-        non_cache_cnn* cnn = dynamic_cast<non_cache_cnn*>(m_f->ig);
+        const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(m_f->f->ig);
         if (gpu_on) {
-	        caffe::Caffe::SetDevice(m_f->settings->device);
+	        caffe::Caffe::SetDevice(m_f->f->settings->device);
 	        caffe::Caffe::set_mode(caffe::Caffe::GPU);
             //TODO: remove when we're using the device buffer with the CNN
             if (!cnn)

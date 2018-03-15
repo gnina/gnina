@@ -27,6 +27,7 @@
 #include "gpucode.h"
 #include "device_buffer.h"
 #include "non_cache_cnn.h"
+#include "user_opts.h"
 
 struct parallel_mc_task
 {
@@ -132,11 +133,12 @@ struct parallel_mc_aux
             memcpy(bfs_order_dfs_indices, t.m.gdata.bfs_order_dfs_indices, sizeof(size_t[num_nodes]));
             t.m.gdata.bfs_order_dfs_indices = bfs_order_dfs_indices;
         }
-        vec center = ((corner1[0] + corner2[0]) / 2.0, (corner1[1] + corner2[1]) / 2.0, 
-                (corner1[2] + corner2[2]) / 2.0);
+        vec center(((*corner1)[0] + (*corner2)[0]) / 2.0, ((*corner1)[1] + (*corner2)[1]) / 2.0, 
+                ((*corner1)[2] + (*corner2)[2]) / 2.0);
         if (cnn) {
             CNNScorer cnn_scorer(t.m.settings->cnnopts, center, t.m);
-            non_cache_cnn new_cnn(*cnn, cnn_scorer);
+	        szv_grid_cache gridcache(t.m, cnn->p->cutoff_sqr());
+            non_cache_cnn new_cnn(gridcache, cnn->gd, cnn->p, cnn->slope, cnn_scorer);
 		    (*mc)(t.m, t.out, *p, new_cnn, *corner1, *corner2, pg, t.generator, *user_grid);
         }
         else
