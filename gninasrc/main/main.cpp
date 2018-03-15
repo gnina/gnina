@@ -62,41 +62,6 @@
 using namespace boost::iostreams;
 using boost::filesystem::path;
 
-//just a collection of user-specified configurations
-struct user_settings
-{
-	fl energy_range;
-	sz num_modes;
-	fl out_min_rmsd;
-	fl forcecap;
-	int seed;
-	int verbosity;
-	int cpu;
-	int device; //gpu number
-
-	int exhaustiveness;
-	bool score_only;
-	bool randomize_only;
-	bool local_only;
-	bool dominimize;
-	bool include_atom_info;
-	bool gpu_on;
-
-    cnn_options cnnopts;
-	bool cnn_scoring;
-
-	//reasonable defaults
-	user_settings() :
-			energy_range(2.0), num_modes(9), out_min_rmsd(1),
-					forcecap(1000), seed(auto_seed()), verbosity(1), cpu(1),
-					device(0), exhaustiveness(10),
-					score_only(false), randomize_only(false), local_only(false),
-					dominimize(false), include_atom_info(false), gpu_on(false)
-	{
-
-	}
-};
-
 void doing(int verbosity, const std::string& str, tee& log)
 {
 	if (verbosity > 1)
@@ -231,6 +196,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 {
 	boost::timer::cpu_timer time;
 
+    m.settings = &settings;
 	precalculate_exact exact_prec(sf); //use exact computations for final score
 	conf_size s = m.get_size();
 	conf c = m.get_initial_conf();
@@ -489,7 +455,7 @@ void main_procedure(model& m, precalculate& prec,
 	parallel_mc par;
 	sz heuristic = m.num_movable_atoms()
 			+ 10 * m.get_size().num_degrees_of_freedom();
-	par.mc.num_steps = 2;//unsigned(70 * 3 * (50 + heuristic) / 2); // 2 * 70 -> 8 * 20 // FIXME
+	par.mc.num_steps = unsigned(70 * 3 * (50 + heuristic) / 2); // 2 * 70 -> 8 * 20 // FIXME
 	par.mc.ssd_par.evals = unsigned((25 + m.num_movable_atoms()) / 3);
 	if (minparm.maxiters == 0)
 		minparm.maxiters = par.mc.ssd_par.evals;

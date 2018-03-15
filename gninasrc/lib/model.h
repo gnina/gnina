@@ -446,6 +446,7 @@ struct model {
 	atomv atoms; // movable, inflex
 	atomv grid_atoms;
 	interacting_pairs other_pairs; 
+    const user_settings* settings;
 
 private:
 	//my, aren't we friendly!

@@ -34,6 +34,7 @@ struct non_cache_cnn : public non_cache {
 		      const precalculate* p_,
 		      fl slope_,
 		      CNNScorer& cnn_scorer_);
+    non_cache_cnn(const non_cache_cnn& src, CNNScorer& cnn_scorer_);
 	virtual ~non_cache_cnn() {}
 	virtual fl eval      (model& m, fl v) const; // needs m.coords
 	virtual fl eval_deriv(model& m, fl v, const grid& user_grid) const; // needs m.coords, sets m.minus_forces

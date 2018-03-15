@@ -64,6 +64,14 @@ public:
 
     CNNScorer(const cnn_options& cnnopts, const vec& center, const model& m);
 
+    CNNScorer(const CNNScorer& src, caffe::MolGridDataLayer<Dtype>* src_grid) : 
+        mgrid(src_grid), mgridparam(src.mgridparam), rotations(src.rotations), 
+        seed(src.seed), outputdx(src.outputdx), outputxyz(src.outputxyz), 
+        gradient_check(src.gradient_check), reset_center(src.reset_center), 
+        xyzprefix(src.xyzprefix), gradient(src.gradient), atoms(src.atoms), 
+        channels(src.channels) {
+    }
+
     bool initialized() const { return net.get(); }
 
     bool has_affinity() const; //return true if can predict affinity
