@@ -54,6 +54,7 @@
 #include <boost/bind.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <boost/unordered_map.hpp>
+#include "user_opts.h"
 
 #include <cuda_profiler_api.h>
 

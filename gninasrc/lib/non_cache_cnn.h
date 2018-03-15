@@ -28,13 +28,13 @@
 #include "non_cache.h"
 #include "cnn_scorer.h"
 
+struct parallel_mc_aux;
 struct non_cache_cnn : public non_cache {
 	non_cache_cnn(szv_grid_cache& gcache,
 		      const grid_dims& gd_,
 		      const precalculate* p_,
 		      fl slope_,
 		      CNNScorer& cnn_scorer_);
-    non_cache_cnn(const non_cache_cnn& src, CNNScorer& cnn_scorer_);
 	virtual ~non_cache_cnn() {}
 	virtual fl eval      (model& m, fl v) const; // needs m.coords
 	virtual fl eval_deriv(model& m, fl v, const grid& user_grid) const; // needs m.coords, sets m.minus_forces
@@ -48,6 +48,7 @@ struct non_cache_cnn : public non_cache {
 protected:
 	CNNScorer& cnn_scorer;
   grid_dims cnn_gd;
+  friend struct parallel_mc_aux;
 };
 
 #endif

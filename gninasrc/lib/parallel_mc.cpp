@@ -27,6 +27,7 @@
 #include "gpucode.h"
 #include "device_buffer.h"
 #include "non_cache_cnn.h"
+#include "user_opts.h"
 
 struct parallel_mc_task
 {
@@ -45,12 +46,12 @@ struct parallel_mc_aux
 {
 	const monte_carlo* mc;
 	const precalculate* p;
-	igrid* ig;
+	const igrid* ig;
 	const vec* corner1;
 	const vec* corner2;
 	parallel_progress* pg;
 	grid* user_grid;
-    const user_settings* settings;
+  const user_settings* settings;
 	parallel_mc_aux(const monte_carlo* mc_, const precalculate* p_,
 			const igrid* ig_, const vec* corner1_, const vec* corner2_,
 			parallel_progress* pg_, grid* user_grid_, const user_settings* settings_)
@@ -64,14 +65,15 @@ struct parallel_mc_aux
 	{
         const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(ig);
         if (cnn) {
-          vec center = ((corner1[0] + corner2[0]) / 2.0, (corner1[1] + corner2[1]) / 2.0, 
-                  (corner1[2] + corner2[2]) / 2.0);
+          vec center(((*corner1)[0] + (*corner2)[0]) / 2.0, ((*corner1)[1] + (*corner2)[1]) / 2.0, 
+                  ((*corner1)[2] + (*corner2)[2]) / 2.0);
           CNNScorer cnn_scorer(t.m.settings->cnnopts, center, t.m);
-          non_cache_cnn new_cnn(*cnn, cnn_scorer);
+	        szv_grid_cache gridcache(t.m, cnn->p->cutoff_sqr());
+          non_cache_cnn new_cnn(gridcache, cnn->gd, cnn->p, cnn->slope, cnn_scorer);
 		      (*mc)(t.m, t.out, *p, new_cnn, *corner1, *corner2, pg, t.generator, *user_grid);
         }
         else
-		    (*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
+		      (*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
 	}
 };
 

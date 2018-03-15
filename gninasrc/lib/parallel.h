@@ -32,10 +32,9 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition.hpp>
 #include "caffe/caffe.hpp"
-#include "cnn_scorer.h"
 
-
-template<typename F, bool Sync = false>
+struct non_cache_cnn;
+template<typename F, bool Sync = false, bool gpu_on = false>
 struct parallel_for : private boost::thread_group {
 	parallel_for(const F* f, sz num_threads) : m_f(f), destructing(false), size(0), thread_finished(num_threads, true), count_finished(0), num_threads(num_threads) {
         VINA_FOR(i, num_threads)

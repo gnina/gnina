@@ -37,6 +37,7 @@
 #include "grid.h"
 #include "gpucode.h"
 #include "interacting_pairs.h"
+#include "user_opts.h"
 
 typedef std::vector<interacting_pair> interacting_pairs;
 
@@ -251,7 +252,7 @@ struct model {
   ligands(m.ligands), minus_forces(m.minus_forces), 
   m_num_movable_atoms(m.m_num_movable_atoms), atoms(m.atoms), 
   grid_atoms(m.grid_atoms), other_pairs(m.other_pairs), 
-  hydrogens_stripped(m.hydrogens_stripped), 
+  hydrogens_stripped(m.hydrogens_stripped), settings(m.settings), 
   internal_coords(m.internal_coords), flex(m.flex), 
   flex_context(m.flex_context), name(m.name), pose_num(m.pose_num) {}
 
