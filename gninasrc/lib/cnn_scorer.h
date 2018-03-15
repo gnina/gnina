@@ -33,7 +33,7 @@ class CNNScorer {
     mutable bool reset_center; //potential hack for debugging gradients
     std::string xyzprefix;
 
-    caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
+    // caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
 
     //scratch vectors to avoid memory reallocation
     vector<float3> gradient;
@@ -41,7 +41,8 @@ class CNNScorer {
     vector<short> channels;
 
 public:
-    CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), outputxyz(false), gradient_check(false), reset_center(true), mtx(new boost::mutex) {}
+    CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), outputxyz(false), gradient_check(false), reset_center(true)//, mtx(new boost::mutex) 
+    {}
     virtual ~CNNScorer() {}
 
     CNNScorer(const cnn_options& cnnopts, const vec& center, const model& m);
