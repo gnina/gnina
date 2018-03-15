@@ -59,7 +59,6 @@ fl non_cache_cnn::eval(model& m, fl v) const
 	return e;
 }
 
-
 //reset center; will apply inverse of receptor transformation to ligand as well
 bool non_cache_cnn::adjust_center(model& m)
 {
@@ -98,6 +97,11 @@ bool non_cache_cnn::within(const model& m, fl margin) const
 }
 
 //return the cnn loss plus any out of bounds penalties
+non_cache_cnn::non_cache_cnn(const non_cache_cnn& src, CNNScorer& cnn_scorer_) : 
+    slope(src.slope), gd(src.gd), sgrid(src.sgrid), p(src.p), cnn_scorer(cnn_scorer_)
+{
+}
+
 fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const
 {
 	fl e = 0;

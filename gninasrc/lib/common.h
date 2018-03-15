@@ -44,8 +44,44 @@
 #include "macros.h"
 #include "math.h"
 #include <cuda_runtime.h>
+#include "cnn_scorer.h"
 
 typedef float fl;
+
+//just a collection of user-specified configurations
+struct user_settings
+{
+	fl energy_range;
+	sz num_modes;
+	fl out_min_rmsd;
+	fl forcecap;
+	int seed;
+	int verbosity;
+	int cpu;
+	int device; //gpu number
+
+	int exhaustiveness;
+	bool score_only;
+	bool randomize_only;
+	bool local_only;
+	bool dominimize;
+	bool include_atom_info;
+	bool gpu_on;
+
+    cnn_options cnnopts;
+	bool cnn_scoring;
+
+	//reasonable defaults
+	user_settings() :
+			energy_range(2.0), num_modes(9), out_min_rmsd(1),
+					forcecap(1000), seed(auto_seed()), verbosity(1), cpu(1),
+					device(0), exhaustiveness(10),
+					score_only(false), randomize_only(false), local_only(false),
+					dominimize(false), include_atom_info(false), gpu_on(false)
+	{
+
+	}
+};
 
 //collection of parameters specifying how minimization should be done
 struct minimization_params

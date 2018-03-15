@@ -24,6 +24,9 @@
 #include "parallel_mc.h"
 #include "coords.h"
 #include "parallel_progress.h"
+#include "gpucode.h"
+#include "device_buffer.h"
+#include "non_cache_cnn.h"
 
 struct parallel_mc_task
 {
@@ -47,17 +50,28 @@ struct parallel_mc_aux
 	const vec* corner2;
 	parallel_progress* pg;
 	grid* user_grid;
+    const user_settings* settings;
 	parallel_mc_aux(const monte_carlo* mc_, const precalculate* p_,
-			igrid* ig_, const vec* corner1_, const vec* corner2_,
-			parallel_progress* pg_, grid* user_grid_)
+			const igrid* ig_, const vec* corner1_, const vec* corner2_,
+			parallel_progress* pg_, grid* user_grid_, const user_settings* settings_)
 	:
-			mc(mc_), p(p_), ig(ig_), corner1(corner1_), corner2(corner2_), pg(pg_), user_grid(user_grid_)
+			mc(mc_), p(p_), ig(ig_), corner1(corner1_), corner2(corner2_), pg(
+					pg_), user_grid(user_grid_), settings(settings_)
 	{
 	}
 
 	void operator()(parallel_mc_task& t) const
 	{
-		(*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
+        const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(ig);
+        if (cnn) {
+          vec center = ((corner1[0] + corner2[0]) / 2.0, (corner1[1] + corner2[1]) / 2.0, 
+                  (corner1[2] + corner2[2]) / 2.0);
+          CNNScorer cnn_scorer(t.m.settings->cnnopts, center, t.m);
+          non_cache_cnn new_cnn(*cnn, cnn_scorer);
+		      (*mc)(t.m, t.out, *p, new_cnn, *corner1, *corner2, pg, t.generator, *user_grid);
+        }
+        else
+		    (*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
 	}
 };
 
@@ -83,7 +97,7 @@ void parallel_mc::operator()(const model& m, output_container& out,
 {
 	parallel_progress pp;
 	parallel_mc_aux parallel_mc_aux_instance(&mc, &p, &ig, &corner1, &corner2,
-			(display_progress ? (&pp) : NULL), &user_grid);
+			(display_progress ? (&pp) : NULL), &user_grid, m.settings);
 	parallel_mc_task_container task_container;
 	VINA_FOR(i, num_tasks)
 		task_container.push_back(new parallel_mc_task(m, random_int(0, 1000000, generator)));
