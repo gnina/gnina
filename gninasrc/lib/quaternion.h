@@ -228,21 +228,20 @@ __host__ __device__
 inline
 qt qt::operator*(const qt& r) const{
     /* TODO: renaming to avoid messing with the actual expression.  */
-    const fl a = x;
-    const fl b = y;
-    const fl c = z;
-    const fl d = w;
+    const fl a = w;
+    const fl b = x;
+    const fl c = y;
+    const fl d = z;
 
-    const fl ar = r.x;
-    const fl br = r.y;
-    const fl cr = r.z;
-    const fl dr = r.w;
+    const fl ar = r.w;
+    const fl br = r.x;
+    const fl cr = r.y;
+    const fl dr = r.z;
 
-    return qt(
-        +a*ar-b*br-c*cr-d*dr,
-        +a*br+b*ar+c*dr-d*cr,
+    return qt(+a*br+b*ar+c*dr-d*cr,
         +a*cr-b*dr+c*ar+d*br,
-        +a*dr+b*cr-c*br+d*ar
+        +a*dr+b*cr-c*br+d*ar,
+        +a*ar-b*br-c*cr-d*dr
         );
 }
 

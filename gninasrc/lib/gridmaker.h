@@ -113,6 +113,12 @@ public:
   {
     uint2 ret = make_uint2(0, 0);
     double low = c - r - d.x;
+    // printf("d.x %f ",d.x);
+    // printf("d.y %f ",d.y);
+    // printf("c %f ",c);
+    // printf("r %f ",r);
+    // printf("resolution %f",resolution);
+
     if (low > 0)
     {
       ret.x = floor(low / resolution);
@@ -334,8 +340,9 @@ public:
 		agrad.y += gy;
 		agrad.z += gz;
 
-//		if(whichgrid == 16+15)
-//		  std::cout << "agrad" <<id << " " << coords.x <<","<<coords.y<<","<<coords.z<< "  " << x<<","<<y<<","<<z<< "  "<< dist << " " << ar*radiusmultiple << "   "<< gx <<","<<gy<<","<<gz << "   " << agrad_dist << "  " << gridval << "\n";
+		if(whichgrid == 18)
+		  printf("gridval %f coords.x %f coords.y %f coords.z %f gx %f gy %f gz %f\n", 
+                  gridval, coords.x, coords.y, coords.z, gx, gy, gz);
 	}
 
 	//get the atom position gradient from relevant grid points for provided atom
@@ -402,6 +409,7 @@ public:
                            const Grids& grids, vector<float3>& agrad)
   { 
     zeroAtomGradientsCPU(agrad);
+    std::cout << "grid size " << grids.size() << std::endl;
     for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
     {
       int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
@@ -422,13 +430,34 @@ public:
     int idx = threadIdx.x;
     int whichgrid = gridindices[idx];
     float4 atom = ainfo[idx];
+    // printf("atom.x %f",atom.x);
+    // printf("atom.y %f",atom.y);
+    // printf("atom.z %f",atom.z);
     float3 coords; 
 
 	if (Q.real() != 0) //apply rotation
 	{
+        // printf("center.x %f", center.x);
+        // printf("center.y %f", center.y);
+        // printf("center.z %f", center.z);
+        // printf("initial x %f\n", atom.x - center.x);
+        // printf("initial y %f", atom.y - center.y);
+        // printf("initial z %f", atom.z - center.z);
 		qt p(atom.x - center.x, atom.y - center.y,
 				atom.z - center.z, 0);
+        // printf("p.x %f\n", p.x);
+        // printf("p.y %f", p.y);
+        // printf("p.z %f", p.z);
+        // printf("p.w %f", p.w);
 		p = Q * p * (Q.conj() / Q.norm());
+        printf("p.x %f", p.x);
+        // printf("Q.x %f", Q.x);
+        // printf("Q.y %f", Q.y);
+        // printf("Q.z %f", Q.z);
+        // printf("Q.w %f", Q.w);
+        // printf("p.y %f", p.y);
+        // printf("p.z %f", p.z);
+        // printf("p.w %f", p.w);
 
 		coords.x = p.R_component_2() + center.x;
 		coords.y = p.R_component_3() + center.y;
@@ -438,6 +467,9 @@ public:
 		coords.y = atom.y;
 		coords.z = atom.z;
 	}
+    // printf("coords.x %f",coords.x);
+    // printf("coords.y %f",coords.y);
+    // printf("coords.z %f",coords.z);
 
 	//get grid index ranges that could possibly be overlapped by atom
 	float radius = atom.w;
@@ -447,8 +479,6 @@ public:
     ranges[1] = getrange_gpu(dims[1], coords.y, r);
     ranges[2] = getrange_gpu(dims[2], coords.z, r);
 
-    // if (threadIdx.x == 0)
-        // printf("hi\n");
 	for (unsigned i = ranges[0].x, iend = ranges[0].y; i < iend;
 			++i) {
 		for (unsigned j = ranges[1].x, jend = ranges[1].y;
@@ -460,8 +490,9 @@ public:
 				float y = dims[1].x + j * resolution;
 				float z = dims[2].x + k * resolution;
 
+                printf("index is %d\n",(((whichgrid * dim) + i) * dim + j) * dim + k);
 	            accumulateAtomGradient(coords, radius, x, y, z, 
-                        grids[(((whichgrid * dim * dim * dim) + i) * dim + j) * dim + k], 
+                        grids[(((whichgrid * dim) + i) * dim + j) * dim + k], 
                             agrads[idx], whichgrid, idx + 1);
             }
         }
