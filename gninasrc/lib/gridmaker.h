@@ -13,12 +13,13 @@
 #include <vector>
 #include <cmath>
 #include <cuda.h>
+#include <device_types.h>
 #include <thrust/system/cuda/experimental/pinned_allocator.h>
 #include <vector_types.h>
 #include <boost/array.hpp>
 #include <boost/math/quaternion.hpp>
 #include <boost/algorithm/string.hpp>
-
+#include "quaternion.h"
 
 #ifndef VINA_ATOM_CONSTANTS_H
 #include "gninasrc/lib/atom_constants.h"
@@ -28,7 +29,7 @@
 using namespace std;
 
 class GridMaker {
-  boost::array< pair<float, float>, 3> dims;
+  float2 dims[3];
   float3 center;
   float radiusmultiple;
   float resolution;
@@ -67,12 +68,12 @@ public:
     center.y = y;
     center.z = z;
     float half = dimension/2.0;
-    dims[0].first = x - half;
-    dims[0].second = x + half;
-    dims[1].first = y - half;
-    dims[1].second = y + half;
-    dims[2].first = z - half;
-    dims[2].second = z + half;
+    dims[0].x = x - half;
+    dims[0].y = x + half;
+    dims[1].x = y - half;
+    dims[1].y = y + half;
+    dims[2].x = z - half;
+    dims[2].y = z + half;
 	}
 
 	template<typename Grid>
@@ -90,16 +91,16 @@ public:
       std::fill(grids.data(), grids.data() + grids.num_elements(), 0.0);
   }
   
-	pair<unsigned, unsigned>getrange(const pair<float, float>& d, double c, double r)
+	pair<unsigned, unsigned>getrange(const float2& d, double c, double r)
 	{
 	  pair<unsigned, unsigned> ret(0, 0);
-	  double low = c - r - d.first;
+	  double low = c - r - d.x;
 	  if (low > 0)
 	  {
 	    ret.first = floor(low / resolution);
 	  }
 
-	  double high = c + r - d.first;
+	  double high = c + r - d.x;
 	  if (high > 0) //otherwise zero
 	  {
 	    ret.second = std::min(dim, (unsigned) ceil(high / resolution));
@@ -108,7 +109,7 @@ public:
 	}
 
   __device__ 
-  uint2 getrange(const float2& d, double c, double r)
+  uint2 getrange_gpu(const float2& d, double c, double r)
   {
     uint2 ret = make_uint2(0, 0);
     double low = c - r - d.x;
@@ -239,9 +240,9 @@ public:
 	      for (unsigned k = ranges[2].first, kend = ranges[2].second;
 	          k < kend; k++)
 	      {
-	        float x = dims[0].first + i * resolution;
-	        float y = dims[1].first + j * resolution;
-	        float z = dims[2].first + k * resolution;
+	        float x = dims[0].x + i * resolution;
+	        float y = dims[1].x + j * resolution;
+	        float z = dims[2].x + k * resolution;
 	        float val = calcPoint(coords, radius, x, y, z);
 
 	        if (binary)
@@ -294,6 +295,7 @@ public:
 	}
 
 	//accumulate gradient from grid point x,y,z for provided atom
+    __host__ __device__
 	void accumulateAtomGradient(const float3& coords, double ar, float x,
 				    float y, float z, float gridval, float3& agrad, int whichgrid,int id)
 	{
@@ -377,9 +379,9 @@ public:
 				for (unsigned k = ranges[2].first, kend = ranges[2].second;
 						k < kend; ++k) {
 					//convert grid point coordinates to angstroms
-					float x = dims[0].first + i * resolution;
-					float y = dims[1].first + j * resolution;
-					float z = dims[2].first + k * resolution;
+					float x = dims[0].x + i * resolution;
+					float y = dims[1].x + j * resolution;
+					float z = dims[2].x + k * resolution;
 					if (isrelevance) {
 						accumulateAtomRelevance(coords, radius, x, y, z,
 								grids[whichgrid][i][j][k], agrad);
@@ -409,60 +411,9 @@ public:
     }
   }
 
-    //try just parallelizing over atoms
-    __device__
-    void setAtomGradientsGPU(const float4* ainfo, short* gridindices, float3* agrads, 
-            const quaternion Q, const float* grids, bool isrelevance = false) {
-        int idx = threadIdx.x;
-        int whichgrid = gridindices[idx];
-        float4 atom = ainfo[idx];
-        float3 coords; 
-    
-    	if (Q.real() != 0) //apply rotation
-    	{
-    		quaternion p(0, atom.x - center.x, atom.y - center.y,
-    				atom.z - center.z);
-    		p = Q * p * (conj(Q) / norm(Q));
-    
-    		coords.x = p.R_component_2() + center.x;
-    		coords.y = p.R_component_3() + center.y;
-    		coords.z = p.R_component_4() + center.z;
-    	} else {
-    		coords.x = atom.x;
-    		coords.y = atom.y;
-    		coords.z = atom.z;
-    	}
-    
-    	//get grid index ranges that could possibly be overlapped by atom
-    	float radius = atom.w;
-    	float r = radius * radiusmultiple;
-        uint2 ranges[3];
-        ranges.x = getrange(dims[0], coords.x, r);
-        ranges.y = getrange(dims[1], coords.y, r);
-        ranges.z = getrange(dims[2], coords.z r);
-   
-        //N.B. I'm not worried about these nested loops because I'm assuming the
-        //number of grid points overlapped by an atom is probably small
-    	for (unsigned i = ranges[0].x, iend = ranges[0].second; i < iend;
-    			++i) {
-    		for (unsigned j = ranges[1].x, jend = ranges[1].second;
-    				j < jend; ++j) {
-    			for (unsigned k = ranges[2].x, kend = ranges[2].second;
-    					k < kend; ++k) {
-    				//convert grid point coordinates to angstroms
-    				float x = dims[0].x + i * resolution;
-    				float y = dims[1].x + j * resolution;
-    				float z = dims[2].x + k * resolution;
-   
-                    //TODO: implement
-                    assert(isrelevance == false);
-    	            accumulateAtomGradient(coords, radius, x, y, z, 
-                            grids[whichgrid + dim * (i + dim * (j + dim * k))], 
-                                agrad[idx], whichgrid, idx + 1);
-                }
-            }
-        }
-    }
+__device__
+void setAtomGradientsGPU(const float4* ainfo, short* gridindices, float3* agrads, 
+        const qt Q, const float* grids, bool isrelevance = false);
 
 	//summ up gradient values overlapping atoms
 	template<typename Grids>
@@ -614,11 +565,11 @@ public:
 
 };
 
-template typename<Dtype>
+template <typename Dtype>
 __global__ 
 void setAtomGradientsGPU(GridMaker gmaker, 
         const float4* ainfo, short* gridindices, float3* agrads, float3 centroid, 
-        const quaternion Q, float3 translation, Dtype *diff, int offset) {
+        const qt Q, float3 translation, Dtype *diff, int offset) {
     gmaker.setAtomGradientsGPU(ainfo, gridindices, agrads, Q, diff + offset);
 }
 

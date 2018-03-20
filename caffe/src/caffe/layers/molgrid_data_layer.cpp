@@ -1003,7 +1003,7 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const ve
     Dtype *diff = NULL;
     if(gpu) {
       diff = top[0]->mutable_gpu_diff();
-      setAtomGradientsGPU(gmaker, diff);
+      setAtomGradientsGPU(gmaker, diff, batch_size);
     }
     else {
       diff = top[0]->mutable_cpu_diff();

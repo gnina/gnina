@@ -25,7 +25,8 @@ void MolGridDataLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
 }
 
 template <typename Dtype>
-void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype *diff)  {
+void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype
+        *diff, unsigned batch_size)  {
 
   //launch a kernel for each batch
   for (int item_id = 0; item_id < batch_size; ++item_id) {
@@ -35,8 +36,8 @@ void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype *diff
     short* whichGrid;
     float3* gradient;
 
-    int natoms = transform.mol.atoms.size();
     mol_transform& transform = batch_transform[item_id];
+    int natoms = transform.mol.atoms.size();
     cudaMalloc(&atoms, sizeof(float4)*natoms);
     cudaMemcpy(atoms, &transform.mol.atoms[0],
             sizeof(float4)*transform.mol.atoms.size(), cudaMemcpyHostToDevice);
@@ -48,10 +49,17 @@ void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype *diff
     cudaMemset(gradient, 0, sizeof(float3)*transform.mol.gradient.size());
     gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
 
+    quaternion& cpu_q = transform.mol.Q;
+    qt gpu_q(cpu_q.R_component_2(), cpu_q.R_component_3(),
+            cpu_q.R_component_4(), cpu_q.R_component_1());
     //diff is batch x channel x X x Y x Z
     setAtomGradientsGPU<<<1, natoms>>>(gmaker, atoms, whichGrid, gradient, 
-            transform.mol.center, transform.mol.Q, transform.center, diff,
+            transform.mol.center, gpu_q, transform.center, diff,
             offset);
+
+    cudaFree(atoms);
+    cudaFree(whichGrid);
+    cudaFree(gradient);
   }
 }
 

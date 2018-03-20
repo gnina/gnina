@@ -67,6 +67,19 @@ struct qt : float4{
         w /= r;
         return *this;
     }
+
+    __host__ __device__
+    qt operator /(const fl &r) {
+        x /= r;
+        y /= r;
+        z /= r;
+        w /= r;
+        return *this;
+    }
+   
+    __host__ __device__
+    qt operator*(const qt& r) const;
+
     __host__ __device__
     qt operator /=(const qt &r);
 
@@ -76,7 +89,22 @@ struct qt : float4{
     }
 
     __host__ __device__
-    qt operator*(qt r) const;
+    qt conj() const {
+        return qt(-x, -y, -z, w);
+    }
+    
+    __host__ __device__
+    float real() const {
+        return w;
+    }
+
+
+    __host__ __device__
+    float norm() const {
+        qt tmp = *this * conj();
+        return tmp.real();
+    }
+
 };
 
 // non-intrusive free function split serialization
@@ -198,12 +226,12 @@ qt angle_to_quaternion(const vec& axis, fl angle) { // axis is assumed to be a u
 
 __host__ __device__
 inline
-qt qt::operator*(qt r) const{
+qt qt::operator*(const qt& r) const{
     /* TODO: renaming to avoid messing with the actual expression.  */
-    const fl &a = x;
-    const fl &b = y;
-    const fl &c = z;
-    const fl &d = w;
+    const fl a = x;
+    const fl b = y;
+    const fl c = z;
+    const fl d = w;
 
     const fl ar = r.x;
     const fl br = r.y;
@@ -286,5 +314,4 @@ mat quaternion_to_r3(const qt& q) {
 
 	return tmp;
 }
-
 #endif
