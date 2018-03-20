@@ -340,9 +340,9 @@ public:
 		agrad.y += gy;
 		agrad.z += gz;
 
-		if(whichgrid == 18)
-		  printf("gridval %f coords.x %f coords.y %f coords.z %f gx %f gy %f gz %f\n", 
-                  gridval, coords.x, coords.y, coords.z, gx, gy, gz);
+		// if(whichgrid == 18)
+		  // printf("gridval %f coords.x %f coords.y %f coords.z %f gx %f gy %f gz %f\n", 
+                  // gridval, coords.x, coords.y, coords.z, gx, gy, gz);
 	}
 
 	//get the atom position gradient from relevant grid points for provided atom
@@ -450,7 +450,7 @@ public:
         // printf("p.z %f", p.z);
         // printf("p.w %f", p.w);
 		p = Q * p * (Q.conj() / Q.norm());
-        printf("p.x %f", p.x);
+        // printf("p.x %f", p.x);
         // printf("Q.x %f", Q.x);
         // printf("Q.y %f", Q.y);
         // printf("Q.z %f", Q.z);
@@ -490,7 +490,7 @@ public:
 				float y = dims[1].x + j * resolution;
 				float z = dims[2].x + k * resolution;
 
-                printf("index is %d\n",(((whichgrid * dim) + i) * dim + j) * dim + k);
+                // printf("index is %d\n",(((whichgrid * dim) + i) * dim + j) * dim + k);
 	            accumulateAtomGradient(coords, radius, x, y, z, 
                         grids[(((whichgrid * dim) + i) * dim + j) * dim + k], 
                             agrads[idx], whichgrid, idx + 1);
