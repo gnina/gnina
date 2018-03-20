@@ -90,7 +90,7 @@ public:
       std::fill(grids.data(), grids.data() + grids.num_elements(), 0.0);
   }
   
-	pair<unsigned, unsigned> getrange(const pair<float, float>& d, double c, double r)
+	pair<unsigned, unsigned>getrange(const pair<float, float>& d, double c, double r)
 	{
 	  pair<unsigned, unsigned> ret(0, 0);
 	  double low = c - r - d.first;
@@ -106,6 +106,25 @@ public:
 	  }
 	  return ret;
 	}
+
+  __device__ 
+  uint2 getrange(const float2& d, double c, double r)
+  {
+    uint2 ret = make_uint2(0, 0);
+    double low = c - r - d.x;
+    if (low > 0)
+    {
+      ret.x = floor(low / resolution);
+    }
+  
+    double high = c + r - d.x;
+    if (high > 0) //otherwise zero
+    {
+      ret.y = min(dim, (unsigned) ceil(high / resolution));
+    }
+    return ret;
+  }
+
 
 	//return the occupancy for atom a at point x,y,z
 	float calcPoint(const float3& coords, double ar, float x, float y, float z)
@@ -390,6 +409,61 @@ public:
     }
   }
 
+    //try just parallelizing over atoms
+    __device__
+    void setAtomGradientsGPU(const float4* ainfo, short* gridindices, float3* agrads, 
+            const quaternion Q, const float* grids, bool isrelevance = false) {
+        int idx = threadIdx.x;
+        int whichgrid = gridindices[idx];
+        float4 atom = ainfo[idx];
+        float3 coords; 
+    
+    	if (Q.real() != 0) //apply rotation
+    	{
+    		quaternion p(0, atom.x - center.x, atom.y - center.y,
+    				atom.z - center.z);
+    		p = Q * p * (conj(Q) / norm(Q));
+    
+    		coords.x = p.R_component_2() + center.x;
+    		coords.y = p.R_component_3() + center.y;
+    		coords.z = p.R_component_4() + center.z;
+    	} else {
+    		coords.x = atom.x;
+    		coords.y = atom.y;
+    		coords.z = atom.z;
+    	}
+    
+    	//get grid index ranges that could possibly be overlapped by atom
+    	float radius = atom.w;
+    	float r = radius * radiusmultiple;
+        uint2 ranges[3];
+        ranges.x = getrange(dims[0], coords.x, r);
+        ranges.y = getrange(dims[1], coords.y, r);
+        ranges.z = getrange(dims[2], coords.z r);
+   
+        //N.B. I'm not worried about these nested loops because I'm assuming the
+        //number of grid points overlapped by an atom is probably small
+    	for (unsigned i = ranges[0].x, iend = ranges[0].second; i < iend;
+    			++i) {
+    		for (unsigned j = ranges[1].x, jend = ranges[1].second;
+    				j < jend; ++j) {
+    			for (unsigned k = ranges[2].x, kend = ranges[2].second;
+    					k < kend; ++k) {
+    				//convert grid point coordinates to angstroms
+    				float x = dims[0].x + i * resolution;
+    				float y = dims[1].x + j * resolution;
+    				float z = dims[2].x + k * resolution;
+   
+                    //TODO: implement
+                    assert(isrelevance == false);
+    	            accumulateAtomGradient(coords, radius, x, y, z, 
+                            grids[whichgrid + dim * (i + dim * (j + dim * k))], 
+                                agrad[idx], whichgrid, idx + 1);
+                }
+            }
+        }
+    }
+
 	//summ up gradient values overlapping atoms
 	template<typename Grids>
 	void setAtomRelevanceCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
@@ -539,5 +613,13 @@ public:
 	}
 
 };
+
+template typename<Dtype>
+__global__ 
+void setAtomGradientsGPU(GridMaker gmaker, 
+        const float4* ainfo, short* gridindices, float3* agrads, float3 centroid, 
+        const quaternion Q, float3 translation, Dtype *diff, int offset) {
+    gmaker.setAtomGradientsGPU(ainfo, gridindices, agrads, Q, diff + offset);
+}
 
 #endif /* _GRIDMAKER_H_ */
