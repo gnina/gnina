@@ -370,60 +370,6 @@ void gpu_mask_atoms(float3 gridcenter, float rsq, int n, float4 *ainfos, bool *m
   }
 }
 
-//try just parallelizing over atoms
-__device__
-void GridMaker::setAtomGradientsGPU(const float4* ainfo, short* gridindices, float3* agrads, 
-        const qt Q, const float* grids, bool isrelevance) {
-    //TODO: implement
-    assert(isrelevance == false);
-
-    int idx = threadIdx.x;
-    int whichgrid = gridindices[idx];
-    float4 atom = ainfo[idx];
-    float3 coords; 
-
-	if (Q.real() != 0) //apply rotation
-	{
-		qt p(atom.x - center.x, atom.y - center.y,
-				atom.z - center.z, 0);
-		p = Q * p * (Q.conj() / Q.norm());
-
-		coords.x = p.R_component_2() + center.x;
-		coords.y = p.R_component_3() + center.y;
-		coords.z = p.R_component_4() + center.z;
-	} else {
-		coords.x = atom.x;
-		coords.y = atom.y;
-		coords.z = atom.z;
-	}
-
-	//get grid index ranges that could possibly be overlapped by atom
-	float radius = atom.w;
-	float r = radius * radiusmultiple;
-    uint2 ranges[3];
-    ranges[0] = getrange_gpu(dims[0], coords.x, r);
-    ranges[1] = getrange_gpu(dims[1], coords.y, r);
-    ranges[2] = getrange_gpu(dims[2], coords.z, r);
-
-	for (unsigned i = ranges[0].x, iend = ranges[0].y; i < iend;
-			++i) {
-		for (unsigned j = ranges[1].x, jend = ranges[1].y;
-				j < jend; ++j) {
-			for (unsigned k = ranges[2].x, kend = ranges[2].y;
-					k < kend; ++k) {
-				//convert grid point coordinates to angstroms
-				float x = dims[0].x + i * resolution;
-				float y = dims[1].x + j * resolution;
-				float z = dims[2].x + k * resolution;
-
-	            accumulateAtomGradient(coords, radius, x, y, z, 
-                        grids[(((whichgrid * dim * dim * dim) + i) * dim + j) * dim + k], 
-                            agrads[idx], whichgrid, idx + 1);
-            }
-        }
-    }
-}
-
 //WARNING: if Q is not the identify, will modify coordinates in ainfos in-place
 template<typename Dtype>
 void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, quaternion Q, unsigned ngrids,Dtype *grids)
