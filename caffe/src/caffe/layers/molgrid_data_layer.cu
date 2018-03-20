@@ -66,7 +66,8 @@ void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype
             make_float3(transform.center[0], transform.center[1],
             transform.center[2]), diff, offset);
 
-    cudaStreamSynchronize(cudaStreamPerThread);
+    //could probably be a StreamSync instead
+    cudaDeviceSynchronize();
     cudaMemcpy(&transform.mol.gradient[0], gradient,
             sizeof(float3)*transform.mol.gradient.size(),
             cudaMemcpyDeviceToHost);
