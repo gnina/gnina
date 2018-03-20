@@ -31,24 +31,24 @@ non_cache::non_cache(szv_grid_cache& gcache, const grid_dims& gd_,
 {
 }
 
-fl non_cache::check_bounds(const vec& a_coords, vec& adjusted_a_coords) const
+fl non_cache::check_bounds(const grid_dims& dims, const vec& a_coords, vec& adjusted_a_coords) const
 {
 	fl out_of_bounds_penalty = 0;
 	adjusted_a_coords = a_coords;
 	VINA_FOR_IN(j, gd)
 	{
-		if (gd[j].n > 0)
+		if (dims[j].n > 0)
 		{
-			if (a_coords[j] < gd[j].begin)
+			if (a_coords[j] < dims[j].begin)
 			{
-				adjusted_a_coords[j] = gd[j].begin;
+				adjusted_a_coords[j] = dims[j].begin;
 				out_of_bounds_penalty += std::abs(
-						a_coords[j] - gd[j].begin);
+						a_coords[j] - dims[j].begin);
 			}
-			else if (a_coords[j] > gd[j].end)
+			else if (a_coords[j] > dims[j].end)
 			{
-				adjusted_a_coords[j] = gd[j].end;
-				out_of_bounds_penalty += std::abs(a_coords[j] - gd[j].end);
+				adjusted_a_coords[j] = dims[j].end;
+				out_of_bounds_penalty += std::abs(a_coords[j] - dims[j].end);
 			}
 		}
 	}
@@ -70,7 +70,7 @@ fl non_cache::eval(const model& m, fl v) const
 
 		const vec& a_coords = m.coords[i];
 		vec adjusted_a_coords;
-		fl out_of_bounds_penalty = check_bounds(a_coords, adjusted_a_coords);
+		fl out_of_bounds_penalty = check_bounds(gd, a_coords, adjusted_a_coords);
 		fl this_e = 0;
 		const szv& possibilities = sgrid.possibilities(adjusted_a_coords);
 		VINA_FOR_IN(possibilities_j, possibilities)
@@ -96,40 +96,46 @@ fl non_cache::eval(const model& m, fl v) const
 
 bool non_cache::within(const model& m, fl margin) const
 {
-	VINA_FOR(i, m.num_movable_atoms())
-	{
-		if (m.atoms[i].is_hydrogen())
-			continue;
-		const vec& a_coords = m.coords[i];
-		VINA_FOR_IN(j, gd)
-			if (gd[j].n > 0)
-				if (a_coords[j] < gd[j].begin - margin
-						|| a_coords[j] > gd[j].end + margin)
-					return false;
-	}
-	return true;
+  return gd_within(gd, m, margin);
 }
 
-fl non_cache::check_bounds_deriv(const vec& a_coords, vec& adjusted_a_coords, vec& out_of_bounds_deriv) const
+bool non_cache::gd_within(const grid_dims& dims, const model& m, fl margin) const
+{
+  VINA_FOR(i, m.num_movable_atoms())
+  {
+    if (m.atoms[i].is_hydrogen())
+      continue;
+    const vec& a_coords = m.coords[i];
+    VINA_FOR_IN(j, dims)
+      if (dims[j].n > 0)
+        if (a_coords[j] < dims[j].begin - margin
+            || a_coords[j] > dims[j].end + margin)
+          return false;
+  }
+  return true;
+}
+
+
+fl non_cache::check_bounds_deriv(const grid_dims& dims, const vec& a_coords, vec& adjusted_a_coords, vec& out_of_bounds_deriv) const
 {
 	fl out_of_bounds_penalty = 0;
 	adjusted_a_coords = a_coords;
 	VINA_FOR_IN(j, gd)
 	{
-		if (gd[j].n > 0)
+		if (dims[j].n > 0)
 		{
-			if (a_coords[j] < gd[j].begin)
+			if (a_coords[j] < dims[j].begin)
 			{
-				adjusted_a_coords[j] = gd[j].begin;
+				adjusted_a_coords[j] = dims[j].begin;
 				out_of_bounds_deriv[j] = -1;
 				out_of_bounds_penalty += std::abs(
-						a_coords[j] - gd[j].begin);
+						a_coords[j] - dims[j].begin);
 			}
-			else if (a_coords[j] > gd[j].end)
+			else if (a_coords[j] > dims[j].end)
 			{
-				adjusted_a_coords[j] = gd[j].end;
+				adjusted_a_coords[j] = dims[j].end;
 				out_of_bounds_deriv[j] = 1;
-				out_of_bounds_penalty += std::abs(a_coords[j] - gd[j].end);
+				out_of_bounds_penalty += std::abs(a_coords[j] - dims[j].end);
 			}
 		}
 	}
@@ -158,7 +164,7 @@ fl non_cache::eval_deriv(model& m, fl v, const grid& user_grid) const
 		const vec& a_coords = m.coords[i];
 		vec adjusted_a_coords;
 		vec out_of_bounds_deriv(0, 0, 0);
-		fl out_of_bounds_penalty = check_bounds_deriv(a_coords, adjusted_a_coords, out_of_bounds_deriv);
+		fl out_of_bounds_penalty = check_bounds_deriv(gd, a_coords, adjusted_a_coords, out_of_bounds_deriv);
 		
 		fl this_e = 0;
 		vec deriv(0, 0, 0);

@@ -745,7 +745,10 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
   transform.center[2] = transform.mol.center[2];
   if (randtranslate)
   {
-    transform.add_random_displacement(rng, randtranslate);
+    double radius = ligatoms.radius();
+    //don't let ligand atoms translate out of sphere inscribed in box
+    double maxtrans = max(dimension/2.0 - radius,0.0);
+    transform.add_random_displacement(rng, min(randtranslate,maxtrans));
   }
 
   if(current_rotation > 0) {

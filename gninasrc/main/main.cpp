@@ -179,6 +179,10 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	// std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
 	change g(m.get_size());
 
+	nc.adjust_center(m); //for cnn, set cnn box
+	if(!nc.within(m)) {
+	  std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | initial pose not within box\n";
+	}
 	quasi_newton quasi_newton_par(minparm);
 	const fl slope_orig = nc.getSlope();
 	//try 5 times to get ligand into box
@@ -224,9 +228,33 @@ output_container remove_redundant(const output_container& in, fl min_rmsd)
 	return tmp;
 }
 
+//print info to log about cnn scoring
+static void get_cnn_info(model& m, CNNScorer& cnn, tee& log, float& cnnscore, float& cnnaffinity, float& cnnforces)
+{
+   float loss = 0;
+   cnnscore = 0;
+   cnnforces = 0;
+   cnnaffinity = 0;
+   cnnscore = cnn.score(m, false, cnnaffinity, loss);
+   if (cnnscore >= 0)
+   {
+     log << "CNNscore1: " << std::fixed << std::setprecision(10) << cnnscore;
+     log.endl();
+     log << "CNNaffinity1: " << std::fixed << std::setprecision(10) << cnnaffinity;
+     log.endl();
+
+     cnn.adjust_center(m);
+     cnnscore = cnn.score(m, false, cnnaffinity, loss);
+     log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
+     log.endl();
+     log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
+     log.endl();
+   }
+}
+
 //dkoes - return all energies and rmsds to original conf with result
 void do_search(model& m, const boost::optional<model>& ref,
-		const weighted_terms& sf, const precalculate& prec, const igrid& ig,
+		const weighted_terms& sf, const precalculate& prec, igrid& ig,
 		non_cache& nc, // nc.slope is changed
 		const vec& corner1, const vec& corner2,
 		const parallel_mc& par, const user_settings& settings,
@@ -240,7 +268,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 	conf c = m.get_initial_conf();
 	fl e = max_fl;
     fl intramolecular_energy = max_fl;
-	fl cnnscore = -1.0;
+	fl cnnscore = 0, cnnaffinity = 0, cnnforces = 0;
 	fl rmsd = 0;
 	const vec authentic_v(settings.forcecap, settings.forcecap,
 			settings.forcecap); //small cap restricts initial movement from clash
@@ -270,23 +298,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< " (kcal/mol)";
 		log.endl();
 
-		float cnnaffinity = -1;
-		float cnngradient = -1;
-		cnnscore = cnn.score(m, true, cnnaffinity);
-		cnngradient = m.get_minus_forces_magnitude();
-		if (cnnscore >= 0.0)
-		{
-			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
-			log.endl();
-			if (cnnaffinity >= 0) {
-				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
-				log.endl();
-			}
-			if (cnngradient >= 0) {
-				log << "CNNgradient: " << std::fixed << std::setprecision(10) << cnngradient;
-				log.endl();
-			}
-		}
+		get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 
 		std::vector<flv> atominfo;
 		flv term_values = t->evale_robust(m);
@@ -313,7 +325,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		}
 		log << '\n';
 
-		results.push_back(result_info(e, cnnscore, cnnaffinity, cnngradient, -1, m));
+		results.push_back(result_info(e, cnnscore, cnnaffinity, cnnforces, -1, m));
 
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
@@ -349,30 +361,14 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< " (kcal/mol)\nRMSD: " << rmsd;
 		log.endl();
 
-		float cnnaffinity = -1;
-		float cnngradient = -1;
-		cnnscore = cnn.score(m, true, cnnaffinity);
-		cnngradient = m.get_minus_forces_magnitude();
-		if (cnnscore >= 0.0)
-		{
-			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
-			log.endl();
-			if (cnnaffinity >= 0) {
-				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
-				log.endl();
-			}
-			if (cnngradient >= 0) {
-				log << "CNNgradient: " << std::fixed << std::setprecision(10) << cnngradient;
-				log.endl();
-			}
-		}
+    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 
 		if (!nc.within(m))
 			log << "WARNING: not all movable atoms are within the search space\n";
 
 		m.set(out.c);
 		done(settings.verbosity, log);
-		results.push_back(result_info(e, cnnscore, cnnaffinity, cnngradient, rmsd, m));
+		results.push_back(result_info(e, cnnscore, cnnaffinity, cnnforces, rmsd, m));
 
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
@@ -443,11 +439,12 @@ void do_search(model& m, const boost::optional<model>& ref,
 			log.endl();
       
 	  	float cnnaffinity = -1;
-	  	float cnngradient = -1;
-	  	cnnscore = cnn.score(m, true, cnnaffinity);
-		  cnngradient = m.get_minus_forces_magnitude();
+	  	float cnnforces = -1;
+	  	float loss = 0;
+	  	cnnscore = cnn.score(m, true, cnnaffinity, loss);
+	  	cnnforces = m.get_minus_forces_sum_magnitude();
       //dkoes - setup result_info
-			results.push_back(result_info(out_cont[i].e, cnnscore, cnnaffinity, cnngradient, -1, m));
+			results.push_back(result_info(out_cont[i].e, cnnscore, cnnaffinity, cnnforces, -1, m));
 
 			if (compute_atominfo)
 				results.back().setAtomValues(m, &sf);
@@ -1210,12 +1207,15 @@ Thank you!\n";
 				"evaluate multiple rotations of pose (max 24)")
 		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
 				"Use a convolutional neural network to score final pose.")
+		("cnn_update_min_frame", bool_switch(&cnnopts.keep_minimize_frame)->default_value(true),
+		    "During minimization, recenter coordinate frame as ligand moves")
 		("cnn_outputdx", bool_switch(&cnnopts.outputdx)->default_value(false),
 		               "Dump .dx files of atom grid gradient.")
 		("cnn_outputxyz", bool_switch(&cnnopts.outputxyz)->default_value(false),
 		               "Dump .xyz files of atom gradient.")
 		("cnn_xyzprefix", value<std::string>(&cnnopts.xyzprefix)->default_value("gradient"),
-		               "Prefix for atom gradient .xyz files");
+		               "Prefix for atom gradient .xyz files")
+		("cnn_verbose", bool_switch(&cnnopts.verbose)->default_value(false),"Enable verbose output for CNN debugging");
 
 
 		options_description misc("Misc (optional)");
@@ -1528,7 +1528,7 @@ Thank you!\n";
 
 		//dkoes - parse in receptor once
 		MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
-		CNNScorer cnn_scorer(cnnopts, vec(center_x, center_y, center_z), mols.getInitModel());
+		CNNScorer cnn_scorer(cnnopts, mols.getInitModel());
 
 		//dkoes, hoist precalculation outside of loop
 		weighted_terms wt(&t, t.weights());
