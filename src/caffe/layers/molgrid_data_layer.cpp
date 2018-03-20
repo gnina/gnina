@@ -994,8 +994,7 @@ void MolGridDataLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
  * TODO: not yet gpu optimized
  */
 template <typename Dtype>
-void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom,
-    bool gpu)
+void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu)
 {
   //propagate gradient grid onto atom positions
   if(compute_atom_gradients) {
