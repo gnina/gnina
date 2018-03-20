@@ -1,13 +1,14 @@
 #include <stdint.h>
 #include <vector>
 #include "gninasrc/lib/gpu_util.h"
+#include <boost/timer/timer.hpp>
 
 #include "caffe/layers/molgrid_data_layer.hpp"
 
 
 //gridding is implemented in gridmaker
 #include "gninasrc/lib/gridmaker.cu"
-#define THREADS_PER_BLOCK 1024
+#define THREADS_PER_BLOCK 512
 
 namespace caffe {
 
@@ -57,14 +58,19 @@ void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype
     //diff is batch x channel x X x Y x Z
 	unsigned nfull_blocks = natoms / THREADS_PER_BLOCK;
 	unsigned nthreads_remain = natoms % THREADS_PER_BLOCK;
-    setAtomGradientGPU<<<nfull_blocks, THREADS_PER_BLOCK>>>(gmaker, atoms, whichGrid, gradient, 
-            make_float3(molcenter[0], molcenter[1], molcenter[2]), gpu_q, 
-            make_float3(transform.center[0], transform.center[1],
-            transform.center[2]), diff, offset);
-    setAtomGradientGPU<<<1, nthreads_remain>>>(gmaker, atoms, whichGrid, gradient, 
-            make_float3(molcenter[0], molcenter[1], molcenter[2]), gpu_q, 
-            make_float3(transform.center[0], transform.center[1],
-            transform.center[2]), diff, offset);
+    std::cout << "natoms " << natoms << std::endl;
+	boost::timer::cpu_timer time;
+    if (nfull_blocks)
+        setAtomGradientGPU<<<nfull_blocks, THREADS_PER_BLOCK>>>(gmaker, atoms, whichGrid, gradient, 
+                make_float3(molcenter[0], molcenter[1], molcenter[2]), gpu_q, 
+                make_float3(transform.center[0], transform.center[1],
+                transform.center[2]), diff, offset);
+    if (nthreads_remain)
+        setAtomGradientGPU<<<1, nthreads_remain>>>(gmaker, atoms, whichGrid, gradient, 
+                make_float3(molcenter[0], molcenter[1], molcenter[2]), gpu_q, 
+                make_float3(transform.center[0], transform.center[1],
+                transform.center[2]), diff, offset);
+	std::cout << "GPU grid time " << time.elapsed().wall/1000000000.0 << "\n";
 
     //could probably be a StreamSync instead
     cudaDeviceSynchronize();

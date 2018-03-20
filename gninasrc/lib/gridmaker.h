@@ -447,6 +447,8 @@ public:
     ranges[1] = getrange_gpu(dims[1], coords.y, r);
     ranges[2] = getrange_gpu(dims[2], coords.z, r);
 
+    // if (threadIdx.x == 0)
+        // printf("hi\n");
 	for (unsigned i = ranges[0].x, iend = ranges[0].y; i < iend;
 			++i) {
 		for (unsigned j = ranges[1].x, jend = ranges[1].y;
