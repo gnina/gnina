@@ -71,7 +71,7 @@ void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype
                 make_float3(transform.center[0], transform.center[1],
                 transform.center[2]), diff, offset);
     //could probably be a StreamSync instead
-    cudaDeviceSynchronize();
+    cudaStreamSynchronize(cudaStreamPerThread);
 	std::cout << "GPU grid time " << time.elapsed().wall/1000000000.0 << "\n";
     cudaMemcpy(&transform.mol.gradient[0], gradient,
             sizeof(float3)*transform.mol.gradient.size(),
