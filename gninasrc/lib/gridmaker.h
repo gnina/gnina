@@ -459,9 +459,9 @@ public:
         // printf("p.z %f", p.z);
         // printf("p.w %f", p.w);
 
-		coords.x = p.R_component_2() + center.x;
-		coords.y = p.R_component_3() + center.y;
-		coords.z = p.R_component_4() + center.z;
+		coords.x = p.R_component_1() + center.x;
+		coords.y = p.R_component_2() + center.y;
+		coords.z = p.R_component_3() + center.z;
 	} else {
 		coords.x = atom.x;
 		coords.y = atom.y;
