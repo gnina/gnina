@@ -61,15 +61,15 @@ void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype
     std::cout << "natoms " << natoms << std::endl;
 	boost::timer::cpu_timer time;
     if (nfull_blocks)
-        setAtomGradientGPU<<<nfull_blocks, THREADS_PER_BLOCK>>>(gmaker, atoms, whichGrid, gradient, 
-                make_float3(molcenter[0], molcenter[1], molcenter[2]), gpu_q, 
-                make_float3(transform.center[0], transform.center[1],
-                transform.center[2]), diff, offset);
+        setAtomGradientGPU <<<nfull_blocks, THREADS_PER_BLOCK>>>(gmaker, atoms, 
+                whichGrid, gradient, make_float3(molcenter[0], molcenter[1], molcenter[2]), 
+                gpu_q, make_float3(transform.center[0], transform.center[1],
+                transform.center[2]), diff, offset, 0);
     if (nthreads_remain)
-        setAtomGradientGPU<<<1, nthreads_remain>>>(gmaker, atoms, whichGrid, gradient, 
-                make_float3(molcenter[0], molcenter[1], molcenter[2]), gpu_q, 
+        setAtomGradientGPU <<<1, nthreads_remain>>>(gmaker, atoms, whichGrid, 
+                gradient, make_float3(molcenter[0], molcenter[1], molcenter[2]), gpu_q, 
                 make_float3(transform.center[0], transform.center[1],
-                transform.center[2]), diff, offset);
+                transform.center[2]), diff, offset, natoms - nthreads_remain);
     //could probably be a StreamSync instead
     cudaDeviceSynchronize();
     // cudaStreamSynchronize(cudaStreamPerThread);
@@ -77,12 +77,12 @@ void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype
     cudaMemcpy(&transform.mol.gradient[0], gradient,
             sizeof(float3)*transform.mol.gradient.size(),
             cudaMemcpyDeviceToHost);
-    cudaDeviceSynchronize();
-    for (auto& elem : transform.mol.gradient) {
-        for (size_t i=0; i < 3; ++i) {
-            std::cout << "x: " << elem.x << "y: " << elem.y << "z: " << elem.z << std::endl;
-        }
-    }
+    // cudaDeviceSynchronize();
+    // for (auto& elem : transform.mol.gradient) {
+        // for (size_t i=0; i < 3; ++i) {
+            // std::cout << "x: " << elem.x << " y: " << elem.y << " z: " << elem.z << std::endl;
+        // }
+    // }
     cudaFree(atoms);
     cudaFree(whichGrid);
     cudaFree(gradient);

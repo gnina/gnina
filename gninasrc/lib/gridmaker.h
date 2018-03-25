@@ -422,12 +422,12 @@ public:
   template<typename Dtype>
   __device__
   void setAtomGradientsGPU(const float4* ainfo, short* gridindices, float3* agrads, 
-        const qt Q, const Dtype* grids, bool isrelevance = false) {
+        const qt Q, const Dtype* grids, unsigned remainder_offset, bool isrelevance = false) {
 #ifdef __CUDA_ARCH__
     //TODO: implement
     assert(isrelevance == false);
 
-    int idx = threadIdx.x;
+    int idx = blockDim.x * blockIdx.x + threadIdx.x + remainder_offset;
     int whichgrid = gridindices[idx];
     float4 atom = ainfo[idx];
     // printf("atom.x %f",atom.x);
@@ -479,6 +479,16 @@ public:
     ranges[1] = getrange_gpu(dims[1], coords.y, r);
     ranges[2] = getrange_gpu(dims[2], coords.z, r);
 
+    // if (ainfo->x > 52 && ainfo->x < 53) {
+        // printf("whichgrid is %d\n",whichgrid);
+        // printf("ranges[0].x %f", ranges[0].x);
+        // printf(", ranges[0].y %f\n", ranges[0].y);
+        // printf("ranges[1].x %f", ranges[1].x);
+        // printf(", ranges[1].y %f\n", ranges[1].y);
+        // printf("ranges[2].x %f", ranges[2].x);
+        // printf(", ranges[2].y %f\n", ranges[2].y);
+    // }
+
 	for (unsigned i = ranges[0].x, iend = ranges[0].y; i < iend;
 			++i) {
 		for (unsigned j = ranges[1].x, jend = ranges[1].y;
@@ -489,6 +499,11 @@ public:
 				float x = dims[0].x + i * resolution;
 				float y = dims[1].x + j * resolution;
 				float z = dims[2].x + k * resolution;
+                // if (ainfo->x > 52 && ainfo->x < 53) {
+                    // printf("x is %f\n", x);
+                    // printf("y is %f\n", y);
+                    // printf("z is %f\n", z);
+                // }
 
                 // printf("index is %d\n",(((whichgrid * dim) + i) * dim + j) * dim + k);
 	            accumulateAtomGradient(coords, radius, x, y, z, 
@@ -654,15 +669,17 @@ template <typename Dtype>
 __global__ 
 void setAtomGradientGPU(GridMaker gmaker, 
         float4* ainfo, short* gridindices, float3* agrads, float3 centroid, 
-        qt Q, float3 translation, Dtype *diff, int offset) {
-    gmaker.setAtomGradientsGPU(ainfo, gridindices, agrads, Q, diff + offset);
+        qt Q, float3 translation, Dtype *diff, int offset, unsigned remainder_offset) {
+    gmaker.setAtomGradientsGPU(ainfo, gridindices, agrads, Q, diff + offset, remainder_offset);
 }
 
 template __device__
 void GridMaker::setAtomGradientsGPU<double>(const float4* ainfo, short* gridindices, 
-        float3* agrads, const qt Q, const double* grids, bool isrelevance);
+        float3* agrads, const qt Q, const double* grids, unsigned remainder_offset, 
+        bool isrelevance);
 template __device__
-void GridMaker::setAtomGradientsGPU<float>(const float4* ainfo, short* gridindices, float3* agrads, 
-      const qt Q, const float* grids, bool isrelevance);
+void GridMaker::setAtomGradientsGPU<float>(const float4* ainfo, short* gridindices, 
+        float3* agrads, const qt Q, const float* grids, unsigned remainder_offset, 
+        bool isrelevance);
 
 #endif /* _GRIDMAKER_H_ */
