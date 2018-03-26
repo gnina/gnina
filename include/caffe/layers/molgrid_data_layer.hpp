@@ -180,7 +180,7 @@ public:
   double getResolution() const { return resolution; }
 
   void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
-  friend void test_set_atom_gradients();
+  friend void ::test_set_atom_gradients();
 
  protected:
 
