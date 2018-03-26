@@ -9,6 +9,7 @@
 #define BOOST_TEST_DYN_LINK
 #include <boost/test/unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
+#include "caffe/util/rng.hpp"
 
 extern parsed_args p_args;
 
@@ -49,7 +50,7 @@ void test_set_atom_gradients() {
     center /= mol_atoms.size();
     transform.center = center;
     transform.Q = quaternion(1,0,0,0);
-
+    transform.set_random_quaternion(caffe::caffe_rng());
     //initialize gmaker
     GridMaker gmaker;
     bool spherize = false;
