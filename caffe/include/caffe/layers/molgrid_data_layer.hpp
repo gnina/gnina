@@ -25,6 +25,8 @@
 #include "gninasrc/lib/atom_constants.h"
 #include "gninasrc/lib/gridmaker.h"
 
+void test_set_atom_gradients();
+
 namespace caffe {
 
 
@@ -178,7 +180,7 @@ public:
   double getResolution() const { return resolution; }
 
   void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
-
+  friend void test_set_atom_gradients();
 
  protected:
 
@@ -681,7 +683,6 @@ public:
   boost::unordered_map<string, mol_info> molcache;
   mol_info mem_rec; //molecular data set programmatically with setReceptor
   mol_info mem_lig; //molecular data set programmatically with setLigand
-
 
   ////////////////////   PROTECTED METHODS   //////////////////////
   static void remove_missing_and_setup(vector<balanced_example_provider>& examples);
