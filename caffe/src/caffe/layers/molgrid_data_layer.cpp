@@ -1024,7 +1024,7 @@ template <typename Dtype>
 void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu)
 {
   //propagate gradient grid onto atom positions
-  if(compute_atom_gradients) {
+  if(compute_atom_gradients || true) {
     unsigned batch_size = top_shape[0];
     Dtype *diff = NULL;
     if(gpu) {
