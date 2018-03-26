@@ -77,10 +77,10 @@ void test_set_atom_gradients() {
 
     //compare results
     for (size_t i=0; i<mol_atoms.size(); ++i) {
-        // for (size_t j=0; j<3; ++j) {
-            BOOST_REQUIRE_SMALL(cpu_transform.mol.gradient[i].x- 
-                    transform.mol.gradient[i].x, (float)0.01);
-        // }
+        for (size_t j=0; j<3; ++j) {
+            BOOST_REQUIRE_SMALL(cpu_transform.mol.gradient[i][j]- 
+                    transform.mol.gradient[i][j], (float)0.01);
+        }
     }
     cudaFree(gpu_diff);
 }
