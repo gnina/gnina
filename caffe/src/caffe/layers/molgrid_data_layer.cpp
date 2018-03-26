@@ -152,6 +152,34 @@ void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<float3>&
     }
 }
 
+/*
+ * Compute the transformation gradient of a rigid receptor around the center.
+ * The first three numbers are the translation.  The next are the torque.
+ */
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getReceptorTransformationGradient(int batch_idx, vec& force, vec& torque)
+{
+  force = vec(0,0,0);
+  torque = vec(0,0,0);
+
+  CHECK(compute_atom_gradients) << "Gradients requested but not computed";
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+  {
+    if (mol.whichGrid[i] < numReceptorTypes)
+    {
+      float3 g = mol.gradient[i];
+      float4 a = mol.atoms[i];
+      vec v(g.x,g.y,g.z);
+      vec pos(a.x,a.y,a.z);
+
+      force += v;
+      torque += cross_product(pos - mol.center, v);
+    }
+  }
+}
+
+
 template<typename Dtype>
 void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered_map<string, float3>& gradient)
 {
@@ -997,7 +1025,7 @@ template <typename Dtype>
 void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom,
     bool gpu)
 {
-  if(compute_atom_gradients) {
+  if(true || compute_atom_gradients) {
     Dtype *diff = NULL;
     if(gpu)
       diff = top[0]->mutable_cpu_diff(); //TODO

@@ -276,7 +276,7 @@ public:
 
 	//accumulate gradient from grid point x,y,z for provided atom
 	void accumulateAtomGradient(const float3& coords, double ar, float x,
-				    float y, float z, float gridval, float3& agrad, int whichgrid,int id)
+				    float y, float z, float gridval, float3& agrad, int whichgrid)
 	{
 		//sum gradient grid values overlapped by the atom times the
 		//derivative of the atom density at each grid point
@@ -312,9 +312,6 @@ public:
 		agrad.x += gx;
 		agrad.y += gy;
 		agrad.z += gz;
-
-//		if(whichgrid == 16+15)
-//		  std::cout << "agrad" <<id << " " << coords.x <<","<<coords.y<<","<<coords.z<< "  " << x<<","<<y<<","<<z<< "  "<< dist << " " << ar*radiusmultiple << "   "<< gx <<","<<gy<<","<<gz << "   " << agrad_dist << "  " << gridval << "\n";
 	}
 
 	//get the atom position gradient from relevant grid points for provided atom
@@ -347,9 +344,6 @@ public:
 		ranges[1] = getrange(dims[1], coords.y, r);
 		ranges[2] = getrange(dims[2], coords.z, r);
 
-    static int id = 0;
-    id++;
-
 		//for every grid point possibly overlapped by this atom
 		for (unsigned i = ranges[0].first, iend = ranges[0].second; i < iend;
 				++i) {
@@ -368,7 +362,7 @@ public:
 					else //true gradient, distance matters
 					{
 						accumulateAtomGradient(coords, radius, x, y, z,
-								grids[whichgrid][i][j][k], agrad, whichgrid, id);
+								grids[whichgrid][i][j][k], agrad, whichgrid);
 					}
 				}
 			}
@@ -389,6 +383,19 @@ public:
       }
     }
   }
+  
+  void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
+                           const Grids& grids, vector<float3>& agrad)
+  { 
+    zeroAtomGradientsCPU(agrad);
+    for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
+    {
+      int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
+      if (whichgrid >= 0) {
+        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
+      }
+    }
+  }  
 
 	//summ up gradient values overlapping atoms
 	template<typename Grids>
