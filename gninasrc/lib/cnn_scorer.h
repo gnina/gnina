@@ -90,7 +90,7 @@ public:
 protected:
   void get_net_output(Dtype& score, Dtype& aff, Dtype& loss);
   void check_gradient();
-
+  friend void test_set_atom_gradients();
 };
 
 #endif /* SRC_LIB_CNN_SCORER_H_ */

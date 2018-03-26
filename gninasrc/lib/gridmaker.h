@@ -13,12 +13,13 @@
 #include <vector>
 #include <cmath>
 #include <cuda.h>
+#include <device_types.h>
 #include <thrust/system/cuda/experimental/pinned_allocator.h>
 #include <vector_types.h>
 #include <boost/array.hpp>
 #include <boost/math/quaternion.hpp>
 #include <boost/algorithm/string.hpp>
-
+#include "quaternion.h"
 
 #ifndef VINA_ATOM_CONSTANTS_H
 #include "gninasrc/lib/atom_constants.h"
@@ -28,7 +29,7 @@
 using namespace std;
 
 class GridMaker {
-  boost::array< pair<float, float>, 3> dims;
+  float2 dims[3];
   float3 center;
   float radiusmultiple;
   float resolution;
@@ -67,12 +68,12 @@ public:
     center.y = y;
     center.z = z;
     float half = dimension/2.0;
-    dims[0].first = x - half;
-    dims[0].second = x + half;
-    dims[1].first = y - half;
-    dims[1].second = y + half;
-    dims[2].first = z - half;
-    dims[2].second = z + half;
+    dims[0].x = x - half;
+    dims[0].y = x + half;
+    dims[1].x = y - half;
+    dims[1].y = y + half;
+    dims[2].x = z - half;
+    dims[2].y = z + half;
 	}
 
 	template<typename Grid>
@@ -90,22 +91,42 @@ public:
       std::fill(grids.data(), grids.data() + grids.num_elements(), 0.0);
   }
   
-	pair<unsigned, unsigned> getrange(const pair<float, float>& d, double c, double r)
+	pair<unsigned, unsigned>getrange(const float2& d, double c, double r)
 	{
 	  pair<unsigned, unsigned> ret(0, 0);
-	  double low = c - r - d.first;
+	  double low = c - r - d.x;
 	  if (low > 0)
 	  {
 	    ret.first = floor(low / resolution);
 	  }
 
-	  double high = c + r - d.first;
+	  double high = c + r - d.x;
 	  if (high > 0) //otherwise zero
 	  {
 	    ret.second = std::min(dim, (unsigned) ceil(high / resolution));
 	  }
 	  return ret;
 	}
+
+  __device__ 
+  uint2 getrange_gpu(const float2& d, double c, double r)
+  {
+    uint2 ret = make_uint2(0, 0);
+    double low = c - r - d.x;
+
+    if (low > 0)
+    {
+      ret.x = floor(low / resolution);
+    }
+  
+    double high = c + r - d.x;
+    if (high > 0) //otherwise zero
+    {
+      ret.y = min(dim, (unsigned) ceil(high / resolution));
+    }
+    return ret;
+  }
+
 
 	//return the occupancy for atom a at point x,y,z
 	float calcPoint(const float3& coords, double ar, float x, float y, float z)
@@ -220,9 +241,9 @@ public:
 	      for (unsigned k = ranges[2].first, kend = ranges[2].second;
 	          k < kend; k++)
 	      {
-	        float x = dims[0].first + i * resolution;
-	        float y = dims[1].first + j * resolution;
-	        float z = dims[2].first + k * resolution;
+	        float x = dims[0].x + i * resolution;
+	        float y = dims[1].x + j * resolution;
+	        float z = dims[2].x + k * resolution;
 	        float val = calcPoint(coords, radius, x, y, z);
 
 	        if (binary)
@@ -275,6 +296,7 @@ public:
 	}
 
 	//accumulate gradient from grid point x,y,z for provided atom
+    __host__ __device__
 	void accumulateAtomGradient(const float3& coords, double ar, float x,
 				    float y, float z, float gridval, float3& agrad, int whichgrid)
 	{
@@ -352,9 +374,9 @@ public:
 				for (unsigned k = ranges[2].first, kend = ranges[2].second;
 						k < kend; ++k) {
 					//convert grid point coordinates to angstroms
-					float x = dims[0].first + i * resolution;
-					float y = dims[1].first + j * resolution;
-					float z = dims[2].first + k * resolution;
+					float x = dims[0].x + i * resolution;
+					float y = dims[1].x + j * resolution;
+					float z = dims[2].x + k * resolution;
 					if (isrelevance) {
 						accumulateAtomRelevance(coords, radius, x, y, z,
 								grids[whichgrid][i][j][k], agrad);
@@ -383,19 +405,62 @@ public:
       }
     }
   }
-  
-  void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
-                           const Grids& grids, vector<float3>& agrad)
-  { 
-    zeroAtomGradientsCPU(agrad);
-    for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
-    {
-      int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
-      if (whichgrid >= 0) {
-        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
-      }
+
+  template<typename Dtype>
+  __device__
+  void setAtomGradientsGPU(const float4* ainfo, short* gridindices, float3* agrads, 
+        const qt Q, const Dtype* grids, unsigned remainder_offset, bool isrelevance = false) {
+#ifdef __CUDA_ARCH__
+    //TODO: implement
+    assert(isrelevance == false);
+
+    int idx = blockDim.x * blockIdx.x + threadIdx.x + remainder_offset;
+    int whichgrid = gridindices[idx];
+    float4 atom = ainfo[idx];
+    float3 coords; 
+
+	if (Q.real() != 0) //apply rotation
+	{
+		qt p(atom.x - center.x, atom.y - center.y,
+				atom.z - center.z, 0);
+		p = Q * p * (Q.conj() / Q.norm());
+
+		coords.x = p.R_component_1() + center.x;
+		coords.y = p.R_component_2() + center.y;
+		coords.z = p.R_component_3() + center.z;
+	} else {
+		coords.x = atom.x;
+		coords.y = atom.y;
+		coords.z = atom.z;
+	}
+
+	//get grid index ranges that could possibly be overlapped by atom
+	float radius = atom.w;
+	float r = radius * radiusmultiple;
+    uint2 ranges[3];
+    ranges[0] = getrange_gpu(dims[0], coords.x, r);
+    ranges[1] = getrange_gpu(dims[1], coords.y, r);
+    ranges[2] = getrange_gpu(dims[2], coords.z, r);
+
+	for (unsigned i = ranges[0].x, iend = ranges[0].y; i < iend;
+			++i) {
+		for (unsigned j = ranges[1].x, jend = ranges[1].y;
+				j < jend; ++j) {
+			for (unsigned k = ranges[2].x, kend = ranges[2].y;
+					k < kend; ++k) {
+				//convert grid point coordinates to angstroms
+				float x = dims[0].x + i * resolution;
+				float y = dims[1].x + j * resolution;
+				float z = dims[2].x + k * resolution;
+
+	            accumulateAtomGradient(coords, radius, x, y, z, 
+                        grids[(((whichgrid * dim) + i) * dim + j) * dim + k], 
+                            agrads[idx], whichgrid);
+            }
+        }
     }
-  }  
+#endif
+  }
 
 	//summ up gradient values overlapping atoms
 	template<typename Grids>
@@ -546,5 +611,22 @@ public:
 	}
 
 };
+
+template <typename Dtype>
+__global__ 
+void setAtomGradientGPU(GridMaker gmaker, 
+        float4* ainfo, short* gridindices, float3* agrads, float3 centroid, 
+        qt Q, float3 translation, Dtype *diff, int offset, unsigned remainder_offset) {
+    gmaker.setAtomGradientsGPU(ainfo, gridindices, agrads, Q, diff + offset, remainder_offset);
+}
+
+template __device__
+void GridMaker::setAtomGradientsGPU<double>(const float4* ainfo, short* gridindices, 
+        float3* agrads, const qt Q, const double* grids, unsigned remainder_offset, 
+        bool isrelevance);
+template __device__
+void GridMaker::setAtomGradientsGPU<float>(const float4* ainfo, short* gridindices, 
+        float3* agrads, const qt Q, const float* grids, unsigned remainder_offset, 
+        bool isrelevance);
 
 #endif /* _GRIDMAKER_H_ */
