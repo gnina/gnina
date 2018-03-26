@@ -3,6 +3,7 @@
 #include "atom_constants.h"
 #include "gridmaker.h"
 #include "cnn_scorer.h"
+#include <cuda_runtime.h>
 #include <boost/math/quaternion.hpp>
 #include "quaternion.h"
 #define BOOST_TEST_DYN_LINK
@@ -37,9 +38,10 @@ void test_set_atom_gradients() {
     vec center(0,0,0);
     for (size_t i=0; i<mol_atoms.size(); ++i) {
         atom_params& ainfo = mol_atoms[i];
-        transform.mol.atoms.push_back(ainfo);
+        transform.mol.atoms.push_back(make_float4(ainfo.coords.x,
+                    ainfo.coords.y, ainfo.coords.z, ainfo.charge));
         transform.mol.whichGrid.push_back(mol_types[i]);
-        transform.mol.gradient.push_back(0);
+        transform.mol.gradient.push_back(make_float3(0,0,0));
         center += vec(ainfo.coords.x, ainfo.coords.y, ainfo.coords.z);
     }
     center /= mol_atoms.size();
@@ -59,19 +61,26 @@ void test_set_atom_gradients() {
     generate(begin(diff), end(diff), gen);
 
     //set up and calculate CPU atom gradients
-    Grids grids(&diff[0], boost::extents[smt::NumTypes-1][dim][dim][dim]);
-    caffe::MolGridDataLayer<CNNScorer::Dtype>::mol_transform cpu_transform = mgrid->batch_transform;
+    caffe::MolGridDataLayer<CNNScorer::Dtype>::Grids grids(&diff[0], 
+            boost::extents[smt::NumTypes-1][dim][dim][dim]);
+    caffe::MolGridDataLayer<CNNScorer::Dtype>::mol_transform cpu_transform =
+        mgrid->batch_transform[0];
     gmaker.setAtomGradientsCPU(cpu_transform.mol.atoms, cpu_transform.mol.whichGrid,
-            cpu_transform.Q, grid, cpu_transform.mol.gradient);
+            cpu_transform.Q, grids, cpu_transform.mol.gradient);
 
     //calculate GPU atom gradients
-    mgrid->setAtomGradientsGPU(gmaker, &diff[0], 1);
+    float* gpu_diff;
+    cudaMalloc(&gpu_diff, diff.size() * sizeof(float));
+    cudaMemcpy(gpu_diff, &diff[0], diff.size() * sizeof(float),
+            cudaMemcpyHostToDevice);
+    mgrid->setAtomGradientsGPU(gmaker, gpu_diff, 1);
 
     //compare results
     for (size_t i=0; i<mol_atoms.size(); ++i) {
-        for (size_t j=0; j<3 ++j) {
-            BOOST_REQUIRE_SMALL(cpu_transform.mol.gradient[i][j]- 
-                    transform.mol.gradient[i][j], (float)0.01);
-        }
+        // for (size_t j=0; j<3; ++j) {
+            BOOST_REQUIRE_SMALL(cpu_transform.mol.gradient[i].x- 
+                    transform.mol.gradient[i].x, (float)0.01);
+        // }
     }
+    cudaFree(gpu_diff);
 }
