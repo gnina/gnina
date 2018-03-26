@@ -28,12 +28,14 @@ void test_set_atom_gradients() {
     // does not distinguish between ligand and receptor atoms.
     std::vector<atom_params> mol_atoms;
     std::vector<smt> mol_types;
-    make_mol(mol_atoms, mol_types, engine);
+    make_mol(mol_atoms, mol_types, engine, 0, 1, 5000, 11.5, 11.5, 11.5);
     cnn_options cnnopts;
+    cnnopts.cnn_scoring = true;
     model m;
     CNNScorer cnn_scorer(cnnopts, m);
     caffe::MolGridDataLayer<CNNScorer::Dtype>* mgrid = cnn_scorer.mgrid;
-    mgrid->batch_transform.push_back(caffe::MolGridDataLayer<CNNScorer::Dtype>::mol_transform());
+    mgrid->batch_transform.resize(1);
+    mgrid->batch_transform[0] = caffe::MolGridDataLayer<CNNScorer::Dtype>::mol_transform();
     caffe::MolGridDataLayer<CNNScorer::Dtype>::mol_transform& transform = mgrid->batch_transform[0];
     vec center(0,0,0);
     for (size_t i=0; i<mol_atoms.size(); ++i) {
@@ -57,12 +59,12 @@ void test_set_atom_gradients() {
     gmaker.setCenter(center[0], center[1], center[2]);
 
     //randomly intialize gridpoint gradients
-    std::vector<float> diff((smt::NumTypes-1)*dim*dim*dim);
+    std::vector<float> diff((smt::NumTypes)*dim*dim*dim);
     generate(begin(diff), end(diff), gen);
 
     //set up and calculate CPU atom gradients
     caffe::MolGridDataLayer<CNNScorer::Dtype>::Grids grids(&diff[0], 
-            boost::extents[smt::NumTypes-1][dim][dim][dim]);
+            boost::extents[smt::NumTypes][dim][dim][dim]);
     caffe::MolGridDataLayer<CNNScorer::Dtype>::mol_transform cpu_transform =
         mgrid->batch_transform[0];
     gmaker.setAtomGradientsCPU(cpu_transform.mol.atoms, cpu_transform.mol.whichGrid,
@@ -80,6 +82,8 @@ void test_set_atom_gradients() {
         for (size_t j=0; j<3; ++j) {
             BOOST_REQUIRE_SMALL(cpu_transform.mol.gradient[i][j]- 
                     transform.mol.gradient[i][j], (float)0.01);
+            p_args.log << "CPU " << cpu_transform.mol.gradient[i][j] << 
+                " GPU " << transform.mol.gradient[i][j] << "\n";
         }
     }
     cudaFree(gpu_diff);
