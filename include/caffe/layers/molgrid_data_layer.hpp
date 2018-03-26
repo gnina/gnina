@@ -82,6 +82,7 @@ public:
   void getReceptorChannels(int batch_idx, vector<short>& whichGrid);
   void getLigandChannels(int batch_idx, vector<short>& whichGrid);
   void getReceptorGradient(int batch_idx, vector<float3>& gradient);
+  void getReceptorTransformationGradient(int batch_idx, vec& force, vec& torque);
   void getMappedReceptorGradient(int batch_idx, unordered_map<string ,float3>& gradient);
   void getLigandGradient(int batch_idx, vector<float3>& gradient);
   void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient);
