@@ -1019,30 +1019,32 @@ void MolGridDataLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 
 /* backpropagates gradients onto atoms (note there is not actual bottom)
  * Only performed when compute_atom_gradients is true.
- * TODO: not yet gpu optimized
  */
 template <typename Dtype>
-void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom,
-    bool gpu)
+void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu)
 {
-  if(true || compute_atom_gradients) {
-    Dtype *diff = NULL;
-    if(gpu)
-      diff = top[0]->mutable_cpu_diff(); //TODO
-    else
-      diff = top[0]->mutable_cpu_diff();
-
-    //propagate gradient grid onto atom positions
+  //propagate gradient grid onto atom positions
+  if(compute_atom_gradients) {
     unsigned batch_size = top_shape[0];
-    for (int item_id = 0; item_id < batch_size; ++item_id) {
+    Dtype *diff = NULL;
+    if(gpu) {
+      diff = top[0]->mutable_gpu_diff();
+      setAtomGradientsGPU(gmaker, diff, batch_size);
+    }
+    else {
+      diff = top[0]->mutable_cpu_diff();
+      for (int item_id = 0; item_id < batch_size; ++item_id) {
 
-      int offset = item_id*example_size;
-      Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+        int offset = item_id*example_size;
+        Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
 
-      mol_transform& transform = batch_transform[item_id];
-      gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
-      gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
-          transform.mol.gradient);
+        mol_transform& transform = batch_transform[item_id];
+        gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
+	    boost::timer::cpu_timer time;
+        gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, 
+                transform.Q, grids, transform.mol.gradient);
+	    std::cout << "CPU grid time " << time.elapsed().wall/1000000000.0 << "\n";
+      }
     }
   }
 }
