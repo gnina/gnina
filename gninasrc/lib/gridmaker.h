@@ -35,6 +35,7 @@ class GridMaker {
   float resolution;
   float dimension;
   float rsq; //radius squared (dimension/2)^2
+  float subcube_dim;
   unsigned dim; //number of points on each side (cube)
 	bool binary;
 	bool spherize; //mask out atoms not within sphere of center
@@ -43,17 +44,19 @@ public:
 	typedef boost::math::quaternion<float> quaternion;
 
 
-	GridMaker(float res=0, float d=0, float rm = 1.5, bool b = false, bool s = false):
-		radiusmultiple(rm), resolution(res), dimension(d), binary(b), spherize(s)
+	GridMaker(float res=0, float d=0, float rm = 1.5, float sd = 0.0, 
+            bool b = false, bool s = false):
+		radiusmultiple(rm), resolution(res), dimension(d), subcube_dim(sd), binary(b), spherize(s)
 	{
-	  initialize(res,d,rm,b,s);
+	  initialize(res,d,rm,sd,b,s);
 	}
 
 	virtual ~GridMaker() {}
 
-	void initialize(float res, float d, float rm = 1.5, bool b = false, bool s = false) {
+	void initialize(float res, float d, float rm = 1.5, float sd = 0.0, 
+                  bool b = false, bool s = false) {
 		resolution = res;
-		dimension = d;
+
 		radiusmultiple = rm;
 		binary = b;
 		spherize = s;
@@ -181,20 +184,21 @@ public:
 	//Grids is either a vector of multi_arrays or a multi_array
 	//set the relevant grid points for passed info
 	template<typename Grids>
-	void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex,  const quaternion& Q, Grids& grids)
+	void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex,  const quaternion& Q, Grids& grids, unsigned batch_idx=0)
 	{
 		zeroGridsCPU(grids);
 		for (unsigned i = 0, n = ainfo.size(); i < n; i++)
 		{
 			int pos = gridindex[i];
 			if (pos >= 0)
-				setAtomCPU(ainfo[i], pos, Q, grids);
+				setAtomCPU(ainfo[i], pos, Q, grids, batch_idx);
 		}
 	}
 
 	//set the relevant grid points for provided atom
 	template<typename Grids>
-	void setAtomCPU(float4 ainfo, int whichgrid, const quaternion& Q, Grids& grids)
+	void setAtomCPU(float4 ainfo, int whichgrid, const quaternion& Q, Grids& grids, 
+                  unsigned batch_idx=0)
 	{
 		float radius = ainfo.w;
 	  float r = radius * radiusmultiple;
@@ -245,14 +249,42 @@ public:
 	        float y = dims[1].x + j * resolution;
 	        float z = dims[2].x + k * resolution;
 	        float val = calcPoint(coords, radius, x, y, z);
+          unsigned cubes_per_dim;
+          unsigned subcube_idx_x; 
+          unsigned subcube_idx_y; 
+          unsigned subcube_idx_z; 
+          unsigned rel_x; 
+          unsigned rel_y; 
+          unsigned rel_z; 
+          unsigned cube_idx;
+
+          if (subcube_dim) {
+            cubes_per_dim = dimension / subcube_dim;
+            subcube_idx_x = i / (dim / cubes_per_dim);
+            subcube_idx_y = j / (dim / cubes_per_dim);
+            subcube_idx_z = k / (dim / cubes_per_dim);
+            rel_x = i % (dim / cubes_per_dim);
+            rel_y = j % (dim / cubes_per_dim);
+            rel_z = k % (dim / cubes_per_dim);
+            cube_idx = (((subcube_idx_x * cubes_per_dim) + subcube_idx_y) * 
+                cubes_per_dim + subcube_idx_z);
+          }
 
 	        if (binary)
 	        {
-	          if (val != 0)
-	            grids[whichgrid][i][j][k] = 1.0; //don't add, just 1 or 0
+	          if (val != 0) {
+              if (subcube_dim)
+                grids[cube_idx][batch_idx][whichgrid][i][j][k] = 1.0;
+              else 
+	              grids[whichgrid][i][j][k] = 1.0; //don't add, just 1 or 0
+            }
 	        }
-	        else
-	          grids[whichgrid][i][j][k] += val;
+	        else {
+            if (subcube_dim) 
+              grids[cube_idx][batch_idx][whichgrid][i][j][k] += val;
+            else
+	            grids[whichgrid][i][j][k] += val;
+          }
 
 	      }
 	    }
@@ -263,7 +295,7 @@ public:
 	//GPU accelerated version, defined in cu file
 	//pointers must point to GPU memory
 	template<typename Dtype>
-	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, unsigned ngrids, Dtype *grids);
+	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, unsigned ngrids, Dtype *grids, unsigned batch_idx=0);
 
 
   void zeroAtomGradientsCPU(vector<float3>& agrad)

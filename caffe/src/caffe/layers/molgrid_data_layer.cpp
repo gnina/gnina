@@ -393,6 +393,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   inmem = param.inmemory();
   dimension = param.dimension();
   resolution = param.resolution();
+  subcube_dim = param.subcube_dim();
   binary = param.binary_occupancy();
   bool spherize = param.spherical_mask();
   randtranslate = param.random_translate();
@@ -503,6 +504,8 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   // Reshape label, affinity, rmsds
   vector<int> label_shape(1, batch_size); // [batch_size]
+  //LSTM layer requires a "sequence continuation" blob
+  vector<int> seqcont_shape(dimension/subcube_dim, batch_size);
 
   top[1]->Reshape(label_shape);
 
@@ -512,11 +515,23 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     if (hasrmsd)
     {
       top[3]->Reshape(label_shape);
+      if (subcube_dim) {
+        top[4]->Reshape(seqcont_shape);
+      }
+    }
+    else if(subcube_dim) {
+      top[3]->Reshape(seqcont_shape);
     }
   }
   else if(hasrmsd)
   {
     top[2]->Reshape(label_shape);
+    if (subcube_dim) {
+      top[3]->Reshape(seqcont_shape);
+    }
+  }
+  else if (subcube_dim) {
+    top[2]->Reshape(seqcont_shape);
   }
 
   if(ligpeturb) {
@@ -686,7 +701,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dtype>::example& ex,
-    const string& root_folder, MolGridDataLayer<Dtype>::mol_transform& transform, output_transform& peturb, bool gpu)
+    const string& root_folder, MolGridDataLayer<Dtype>::mol_transform& transform, output_transform& peturb, bool gpu, unsigned batch_size, unsigned batch_idx)
 {
   //set grid values for example
   //cache atom info
@@ -703,7 +718,8 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
       set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, molcache[ex.ligand]);
     }
 
-    set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, peturb, gpu);
+    set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, peturb, gpu, 
+                   batch_idx);
   }
   else
   {
@@ -711,7 +727,7 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
     mol_info lig;
     set_mol_info(root_folder+ex.receptor, rmap, 0, rec);
     set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, lig);
-    set_grid_minfo(data, rec, lig, transform, peturb, gpu);
+    set_grid_minfo(data, rec, lig, transform, peturb, gpu, batch_idx);
   }
 }
 
@@ -719,7 +735,7 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer<Dtype>::mol_info& recatoms,
   const MolGridDataLayer<Dtype>::mol_info& ligatoms, MolGridDataLayer<Dtype>::mol_transform& transform,
-  output_transform& peturb, bool gpu)
+  output_transform& peturb, bool gpu, unsigned batch_size, unsigned batch_idx)
 {
   //set grid values from mol info
   //first clear transform from the previous batch
@@ -798,12 +814,22 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
     CUDA_CHECK(cudaMemcpy(gpu_gridatoms, &transform.mol.atoms[0], natoms*sizeof(float4), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(gpu_gridwhich, &transform.mol.whichGrid[0], natoms*sizeof(short), cudaMemcpyHostToDevice));
 
-    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, transform.Q, numReceptorTypes+numLigandTypes, data);
+    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, transform.Q, numReceptorTypes+numLigandTypes, data, batch_idx);
   }
   else
   {
-    Grids grids(data, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
-    gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids);
+    if (subcube_dim) {
+      unsigned ncubes = (dimension / subcube_dim) * (dimension / subcube_dim) * 
+        (dimension / subcube_dim);
+      Grids grids(data, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][dim][dim][dim]);
+      gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids, 
+                         batch_idx);
+    }
+    else {
+      Grids grids(data, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+      gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids, 
+                         batch_idx);
+    }
   }
 }
 
@@ -924,7 +950,8 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     CHECK_GT(mem_rec.atoms.size(),0) << "Receptor not set in MolGridDataLayer";
     CHECK_GT(mem_lig.atoms.size(),0) << "Ligand not set in MolGridDataLayer";
     //memory is now available
-    set_grid_minfo(top_data, mem_rec, mem_lig, batch_transform[0], peturb, gpu); //TODO how do we know what batch position?
+    set_grid_minfo(top_data, mem_rec, mem_lig, batch_transform[0], peturb, gpu, 
+        batch_size); //TODO how do we know what batch position?
     perturbations.push_back(peturb);
 
     if (num_rotations > 0) {
@@ -966,7 +993,10 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       rmsds.push_back(ex.rmsd);
 
       int offset = batch_idx*example_size;
-      set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], peturb, gpu);
+      if (subcube_dim) 
+        offset = 0;
+      set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], peturb, gpu, 
+          batch_size, batch_idx);
       perturbations.push_back(peturb);
       //NOTE: num_rotations not actually implemented!
     }

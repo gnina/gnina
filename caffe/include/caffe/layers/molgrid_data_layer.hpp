@@ -47,7 +47,7 @@ public:
   explicit MolGridDataLayer(const LayerParameter& param) :
       BaseDataLayer<Dtype>(param), data(NULL), data2(NULL), data_ratio(0),
       num_rotations(0), current_rotation(0),
-      example_size(0), inmem(false), resolution(0.5),
+      example_size(0), inmem(false), resolution(0.5), subcube_dim(0.0), 
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
       binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
@@ -59,6 +59,7 @@ public:
   virtual inline const char* type() const { return "MolGridData"; }
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int ExactNumTopBlobs() const { return 2+
+     (this->layer_param_.molgrid_data_param().subcube_dim() ? 1 : 0) +
       this->layer_param_.molgrid_data_param().has_affinity()+
       this->layer_param_.molgrid_data_param().has_rmsd()+
       this->layer_param_.molgrid_data_param().peturb_ligand();
@@ -659,6 +660,7 @@ public:
   double fixedradius;
   double randtranslate;
   double ligpeturb_translate;
+  double subcube_dim;
   bool ligpeturb_rotate;
   bool binary; //produce binary occupancies
   bool randrotate;
@@ -695,9 +697,11 @@ public:
   quaternion axial_quaternion();
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
   void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
-                    mol_transform& transform, output_transform& pertub, bool gpu);
+                    mol_transform& transform, output_transform& pertub, bool gpu, 
+                    unsigned batch_size, unsigned batch_idx=0);
   void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms,
-                    mol_transform& transform, output_transform& peturb, bool gpu);
+                    mol_transform& transform, output_transform& peturb, bool gpu, 
+                    unsigned batch_size, unsigned batch_idx=0);
 
   void setAtomGradientsGPU(GridMaker& gmaker, Dtype *diff, unsigned batch_size);
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
