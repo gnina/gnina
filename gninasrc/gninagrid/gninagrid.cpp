@@ -68,7 +68,8 @@ static bool parse_options(int argc, char *argv[], gridoptions& o)
 	("recmap", value<string>(&o.recmap), "Atom type mapping for receptor atoms")
 	("ligmap", value<string>(&o.ligmap), "Atom type mapping for ligand atoms")
 	("separate", bool_switch(&o.separate), "Output separate rec and lig files.")
-	("gpu", bool_switch(&o.gpu), "Use GPU to compute grids");
+	("gpu", bool_switch(&o.gpu), "Use GPU to compute grids")
+  ("subcube_dim", value<double>(&o.subcube_dim), "Generate RNN grids, with separate file for each timestep. Currently only cubic is supported.");
 
 	options_description info("Information (optional)");
 	info.add_options()

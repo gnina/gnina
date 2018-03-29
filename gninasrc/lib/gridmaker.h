@@ -60,6 +60,8 @@ public:
 		radiusmultiple = rm;
 		binary = b;
 		spherize = s;
+    subcube_dim = sd;
+    if (subcube_dim) assert(fmod(dimension, subcube_dim)==0);
 	  dim = ::round(dimension/resolution)+1; //number of grid points on a side
 	  rsq = (dimension/2)*(dimension/2);
 	  center.x = center.y = center.z = 0;
