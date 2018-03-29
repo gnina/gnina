@@ -505,7 +505,8 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   // Reshape label, affinity, rmsds
   vector<int> label_shape(1, batch_size); // [batch_size]
   //LSTM layer requires a "sequence continuation" blob
-  vector<int> seqcont_shape(dimension/subcube_dim, batch_size);
+  vector<int> seqcont_shape((dimension/subcube_dim) * (dimension/subcube_dim) * 
+      (dimension / subcube_dim), batch_size);
 
   top[1]->Reshape(label_shape);
 
@@ -974,6 +975,17 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     if (data2)
       dataswitch = batch_size*data_ratio/(data_ratio+1);
 
+    if (subcube_dim) {
+      unsigned ncubes = (dimension / subcube_dim) * (dimension/ subcube_dim) * 
+        (dimension / subcube_dim);
+      unsigned n_examples = ncubes * batch_size;
+      for (size_t i=0; i<n_examples; ++i) {
+        if (i < batch_size)
+          seqcont.push_back(0);
+        else
+          seqcont.push_back(1);
+      }
+    }
     for (int batch_idx = 0; batch_idx < batch_size; ++batch_idx)
     {
       example ex;
@@ -1010,9 +1022,22 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_gpu_data());
       if(hasrmsd) {
         caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_gpu_data());
+        if (subcube_dim) {
+          caffe_copy(seqcont.size(), &seqcont[0], top[4]->mutable_gpu_data());
+        }
       }
-    } else if(hasrmsd) {
+      else if (subcube_dim) {
+        caffe_copy(seqcont.size(), &seqcont[0], top[3]->mutable_gpu_data());
+      }
+    } 
+    else if(hasrmsd) {
       caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_gpu_data());
+        if (subcube_dim) {
+          caffe_copy(seqcont.size(), &seqcont[0], top[3]->mutable_gpu_data());
+        }
+    }
+    else if (subcube_dim) {
+      caffe_copy(seqcont.size(), &seqcont[0], top[2]->mutable_gpu_data());
     }
 
     if(ligpeturb) {
@@ -1027,9 +1052,22 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_cpu_data());
       if(hasrmsd) {
         caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_cpu_data());
+        if (subcube_dim) {
+          caffe_copy(seqcont.size(), &seqcont[0], top[4]->mutable_cpu_data());
+        }
       }
-    } else if(hasrmsd) {
+      else if (subcube_dim) {
+        caffe_copy(seqcont.size(), &seqcont[0], top[3]->mutable_cpu_data());
+      }
+    } 
+    else if(hasrmsd) {
       caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_cpu_data());
+      if (subcube_dim) {
+        caffe_copy(seqcont.size(), &seqcont[0], top[3]->mutable_cpu_data());
+      }
+    }
+    else if (subcube_dim) {
+      caffe_copy(seqcont.size(), &seqcont[0], top[2]->mutable_cpu_data());
     }
     if(ligpeturb) {
       //trusting struct layout is normal

@@ -650,6 +650,9 @@ public:
   vector<Dtype> labels;
   vector<Dtype> affinities;
   vector<Dtype> rmsds;
+  vector<unsigned> seqcont; //necessary for LSTM layer; indicates if a batch instance 
+                            //is a continuation of a previous example or the 
+                            //beginning of a new one
   vector<output_transform> perturbations;
 
   //grid stuff
