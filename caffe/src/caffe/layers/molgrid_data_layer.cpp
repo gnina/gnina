@@ -409,6 +409,10 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   root_folder2 = param.root_folder2();
 
   if(binary) radiusmultiple = 1.0;
+  //TODO: this doesn't _have_ to be true in theory, but need to decide how to handle it
+  //if it's not true and things will currently break if it's not
+  CHECK_EQ(fmod(dimension, subcube_dim), 0) << 
+    "Subcube dimension must evenly divide total grid dimension";
 
   gmaker.initialize(resolution, dimension, radiusmultiple, binary, spherize);
 
@@ -864,6 +868,8 @@ template<typename Dtype>
 void MolGridDataLayer<Dtype>::outputDXGrid(std::ostream& out, Grids& grid, unsigned g, double scale) const
 {
   unsigned n = dim;
+  if (subcube_dim)
+    n = dim / (dimension / subcube_dim);
   out.precision(5);
   setprecision(5);
   out << fixed;
@@ -898,25 +904,59 @@ void MolGridDataLayer<Dtype>::outputDXGrid(std::ostream& out, Grids& grid, unsig
 
 //dump dx files for every atom type, with files names starting with prefix
 //only does the very first grid for now
+//if doing subcubes, output a separate file for each subcube (for now) to
+//confirm that they look reasonable
 template<typename Dtype>
 void MolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
 		Blob<Dtype>* top, double scale) const
 {
-	Grids grids(top->mutable_cpu_diff(),
+  Dtype* diff = top->mutable_cpu_diff();
+	Grids grids(diff,
 			boost::extents[numReceptorTypes + numLigandTypes][dim][dim][dim]);
     CHECK_GT(mem_lig.atoms.size(),0) << "DX dump only works with in-memory ligand";
     CHECK_EQ(randrotate, false) << "DX dump requires no rotation";
+  unsigned ncubes;
+  unsigned cubes_per_dim;
+  unsigned subcube_dim_in_points;
+  unsigned instance_size;
 	for (unsigned a = 0, na = numReceptorTypes; a < na; a++) {
 		string name = getIndexName(rmap, a);
-		string fname = prefix + "_rec_" + name + ".dx";
-		ofstream out(fname.c_str());
-		outputDXGrid(out, grids, a, scale);
+    if (subcube_dim) {
+      cubes_per_dim = dimension / subcube_dim;
+      ncubes = cubes_per_dim * cubes_per_dim * cubes_per_dim;
+      subcube_dim_in_points = dim / cubes_per_dim;
+      instance_size = (numReceptorTypes + numLigandTypes) * 
+        subcube_dim_in_points * subcube_dim_in_points * subcube_dim_in_points;
+      for (size_t i=0; i<ncubes; ++i) {
+		    string fname = prefix + "_cube" + std::to_string(i) + "_rec_" + name + ".dx";
+		    ofstream out(fname.c_str());
+        unsigned offset = i * instance_size; 
+        Grids subgrids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][subcube_dim_in_points][subcube_dim_in_points][subcube_dim_in_points]);
+		    outputDXGrid(out, subgrids, a, scale);
+      }
+    }
+    else {
+		  string fname = prefix + "_rec_" + name + ".dx";
+		  ofstream out(fname.c_str());
+		  outputDXGrid(out, grids, a, scale);
+    }
 	}
 	for (unsigned a = 0, na = numLigandTypes; a < na; a++) {
 			string name = getIndexName(lmap, a);
-			string fname = prefix + "_lig_" + name + ".dx";
-			ofstream out(fname.c_str());
-			outputDXGrid(out, grids, numReceptorTypes+a, scale);
+      if (subcube_dim) {
+        for (size_t i=0; i<ncubes; ++i) {
+		      string fname = prefix + "_cube" + std::to_string(i) + "_lig_" + name + ".dx";
+		      ofstream out(fname.c_str());
+          unsigned offset = i * instance_size; 
+          Grids subgrids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][subcube_dim_in_points][subcube_dim_in_points][subcube_dim_in_points]);
+		      outputDXGrid(out, subgrids, a, scale);
+        }
+      }
+      else {
+			  string fname = prefix + "_lig_" + name + ".dx";
+			  ofstream out(fname.c_str());
+			  outputDXGrid(out, grids, numReceptorTypes+a, scale);
+      }
 	}
 
 }
