@@ -814,14 +814,15 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
     CUDA_CHECK(cudaMemcpy(gpu_gridatoms, &transform.mol.atoms[0], natoms*sizeof(float4), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(gpu_gridwhich, &transform.mol.whichGrid[0], natoms*sizeof(short), cudaMemcpyHostToDevice));
 
-    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, transform.Q, numReceptorTypes+numLigandTypes, data, batch_idx);
+    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, transform.Q, numReceptorTypes+numLigandTypes, data, batch_idx, batch_size, numReceptorTypes+numLigandTypes);
   }
   else
   {
     if (subcube_dim) {
       unsigned ncubes = (dimension / subcube_dim) * (dimension / subcube_dim) * 
         (dimension / subcube_dim);
-      Grids grids(data, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][dim][dim][dim]);
+      unsigned subcube_dim_in_points = dim / (dimension / subcube_dim);
+      Grids grids(data, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subcube_dim_in_points][subcube_dim_in_points][subcube_dim_in_points]);
       gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids, 
                          batch_idx);
     }
@@ -1066,14 +1067,24 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const ve
       for (int item_id = 0; item_id < batch_size; ++item_id) {
 
         int offset = item_id*example_size;
-        Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
-
         mol_transform& transform = batch_transform[item_id];
         gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
-	    boost::timer::cpu_timer time;
-        gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, 
-                transform.Q, grids, transform.mol.gradient);
-	    std::cout << "CPU grid time " << time.elapsed().wall/1000000000.0 << "\n";
+
+        if (subcube_dim) {
+          unsigned ncubes = (dimension / subcube_dim) * (dimension / subcube_dim) * 
+            (dimension / subcube_dim);
+          unsigned subcube_dim_in_points = dim / (dimension / subcube_dim);
+          Grids grids(diff, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subcube_dim_in_points][subcube_dim_in_points][subcube_dim_in_points]);
+          gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, 
+                  transform.Q, grids, transform.mol.gradient, item_id);
+        }
+        else {
+          Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+	      // boost::timer::cpu_timer time;
+          gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, 
+                  transform.Q, grids, transform.mol.gradient, item_id);
+	      // std::cout << "CPU grid time " << time.elapsed().wall/1000000000.0 << "\n";
+        }
       }
     }
   }
@@ -1101,12 +1112,24 @@ void MolGridDataLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
   for (int item_id = 0; item_id < batch_size; ++item_id) {
 
     int offset = item_id*example_size;
-    Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
-
     mol_transform& transform = batch_transform[item_id];
     gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
-    gmaker.setAtomRelevanceCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
-        transform.mol.gradient);
+
+    if (subcube_dim) {
+      unsigned ncubes = (dimension / subcube_dim) * (dimension / subcube_dim) * 
+        (dimension / subcube_dim);
+      unsigned subcube_dim_in_points = dim / (dimension / subcube_dim);
+      Grids grids(diff, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subcube_dim_in_points][subcube_dim_in_points][subcube_dim_in_points]);
+
+      gmaker.setAtomRelevanceCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
+          transform.mol.gradient, item_id);
+    }
+    else {
+      Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+
+      gmaker.setAtomRelevanceCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
+          transform.mol.gradient, item_id);
+    }
   }
 
   //float bottom_sum = 0.0;

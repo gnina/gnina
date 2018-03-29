@@ -74,12 +74,14 @@ void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype
         setAtomGradientGPU <<<nfull_blocks, THREADS_PER_BLOCK>>>(gmaker, atoms, 
                 whichGrid, gradient, make_float3(molcenter[0], molcenter[1], molcenter[2]), 
                 gpu_q, make_float3(transform.center[0], transform.center[1],
-                transform.center[2]), diff, offset, 0);
+                transform.center[2]), diff, offset, 0, item_id, batch_size,
+                numReceptorTypes + numLigandTypes);
     if (nthreads_remain)
         setAtomGradientGPU <<<1, nthreads_remain>>>(gmaker, atoms, whichGrid, 
                 gradient, make_float3(molcenter[0], molcenter[1], molcenter[2]), gpu_q, 
                 make_float3(transform.center[0], transform.center[1],
-                transform.center[2]), diff, offset, natoms - nthreads_remain);
+                transform.center[2]), diff, offset, natoms - nthreads_remain, 
+                item_id, batch_size, numReceptorTypes + numLigandTypes);
     cudaStreamSynchronize(cudaStreamPerThread);
 //std::cout << "GPU grid time " << time.elapsed().wall/1000000000.0 << "\n";
     cudaMemcpy(&transform.mol.gradient[0], gradient,
