@@ -819,7 +819,7 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
     CUDA_CHECK(cudaMemcpy(gpu_gridatoms, &transform.mol.atoms[0], natoms*sizeof(float4), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(gpu_gridwhich, &transform.mol.whichGrid[0], natoms*sizeof(short), cudaMemcpyHostToDevice));
 
-    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, transform.Q, numReceptorTypes+numLigandTypes, data, batch_idx, batch_size, numReceptorTypes+numLigandTypes);
+    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, transform.Q, numReceptorTypes+numLigandTypes, data, batch_idx, batch_size);
   }
   else
   {
@@ -827,7 +827,7 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
       unsigned ncubes = (dimension / subcube_dim) * (dimension / subcube_dim) * 
         (dimension / subcube_dim);
       unsigned subcube_dim_in_points = dim / (dimension / subcube_dim);
-      Grids grids(data, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subcube_dim_in_points][subcube_dim_in_points][subcube_dim_in_points]);
+      RNNGrids grids(data, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subcube_dim_in_points][subcube_dim_in_points][subcube_dim_in_points]);
       gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids, 
                          batch_idx);
     }

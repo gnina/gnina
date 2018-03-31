@@ -13,6 +13,7 @@
 #include <vector>
 #include <cmath>
 #include <cuda.h>
+#include <stdarg.h>
 #include <device_types.h>
 #include <thrust/system/cuda/experimental/pinned_allocator.h>
 #include <vector_types.h>
@@ -197,6 +198,48 @@ public:
 		}
 	}
 
+  // template<typename Grids, bool binary>
+  // void update_val(Grids& grids, float val, unsigned ...) {
+    // args are indices for accessing value in grids, ordered from slowest- to
+    // fastest-changing dimension
+    // va_list indices;
+    // va_start(indices, val);
+    // unsigned index=0;
+    // unsigned nargs = va_arg(indices, unsigned);
+    // assert(!(nargs % 2));
+    // for (size_t i=0; i<nargs; ++i) {
+      // unsigned next_val = va_arg(indices, unsigned);
+      // if (i % 2)
+        // index *= next_val;
+      // else
+        // index += next_val;
+    // }
+    // va_end(indices);
+    // if (binary)
+      // grids[index] = 1.0;
+    // else
+      // grids[index] += val;
+  // }
+
+  template<bool binary>
+  void update_val(boost::multi_array_ref<float, 4>& grids, float val, 
+      unsigned whichgrid, unsigned i, unsigned j, unsigned k) {
+    if (binary)
+      grids[whichgrid][i][j][k] = 1.0;
+    else
+      grids[whichgrid][i][j][k] += val;
+  }
+
+  template<bool binary>
+  void update_val(boost::multi_array_ref<float, 6>& grids, float val, 
+      unsigned cube_idx, unsigned batch_idx, unsigned whichgrid, unsigned rel_x, 
+      unsigned rel_y, unsigned rel_z) {
+    if (binary)
+      grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z] = 1.0;
+    else
+      grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z] += val;
+  }
+
 	//set the relevant grid points for provided atom
 	template<typename Grids>
 	void setAtomCPU(float4 ainfo, int whichgrid, const quaternion& Q, Grids& grids, 
@@ -276,16 +319,18 @@ public:
 	        {
 	          if (val != 0) {
               if (subcube_dim)
-                grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z] = 1.0;
+                update_val<binary>(grids, 1.0, cube_idx, batch_idx, whichgrid, 
+                    rel_x, rel_y, rel_z);
               else 
-	              grids[whichgrid][i][j][k] = 1.0; //don't add, just 1 or 0
+                update_val<binary>(grids, 1.0, whichgrid, i, j, k); //don't add, just 1 or 0
             }
 	        }
 	        else {
             if (subcube_dim) 
-              grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z] += val;
+              update_val<binary>(grids, val, cube_idx, batch_idx, whichgrid, 
+                  rel_x, rel_y, rel_z);
             else
-	            grids[whichgrid][i][j][k] += val;
+              update_val<binary>(grids, val, whichgrid, i, j, k); 
           }
 
 	      }
@@ -297,7 +342,7 @@ public:
 	//GPU accelerated version, defined in cu file
 	//pointers must point to GPU memory
 	template<typename Dtype>
-	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, unsigned ngrids, Dtype *grids, unsigned batch_idx, unsigned batch_dim, unsigned ntypes);
+	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, unsigned ngrids, Dtype *grids, unsigned batch_idx, unsigned batch_dim);
 
 
   void zeroAtomGradientsCPU(vector<float3>& agrad)
@@ -541,7 +586,7 @@ public:
 	        accumulateAtomGradient(coords, radius, x, y, z, 
                     grids[((((cube_idx * batch_dim + batch_idx) * ntypes + whichgrid) * 
                         cubes_per_dim + rel_x) * cubes_per_dim + rel_y) * cubes_per_dim 
-                        + rel_q], agrads[idx], whichgrid);
+                        + rel_z], agrads[idx], whichgrid);
         }
         else
 	        accumulateAtomGradient(coords, radius, x, y, z, 

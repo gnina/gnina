@@ -120,7 +120,7 @@ float sqDistance(float4 pt,float x,float y,float z){
 template<bool Binary, typename Dtype> __device__ void set_atoms(float3 origin,
     int dim, float resolution, float rmult, unsigned n, float4 *ainfos, short
     *gridindex, Dtype *grids, unsigned batch_idx, unsigned batch_dim, unsigned
-    ntypes)
+    ntypes, float subcube_dim, float dimension)
 {
 	//figure out what grid point we are 
 	unsigned xi = threadIdx.x + blockIdx.x*blockDim.x;
@@ -158,12 +158,12 @@ template<bool Binary, typename Dtype> __device__ void set_atoms(float3 origin,
 
       if (subcube_dim) {
         cubes_per_dim = dimension / subcube_dim;
-        subcube_idx_x = i / (dim / cubes_per_dim);
-        subcube_idx_y = j / (dim / cubes_per_dim);
-        subcube_idx_z = k / (dim / cubes_per_dim);
-        rel_x = i % (dim / cubes_per_dim);
-        rel_y = j % (dim / cubes_per_dim);
-        rel_z = k % (dim / cubes_per_dim);
+        subcube_idx_x = xi / (dim / cubes_per_dim);
+        subcube_idx_y = yi / (dim / cubes_per_dim);
+        subcube_idx_z = zi / (dim / cubes_per_dim);
+        rel_x = xi % (dim / cubes_per_dim);
+        rel_y = yi % (dim / cubes_per_dim);
+        rel_z = zi % (dim / cubes_per_dim);
         cube_idx = (((subcube_idx_x * cubes_per_dim) + subcube_idx_y) * 
             cubes_per_dim + subcube_idx_z);
       }
@@ -278,7 +278,8 @@ template<bool Binary, typename Dtype> __global__
 //__launch_bounds__(THREADSPERBLOCK, 64)
 void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n,
     float4 *ainfos, short *gridindex, Dtype *grids, bool *mask, unsigned
-    batch_idx, unsigned batch_dim, unsigned ntypes)
+    batch_idx, unsigned batch_dim, unsigned ntypes, float subcube_dim, float
+    dimension)
 {
 	unsigned tIndex = ((threadIdx.z*BLOCKDIM) + threadIdx.y)*BLOCKDIM+threadIdx.x;
 
@@ -314,7 +315,7 @@ void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n,
 		unsigned nAtoms = scanOutput[THREADSPERBLOCK-1] + atomMask[THREADSPERBLOCK-1];
 		//atomIndex is now a list of nAtoms atom indices
 		set_atoms<Binary, Dtype>(origin, dim, resolution, rmult, nAtoms, ainfos,
-        gridindex, grids, batch_idx, batch_dim, ntypes);
+        gridindex, grids, batch_idx, batch_dim, ntypes, subcube_dim, dimension);
 		__syncthreads();//everyone needs to finish before we muck with atomIndices again
 	}
 }
@@ -409,7 +410,7 @@ void gpu_mask_atoms(float3 gridcenter, float rsq, int n, float4 *ainfos, bool *m
 template<typename Dtype>
 void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
     quaternion Q, unsigned ngrids,Dtype *grids, unsigned batch_idx, unsigned
-    batch_dim, unsigned ntypes)
+    batch_dim)
 {
 	//each thread is responsible for a grid point location and will handle all atom types
 	//each block is 8x8x8=512 threads
@@ -438,14 +439,14 @@ void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
 	if(binary){
 		gpu_grid_set<true><<<blocks,threads>>>(origin, dim, resolution,
         radiusmultiple, natoms, ainfos, gridindex, grids, mask, batch_idx,
-        batch_dim, ntypes);
+        batch_dim, ngrids, subcube_dim, dimension);
 		CUDA_CHECK (cudaPeekAtLastError() );
 	}
 	else
 	{
 		gpu_grid_set<false><<<blocks,threads>>>(origin, dim, resolution,
         radiusmultiple, natoms, ainfos, gridindex, grids, mask, batch_idx,
-        batch_dim ntypes);
+        batch_dim, ngrids, subcube_dim, dimension);
 		CUDA_CHECK(cudaPeekAtLastError() );
 	}
 
@@ -458,9 +459,9 @@ void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
 template
 void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
     quaternion Q, unsigned ngrids,float *grids, unsigned batch_idx, unsigned
-    batch_dim, unsigned ntypes);
+    batch_dim);
 template
 void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
     quaternion Q, unsigned ngrids,double *grids, unsigned batch_idx, unsigned
-    batch_dim, unsigned ntypes);
+    batch_dim);
 

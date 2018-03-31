@@ -47,8 +47,9 @@ public:
   explicit MolGridDataLayer(const LayerParameter& param) :
       BaseDataLayer<Dtype>(param), data(NULL), data2(NULL), data_ratio(0),
       num_rotations(0), current_rotation(0),
-      example_size(0), inmem(false), resolution(0.5), subcube_dim(0.0), 
-      dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
+      example_size(0), inmem(false), resolution(0.5), 
+      dimension(23.5), subcube_dim(0.0), radiusmultiple(1.5), fixedradius(0), 
+      randtranslate(0), ligpeturb_translate(0),
       binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
       gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
@@ -189,6 +190,7 @@ public:
   ///////////////////////////   PROTECTED DATA TYPES   //////////////////////////////
   typedef GridMaker::quaternion quaternion;
   typedef typename boost::multi_array_ref<Dtype, 4>  Grids;
+  typedef typename boost::multi_array_ref<Dtype, 6>  RNNGrids;
 
   //for memory efficiency, only store a given string once and use the const char*
   class string_cache
@@ -650,20 +652,21 @@ public:
   vector<Dtype> labels;
   vector<Dtype> affinities;
   vector<Dtype> rmsds;
-  vector<unsigned> seqcont; //necessary for LSTM layer; indicates if a batch instance 
+  vector<Dtype> seqcont; //necessary for LSTM layer; indicates if a batch instance 
                             //is a continuation of a previous example or the 
-                            //beginning of a new one
+                            //beginning of a new one FIXME: doesn't need to be
+                            //Dtype but caffe_copy requires it?
   vector<output_transform> perturbations;
 
   //grid stuff
   GridMaker gmaker;
   double resolution;
   double dimension;
+  double subcube_dim;
   double radiusmultiple; //extra to consider past vdw radius
   double fixedradius;
   double randtranslate;
   double ligpeturb_translate;
-  double subcube_dim;
   bool ligpeturb_rotate;
   bool binary; //produce binary occupancies
   bool randrotate;
