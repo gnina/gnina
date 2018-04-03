@@ -18,7 +18,7 @@ struct gridoptions
 	string examplegrid;
 	double dim;
 	double res;
-  double subcube_dim;
+  double subgrid_dim;
 	fl randtranslate;
 	int verbosity;
 	int seed;

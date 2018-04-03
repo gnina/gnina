@@ -620,7 +620,7 @@ void NNGridder::initialize(const gridoptions& opt)
 	radiusmultiple = 1.5;
 	randtranslate = opt.randtranslate;
 	randrotate = opt.randrotate;
-  subcube_dim = opt.subcube_dim;
+  subgrid_dim = opt.subgrid_dim;
 	gpu = opt.gpu;
 	Q = quaternion(0, 0, 0, 0);
 

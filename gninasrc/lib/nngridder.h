@@ -87,7 +87,7 @@ protected:
 	double dimension;
 	double radiusmultiple; //extra to consider past vdw radius
 	double randtranslate;
-  double subcube_dim;
+  double subgrid_dim;
 	bool binary; //produce binary occupancies
 	bool randrotate;
 	bool gpu; //use gpu

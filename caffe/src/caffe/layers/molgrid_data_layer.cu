@@ -26,8 +26,8 @@ void MolGridDataLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
 	backward(top, bottom, true);
 }
 
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype
+template <typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMakerT& gmaker, Dtype
         *diff, unsigned batch_size)  {
 
   unsigned buffersize = 0;
@@ -97,11 +97,20 @@ void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype
 }
 
 template 
-void MolGridDataLayer<double>::setAtomGradientsGPU(GridMaker& gmaker, double
-        *diff, unsigned batch_size);
+void RealMolGridDataLayer<double, RNNGridMaker>::setAtomGradientsGPU(RNNGridMaker& gmaker, 
+    double *diff, unsigned batch_size);
+
 template 
-void MolGridDataLayer<float>::setAtomGradientsGPU(GridMaker& gmaker, float
-        *diff, unsigned batch_size);
+void RealMolGridDataLayer<float, RNNGridMaker>::setAtomGradientsGPU(RNNGridMaker& gmaker, 
+         float *diff, unsigned batch_size);
+
+template 
+void RealMolGridDataLayer<double, GridMaker>::setAtomGradientsGPU(GridMaker& gmaker, 
+    double *diff, unsigned batch_size);
+
+template 
+void RealMolGridDataLayer<float, GridMaker>::setAtomGradientsGPU(GridMaker& gmaker, 
+         float *diff, unsigned batch_size);
 
 INSTANTIATE_LAYER_GPU_FORWARD(MolGridDataLayer);
 INSTANTIATE_LAYER_GPU_BACKWARD(MolGridDataLayer);

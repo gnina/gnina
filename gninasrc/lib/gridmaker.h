@@ -30,13 +30,13 @@
 using namespace std;
 
 class GridMaker {
+protected:
   float2 dims[3];
   float3 center;
   float radiusmultiple;
   float resolution;
   float dimension;
   float rsq; //radius squared (dimension/2)^2
-  float subcube_dim;
   unsigned dim; //number of points on each side (cube)
 	bool binary;
 	bool spherize; //mask out atoms not within sphere of center
@@ -45,28 +45,36 @@ public:
 	typedef boost::math::quaternion<float> quaternion;
 
 
-	GridMaker(float res=0, float d=0, float rm = 1.5, float sd = 0.0, 
+	GridMaker(float res=0, float d=0, float rm = 1.5, 
             bool b = false, bool s = false):
-		radiusmultiple(rm), resolution(res), dimension(d), subcube_dim(sd), binary(b), spherize(s)
+		radiusmultiple(rm), resolution(res), dimension(d), binary(b), spherize(s)
 	{
-	  initialize(res,d,rm,sd,b,s);
+	  initialize(res,d,rm,b,s);
 	}
 
 	virtual ~GridMaker() {}
 
-	void initialize(float res, float d, float rm = 1.5, float sd = 0.0, 
+	virtual void initialize(float res, float d, float rm = 1.5,  
                   bool b = false, bool s = false) {
 		resolution = res;
-
+    dimension = d;
 		radiusmultiple = rm;
 		binary = b;
 		spherize = s;
-    subcube_dim = sd;
-    if (subcube_dim) assert(fmod(dimension, subcube_dim)==0);
 	  dim = ::round(dimension/resolution)+1; //number of grid points on a side
 	  rsq = (dimension/2)*(dimension/2);
 	  center.x = center.y = center.z = 0;
 	}
+
+  virtual void initialize(const MolGridDataParameter& param) {
+    initialize(param.resolution(), param.dimension(), param.radiusmultiple(), 
+        param.binary_occupancy(), param.spherize());
+  }
+
+  virtual void initialize(const gridoptions& opt, float rm) {
+    initialize(opt.res, opt.dim, rm, opt.binary, opt.spherize);
+  }
+
 	//mus set center before gridding
 	void setCenter(double x, double y, double z)
 	{
@@ -198,48 +206,6 @@ public:
 		}
 	}
 
-  // template<typename Grids, bool binary>
-  // void update_val(Grids& grids, float val, unsigned ...) {
-    // args are indices for accessing value in grids, ordered from slowest- to
-    // fastest-changing dimension
-    // va_list indices;
-    // va_start(indices, val);
-    // unsigned index=0;
-    // unsigned nargs = va_arg(indices, unsigned);
-    // assert(!(nargs % 2));
-    // for (size_t i=0; i<nargs; ++i) {
-      // unsigned next_val = va_arg(indices, unsigned);
-      // if (i % 2)
-        // index *= next_val;
-      // else
-        // index += next_val;
-    // }
-    // va_end(indices);
-    // if (binary)
-      // grids[index] = 1.0;
-    // else
-      // grids[index] += val;
-  // }
-
-  template<bool binary>
-  void update_val(boost::multi_array_ref<float, 4>& grids, float val, 
-      unsigned whichgrid, unsigned i, unsigned j, unsigned k) {
-    if (binary)
-      grids[whichgrid][i][j][k] = 1.0;
-    else
-      grids[whichgrid][i][j][k] += val;
-  }
-
-  template<bool binary>
-  void update_val(boost::multi_array_ref<float, 6>& grids, float val, 
-      unsigned cube_idx, unsigned batch_idx, unsigned whichgrid, unsigned rel_x, 
-      unsigned rel_y, unsigned rel_z) {
-    if (binary)
-      grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z] = 1.0;
-    else
-      grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z] += val;
-  }
-
 	//set the relevant grid points for provided atom
 	template<typename Grids>
 	void setAtomCPU(float4 ainfo, int whichgrid, const quaternion& Q, Grids& grids, 
@@ -294,43 +260,14 @@ public:
 	        float y = dims[1].x + j * resolution;
 	        float z = dims[2].x + k * resolution;
 	        float val = calcPoint(coords, radius, x, y, z);
-          unsigned cubes_per_dim;
-          unsigned subcube_idx_x; 
-          unsigned subcube_idx_y; 
-          unsigned subcube_idx_z; 
-          unsigned rel_x; 
-          unsigned rel_y; 
-          unsigned rel_z; 
-          unsigned cube_idx;
-
-          if (subcube_dim) {
-            cubes_per_dim = dimension / subcube_dim;
-            subcube_idx_x = i / (dim / cubes_per_dim);
-            subcube_idx_y = j / (dim / cubes_per_dim);
-            subcube_idx_z = k / (dim / cubes_per_dim);
-            rel_x = i % (dim / cubes_per_dim);
-            rel_y = j % (dim / cubes_per_dim);
-            rel_z = k % (dim / cubes_per_dim);
-            cube_idx = (((subcube_idx_x * cubes_per_dim) + subcube_idx_y) * 
-                cubes_per_dim + subcube_idx_z);
-          }
 
 	        if (binary)
 	        {
-	          if (val != 0) {
-              if (subcube_dim)
-                update_val<binary>(grids, 1.0, cube_idx, batch_idx, whichgrid, 
-                    rel_x, rel_y, rel_z);
-              else 
-                update_val<binary>(grids, 1.0, whichgrid, i, j, k); //don't add, just 1 or 0
-            }
+	          if (val != 0) 
+              grids[whichgrid][i][j][k] = 1.0;
 	        }
 	        else {
-            if (subcube_dim) 
-              update_val<binary>(grids, val, cube_idx, batch_idx, whichgrid, 
-                  rel_x, rel_y, rel_z);
-            else
-              update_val<binary>(grids, val, whichgrid, i, j, k); 
+            grids[whichgrid][i][j][k] += val;
           }
 
 	      }
@@ -456,47 +393,13 @@ public:
 					float x = dims[0].x + i * resolution;
 					float y = dims[1].x + j * resolution;
 					float z = dims[2].x + k * resolution;
-          //if we're iterating over subcubes, the LSTM layer requires that the
-          //subcubes from different examples in the same batch be interleaved.
-          //we need to convert the absolute grid index to the index in this
-          //subcube grid, which is T x B x ntypes x cube_dim x cube_dim x cube_dim
-          unsigned cubes_per_dim;
-          unsigned subcube_idx_x; 
-          unsigned subcube_idx_y; 
-          unsigned subcube_idx_z; 
-          unsigned rel_x; 
-          unsigned rel_y; 
-          unsigned rel_z; 
-          unsigned cube_idx;
-          if (subcube_dim) {
-            cubes_per_dim = dimension / subcube_dim;
-            subcube_idx_x = i / (dim / cubes_per_dim);
-            subcube_idx_y = j / (dim / cubes_per_dim);
-            subcube_idx_z = k / (dim / cubes_per_dim);
-            rel_x = i % (dim / cubes_per_dim);
-            rel_y = j % (dim / cubes_per_dim);
-            rel_z = k % (dim / cubes_per_dim);
-            cube_idx = (((subcube_idx_x * cubes_per_dim) + subcube_idx_y) * 
-                cubes_per_dim + subcube_idx_z);
-          }
 
-					if (isrelevance) {
-            if (subcube_dim)
-						  accumulateAtomRelevance(coords, radius, x, y, z,
-						  		grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z], agrad);
-            else
-						  accumulateAtomRelevance(coords, radius, x, y, z,
-						  		grids[whichgrid][i][j][k], agrad);
-					}
+					if (isrelevance) 
+						accumulateAtomRelevance(coords, radius, x, y, z,
+								grids[whichgrid][i][j][k], agrad);
 					else //true gradient, distance matters
-					{
-            if (subcube_dim)
-						  accumulateAtomGradient(coords, radius, x, y, z,
-						  		grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z], agrad, whichgrid);
-            else
-						  accumulateAtomGradient(coords, radius, x, y, z,
-						  		grids[whichgrid][i][j][k], agrad, whichgrid);
-					}
+						accumulateAtomGradient(coords, radius, x, y, z,
+								grids[whichgrid][i][j][k], agrad, whichgrid);
 				}
 			}
 		}
@@ -564,34 +467,9 @@ public:
 				float x = dims[0].x + i * resolution;
 				float y = dims[1].x + j * resolution;
 				float z = dims[2].x + k * resolution;
-        unsigned cubes_per_dim;
-        unsigned subcube_idx_x; 
-        unsigned subcube_idx_y; 
-        unsigned subcube_idx_z; 
-        unsigned rel_x; 
-        unsigned rel_y; 
-        unsigned rel_z; 
-        unsigned cube_idx;
-
-        if (subcube_dim) {
-          cubes_per_dim = dimension / subcube_dim;
-          subcube_idx_x = i / (dim / cubes_per_dim);
-          subcube_idx_y = j / (dim / cubes_per_dim);
-          subcube_idx_z = k / (dim / cubes_per_dim);
-          rel_x = i % (dim / cubes_per_dim);
-          rel_y = j % (dim / cubes_per_dim);
-          rel_z = k % (dim / cubes_per_dim);
-          cube_idx = (((subcube_idx_x * cubes_per_dim) + subcube_idx_y) * 
-              cubes_per_dim + subcube_idx_z);
-	        accumulateAtomGradient(coords, radius, x, y, z, 
-                    grids[((((cube_idx * batch_dim + batch_idx) * ntypes + whichgrid) * 
-                        cubes_per_dim + rel_x) * cubes_per_dim + rel_y) * cubes_per_dim 
-                        + rel_z], agrads[idx], whichgrid);
-        }
-        else
-	        accumulateAtomGradient(coords, radius, x, y, z, 
-                    grids[(((whichgrid * dim) + i) * dim + j) * dim + k], 
-                        agrads[idx], whichgrid);
+	      accumulateAtomGradient(coords, radius, x, y, z, 
+                  grids[(((whichgrid * dim) + i) * dim + j) * dim + k], 
+                      agrads[idx], whichgrid);
       }
     }
   }
@@ -748,9 +626,251 @@ public:
 
 };
 
-template <typename Dtype>
+class RNNGridMaker : public GridMaker {
+  float subgrid_dim;
+  public:
+  RNNGridMaker(float res=0, float d=0, float rm=1.5, float sd=3.0, bool b=false, 
+      bool s=false) : subgrid_dim(sd), GridMaker(res, d, rm, b, s) {
+    initialize(res, d, rm, sd, b, s);
+  }
+
+  virtual ~RNNGridMaker() {}
+
+  virtual void initialize(float res, float d, float rm=1.5, float sd=3.0
+      bool b = false, bool s = false) {
+    subgrid_dim = sd;
+    if (subgrid_dim) assert(fmod(dimension, subgrid_dim)==0 && 
+      "Subgrid dimension must evenly divide total grid dimension");
+    GridMaker::initialize(res, d, rm, b, s);
+  }
+
+  virtual void initialize(const MolGridDataParameter& param) {
+    initialize(param.resolution(), param.dimension(), param.radiusmultiple(), 
+        param.subgrid_dim(), param.binary_occupancy(), param.spherize());
+  }
+
+  virtual void initialize(const gridoptions& opt, float rm) {
+    initialize(opt.res, opt.dim, rm, opt.subgrid_dim, opt.binary, opt.spherize);
+  }
+
+  template<typename Grids>
+	void setAtomCPU(float4 ainfo, int whichgrid, const quaternion& Q, Grids& grids, 
+                  unsigned batch_idx=0)
+	{
+		float radius = ainfo.w;
+	  float r = radius * radiusmultiple;
+	  float3 coords;
+
+	  if(spherize)
+	  {
+	    float xdiff = ainfo.x-center.x;
+	    float ydiff = ainfo.y-center.y;
+	    float zdiff = ainfo.z-center.z;
+	    float distsq = xdiff*xdiff+ydiff*ydiff+zdiff*zdiff;
+	    if(distsq > rsq)
+	    {
+	      return; //ignore
+	    }
+	  }
+
+	  if (Q.real() != 0)
+	  { //apply rotation
+	    quaternion p(0, ainfo.x-center.x, ainfo.y-center.y, ainfo.z-center.z);
+	    p = Q * p * (conj(Q) / norm(Q));
+	    coords.x = p.R_component_2() + center.x;
+	    coords.y = p.R_component_3() + center.y;
+	    coords.z = p.R_component_4() + center.z;
+	  }
+	  else
+	  {
+	    coords.x = ainfo.x;
+	    coords.y = ainfo.y;
+	    coords.z = ainfo.z;
+	  }
+
+	  vector<pair<unsigned, unsigned> > ranges(3);
+	  ranges[0] = getrange(dims[0], coords.x, r);
+	  ranges[1] = getrange(dims[1], coords.y, r);
+	  ranges[2] = getrange(dims[2], coords.z, r);
+
+	  //for every grid point possibly overlapped by this atom
+	  for (unsigned i = ranges[0].first, iend = ranges[0].second; i < iend; i++)
+	  {
+	    for (unsigned j = ranges[1].first, jend = ranges[1].second; j < jend;
+	        j++)
+	    {
+	      for (unsigned k = ranges[2].first, kend = ranges[2].second;
+	          k < kend; k++)
+	      {
+	        float x = dims[0].x + i * resolution;
+	        float y = dims[1].x + j * resolution;
+	        float z = dims[2].x + k * resolution;
+	        float val = calcPoint(coords, radius, x, y, z);
+          unsigned cubes_per_dim = dimension / subgrid_dim;
+          unsigned subcube_idx_x = i / (dim / cubes_per_dim); 
+          unsigned subcube_idx_y = j / (dim / cubes_per_dim); 
+          unsigned subcube_idx_z = k / (dim / cubes_per_dim); 
+          unsigned rel_x = i % (dim / cubes_per_dim); 
+          unsigned rel_y = j % (dim / cubes_per_dim); 
+          unsigned rel_z = k % (dim / cubes_per_dim); 
+          unsigned cube_idx = (((subcube_idx_x * cubes_per_dim) + subcube_idx_y) * 
+              cubes_per_dim + subcube_idx_z);
+
+	        if (binary)
+	        {
+	          if (val != 0)
+              grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z] = 1.0;
+	        }
+	        else {
+            grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z] += val;
+          }
+
+	      }
+	    }
+	  }
+	}
+
+  //defined in cu. this _cannot_ be virtual because we are passing the
+  //gridmaker to a GPU kernel by value and the vtable is not copied
+	template<typename Dtype>
+	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, 
+      unsigned ngrids, Dtype *grids, unsigned batch_idx, unsigned batch_dim);
+
+	template<typename Grids>
+	void setAtomGradientCPU(const float4& ainfo, int whichgrid,
+			const quaternion& Q, const Grids& grids,
+			float3& agrad, unsigned batch_idx, bool isrelevance = false) {
+		float3 coords;
+		if (Q.real() != 0) //apply rotation
+		{
+			quaternion p(0, ainfo.x - center.x, ainfo.y - center.y,
+					ainfo.z - center.z);
+			p = Q * p * (conj(Q) / norm(Q));
+
+			coords.x = p.R_component_2() + center.x;
+			coords.y = p.R_component_3() + center.y;
+			coords.z = p.R_component_4() + center.z;
+		} else {
+			coords.x = ainfo.x;
+			coords.y = ainfo.y;
+			coords.z = ainfo.z;
+		}
+
+		//get grid index ranges that could possibly be overlapped by atom
+		float radius = ainfo.w;
+		float r = radius * radiusmultiple;
+		vector<pair<unsigned, unsigned> > ranges(3);
+		ranges[0] = getrange(dims[0], coords.x, r);
+		ranges[1] = getrange(dims[1], coords.y, r);
+		ranges[2] = getrange(dims[2], coords.z, r);
+
+		//for every grid point possibly overlapped by this atom
+		for (unsigned i = ranges[0].first, iend = ranges[0].second; i < iend;
+				++i) {
+			for (unsigned j = ranges[1].first, jend = ranges[1].second;
+					j < jend; ++j) {
+				for (unsigned k = ranges[2].first, kend = ranges[2].second;
+						k < kend; ++k) {
+					//convert grid point coordinates to angstroms
+					float x = dims[0].x + i * resolution;
+					float y = dims[1].x + j * resolution;
+					float z = dims[2].x + k * resolution;
+          //if we're iterating over subcubes, the LSTM layer requires that the
+          //subcubes from different examples in the same batch be interleaved.
+          //we need to convert the absolute grid index to the index in this
+          //subcube grid, which is T x B x ntypes x cube_dim x cube_dim x cube_dim
+          unsigned cubes_per_dim = dimension / subgrid_dim;
+          unsigned subcube_idx_x = i / (dim / cubes_per_dim); 
+          unsigned subcube_idx_y = j / (dim / cubes_per_dim); 
+          unsigned subcube_idx_z = k / (dim / cubes_per_dim); 
+          unsigned rel_x = i % (dim / cubes_per_dim); 
+          unsigned rel_y = j % (dim / cubes_per_dim); 
+          unsigned rel_z = k % (dim / cubes_per_dim); 
+          unsigned cube_idx = (((subcube_idx_x * cubes_per_dim) + subcube_idx_y) * 
+              cubes_per_dim + subcube_idx_z);
+
+					if (isrelevance) 
+						accumulateAtomRelevance(coords, radius, x, y, z,
+								grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z], agrad);
+					else //true gradient, distance matters
+						accumulateAtomGradient(coords, radius, x, y, z,
+								grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z], agrad, whichgrid);
+				}
+			}
+		}
+	}
+
+  template<typename Dtype>
+  __device__
+  void setAtomGradientsGPU(const float4* ainfo, short* gridindices, float3* agrads, 
+        const qt Q, const Dtype* grids, unsigned remainder_offset, unsigned batch_idx, 
+        unsigned batch_dim, unsigned ntypes, bool isrelevance = false) {
+#ifdef __CUDA_ARCH__
+    //TODO: implement
+    assert(isrelevance == false);
+
+    int idx = blockDim.x * blockIdx.x + threadIdx.x + remainder_offset;
+    int whichgrid = gridindices[idx];
+    float4 atom = ainfo[idx];
+    float3 coords; 
+
+	if (Q.real() != 0) //apply rotation
+	{
+		qt p(atom.x - center.x, atom.y - center.y,
+				atom.z - center.z, 0);
+		p = Q * p * (Q.conj() / Q.norm());
+
+		coords.x = p.R_component_1() + center.x;
+		coords.y = p.R_component_2() + center.y;
+		coords.z = p.R_component_3() + center.z;
+	} else {
+		coords.x = atom.x;
+		coords.y = atom.y;
+		coords.z = atom.z;
+	}
+
+	//get grid index ranges that could possibly be overlapped by atom
+	float radius = atom.w;
+	float r = radius * radiusmultiple;
+  uint2 ranges[3];
+  ranges[0] = getrange_gpu(dims[0], coords.x, r);
+  ranges[1] = getrange_gpu(dims[1], coords.y, r);
+  ranges[2] = getrange_gpu(dims[2], coords.z, r);
+
+	for (unsigned i = ranges[0].x, iend = ranges[0].y; i < iend;
+			++i) {
+		for (unsigned j = ranges[1].x, jend = ranges[1].y;
+				j < jend; ++j) {
+			for (unsigned k = ranges[2].x, kend = ranges[2].y;
+					k < kend; ++k) {
+				//convert grid point coordinates to angstroms
+				float x = dims[0].x + i * resolution;
+				float y = dims[1].x + j * resolution;
+				float z = dims[2].x + k * resolution;
+        unsigned cubes_per_dim = dimension / subgrid_dim;
+        unsigned subcube_idx_x = i / (dim / cubes_per_dim); 
+        unsigned subcube_idx_y = j / (dim / cubes_per_dim); 
+        unsigned subcube_idx_z = k / (dim / cubes_per_dim); 
+        unsigned rel_x = i % (dim / cubes_per_dim); 
+        unsigned rel_y = j % (dim / cubes_per_dim); 
+        unsigned rel_z = k % (dim / cubes_per_dim); 
+        unsigned cube_idx = (((subcube_idx_x * cubes_per_dim) + subcube_idx_y) * 
+              cubes_per_dim + subcube_idx_z);
+
+	      accumulateAtomGradient(coords, radius, x, y, z, 
+                  grids[((((cube_idx * batch_dim + batch_idx) * ntypes + whichgrid) * 
+                      cubes_per_dim + rel_x) * cubes_per_dim + rel_y) * cubes_per_dim 
+                      + rel_z], agrads[idx], whichgrid);
+      }
+    }
+  }
+#endif
+  }
+};
+
+template <typename Dtype, GridMakerT>
 __global__ 
-void setAtomGradientGPU(GridMaker gmaker, 
+void setAtomGradientGPU(GridMakerT gmaker, 
         float4* ainfo, short* gridindices, float3* agrads, float3 centroid, 
         qt Q, float3 translation, Dtype *diff, int offset, unsigned remainder_offset, 
         unsigned batch_idx, unsigned batch_dim, unsigned ntypes) {
@@ -764,6 +884,15 @@ void GridMaker::setAtomGradientsGPU<double>(const float4* ainfo, short* gridindi
         unsigned batch_idx, unsigned batch_dim, unsigned ntypes, bool isrelevance);
 template __device__
 void GridMaker::setAtomGradientsGPU<float>(const float4* ainfo, short* gridindices, 
+        float3* agrads, const qt Q, const float* grids, unsigned remainder_offset, 
+        unsigned batch_idx, unsigned batch_dim, unsigned ntypes, bool isrelevance);
+
+template __device__
+void RNNGridMaker::setAtomGradientsGPU<double>(const float4* ainfo, short* gridindices, 
+        float3* agrads, const qt Q, const double* grids, unsigned remainder_offset, 
+        unsigned batch_idx, unsigned batch_dim, unsigned ntypes, bool isrelevance);
+template __device__
+void RNNGridMaker::setAtomGradientsGPU<float>(const float4* ainfo, short* gridindices, 
         float3* agrads, const qt Q, const float* grids, unsigned remainder_offset, 
         unsigned batch_idx, unsigned batch_dim, unsigned ntypes, bool isrelevance);
 

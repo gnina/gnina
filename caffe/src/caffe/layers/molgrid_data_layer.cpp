@@ -42,8 +42,8 @@ namespace smina_atom_type
 
 namespace caffe {
 
-template <typename Dtype>
-MolGridDataLayer<Dtype>::~MolGridDataLayer<Dtype>() {
+template <typename Dtype, class GridMakerT>
+RealMolGridDataLayer<Dtype, GridMakerT>::~RealMolGridDataLayer<Dtype, GridMakerT>() {
   //this->StopInternalThread();
 
   if(gpu_gridatoms) {
@@ -59,8 +59,8 @@ MolGridDataLayer<Dtype>::~MolGridDataLayer<Dtype>() {
   if(data2) delete data2;
 }
 
-template <typename Dtype>
-MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache& cache, string line, bool hasaffinity, bool hasrmsd)
+template <typename Dtype, class GridMakerT>
+RealMolGridDataLayer<Dtype, GridMakerT>::example::example(RealMolGridDataLayer<Dtype, GridMakerT>::string_cache& cache, string line, bool hasaffinity, bool hasrmsd)
   : label(0), affinity(0.0), rmsd(0.0)
 {
   stringstream stream(line);
@@ -86,8 +86,8 @@ MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache&
 
 //for in-memory inputs, set the desired label (for gradient computation)
 //note that zero affinity/rmsd means to ignore these
-template<typename Dtype>
-void MolGridDataLayer<Dtype>::setLabels(Dtype pose, Dtype affinity, Dtype rmsd)
+template<typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::setLabels(Dtype pose, Dtype affinity, Dtype rmsd)
 {
   labels.clear();
   affinities.clear();
@@ -99,8 +99,8 @@ void MolGridDataLayer<Dtype>::setLabels(Dtype pose, Dtype affinity, Dtype rmsd)
 
 
 //the following really shouldn't be recalculated each evaluation (not including gradients)
-template<typename Dtype>
-void MolGridDataLayer<Dtype>::getReceptorAtoms(int batch_idx, vector<float4>& atoms)
+template<typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::getReceptorAtoms(int batch_idx, vector<float4>& atoms)
 {
   atoms.resize(0);
   mol_info& mol = batch_transform[batch_idx].mol;
@@ -109,8 +109,8 @@ void MolGridDataLayer<Dtype>::getReceptorAtoms(int batch_idx, vector<float4>& at
       atoms.push_back(mol.atoms[i]);
 }
 
-template<typename Dtype>
-void MolGridDataLayer<Dtype>::getLigandAtoms(int batch_idx, vector<float4>& atoms)
+template<typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::getLigandAtoms(int batch_idx, vector<float4>& atoms)
 {
   atoms.resize(0);
   mol_info& mol = batch_transform[batch_idx].mol;
@@ -119,8 +119,8 @@ void MolGridDataLayer<Dtype>::getLigandAtoms(int batch_idx, vector<float4>& atom
       atoms.push_back(mol.atoms[i]);
 }
 
-template<typename Dtype>
-void MolGridDataLayer<Dtype>::getReceptorChannels(int batch_idx, vector<short>& whichGrid)
+template<typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::getReceptorChannels(int batch_idx, vector<short>& whichGrid)
 {
   whichGrid.resize(0);
   mol_info& mol = batch_transform[batch_idx].mol;
@@ -129,8 +129,8 @@ void MolGridDataLayer<Dtype>::getReceptorChannels(int batch_idx, vector<short>& 
       whichGrid.push_back(mol.whichGrid[i]);
 }
 
-template<typename Dtype>
-void MolGridDataLayer<Dtype>::getLigandChannels(int batch_idx, vector<short>& whichGrid)
+template<typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::getLigandChannels(int batch_idx, vector<short>& whichGrid)
 {
   whichGrid.resize(0);
   mol_info& mol = batch_transform[batch_idx].mol;
@@ -139,8 +139,8 @@ void MolGridDataLayer<Dtype>::getLigandChannels(int batch_idx, vector<short>& wh
       whichGrid.push_back(mol.whichGrid[i]);
 }
 
-template<typename Dtype>
-void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<float3>& gradient)
+template<typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::getReceptorGradient(int batch_idx, vector<float3>& gradient)
 {
   gradient.resize(0);
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
@@ -156,8 +156,8 @@ void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<float3>&
  * Compute the transformation gradient of a rigid receptor around the center.
  * The first three numbers are the translation.  The next are the torque.
  */
-template<typename Dtype>
-void MolGridDataLayer<Dtype>::getReceptorTransformationGradient(int batch_idx, vec& force, vec& torque)
+template<typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::getReceptorTransformationGradient(int batch_idx, vec& force, vec& torque)
 {
   force = vec(0,0,0);
   torque = vec(0,0,0);
@@ -180,8 +180,8 @@ void MolGridDataLayer<Dtype>::getReceptorTransformationGradient(int batch_idx, v
 }
 
 
-template<typename Dtype>
-void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered_map<string, float3>& gradient)
+template<typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::getMappedReceptorGradient(int batch_idx, unordered_map<string, float3>& gradient)
 {
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
   mol_info& mol = batch_transform[batch_idx].mol;
@@ -196,8 +196,8 @@ void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered
 }
 
 
-template<typename Dtype>
-void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& gradient)
+template<typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::getLigandGradient(int batch_idx, vector<float3>& gradient)
 {
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
   gradient.resize(0);
@@ -209,8 +209,8 @@ void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& g
     }
 }
 
-template<typename Dtype>
-void MolGridDataLayer<Dtype>::getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient)
+template<typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient)
 {
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
   mol_info& mol = batch_transform[batch_idx].mol;
@@ -227,8 +227,8 @@ void MolGridDataLayer<Dtype>::getMappedLigandGradient(int batch_idx, unordered_m
 
 //modify examples to remove any without both actives an inactives
 //factored this into its own function due to the need to fully specialize setup below
-template<typename Dtype>
-void MolGridDataLayer<Dtype>::remove_missing_and_setup(vector<typename MolGridDataLayer<Dtype>::balanced_example_provider>& examples)
+template<typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::remove_missing_and_setup(vector<typename RealMolGridDataLayer<Dtype, GridMakerT>::balanced_example_provider>& examples)
 {
   vector<balanced_example_provider> tmp;
   for(unsigned i = 0, n = examples.size(); i < n; i++)
@@ -256,10 +256,10 @@ void MolGridDataLayer<Dtype>::remove_missing_and_setup(vector<typename MolGridDa
 }
 
 //specialized version for balanced data that remove receptors without any actives or decoys
-//annoyingly, have to specialize Dtype
-template<>
-template<>
-void MolGridDataLayer<float>::receptor_stratified_example_provider<typename MolGridDataLayer<float>::balanced_example_provider, 2>::setup()
+//annoyingly, have to specialize Dtype and GridMakerT - workaround?
+template <>
+template <>
+void RealMolGridDataLayer<float, GridMaker>::receptor_stratified_example_provider<typename RealMolGridDataLayer<float, GridMaker>::balanced_example_provider, 2>::setup()
 {
   currenti = 0; currentk = 0;
   remove_missing_and_setup(examples);
@@ -269,7 +269,7 @@ void MolGridDataLayer<float>::receptor_stratified_example_provider<typename MolG
 
 template<>
 template<>
-void MolGridDataLayer<double>::receptor_stratified_example_provider<typename MolGridDataLayer<double>::balanced_example_provider, 2>::setup()
+void RealMolGridDataLayer<double, GridMaker>::receptor_stratified_example_provider<typename RealMolGridDataLayer<double, GridMaker>::balanced_example_provider, 2>::setup()
 {
   currenti = 0; currentk = 0;
   remove_missing_and_setup(examples);
@@ -277,11 +277,30 @@ void MolGridDataLayer<double>::receptor_stratified_example_provider<typename Mol
   if(randomize) shuffle(examples.begin(), examples.end(), caffe::caffe_rng());
 }
 
+template <>
+template <>
+void RealMolGridDataLayer<float, RNNGridMaker>::receptor_stratified_example_provider<typename RealMolGridDataLayer<float, RNNGridMaker>::balanced_example_provider, 2>::setup()
+{
+  currenti = 0; currentk = 0;
+  remove_missing_and_setup(examples);
+  //also shuffle receptors
+  if(randomize) shuffle(examples.begin(), examples.end(), caffe::caffe_rng());
+}
+
+template<>
+template<>
+void RealMolGridDataLayer<double, RNNGridMaker>::receptor_stratified_example_provider<typename RealMolGridDataLayer<double, RNNGridMaker>::balanced_example_provider, 2>::setup()
+{
+  currenti = 0; currentk = 0;
+  remove_missing_and_setup(examples);
+  //also shuffle receptors
+  if(randomize) shuffle(examples.begin(), examples.end(), caffe::caffe_rng());
+}
 
 
 //ensure gpu memory is of sufficient size
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::allocateGPUMem(unsigned sz)
+template <typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::allocateGPUMem(unsigned sz)
 {
   if(sz > gpu_alloc_size) {
     //deallocate
@@ -298,8 +317,8 @@ void MolGridDataLayer<Dtype>::allocateGPUMem(unsigned sz)
 }
 
 //allocate and return an example provider to the specifications of the parm object
-template <typename Dtype>
-typename MolGridDataLayer<Dtype>::example_provider* MolGridDataLayer<Dtype>::create_example_data(const MolGridDataParameter& parm)
+template <typename Dtype, class GridMakerT>
+typename RealMolGridDataLayer<Dtype, GridMakerT>::example_provider* RealMolGridDataLayer<Dtype, GridMakerT>::create_example_data(const MolGridDataParameter& parm)
 {
   bool balanced  = parm.balanced();
   bool strat_receptor  = parm.stratify_receptor();
@@ -363,9 +382,9 @@ static string sanitize_path(const string& p)
 }
 
 //fill in training examples
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::populate_data(const string& root_folder, const string& source,
-    MolGridDataLayer<Dtype>::example_provider* data, bool hasaffinity, bool hasrmsd)
+template <typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::populate_data(const string& root_folder, const string& source,
+    RealMolGridDataLayer<Dtype, GridMakerT>::example_provider* data, bool hasaffinity, bool hasrmsd)
 {
   LOG(INFO) << "Opening file " << source;
   std::ifstream infile(source.c_str());
@@ -382,9 +401,68 @@ void MolGridDataLayer<Dtype>::populate_data(const string& root_folder, const str
 
 }
 
+template <typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::setBlobShape(const vector<Blob<Dtype>*>& top, 
+    bool hasrmsd, bool hasaffinity) {
+  int batch_size = batch_transform.size();
+  //setup shape of layer
+  top_shape.clear();
+  top_shape.push_back(batch_size);
+  top_shape.push_back(numReceptorTypes+numLigandTypes);
+  top_shape.push_back(dim);
+  top_shape.push_back(dim);
+  top_shape.push_back(dim);
+
+  example_size = (numReceptorTypes+numLigandTypes)*numgridpoints;
+
+  // Reshape prefetch_data and top[0] according to the batch_size.
+  top[0]->Reshape(top_shape);
+
+  // Reshape label, affinity, rmsds
+  vector<int> label_shape(1, batch_size); // [batch_size]
+  //LSTM layer requires a "sequence continuation" blob
+  vector<int> seqcont_shape((dimension/subgrid_dim) * (dimension/subgrid_dim) * 
+      (dimension / subgrid_dim), batch_size);
+
+  top[1]->Reshape(label_shape);
+
+  if (hasaffinity)
+  {
+    top[2]->Reshape(label_shape);
+    if (hasrmsd)
+    {
+      top[3]->Reshape(label_shape);
+      if (subgrid_dim) {
+        top[4]->Reshape(seqcont_shape);
+      }
+    }
+    else if(subgrid_dim) {
+      top[3]->Reshape(seqcont_shape);
+    }
+  }
+  else if(hasrmsd)
+  {
+    top[2]->Reshape(label_shape);
+    if (subgrid_dim) {
+      top[3]->Reshape(seqcont_shape);
+    }
+  }
+  else if (subgrid_dim) {
+    top[2]->Reshape(seqcont_shape);
+  }
+
+  if(ligpeturb) {
+    vector<int> peturbshape(2);
+    peturbshape[0] = batch_size;
+    peturbshape[1] = 6; //trans+orient
+    top.back()->Reshape(peturbshape);
+  }
+
+}
+
 //read in structure input and atom type maps
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
+template <typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
 
   const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
@@ -393,7 +471,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   inmem = param.inmemory();
   dimension = param.dimension();
   resolution = param.resolution();
-  subcube_dim = param.subcube_dim();
+  subgrid_dim = param.subgrid_dim();
   binary = param.binary_occupancy();
   bool spherize = param.spherical_mask();
   randtranslate = param.random_translate();
@@ -409,12 +487,8 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   root_folder2 = param.root_folder2();
 
   if(binary) radiusmultiple = 1.0;
-  //TODO: this doesn't _have_ to be true in theory, but need to decide how to handle it
-  //if it's not true and things will currently break if it's not
-  CHECK_EQ(fmod(dimension, subcube_dim), 0) << 
-    "Subcube dimension must evenly divide total grid dimension";
 
-  gmaker.initialize(resolution, dimension, radiusmultiple, binary, spherize);
+  gmaker.initialize(param);
 
   dim = round(dimension/resolution)+1; //number of grid points on a side
   numgridpoints = dim*dim*dim;
@@ -492,64 +566,12 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   else
     numLigandTypes = GridMaker::createAtomTypeMap(ligmap, lmap);
 
-
-  //setup shape of layer
-  top_shape.clear();
-  top_shape.push_back(batch_size);
-  top_shape.push_back(numReceptorTypes+numLigandTypes);
-  top_shape.push_back(dim);
-  top_shape.push_back(dim);
-  top_shape.push_back(dim);
-
-  example_size = (numReceptorTypes+numLigandTypes)*numgridpoints;
-
-  // Reshape prefetch_data and top[0] according to the batch_size.
-  top[0]->Reshape(top_shape);
-
-  // Reshape label, affinity, rmsds
-  vector<int> label_shape(1, batch_size); // [batch_size]
-  //LSTM layer requires a "sequence continuation" blob
-  vector<int> seqcont_shape((dimension/subcube_dim) * (dimension/subcube_dim) * 
-      (dimension / subcube_dim), batch_size);
-
-  top[1]->Reshape(label_shape);
-
-  if (hasaffinity)
-  {
-    top[2]->Reshape(label_shape);
-    if (hasrmsd)
-    {
-      top[3]->Reshape(label_shape);
-      if (subcube_dim) {
-        top[4]->Reshape(seqcont_shape);
-      }
-    }
-    else if(subcube_dim) {
-      top[3]->Reshape(seqcont_shape);
-    }
-  }
-  else if(hasrmsd)
-  {
-    top[2]->Reshape(label_shape);
-    if (subcube_dim) {
-      top[3]->Reshape(seqcont_shape);
-    }
-  }
-  else if (subcube_dim) {
-    top[2]->Reshape(seqcont_shape);
-  }
-
-  if(ligpeturb) {
-    vector<int> peturbshape(2);
-    peturbshape[0] = batch_size;
-    peturbshape[1] = 6; //trans+orient
-    top.back()->Reshape(peturbshape);
-  }
+  setBlobShape(top, hasrmsd, hasaffinity);
 }
 
 //return quaternion representing one of 24 distinct axial rotations
-template <typename Dtype>
-typename MolGridDataLayer<Dtype>::quaternion MolGridDataLayer<Dtype>::axial_quaternion()
+template <typename Dtype, class GridMakerT>
+typename RealMolGridDataLayer<Dtype, GridMakerT>::quaternion RealMolGridDataLayer<Dtype, GridMakerT>::axial_quaternion()
 {
   using namespace boost::math;
   unsigned rot = current_rotation;
@@ -595,8 +617,8 @@ typename MolGridDataLayer<Dtype>::quaternion MolGridDataLayer<Dtype>::axial_quat
 }
 
 
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>& atommap,
+template <typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::set_mol_info(const string& file, const vector<int>& atommap,
     unsigned mapoffset, mol_info& minfo)
 {
   //read mol info from file
@@ -704,9 +726,9 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
 
 }
 
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dtype>::example& ex,
-    const string& root_folder, MolGridDataLayer<Dtype>::mol_transform& transform, output_transform& peturb, bool gpu, unsigned batch_size, unsigned batch_idx)
+template <typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data, const RealMolGridDataLayer<Dtype, GridMakerT>::example& ex,
+    const string& root_folder, RealMolGridDataLayer<Dtype, GridMakerT>::mol_transform& transform, output_transform& peturb, bool gpu, unsigned batch_size, unsigned batch_idx)
 {
   //set grid values for example
   //cache atom info
@@ -737,9 +759,9 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
 }
 
 
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer<Dtype>::mol_info& recatoms,
-  const MolGridDataLayer<Dtype>::mol_info& ligatoms, MolGridDataLayer<Dtype>::mol_transform& transform,
+template <typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::set_grid_minfo(Dtype *data, const RealMolGridDataLayer<Dtype, GridMakerT>::mol_info& recatoms,
+  const RealMolGridDataLayer<Dtype, GridMakerT>::mol_info& ligatoms, RealMolGridDataLayer<Dtype, GridMakerT>::mol_transform& transform,
   output_transform& peturb, bool gpu, unsigned batch_size, unsigned batch_idx)
 {
   //set grid values from mol info
@@ -819,15 +841,15 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
     CUDA_CHECK(cudaMemcpy(gpu_gridatoms, &transform.mol.atoms[0], natoms*sizeof(float4), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(gpu_gridwhich, &transform.mol.whichGrid[0], natoms*sizeof(short), cudaMemcpyHostToDevice));
 
-    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, transform.Q, numReceptorTypes+numLigandTypes, data, batch_idx, batch_size);
+    gmaker.template setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, transform.Q, numReceptorTypes+numLigandTypes, data, batch_idx, batch_size);
   }
   else
   {
-    if (subcube_dim) {
-      unsigned ncubes = (dimension / subcube_dim) * (dimension / subcube_dim) * 
-        (dimension / subcube_dim);
-      unsigned subcube_dim_in_points = dim / (dimension / subcube_dim);
-      RNNGrids grids(data, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subcube_dim_in_points][subcube_dim_in_points][subcube_dim_in_points]);
+    if (subgrid_dim) {
+      unsigned ncubes = (dimension / subgrid_dim) * (dimension / subgrid_dim) * 
+        (dimension / subgrid_dim);
+      unsigned subgrid_dim_in_points = dim / (dimension / subgrid_dim);
+      RNNGrids grids(data, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
       gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids, 
                          batch_idx);
     }
@@ -842,8 +864,8 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
 
 //return a string representation of the atom type(s) represented by index
 //in map - this isn't particularly efficient, but is only for debug purposes
-template <typename Dtype>
-string MolGridDataLayer<Dtype>::getIndexName(const vector<int>& map, unsigned index) const
+template <typename Dtype, class GridMakerT>
+string RealMolGridDataLayer<Dtype, GridMakerT>::getIndexName(const vector<int>& map, unsigned index) const
 		{
 	stringstream ret;
 	stringstream altret;
@@ -864,12 +886,12 @@ string MolGridDataLayer<Dtype>::getIndexName(const vector<int>& map, unsigned in
 
 
 //output a grid the file in dx format (for debug)
-template<typename Dtype>
-void MolGridDataLayer<Dtype>::outputDXGrid(std::ostream& out, Grids& grid, unsigned g, double scale) const
+template<typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::outputDXGrid(std::ostream& out, Grids& grid, unsigned g, double scale) const
 {
   unsigned n = dim;
-  if (subcube_dim)
-    n = dim / (dimension / subcube_dim);
+  if (subgrid_dim)
+    n = dim / (dimension / subgrid_dim);
   out.precision(5);
   setprecision(5);
   out << fixed;
@@ -906,8 +928,8 @@ void MolGridDataLayer<Dtype>::outputDXGrid(std::ostream& out, Grids& grid, unsig
 //only does the very first grid for now
 //if doing subcubes, output a separate file for each subcube (for now) to
 //confirm that they look reasonable
-template<typename Dtype>
-void MolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
+template<typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::dumpDiffDX(const std::string& prefix,
 		Blob<Dtype>* top, double scale) const
 {
   Dtype* diff = top->mutable_cpu_diff();
@@ -917,21 +939,21 @@ void MolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
     CHECK_EQ(randrotate, false) << "DX dump requires no rotation";
   unsigned ncubes;
   unsigned cubes_per_dim;
-  unsigned subcube_dim_in_points;
+  unsigned subgrid_dim_in_points;
   unsigned instance_size;
 	for (unsigned a = 0, na = numReceptorTypes; a < na; a++) {
 		string name = getIndexName(rmap, a);
-    if (subcube_dim) {
-      cubes_per_dim = dimension / subcube_dim;
+    if (subgrid_dim) {
+      cubes_per_dim = dimension / subgrid_dim;
       ncubes = cubes_per_dim * cubes_per_dim * cubes_per_dim;
-      subcube_dim_in_points = dim / cubes_per_dim;
+      subgrid_dim_in_points = dim / cubes_per_dim;
       instance_size = (numReceptorTypes + numLigandTypes) * 
-        subcube_dim_in_points * subcube_dim_in_points * subcube_dim_in_points;
+        subgrid_dim_in_points * subgrid_dim_in_points * subgrid_dim_in_points;
       for (size_t i=0; i<ncubes; ++i) {
 		    string fname = prefix + "_cube" + std::to_string(i) + "_rec_" + name + ".dx";
 		    ofstream out(fname.c_str());
         unsigned offset = i * instance_size; 
-        Grids subgrids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][subcube_dim_in_points][subcube_dim_in_points][subcube_dim_in_points]);
+        Grids subgrids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
 		    outputDXGrid(out, subgrids, a, scale);
       }
     }
@@ -943,12 +965,12 @@ void MolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
 	}
 	for (unsigned a = 0, na = numLigandTypes; a < na; a++) {
 			string name = getIndexName(lmap, a);
-      if (subcube_dim) {
+      if (subgrid_dim) {
         for (size_t i=0; i<ncubes; ++i) {
 		      string fname = prefix + "_cube" + std::to_string(i) + "_lig_" + name + ".dx";
 		      ofstream out(fname.c_str());
           unsigned offset = i * instance_size; 
-          Grids subgrids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][subcube_dim_in_points][subcube_dim_in_points][subcube_dim_in_points]);
+          Grids subgrids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
 		      outputDXGrid(out, subgrids, a, scale);
         }
       }
@@ -962,16 +984,16 @@ void MolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
 }
 
 
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+template <typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top)
 {
   forward(bottom, top, false);
 }
 
 
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu)
+template <typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu)
 {
   bool hasaffinity = this->layer_param_.molgrid_data_param().has_affinity();
   bool hasrmsd = this->layer_param_.molgrid_data_param().has_rmsd();
@@ -1015,9 +1037,9 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     if (data2)
       dataswitch = batch_size*data_ratio/(data_ratio+1);
 
-    if (subcube_dim) {
-      unsigned ncubes = (dimension / subcube_dim) * (dimension/ subcube_dim) * 
-        (dimension / subcube_dim);
+    if (subgrid_dim) {
+      unsigned ncubes = (dimension / subgrid_dim) * (dimension/ subgrid_dim) * 
+        (dimension / subgrid_dim);
       unsigned n_examples = ncubes * batch_size;
       for (size_t i=0; i<n_examples; ++i) {
         if (i < batch_size)
@@ -1046,7 +1068,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       rmsds.push_back(ex.rmsd);
 
       int offset = batch_idx*example_size;
-      if (subcube_dim) 
+      if (subgrid_dim) 
         offset = 0;
       set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], peturb, gpu, 
           batch_size, batch_idx);
@@ -1062,21 +1084,21 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_gpu_data());
       if(hasrmsd) {
         caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_gpu_data());
-        if (subcube_dim) {
+        if (subgrid_dim) {
           caffe_copy(seqcont.size(), &seqcont[0], top[4]->mutable_gpu_data());
         }
       }
-      else if (subcube_dim) {
+      else if (subgrid_dim) {
         caffe_copy(seqcont.size(), &seqcont[0], top[3]->mutable_gpu_data());
       }
     } 
     else if(hasrmsd) {
       caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_gpu_data());
-        if (subcube_dim) {
+        if (subgrid_dim) {
           caffe_copy(seqcont.size(), &seqcont[0], top[3]->mutable_gpu_data());
         }
     }
-    else if (subcube_dim) {
+    else if (subgrid_dim) {
       caffe_copy(seqcont.size(), &seqcont[0], top[2]->mutable_gpu_data());
     }
 
@@ -1092,21 +1114,21 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_cpu_data());
       if(hasrmsd) {
         caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_cpu_data());
-        if (subcube_dim) {
+        if (subgrid_dim) {
           caffe_copy(seqcont.size(), &seqcont[0], top[4]->mutable_cpu_data());
         }
       }
-      else if (subcube_dim) {
+      else if (subgrid_dim) {
         caffe_copy(seqcont.size(), &seqcont[0], top[3]->mutable_cpu_data());
       }
     } 
     else if(hasrmsd) {
       caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_cpu_data());
-      if (subcube_dim) {
+      if (subgrid_dim) {
         caffe_copy(seqcont.size(), &seqcont[0], top[3]->mutable_cpu_data());
       }
     }
-    else if (subcube_dim) {
+    else if (subgrid_dim) {
       caffe_copy(seqcont.size(), &seqcont[0], top[2]->mutable_cpu_data());
     }
     if(ligpeturb) {
@@ -1118,8 +1140,8 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
 }
 
 
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
+template <typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
   backward(top, bottom, false);
@@ -1129,8 +1151,8 @@ void MolGridDataLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 /* backpropagates gradients onto atoms (note there is not actual bottom)
  * Only performed when compute_atom_gradients is true.
  */
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu)
+template <typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu)
 {
   //propagate gradient grid onto atom positions
   if(compute_atom_gradients || true) {
@@ -1148,11 +1170,11 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const ve
         mol_transform& transform = batch_transform[item_id];
         gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
 
-        if (subcube_dim) {
-          unsigned ncubes = (dimension / subcube_dim) * (dimension / subcube_dim) * 
-            (dimension / subcube_dim);
-          unsigned subcube_dim_in_points = dim / (dimension / subcube_dim);
-          Grids grids(diff, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subcube_dim_in_points][subcube_dim_in_points][subcube_dim_in_points]);
+        if (subgrid_dim) {
+          unsigned ncubes = (dimension / subgrid_dim) * (dimension / subgrid_dim) * 
+            (dimension / subgrid_dim);
+          unsigned subgrid_dim_in_points = dim / (dimension / subgrid_dim);
+          Grids grids(diff, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
           gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, 
                   transform.Q, grids, transform.mol.gradient, item_id);
         }
@@ -1168,8 +1190,8 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const ve
   }
 }
 
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
+template <typename Dtype, class GridMakerT>
+void RealMolGridDataLayer<Dtype, GridMakerT>::Backward_relevance(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
 
   /*
@@ -1193,11 +1215,11 @@ void MolGridDataLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
     mol_transform& transform = batch_transform[item_id];
     gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
 
-    if (subcube_dim) {
-      unsigned ncubes = (dimension / subcube_dim) * (dimension / subcube_dim) * 
-        (dimension / subcube_dim);
-      unsigned subcube_dim_in_points = dim / (dimension / subcube_dim);
-      Grids grids(diff, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subcube_dim_in_points][subcube_dim_in_points][subcube_dim_in_points]);
+    if (subgrid_dim) {
+      unsigned ncubes = (dimension / subgrid_dim) * (dimension / subgrid_dim) * 
+        (dimension / subgrid_dim);
+      unsigned subgrid_dim_in_points = dim / (dimension / subgrid_dim);
+      Grids grids(diff, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
 
       gmaker.setAtomRelevanceCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
           transform.mol.gradient, item_id);
@@ -1220,9 +1242,16 @@ void MolGridDataLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
 
 }
 
-
+template <typename Dtype>
+shared_ptr<Layer<Dtype> > GetMolGridDataLayer(const LayerParameter& param) {
+  const MolGridDataParameter& mgrid_param = param.molgrid_data_param();
+  if (mgrid_param.subgrid_dim()) 
+    return shared_ptr<Layer<Dtype> >(new RealMolGridDataLayer<Dtype, RNNGridMaker>(param));
+  else
+    return shared_ptr<Layer<Dtype> >(new RealMolGridDataLayer<Dtype, GridMaker>(param));
+}
 
 INSTANTIATE_CLASS(MolGridDataLayer);
-REGISTER_LAYER_CLASS(MolGridData);
+REGISTER_LAYER_CREATOR(MolGridData, GetMolGridDataLayer);
 
 }  // namespace caffe
