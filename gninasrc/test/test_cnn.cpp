@@ -42,7 +42,7 @@ void test_set_atom_gradients() {
     for (size_t i=0; i<mol_atoms.size(); ++i) {
         atom_params& ainfo = mol_atoms[i];
         transform.mol.atoms.push_back(make_float4(ainfo.coords.x,
-                    ainfo.coords.y, ainfo.coords.z, ainfo.charge));
+                    ainfo.coords.y, ainfo.coords.z, xs_radius(mol_types[i])));
         transform.mol.whichGrid.push_back(mol_types[i]);
         transform.mol.gradient.push_back(make_float3(0,0,0));
         center += vec(ainfo.coords.x, ainfo.coords.y, ainfo.coords.z);
@@ -81,10 +81,10 @@ void test_set_atom_gradients() {
     //compare results
     for (size_t i=0; i<mol_atoms.size(); ++i) {
         for (size_t j=0; j<3; ++j) {
-            BOOST_REQUIRE_SMALL(cpu_transform.mol.gradient[i][j]- 
-                    transform.mol.gradient[i][j], (float)0.01);
             p_args.log << "CPU " << cpu_transform.mol.gradient[i][j] << 
                 " GPU " << transform.mol.gradient[i][j] << "\n";
+            BOOST_REQUIRE_SMALL(cpu_transform.mol.gradient[i][j]- 
+                    transform.mol.gradient[i][j], (float)0.01);
         }
     }
     cudaFree(gpu_diff);
