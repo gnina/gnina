@@ -628,6 +628,7 @@ public:
 
 class RNNGridMaker : public GridMaker {
   float subgrid_dim;
+  unsigned batch_size;
   public:
   RNNGridMaker(float res=0, float d=0, float rm=1.5, float sd=3.0, bool b=false, 
       bool s=false) : subgrid_dim(sd), GridMaker(res, d, rm, b, s) {
@@ -637,8 +638,9 @@ class RNNGridMaker : public GridMaker {
   virtual ~RNNGridMaker() {}
 
   virtual void initialize(float res, float d, float rm=1.5, float sd=3.0
-      bool b = false, bool s = false) {
+      bool b = false, bool s = false, bs=1) {
     subgrid_dim = sd;
+    batch_size = bs;
     if (subgrid_dim) assert(fmod(dimension, subgrid_dim)==0 && 
       "Subgrid dimension must evenly divide total grid dimension");
     GridMaker::initialize(res, d, rm, b, s);
@@ -646,7 +648,7 @@ class RNNGridMaker : public GridMaker {
 
   virtual void initialize(const MolGridDataParameter& param) {
     initialize(param.resolution(), param.dimension(), param.radiusmultiple(), 
-        param.subgrid_dim(), param.binary_occupancy(), param.spherize());
+        param.subgrid_dim(), param.binary_occupancy(), param.spherize(), param.batch_size());
   }
 
   virtual void initialize(const gridoptions& opt, float rm) {

@@ -46,60 +46,12 @@ inline double unit_sample(rng_t *rng)
  *
  * TODO(dox): thorough documentation for Forward and proto params.
  */
-template <typename Dtype>
-class MolGridDataLayer : public BaseDataLayer<Dtype> {
-public:
-  explicit MolGridDataLayer(const LayerParameter& param) :
-      BaseDataLayer<Dtype>(param) {}
-  virtual ~MolGridDataLayer() {}
-  virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top) = 0;
-
-  virtual inline const char* type() const = 0;
-  virtual inline int ExactNumBottomBlobs() const = 0;
-  virtual inline int ExactNumTopBlobs() const = 0;
-
-  virtual inline void resetRotation() = 0;
-
-  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top) = 0;
-  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top) = 0;
-  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
-      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) = 0;
-  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
-      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) = 0;
-
-  virtual void setLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0);
-  virtual void enableAtomGradients() = 0;
-
-  virtual void setReceptor(const vector<atom>& receptor) = 0;
-  virtual void setLigand(const vector<atom>& ligand, const vector<vec>& coords, bool calcCenter=true) = 0;
-  virtual void setCenter(const vec& center) = 0;
-  virtual void getReceptorAtoms(int batch_idx, vector<float4>& atoms) = 0;
-  virtual void getLigandAtoms(int batch_idx, vector<float4>& atoms) = 0;
-
-  virtual void getReceptorChannels(int batch_idx, vector<short>& whichGrid) = 0;
-  virtual void getLigandChannels(int batch_idx, vector<short>& whichGrid) = 0;
-  virtual void getReceptorGradient(int batch_idx, vector<float3>& gradient) = 0;
-  virtual void getReceptorTransformationGradient(int batch_idx, vec& force, vec& torque) = 0;
-  virtual void getMappedReceptorGradient(int batch_idx, unordered_map<string ,float3>& gradient) = 0;
-  virtual void getLigandGradient(int batch_idx, vector<float3>& gradient) = 0;
-  virtual void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient) = 0;
-
-  virtual double getDimension() const = 0;
-  virtual double getResolution() const = 0;
-
-  virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const = 0;
-  friend void ::test_set_atom_gradients();
-
-};
 
 template<typename Dtype, class GridMakerT>
-class RealMolGridDataLayer : public MolGridDataLayer<Dtype> {
+class MolGridDataLayer : public BaseDataLayer<Dtype> {
   public:
-    explicit RealMolGridDataLayer(const LayerParameter& param) : 
-      MolGridDataLayer<Dtype>(param), data(NULL), data2(NULL), data_ratio(0),
+    explicit MolGridDataLayer(const LayerParameter& param) : 
+      BaseDataLayer<Dtype>(param), data(NULL), data2(NULL), data_ratio(0),
       num_rotations(0), current_rotation(0),
       example_size(0), inmem(false), resolution(0.5), 
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), 
@@ -107,7 +59,7 @@ class RealMolGridDataLayer : public MolGridDataLayer<Dtype> {
       binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
       gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
-  virtual ~RealMolGridDataLayer();
+  virtual ~MolGridDataLayer();
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
   virtual inline const char* type() const { return "MolGridData"; }
@@ -762,19 +714,10 @@ class RealMolGridDataLayer : public MolGridDataLayer<Dtype> {
 };
 
 template <typename Dtype>
-class GenericMolGridDataLayer : public RealMolGridDataLayer<Dtype, GridMaker> {
-  public:
-    explicit GenericMolGridDataLayer(const LayerParameter& param) : 
-      RealMolGridDataLayer<Dtype, GridMaker>(param) {}
-
-    virtual ~GenericMolGridDataLayer() {};
-};
-
-template <typename Dtype>
-class RNNMolGridDataLayer : public RealMolGridDataLayer<Dtype, RNNGridMaker> {
+class RNNMolGridDataLayer : public MolGridDataLayer<Dtype, RNNGridMaker> {
   public:
     explicit RNNMolGridDataLayer(const LayerParameter& param) : 
-      RealMolGridDataLayer<Dtype, RNNGridMaker>(param), subgrid_dim(3.0) {}
+      MolGridDataLayer<Dtype, RNNGridMaker>(param), subgrid_dim(3.0) {}
 
     virtual ~RNNMolGridDataLayer() {};
   protected:
@@ -782,6 +725,9 @@ class RNNMolGridDataLayer : public RealMolGridDataLayer<Dtype, RNNGridMaker> {
   vector<Dtype> seqcont; //necessary for LSTM layer; indicates if a batch instance 
                          //is a continuation of a previous example sequence or 
                          //the beginning of a new one
+  virtual void setBlobShape(const vector<Blob<Dtype>*>& top, bool hasrmsd, bool hasaffinity);
+  virtual void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
+  virtual void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu);
 };
 
 }  // namespace caffe
