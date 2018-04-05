@@ -140,7 +140,7 @@ void write_all_output(model& m, const output_container& out, sz how_many,
 fl do_randomization(model& m, const vec& corner1,
 		const vec& corner2, int seed, int verbosity, tee& log)
 {
-	conf init_conf = m.get_initial_conf();
+	conf init_conf = m.get_initial_conf(false);
 	rng generator(static_cast<rng::result_type>(seed));
 	if (verbosity > 1)
 	{
@@ -177,7 +177,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 		grid& user_grid)
 {
 	// std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
-	change g(m.get_size());
+	change g(m.get_size(), nc.move_receptor());
 
 	nc.adjust_center(m); //for cnn, set cnn box
 	if(!nc.within(m)) {
@@ -265,7 +265,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 	precalculate_exact exact_prec(sf); //use exact computations for final score
 	conf_size s = m.get_size();
-	conf c = m.get_initial_conf();
+	conf c = m.get_initial_conf(nc.move_receptor());
 	fl e = max_fl;
     fl intramolecular_energy = max_fl;
 	fl cnnscore = 0, cnnaffinity = 0, cnnforces = 0;

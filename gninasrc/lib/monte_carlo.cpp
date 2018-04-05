@@ -40,7 +40,7 @@ bool metropolis_accept(fl old_f, fl new_f, fl temperature, rng& generator) {
 
 void monte_carlo::single_run(model& m, output_type& out, const precalculate& p, igrid& ig, rng& generator, grid& user_grid) const {
 	conf_size s = m.get_size();
-	change g(s);
+	change g(s, ig.move_receptor());
 	vec authentic_v(1000, 1000, 1000);
 	out.e = max_fl;
 	output_type current(out);
@@ -64,9 +64,9 @@ void monte_carlo::single_run(model& m, output_type& out, const precalculate& p, 
 }
 
 void monte_carlo::many_runs(model& m, output_container& out, const precalculate& p, igrid& ig, const vec& corner1, const vec& corner2, sz num_runs, rng& generator, grid& user_grid) const {
-	conf_size s = m.get_size();
+	conf c(m.get_size(), ig.move_receptor());
 	VINA_FOR(run, num_runs) {
-		output_type tmp(s, 0);
+		output_type tmp(c, 0);
 		tmp.c.randomize(corner1, corner2, generator);
 		single_run(m, tmp, p, ig, generator, user_grid);
 		out.push_back(new output_type(tmp));
@@ -86,8 +86,8 @@ output_type monte_carlo::many_runs(model& m, const precalculate& p, igrid& ig, c
 void monte_carlo::operator()(model& m, output_container& out, const precalculate& p, igrid& ig, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator, grid& user_grid) const {
 	vec authentic_v(1000, 1000, 1000); // FIXME? this is here to avoid max_fl/max_fl
 	conf_size s = m.get_size();
-	change g(s);
-	output_type tmp(s, 0);
+	change g(s, ig.move_receptor());
+	output_type tmp(conf(s, ig.move_receptor()), 0);
 	tmp.c.randomize(corner1, corner2, generator);
 	fl best_e = max_fl;
 	minimization_params minparms = ssd_par.minparm;

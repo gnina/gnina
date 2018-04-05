@@ -264,7 +264,7 @@ struct model {
 
 	conf_size get_size() const;
 	// torsions = 0, orientations = identity, ligand positions = current
-	conf get_initial_conf() const; 
+	conf get_initial_conf(bool enable_receptor) const;
 
 	grid_dims movable_atoms_box(fl add_to_each_dimension, fl granularity = 0.375) const;
 

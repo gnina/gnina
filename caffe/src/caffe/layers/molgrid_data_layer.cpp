@@ -152,6 +152,34 @@ void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<float3>&
     }
 }
 
+/*
+ * Compute the transformation gradient of a rigid receptor around the center.
+ * The first three numbers are the translation.  The next are the torque.
+ */
+template<typename Dtype>
+void MolGridDataLayer<Dtype>::getReceptorTransformationGradient(int batch_idx, vec& force, vec& torque)
+{
+  force = vec(0,0,0);
+  torque = vec(0,0,0);
+
+  CHECK(compute_atom_gradients) << "Gradients requested but not computed";
+  mol_info& mol = batch_transform[batch_idx].mol;
+  for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
+  {
+    if (mol.whichGrid[i] < numReceptorTypes)
+    {
+      float3 g = mol.gradient[i];
+      float4 a = mol.atoms[i];
+      vec v(g.x,g.y,g.z);
+      vec pos(a.x,a.y,a.z);
+
+      force += v;
+      torque += cross_product(pos - mol.center, v);
+    }
+  }
+}
+
+
 template<typename Dtype>
 void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered_map<string, float3>& gradient)
 {
@@ -991,30 +1019,32 @@ void MolGridDataLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 
 /* backpropagates gradients onto atoms (note there is not actual bottom)
  * Only performed when compute_atom_gradients is true.
- * TODO: not yet gpu optimized
  */
 template <typename Dtype>
-void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom,
-    bool gpu)
+void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu)
 {
-  if(compute_atom_gradients) {
-    Dtype *diff = NULL;
-    if(gpu)
-      diff = top[0]->mutable_cpu_diff(); //TODO
-    else
-      diff = top[0]->mutable_cpu_diff();
-
-    //propagate gradient grid onto atom positions
+  //propagate gradient grid onto atom positions
+  if(compute_atom_gradients || true) {
     unsigned batch_size = top_shape[0];
-    for (int item_id = 0; item_id < batch_size; ++item_id) {
+    Dtype *diff = NULL;
+    if(gpu) {
+      diff = top[0]->mutable_gpu_diff();
+      setAtomGradientsGPU(gmaker, diff, batch_size);
+    }
+    else {
+      diff = top[0]->mutable_cpu_diff();
+      for (int item_id = 0; item_id < batch_size; ++item_id) {
 
-      int offset = item_id*example_size;
-      Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+        int offset = item_id*example_size;
+        Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
 
-      mol_transform& transform = batch_transform[item_id];
-      gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
-      gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
-          transform.mol.gradient);
+        mol_transform& transform = batch_transform[item_id];
+        gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
+	    boost::timer::cpu_timer time;
+        gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, 
+                transform.Q, grids, transform.mol.gradient);
+	    std::cout << "CPU grid time " << time.elapsed().wall/1000000000.0 << "\n";
+      }
     }
   }
 }

@@ -123,14 +123,14 @@ MinimizationQuery::Result* MinimizationQuery::minimize(model& m)
 
 	vecv origcoords = m.get_heavy_atom_movable_coords();
 	fl e = max_fl;
-	conf c = m.get_initial_conf();
-	output_type out(c, e);
 
 	//do minimization
 	grid_dims gd = m.movable_atoms_box(autobox_add, granularity);
-	change g(m.get_size());
 	szv_grid_cache gridcache(m, minparm.prec->cutoff_sqr());
 	non_cache nc(gridcache, gd, minparm.prec);
+  conf c = m.get_initial_conf(nc.move_receptor());
+  output_type out(c, e);
+  change g(m.get_size(), nc.move_receptor());
 
 	//regular minimization
 	quasi_newton quasi_newton_par(minparm.minparms);

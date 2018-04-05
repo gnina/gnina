@@ -25,6 +25,8 @@
 #include "gninasrc/lib/atom_constants.h"
 #include "gninasrc/lib/gridmaker.h"
 
+void test_set_atom_gradients();
+
 namespace caffe {
 
 
@@ -82,6 +84,7 @@ public:
   void getReceptorChannels(int batch_idx, vector<short>& whichGrid);
   void getLigandChannels(int batch_idx, vector<short>& whichGrid);
   void getReceptorGradient(int batch_idx, vector<float3>& gradient);
+  void getReceptorTransformationGradient(int batch_idx, vec& force, vec& torque);
   void getMappedReceptorGradient(int batch_idx, unordered_map<string ,float3>& gradient);
   void getLigandGradient(int batch_idx, vector<float3>& gradient);
   void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient);
@@ -178,7 +181,7 @@ public:
   double getResolution() const { return resolution; }
 
   void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
-
+  friend void ::test_set_atom_gradients();
 
  protected:
 
@@ -682,7 +685,6 @@ public:
   mol_info mem_rec; //molecular data set programmatically with setReceptor
   mol_info mem_lig; //molecular data set programmatically with setLigand
 
-
   ////////////////////   PROTECTED METHODS   //////////////////////
   static void remove_missing_and_setup(vector<balanced_example_provider>& examples);
   void allocateGPUMem(unsigned sz);
@@ -697,6 +699,7 @@ public:
   void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms,
                     mol_transform& transform, output_transform& peturb, bool gpu);
 
+  void setAtomGradientsGPU(GridMaker& gmaker, Dtype *diff, unsigned batch_size);
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
   void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu);
   void Backward_relevance(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);

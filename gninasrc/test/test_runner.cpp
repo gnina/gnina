@@ -3,6 +3,7 @@
 #include "parsed_args.h"
 #include "test_gpucode.h"
 #include "test_tree.h"
+#include "test_cnn.h"
 #include "test_utils.h"
 #define N_ITERS 10
 #define BOOST_TEST_DYN_LINK
@@ -39,6 +40,14 @@ BOOST_AUTO_TEST_CASE(set_conf) {
 
 BOOST_AUTO_TEST_CASE(derivative) {
     boost_loop_test(&test_derivative);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE(test_cnn)
+
+BOOST_AUTO_TEST_CASE(set_conf) {
+    boost_loop_test(&test_set_atom_gradients);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
