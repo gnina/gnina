@@ -785,7 +785,7 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
 
   //TODO move this into gridmaker.setAtoms, have it just take the mol_transform as input
   gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
- 
+
   if(transform.mol.atoms.size() == 0) {
      std::cerr << "ERROR: No atoms in molecule.  I can't deal with this.\n";
      exit(-1); //presumably you never actually want this and it results in a cuda error
@@ -1024,7 +1024,7 @@ template <typename Dtype>
 void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu)
 {
   //propagate gradient grid onto atom positions
-  if(compute_atom_gradients || true) {
+  if(compute_atom_gradients) {
     unsigned batch_size = top_shape[0];
     Dtype *diff = NULL;
     if(gpu) {

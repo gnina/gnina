@@ -276,6 +276,7 @@ public:
     }
   }
 
+  __host__ __device__
   	void accumulateAtomRelevance(const float3& coords, double ar, float x, float y, float z,
 				     float gridval, float3& agrad)
 	{
@@ -298,7 +299,7 @@ public:
 	//accumulate gradient from grid point x,y,z for provided atom
     __host__ __device__
 	void accumulateAtomGradient(const float3& coords, double ar, float x,
-				    float y, float z, float gridval, float3& agrad, int whichgrid)
+				    float y, float z, float gridval, float3& agrad)
 	{
 		//sum gradient grid values overlapped by the atom times the
 		//derivative of the atom density at each grid point
@@ -384,7 +385,7 @@ public:
 					else //true gradient, distance matters
 					{
 						accumulateAtomGradient(coords, radius, x, y, z,
-								grids[whichgrid][i][j][k], agrad, whichgrid);
+								grids[whichgrid][i][j][k], agrad);
 					}
 				}
 			}
@@ -393,14 +394,16 @@ public:
 
   //backpropagate the gradient from atom grid to atom x,y,z positions
   template<typename Grids>
-  void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
-                           const Grids& grids, vector<float3>& agrad)
-  { 
+  void setAtomGradientsCPU(const vector<float4>& ainfo,
+      const vector<short>& gridindex, const quaternion& Q, const Grids& grids,
+      vector<float3>& agrad)
+  {
     zeroAtomGradientsCPU(agrad);
     for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
     {
       int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
-      if (whichgrid >= 0) {
+      if (whichgrid >= 0)
+      {
         setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
       }
     }
@@ -408,56 +411,62 @@ public:
 
   template<typename Dtype>
   __device__
-  void setAtomGradientsGPU(const float4* ainfo, short* gridindices, float3* agrads, 
-        const qt Q, const Dtype* grids, unsigned remainder_offset, bool isrelevance = false) {
-#ifdef __CUDA_ARCH__
-    //TODO: implement
-    assert(isrelevance == false);
+  void setAtomGradientsGPU(const float4* ainfo, short* gridindices,
+      float3* agrads, const qt Q, const Dtype* grids, unsigned remainder_offset,
+      bool isrelevance = false)
+  {
 
+#ifdef __CUDA_ARCH__
     int idx = blockDim.x * blockIdx.x + threadIdx.x + remainder_offset;
     int whichgrid = gridindices[idx];
     float4 atom = ainfo[idx];
-    float3 coords; 
+    float3 coords;
 
-	if (Q.real() != 0) //apply rotation
-	{
-		qt p(atom.x - center.x, atom.y - center.y,
-				atom.z - center.z, 0);
-		p = Q * p * (Q.conj() / Q.norm());
+    if (Q.real() != 0) //apply rotation
+    {
+      float3 p = Q.rotate(atom.x - center.x, atom.y - center.y, atom.z - center.z);
+      coords = p + center;
+    }
+    else
+    {
+      coords.x = atom.x;
+      coords.y = atom.y;
+      coords.z = atom.z;
+    }
 
-		coords.x = p.R_component_1() + center.x;
-		coords.y = p.R_component_2() + center.y;
-		coords.z = p.R_component_3() + center.z;
-	} else {
-		coords.x = atom.x;
-		coords.y = atom.y;
-		coords.z = atom.z;
-	}
-
-	//get grid index ranges that could possibly be overlapped by atom
-	float radius = atom.w;
-	float r = radius * radiusmultiple;
+    //get grid index ranges that could possibly be overlapped by atom
+    float radius = atom.w;
+    float r = radius * radiusmultiple;
     uint2 ranges[3];
     ranges[0] = getrange_gpu(dims[0], coords.x, r);
     ranges[1] = getrange_gpu(dims[1], coords.y, r);
     ranges[2] = getrange_gpu(dims[2], coords.z, r);
 
-	for (unsigned i = ranges[0].x, iend = ranges[0].y; i < iend;
-			++i) {
-		for (unsigned j = ranges[1].x, jend = ranges[1].y;
-				j < jend; ++j) {
-			for (unsigned k = ranges[2].x, kend = ranges[2].y;
-					k < kend; ++k) {
-				//convert grid point coordinates to angstroms
-				float x = dims[0].x + i * resolution;
-				float y = dims[1].x + j * resolution;
-				float z = dims[2].x + k * resolution;
+    for (unsigned i = ranges[0].x, iend = ranges[0].y; i < iend; ++i)
+    {
+      for (unsigned j = ranges[1].x, jend = ranges[1].y; j < jend; ++j)
+      {
+        for (unsigned k = ranges[2].x, kend = ranges[2].y; k < kend; ++k)
+        {
+          //convert grid point coordinates to angstroms
+          float x = dims[0].x + i * resolution;
+          float y = dims[1].x + j * resolution;
+          float z = dims[2].x + k * resolution;
 
-	            accumulateAtomGradient(coords, radius, x, y, z, 
-                        grids[(((whichgrid * dim) + i) * dim + j) * dim + k], 
-                            agrads[idx], whichgrid);
-            }
+          if (isrelevance)
+          {
+            accumulateAtomRelevance(coords, radius, x, y, z,
+                grids[(((whichgrid * dim) + i) * dim + j) * dim + k],
+                agrads[idx]);
+          }
+          else
+          {
+            accumulateAtomGradient(coords, radius, x, y, z,
+                grids[(((whichgrid * dim) + i) * dim + j) * dim + k],
+                agrads[idx]);
+          }
         }
+      }
     }
 #endif
   }
