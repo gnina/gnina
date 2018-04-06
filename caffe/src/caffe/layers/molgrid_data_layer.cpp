@@ -89,12 +89,8 @@ MolGridDataLayer<Dtype, GridMakerT>::example::example(MolGridDataLayer<Dtype, Gr
 template<typename Dtype, class GridMakerT>
 void MolGridDataLayer<Dtype, GridMakerT>::setLabels(Dtype pose, Dtype affinity, Dtype rmsd)
 {
-  labels.clear();
-  affinities.clear();
-  rmsds.clear();
-  labels.push_back(pose);
-  affinities.push_back(affinity);
-  rmsds.push_back(rmsd);
+  clearLabels();
+  appendLabels(pose, affinity, rmsd);
 }
 
 
@@ -256,7 +252,7 @@ void MolGridDataLayer<Dtype, GridMakerT>::remove_missing_and_setup(vector<typena
 }
 
 //specialized version for balanced data that remove receptors without any actives or decoys
-//annoyingly, have to specialize Dtype and GridMakerT - workaround?
+//annoyingly, have to specialize Dtype and GridMakerT - TODO: replace with a macro
 template <>
 template <>
 void MolGridDataLayer<float, GridMaker>::receptor_stratified_example_provider<typename MolGridDataLayer<float, GridMaker>::balanced_example_provider, 2>::setup()
@@ -444,54 +440,13 @@ void MolGridDataLayer<Dtype, GridMakerT>::setBlobShape(const vector<Blob<Dtype>*
 template <typename Dtype>
 void RNNMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& top, 
     bool hasrmsd, bool hasaffinity) {
-  int batch_size = this->batch_transform.size();
-  //setup shape of layer
-  this->top_shape.clear();
-  this->top_shape.push_back(batch_size);
-  this->top_shape.push_back(this->numReceptorTypes+this->numLigandTypes);
-  this->top_shape.push_back(this->dim);
-  this->top_shape.push_back(this->dim);
-  this->top_shape.push_back(this->dim);
-
-  this->example_size = (this->numReceptorTypes+this->numLigandTypes)*this->numgridpoints;
-
-  // Reshape prefetch_data and top[0] according to the batch_size.
-  top[0]->Reshape(this->top_shape);
-
-  // Reshape label, affinity, rmsds
-  vector<int> label_shape(1, batch_size); // [batch_size]
+  MolGridDataLayer<Dtype, RNNGridMaker>::setBlobShape(top, hasrmsd, hasaffinity);
   //LSTM layer requires a "sequence continuation" blob
+  unsigned batch_size = this->batch_transform.size();
   unsigned grids_per_dim = this->dimension / subgrid_dim;
   vector<int> seqcont_shape(grids_per_dim * grids_per_dim * grids_per_dim, batch_size);
-
-  top[1]->Reshape(label_shape);
-
-  if (hasaffinity)
-  {
-    top[2]->Reshape(label_shape);
-    if (hasrmsd)
-    {
-      top[3]->Reshape(label_shape);
-      top[4]->Reshape(seqcont_shape);
-    }
-    else 
-      top[3]->Reshape(seqcont_shape);
-  }
-  else if(hasrmsd)
-  {
-    top[2]->Reshape(label_shape);
-    top[3]->Reshape(seqcont_shape);
-  }
-  else 
-    top[2]->Reshape(seqcont_shape);
-
-  if(this->ligpeturb) {
-    vector<int> peturbshape(2);
-    peturbshape[0] = batch_size;
-    peturbshape[1] = 6; //trans+orient
-    top.back()->Reshape(peturbshape);
-  }
-
+  int idx = this->ExactNumTopBlobs() - this->ligpeturb;
+  top[idx]->Reshape(seqcont_shape);
 }
 
 //read in structure input and atom type maps
@@ -879,19 +834,8 @@ void MolGridDataLayer<Dtype, GridMakerT>::set_grid_minfo(Dtype *data, const MolG
   }
   else
   {
-    if (subgrid_dim) {
-      unsigned ncubes = (dimension / subgrid_dim) * (dimension / subgrid_dim) * 
-        (dimension / subgrid_dim);
-      unsigned subgrid_dim_in_points = dim / (dimension / subgrid_dim);
-      RNNGrids grids(data, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
-      gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids, 
-                         batch_idx);
-    }
-    else {
-      Grids grids(data, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
-      gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids, 
-                         batch_idx);
-    }
+    gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, data, 
+        numReceptorTypes + numLigandTypes);
   }
 }
 
@@ -1061,10 +1005,7 @@ void MolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>& bo
   }
   else
   {
-    //clear batch labels
-    labels.clear();
-    affinities.clear();
-    rmsds.clear();
+    clearLabels();
 
     //percent of batch from first data source
     unsigned dataswitch = batch_size;
@@ -1086,9 +1027,7 @@ void MolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>& bo
         root = &root_folder2;
       }
 
-      labels.push_back(ex.label);
-      affinities.push_back(ex.affinity);
-      rmsds.push_back(ex.rmsd);
+      appendLabels(ex.label, ex.affinity, ex.rmsd);
 
       int offset = batch_idx*example_size;
       set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], peturb, gpu, 
@@ -1098,171 +1037,7 @@ void MolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>& bo
     }
 
   }
-
-  if(gpu) {
-    caffe_copy(labels.size(), &labels[0], top[1]->mutable_gpu_data());
-    if(hasaffinity) {
-      caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_gpu_data());
-      if(hasrmsd) 
-        caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_gpu_data());
-    } 
-    else if(hasrmsd) 
-      caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_gpu_data());
-
-    if(ligpeturb) {
-      //trusting struct layout is normal
-      caffe_copy(perturbations.size()*6, (Dtype*)&perturbations[0], top.back()->mutable_gpu_data());
-    }
-
-  }
-  else {
-    caffe_copy(labels.size(), &labels[0], top[1]->mutable_cpu_data());
-    if(hasaffinity) {
-      caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_cpu_data());
-      if(hasrmsd) 
-        caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_cpu_data());
-    } 
-    else if(hasrmsd) {
-      caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_cpu_data());
-    }
-    if(ligpeturb) {
-      //trusting struct layout is normal
-      caffe_copy(perturbations.size()*6, (Dtype*)&perturbations[0], top.back()->mutable_cpu_data());
-    }
-  }
-
-}
-
-template <typename Dtype>
-void RNNMolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu)
-{
-  bool hasaffinity = this->layer_param_.molgrid_data_param().has_affinity();
-  bool hasrmsd = this->layer_param_.molgrid_data_param().has_rmsd();
-
-  Dtype *top_data = NULL;
-  if(gpu)
-    top_data = top[0]->mutable_gpu_data();
-  else
-    top_data = top[0]->mutable_cpu_data();
-
-  this->perturbations.clear();
-  unsigned batch_size = this->top_shape[0];
-  typename MolGridDataLayer<Dtype, RNNGridMaker>::output_transform peturb;
-
-  //if in memory must be set programmatically
-  if(this->inmem)
-  {
-    CHECK_GT(this->mem_rec.atoms.size(),0) << "Receptor not set in MolGridDataLayer";
-    CHECK_GT(this->mem_lig.atoms.size(),0) << "Ligand not set in MolGridDataLayer";
-    //memory is now available
-    set_grid_minfo(top_data, this->mem_rec, this->mem_lig, this->batch_transform[0], peturb, gpu, 
-        batch_size); //TODO how do we know what batch position?
-    this->perturbations.push_back(peturb);
-
-    if (this->num_rotations > 0) {
-      this->current_rotation = (this->current_rotation+1)%this->num_rotations;
-    }
-
-    CHECK_GT(this->labels.size(),0) << "Did not set labels in memory based molgrid";
-
-  }
-  else
-  {
-    //clear batch labels
-    this->labels.clear();
-    this->affinities.clear();
-    this->rmsds.clear();
-
-    //percent of batch from first data source
-    unsigned dataswitch = batch_size;
-    if (this->data2)
-      dataswitch = batch_size*this->data_ratio/(this->data_ratio+1);
-
-    if (subgrid_dim) {
-      unsigned grids_per_dim = this->dimension / subgrid_dim;
-      unsigned ncubes = grids_per_dim * grids_per_dim * grids_per_dim;
-      unsigned n_examples = ncubes * batch_size;
-      for (size_t i=0; i<n_examples; ++i) {
-        if (i < batch_size)
-          seqcont.push_back(0);
-        else
-          seqcont.push_back(1);
-      }
-    }
-    for (int batch_idx = 0; batch_idx < batch_size; ++batch_idx)
-    {
-      typename MolGridDataLayer<Dtype, RNNGridMaker>::example ex;
-      string *root;
-      if (batch_idx < dataswitch)
-      {
-        this->data->next(ex);
-        root = &this->root_folder;
-      }
-      else
-      {
-        this->data2->next(ex);
-        root = &this->root_folder2;
-      }
-
-      this->labels.push_back(ex.label);
-      this->affinities.push_back(ex.affinity);
-      this->rmsds.push_back(ex.rmsd);
-
-      set_grid_ex(top_data, ex, *root, this->batch_transform[batch_idx], peturb, gpu, 
-          batch_size, batch_idx);
-      this->perturbations.push_back(peturb);
-      //NOTE: num_rotations not actually implemented!
-    }
-
-  }
-
-  if(gpu) {
-    caffe_copy(this->labels.size(), &this->labels[0], top[1]->mutable_gpu_data());
-    if(hasaffinity) {
-      caffe_copy(this->affinities.size(), &this->affinities[0], top[2]->mutable_gpu_data());
-      if(hasrmsd) {
-        caffe_copy(this->rmsds.size(), &this->rmsds[0], top[3]->mutable_gpu_data());
-        caffe_copy(seqcont.size(), &seqcont[0], top[4]->mutable_gpu_data());
-      }
-      else 
-        caffe_copy(seqcont.size(), &seqcont[0], top[3]->mutable_gpu_data());
-    } 
-    else if(hasrmsd) {
-      caffe_copy(this->rmsds.size(), &this->rmsds[0], top[2]->mutable_gpu_data());
-      caffe_copy(seqcont.size(), &seqcont[0], top[3]->mutable_gpu_data());
-    }
-    else 
-      caffe_copy(seqcont.size(), &seqcont[0], top[2]->mutable_gpu_data());
-
-    if(this->ligpeturb) {
-      //trusting struct layout is normal
-      caffe_copy(this->perturbations.size()*6, (Dtype*)&this->perturbations[0], top.back()->mutable_gpu_data());
-    }
-
-  }
-  else {
-    caffe_copy(this->labels.size(), &this->labels[0], top[1]->mutable_cpu_data());
-    if(hasaffinity) {
-      caffe_copy(this->affinities.size(), &this->affinities[0], top[2]->mutable_cpu_data());
-      if(hasrmsd) {
-        caffe_copy(this->rmsds.size(), &this->rmsds[0], top[3]->mutable_cpu_data());
-        caffe_copy(seqcont.size(), &seqcont[0], top[4]->mutable_cpu_data());
-      }
-      else 
-        caffe_copy(seqcont.size(), &seqcont[0], top[3]->mutable_cpu_data());
-    } 
-    else if(hasrmsd) {
-      caffe_copy(this->rmsds.size(), &this->rmsds[0], top[2]->mutable_cpu_data());
-      caffe_copy(seqcont.size(), &seqcont[0], top[3]->mutable_cpu_data());
-    }
-    else 
-      caffe_copy(seqcont.size(), &seqcont[0], top[2]->mutable_cpu_data());
-    if(this->ligpeturb) {
-      //trusting struct layout is normal
-      caffe_copy(this->perturbations.size()*6, (Dtype*)&this->perturbations[0], top.back()->mutable_cpu_data());
-    }
-  }
-
+  copyToBlobs(top, hasaffinity, hasrmsd, gpu);
 }
 
 template <typename Dtype, class GridMakerT>

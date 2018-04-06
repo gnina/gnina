@@ -12,29 +12,29 @@
 
 namespace caffe {
 
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+template <typename Dtype, class GridMakerT>
+void MolGridDataLayer<Dtype, GridMakerT>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
 		const vector<Blob<Dtype>*>& top)
 {
 	forward(bottom, top, true);
 }
 
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
+template <typename Dtype, class GridMakerT>
+void MolGridDataLayer<Dtype, GridMakerT>::Backward_gpu(const vector<Blob<Dtype>*>& top,
 		const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
 	backward(top, bottom, true);
 }
 
 template <typename Dtype, class GridMakerT>
-void RealMolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMakerT& gmaker, Dtype
+void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMakerT& gmaker, Dtype
         *diff, unsigned batch_size)  {
 
   unsigned buffersize = 0;
   float4* atoms = NULL;
   short* whichGrid = NULL;
   float3* gradient = NULL; 
-  //launch a kernel for each batch
+  //launch a kernel for each batch element
   for (int item_id = 0; item_id < batch_size; ++item_id) {
     int offset = item_id*example_size;
     //malloc and copy batch data

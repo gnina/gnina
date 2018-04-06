@@ -76,7 +76,7 @@ public:
   }
 
 	//mus set center before gridding
-	void setCenter(double x, double y, double z)
+	virtual void setCenter(double x, double y, double z)
 	{
     center.x = x;
     center.y = y;
@@ -191,25 +191,28 @@ public:
 	  //return 0.0;
 	}
 
+	virtual void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex,  const quaternion& Q, Dtype* data, unsigned ntypes) {
+    boost::multi_array_ref<Dtype, 4> grids(data, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+    setAtomsCPU(ainfo, gridindex, Q, grids);
+  }
 
 	//Grids is either a vector of multi_arrays or a multi_array
 	//set the relevant grid points for passed info
 	template<typename Grids>
-	void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex,  const quaternion& Q, Grids& grids, unsigned batch_idx=0)
+	void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex,  const quaternion& Q, Grids& grids)
 	{
 		zeroGridsCPU(grids);
 		for (unsigned i = 0, n = ainfo.size(); i < n; i++)
 		{
 			int pos = gridindex[i];
 			if (pos >= 0)
-				setAtomCPU(ainfo[i], pos, Q, grids, batch_idx);
+				setAtomCPU(ainfo[i], pos, Q, grids);
 		}
 	}
 
 	//set the relevant grid points for provided atom
 	template<typename Grids>
-	void setAtomCPU(float4 ainfo, int whichgrid, const quaternion& Q, Grids& grids, 
-                  unsigned batch_idx=0)
+	void setAtomCPU(float4 ainfo, int whichgrid, const quaternion& Q, Grids& grids)
 	{
 		float radius = ainfo.w;
 	  float r = radius * radiusmultiple;
@@ -405,17 +408,24 @@ public:
 		}
 	}
 
+  
+  virtual void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
+                           const Dtype* data, vector<float3>& agrad, unsigned ntypes) {
+    boost::multi_array_ref<Dtype, 4> grids(data, boost::extents[ntypes][dim][dim][dim]);
+    setAtomGradientsCPU(ainfo, gridindex, Q, grids, agrad);
+  }
+
   //backpropagate the gradient from atom grid to atom x,y,z positions
   template<typename Grids>
   void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
-                           const Grids& grids, vector<float3>& agrad, unsigned batch_idx)
+                           const Grids& grids, vector<float3>& agrad)
   { 
     zeroAtomGradientsCPU(agrad);
     for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
     {
       int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
       if (whichgrid >= 0) {
-        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i], batch_idx);
+        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
       }
     }
   }
@@ -629,35 +639,59 @@ public:
 class RNNGridMaker : public GridMaker {
   float subgrid_dim;
   unsigned batch_size;
+  unsigned batch_idx;
   public:
-  RNNGridMaker(float res=0, float d=0, float rm=1.5, float sd=3.0, bool b=false, 
-      bool s=false) : subgrid_dim(sd), GridMaker(res, d, rm, b, s) {
-    initialize(res, d, rm, sd, b, s);
+  RNNGridMaker(float res=0, float d=0, float rm=1.5, bool b=false, bool s=false, 
+      float sd=3.0, unsigned bs=1, unsigned bi=0) : subgrid_dim(sd), batch_size(bs), 
+      batch_idx(bi), GridMaker(res, d, rm, b, s) {
+    initialize(res, d, rm, b, s, sd, bs, bi);
   }
 
   virtual ~RNNGridMaker() {}
 
-  virtual void initialize(float res, float d, float rm=1.5, float sd=3.0
-      bool b = false, bool s = false, bs=1) {
+  virtual void initialize(float res, float d, float rm=1.5, bool b = false, 
+      bool s = false, float sd=3.0, bs=1, bi=0) {
     subgrid_dim = sd;
     batch_size = bs;
+    batch_idx = bi;
+    GridMaker::initialize(res, d, rm, b, s);
     if (subgrid_dim) assert(fmod(dimension, subgrid_dim)==0 && 
       "Subgrid dimension must evenly divide total grid dimension");
-    GridMaker::initialize(res, d, rm, b, s);
   }
 
   virtual void initialize(const MolGridDataParameter& param) {
     initialize(param.resolution(), param.dimension(), param.radiusmultiple(), 
-        param.subgrid_dim(), param.binary_occupancy(), param.spherize(), param.batch_size());
+        param.binary_occupancy(), param.spherize(), param.subgrid_dim(), param.batch_size());
   }
 
   virtual void initialize(const gridoptions& opt, float rm) {
-    initialize(opt.res, opt.dim, rm, opt.subgrid_dim, opt.binary, opt.spherize);
+    initialize(opt.res, opt.dim, rm, opt.binary, opt.spherize, opt.subgrid_dim);
   }
 
+	virtual void setCenter(double x, double y, double z) {
+    batch_idx = (++batch_idx) % batch_size;
+    GridMaker::setCenter(x, y, z);
+  }
+
+	virtual void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex,  const quaternion& Q, Dtype* data, unsigned ntypes) {
+    unsigned grids_per_dim = this->dimension / subgrid_dim;
+    unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
+    unsigned subgrid_dim_in_points = dim / grids_per_dim;
+    boost::multi_array_ref<Dtype, 6> grids(data, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
+    GridMaker::setAtomsCPU(ainfo, gridindex, Q, grids);
+  }
+
+	virtual void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, Dtype* data, vector<float3>& agrad, unsigned ntypes) {
+    unsigned grids_per_dim = this->dimension / subgrid_dim;
+    unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
+    unsigned subgrid_dim_in_points = dim / grids_per_dim;
+    boost::multi_array_ref<Dtype, 6> grids(data, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
+    GridMaker::setAtomGradientsCPU(ainfo, gridindex, Q, grids, agrad);
+  }
+
+  //TODO: possible to merge this with base version?
   template<typename Grids>
-	void setAtomCPU(float4 ainfo, int whichgrid, const quaternion& Q, Grids& grids, 
-                  unsigned batch_idx=0)
+	void setAtomCPU(float4 ainfo, int whichgrid, const quaternion& Q, Grids& grids)
 	{
 		float radius = ainfo.w;
 	  float r = radius * radiusmultiple;
@@ -732,16 +766,16 @@ class RNNGridMaker : public GridMaker {
 	  }
 	}
 
-  //defined in cu. this _cannot_ be virtual because we are passing the
+  //defined in cu. N.B. this _cannot_ be virtual because we are passing the
   //gridmaker to a GPU kernel by value and the vtable is not copied
 	template<typename Dtype>
 	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, 
       unsigned ngrids, Dtype *grids, unsigned batch_idx, unsigned batch_dim);
 
+  //TODO: possible to merge this with base version?
 	template<typename Grids>
-	void setAtomGradientCPU(const float4& ainfo, int whichgrid,
-			const quaternion& Q, const Grids& grids,
-			float3& agrad, unsigned batch_idx, bool isrelevance = false) {
+	void setAtomGradientCPU(const float4& ainfo, int whichgrid, const quaternion& Q, 
+      const Grids& grids, float3& agrad, bool isrelevance = false) {
 		float3 coords;
 		if (Q.real() != 0) //apply rotation
 		{

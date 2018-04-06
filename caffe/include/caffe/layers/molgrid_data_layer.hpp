@@ -83,6 +83,42 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   virtual void setBlobShape(const vector<Blob<Dtype>*>& top, bool hasrmsd, bool hasaffinity);
   virtual void enableAtomGradients() { compute_atom_gradients = true; } //enable atom gradient computation
 
+  virtual void clearLabels() {
+    labels.clear();
+    affinities.clear();
+    rmsds.clear();
+  }
+
+  virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd =0) {
+    labels.push_back(pose);
+    affinities.push_back(affinity);
+    rmsds.push_back(rmsd);
+  }
+
+  virtual void copyToBlob(Dtype* src, size_t size, Blob<Dtype>* blob, bool gpu) {
+    Dtype* dst = nullptr;
+    if (gpu)
+      dst = dst->mutable_gpu_data();
+    else
+      dst = dst->mutable_cpu_data();
+    caffe_copy(size, &src[0], dst);
+  }
+
+  virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, 
+      bool gpu) {
+    copyToBlob(&labels[0], labels.size(), top[1], gpu);
+    if(hasaffinity) {
+      copyToBlob(&affinities[0], affinities.size(), top[2], gpu);
+      if(hasrmsd)
+        copyToBlob(&rmsds[0], rmsds.size(), top[3], gpu);
+    }
+    else if(hasrmsd)
+      copyToBlob(&rmsds[0], rmsds.size(), top[2], gpu);
+  
+    if(ligpeturb)
+      copyToBlob((Dtype*)&perturbations[0], perturbations.size()*6, top.back(), gpu);
+  }
+
   void getReceptorAtoms(int batch_idx, vector<float4>& atoms);
   void getLigandAtoms(int batch_idx, vector<float4>& atoms);
 
@@ -720,12 +756,54 @@ class RNNMolGridDataLayer : public MolGridDataLayer<Dtype, RNNGridMaker> {
       MolGridDataLayer<Dtype, RNNGridMaker>(param), subgrid_dim(3.0) {}
 
     virtual ~RNNMolGridDataLayer() {};
+      
+    virtual void clearLabels() {
+      seqcont.clear();
+      MolGridDataLayer<Dtype, RNNGridMaker>::clearLabels();
+    }
+
+    virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) {
+      unsigned grids_per_dim = this->dimension / subgrid_dim;
+      unsigned ncubes = grids_per_dim * grids_per_dim * grids_per_dim;
+      unsigned batch_size = this->gmaker.batch_size;
+      unsigned batch_idx = this->gmaker.batch_idx;
+      unsigned nexamples = ncubes * batch_size;
+      if (seqcont.size() < nexamples)
+        seqcont.resize(nexamples);
+      if (this->labels.size() < nexamples) 
+        this->labels.resize(nexamples);
+      if (this->affinities.size() < nexamples)
+        this->affinities.resize(nexamples);
+      if (this->rmsds.size() < nexamples)
+        this->rmsds.resize(nexamples);
+
+      for (size_t cube_id = 0; cube_id < ncubes; ++cube_id) {
+        unsigned idx = cube_id * batch_size + batch_idx;
+        //TODO: generalize
+        if (cube_id == 0)
+          seqcont[idx] = 0;
+        else
+          seqcont[idx] = 1;
+        this->labels[idx] = pose;
+        this->affinities[idx] = affinity;
+        this->rmsds[idx] = rmsd;
+      }
+    }
+
   protected:
   double subgrid_dim;
   vector<Dtype> seqcont; //necessary for LSTM layer; indicates if a batch instance 
                          //is a continuation of a previous example sequence or 
                          //the beginning of a new one
   virtual void setBlobShape(const vector<Blob<Dtype>*>& top, bool hasrmsd, bool hasaffinity);
+
+  virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, 
+      bool gpu) {
+    int idx = this->ExactNumTopBlobs() - this->ligpeturb;
+    copyToBlob(&seqcont[0], seqcont.size(), top[idx], gpu);
+    MolGridDataLayer<Dtype, RNNGridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, gpu);
+  }
+
   virtual void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
   virtual void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu);
 };
