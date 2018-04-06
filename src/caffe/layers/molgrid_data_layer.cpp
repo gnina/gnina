@@ -164,6 +164,10 @@ void MolGridDataLayer<Dtype>::getReceptorTransformationGradient(int batch_idx, v
 
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
   mol_info& mol = batch_transform[batch_idx].mol;
+
+  CHECK(mol.center == mem_lig.center) << "Centers not equal; receptor transformation gradient only supported in-mem";
+
+
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
   {
     if (mol.whichGrid[i] < numReceptorTypes)
@@ -531,9 +535,8 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 typename MolGridDataLayer<Dtype>::quaternion MolGridDataLayer<Dtype>::axial_quaternion()
 {
-  using namespace boost::math;
   unsigned rot = current_rotation;
-  quaternion ret;
+  qt ret;
   //first rotate to a face
   switch(rot%6) {
     case 0:
@@ -747,7 +750,7 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
     peturb.y = -ligtrans.center[1];
     peturb.z = -ligtrans.center[2];
 
-    quaternion qinv = conj(ligtrans.Q)/norm(ligtrans.Q); //not Cayley, not euclidean norm - already squared
+    qt qinv = conj(ligtrans.Q)/norm(ligtrans.Q); //not Cayley, not euclidean norm - already squared
     peturb.set_from_quaternion(qinv);
 
   } else {
@@ -803,7 +806,7 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
   else
   {
     Grids grids(data, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
-    gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids);
+    gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(), grids);
   }
 }
 
@@ -1041,7 +1044,7 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const ve
         mol_transform& transform = batch_transform[item_id];
         gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
         gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, 
-                transform.Q, grids, transform.mol.gradient);
+                transform.Q.boost(), grids, transform.mol.gradient);
       }
     }
   }
@@ -1073,7 +1076,7 @@ void MolGridDataLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
 
     mol_transform& transform = batch_transform[item_id];
     gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
-    gmaker.setAtomRelevanceCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
+    gmaker.setAtomRelevanceCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(), grids,
         transform.mol.gradient);
   }
 
