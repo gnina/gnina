@@ -12,7 +12,6 @@
 #include <boost/thread/condition_variable.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
-#include <boost/math/quaternion.hpp>
 #include <boost/multi_array/multi_array_ref.hpp>
 #include "caffe/blob.hpp"
 #include "caffe/data_transformer.hpp"
@@ -85,18 +84,22 @@ public:
   void getLigandChannels(int batch_idx, vector<short>& whichGrid);
   void getReceptorGradient(int batch_idx, vector<float3>& gradient);
   void getReceptorTransformationGradient(int batch_idx, vec& force, vec& torque);
-  void getMappedReceptorGradient(int batch_idx, unordered_map<string ,float3>& gradient);
+  void getMappedReceptorGradient(int batch_idx, unordered_map<string, float3>& gradient);
   void getLigandGradient(int batch_idx, vector<float3>& gradient);
   void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient);
 
   //set in memory buffer
+  //will apply translate and rotate iff rotate is valid
   template<typename Atom>
-  void setReceptor(const vector<Atom>& receptor)
+  void setReceptor(const vector<Atom>& receptor, const vec& translate = {}, const qt& rotate = {})
   {
     //make this a template mostly so I don't have to pull in gnina atom class
     mem_rec.atoms.clear();
     mem_rec.whichGrid.clear();
     mem_rec.gradient.clear();
+
+    float3 c = make_float3(mem_lig.center[0], mem_lig.center[1], mem_lig.center[2]);
+    float3 trans = make_float3(translate[0],translate[1],translate[2]);
 
     //receptor atoms
     for(unsigned i = 0, n = receptor.size(); i < n; i++)
@@ -109,6 +112,17 @@ public:
         ainfo.x = a.coords[0];
         ainfo.y = a.coords[1];
         ainfo.z = a.coords[2];
+
+        if(rotate.real() != 0) {
+          //transform receptor coordinates
+          float3 pt = rotate.rotate(ainfo.x-c.x,ainfo.y-c.y,ainfo.z-c.z);
+          pt += c;
+          pt += trans;
+          ainfo.x = pt.x;
+          ainfo.y = pt.y;
+          ainfo.z = pt.z;
+        }
+
         if (fixedradius <= 0)
           ainfo.w = xs_radius(t);
         else
@@ -186,7 +200,7 @@ public:
  protected:
 
   ///////////////////////////   PROTECTED DATA TYPES   //////////////////////////////
-  typedef GridMaker::quaternion quaternion;
+  typedef qt quaternion;
   typedef typename boost::multi_array_ref<Dtype, 4>  Grids;
 
   //for memory efficiency, only store a given string once and use the const char*
@@ -506,7 +520,7 @@ public:
         gradient.push_back(a.gradient[i]); //NOT rotating, but that shouldn't matter, right?
 
         float4 atom = a.atoms[i];
-        quaternion p(0, atom.x-a.center[0], atom.y-a.center[1], atom.z-a.center[2]);
+        qt p(0, atom.x-a.center[0], atom.y-a.center[1], atom.z-a.center[2]);
         p = transform.Q * p * (conj(transform.Q) / norm(transform.Q));
         atom.x = p.R_component_2() + a.center[0] + transform.center[0];
         atom.y = p.R_component_3() + a.center[1] + transform.center[1];
@@ -552,11 +566,11 @@ public:
 
     output_transform(): x(0), y(0), z(0), pitch(0), yaw(0), roll(0) {}
 
-    output_transform(Dtype X, Dtype Y, Dtype, Dtype Z, const quaternion& Q): x(X), y(Y), z(Z) {
+    output_transform(Dtype X, Dtype Y, Dtype, Dtype Z, const qt& Q): x(X), y(Y), z(Z) {
       set_from_quaternion(Q);
     }
 
-    void set_from_quaternion(const quaternion& Q) {
+    void set_from_quaternion(const qt& Q) {
       //convert to euler angles
       //https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
       // roll (x-axis rotation)
@@ -584,12 +598,12 @@ public:
   };
   struct mol_transform {
     mol_info mol;
-    quaternion Q;  // rotation
+    qt Q;  // rotation
     vec center; // translation
 
     mol_transform() {
       mol = mol_info();
-      Q = quaternion(0,0,0,0);
+      Q = qt(0,0,0,0);
       center[0] = center[1] = center[2] = 0;
     }
 
@@ -619,7 +633,7 @@ public:
       double r3 = sqr*sin(2*M_PI*u3);
       double r4 = sqr*cos(2*M_PI*u3);
 
-      Q = quaternion(r1,r2,r3,r4);
+      Q = qt(r1,r2,r3,r4);
     }
 
   };

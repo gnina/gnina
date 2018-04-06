@@ -1205,17 +1205,19 @@ Thank you!\n";
 				"resolution of grids, don't change unless you really know what you are doing")
 		("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
 				"evaluate multiple rotations of pose (max 24)")
-		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
+		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring),
 				"Use a convolutional neural network to score final pose.")
-		("cnn_update_min_frame", bool_switch(&cnnopts.keep_minimize_frame)->default_value(true),
+		("cnn_update_min_frame", bool_switch(&cnnopts.move_minimize_frame),
 		    "During minimization, recenter coordinate frame as ligand moves")
-		("cnn_outputdx", bool_switch(&cnnopts.outputdx)->default_value(false),
+		("cnn_freeze_receptor", bool_switch(&cnnopts.fix_receptor),
+		    "Don't move the receptor with respect to a fixed coordinate system")
+		("cnn_outputdx", bool_switch(&cnnopts.outputdx),
 		               "Dump .dx files of atom grid gradient.")
-		("cnn_outputxyz", bool_switch(&cnnopts.outputxyz)->default_value(false),
+		("cnn_outputxyz", bool_switch(&cnnopts.outputxyz),
 		               "Dump .xyz files of atom gradient.")
 		("cnn_xyzprefix", value<std::string>(&cnnopts.xyzprefix)->default_value("gradient"),
 		               "Prefix for atom gradient .xyz files")
-		("cnn_verbose", bool_switch(&cnnopts.verbose)->default_value(false),"Enable verbose output for CNN debugging");
+		("cnn_verbose", bool_switch(&cnnopts.verbose),"Enable verbose output for CNN debugging");
 
 
 		options_description misc("Misc (optional)");

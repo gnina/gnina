@@ -199,6 +199,9 @@ struct CUDA_ALIGN(4 * sizeof(float)) vec {
 		return *this;
 	}
 
+	bool operator==(const vec& rhs) {
+	  return data[0] == rhs.data[0] && data[1] == rhs.data[1] && data[2] == rhs.data[2];
+	}
     __host__ __device__
 	void assign(fl s) {
 		data[0] = data[1] = data[2] = s;

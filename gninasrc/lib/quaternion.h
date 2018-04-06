@@ -34,7 +34,7 @@ struct qt {
     fl b;
     fl c;
     fl d;
-    __host__ __device__ qt(){};
+    __host__ __device__ qt(): a(0), b(0), c(0), d(0) {};
     __host__ __device__
     qt(fl A, fl B, fl C, fl D): a(A), b(B), c(C), d(D) {
     };
@@ -44,6 +44,12 @@ struct qt {
       b = bqt.R_component_2();
       c = bqt.R_component_3();
       d = bqt.R_component_4();
+    }
+
+    //todo: remove all use of boost quaternion so there is only a single
+    //quaternion implementation in use, then remove this convenience function
+    boost::math::quaternion<fl> boost() const {
+      return boost::math::quaternion<fl>(a,b,c,d);
     }
 
     __host__ __device__ inline
@@ -56,7 +62,7 @@ struct qt {
     fl R_component_4() const{return d;}
 
     __host__ __device__
-    qt &operator *=(const fl &r){
+    qt& operator *=(const fl &r){
         a *= r;
         b *= r;
         c *= r;
@@ -64,7 +70,7 @@ struct qt {
         return *this;
     }
     __host__ __device__
-    qt operator /=(const fl &r){
+    qt& operator /=(const fl &r){
         a /= r;
         b /= r;
         c /= r;
@@ -85,6 +91,12 @@ struct qt {
     qt operator*(const qt& r) const;
 
     __host__ __device__
+    qt& operator*=(const qt& r) {
+      *this = *this * r;
+      return *this;
+    }
+
+    __host__ __device__
     qt operator /=(const qt &r);
 
 
@@ -97,22 +109,8 @@ struct qt {
     }
     
     __host__ __device__
-    qt conj(qt const & q)
-    {
-        return(qt(   +q.R_component_1(),
-                    -q.R_component_2(),
-                    -q.R_component_3(),
-                    -q.R_component_4()));
-    }
-
-    __host__ __device__
     float real() const {
         return R_component_1();
-    }
-
-    __host__ __device__
-    float real(qt const& q) {
-      return q.real();
     }
 
     __host__ __device__
@@ -122,9 +120,7 @@ struct qt {
     }
 
     __host__ __device__
-    float norm(qt const& q) {
-      return real(q*conj(q));
-    }
+    float norm(qt const& q);
 
     /* Rotation point using the quaternion.   */
     __host__ __device__
@@ -215,6 +211,28 @@ inline void quaternion_normalize(qt& q) {
 	assert(a > epsilon_fl);
 	q *= 1/a;
 	assert(quaternion_is_normalized(q));
+}
+
+__host__ __device__
+inline
+qt conj(qt const & q)
+{
+    return(qt(   +q.R_component_1(),
+                -q.R_component_2(),
+                -q.R_component_3(),
+                -q.R_component_4()));
+}
+
+__host__ __device__
+inline
+float real(qt const& q) {
+  return q.real();
+}
+
+__host__ __device__
+inline
+float norm(qt const& q) {
+  return (q*conj(q)).real();
 }
 
 __host__ __device__
@@ -348,4 +366,5 @@ mat quaternion_to_r3(const qt& q) {
 
 	return tmp;
 }
+
 #endif

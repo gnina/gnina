@@ -330,7 +330,7 @@ void gpu_mask_atoms(float3 gridcenter, float rsq, int n, float4 *ainfos, bool *m
 
 //WARNING: if Q is not the identify, will modify coordinates in ainfos in-place
 template<typename Dtype>
-void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, quaternion Q, unsigned ngrids,Dtype *grids)
+void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, qt Q, unsigned ngrids,Dtype *grids)
 {
 	//each thread is responsible for a grid point location and will handle all atom types
 	//each block is 8x8x8=512 threads
@@ -373,7 +373,7 @@ void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, qua
 
 //instantiations
 template
-void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, quaternion Q, unsigned ngrids,float *grids);
+void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, qt Q, unsigned ngrids,float *grids);
 template
-void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, quaternion Q, unsigned ngrids,double *grids);
+void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, qt Q, unsigned ngrids,double *grids);
 

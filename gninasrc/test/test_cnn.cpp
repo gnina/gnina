@@ -69,7 +69,7 @@ void test_set_atom_gradients() {
     caffe::MolGridDataLayer<CNNScorer::Dtype>::mol_transform cpu_transform =
         mgrid->batch_transform[0];
     gmaker.setAtomGradientsCPU(cpu_transform.mol.atoms, cpu_transform.mol.whichGrid,
-            cpu_transform.Q, grids, cpu_transform.mol.gradient);
+            cpu_transform.Q.boost(), grids, cpu_transform.mol.gradient);
 
     //calculate GPU atom gradients
     float* gpu_diff;

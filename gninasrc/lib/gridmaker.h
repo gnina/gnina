@@ -263,7 +263,7 @@ public:
 	//GPU accelerated version, defined in cu file
 	//pointers must point to GPU memory
 	template<typename Dtype>
-	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, unsigned ngrids, Dtype *grids);
+	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, qt Q, unsigned ngrids, Dtype *grids);
 
 
   void zeroAtomGradientsCPU(vector<float3>& agrad)

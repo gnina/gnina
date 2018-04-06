@@ -920,8 +920,11 @@ void model::sete(const conf& c) {
 
 void model::set(const conf& c) {
 	ligands.set_conf(atoms, coords, c.ligands);
-	/* TODO */
 	flex.set_conf(atoms, coords, c.flex);
+	//for cnn, we do not change the receptor coordinates here
+	//instead the cnn layer applies the rigid body transformation, which will
+	//apply the inverse of to the ligand when we are done
+	rec_conf = c.receptor;
 }
 
 //dkoes - return the string corresponding to i'th ligand atoms pdb information

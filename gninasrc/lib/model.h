@@ -429,14 +429,18 @@ struct model {
     eval_deriv_counter(0) {};
 	~model() {deallocate_gpu();};
 
-    vecv coords;
-	vecv minus_forces;
-    gpu_data gdata;
-    vector_mutable<ligand> ligands;
-	sz m_num_movable_atoms;
-	atomv atoms; // movable, inflex
-	atomv grid_atoms;
-	interacting_pairs other_pairs; 
+  vecv coords;
+  vecv minus_forces;
+  gpu_data gdata;
+  vector_mutable<ligand> ligands;
+  sz m_num_movable_atoms;
+  atomv atoms; // movable, inflex
+  atomv grid_atoms;
+  interacting_pairs other_pairs;
+
+  //for cnn, allow rigid body movement of receptor
+  rigid_change rec_change; //set by non_cache/cnn scoring
+  rigid_conf rec_conf;
 
 private:
 	//my, aren't we friendly!

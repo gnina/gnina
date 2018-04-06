@@ -29,12 +29,13 @@ struct cnn_options {
     bool outputdx;
     bool outputxyz;
     bool gradient_check;
-    bool keep_minimize_frame;
+    bool move_minimize_frame;  //recenter with every scoring evaluation
+    bool fix_receptor;
     bool verbose;
     std::string xyzprefix;
     unsigned seed; //random seed
 
-    cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), outputdx(false), outputxyz(false), gradient_check(false), keep_minimize_frame(false), verbose(false), seed(0) {}
+    cnn_options(): resolution(0.5), cnn_rotations(0), cnn_scoring(false), outputdx(false), outputxyz(false), gradient_check(false), move_minimize_frame(false), fix_receptor(true), verbose(false), seed(0) {}
 };
 
 /* This class evaluates protein-ligand poses according to a provided
@@ -45,14 +46,7 @@ class CNNScorer {
     caffe::shared_ptr<caffe::Net<Dtype> > net;
     caffe::MolGridDataLayer<Dtype> *mgrid;
     caffe::MolGridDataParameter *mgridparam;
-    unsigned rotations;
-    unsigned seed;
-    bool outputdx;
-    bool outputxyz;
-    bool gradient_check;
-    bool maintain_grid_center; //don't always update center, if this is true, adjust_center must be called manually to change center of first call
-    bool verbose;
-    std::string xyzprefix;
+    cnn_options cnnopts;
 
     caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
 
@@ -62,10 +56,10 @@ class CNNScorer {
     vector<short> channels;
 
 public:
-    CNNScorer(): mgrid(NULL), rotations(0), outputdx(false), outputxyz(false), gradient_check(false), maintain_grid_center(true), verbose(false), mtx(new boost::mutex) {}
+    CNNScorer(): mgrid(NULL), mtx(new boost::mutex) {}
     virtual ~CNNScorer() {}
 
-    CNNScorer(const cnn_options& cnnopts, const model& m);
+    CNNScorer(const cnn_options& opts, const model& m);
 
     bool initialized() const { return net.get(); }
 
@@ -83,6 +77,9 @@ public:
     void gradient_setup(const model& m, const string& recname, const string& ligname, const string& layer_to_ignore = "");
 
     bool adjust_center(model &m) const;
+
+    const cnn_options& options() const { return cnnopts; }
+
     vec get_center() const { return mgrid->getCenter(); }
     fl get_grid_dim() const { return mgrid->getDimension(); }
     fl get_grid_res() const { return mgrid->getResolution(); }

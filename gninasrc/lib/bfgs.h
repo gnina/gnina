@@ -415,7 +415,6 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
     g.print();
     std::cout << "x: ";
     x.print();
-    std::cout << "\n";
 	  //std::cout << "numerical gradient: ";
 	  //change ngrad(g); ngrad.clear();
 	  //numerical_gradient(f, x,g);

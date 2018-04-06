@@ -340,7 +340,10 @@ struct change {
 		VINA_FOR_IN(i, flex)
 			flex[i].print();
 
-		if(include_receptor) receptor.print();
+		if(include_receptor) {
+		  receptor.print();
+		  std::cout << "\n";
+		}
 	}
 
     fl get_with_node_idx(sz index, sz* node_idx /* out */, sz* offset_in_node /* out */) const;
@@ -431,7 +434,10 @@ struct conf {
 			ligands[i].print();
 		VINA_FOR_IN(i, flex)
 			flex[i].print();
-		if(include_receptor) receptor.print();
+		if(include_receptor) {
+		  receptor.print();
+		  std::cout << "\n";
+		}
 	}
 	//dkoes - index into position values; corresponds to change indexing
 	//read only because of quaternions
