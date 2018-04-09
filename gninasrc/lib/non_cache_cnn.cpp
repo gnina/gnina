@@ -85,6 +85,11 @@ bool non_cache_cnn::adjust_center(model& m)
   return ret;
 }
 
+vec non_cache_cnn::get_center() const
+{
+  return cnn_scorer.get_center();
+}
+
 //check cnn box
 bool non_cache_cnn::within(const model& m, fl margin) const
 {

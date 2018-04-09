@@ -43,6 +43,11 @@ struct quasi_newton_aux
     return ig->adjust_center(*m);
   }
 
+  vec get_center() const
+  {
+    return ig->get_center();
+  }
+
   fl operator()(const conf& c, change& g)
   {
     return m->eval_deriv(*p, *ig, v, c, g, *user_grid);

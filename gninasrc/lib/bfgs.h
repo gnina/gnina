@@ -420,9 +420,11 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 	  //numerical_gradient(f, x,g);
 	  //ngrad.print();
 	}
-	std::ofstream minout;
-	if(params.outputframes > 0)
+	std::ofstream minout, recout;
+	if(params.outputframes > 0) {
 		minout.open("minout.sdf");
+		recout.open("recout.xyz");
+	}
 	VINA_U_FOR(step, params.maxiters)
 	{
 		minus_mat_vec_product(h, g, p);
@@ -488,6 +490,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 				f.m->set(xi);
 				f.m->write_sdf(minout);
 				minout << "$$$$\n";
+				f.m->write_rigid_xyz(recout, f.get_center());
 			}
 		}
 		x = x_new;

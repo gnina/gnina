@@ -284,6 +284,8 @@ struct model {
 		VINA_FOR_IN(i, ligands)
 			write_context(ligands[i].cont, out);
 	}
+
+	void write_rigid_xyz(std::ostream& out, const vec& center) const;
 	void write_structure(std::ostream& out) const {
 		VINA_FOR_IN(i, ligands)
 			write_context(ligands[i].cont, out);

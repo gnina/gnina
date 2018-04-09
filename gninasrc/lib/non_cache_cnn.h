@@ -42,6 +42,7 @@ struct non_cache_cnn : public non_cache {
 	fl getSlope() { return slope; }
 	virtual bool skip_interacting_pairs() const { return true; }
 	virtual bool adjust_center(model& m);
+	virtual vec get_center() const;
 	virtual bool move_receptor() { return !cnn_scorer.options().move_minimize_frame && !cnn_scorer.options().fix_receptor; }
 protected:
 	CNNScorer& cnn_scorer;
