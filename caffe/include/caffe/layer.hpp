@@ -107,6 +107,11 @@ class Layer {
       const vector<Blob<Dtype>*>& top) = 0;
 
   /**
+   * @brief Deallocate any scratch memory.
+   */
+  virtual void Clear() {}
+
+  /**
    * @brief Given the bottom blobs, compute the top blobs and the loss.
    *
    * @param bottom

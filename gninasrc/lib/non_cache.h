@@ -28,23 +28,26 @@
 
 struct non_cache : public igrid {
 	non_cache(szv_grid_cache& gcache, const grid_dims& gd_,
-			const precalculate* p_, fl slope_=1e6);
+			const precalculate* p_, fl slope_=1e3);
 	virtual ~non_cache() {}
 	virtual fl eval      (const model& m, fl v) const; // needs m.coords // clean up
 	virtual fl eval_deriv(model& m, fl v, const grid& user_grid) const; // needs m.coords, sets m.minus_forces // clean up
 
-	fl check_bounds      (const vec& a_coords, vec& adjusted_a_coords) const;
-	fl check_bounds_deriv(const vec& a_coords, vec& adjusted_a_coords, vec& out_of_bounds_deriv) const;
+	fl check_bounds      (const grid_dims& dims, const vec& a_coords, vec& adjusted_a_coords) const;
+	fl check_bounds_deriv(const grid_dims& dims, const vec& a_coords, vec& adjusted_a_coords, vec& out_of_bounds_deriv) const;
 
-	bool within(const model& m, fl margin = 0.0001) const;
+	virtual bool within(const model& m, fl margin = 0.0001) const;
 	fl getSlope() { return slope; }
 	virtual void setSlope(fl sl) { slope = sl; }
+    grid_dims get_grid_dims() {return gd; }
 
 protected:
 	fl slope;
 	szv_grid sgrid;
 	grid_dims gd;
 	const precalculate* p;
+
+	bool gd_within(const grid_dims& dims, const model& m, fl margin) const;
 };
 
 #endif

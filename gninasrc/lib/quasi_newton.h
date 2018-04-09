@@ -33,7 +33,7 @@ class quasi_newton {
 public:
 	quasi_newton(const minimization_params& p) : params(p), average_required_improvement(0.0) {}
 	// clean up
-	void operator()(model& m, const precalculate& p, const igrid& ig, output_type& out, change& g, const vec& v, const grid& user_grid) const; // g must have correct size
+	void operator()(model& m, const precalculate& p, igrid& ig, output_type& out, change& g, const vec& v, const grid& user_grid) const; // g must have correct size
 };
 
 struct quasi_newton_aux_gpu {
@@ -50,6 +50,8 @@ struct quasi_newton_aux_gpu {
 	~quasi_newton_aux_gpu() {
 		gdata.copy_from_gpu(*m);
 	}
+
+	void adjust_center() { } //this may have to be implemented for cnn scoring
 
     __device__
 	fl operator()(const conf_gpu& c,change_gpu& g){

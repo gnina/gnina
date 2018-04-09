@@ -47,11 +47,10 @@
 
 typedef float fl;
 
-
 //collection of parameters specifying how minimization should be done
 struct minimization_params
 {
-	enum Type {BFGSFastLineSearch, BFGSAccurateLineSearch, ConjugateGradient};
+	enum Type {BFGSFastLineSearch, BFGSAccurateLineSearch, ConjugateGradient, Simple};
 
 	Type type;
 	unsigned maxiters; //maximum number of iterations of algorithm
@@ -94,6 +93,7 @@ typedef std::pair<fl, fl> pr;
 #else
 #define CUDA_ALIGN(n) alignas(n)
 #endif
+
 
 struct CUDA_ALIGN(4 * sizeof(float)) vec {
 	fl data[3];
@@ -306,6 +306,14 @@ typedef std::vector<fl> flv;
 typedef std::vector<pr> prv;
 typedef std::vector<sz> szv;
 typedef boost::filesystem::path path;
+
+//template instantiation, mostly for cdt indexer
+template class std::vector<vec>;
+template class gpair<vec, vec>;
+template class std::vector<fl>;
+template class std::vector<pr>;
+template class std::vector<sz>;
+
 
 struct internal_error {
 	std::string file;

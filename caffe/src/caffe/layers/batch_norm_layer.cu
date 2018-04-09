@@ -165,6 +165,7 @@ void BatchNormLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
   caffe_gpu_div(temp_.count(), bottom_diff, temp_.gpu_data(), bottom_diff);
 }
 
+
 INSTANTIATE_LAYER_GPU_FUNCS(BatchNormLayer);
 
 

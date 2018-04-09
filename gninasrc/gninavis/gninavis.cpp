@@ -9,6 +9,7 @@
 
 int main(int argc, char* argv[])
 {
+  bool zero_values;
   vis_options visopts;
   cnn_options cnnopts;
 
@@ -18,7 +19,7 @@ int main(int argc, char* argv[])
   using namespace boost::program_options;
 
   std::string vis_method;
-  std::string masking_target;
+  std::string target;
 
   options_description inputs("Input");
   inputs.add_options()
@@ -57,10 +58,12 @@ int main(int argc, char* argv[])
                     "gpu id for accelerated scoring")
     ("vis_method", value<std::string>(&vis_method)->default_value("masking"),
                     "visualization method (lrp, masking, gradient, or all)")
-    ("masking_target", value<std::string>(&visopts.masking_target)->default_value("pose"),
+    ("target", value<std::string>(&visopts.target)->default_value("pose"),
                     "scoring method for masking (pose or aff)")
     ("outputdx", bool_switch(&visopts.outputdx)->default_value(false),
-                   "output DX grid files (lrp only)");
+                   "output DX grid files")
+    ("zero_values", bool_switch(&visopts.zero_values)->default_value(false),
+                    "only propagate values from dead nodes");
 
   options_description debug("Debug");
   debug.add_options()
@@ -111,20 +114,6 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  if(vm.count("cnn_model") <= 0)
-  {
-    std::cerr << "Missing cnn_model.\n" << "\nCorrect usage:\n"
-            << desc << '\n';
-    return 1;
-  }
-
-  if(vm.count("cnn_weights") <= 0)
-  {
-    std::cerr << "Missing cnn_weights.\n" << "\nCorrect usage:\n"
-            << desc << '\n';
-    return 1;
-  }
-
   if(visopts.frags_only && visopts.atoms_only)
   {
     std::cerr << "Cannot use 'frags_only' and 'atoms_only' together.\n" << "\nCorrect usage:\n"
@@ -151,14 +140,8 @@ int main(int argc, char* argv[])
   }
   else if ("all" == vis_method)
   {
-    std::cout << "\nGradient\n";
-    std::cout << "------------\n";
     vis.gradient_vis();
-    std::cout << "\nLRP\n";
-    std::cout << "------------\n";
     vis.lrp();
-    std::cout << "\nMasking\n";
-    std::cout << "------------\n";
     vis.masking();
   }
   else

@@ -81,7 +81,7 @@ struct user_settings
 	bool dominimize;
 	bool include_atom_info;
 	bool gpu_on;
-    bool true_score;
+	bool true_score;
 
     cnn_options cnnopts;
 	bool cnn_scoring;
@@ -93,7 +93,7 @@ struct user_settings
 					device(0), exhaustiveness(10),
 					score_only(false), randomize_only(false), local_only(false),
 					dominimize(false), include_atom_info(false), gpu_on(false),
-                    true_score(false)
+                    true_score(false), cnn_scoring(false)
 	{
 
 	}
@@ -140,7 +140,7 @@ void write_all_output(model& m, const output_container& out, sz how_many,
 fl do_randomization(model& m, const vec& corner1,
 		const vec& corner2, int seed, int verbosity, tee& log)
 {
-	conf init_conf = m.get_initial_conf();
+	conf init_conf = m.get_initial_conf(false);
 	rng generator(static_cast<rng::result_type>(seed));
 	if (verbosity > 1)
 	{
@@ -176,9 +176,13 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 		output_type& out, const vec& cap, const minimization_params& minparm,
 		grid& user_grid)
 {
-	std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
-	change g(m.get_size());
+	// std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
+	change g(m.get_size(), nc.move_receptor());
 
+	nc.adjust_center(m); //for cnn, set cnn box
+	if(!nc.within(m)) {
+	  std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | initial pose not within box\n";
+	}
 	quasi_newton quasi_newton_par(minparm);
 	const fl slope_orig = nc.getSlope();
 	//try 5 times to get ligand into box
@@ -224,9 +228,33 @@ output_container remove_redundant(const output_container& in, fl min_rmsd)
 	return tmp;
 }
 
+//print info to log about cnn scoring
+static void get_cnn_info(model& m, CNNScorer& cnn, tee& log, float& cnnscore, float& cnnaffinity, float& cnnforces)
+{
+   float loss = 0;
+   cnnscore = 0;
+   cnnforces = 0;
+   cnnaffinity = 0;
+   cnnscore = cnn.score(m, false, cnnaffinity, loss);
+   if (cnnscore >= 0)
+   {
+     log << "CNNscore1: " << std::fixed << std::setprecision(10) << cnnscore;
+     log.endl();
+     log << "CNNaffinity1: " << std::fixed << std::setprecision(10) << cnnaffinity;
+     log.endl();
+
+     cnn.adjust_center(m);
+     cnnscore = cnn.score(m, false, cnnaffinity, loss);
+     log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
+     log.endl();
+     log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
+     log.endl();
+   }
+}
+
 //dkoes - return all energies and rmsds to original conf with result
 void do_search(model& m, const boost::optional<model>& ref,
-		const weighted_terms& sf, const precalculate& prec, const igrid& ig,
+		const weighted_terms& sf, const precalculate& prec, igrid& ig,
 		non_cache& nc, // nc.slope is changed
 		const vec& corner1, const vec& corner2,
 		const parallel_mc& par, const user_settings& settings,
@@ -237,10 +265,10 @@ void do_search(model& m, const boost::optional<model>& ref,
 
 	precalculate_exact exact_prec(sf); //use exact computations for final score
 	conf_size s = m.get_size();
-	conf c = m.get_initial_conf();
+	conf c = m.get_initial_conf(nc.move_receptor());
 	fl e = max_fl;
     fl intramolecular_energy = max_fl;
-	fl cnnscore = -1.0;
+	fl cnnscore = 0, cnnaffinity = 0, cnnforces = 0;
 	fl rmsd = 0;
 	const vec authentic_v(settings.forcecap, settings.forcecap,
 			settings.forcecap); //small cap restricts initial movement from clash
@@ -270,23 +298,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< " (kcal/mol)";
 		log.endl();
 
-		float cnnaffinity = -1;
-		float cnngradient = -1;
-		cnnscore = cnn.score(m, true, cnnaffinity);
-		cnngradient = m.get_minus_forces_magnitude();
-		if (cnnscore >= 0.0)
-		{
-			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
-			log.endl();
-			if (cnnaffinity >= 0) {
-				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
-				log.endl();
-			}
-			if (cnngradient >= 0) {
-				log << "CNNgradient: " << std::fixed << std::setprecision(10) << cnngradient;
-				log.endl();
-			}
-		}
+		get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 
 		std::vector<flv> atominfo;
 		flv term_values = t->evale_robust(m);
@@ -313,7 +325,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		}
 		log << '\n';
 
-		results.push_back(result_info(e, cnnscore, cnnaffinity, cnngradient, -1, m));
+		results.push_back(result_info(e, cnnscore, cnnaffinity, cnnforces, -1, m));
 
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
@@ -349,30 +361,14 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< " (kcal/mol)\nRMSD: " << rmsd;
 		log.endl();
 
-		float cnnaffinity = -1;
-		float cnngradient = -1;
-		cnnscore = cnn.score(m, true, cnnaffinity);
-		cnngradient = m.get_minus_forces_magnitude();
-		if (cnnscore >= 0.0)
-		{
-			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
-			log.endl();
-			if (cnnaffinity >= 0) {
-				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
-				log.endl();
-			}
-			if (cnngradient >= 0) {
-				log << "CNNgradient: " << std::fixed << std::setprecision(10) << cnngradient;
-				log.endl();
-			}
-		}
+    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 
 		if (!nc.within(m))
 			log << "WARNING: not all movable atoms are within the search space\n";
 
 		m.set(out.c);
 		done(settings.verbosity, log);
-		results.push_back(result_info(e, cnnscore, cnnaffinity, cnngradient, rmsd, m));
+		results.push_back(result_info(e, cnnscore, cnnaffinity, cnnforces, rmsd, m));
 
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
@@ -396,12 +392,13 @@ void do_search(model& m, const boost::optional<model>& ref,
 			out_cont.sort();
             non_cache_cnn* nc_cnn = dynamic_cast<non_cache_cnn*>(&nc);
             if (!nc_cnn) {
+                non_cache nc_base = *(dynamic_cast<non_cache*>(&nc));
 			    const fl best_mode_intramolecular_energy = m.eval_intramolecular(
 			    		prec, authentic_v, out_cont[0].c);
 
 			    VINA_FOR_IN(i, out_cont)
 			    	if (not_max(out_cont[i].e))
-			    		out_cont[i].e = m.eval_adjusted(sf, prec, nc, authentic_v,
+			    		out_cont[i].e = m.eval_adjusted(sf, prec, nc_base, authentic_v,
 			    				out_cont[i].c, best_mode_intramolecular_energy,
 			    				user_grid);
 			    // the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
@@ -442,11 +439,12 @@ void do_search(model& m, const boost::optional<model>& ref,
 			log.endl();
       
 	  	float cnnaffinity = -1;
-	  	float cnngradient = -1;
-	  	cnnscore = cnn.score(m, true, cnnaffinity);
-		  cnngradient = m.get_minus_forces_magnitude();
+	  	float cnnforces = -1;
+	  	float loss = 0;
+	  	cnnscore = cnn.score(m, true, cnnaffinity, loss);
+	  	cnnforces = m.get_minus_forces_sum_magnitude();
       //dkoes - setup result_info
-			results.push_back(result_info(out_cont[i].e, cnnscore, cnnaffinity, cnngradient, -1, m));
+			results.push_back(result_info(out_cont[i].e, cnnscore, cnnaffinity, cnnforces, -1, m));
 
 			if (compute_atominfo)
 				results.back().setAtomValues(m, &sf);
@@ -461,6 +459,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 					<< "WARNING: Check that it is large enough for all movable atoms, including those in the flexible side chains.";
 			log.endl();
 		}
+        m.deallocate_gpu();
 	}
 	std::cout << "Refine time " << time.elapsed().wall/1000000000.0 << "\n";
 }
@@ -516,7 +515,7 @@ void main_procedure(model& m, precalculate& prec,
 	par.display_progress = true;
 
 	szv_grid_cache gridcache(m, prec.cutoff_sqr());
-	const fl slope = 1e6; // FIXME: too large? used to be 100
+	const fl slope = 1e3; // FIXME: too large? used to be 100
 	if (settings.randomize_only)
 	{
 		for(unsigned i = 0; i < settings.num_modes; i++) {
@@ -1084,6 +1083,7 @@ Thank you!\n";
 		bool help = false, help_hidden = false, version = false;
 		bool quiet = false;
 		bool accurate_line = false;
+		bool simple_ascent = false;
 		bool flex_hydrogens = false;
 		bool print_terms = false;
 		bool print_atom_types = false;
@@ -1167,6 +1167,7 @@ Thank you!\n";
 				"number iterations of steepest descent; default scales with rotors and usually isn't sufficient for convergence")
 		("accurate_line", bool_switch(&accurate_line),
 				"use accurate line search")
+		("simple_ascent", bool_switch(&simple_ascent), "use simple gradient ascent")
 		("minimize_early_term", bool_switch(&minparms.early_term),
 				"Stop minimization before convergence conditions are fully met.")
 		("approximation", value<ApproxType>(&approx),
@@ -1190,7 +1191,9 @@ Thank you!\n";
 		("flex_hydrogens", bool_switch(&flex_hydrogens),
 				"Enable torsions affecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
         ("true_score", bool_switch(&settings.true_score), "Enable printing for the true GPU-computed score for correctness testing.")
-		("outputmin", value<int>(&minparms.outputframes), "output minout.sdf of minimization with provided amount of interpolation");
+		("outputmin", value<int>(&minparms.outputframes), "output minout.sdf of minimization with provided amount of interpolation")
+    ("cnn_gradient_check", bool_switch(&cnnopts.gradient_check)->default_value(false),
+                  "Perform internal checks on gradient.");
 
 		options_description cnn("Convolutional neural net (CNN) scoring");
 		cnn.add_options()
@@ -1198,20 +1201,22 @@ Thank you!\n";
 				"caffe cnn model file; if not specified a default model will be used")
 		("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
 				"caffe cnn weights file (*.caffemodel); if not specified default weights (trained on the default model) will be used")
-		("cnn_recmap", value<std::string>(&cnnopts.cnn_recmap),
-				"receptor atom type to channel mapping")
-		("cnn_ligmap", value<std::string>(&cnnopts.cnn_ligmap),
-				"ligand atom type to channel mapping")
 		("cnn_resolution", value<fl>(&cnnopts.resolution)->default_value(0.5),
 				"resolution of grids, don't change unless you really know what you are doing")
 		("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
 				"evaluate multiple rotations of pose (max 24)")
 		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
 				"Use a convolutional neural network to score final pose.")
+		("cnn_update_min_frame", bool_switch(&cnnopts.keep_minimize_frame)->default_value(true),
+		    "During minimization, recenter coordinate frame as ligand moves")
 		("cnn_outputdx", bool_switch(&cnnopts.outputdx)->default_value(false),
 		               "Dump .dx files of atom grid gradient.")
 		("cnn_outputxyz", bool_switch(&cnnopts.outputxyz)->default_value(false),
-		               "Dump .xyz files of atom gradient.");
+		               "Dump .xyz files of atom gradient.")
+		("cnn_xyzprefix", value<std::string>(&cnnopts.xyzprefix)->default_value("gradient"),
+		               "Prefix for atom gradient .xyz files")
+		("cnn_verbose", bool_switch(&cnnopts.verbose)->default_value(false),"Enable verbose output for CNN debugging");
+
 
 		options_description misc("Misc (optional)");
 		misc.add_options()
@@ -1344,6 +1349,11 @@ Thank you!\n";
 		if (accurate_line)
 		{
 			minparms.type = minimization_params::BFGSAccurateLineSearch;
+		}
+
+		if (simple_ascent)
+		{
+		  minparms.type = minimization_params::Simple;
 		}
 
 		bool search_box_needed = !(settings.score_only || settings.local_only); // randomize_only and local_only still need the search space; dkoes - for local get box from ligand
@@ -1518,7 +1528,7 @@ Thank you!\n";
 
 		//dkoes - parse in receptor once
 		MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
-		CNNScorer cnn_scorer(cnnopts, vec(center_x, center_y, center_z), mols.getInitModel());
+		CNNScorer cnn_scorer(cnnopts, mols.getInitModel());
 
 		//dkoes, hoist precalculation outside of loop
 		weighted_terms wt(&t, t.weights());

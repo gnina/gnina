@@ -28,6 +28,13 @@ void subtract_change(change_gpu& b, const change_gpu& a, sz n)
 	b.sub(a);
 }
 
+__device__ inline
+void set_to_neg(change_gpu& b, const change_gpu& a, sz n)
+{ // b = -a
+  b = a;
+  b.invert();
+}
+
 __device__
 void set_diagonal(flmat_gpu& m, fl x)
 {
@@ -210,8 +217,9 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
 		    minus_mat_vec_product(h, g, p);
             // f1 is the returned energy for the next iteration of eval_deriv_gpu
 		    f1 = 0;
-            //do we even care about the fast_line_search?
-		    assert(params.type == minimization_params::BFGSAccurateLineSearch);
+            //TODO: FastLineSearch is implemented in develop, until then just
+            //always do accurage here
+		    // assert(params.type == minimization_params::BFGSAccurateLineSearch);
         }
         __syncthreads();
 		alpha = accurate_line_search_gpu(f, n, x, g, f0,

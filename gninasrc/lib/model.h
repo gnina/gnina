@@ -30,7 +30,6 @@
 #include "file.h"
 #include "tree.h"
 #include "tree_gpu.h"
-#include "conf_gpu.h"
 #include "matrix.h"
 #include "precalculate.h"
 #include "igrid.h"
@@ -43,6 +42,8 @@ typedef std::vector<interacting_pair> interacting_pairs;
 
 typedef std::pair<std::string, boost::optional<sz> > parsed_line;
 typedef std::vector<parsed_line> pdbqtcontext;
+struct parallel_mc_task;
+void test_eval_intra();
 
 struct gpu_data {
 	//put all pointers to gpu data into a struct that provides a lightweight 
@@ -93,6 +94,10 @@ struct gpu_data {
 	void copy_from_gpu(model& m);
 
     size_t node_idx_cpu2gpu(size_t cpu_idx) const;
+  private:
+    gpu_data(const gpu_data&) = default;
+    friend struct quasi_newton_aux_gpu;
+    friend parallel_mc_task;
 };
 
 // dkoes - as an alternative to pdbqt, this stores information
@@ -241,6 +246,15 @@ struct pdbqt_initializer; // forward declaration - only declared in parse_pdbqt.
 struct model_test;
 
 struct model {
+
+  model(const model& m) : tree_width(m.tree_width), coords(m.coords), 
+  ligands(m.ligands), minus_forces(m.minus_forces), 
+  m_num_movable_atoms(m.m_num_movable_atoms), atoms(m.atoms), 
+  grid_atoms(m.grid_atoms), other_pairs(m.other_pairs), 
+  hydrogens_stripped(m.hydrogens_stripped), 
+  internal_coords(m.internal_coords), flex(m.flex), 
+  flex_context(m.flex_context), name(m.name), pose_num(m.pose_num) {}
+
 	void append(const model& m);
 	void strip_hydrogens();
 
@@ -264,7 +278,7 @@ struct model {
 
 	conf_size get_size() const;
 	// torsions = 0, orientations = identity, ligand positions = current
-	conf get_initial_conf() const; 
+	conf get_initial_conf(bool enable_receptor) const;
 
 	grid_dims movable_atoms_box(fl add_to_each_dimension, fl granularity = 0.375) const;
 
@@ -412,8 +426,9 @@ struct model {
 	void clear_minus_forces();
 	void add_minus_forces(const std::vector<float3>& forces);
 	void sub_minus_forces(const std::vector<float3>& forces);
+  void scale_minus_forces(fl scale);
 
-	fl get_minus_forces_magnitude() const;
+	fl get_minus_forces_sum_magnitude() const;
 
 	//allocate gpu memory, model must be setup
 	//also copies over data that does not change during minimization
@@ -426,12 +441,8 @@ struct model {
 
 	model() : m_num_movable_atoms(0), hydrogens_stripped(false), print_during_minimization(false), 
     eval_deriv_counter(0) {};
-	~model() { deallocate_gpu(); };
+	~model() {deallocate_gpu();};
 
-    /* TODO:protect */
-	fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
-                                  const interacting_pairs& pairs,
-                                  const vecv& coords, vecv& forces) const;
     vecv coords;
 	vecv minus_forces;
     gpu_data gdata;
@@ -455,6 +466,7 @@ private:
 	friend class appender;
 	friend struct pdbqt_initializer;
 	friend struct model_test;
+    friend void test_eval_intra();
 
 	const atom& get_atom(const atom_index& i) const {
 		return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]);
@@ -497,9 +509,9 @@ private:
 
 	fl eval_interacting_pairs(const precalculate& p, fl v,
                             const interacting_pairs& pairs, const vecv& coords) const;
-	// fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
-                                  // const interacting_pairs& pairs,
-                                  // const vecv& coords, vecv& forces) const;
+	fl eval_interacting_pairs_deriv(const precalculate& p, fl v,
+                                  const interacting_pairs& pairs,
+                                  const vecv& coords, vecv& forces) const;
 
 	bool hydrogens_stripped;
 	vecv internal_coords;

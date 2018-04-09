@@ -285,63 +285,21 @@ void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n, 
 }
 
 
-
-//multiply two quaternions
-__inline__ __device__
-float4 quaternion_mult(float4 q1, float4 q2) {
-	float a = q1.w;
-	float b = q1.x;
-	float c = q1.y;
-	float d = q1.z;
-	
-	float ar = q2.w;
-	float br = q2.x;
-	float cr = q2.y;
-	float dr = q2.z;
-	
-  float at = +a*ar-b*br-c*cr-d*dr;
-  float bt = +a*br+b*ar+c*dr-d*cr;    //(a*br+ar*b)+(c*dr-cr*d);
-  float ct = +a*cr-b*dr+c*ar+d*br;    //(a*cr+ar*c)+(d*br-dr*b);
-  float dt = +a*dr+b*cr-c*br+d*ar;    //(a*dr+ar*d)+(b*cr-br*c);
-  
-  return make_float4(bt,ct,dt,at);
-}
-
-//multiply quaternion by scalar
-__inline__ __device__
-float4 quaternion_scalar(float4 q, float s)
-{
-	return make_float4(q.x*s, q.y*s,q.z*s,q.w*s);
-}
-
-//conjugate
-__inline__ __device__
-float4 quaternion_conj(float4 q)
-{
-	return make_float4(-q.x,-q.y,-q.z,q.w);
-}
-
 //return c rotated by Q, leave w (radius) of coord alone
 //this uses the formulat q*v*q^-1, which is simple, but not as computationally
 //efficient as precomputing the rotation matrix and using that
 __inline__ __device__
-float4 applyQ(float4 coord, float3 center, float4 Q) 
+float4 applyQ(float4 coord, float3 center, qt Q)
 {
 	//apply rotation
-	float4 p = make_float4(coord.x-center.x, coord.y-center.y, coord.z-center.z, 0);
-	//
-	float4 conjQ = quaternion_conj(Q);
-	float normQ = quaternion_mult(Q,conjQ).w;
-	float4 nconj = quaternion_scalar(conjQ, 1.0/normQ);
-	float4 tmp = quaternion_mult(Q,p);
-	p = quaternion_mult(tmp, nconj);
-
-	return make_float4(p.x+center.x, p.y+center.y, p.z+center.z,coord.w); 
+  float3 p = Q.rotate(coord.x-center.x, coord.y-center.y, coord.z-center.z);
+  p += center;
+	return make_float4(p.x,p.y,p.z,coord.w);
 }
 
 //apply quaternion Q to coordinates in ainfos
 __global__ 
-void gpu_coord_rotate(float3 center, float4 Q, int n, float4 *ainfos)
+void gpu_coord_rotate(float3 center, qt Q, int n, float4 *ainfos)
 {
 	unsigned aindex = blockIdx.x*blockDim.x+threadIdx.x;
 	if(aindex < n) {
@@ -376,7 +334,7 @@ void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, qua
 {
 	//each thread is responsible for a grid point location and will handle all atom types
 	//each block is 8x8x8=512 threads
-	float3 origin(dims[0].first, dims[1].first, dims[2].first); //actually a gfloat3
+	float3 origin(dims[0].x, dims[1].x, dims[2].x); //actually a gfloat3
 	dim3 threads(BLOCKDIM, BLOCKDIM, BLOCKDIM);
 	unsigned blocksperside = ceil(dim / float(BLOCKDIM));
 	dim3 blocks(blocksperside, blocksperside, blocksperside);
@@ -395,7 +353,7 @@ void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex, qua
 	}
 
 	if(Q.R_component_1() != 0) { 
-		float4 q = make_float4(Q.R_component_2(),Q.R_component_3(),Q.R_component_4(),Q.R_component_1()); //w is R1
+		qt q(Q);
 		gpu_coord_rotate<<<natomblocks,THREADSPERBLOCK>>>(center, q, natoms, ainfos);
 	}
 	if(binary){

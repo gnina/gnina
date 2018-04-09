@@ -401,7 +401,7 @@ void NNGridder::setCenter(double x, double y, double z)
 	if(userGrids.size() > 0)
 	{
 		cerr << "Attempting to re-set grid center with user specified grids.\n";
-		abort();
+		exit(1);
 	}
 	gmaker.setCenter(x,y,z);
 
@@ -492,6 +492,33 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 		}
 	}
 
+	if(opt.separate && opt.examplegrid.size() == 0 && opt.usergrids.size() == 0)
+	{
+		cerr << "--separate specified, but no example or additional grids specified to define coordinate system\n";
+		abort();
+	}
+	
+	if(opt.examplegrid.size() > 0) 
+	{
+		ifstream gridfile(opt.examplegrid.c_str());
+		if(!gridfile)
+		{
+			cerr << "Could not open example grid file " << opt.examplegrid << "\n";
+			abort();
+		}
+		vec gridcenter;
+		double gridres = 0;
+		Grid g;
+		if(!readDXGrid(gridfile,gridcenter, gridres, g))
+		{
+			cerr << "I couldn't understand the provided dx file " << opt.examplegrid << ". I apologize for not being more informative and possibly being too picky about my file formats.\n";
+			exit(1);
+		}
+		setCenter(gridcenter[0],gridcenter[1],gridcenter[2]);
+		resolution = gridres;
+		dimension = resolution*(g.shape()[0]-1);
+	}
+	
 	vec savedcenter;
 	userGrids.resize(0); userGrids.reserve(opt.usergrids.size());
 	for(unsigned i = 0, ng = opt.usergrids.size(); i < ng; i++)
@@ -501,7 +528,7 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 		if(!gridfile)
 		{
 			cerr << "Could not open grid file " << opt.usergrids[i] << "\n";
-			abort();
+			exit(1);
 		}
 		vec gridcenter;
 		double gridres = 0;
@@ -509,7 +536,7 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 		if(!readDXGrid(gridfile,gridcenter, gridres, g))
 		{
 			cerr << "I couldn't understand the provided dx file " << opt.usergrids[i] << ". I apologize for not being more informative and possibly being too picky about my file formats.\n";
-			abort();
+			exit(1);
 		}
 
 		unsigned npts = g.shape()[0];
@@ -527,13 +554,13 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 			if(gridres != resolution)
 			{
 				cerr << "Inconsistent resolutions in grids: " << gridres << " vs " << resolution << "\n";
-				abort();
+				exit(1);
 			}
 			double dim = resolution*(npts-1);
 			if(dim != dimension)
 			{
 				cerr << "Inconsistent dimensions in grids: " << dim << " vs " << dimension << "\n";
-				abort();
+				exit(1);
 			}
 
 			for(unsigned c = 0; c < 3; c++)
@@ -541,7 +568,7 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 				if(savedcenter[c] != gridcenter[c])
 				{
 					cerr << "Inconsistent center in grids at position " << c << ": " << savedcenter[c] << " vs " << gridcenter[c] << "\n";
-					abort();
+					exit(1);
 				}
 			}
 		}
@@ -642,7 +669,7 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 		if(randrotate || randtranslate)
 		{
 			cerr << "Random rotation/translation is not supported with user grids.\n";
-			abort();
+			exit(1);
 		}
 		//the grid is already set - do nothing
 	}

@@ -10,6 +10,7 @@
 
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/layers/pooling_layer.hpp"
+#include "caffe/util/math_functions.hpp"
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
@@ -22,10 +23,11 @@ using namespace std;
 
 //initialize from commandline options
 //throw error if missing required info
-CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
-        const model& m) :
-        rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
-        outputdx(cnnopts.outputdx), outputxyz(cnnopts.outputxyz),
+CNNScorer::CNNScorer(const cnn_options& cnnopts, const model& m) :
+        mgrid(NULL), mgridparam(NULL), rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
+        outputdx(cnnopts.outputdx), outputxyz(cnnopts.outputxyz), gradient_check(cnnopts.gradient_check),
+        maintain_grid_center(cnnopts.keep_minimize_frame), verbose(cnnopts.verbose),
+        xyzprefix(cnnopts.xyzprefix),
         mtx(new boost::mutex) {
 
     if (cnnopts.cnn_scoring)
@@ -48,8 +50,8 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 
         param.mutable_state()->set_phase(TEST);
         LayerParameter *first = param.mutable_layer(0);
-        //must be ndim
-        MolGridDataParameter *mgridparam = first->mutable_molgrid_data_param();
+        //must be molgrid
+        mgridparam = first->mutable_molgrid_data_param();
         if (mgridparam == NULL)
         {
             throw usage_error("First layer of model must be MolGridData.");
@@ -67,6 +69,10 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
             //I think there's a bug in the axial rotations - they aren't all distinct
             //BUT it turns out this isn't actually faster
             //bsize = nrot;
+        }
+        else
+        {
+          mgridparam->set_random_rotation(false);
         }
 
         param.set_force_backward(true);
@@ -122,61 +128,46 @@ CNNScorer::CNNScorer(const cnn_options& cnnopts, const vec& center,
 }
 
 
-//returns relevance or gradient scores per atom
+//returns gradient scores per atom
 //assumes necessary pass (backward or backward_relevance) has already been done
-//default is gradient
-std::vector<float> CNNScorer::get_scores_per_atom(bool receptor, bool relevance)
+std::unordered_map<string, float> CNNScorer::get_scores_per_atom(bool receptor, bool relevance)
 {
+    std::unordered_map<string, float3> gradient;
 
     if (receptor)
     {
         mgrid->getReceptorAtoms(0, atoms);
-		if (relevance)
-		{
-        	mgrid->getReceptorGradient(0,gradient, true);
-		}
-		else
-		{
-        	mgrid->getReceptorGradient(0, gradient, false);
-		}
+        mgrid->getMappedReceptorGradient(0, gradient);
     }
     else
     {
         mgrid->getLigandAtoms(0, atoms);
-		if (relevance)
-		{
-        	mgrid->getLigandGradient(0, gradient, true);
-		}
-		else
-		{
-        	mgrid->getLigandGradient(0, gradient, false);
-		}
+        mgrid->getMappedLigandGradient(0, gradient);
     }
 
-    //PDBQT atoms are 1-indexed, cnn_visualization expects index:score mapping
-    std::vector<float> scores(atoms.size() + 1);
+    std::unordered_map<string, float> scores;
 
-    for (unsigned i = 1, n = gradient.size() + 1; i < n; ++i)
+    for(std::pair<string, gfloat3> pair: gradient)
     {
-		if(relevance)
-		{
-        	scores[i] = gradient[i - 1].x;
-		}
-		else //gradient
-		{
-			//sqrt(x^2 + y^2 + z^2)
-			float x = gradient[i - 1].x;
-			float y = gradient[i - 1].y;
-			float z = gradient[i - 1].z;
-			scores[i] = sqrt(x*x + y*y + z*z);
-		}
+        if(relevance)
+        {
+            scores[pair.first] = pair.second.x;
+        }
+        else //gradient
+        {
+            //sqrt(x^2 + y^2 + z^2)
+            float x = pair.second.x;
+            float y = pair.second.y;
+            float z = pair.second.z;
+            scores[pair.first] = sqrt(x*x + y*y + z*z);
+        }
 
     }
 
     return scores;
 }
 
-void CNNScorer::lrp(const model& m, const string& layer_to_ignore)
+void CNNScorer::lrp(const model& m, const string& layer_to_ignore, bool zero_values)
 {
     boost::lock_guard<boost::mutex> guard(*mtx);
     
@@ -184,32 +175,52 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore)
 
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
-    
+    mgrid->setLabels(1); //for now pose optimization only
+    mgrid->enableAtomGradients();
+
     net->Forward();
-    if(layer_to_ignore == "")
+    if(zero_values)
     {
-        net->Backward_relevance();
+        outputDX("zero_blob", 1.0, true, layer_to_ignore, zero_values);
     }
     else
     {
-        net->Backward_relevance(layer_to_ignore);
+        if(layer_to_ignore == "")
+        {
+            net->Backward_relevance();
+        }
+        else
+        {
+            net->Backward_relevance(layer_to_ignore);
+        }
     }
+
 
 }
 
 //do forward and backward pass for gradient visualization
-void CNNScorer::gradient_setup(const model& m, const string& recname, const string& ligname)
+void CNNScorer::gradient_setup(const model& m, const string& recname, const string& ligname, const string& layer_to_ignore)
 {
     boost::lock_guard<boost::mutex> guard(*mtx);
-    
+
     caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
-    
+    mgrid->setLabels(1); //for now pose optimization only
+    mgrid->enableAtomGradients();
+
     net->Forward();
-    net->Backward();
-   	
+
+    if(layer_to_ignore.length() == 0)
+    {
+        net->Backward();
+    }
+    else //have to skip layer
+    {
+        net->Backward_ignore_layer(layer_to_ignore);
+    }
+
 
     if(ligname.size() > 0)
     {
@@ -233,9 +244,39 @@ bool CNNScorer::has_affinity() const
     return (bool)net->blob_by_name("predaff");
 }
 
+bool CNNScorer::adjust_center(model& m) const
+{
+  if(maintain_grid_center) {
+    //todo - make this more efficent, i.e. only set center
+    mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(), true);
+    return true;
+  }
+  return false;
+}
+
+//populate score and aff with current network output
+void CNNScorer::get_net_output(Dtype& score, Dtype& aff, Dtype& loss)
+{
+  const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
+  const caffe::shared_ptr<Blob<Dtype> > lossblob = net->blob_by_name("loss");
+  const caffe::shared_ptr<Blob<Dtype> > affblob = net->blob_by_name("predaff");
+
+  const Dtype* out = outblob->cpu_data();
+  score = out[1];
+  aff = 0.0;
+  if (affblob)
+  {
+    aff = affblob->cpu_data()[0];
+  }
+
+  loss = lossblob->cpu_data()[0];
+}
 //return score of model, assumes receptor has not changed from initialization
+//also sets affinity (if available) and loss (for use with minimization)
 //if compute_gradient is set, also adds cnn atom gradient to m.minus_forces
-float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
+//if maintain center, it will not reposition the molecule
+//ALERT: clears minus forces
+float CNNScorer::score(model& m, bool compute_gradient, float& affinity, float& loss)
 {
 	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
@@ -244,31 +285,35 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
 	mgrid->setReceptor<atom>(m.get_fixed_atoms());
-	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates());
+	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(),!maintain_grid_center);
 
 	m.clear_minus_forces();
 	double score = 0.0;
-	double affinity = 0.0;
-	const caffe::shared_ptr<Blob<Dtype> > outblob = net->blob_by_name("output");
-	const caffe::shared_ptr<Blob<Dtype> > affblob = net->blob_by_name("predaff");
+	affinity = 0.0;
+	loss = 0.0;
+	Dtype s = 0.0;
+	Dtype a = 0.0;
+	Dtype l = 0.0;
 
 	unsigned cnt = 0;
+	mgrid->setLabels(1); //for now pose optimization only
 	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
 	{
 		net->Forward(); //do all rotations at once if requested
-		const Dtype* out = outblob->cpu_data();
-		score += out[1];
-		if (affblob)
+		get_net_output(s,a,l);
+		score += s;
+		affinity += a;
+		loss += l;
+
+		if(rotations > 1)
 		{
-			//has affinity prediction
-			const Dtype* aff = affblob->cpu_data();
-			affinity += aff[0];
+		  std::cout << "RotateScore: " << s << "\n";
+		  if(a) std::cout << "RotateAff: " << a << "\n";
 		}
-		else
-		{
-		}
+
 		if (compute_gradient || outputxyz)
 		{
+		  mgrid->enableAtomGradients();
 			net->Backward();
 			mgrid->getLigandGradient(0, gradient);
 			m.add_minus_forces(gradient); //TODO divide by cnt?
@@ -276,10 +321,10 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 		cnt++;
 	}
 
-	if (outputdx) {
-		outputDX(m.get_name());
-		const string& ligname = m.get_name() + "_lig";
-		const string& recname = m.get_name() + "_rec";
+	if (outputxyz) {
+		const string& ligname = xyzprefix + "_lig.xyz";
+		const string& recname = xyzprefix + "_rec.xyz";
+
 		mgrid->getLigandGradient(0, gradient);
 		mgrid->getLigandAtoms(0, atoms);
 		mgrid->getLigandChannels(0, channels);
@@ -291,26 +336,142 @@ float CNNScorer::score(model& m, bool compute_gradient, float& aff, bool silent)
 		outputXYZ(recname, atoms, channels, gradient);
 	}
 
-	//TODO m.scale_minus_forces(1 / cnt);
-	aff = affinity / cnt;
+	if(gradient_check) {
+	  check_gradient();
+	}
+
+  if (outputdx) {
+    //DANGER! This modifies the values in the network
+    outputDX(m.get_name());
+  }
+
+  //if there were rotations, scale appropriately
+  if(cnt > 1) {
+    m.scale_minus_forces(1.0/cnt);
+  }
+	affinity /= cnt;
+	loss /= cnt;
+
+	if(verbose)
+	  std::cout <<  std::fixed << std::setprecision(10)  << "cnnscore " << score/cnt << "\n";
+
 	return score / cnt;
 }
 
 
 //return only score
-float CNNScorer::score(model& m, bool silent)
+float CNNScorer::score(model& m)
 {
     float aff = 0;
-    return score(m, false, aff, silent);
+    float loss = 0;
+    return score(m, false, aff, loss);
+}
+
+
+// To aid in debugging, will compute the gradient at the
+// grid level, apply it with different multiples, and evaluate
+// the effect. Perhaps may evaluate atom gradients as well?
+//
+// IMPORTANT: assumes model is already setup
+// Prints out the results
+void CNNScorer::check_gradient()
+{
+  Dtype origscore = 0;
+  Dtype origaff = 0;
+  Dtype origloss = 0;
+  Dtype newscore = 0.0;
+  Dtype newaff = 0.0;
+  Dtype newloss = 0.0;
+
+  std::cout << std::scientific;
+  Dtype lambda = 1.0;
+  for(unsigned i = 0; i < 4; i++)
+  {
+    //score pose
+    net->Forward();
+    get_net_output(origscore, origaff, origloss);
+
+    //backprop
+    net->Backward();
+
+    //get grid and diff blobs
+    const caffe::shared_ptr<Blob<Dtype> > datablob = net->blob_by_name("data");
+    Dtype *data = datablob->mutable_cpu_data();
+    Dtype *diff = datablob->mutable_cpu_diff();
+
+    //apply gradient
+    caffe_cpu_axpby(datablob->count(), -lambda, diff, 1.0f, data); //sets data
+
+    //propagate forward, starting _after_ molgrid
+    net->ForwardFrom(1);
+
+    //compare scores
+    get_net_output(newscore, newaff, newloss);
+
+    std::cout << "CHECK   " << origscore-newscore  << "    LAMBDA: " << lambda << "   OLD: " << origscore << "," << origaff << "   NEW: " << newscore << "," << newaff << std::endl;
+
+    //test a single channel
+    unsigned channel = 16+15; //compile time constant
+    net->Forward();
+    net->Backward();
+
+    vector<int> inds;
+    inds.push_back(0);
+    inds.push_back(channel);
+    unsigned off = datablob->offset(inds);
+    data = datablob->mutable_cpu_data();
+    diff = datablob->mutable_cpu_diff();
+
+    unsigned n = datablob->count(2);
+    for(unsigned i = 0; i < n; i++) {
+	    if(*(data+off+i) > 0) //only modify if density actually exists
+	    	*(data+off+i) += -lambda* *(diff+off+i);
+    }
+    //caffe_cpu_axpby(datablob->count(2), -lambda, diff+off, 1.0f, data+off);
+    net->ForwardFrom(1);
+    get_net_output(newscore, newaff, newloss);
+
+    std::cout << "CHECKch " << origscore-newscore  << " " << channel << " LAMBDA: " << lambda << "   OLD: " << origscore << "," << origaff << "   NEW: " << newscore << "," << newaff << std::endl;
+
+    //super expensive - evaluate every grid point for channel
+    net->Forward();
+    get_net_output(origscore,origaff,origloss);
+    for(unsigned i = 0; i < n; i++) {
+	    data = datablob->mutable_cpu_data();
+	    diff = datablob->mutable_cpu_diff();
+	    float gval = *(data+off+i);
+	    float gdiff = *(diff+off+i);
+	    if(gval > 0) {
+		  *(data+off+i) += lambda;
+		  net->ForwardFrom(1);
+		  get_net_output(newscore,newaff,newloss);
+		  std::cout << "GRIDch " << i << " gval " << gval << " gdiff " << gdiff << " lambda " << lambda << " change " << origscore-newscore <<"\n";
+		  
+		  data = datablob->mutable_cpu_data();
+		  diff = datablob->mutable_cpu_diff();
+		  *(data+off+i) = max(gval - lambda,0.0f);
+		  net->ForwardFrom(1);
+		  get_net_output(newscore,newaff,newloss);
+		  std::cout << "GRIDch " << i << " gval " << gval << " gdiff " << gdiff << " lambda " << -lambda << " change " << origscore-newscore << "\n";
+		  *(data+off+i) = gval;
+	    }
+    }
+
+    lambda /= 10.0;
+  }
+
 }
 
 
 //dump dx files of the diff
-void CNNScorer::outputDX(const string& prefix, double scale, const float relevance_eps)
+//zero_values: run backward relevance with only dead node values
+void CNNScorer::outputDX(const string& prefix, double scale, bool lrp, string layer_to_ignore, bool zero_values)
+
 {
-    const caffe::shared_ptr<Blob<Dtype> > datablob = net->blob_by_name("data");
+    const caffe::shared_ptr<Blob<Dtype>> datablob = net->blob_by_name("data");
+
     const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
-    if(datablob) {
+//    if(datablob) {
         //this is a big more fragile than I would like.. if there is a pooling layer before
         //the first convoluational of fully connected layer and it is a max pooling layer,
         //change it to average before the backward to avoid a discontinuous map
@@ -325,6 +486,7 @@ void CNNScorer::outputDX(const string& prefix, double scale, const float relevan
             else if(layers[i]->type() == string("InnerProduct"))
                 break;
         }
+
         if(pool) {
             if(pool->pool() == PoolingParameter_PoolMethod_MAX) {
                 pool->set_pool(PoolingParameter_PoolMethod_AVE);
@@ -334,9 +496,9 @@ void CNNScorer::outputDX(const string& prefix, double scale, const float relevan
         }
 
         //must redo backwards with average pooling
-        if(relevance_eps > 0)
+        if(lrp)
         {
-            net->Backward_relevance();
+            net->Backward_relevance(layer_to_ignore, zero_values);
         }
         else
             net->Backward();
@@ -349,7 +511,6 @@ void CNNScorer::outputDX(const string& prefix, double scale, const float relevan
             pool->set_pool(PoolingParameter_PoolMethod_MAX);
         }
 
-    }
 }
 
 

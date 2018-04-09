@@ -29,61 +29,118 @@
 #include "common.h"
 #include "random.h"
 
-typedef boost::math::quaternion<fl> bqt;
-
-struct qt : float4{
+struct qt {
+    fl a;
+    fl b;
+    fl c;
+    fl d;
     __host__ __device__ qt(){};
     __host__ __device__
-    qt(fl _x, fl _y, fl _z, fl _w){
-        x = _x;
-        y = _y;
-        z = _z;
-        w = _w;
+    qt(fl A, fl B, fl C, fl D): a(A), b(B), c(C), d(D) {
     };
 
-    /* TODO: get rid of this */
-    __host__ __device__
-    fl R_component_1() const{return x;}
-    __host__ __device__
-    fl R_component_2() const{return y;}
-    __host__ __device__
-    fl R_component_3() const{return z;}
-    __host__ __device__
-    fl R_component_4() const{return w;}
+    qt(const boost::math::quaternion<fl>& bqt) {
+      a = bqt.R_component_1();
+      b = bqt.R_component_2();
+      c = bqt.R_component_3();
+      d = bqt.R_component_4();
+    }
+
+    __host__ __device__ inline
+    fl R_component_1() const{return a;}
+    __host__ __device__ inline
+    fl R_component_2() const{return b;}
+    __host__ __device__ inline
+    fl R_component_3() const{return c;}
+    __host__ __device__ inline
+    fl R_component_4() const{return d;}
 
     __host__ __device__
     qt &operator *=(const fl &r){
-        x *= r;
-        y *= r;
-        z *= r;
-        w *= r;
+        a *= r;
+        b *= r;
+        c *= r;
+        d *= r;
         return *this;
     }
     __host__ __device__
     qt operator /=(const fl &r){
-        x /= r;
-        y /= r;
-        z /= r;
-        w /= r;
+        a /= r;
+        b /= r;
+        c /= r;
+        d /= r;
         return *this;
     }
+
+    __host__ __device__
+    qt operator /(const fl &r) {
+        a /= r;
+        b /= r;
+        c /= r;
+        d /= r;
+        return *this;
+    }
+   
+    __host__ __device__
+    qt operator*(const qt& r) const;
+
     __host__ __device__
     qt operator /=(const qt &r);
 
 
-    operator bqt&(){
-        return *(bqt *)this;
+    __host__ __device__
+    qt conj() const {
+      return qt(+R_component_1(),
+                -R_component_2(),
+                -R_component_3(),
+                -R_component_4());
+    }
+    
+    __host__ __device__
+    qt conj(qt const & q)
+    {
+        return(qt(   +q.R_component_1(),
+                    -q.R_component_2(),
+                    -q.R_component_3(),
+                    -q.R_component_4()));
     }
 
     __host__ __device__
-    qt operator*(qt r) const;
+    float real() const {
+        return R_component_1();
+    }
+
+    __host__ __device__
+    float real(qt const& q) {
+      return q.real();
+    }
+
+    __host__ __device__
+    float norm() const {
+      qt q = *this * conj();
+      return q.real();
+    }
+
+    __host__ __device__
+    float norm(qt const& q) {
+      return real(q*conj(q));
+    }
+
+    /* Rotation point using the quaternion.   */
+    __host__ __device__
+    float3 rotate(fl x, fl y, fl z) const {
+      qt p(0, x, y, z);
+      p = *this * p * (conj() / norm());
+      return make_float3(p.R_component_2(),p.R_component_3(),p.R_component_4());
+    }
+
 };
 
 // non-intrusive free function split serialization
 namespace boost {
 	namespace serialization {
 		template<class Archive>
-		void save(Archive& ar, const bqt& q, const unsigned version) {
+		void save(Archive& ar, const qt& q, const unsigned version) {
 			fl q1 = q.R_component_1();
 			fl q2 = q.R_component_2();
 			fl q3 = q.R_component_3();
@@ -95,7 +152,7 @@ namespace boost {
 			ar & q4;
 		}
 		template<typename Archive>
-		void load(Archive& ar, bqt& q, const unsigned version) {
+		void load(Archive& ar, qt& q, const unsigned version) {
 			fl a, b, c, d;
 			ar & a;
 			ar & b;
@@ -105,9 +162,31 @@ namespace boost {
 		}
 	}
 }
-BOOST_SERIALIZATION_SPLIT_FREE(bqt)
+BOOST_SERIALIZATION_SPLIT_FREE(qt)
 
+__host__ __device__
+inline fl abs(qt const & q)
+{
+    fl vals[] = {q.R_component_1(),q.R_component_2(),q.R_component_3(),q.R_component_4()};
+    fl maxim = 0;
+    for(unsigned i = 0; i < 4; i++) {
+      fl aval = fabs(vals[i]);
+      if(aval > maxim) maxim = aval;
+    }
 
+    if(maxim == 0) {
+      return 0;
+    }
+    else {
+      fl mixam = 1.0/maxim;
+      fl sum = 0;
+      for(unsigned i = 0; i < 4; i++) {
+        fl val = vals[i] * mixam;
+        sum += val*val;
+      }
+      return maxim*sqrt(sum);
+    }
+}
 
 bool eq(const qt& a, const qt& b); // elementwise approximate equality - may return false for equivalent rotations
 const qt qt_identity(1, 0, 0, 0);
@@ -124,20 +203,14 @@ inline fl quaternion_norm_sqr(const qt& q) { // equivalent to sqr(boost::math::a
 	return sqr(q.R_component_1()) + sqr(q.R_component_2()) + sqr(q.R_component_3()) + sqr(q.R_component_4());
 }
 
-#ifndef __CUDA_ARCH__
-inline bool quaternion_is_normalized(const qt& q) { // not in the interface, used in assertions
-	return eq(quaternion_norm_sqr(q), 1) && eq(boost::math::abs((bqt&) q), 1);
+
+__host__ __device__ inline bool quaternion_is_normalized(const qt& q) {
+	return eq(quaternion_norm_sqr(q), 1) && eq(abs(q), 1);
 }
-#else
-// could write a second check with norm4df if we're worried?
-__device__ inline bool quaternion_is_normalized(const qt& q) { 
-	return eq(quaternion_norm_sqr(q), 1);
-}
-#endif
+
 
 inline void quaternion_normalize(qt& q) {
 	const fl s = quaternion_norm_sqr(q);
-	assert(eq(s, sqr(boost::math::abs((bqt&)q))));
     const fl a = sqrt(s);
 	assert(a > epsilon_fl);
 	q *= 1/a;
@@ -198,17 +271,11 @@ qt angle_to_quaternion(const vec& axis, fl angle) { // axis is assumed to be a u
 
 __host__ __device__
 inline
-qt qt::operator*(qt r) const{
-    /* TODO: renaming to avoid messing with the actual expression.  */
-    const fl &a = x;
-    const fl &b = y;
-    const fl &c = z;
-    const fl &d = w;
-
-    const fl ar = r.x;
-    const fl br = r.y;
-    const fl cr = r.z;
-    const fl dr = r.w;
+qt qt::operator*(const qt& r) const{
+    const fl ar = r.R_component_1();
+    const fl br = r.R_component_2();
+    const fl cr = r.R_component_3();
+    const fl dr = r.R_component_4();
 
     return qt(
         +a*ar-b*br-c*cr-d*dr,
@@ -220,15 +287,10 @@ qt qt::operator*(qt r) const{
 
 inline
 qt qt::operator/=(const qt& r){
-    fl &a = x;
-    fl &b = y;
-    fl &c = z;
-    fl &d = w;
-
-    const fl &ar = r.x;
-    const fl &br = r.y;
-    const fl &cr = r.z;
-    const fl &dr = r.w;
+    const fl ar = r.R_component_1();
+    const fl br = r.R_component_2();
+    const fl cr = r.R_component_3();
+    const fl dr = r.R_component_4();
 
     fl denominator = ar*ar+br*br+cr*cr+dr*dr;
 
@@ -286,5 +348,4 @@ mat quaternion_to_r3(const qt& q) {
 
 	return tmp;
 }
-
 #endif

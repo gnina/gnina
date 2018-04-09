@@ -559,6 +559,7 @@ __global__ void AvePoolBackward(const int nthreads, const Dtype* top_diff,
     int im_loc[MAX_SPATIAL_AXES];  // NOLINT(runtime/arrays)
     int starts[MAX_SPATIAL_AXES];  // NOLINT(runtime/arrays)
     int ends[MAX_SPATIAL_AXES];  // NOLINT(runtime/arrays)
+    //note im_shape has channels in first dimension, but pooled_shape does not
   CUDA_KERNEL_LOOP(index, nthreads) {
     // ind2sub
     int k = index;
@@ -602,6 +603,7 @@ __global__ void AvePoolBackward(const int nthreads, const Dtype* top_diff,
         }
       }
     } else if (num_axes == 3) {
+      //these for loops will only go 0 or 1 times
       for (int ph = starts[0]; ph < ends[0]; ++ph) {
         for (int pw = starts[1]; pw < ends[1]; ++pw) {
           for (int pz = starts[2]; pz < ends[2]; ++pz) {
@@ -610,7 +612,7 @@ __global__ void AvePoolBackward(const int nthreads, const Dtype* top_diff,
             int zstart = pz * stride[2] - pad[2];
             int hend = min(hstart + kernel_shape[0], im_shape[1] + pad[0]);
             int wend = min(wstart + kernel_shape[1], im_shape[2] + pad[1]);
-            int zend = min(wstart + kernel_shape[2], im_shape[3] + pad[2]);
+            int zend = min(zstart + kernel_shape[2], im_shape[3] + pad[2]);
             pool_size = (hend - hstart)*
                         (wend - wstart)*
                         (zend - zstart);
@@ -647,6 +649,7 @@ __global__ void AvePoolBackward(const int nthreads, const Dtype* top_diff,
     bottom_diff[index] = gradient;
   }
 }
+
 
 template <typename Dtype>
 __global__ void StoPoolBackward(const int nthreads,

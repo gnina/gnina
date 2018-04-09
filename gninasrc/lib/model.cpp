@@ -762,9 +762,9 @@ conf_size model::get_size() const {
 	return tmp;
 }
 
-conf model::get_initial_conf() const { // torsions = 0, orientations = identity, ligand positions = current
+conf model::get_initial_conf(bool enable_receptor) const { // torsions = 0, orientations = identity, ligand positions = current
 	conf_size cs = get_size();
-	conf tmp(cs);
+	conf tmp(cs, enable_receptor);
 	tmp.set_to_null();
 	VINA_FOR_IN(i, ligands)
 		tmp.ligands[i].rigid.position = ligands[i].node.get_origin();

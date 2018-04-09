@@ -33,6 +33,7 @@ non_cache_cnn::non_cache_cnn(szv_grid_cache& gcache,
 {
 }
 
+//return the LOSS plus any out of bounds penalties
 fl non_cache_cnn::eval(model& m, fl v) const
 {
 	fl e = 0;
@@ -46,19 +47,63 @@ fl non_cache_cnn::eval(model& m, fl v) const
 
 		const vec& a_coords = m.movable_coords(i);
 		vec adjusted_a_coords;
-		fl out_of_bounds_penalty = check_bounds(a_coords, adjusted_a_coords);
-
+		fl out_of_bounds_penalty = check_bounds(gd, a_coords, adjusted_a_coords);
+		out_of_bounds_penalty += check_bounds(cnn_gd, a_coords, adjusted_a_coords);
 		e += out_of_bounds_penalty;
 	}
 	fl aff = 0;
-	e += -cnn_scorer.score(m, false, aff);
+	fl loss = 0;
+	cnn_scorer.score(m, false, aff, loss);
+	e += loss;
+
 	return e;
 }
 
+
+bool non_cache_cnn::adjust_center(model& m)
+{
+  //the cnn is only defined over a cubic region, set
+  //a second out_of_bound_box to this region
+
+  //set center
+  bool ret = cnn_scorer.adjust_center(m);
+
+  //update vina grid to match cnn grid
+  vec center = cnn_scorer.get_center();
+  fl dim = cnn_scorer.get_grid_dim();
+  fl n = dim/cnn_scorer.get_grid_res();
+  fl half = dim/2.0;
+
+  for(unsigned i = 0; i < 3; i++)
+  {
+    fl c = center[i];
+    cnn_gd[i].begin = c - half;
+    cnn_gd[i].end = c + half;
+    cnn_gd[i].n = n;
+  }
+
+  return ret;
+}
+
+//check cnn box
+bool non_cache_cnn::within(const model& m, fl margin) const
+{
+  return gd_within(cnn_gd, m, margin) ||  non_cache::within(m, margin);
+}
+
+//return the cnn loss plus any out of bounds penalties
 fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const
 {
 	fl e = 0;
 	sz n = num_atom_types();
+  fl aff = 0;
+  fl loss = 0;
+
+  //this is what compute cnn minus_forces
+  cnn_scorer.score(m, true, aff, loss);
+  e += loss;
+
+  //out of bonds forces
 	VINA_FOR(i, m.num_movable_atoms())
 	{
 		const atom_base& a = m.movable_atom(i);
@@ -71,8 +116,11 @@ fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const
 
 		const vec& a_coords = m.movable_coords(i);
 		vec adjusted_a_coords;
-		vec out_of_bounds_deriv(0, 0, 0);
-		fl out_of_bounds_penalty = check_bounds_deriv(a_coords, adjusted_a_coords, out_of_bounds_deriv);
+	  vec out_of_bounds_deriv(0, 0, 0);
+	  vec cnn_out_of_bounds_deriv(0, 0, 0);
+
+		fl out_of_bounds_penalty = check_bounds_deriv(gd, a_coords, adjusted_a_coords, out_of_bounds_deriv);
+		out_of_bounds_penalty += check_bounds_deriv(cnn_gd, a_coords, adjusted_a_coords, cnn_out_of_bounds_deriv);
 
 		fl this_e = 0;
 		vec deriv(0, 0, 0);
@@ -85,11 +133,10 @@ fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const
 			deriv += ug_deriv;
 		}
 		curl(this_e, deriv, v);
-		m.movable_minus_forces(i) = deriv + out_of_bounds_deriv;
+		m.movable_minus_forces(i) += deriv + out_of_bounds_deriv + cnn_out_of_bounds_deriv;
 		e += this_e + out_of_bounds_penalty;
 	}
-	fl aff = 0;
-	e += -cnn_scorer.score(m, true, aff);
+
 	return e;
 }
 
