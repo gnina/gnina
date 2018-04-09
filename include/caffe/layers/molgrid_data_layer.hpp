@@ -115,6 +115,7 @@ public:
 
         if(rotate.real() != 0) {
           //transform receptor coordinates
+          //todo: move this to the gpu
           float3 pt = rotate.rotate(ainfo.x-c.x,ainfo.y-c.y,ainfo.z-c.z);
           pt += c;
           pt += trans;

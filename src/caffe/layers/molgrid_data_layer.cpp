@@ -786,7 +786,7 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
     transform.Q *= axial_quaternion();
   }
 
-  //TODO move this into gridmaker.setAtoms, have it just take the mol_transform as input
+  //TODO move this into gridmaker.setAtoms, have it just take the mol_transform as input - separate receptor transform as well
   gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
 
   if(transform.mol.atoms.size() == 0) {
