@@ -110,8 +110,42 @@ template
 void MolGridDataLayer<float, RNNGridMaker>::setAtomGradientsGPU(RNNGridMaker& gmaker, 
          float *diff, unsigned batch_size);
 
+//eurhghgueurugh
+template 
+void MolGridDataLayer<double, GridMaker>::Forward_gpu(const std::vector<Blob<double>*>& bottom,
+      const std::vector<Blob<double>*>& top);
+
+template 
+void MolGridDataLayer<float, GridMaker>::Forward_gpu(const std::vector<Blob<float>*>& bottom,
+      const std::vector<Blob<float>*>& top);
+
+template 
+void MolGridDataLayer<double, RNNGridMaker>::Forward_gpu(const std::vector<Blob<double>*>& bottom,
+      const std::vector<Blob<double>*>& top);
+
+template 
+void MolGridDataLayer<float, RNNGridMaker>::Forward_gpu(const std::vector<Blob<float>*>& bottom,
+      const std::vector<Blob<float>*>& top);
+
+template 
+void MolGridDataLayer<double, GridMaker>::Backward_gpu(const std::vector<Blob<double>*>& top,
+      const vector<bool>& propagate_down, const std::vector<Blob<double>*>& bottom);
+
+template 
+void MolGridDataLayer<float, GridMaker>::Backward_gpu(const std::vector<Blob<float>*>& top,
+      const vector<bool>& propagate_down, const std::vector<Blob<float>*>& bottom);
+
+template 
+void MolGridDataLayer<double, RNNGridMaker>::Backward_gpu(const std::vector<Blob<double>*>& top,
+      const vector<bool>& propagate_down, const std::vector<Blob<double>*>& bottom);
+
+template 
+void MolGridDataLayer<float, RNNGridMaker>::Backward_gpu(const std::vector<Blob<float>*>& top,
+      const vector<bool>& propagate_down, const std::vector<Blob<float>*>& bottom);
+
 INSTANTIATE_LAYER_GPU_FORWARD(GenericMolGridDataLayer);
 INSTANTIATE_LAYER_GPU_BACKWARD(GenericMolGridDataLayer);
 INSTANTIATE_LAYER_GPU_FORWARD(RNNMolGridDataLayer);
+INSTANTIATE_LAYER_GPU_BACKWARD(RNNMolGridDataLayer);
 
 }  // namespace caffe

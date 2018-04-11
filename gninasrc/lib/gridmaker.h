@@ -18,6 +18,7 @@
 #include <thrust/system/cuda/experimental/pinned_allocator.h>
 #include <vector_types.h>
 #include <boost/array.hpp>
+#include <boost/multi_array/multi_array_ref.hpp>
 #include <boost/math/quaternion.hpp>
 #include <boost/algorithm/string.hpp>
 #include "quaternion.h"
@@ -413,9 +414,9 @@ public:
 
   template <typename Dtype>
   void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
-                           quaternion Q, const Dtype* data, vector<float3>& agrad, 
-                           unsigned ntypes) {
-    boost::multi_array_ref<Dtype, 4> grids(data, boost::extents[ntypes][dim][dim][dim]);
+                           quaternion Q, Dtype* data, vector<float3>& agrad, 
+                           unsigned offset, unsigned ntypes) {
+    boost::multi_array_ref<Dtype, 4> grids(data+offset, boost::extents[ntypes][dim][dim][dim]);
     setAtomGradientsCPU(ainfo, gridindex, Q, grids, agrad);
   }
 
@@ -720,7 +721,8 @@ class RNNGridMaker : public GridMaker {
 
   template <typename Dtype>
 	void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
-                           quaternion Q, Dtype* data, vector<float3>& agrad) {
+                           quaternion Q, Dtype* data, vector<float3>& agrad,
+                           unsigned offset, unsigned ntypes) {
     unsigned grids_per_dim = this->dimension / subgrid_dim;
     unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
     unsigned subgrid_dim_in_points = dim / grids_per_dim;

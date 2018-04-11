@@ -841,6 +841,10 @@ class RNNMolGridDataLayer : public MolGridDataLayer<Dtype, RNNGridMaker> {
     // backward(top, bottom, true);
     NOT_IMPLEMENTED;
   }
+
+  virtual void Backward_relevance(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+    NOT_IMPLEMENTED;
+  }
 };
 
 }  // namespace caffe

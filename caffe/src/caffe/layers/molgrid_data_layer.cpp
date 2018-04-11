@@ -1067,10 +1067,9 @@ void MolGridDataLayer<Dtype, GridMakerT>::backward(const vector<Blob<Dtype>*>& t
         mol_transform& transform = batch_transform[item_id];
         gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
 
-        Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
 	      // boost::timer::cpu_timer time;
         gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, 
-                transform.Q, grids, transform.mol.gradient);
+                transform.Q, diff, transform.mol.gradient, offset, numReceptorTypes+numLigandTypes);
 	      // std::cout << "CPU grid time " << time.elapsed().wall/1000000000.0 << "\n";
       }
     }
