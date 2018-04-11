@@ -60,13 +60,14 @@ fl non_cache_cnn::eval(model& m, fl v) const
 }
 
 
+//reset center; will apply inverse of receptor transformation to ligand as well
 bool non_cache_cnn::adjust_center(model& m)
 {
   //the cnn is only defined over a cubic region, set
   //a second out_of_bound_box to this region
 
   //set center
-  bool ret = cnn_scorer.adjust_center(m);
+  bool ret = cnn_scorer.set_center_from_model(m);
 
   //update vina grid to match cnn grid
   vec center = cnn_scorer.get_center();

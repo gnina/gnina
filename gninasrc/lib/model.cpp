@@ -906,15 +906,13 @@ void model::write_context(const context& c, std::ostream& out) const {
 //more for debugging, dump fixed atoms as xyz to out
 //applies transformation
 void model::write_rigid_xyz(std::ostream& out, const vec& center) const {
-  out << grid_atoms.size() << "\n";
-  float3 c = make_float3(center[0],center[1],center[2]);
+  out << grid_atoms.size() << "\n\n";
+  gfloat3 c = gfloat3(center[0],center[1],center[2]);
+  gfloat3 t = gfloat3(rec_conf.position[0], rec_conf.position[1], rec_conf.position[2]);
   VINA_FOR_IN(i, grid_atoms) {
     const atom& a = grid_atoms[i];
     out << smina_type_to_element_name(a.sm) << " ";
-    float3 pt = make_float3(a.coords[0],a.coords[1],a.coords[2]);
-    pt = rec_conf.orientation.rotate(pt.x-c.x, pt.y-c.y, pt.z-c.z);
-    pt += c;
-
+    gfloat3 pt = rec_conf.orientation.transform(a.coords[0],a.coords[1],a.coords[2], c, t);
     out << pt.x << " " << pt.y << " " << pt.z << "\n";
   }
 }

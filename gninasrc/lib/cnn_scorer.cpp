@@ -240,9 +240,40 @@ bool CNNScorer::has_affinity() const
     return (bool)net->blob_by_name("predaff");
 }
 
-bool CNNScorer::adjust_center(model& m) const
+//reset center to be around ligand, apply receptor transormation (inverted) to ligand
+bool CNNScorer::set_center_from_model(model& m)
 {
   if(!cnnopts.move_minimize_frame) {
+    vec center = get_center();
+    if(cnnopts.verbose) {
+      std::cout << "CNN center " << center[0] << "," << center[1] << "," << center[2] << "\n";
+      std::cout << "Rec transform ";
+      m.rec_conf.print();
+      std::cout << "\n";
+    }
+    vecv& coords = m.coordinates();
+    gfloat3 c(center[0],center[1],center[2]);
+    gfloat3 trans(-m.rec_conf.position[0],-m.rec_conf.position[1],-m.rec_conf.position[2]);
+    qt rot = m.rec_conf.orientation.inverse();
+
+    VINA_FOR_IN(i, coords) {
+      gfloat3 pt = rot.transform(coords[i][0],coords[i][1],coords[i][2], c, trans);
+      coords[i][0] = pt.x;
+      coords[i][1] = pt.y;
+      coords[i][2] = pt.z;
+    }
+
+    //reset protein
+    m.rec_conf.position = vec(0,0,0);
+    m.rec_conf.orientation = qt(1,0,0,0);
+
+    float cnnaffinity, loss;
+    float cnnscore = score(m, false, cnnaffinity, loss);
+
+    if(cnnopts.verbose) {
+      std::cout << "CNNscoreX: " << std::fixed << std::setprecision(10) << cnnscore << "\n";
+      std::cout << "CNNaffinityX: " << std::fixed << std::setprecision(10) << cnnaffinity << "\n";
+    }
     //todo - make this more efficent, i.e. only set center
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(), true);
     return true;
@@ -280,6 +311,9 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity, float& 
 
 	caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
+	if(!isnan(cnnopts.cnn_center[0])) {
+	  mgrid->setCenter(cnnopts.cnn_center);
+	}
 	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(),cnnopts.move_minimize_frame);
 	if(!cnnopts.move_minimize_frame) {
 	  mgrid->setReceptor<atom>(m.get_fixed_atoms(), m.rec_conf.position, m.rec_conf.orientation);

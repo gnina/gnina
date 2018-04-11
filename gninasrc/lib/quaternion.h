@@ -28,6 +28,7 @@
 
 #include "common.h"
 #include "random.h"
+#include "gpu_math.h"
 
 struct qt {
     fl a;
@@ -124,12 +125,28 @@ struct qt {
 
     /* Rotation point using the quaternion.   */
     __host__ __device__
-    float3 rotate(fl x, fl y, fl z) const {
+    gfloat3 rotate(fl x, fl y, fl z) const {
       qt p(0, x, y, z);
       p = *this * p * (conj() / norm());
-      return make_float3(p.R_component_2(),p.R_component_3(),p.R_component_4());
+      return gfloat3(p.R_component_2(),p.R_component_3(),p.R_component_4());
     }
 
+    /* rotate around the provided center and translate */
+    __host__ __device__
+    gfloat3 transform(fl x, fl y, fl z, gfloat3 center, gfloat3 translate) const {
+      gfloat3 pt = rotate(x-center.x,y-center.y,z-center.z);
+      return pt + center + translate;
+    }
+
+    //q^-1
+    __host__ __device__
+    qt inverse() const {
+      fl nsq = a*a+b*b+c*c+d*d;
+      return qt(a/nsq,
+                -b/nsq,
+                -c/nsq,
+                -d/nsq);
+    }
 };
 
 // non-intrusive free function split serialization

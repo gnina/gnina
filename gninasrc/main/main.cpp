@@ -75,6 +75,7 @@ struct user_settings
 	int device; //gpu number
 
 	int exhaustiveness;
+	int num_mc_steps; //override default
 	bool score_only;
 	bool randomize_only;
 	bool local_only;
@@ -90,7 +91,7 @@ struct user_settings
 	user_settings() :
 			energy_range(2.0), num_modes(9), out_min_rmsd(1),
 					forcecap(1000), seed(auto_seed()), verbosity(1), cpu(1),
-					device(0), exhaustiveness(10),
+					device(0), exhaustiveness(10), num_mc_steps(0),
 					score_only(false), randomize_only(false), local_only(false),
 					dominimize(false), include_atom_info(false), gpu_on(false),
                     true_score(false), cnn_scoring(false)
@@ -243,7 +244,7 @@ static void get_cnn_info(model& m, CNNScorer& cnn, tee& log, float& cnnscore, fl
      log << "CNNaffinity1: " << std::fixed << std::setprecision(10) << cnnaffinity;
      log.endl();
 
-     cnn.adjust_center(m);
+     cnn.set_center_from_model(m);
      cnnscore = cnn.score(m, false, cnnaffinity, loss);
      log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
      log.endl();
@@ -338,6 +339,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm,
 				user_grid);
 		done(settings.verbosity, log);
+    m.set(out.c);
 
 		//be as exact as possible for final score
 		naive_non_cache nnc(&exact_prec); // for out of grid issues
@@ -361,12 +363,12 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< " (kcal/mol)\nRMSD: " << rmsd;
 		log.endl();
 
+    //reset the center after last call to set
     get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 
 		if (!nc.within(m))
 			log << "WARNING: not all movable atoms are within the search space\n";
 
-		m.set(out.c);
 		done(settings.verbosity, log);
 		results.push_back(result_info(e, cnnscore, cnnaffinity, cnnforces, rmsd, m));
 
@@ -383,28 +385,30 @@ void do_search(model& m, const boost::optional<model>& ref,
 		par(m, out_cont, prec, ig, corner1, corner2, generator, user_grid);
 		done(settings.verbosity, log);
 		doing(settings.verbosity, "Refining results", log);
-		VINA_FOR_IN(i, out_cont)
+		VINA_FOR_IN(i, out_cont) {
 			refine_structure(m, prec, nc, out_cont[i], authentic_v,
 					par.mc.ssd_par.minparm, user_grid);
-
-		if (!out_cont.empty())
-		{
-			out_cont.sort();
-            non_cache_cnn* nc_cnn = dynamic_cast<non_cache_cnn*>(&nc);
-            if (!nc_cnn) {
-                non_cache nc_base = *(dynamic_cast<non_cache*>(&nc));
-			    const fl best_mode_intramolecular_energy = m.eval_intramolecular(
-			    		prec, authentic_v, out_cont[0].c);
-
-			    VINA_FOR_IN(i, out_cont)
-			    	if (not_max(out_cont[i].e))
-			    		out_cont[i].e = m.eval_adjusted(sf, prec, nc_base, authentic_v,
-			    				out_cont[i].c, best_mode_intramolecular_energy,
-			    				user_grid);
-			    // the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
-			    out_cont.sort();
-            }
+			get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 		}
+
+    if (!out_cont.empty())
+    {
+      out_cont.sort();
+      non_cache_cnn* nc_cnn = dynamic_cast<non_cache_cnn*>(&nc);
+      if (!nc_cnn)
+      {
+        non_cache nc_base = *(dynamic_cast<non_cache*>(&nc));
+        const fl best_mode_intramolecular_energy = m.eval_intramolecular(prec,
+            authentic_v, out_cont[0].c);
+
+        VINA_FOR_IN(i, out_cont)
+          if (not_max(out_cont[i].e))
+            out_cont[i].e = m.eval_adjusted(sf, prec, nc_base, authentic_v,
+                out_cont[i].c, best_mode_intramolecular_energy, user_grid);
+        // the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
+        out_cont.sort();
+      }
+    }
 		out_cont = remove_redundant(out_cont, settings.out_min_rmsd);
 
 		done(settings.verbosity, log);
@@ -503,6 +507,10 @@ void main_procedure(model& m, precalculate& prec,
 	sz heuristic = m.num_movable_atoms()
 			+ 10 * m.get_size().num_degrees_of_freedom();
 	par.mc.num_steps = unsigned(70 * 3 * (50 + heuristic) / 2); // 2 * 70 -> 8 * 20 // FIXME
+	if(settings.num_mc_steps > 0) {
+	  par.mc.num_steps = settings.num_mc_steps;
+	}
+
 	par.mc.ssd_par.evals = unsigned((25 + m.num_movable_atoms()) / 3);
 	if (minparm.maxiters == 0)
 		minparm.maxiters = par.mc.ssd_par.evals;
@@ -1162,6 +1170,7 @@ Thank you!\n";
 				"energy minimization")
 		("randomize_only", bool_switch(&settings.randomize_only),
 				"generate random poses, attempting to avoid clashes")
+		("num_mc_steps", value<int>(&settings.num_mc_steps), "number of monte carlo steps to take in each chain")
 		("minimize_iters",
 				value<unsigned>(&minparms.maxiters)->default_value(0),
 				"number iterations of steepest descent; default scales with rotors and usually isn't sufficient for convergence")
@@ -1217,6 +1226,9 @@ Thank you!\n";
 		               "Dump .xyz files of atom gradient.")
 		("cnn_xyzprefix", value<std::string>(&cnnopts.xyzprefix)->default_value("gradient"),
 		               "Prefix for atom gradient .xyz files")
+		("cnn_center_x", value<fl>(&cnnopts.cnn_center[0]), "X coordinate of the CNN center")
+		("cnn_center_y", value<fl>(&cnnopts.cnn_center[1]), "Y coordinate of the CNN center")
+		("cnn_center_z", value<fl>(&cnnopts.cnn_center[2]), "Z coordinate of the CNN center")
 		("cnn_verbose", bool_switch(&cnnopts.verbose),"Enable verbose output for CNN debugging");
 
 
