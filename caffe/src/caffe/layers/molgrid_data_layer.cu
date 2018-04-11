@@ -27,7 +27,7 @@ void MolGridDataLayer<Dtype, GridMakerT>::Backward_gpu(const vector<Blob<Dtype>*
 }
 
 template <typename Dtype, class GridMakerT>
-void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMakerT& gmaker, Dtype
+void MolGridDataLayer<Dtype, GridMakerT>::setAtomGradientsGPU(GridMakerT& gmaker, Dtype
         *diff, unsigned batch_size)  {
 
   unsigned buffersize = 0;
@@ -74,14 +74,12 @@ void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMakerT& gmaker, Dtype
         setAtomGradientGPU <<<nfull_blocks, THREADS_PER_BLOCK>>>(gmaker, atoms, 
                 whichGrid, gradient, make_float3(molcenter[0], molcenter[1], molcenter[2]), 
                 gpu_q, make_float3(transform.center[0], transform.center[1],
-                transform.center[2]), diff, offset, 0, item_id, batch_size,
-                numReceptorTypes + numLigandTypes);
+                transform.center[2]), diff, offset, 0);
     if (nthreads_remain)
         setAtomGradientGPU <<<1, nthreads_remain>>>(gmaker, atoms, whichGrid, 
                 gradient, make_float3(molcenter[0], molcenter[1], molcenter[2]), gpu_q, 
                 make_float3(transform.center[0], transform.center[1],
-                transform.center[2]), diff, offset, natoms - nthreads_remain, 
-                item_id, batch_size, numReceptorTypes + numLigandTypes);
+                transform.center[2]), diff, offset, natoms - nthreads_remain);
     cudaStreamSynchronize(cudaStreamPerThread);
 //std::cout << "GPU grid time " << time.elapsed().wall/1000000000.0 << "\n";
     cudaMemcpy(&transform.mol.gradient[0], gradient,
@@ -97,22 +95,23 @@ void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMakerT& gmaker, Dtype
 }
 
 template 
-void RealMolGridDataLayer<double, RNNGridMaker>::setAtomGradientsGPU(RNNGridMaker& gmaker, 
+void MolGridDataLayer<double, GridMaker>::setAtomGradientsGPU(GridMaker& gmaker, 
     double *diff, unsigned batch_size);
 
 template 
-void RealMolGridDataLayer<float, RNNGridMaker>::setAtomGradientsGPU(RNNGridMaker& gmaker, 
+void MolGridDataLayer<float, GridMaker>::setAtomGradientsGPU(GridMaker& gmaker, 
          float *diff, unsigned batch_size);
 
 template 
-void RealMolGridDataLayer<double, GridMaker>::setAtomGradientsGPU(GridMaker& gmaker, 
+void MolGridDataLayer<double, RNNGridMaker>::setAtomGradientsGPU(RNNGridMaker& gmaker, 
     double *diff, unsigned batch_size);
 
 template 
-void RealMolGridDataLayer<float, GridMaker>::setAtomGradientsGPU(GridMaker& gmaker, 
+void MolGridDataLayer<float, RNNGridMaker>::setAtomGradientsGPU(RNNGridMaker& gmaker, 
          float *diff, unsigned batch_size);
 
-INSTANTIATE_LAYER_GPU_FORWARD(MolGridDataLayer);
-INSTANTIATE_LAYER_GPU_BACKWARD(MolGridDataLayer);
+INSTANTIATE_LAYER_GPU_FORWARD(GenericMolGridDataLayer);
+INSTANTIATE_LAYER_GPU_BACKWARD(GenericMolGridDataLayer);
+INSTANTIATE_LAYER_GPU_FORWARD(RNNMolGridDataLayer);
 
 }  // namespace caffe

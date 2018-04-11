@@ -21,6 +21,8 @@
 #include <boost/math/quaternion.hpp>
 #include <boost/algorithm/string.hpp>
 #include "quaternion.h"
+#include "gridoptions.h"
+#include "caffe/proto/caffe.pb.h"
 
 #ifndef VINA_ATOM_CONSTANTS_H
 #include "gninasrc/lib/atom_constants.h"
@@ -37,7 +39,7 @@ protected:
   float resolution;
   float dimension;
   float rsq; //radius squared (dimension/2)^2
-  unsigned dim; //number of points on each side (cube)
+  unsigned dim; //number of points on each side (grid)
 	bool binary;
 	bool spherize; //mask out atoms not within sphere of center
 
@@ -66,9 +68,9 @@ public:
 	  center.x = center.y = center.z = 0;
 	}
 
-  virtual void initialize(const MolGridDataParameter& param) {
-    initialize(param.resolution(), param.dimension(), param.radiusmultiple(), 
-        param.binary_occupancy(), param.spherize());
+  virtual void initialize(const caffe::MolGridDataParameter& param) {
+    initialize(param.resolution(), param.dimension(), param.radius_multiple(), 
+        param.binary_occupancy(), param.spherical_mask());
   }
 
   virtual void initialize(const gridoptions& opt, float rm) {
@@ -191,8 +193,9 @@ public:
 	  //return 0.0;
 	}
 
-	virtual void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex,  const quaternion& Q, Dtype* data, unsigned ntypes) {
-    boost::multi_array_ref<Dtype, 4> grids(data, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+  template <typename Dtype>
+	void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex,  const quaternion& Q, Dtype* data, unsigned ntypes) {
+    boost::multi_array_ref<Dtype, 4> grids(data, boost::extents[ntypes][dim][dim][dim]);
     setAtomsCPU(ainfo, gridindex, Q, grids);
   }
 
@@ -282,7 +285,7 @@ public:
 	//GPU accelerated version, defined in cu file
 	//pointers must point to GPU memory
 	template<typename Dtype>
-	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, unsigned ngrids, Dtype *grids, unsigned batch_idx, unsigned batch_dim);
+	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, unsigned ngrids, Dtype *grids);
 
 
   void zeroAtomGradientsCPU(vector<float3>& agrad)
@@ -360,7 +363,7 @@ public:
 	template<typename Grids>
 	void setAtomGradientCPU(const float4& ainfo, int whichgrid,
 			const quaternion& Q, const Grids& grids,
-			float3& agrad, unsigned batch_idx, bool isrelevance = false) {
+			float3& agrad, bool isrelevance = false) {
 		float3 coords;
 		if (Q.real() != 0) //apply rotation
 		{
@@ -408,9 +411,10 @@ public:
 		}
 	}
 
-  
-  virtual void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
-                           const Dtype* data, vector<float3>& agrad, unsigned ntypes) {
+  template <typename Dtype>
+  void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
+                           quaternion Q, const Dtype* data, vector<float3>& agrad, 
+                           unsigned ntypes) {
     boost::multi_array_ref<Dtype, 4> grids(data, boost::extents[ntypes][dim][dim][dim]);
     setAtomGradientsCPU(ainfo, gridindex, Q, grids, agrad);
   }
@@ -433,8 +437,8 @@ public:
   template<typename Dtype>
   __device__
   void setAtomGradientsGPU(const float4* ainfo, short* gridindices, float3* agrads, 
-        const qt Q, const Dtype* grids, unsigned remainder_offset, unsigned batch_idx, 
-        unsigned batch_dim, unsigned ntypes, bool isrelevance = false) {
+        const qt Q, const Dtype* grids, unsigned remainder_offset, 
+        bool isrelevance = false) {
 #ifdef __CUDA_ARCH__
     //TODO: implement
     assert(isrelevance == false);
@@ -496,7 +500,7 @@ public:
 	{
 	  int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
 	  if (whichgrid >= 0) {
-		setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i], batch_idx, true);
+		setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i], true);
 	  }
 	}
 	}
@@ -637,31 +641,33 @@ public:
 };
 
 class RNNGridMaker : public GridMaker {
+  public:
   float subgrid_dim;
   unsigned batch_size;
   unsigned batch_idx;
-  public:
+  unsigned ntypes;
   RNNGridMaker(float res=0, float d=0, float rm=1.5, bool b=false, bool s=false, 
-      float sd=3.0, unsigned bs=1, unsigned bi=0) : subgrid_dim(sd), batch_size(bs), 
-      batch_idx(bi), GridMaker(res, d, rm, b, s) {
-    initialize(res, d, rm, b, s, sd, bs, bi);
+      float sd=3.0, unsigned bs=1, unsigned bi=0, unsigned nt=0) : GridMaker(res, d, rm, b, s), 
+      subgrid_dim(sd), batch_size(bs), batch_idx(bi), ntypes(nt) {
+    initialize(res, d, rm, b, s, sd, bs, bi, nt);
   }
 
   virtual ~RNNGridMaker() {}
 
   virtual void initialize(float res, float d, float rm=1.5, bool b = false, 
-      bool s = false, float sd=3.0, bs=1, bi=0) {
+      bool s = false, float sd=3.0, unsigned bs=1, unsigned bi=0, unsigned nt=0) {
     subgrid_dim = sd;
     batch_size = bs;
     batch_idx = bi;
+    ntypes = nt;
     GridMaker::initialize(res, d, rm, b, s);
     if (subgrid_dim) assert(fmod(dimension, subgrid_dim)==0 && 
       "Subgrid dimension must evenly divide total grid dimension");
   }
 
-  virtual void initialize(const MolGridDataParameter& param) {
-    initialize(param.resolution(), param.dimension(), param.radiusmultiple(), 
-        param.binary_occupancy(), param.spherize(), param.subgrid_dim(), param.batch_size());
+  virtual void initialize(const caffe::MolGridDataParameter& param) {
+    initialize(param.resolution(), param.dimension(), param.radius_multiple(), 
+        param.binary_occupancy(), param.spherical_mask(), param.subgrid_dim(), param.batch_size());
   }
 
   virtual void initialize(const gridoptions& opt, float rm) {
@@ -669,24 +675,77 @@ class RNNGridMaker : public GridMaker {
   }
 
 	virtual void setCenter(double x, double y, double z) {
-    batch_idx = (++batch_idx) % batch_size;
+    batch_idx = (batch_idx+1) % batch_size;
     GridMaker::setCenter(x, y, z);
   }
 
-	virtual void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex,  const quaternion& Q, Dtype* data, unsigned ntypes) {
-    unsigned grids_per_dim = this->dimension / subgrid_dim;
-    unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
-    unsigned subgrid_dim_in_points = dim / grids_per_dim;
-    boost::multi_array_ref<Dtype, 6> grids(data, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
-    GridMaker::setAtomsCPU(ainfo, gridindex, Q, grids);
+	unsigned createDefaultMap(const char *names[], vector<int>& map) {
+    unsigned _ntypes = GridMaker::createDefaultMap(names, map);
+    ntypes += _ntypes;
+    return _ntypes;
   }
 
-	virtual void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, Dtype* data, vector<float3>& agrad, unsigned ntypes) {
+	unsigned createDefaultRecMap(vector<int>& map) {
+    unsigned _ntypes = GridMaker::createDefaultRecMap(map);
+    ntypes += _ntypes;
+    return _ntypes;
+  }
+
+	unsigned createDefaultLigMap(vector<int>& map) {
+    unsigned _ntypes = GridMaker::createDefaultLigMap(map);
+    ntypes += _ntypes;
+    return _ntypes;
+  }
+
+	unsigned createAtomTypeMap(const string& fname, vector<int>& map) {
+    unsigned _ntypes = GridMaker::createAtomTypeMap(fname, map);
+    ntypes += _ntypes;
+    return _ntypes;
+  }
+
+  template <typename Dtype>
+	void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q, Dtype* data, unsigned ntypes) {
     unsigned grids_per_dim = this->dimension / subgrid_dim;
     unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
     unsigned subgrid_dim_in_points = dim / grids_per_dim;
-    boost::multi_array_ref<Dtype, 6> grids(data, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
-    GridMaker::setAtomGradientsCPU(ainfo, gridindex, Q, grids, agrad);
+    boost::multi_array_ref<Dtype, 6> grids(data, boost::extents[ngrids][batch_size][ntypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
+		zeroGridsCPU(grids);
+		for (unsigned i = 0, n = ainfo.size(); i < n; i++)
+		{
+			int pos = gridindex[i];
+			if (pos >= 0)
+				setAtomCPU(ainfo[i], pos, Q, grids);
+		}
+  }
+
+  template <typename Dtype>
+	void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
+                           quaternion Q, Dtype* data, vector<float3>& agrad) {
+    unsigned grids_per_dim = this->dimension / subgrid_dim;
+    unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
+    unsigned subgrid_dim_in_points = dim / grids_per_dim;
+    boost::multi_array_ref<Dtype, 6> grids(data, boost::extents[ngrids][batch_size][ntypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
+    zeroAtomGradientsCPU(agrad);
+    for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
+    {
+      int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
+      if (whichgrid >= 0) {
+        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
+      }
+    }
+  }
+
+  template<typename Grids>
+  void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
+                           const Grids& grids, vector<float3>& agrad) {
+    zeroAtomGradientsCPU(agrad);
+    for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
+    {
+      int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
+      if (whichgrid >= 0) {
+        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
+      }
+    }
   }
 
   //TODO: possible to merge this with base version?
@@ -742,23 +801,23 @@ class RNNGridMaker : public GridMaker {
 	        float y = dims[1].x + j * resolution;
 	        float z = dims[2].x + k * resolution;
 	        float val = calcPoint(coords, radius, x, y, z);
-          unsigned cubes_per_dim = dimension / subgrid_dim;
-          unsigned subcube_idx_x = i / (dim / cubes_per_dim); 
-          unsigned subcube_idx_y = j / (dim / cubes_per_dim); 
-          unsigned subcube_idx_z = k / (dim / cubes_per_dim); 
-          unsigned rel_x = i % (dim / cubes_per_dim); 
-          unsigned rel_y = j % (dim / cubes_per_dim); 
-          unsigned rel_z = k % (dim / cubes_per_dim); 
-          unsigned cube_idx = (((subcube_idx_x * cubes_per_dim) + subcube_idx_y) * 
-              cubes_per_dim + subcube_idx_z);
+          unsigned grids_per_dim = dimension / subgrid_dim;
+          unsigned subgrid_idx_x = i / (dim / grids_per_dim); 
+          unsigned subgrid_idx_y = j / (dim / grids_per_dim); 
+          unsigned subgrid_idx_z = k / (dim / grids_per_dim); 
+          unsigned rel_x = i % (dim / grids_per_dim); 
+          unsigned rel_y = j % (dim / grids_per_dim); 
+          unsigned rel_z = k % (dim / grids_per_dim); 
+          unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + subgrid_idx_y) * 
+              grids_per_dim + subgrid_idx_z);
 
 	        if (binary)
 	        {
 	          if (val != 0)
-              grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z] = 1.0;
+              grids[grid_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z] = 1.0;
 	        }
 	        else {
-            grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z] += val;
+            grids[grid_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z] += val;
           }
 
 	      }
@@ -770,7 +829,7 @@ class RNNGridMaker : public GridMaker {
   //gridmaker to a GPU kernel by value and the vtable is not copied
 	template<typename Dtype>
 	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, 
-      unsigned ngrids, Dtype *grids, unsigned batch_idx, unsigned batch_dim);
+      unsigned ngrids, Dtype *grids);
 
   //TODO: possible to merge this with base version?
 	template<typename Grids>
@@ -811,26 +870,26 @@ class RNNGridMaker : public GridMaker {
 					float x = dims[0].x + i * resolution;
 					float y = dims[1].x + j * resolution;
 					float z = dims[2].x + k * resolution;
-          //if we're iterating over subcubes, the LSTM layer requires that the
-          //subcubes from different examples in the same batch be interleaved.
+          //if we're iterating over subgrids, the LSTM layer requires that the
+          //subgrids from different examples in the same batch be interleaved.
           //we need to convert the absolute grid index to the index in this
-          //subcube grid, which is T x B x ntypes x cube_dim x cube_dim x cube_dim
-          unsigned cubes_per_dim = dimension / subgrid_dim;
-          unsigned subcube_idx_x = i / (dim / cubes_per_dim); 
-          unsigned subcube_idx_y = j / (dim / cubes_per_dim); 
-          unsigned subcube_idx_z = k / (dim / cubes_per_dim); 
-          unsigned rel_x = i % (dim / cubes_per_dim); 
-          unsigned rel_y = j % (dim / cubes_per_dim); 
-          unsigned rel_z = k % (dim / cubes_per_dim); 
-          unsigned cube_idx = (((subcube_idx_x * cubes_per_dim) + subcube_idx_y) * 
-              cubes_per_dim + subcube_idx_z);
+          //subgrid grid, which is T x B x ntypes x subgrid_dim x subgrid_dim x subgrid_dim
+          unsigned grids_per_dim = dimension / subgrid_dim;
+          unsigned subgrid_idx_x = i / (dim / grids_per_dim); 
+          unsigned subgrid_idx_y = j / (dim / grids_per_dim); 
+          unsigned subgrid_idx_z = k / (dim / grids_per_dim); 
+          unsigned rel_x = i % (dim / grids_per_dim); 
+          unsigned rel_y = j % (dim / grids_per_dim); 
+          unsigned rel_z = k % (dim / grids_per_dim); 
+          unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + subgrid_idx_y) * 
+              grids_per_dim + subgrid_idx_z);
 
 					if (isrelevance) 
 						accumulateAtomRelevance(coords, radius, x, y, z,
-								grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z], agrad);
+								grids[grid_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z], agrad);
 					else //true gradient, distance matters
 						accumulateAtomGradient(coords, radius, x, y, z,
-								grids[cube_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z], agrad, whichgrid);
+								grids[grid_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z], agrad, whichgrid);
 				}
 			}
 		}
@@ -839,8 +898,7 @@ class RNNGridMaker : public GridMaker {
   template<typename Dtype>
   __device__
   void setAtomGradientsGPU(const float4* ainfo, short* gridindices, float3* agrads, 
-        const qt Q, const Dtype* grids, unsigned remainder_offset, unsigned batch_idx, 
-        unsigned batch_dim, unsigned ntypes, bool isrelevance = false) {
+        const qt Q, const Dtype* grids, unsigned remainder_offset, bool isrelevance = false) {
 #ifdef __CUDA_ARCH__
     //TODO: implement
     assert(isrelevance == false);
@@ -883,19 +941,19 @@ class RNNGridMaker : public GridMaker {
 				float x = dims[0].x + i * resolution;
 				float y = dims[1].x + j * resolution;
 				float z = dims[2].x + k * resolution;
-        unsigned cubes_per_dim = dimension / subgrid_dim;
-        unsigned subcube_idx_x = i / (dim / cubes_per_dim); 
-        unsigned subcube_idx_y = j / (dim / cubes_per_dim); 
-        unsigned subcube_idx_z = k / (dim / cubes_per_dim); 
-        unsigned rel_x = i % (dim / cubes_per_dim); 
-        unsigned rel_y = j % (dim / cubes_per_dim); 
-        unsigned rel_z = k % (dim / cubes_per_dim); 
-        unsigned cube_idx = (((subcube_idx_x * cubes_per_dim) + subcube_idx_y) * 
-              cubes_per_dim + subcube_idx_z);
+        unsigned grids_per_dim = dimension / subgrid_dim;
+        unsigned subgrid_idx_x = i / (dim / grids_per_dim); 
+        unsigned subgrid_idx_y = j / (dim / grids_per_dim); 
+        unsigned subgrid_idx_z = k / (dim / grids_per_dim); 
+        unsigned rel_x = i % (dim / grids_per_dim); 
+        unsigned rel_y = j % (dim / grids_per_dim); 
+        unsigned rel_z = k % (dim / grids_per_dim); 
+        unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + subgrid_idx_y) * 
+              grids_per_dim + subgrid_idx_z);
 
 	      accumulateAtomGradient(coords, radius, x, y, z, 
-                  grids[((((cube_idx * batch_dim + batch_idx) * ntypes + whichgrid) * 
-                      cubes_per_dim + rel_x) * cubes_per_dim + rel_y) * cubes_per_dim 
+                  grids[((((grid_idx * batch_size + batch_idx) * ntypes + whichgrid) * 
+                      grids_per_dim + rel_x) * grids_per_dim + rel_y) * grids_per_dim 
                       + rel_z], agrads[idx], whichgrid);
       }
     }
@@ -904,32 +962,31 @@ class RNNGridMaker : public GridMaker {
   }
 };
 
-template <typename Dtype, GridMakerT>
+template <typename Dtype, class GridMakerT>
 __global__ 
 void setAtomGradientGPU(GridMakerT gmaker, 
         float4* ainfo, short* gridindices, float3* agrads, float3 centroid, 
-        qt Q, float3 translation, Dtype *diff, int offset, unsigned remainder_offset, 
-        unsigned batch_idx, unsigned batch_dim, unsigned ntypes) {
+        qt Q, float3 translation, Dtype *diff, int offset, unsigned remainder_offset) {
     gmaker.setAtomGradientsGPU(ainfo, gridindices, agrads, Q, diff + offset, 
-        remainder_offset, batch_idx, batch_dim, ntypes);
+        remainder_offset);
 }
 
 template __device__
 void GridMaker::setAtomGradientsGPU<double>(const float4* ainfo, short* gridindices, 
         float3* agrads, const qt Q, const double* grids, unsigned remainder_offset, 
-        unsigned batch_idx, unsigned batch_dim, unsigned ntypes, bool isrelevance);
+        bool isrelevance);
 template __device__
 void GridMaker::setAtomGradientsGPU<float>(const float4* ainfo, short* gridindices, 
         float3* agrads, const qt Q, const float* grids, unsigned remainder_offset, 
-        unsigned batch_idx, unsigned batch_dim, unsigned ntypes, bool isrelevance);
+        bool isrelevance);
 
 template __device__
 void RNNGridMaker::setAtomGradientsGPU<double>(const float4* ainfo, short* gridindices, 
         float3* agrads, const qt Q, const double* grids, unsigned remainder_offset, 
-        unsigned batch_idx, unsigned batch_dim, unsigned ntypes, bool isrelevance);
+        bool isrelevance);
 template __device__
 void RNNGridMaker::setAtomGradientsGPU<float>(const float4* ainfo, short* gridindices, 
         float3* agrads, const qt Q, const float* grids, unsigned remainder_offset, 
-        unsigned batch_idx, unsigned batch_dim, unsigned ntypes, bool isrelevance);
+        bool isrelevance);
 
 #endif /* _GRIDMAKER_H_ */

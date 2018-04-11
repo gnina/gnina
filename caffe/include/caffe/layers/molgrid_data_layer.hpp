@@ -38,11 +38,9 @@ inline double unit_sample(rng_t *rng)
 
 /*
  * @brief Provides data to the Net from n-dimension  files of raw floating point data.
- * MolGridDataLayer itself is pure virtual; ultimately we want to template on
- * the GridMaker type but cannot do that while directly interfacing with caffe.
- * Therefore MolGridDataLayer provides a shared, abstract base class that we
- * derive from with a class that _is_ templated on GridMaker, and is
- * instantiated based on the type of grid we want to generate. 
+ * MolGridDataLayer is templated on the GridMaker type, and provides default
+ * implementations that work for the original GridMaker class and possibly
+ * others. 
  *
  * TODO(dox): thorough documentation for Forward and proto params.
  */
@@ -65,7 +63,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   virtual inline const char* type() const { return "MolGridData"; }
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int ExactNumTopBlobs() const { return 2+
-     (this->layer_param_.molgrid_data_param().subgrid_dim() ? 1 : 0) +
+      this->layer_param_.molgrid_data_param().has_subgrid_dim() +
       this->layer_param_.molgrid_data_param().has_affinity()+
       this->layer_param_.molgrid_data_param().has_rmsd()+
       this->layer_param_.molgrid_data_param().peturb_ligand();
@@ -98,9 +96,9 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   virtual void copyToBlob(Dtype* src, size_t size, Blob<Dtype>* blob, bool gpu) {
     Dtype* dst = nullptr;
     if (gpu)
-      dst = dst->mutable_gpu_data();
+      dst = blob->mutable_gpu_data();
     else
-      dst = dst->mutable_cpu_data();
+      dst = blob->mutable_cpu_data();
     caffe_copy(size, &src[0], dst);
   }
 
@@ -218,7 +216,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   double getDimension() const { return dimension; }
   double getResolution() const { return resolution; }
 
-  void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
+  virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
   friend void ::test_set_atom_gradients();
   protected:
   ///////////////////////////   PROTECTED DATA TYPES   //////////////////////////////
@@ -732,11 +730,9 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   quaternion axial_quaternion();
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
   void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
-                    mol_transform& transform, output_transform& pertub, bool gpu, 
-                    unsigned batch_size, unsigned batch_idx=0);
+                    mol_transform& transform, output_transform& pertub, bool gpu);
   void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms,
-                    mol_transform& transform, output_transform& peturb, bool gpu, 
-                    unsigned batch_size, unsigned batch_idx=0);
+                    mol_transform& transform, output_transform& peturb, bool gpu);
   void setAtomGradientsGPU(GridMakerT& gmaker, Dtype *diff, unsigned batch_size);
 
   virtual void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
@@ -745,7 +741,29 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
   //stuff for outputing dx grids
   std::string getIndexName(const vector<int>& map, unsigned index) const;
-  void outputDXGrid(std::ostream& out, Grids& grids, unsigned g, double scale) const;
+  void outputDXGrid(std::ostream& out, Grids& grids, unsigned g, double scale, unsigned n) const;
+
+};
+
+template <typename Dtype>
+class GenericMolGridDataLayer : public MolGridDataLayer<Dtype, GridMaker> {
+  public:
+    explicit GenericMolGridDataLayer(const LayerParameter& param) : 
+      MolGridDataLayer<Dtype, GridMaker>(param) {}
+    virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+        const vector<Blob<Dtype>*>& top) { this->forward(bottom, top, false); }
+    virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+        const vector<Blob<Dtype>*>& top) { this->forward(bottom, top, true); }
+    virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+        const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) { 
+      this->backward(top, bottom, false);
+    }
+    virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+        const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+      this->backward(top, bottom, true);
+    }
+
+    virtual ~GenericMolGridDataLayer() {};
 
 };
 
@@ -753,7 +771,7 @@ template <typename Dtype>
 class RNNMolGridDataLayer : public MolGridDataLayer<Dtype, RNNGridMaker> {
   public:
     explicit RNNMolGridDataLayer(const LayerParameter& param) : 
-      MolGridDataLayer<Dtype, RNNGridMaker>(param), subgrid_dim(3.0) {}
+      MolGridDataLayer<Dtype, RNNGridMaker>(param) {}
 
     virtual ~RNNMolGridDataLayer() {};
       
@@ -763,7 +781,7 @@ class RNNMolGridDataLayer : public MolGridDataLayer<Dtype, RNNGridMaker> {
     }
 
     virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) {
-      unsigned grids_per_dim = this->dimension / subgrid_dim;
+      unsigned grids_per_dim = this->dimension / this->gmaker.subgrid_dim;
       unsigned ncubes = grids_per_dim * grids_per_dim * grids_per_dim;
       unsigned batch_size = this->gmaker.batch_size;
       unsigned batch_idx = this->gmaker.batch_idx;
@@ -789,9 +807,10 @@ class RNNMolGridDataLayer : public MolGridDataLayer<Dtype, RNNGridMaker> {
         this->rmsds[idx] = rmsd;
       }
     }
+    
+    virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
 
   protected:
-  double subgrid_dim;
   vector<Dtype> seqcont; //necessary for LSTM layer; indicates if a batch instance 
                          //is a continuation of a previous example sequence or 
                          //the beginning of a new one
@@ -800,12 +819,28 @@ class RNNMolGridDataLayer : public MolGridDataLayer<Dtype, RNNGridMaker> {
   virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, 
       bool gpu) {
     int idx = this->ExactNumTopBlobs() - this->ligpeturb;
-    copyToBlob(&seqcont[0], seqcont.size(), top[idx], gpu);
+    this->copyToBlob(&seqcont[0], seqcont.size(), top[idx], gpu);
     MolGridDataLayer<Dtype, RNNGridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, gpu);
   }
 
-  virtual void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
-  virtual void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu);
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top) { this->forward(bottom, top, false); }
+  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top) { this->forward(bottom, top, true); }
+  virtual void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, 
+      bool gpu) {
+    NOT_IMPLEMENTED;
+  }
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) { 
+    // backward(top, bottom, false);
+    NOT_IMPLEMENTED;
+  }
+  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+    // backward(top, bottom, true);
+    NOT_IMPLEMENTED;
+  }
 };
 
 }  // namespace caffe

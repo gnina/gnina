@@ -443,7 +443,7 @@ void RNNMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& top,
   MolGridDataLayer<Dtype, RNNGridMaker>::setBlobShape(top, hasrmsd, hasaffinity);
   //LSTM layer requires a "sequence continuation" blob
   unsigned batch_size = this->batch_transform.size();
-  unsigned grids_per_dim = this->dimension / subgrid_dim;
+  unsigned grids_per_dim = this->dimension / this->gmaker.subgrid_dim;
   vector<int> seqcont_shape(grids_per_dim * grids_per_dim * grids_per_dim, batch_size);
   int idx = this->ExactNumTopBlobs() - this->ligpeturb;
   top[idx]->Reshape(seqcont_shape);
@@ -460,8 +460,6 @@ void MolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<Dtype
   inmem = param.inmemory();
   dimension = param.dimension();
   resolution = param.resolution();
-  // subgrid_dim = param.subgrid_dim(); necessary? what grid info does the
-  // molgrid layer actually need
   binary = param.binary_occupancy();
   randtranslate = param.random_translate();
   randrotate = param.random_rotation();
@@ -546,14 +544,14 @@ void MolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<Dtype
   string ligmap = param.ligmap();
 
   if (recmap.size() == 0)
-    numReceptorTypes = GridMaker::createDefaultRecMap(rmap);
+    numReceptorTypes = gmaker.createDefaultRecMap(rmap);
   else
-    numReceptorTypes = GridMaker::createAtomTypeMap(recmap, rmap);
+    numReceptorTypes = gmaker.createAtomTypeMap(recmap, rmap);
 
   if (ligmap.size() == 0)
-    numLigandTypes = GridMaker::createDefaultLigMap(lmap);
+    numLigandTypes = gmaker.createDefaultLigMap(lmap);
   else
-    numLigandTypes = GridMaker::createAtomTypeMap(ligmap, lmap);
+    numLigandTypes = gmaker.createAtomTypeMap(ligmap, lmap);
 
   setBlobShape(top, hasrmsd, hasaffinity);
 }
@@ -716,8 +714,10 @@ void MolGridDataLayer<Dtype, GridMakerT>::set_mol_info(const string& file, const
 }
 
 template <typename Dtype, class GridMakerT>
-void MolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dtype, GridMakerT>::example& ex,
-    const string& root_folder, MolGridDataLayer<Dtype, GridMakerT>::mol_transform& transform, output_transform& peturb, bool gpu, unsigned batch_size, unsigned batch_idx)
+void MolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data, 
+    const MolGridDataLayer<Dtype, GridMakerT>::example& ex,
+    const string& root_folder, MolGridDataLayer<Dtype, GridMakerT>::mol_transform& transform, 
+    output_transform& peturb, bool gpu)
 {
   //set grid values for example
   //cache atom info
@@ -734,8 +734,7 @@ void MolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data, const MolGrid
       set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, molcache[ex.ligand]);
     }
 
-    set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, peturb, gpu, 
-                   batch_idx);
+    set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, peturb, gpu);
   }
   else
   {
@@ -743,15 +742,17 @@ void MolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data, const MolGrid
     mol_info lig;
     set_mol_info(root_folder+ex.receptor, rmap, 0, rec);
     set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, lig);
-    set_grid_minfo(data, rec, lig, transform, peturb, gpu, batch_idx);
+    set_grid_minfo(data, rec, lig, transform, peturb, gpu);
   }
 }
 
 
 template <typename Dtype, class GridMakerT>
-void MolGridDataLayer<Dtype, GridMakerT>::set_grid_minfo(Dtype *data, const MolGridDataLayer<Dtype, GridMakerT>::mol_info& recatoms,
-  const MolGridDataLayer<Dtype, GridMakerT>::mol_info& ligatoms, MolGridDataLayer<Dtype, GridMakerT>::mol_transform& transform,
-  output_transform& peturb, bool gpu, unsigned batch_size, unsigned batch_idx)
+void MolGridDataLayer<Dtype, GridMakerT>::set_grid_minfo(Dtype *data, 
+    const MolGridDataLayer<Dtype, GridMakerT>::mol_info& recatoms,
+    const MolGridDataLayer<Dtype, GridMakerT>::mol_info& ligatoms, 
+    MolGridDataLayer<Dtype, GridMakerT>::mol_transform& transform,
+    output_transform& peturb, bool gpu)
 {
   //set grid values from mol info
   //first clear transform from the previous batch
@@ -830,12 +831,11 @@ void MolGridDataLayer<Dtype, GridMakerT>::set_grid_minfo(Dtype *data, const MolG
     CUDA_CHECK(cudaMemcpy(gpu_gridatoms, &transform.mol.atoms[0], natoms*sizeof(float4), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(gpu_gridwhich, &transform.mol.whichGrid[0], natoms*sizeof(short), cudaMemcpyHostToDevice));
 
-    gmaker.template setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, transform.Q, numReceptorTypes+numLigandTypes, data, batch_idx, batch_size);
+    gmaker.template setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, transform.Q, numReceptorTypes+numLigandTypes, data);
   }
   else
   {
-    gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, data, 
-        numReceptorTypes + numLigandTypes);
+    gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, data, numReceptorTypes + numLigandTypes);
   }
 }
 
@@ -865,11 +865,8 @@ string MolGridDataLayer<Dtype, GridMakerT>::getIndexName(const vector<int>& map,
 
 //output a grid the file in dx format (for debug)
 template<typename Dtype, class GridMakerT>
-void MolGridDataLayer<Dtype, GridMakerT>::outputDXGrid(std::ostream& out, Grids& grid, unsigned g, double scale) const
+void MolGridDataLayer<Dtype, GridMakerT>::outputDXGrid(std::ostream& out, Grids& grid, unsigned g, double scale, unsigned n) const
 {
-  unsigned n = dim;
-  if (subgrid_dim)
-    n = dim / (dimension / subgrid_dim);
   out.precision(5);
   setprecision(5);
   out << fixed;
@@ -904,8 +901,6 @@ void MolGridDataLayer<Dtype, GridMakerT>::outputDXGrid(std::ostream& out, Grids&
 
 //dump dx files for every atom type, with files names starting with prefix
 //only does the very first grid for now
-//if doing subcubes, output a separate file for each subcube (for now) to
-//confirm that they look reasonable
 template<typename Dtype, class GridMakerT>
 void MolGridDataLayer<Dtype, GridMakerT>::dumpDiffDX(const std::string& prefix,
 		Blob<Dtype>* top, double scale) const
@@ -915,52 +910,56 @@ void MolGridDataLayer<Dtype, GridMakerT>::dumpDiffDX(const std::string& prefix,
 			boost::extents[numReceptorTypes + numLigandTypes][dim][dim][dim]);
     CHECK_GT(mem_lig.atoms.size(),0) << "DX dump only works with in-memory ligand";
     CHECK_EQ(randrotate, false) << "DX dump requires no rotation";
-  unsigned ncubes;
-  unsigned cubes_per_dim;
-  unsigned subgrid_dim_in_points;
-  unsigned instance_size;
 	for (unsigned a = 0, na = numReceptorTypes; a < na; a++) {
 		string name = getIndexName(rmap, a);
-    if (subgrid_dim) {
-      cubes_per_dim = dimension / subgrid_dim;
-      ncubes = cubes_per_dim * cubes_per_dim * cubes_per_dim;
-      subgrid_dim_in_points = dim / cubes_per_dim;
-      instance_size = (numReceptorTypes + numLigandTypes) * 
-        subgrid_dim_in_points * subgrid_dim_in_points * subgrid_dim_in_points;
-      for (size_t i=0; i<ncubes; ++i) {
-		    string fname = prefix + "_cube" + std::to_string(i) + "_rec_" + name + ".dx";
-		    ofstream out(fname.c_str());
-        unsigned offset = i * instance_size; 
-        Grids subgrids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
-		    outputDXGrid(out, subgrids, a, scale);
-      }
-    }
-    else {
-		  string fname = prefix + "_rec_" + name + ".dx";
-		  ofstream out(fname.c_str());
-		  outputDXGrid(out, grids, a, scale);
-    }
+		string fname = prefix + "_rec_" + name + ".dx";
+		ofstream out(fname.c_str());
+		outputDXGrid(out, grids, a, scale, dim);
 	}
 	for (unsigned a = 0, na = numLigandTypes; a < na; a++) {
 			string name = getIndexName(lmap, a);
-      if (subgrid_dim) {
-        for (size_t i=0; i<ncubes; ++i) {
-		      string fname = prefix + "_cube" + std::to_string(i) + "_lig_" + name + ".dx";
-		      ofstream out(fname.c_str());
-          unsigned offset = i * instance_size; 
-          Grids subgrids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
-		      outputDXGrid(out, subgrids, a, scale);
-        }
-      }
-      else {
-			  string fname = prefix + "_lig_" + name + ".dx";
-			  ofstream out(fname.c_str());
-			  outputDXGrid(out, grids, numReceptorTypes+a, scale);
-      }
+			string fname = prefix + "_lig_" + name + ".dx";
+			ofstream out(fname.c_str());
+			outputDXGrid(out, grids, numReceptorTypes+a, scale, dim);
 	}
 
 }
 
+//if doing subcubes, output a separate file for each subcube (for now) to
+//confirm that they look reasonable
+template<typename Dtype>
+void RNNMolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
+		Blob<Dtype>* top, double scale) const
+{
+  Dtype* diff = top->mutable_cpu_diff();
+  CHECK_GT(this->mem_lig.atoms.size(),0) << "DX dump only works with in-memory ligand";
+  CHECK_EQ(this->randrotate, false) << "DX dump requires no rotation";
+  unsigned cubes_per_dim = this->dimension / this->gmaker.subgrid_dim;
+  unsigned ncubes = cubes_per_dim * cubes_per_dim * cubes_per_dim;
+  unsigned subgrid_dim_in_points = this->dim / cubes_per_dim;
+  unsigned instance_size = (this->numReceptorTypes + this->numLigandTypes) * subgrid_dim_in_points * subgrid_dim_in_points * subgrid_dim_in_points;
+	for (unsigned a = 0, na = this->numReceptorTypes; a < na; a++) {
+		string name = this->getIndexName(this->rmap, a);
+    for (size_t i=0; i<ncubes; ++i) {
+		  string fname = prefix + "_cube" + std::to_string(i) + "_rec_" + name + ".dx";
+		  ofstream out(fname.c_str());
+      unsigned offset = i * instance_size; 
+      typename MolGridDataLayer<Dtype, RNNGridMaker>::Grids subgrids(diff+offset, boost::extents[this->numReceptorTypes+this->numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
+		  this->outputDXGrid(out, subgrids, a, scale, subgrid_dim_in_points);
+      }
+	}
+	for (unsigned a = 0, na = this->numLigandTypes; a < na; a++) {
+			string name = this->getIndexName(this->lmap, a);
+        for (size_t i=0; i<ncubes; ++i) {
+		      string fname = prefix + "_cube" + std::to_string(i) + "_lig_" + name + ".dx";
+		      ofstream out(fname.c_str());
+          unsigned offset = i * instance_size; 
+          typename MolGridDataLayer<Dtype, RNNGridMaker>::Grids subgrids(diff+offset, boost::extents[this->numReceptorTypes+this->numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
+		      this->outputDXGrid(out, subgrids, a, scale, subgrid_dim_in_points);
+        }
+	}
+
+}
 
 template <typename Dtype, class GridMakerT>
 void MolGridDataLayer<Dtype, GridMakerT>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
@@ -992,8 +991,7 @@ void MolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>& bo
     CHECK_GT(mem_rec.atoms.size(),0) << "Receptor not set in MolGridDataLayer";
     CHECK_GT(mem_lig.atoms.size(),0) << "Ligand not set in MolGridDataLayer";
     //memory is now available
-    set_grid_minfo(top_data, mem_rec, mem_lig, batch_transform[0], peturb, gpu, 
-        batch_size); //TODO how do we know what batch position?
+    set_grid_minfo(top_data, mem_rec, mem_lig, batch_transform[0], peturb, gpu); //TODO how do we know what batch position?
     perturbations.push_back(peturb);
 
     if (num_rotations > 0) {
@@ -1030,8 +1028,7 @@ void MolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>& bo
       appendLabels(ex.label, ex.affinity, ex.rmsd);
 
       int offset = batch_idx*example_size;
-      set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], peturb, gpu, 
-          batch_size, batch_idx);
+      set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], peturb, gpu);
       perturbations.push_back(peturb);
       //NOTE: num_rotations not actually implemented!
     }
@@ -1070,21 +1067,11 @@ void MolGridDataLayer<Dtype, GridMakerT>::backward(const vector<Blob<Dtype>*>& t
         mol_transform& transform = batch_transform[item_id];
         gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
 
-        if (subgrid_dim) {
-          unsigned grids_per_dim = dimension / subgrid_dim;
-          unsigned ncubes = grids_per_dim * grids_per_dim * grids_per_dim;
-          unsigned subgrid_dim_in_points = dim / grids_per_dim;
-          Grids grids(diff, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
-          gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, 
-                  transform.Q, grids, transform.mol.gradient, item_id);
-        }
-        else {
-          Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+        Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
 	      // boost::timer::cpu_timer time;
-          gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, 
-                  transform.Q, grids, transform.mol.gradient, item_id);
+        gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, 
+                transform.Q, grids, transform.mol.gradient);
 	      // std::cout << "CPU grid time " << time.elapsed().wall/1000000000.0 << "\n";
-        }
       }
     }
   }
@@ -1115,21 +1102,10 @@ void MolGridDataLayer<Dtype, GridMakerT>::Backward_relevance(const vector<Blob<D
     mol_transform& transform = batch_transform[item_id];
     gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
 
-    if (subgrid_dim) {
-      unsigned ncubes = (dimension / subgrid_dim) * (dimension / subgrid_dim) * 
-        (dimension / subgrid_dim);
-      unsigned subgrid_dim_in_points = dim / (dimension / subgrid_dim);
-      Grids grids(diff, boost::extents[ncubes][batch_size][numReceptorTypes+numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
+    Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
 
-      gmaker.setAtomRelevanceCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
-          transform.mol.gradient, item_id);
-    }
-    else {
-      Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
-
-      gmaker.setAtomRelevanceCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
-          transform.mol.gradient, item_id);
-    }
+    gmaker.setAtomRelevanceCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
+        transform.mol.gradient, item_id);
   }
 
   //float bottom_sum = 0.0;
@@ -1146,12 +1122,14 @@ template <typename Dtype>
 shared_ptr<Layer<Dtype> > GetMolGridDataLayer(const LayerParameter& param) {
   const MolGridDataParameter& mgrid_param = param.molgrid_data_param();
   if (mgrid_param.subgrid_dim()) 
-    return shared_ptr<Layer<Dtype> >(new RNNMolGridDataLayer(param));
+    return shared_ptr<Layer<Dtype> >(new RNNMolGridDataLayer<Dtype>(param));
   else
-    return shared_ptr<Layer<Dtype> >(new GenericMolGridDataLayer(param));
+    return shared_ptr<Layer<Dtype> >(new GenericMolGridDataLayer<Dtype>(param));
 }
 
-INSTANTIATE_CLASS(MolGridDataLayer);
-REGISTER_LAYER_CREATOR(MolGridData, GetMolGridDataLayer);
+INSTANTIATE_CLASS(RNNMolGridDataLayer);
+INSTANTIATE_CLASS(GenericMolGridDataLayer);
+REGISTER_LAYER_CREATOR(RNNMolGridDataLayer, GetMolGridDataLayer);
+REGISTER_LAYER_CREATOR(GenericMolGridDataLayer, GetMolGridDataLayer);
 
 }  // namespace caffe

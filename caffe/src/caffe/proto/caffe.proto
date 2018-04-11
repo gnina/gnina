@@ -896,7 +896,7 @@ message MolGridDataParameter {
   optional bool peturb_ligand = 33 [default = false]; //apply additional random displacement/rotation to ligand, generate output of inverse transform
   optional float peturb_ligand_translate = 34 [default = 2.0]; //max amount to translate ligand by
   optional bool peturb_ligand_rotate = 35 [default = true]; //do random rotation
-  optional float subcube_dim = 36 [default = 0.0];
+  optional float subgrid_dim = 36 [default = 0.0]; //perform recurrence over subgrids with this dim
 }
 
 message NDimDataParameter {
