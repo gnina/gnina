@@ -519,11 +519,12 @@ public:
         gradient.push_back(a.gradient[i]); //NOT rotating, but that shouldn't matter, right?
 
         float4 atom = a.atoms[i];
-        qt p(0, atom.x-a.center[0], atom.y-a.center[1], atom.z-a.center[2]);
-        p = transform.Q * p * (conj(transform.Q) / norm(transform.Q));
-        atom.x = p.R_component_2() + a.center[0] + transform.center[0];
-        atom.y = p.R_component_3() + a.center[1] + transform.center[1];
-        atom.z = p.R_component_4() + a.center[2] + transform.center[2];
+        gfloat3 center(a.center[0],a.center[1],a.center[2]);
+        gfloat3 translate(transform.center[0],transform.center[1], transform.center[2]);
+        float3 pt = transform.Q.transform(atom.x, atom.y, atom.z, center, translate);
+        atom.x = pt.x;
+        atom.y = pt.y;
+        atom.z = pt.z;
         atoms.push_back(atom);
 
         //LOG(INFO) << "Transforming " << a.atoms[i].x<<","<<a.atoms[i].y<<","<<a.atoms[i].z<<" to "<<atom.x<<","<<atom.y<<","<<atom.z;
@@ -676,6 +677,7 @@ public:
   bool binary; //produce binary occupancies
   bool randrotate;
   bool ligpeturb; //for spatial transformer
+  bool ignore_ligand; //for debugging
 
   unsigned dim; //grid points on one side
   unsigned numgridpoints; //dim*dim*dim
