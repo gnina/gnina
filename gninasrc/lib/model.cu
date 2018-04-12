@@ -248,10 +248,12 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 			do_minimization_printing(eval_deriv_counter, (force_energy_tup*)&minus_forces[0],
 					minus_forces.size(), e, ie);
 	}
+
 	// calculate derivatives
 	ligands.derivative(coords, minus_forces, g.ligands);
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
-    eval_deriv_counter++;
+	g.receptor = rec_change; //for cnn
+	eval_deriv_counter++;
 	t.stop();
 	return e;
 }

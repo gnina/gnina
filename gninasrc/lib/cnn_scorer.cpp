@@ -23,12 +23,8 @@ using namespace std;
 
 //initialize from commandline options
 //throw error if missing required info
-CNNScorer::CNNScorer(const cnn_options& cnnopts, const model& m) :
-        mgrid(NULL), mgridparam(NULL), rotations(cnnopts.cnn_rotations), seed(cnnopts.seed),
-        outputdx(cnnopts.outputdx), outputxyz(cnnopts.outputxyz), gradient_check(cnnopts.gradient_check),
-        maintain_grid_center(cnnopts.keep_minimize_frame), verbose(cnnopts.verbose),
-        xyzprefix(cnnopts.xyzprefix),
-        mtx(new boost::mutex) {
+CNNScorer::CNNScorer(const cnn_options& opts, const model& m) :
+        mgrid(NULL), cnnopts(opts), mtx(new boost::mutex) {
 
     if (cnnopts.cnn_scoring)
     {
@@ -171,7 +167,7 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore, bool zero_val
 {
     boost::lock_guard<boost::mutex> guard(*mtx);
     
-    caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
+    caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
@@ -203,7 +199,7 @@ void CNNScorer::gradient_setup(const model& m, const string& recname, const stri
 {
     boost::lock_guard<boost::mutex> guard(*mtx);
 
-    caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
+    caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
@@ -244,9 +240,40 @@ bool CNNScorer::has_affinity() const
     return (bool)net->blob_by_name("predaff");
 }
 
-bool CNNScorer::adjust_center(model& m) const
+//reset center to be around ligand, apply receptor transormation (inverted) to ligand
+bool CNNScorer::set_center_from_model(model& m)
 {
-  if(maintain_grid_center) {
+  if(!cnnopts.move_minimize_frame) {
+    vec center = get_center();
+    if(cnnopts.verbose) {
+      std::cout << "CNN center " << center[0] << "," << center[1] << "," << center[2] << "\n";
+      std::cout << "Rec transform ";
+      m.rec_conf.print();
+      std::cout << "\n";
+    }
+    vecv& coords = m.coordinates();
+    gfloat3 c(center[0],center[1],center[2]);
+    gfloat3 trans(-m.rec_conf.position[0],-m.rec_conf.position[1],-m.rec_conf.position[2]);
+    qt rot = m.rec_conf.orientation.inverse();
+
+    VINA_FOR_IN(i, coords) {
+      gfloat3 pt = rot.transform(coords[i][0],coords[i][1],coords[i][2], c, trans);
+      coords[i][0] = pt.x;
+      coords[i][1] = pt.y;
+      coords[i][2] = pt.z;
+    }
+
+    //reset protein
+    m.rec_conf.position = vec(0,0,0);
+    m.rec_conf.orientation = qt(1,0,0,0);
+
+    float cnnaffinity, loss;
+    float cnnscore = score(m, false, cnnaffinity, loss);
+
+    if(cnnopts.verbose) {
+      std::cout << "CNNscoreX: " << std::fixed << std::setprecision(10) << cnnscore << "\n";
+      std::cout << "CNNaffinityX: " << std::fixed << std::setprecision(10) << cnnaffinity << "\n";
+    }
     //todo - make this more efficent, i.e. only set center
     mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(), true);
     return true;
@@ -282,10 +309,17 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity, float& 
 	if (!initialized())
 		return -1.0;
 
-	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
+	caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
-	mgrid->setReceptor<atom>(m.get_fixed_atoms());
-	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(),!maintain_grid_center);
+	if(!isnan(cnnopts.cnn_center[0])) {
+	  mgrid->setCenter(cnnopts.cnn_center);
+	}
+	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(),cnnopts.move_minimize_frame);
+	if(!cnnopts.move_minimize_frame) {
+	  mgrid->setReceptor<atom>(m.get_fixed_atoms(), m.rec_conf.position, m.rec_conf.orientation);
+	} else { //don't move receptor
+	  mgrid->setReceptor<atom>(m.get_fixed_atoms());
+	}
 
 	m.clear_minus_forces();
 	double score = 0.0;
@@ -297,7 +331,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity, float& 
 
 	unsigned cnt = 0;
 	mgrid->setLabels(1); //for now pose optimization only
-	for (unsigned r = 0, n = max(rotations, 1U); r < n; r++)
+	for (unsigned r = 0, n = max(cnnopts.cnn_rotations, 1U); r < n; r++)
 	{
 		net->Forward(); //do all rotations at once if requested
 		get_net_output(s,a,l);
@@ -305,25 +339,26 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity, float& 
 		affinity += a;
 		loss += l;
 
-		if(rotations > 1)
+		if(cnnopts.cnn_rotations > 1)
 		{
 		  std::cout << "RotateScore: " << s << "\n";
 		  if(a) std::cout << "RotateAff: " << a << "\n";
 		}
 
-		if (compute_gradient || outputxyz)
+		if (compute_gradient || cnnopts.outputxyz)
 		{
 		  mgrid->enableAtomGradients();
 			net->Backward();
 			mgrid->getLigandGradient(0, gradient);
+			mgrid->getReceptorTransformationGradient(0, m.rec_change.position, m.rec_change.orientation);
 			m.add_minus_forces(gradient); //TODO divide by cnt?
 		}
 		cnt++;
 	}
 
-	if (outputxyz) {
-		const string& ligname = xyzprefix + "_lig.xyz";
-		const string& recname = xyzprefix + "_rec.xyz";
+	if (cnnopts.outputxyz) {
+		const string& ligname = cnnopts.xyzprefix + "_lig.xyz";
+		const string& recname = cnnopts.xyzprefix + "_rec.xyz";
 
 		mgrid->getLigandGradient(0, gradient);
 		mgrid->getLigandAtoms(0, atoms);
@@ -336,11 +371,11 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity, float& 
 		outputXYZ(recname, atoms, channels, gradient);
 	}
 
-	if(gradient_check) {
+	if(cnnopts.gradient_check) {
 	  check_gradient();
 	}
 
-  if (outputdx) {
+  if (cnnopts.outputdx) {
     //DANGER! This modifies the values in the network
     outputDX(m.get_name());
   }
@@ -352,7 +387,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity, float& 
 	affinity /= cnt;
 	loss /= cnt;
 
-	if(verbose)
+	if(cnnopts.verbose)
 	  std::cout <<  std::fixed << std::setprecision(10)  << "cnnscore " << score/cnt << "\n";
 
 	return score / cnt;

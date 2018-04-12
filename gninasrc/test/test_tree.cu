@@ -90,9 +90,9 @@ void test_set_conf() {
     p_args.log.endl();
     model* m = new model;
     make_tree(m);
-    conf x_cpu = m->get_initial_conf();
+    conf x_cpu = m->get_initial_conf(false);
     conf_gpu x_gpu(x_cpu, m->gdata, test_buffer);
-    change g_cpu(m->get_size());
+    change g_cpu(m->get_size(), false);
     fl factor = 1;
 
     //function to be tested takes an incremented conf object and updates the Cartesian
@@ -142,7 +142,7 @@ void test_derivative() {
     model* m = new model;
     make_tree(m);
     //for this one we need to generate forces and provide a change object to be set
-    change g_cpu(m->get_size());
+    change g_cpu(m->get_size(), false);
     change_gpu g_gpu(g_cpu, m->gdata, test_buffer);
     std::mt19937 engine(p_args.seed);
     std::uniform_real_distribution<float> forces_dist(-10, 10);

@@ -42,6 +42,7 @@ typedef std::vector<interacting_pair> interacting_pairs;
 
 typedef std::pair<std::string, boost::optional<sz> > parsed_line;
 typedef std::vector<parsed_line> pdbqtcontext;
+struct parallel_mc_task;
 void test_eval_intra();
 
 struct gpu_data {
@@ -93,6 +94,10 @@ struct gpu_data {
 	void copy_from_gpu(model& m);
 
     size_t node_idx_cpu2gpu(size_t cpu_idx) const;
+  private:
+    gpu_data(const gpu_data&) = default;
+    friend struct quasi_newton_aux_gpu;
+    friend parallel_mc_task;
 };
 
 // dkoes - as an alternative to pdbqt, this stores information
@@ -241,6 +246,15 @@ struct pdbqt_initializer; // forward declaration - only declared in parse_pdbqt.
 struct model_test;
 
 struct model {
+
+  model(const model& m) : tree_width(m.tree_width), coords(m.coords), 
+  ligands(m.ligands), minus_forces(m.minus_forces), 
+  m_num_movable_atoms(m.m_num_movable_atoms), atoms(m.atoms), 
+  grid_atoms(m.grid_atoms), other_pairs(m.other_pairs), 
+  hydrogens_stripped(m.hydrogens_stripped), 
+  internal_coords(m.internal_coords), flex(m.flex), 
+  flex_context(m.flex_context), name(m.name), pose_num(m.pose_num) {}
+
 	void append(const model& m);
 	void strip_hydrogens();
 
@@ -264,7 +278,7 @@ struct model {
 
 	conf_size get_size() const;
 	// torsions = 0, orientations = identity, ligand positions = current
-	conf get_initial_conf() const; 
+	conf get_initial_conf(bool enable_receptor) const;
 
 	grid_dims movable_atoms_box(fl add_to_each_dimension, fl granularity = 0.375) const;
 
@@ -284,6 +298,8 @@ struct model {
 		VINA_FOR_IN(i, ligands)
 			write_context(ligands[i].cont, out);
 	}
+
+	void write_rigid_xyz(std::ostream& out, const vec& center) const;
 	void write_structure(std::ostream& out) const {
 		VINA_FOR_IN(i, ligands)
 			write_context(ligands[i].cont, out);
@@ -429,14 +445,18 @@ struct model {
     eval_deriv_counter(0) {};
 	~model() {deallocate_gpu();};
 
-    vecv coords;
-	vecv minus_forces;
-    gpu_data gdata;
-    vector_mutable<ligand> ligands;
-	sz m_num_movable_atoms;
-	atomv atoms; // movable, inflex
-	atomv grid_atoms;
-	interacting_pairs other_pairs; 
+  vecv coords;
+  vecv minus_forces;
+  gpu_data gdata;
+  vector_mutable<ligand> ligands;
+  sz m_num_movable_atoms;
+  atomv atoms; // movable, inflex
+  atomv grid_atoms;
+  interacting_pairs other_pairs;
+
+  //for cnn, allow rigid body movement of receptor
+  rigid_change rec_change; //set by non_cache/cnn scoring
+  rigid_conf rec_conf;
 
 private:
 	//my, aren't we friendly!

@@ -91,6 +91,11 @@ struct rigid_change {
 		::print(position);
 		::print(orientation);
 	}
+
+	void clear() {
+	  position.assign(0);
+	  orientation.assign(0);
+	}
 };
 
 struct rigid_conf {
@@ -223,11 +228,15 @@ private:
 	}
 };
 
-/* TODO */
+/* applied gradient */
 struct change {
 	std::vector<ligand_change> ligands;
 	std::vector<residue_change> flex;
-	change(const conf_size& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
+	//for cnn scoring, may want ot move receptor as well
+	rigid_change receptor;
+	bool include_receptor;
+
+	change(const conf_size& s, bool enable_receptor) : ligands(s.ligands.size()), flex(s.flex.size()), include_receptor(enable_receptor) {
 		VINA_FOR_IN(i, ligands)
 			ligands[i].torsions.resize(s.ligands[i], 0);
 		VINA_FOR_IN(i, flex)
@@ -242,6 +251,9 @@ struct change {
 		}
 		VINA_FOR_IN(i, flex)
 			flex[i].torsions.assign(flex[i].torsions.size(), 0);
+
+		if(include_receptor)
+		  receptor.clear();
 	}
 
 	//dkoes - multiply by -1
@@ -257,7 +269,13 @@ struct change {
 			for(unsigned j = 0, n = flex[i].torsions.size(); j < n; j++)
 				flex[i].torsions[j] *= -1;
 		}
+
+		if(include_receptor) {
+		  receptor.orientation *= -1;
+		  receptor.position *= -1;
+		}
 	}
+
 	fl operator()(sz index) const { // returns by value
 		VINA_FOR_IN(i, ligands) {
 			const ligand_change& lig = ligands[i];
@@ -274,8 +292,15 @@ struct change {
 			index -= res.torsions.size();
 		}
 
-		return 0; // shouldn't happen, placating the compiler
+    if(index < 3)
+      return receptor.position[index];
+    index -= 3;
+    if(index < 3)
+      return receptor.orientation[index];
+
+    abort();
 	}
+
 	fl& operator()(sz index) {
 		VINA_FOR_IN(i, ligands) {
 			ligand_change& lig = ligands[i];
@@ -291,8 +316,13 @@ struct change {
 			if(index < res.torsions.size()) return res.torsions[index];
 			index -= res.torsions.size();
 		}
-		//VINA_CHECK(false); //should never get here, but if we leave this in get compiler warnings
-		return ligands[0].rigid.position[0]; // shouldn't happen, placating the compiler
+		if(index < 3)
+		  return receptor.position[index];
+		index -= 3;
+		if(index < 3)
+		  return receptor.orientation[index];
+
+		abort();
 	}
 	sz num_floats() const {
 		sz tmp = 0;
@@ -300,6 +330,8 @@ struct change {
 			tmp += 6 + ligands[i].torsions.size();
 		VINA_FOR_IN(i, flex)
 			tmp += flex[i].torsions.size();
+
+		if(include_receptor) tmp += 6;
 		return tmp;
 	}
 	void print() const {
@@ -307,6 +339,11 @@ struct change {
 			ligands[i].print();
 		VINA_FOR_IN(i, flex)
 			flex[i].print();
+
+		if(include_receptor) {
+		  receptor.print();
+		  std::cout << "\n";
+		}
 	}
 
     fl get_with_node_idx(sz index, sz* node_idx /* out */, sz* offset_in_node /* out */) const;
@@ -316,8 +353,11 @@ struct change {
 struct conf {
 	std::vector<ligand_conf> ligands;
 	std::vector<residue_conf> flex;
+	//for cnn, include movement of receptor optionally
+	rigid_conf receptor;
+	bool include_receptor;
 	conf() {}
-	conf(const conf_size& s) : ligands(s.ligands.size()), flex(s.flex.size()) {
+	conf(const conf_size& s, bool enable_receptor) : ligands(s.ligands.size()), flex(s.flex.size()), include_receptor(enable_receptor) {
 		VINA_FOR_IN(i, ligands)
 			ligands[i].torsions.resize(s.ligands[i], 0); // FIXME?
 		VINA_FOR_IN(i, flex)
@@ -328,12 +368,19 @@ struct conf {
 			ligands[i].set_to_null();
 		VINA_FOR_IN(i, flex)
 			flex[i].set_to_null();
+
+		if(include_receptor)
+		  receptor.set_to_null();
 	}
 	void increment(const change& c, fl factor) { // torsions get normalized, orientations do not
 		VINA_FOR_IN(i, ligands)
 			ligands[i].increment(c.ligands[i], factor);
 		VINA_FOR_IN(i, flex)
 			flex[i].increment(c.flex[i],    factor);
+
+		if(include_receptor) {
+		  receptor.increment(c.receptor, factor);
+		}
 	}
 
 	bool internal_too_close(const conf& c, fl torsions_cutoff) const {
@@ -387,6 +434,10 @@ struct conf {
 			ligands[i].print();
 		VINA_FOR_IN(i, flex)
 			flex[i].print();
+		if(include_receptor) {
+		  receptor.print();
+		  std::cout << "\n";
+		}
 	}
 	//dkoes - index into position values; corresponds to change indexing
 	//read only because of quaternions
@@ -409,8 +460,19 @@ struct conf {
 			if(index < res.torsions.size()) return res.torsions[index];
 			index -= res.torsions.size();
 		}
-		//VINA_CHECK(false); //avoid compiler warnings
-		return 0; // shouldn't happen, placating the compiler
+
+		if(include_receptor) {
+		  if(index < 3) {
+		    return receptor.position[index];
+		  }
+		  index -= 3;
+		  if(index < 3) {
+		    vec ang = quaternion_to_angle(receptor.orientation);
+		    return ang[index];
+		  }
+		}
+
+		abort(); // shouldn't happen, placating the compiler
 	}
 
 	fl& operator()(sz index);
@@ -421,6 +483,10 @@ struct conf {
 			tmp += 7 + ligands[i].torsions.size();
 		VINA_FOR_IN(i, flex)
 			tmp += flex[i].torsions.size();
+
+		if(include_receptor) {
+		  tmp += 6;
+		}
 		return tmp;
 	}
 

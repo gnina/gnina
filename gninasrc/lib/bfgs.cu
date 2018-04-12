@@ -217,8 +217,9 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
 		    minus_mat_vec_product(h, g, p);
             // f1 is the returned energy for the next iteration of eval_deriv_gpu
 		    f1 = 0;
-            //do we even care about the fast_line_search?
-		    assert(params.type == minimization_params::BFGSAccurateLineSearch);
+            //TODO: FastLineSearch is implemented in develop, until then just
+            //always do accurage here
+		    // assert(params.type == minimization_params::BFGSAccurateLineSearch);
         }
         __syncthreads();
 		alpha = accurate_line_search_gpu(f, n, x, g, f0,
@@ -282,40 +283,40 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
     }
 }
 
-fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x,
-        change_gpu& g, const fl average_required_improvement,
-		const minimization_params& params) {
-    sz n = g.num_floats();
+fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x, change_gpu& g,
+    const fl average_required_improvement, const minimization_params& params)
+{
+  sz n = g.num_floats();
 
-    // Initialize and copy Hessian
-    flmat_gpu h(n);
+  // Initialize and copy Hessian
+  flmat_gpu h(n);
 
-    // Initialize and copy additional conf and change objects
-	change_gpu g_orig(g, buffer);
-	change_gpu g_new(g, buffer);
-    
-	conf_gpu x_orig(x, buffer);
-	conf_gpu x_new(x, buffer);
+  // Initialize and copy additional conf and change objects
+  change_gpu g_orig(g, buffer);
+  change_gpu g_new(g, buffer);
 
-	change_gpu p(g, buffer);
-    change_gpu y(g, buffer);
+  conf_gpu x_orig(x, buffer);
+  conf_gpu x_new(x, buffer);
 
-    change_gpu minus_hy(g, buffer);
-    float* f0;
-    float out_energy;
+  change_gpu p(g, buffer);
+  change_gpu y(g, buffer);
 
-    CUDA_CHECK_GNINA(cudaMalloc(&f0, sizeof(float)));
-    //TODO: make safe for the case where num_movable_atoms > 1024
-    assert(f.ig.num_movable_atoms <= 1024);
-    bfgs_gpu<<<1,max(WARPSIZE,f.ig.num_movable_atoms)>>>(f,
-                      x, x_orig, x_new,
-                      g, g_orig, g_new,
-                      p, y, h, minus_hy,
-                      average_required_improvement, params, f0);
-    sync_and_errcheck();
-    CUDA_CHECK_GNINA(cudaFree(h.m_data));
-    CUDA_CHECK_GNINA(cudaMemcpy(&out_energy,
-                                f0, sizeof(float), cudaMemcpyDeviceToHost));
-    CUDA_CHECK_GNINA(cudaFree(f0));
-	return out_energy;
+  change_gpu minus_hy(g, buffer);
+  float* f0;
+  float out_energy;
+
+  CUDA_CHECK_GNINA(cudaMalloc(&f0, sizeof(float)));
+  //TODO: make safe for the case where num_movable_atoms > 1024
+  assert(f.ig.num_movable_atoms <= 1024);
+  bfgs_gpu<<<1,max(WARPSIZE,f.ig.num_movable_atoms)>>>(f,
+      x, x_orig, x_new,
+      g, g_orig, g_new,
+      p, y, h, minus_hy,
+      average_required_improvement, params, f0);
+  sync_and_errcheck();
+  CUDA_CHECK_GNINA(cudaFree(h.m_data));
+  CUDA_CHECK_GNINA(
+      cudaMemcpy(&out_energy, f0, sizeof(float), cudaMemcpyDeviceToHost));
+  CUDA_CHECK_GNINA(cudaFree(f0));
+  return out_energy;
 }

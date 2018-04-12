@@ -221,6 +221,19 @@ inline const char* smina_type_to_string(smt at)
 	return smina_atom_type::data[at].smina_name;
 }
 
+inline std::string smina_type_to_element_name(smt at)
+{
+  //try to figure out from adname, this shouldn't necessarily be relied on, but is useful for debug output (e.g. xyz)
+  std::string ret = smina_atom_type::data[at].adname;
+  if(ret == "A") {
+    return "C";
+  }
+  else if(ret.back() == 'A' || ret.back() == 'D') {
+    ret.pop_back();
+  }
+  return ret;
+}
+
 inline smt string_to_smina_type(const std::string& name)
 {
 	//dkoes - returns NumTypes if can't identify the type
