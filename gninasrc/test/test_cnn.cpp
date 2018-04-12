@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "test_utils.h"
 #include "test_cnn.h"
 #include "atom_constants.h"
@@ -34,10 +35,12 @@ void test_set_atom_gradients() {
     cnnopts.cnn_scoring = true;
     model m;
     CNNScorer cnn_scorer(cnnopts, m);
-    caffe::MolGridDataLayer<CNNScorer::Dtype>* mgrid = cnn_scorer.mgrid;
+    caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>* mgrid = 
+      dynamic_cast<caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>*>(cnn_scorer.mgrid);
+    assert(mgrid);
     mgrid->batch_transform.resize(1);
-    mgrid->batch_transform[0] = caffe::MolGridDataLayer<CNNScorer::Dtype>::mol_transform();
-    caffe::MolGridDataLayer<CNNScorer::Dtype>::mol_transform& transform = mgrid->batch_transform[0];
+    mgrid->batch_transform[0] = caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>::mol_transform();
+    caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>::mol_transform& transform = mgrid->batch_transform[0];
     vec center(0,0,0);
     for (size_t i=0; i<mol_atoms.size(); ++i) {
         atom_params& ainfo = mol_atoms[i];
@@ -64,9 +67,9 @@ void test_set_atom_gradients() {
     generate(begin(diff), end(diff), gen);
 
     //set up and calculate CPU atom gradients
-    caffe::MolGridDataLayer<CNNScorer::Dtype>::Grids grids(&diff[0], 
+    caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>::Grids grids(&diff[0], 
             boost::extents[smt::NumTypes][dim][dim][dim]);
-    caffe::MolGridDataLayer<CNNScorer::Dtype>::mol_transform cpu_transform =
+    caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>::mol_transform cpu_transform =
         mgrid->batch_transform[0];
     gmaker.setAtomGradientsCPU(cpu_transform.mol.atoms, cpu_transform.mol.whichGrid,
             cpu_transform.Q, grids, cpu_transform.mol.gradient);

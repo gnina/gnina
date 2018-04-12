@@ -45,11 +45,39 @@ inline double unit_sample(rng_t *rng)
  * TODO(dox): thorough documentation for Forward and proto params.
  */
 
-template<typename Dtype, class GridMakerT>
+template<typename Dtype>
 class MolGridDataLayer : public BaseDataLayer<Dtype> {
   public:
     explicit MolGridDataLayer(const LayerParameter& param) : 
-      BaseDataLayer<Dtype>(param), data(NULL), data2(NULL), data_ratio(0),
+      BaseDataLayer<Dtype>(param) {}
+    virtual ~MolGridDataLayer() {}
+    virtual vec getCenter() const = 0;
+    virtual double getDimension() const = 0;
+    virtual double getResolution() const = 0;
+    virtual void getReceptorAtoms(int batch_idx, vector<float4>& atoms) = 0;
+    virtual void getLigandAtoms(int batch_idx, vector<float4>& atoms) = 0;
+    virtual void getMappedReceptorGradient(int batch_idx, unordered_map<string,
+        float3>& gradient) = 0;
+    virtual void getMappedLigandGradient(int batch_idx, unordered_map<string, 
+        float3>& gradient) = 0;
+    virtual void setReceptor(const vector<atom>& receptor) = 0;
+    virtual void setLigand(const vector<atom>& ligand, const vector<vec>& coords, 
+        bool calcCenter=true) = 0;
+    virtual void setLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) = 0;
+    virtual void enableAtomGradients() = 0;
+    virtual void getReceptorChannels(int batch_idx, vector<short>& whichGrid) = 0;
+    virtual void getLigandChannels(int batch_idx, vector<short>& whichGrid) = 0;
+    virtual void getReceptorGradient(int batch_idx, vector<float3>& gradient) = 0;
+    virtual void getReceptorTransformationGradient(int batch_idx, vec& force, vec& torque) = 0;
+    virtual void getLigandGradient(int batch_idx, vector<float3>& gradient) = 0;
+    virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const = 0;
+};
+
+template<typename Dtype, class GridMakerT>
+class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
+  public:
+    explicit BaseMolGridDataLayer(const LayerParameter& param) : 
+      MolGridDataLayer<Dtype>(param), data(NULL), data2(NULL), data_ratio(0),
       num_rotations(0), current_rotation(0),
       example_size(0), inmem(false), resolution(0.5), 
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), 
@@ -57,7 +85,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
       binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
       gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
-  virtual ~MolGridDataLayer();
+  virtual ~BaseMolGridDataLayer();
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
   virtual inline const char* type() const { return "MolGridData"; }
@@ -131,7 +159,6 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
   //set in memory buffer
   void setReceptor(const vector<atom>& receptor)
   {
-    //make this a template mostly so I don't have to pull in gnina atom class
     mem_rec.atoms.clear();
     mem_rec.whichGrid.clear();
     mem_rec.gradient.clear();
@@ -746,10 +773,10 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 };
 
 template <typename Dtype>
-class GenericMolGridDataLayer : public MolGridDataLayer<Dtype, GridMaker> {
+class GenericMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
   public:
     explicit GenericMolGridDataLayer(const LayerParameter& param) : 
-      MolGridDataLayer<Dtype, GridMaker>(param) {}
+      BaseMolGridDataLayer<Dtype, GridMaker>(param) {}
     virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
         const vector<Blob<Dtype>*>& top) { this->forward(bottom, top, false); }
     virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
@@ -768,16 +795,16 @@ class GenericMolGridDataLayer : public MolGridDataLayer<Dtype, GridMaker> {
 };
 
 template <typename Dtype>
-class RNNMolGridDataLayer : public MolGridDataLayer<Dtype, RNNGridMaker> {
+class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
   public:
     explicit RNNMolGridDataLayer(const LayerParameter& param) : 
-      MolGridDataLayer<Dtype, RNNGridMaker>(param) {}
+      BaseMolGridDataLayer<Dtype, RNNGridMaker>(param) {}
 
     virtual ~RNNMolGridDataLayer() {};
       
     virtual void clearLabels() {
       seqcont.clear();
-      MolGridDataLayer<Dtype, RNNGridMaker>::clearLabels();
+      BaseMolGridDataLayer<Dtype, RNNGridMaker>::clearLabels();
     }
 
     virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) {
@@ -820,7 +847,7 @@ class RNNMolGridDataLayer : public MolGridDataLayer<Dtype, RNNGridMaker> {
       bool gpu) {
     int idx = this->ExactNumTopBlobs() - this->ligpeturb;
     this->copyToBlob(&seqcont[0], seqcont.size(), top[idx], gpu);
-    MolGridDataLayer<Dtype, RNNGridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, gpu);
+    BaseMolGridDataLayer<Dtype, RNNGridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, gpu);
   }
 
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,

@@ -87,12 +87,11 @@ protected:
 	double dimension;
 	double radiusmultiple; //extra to consider past vdw radius
 	double randtranslate;
-  double subgrid_dim;
 	bool binary; //produce binary occupancies
 	bool randrotate;
 	bool gpu; //use gpu
 
-	GridMaker gmaker;
+	GridMaker* gmaker;
 	vector<Grid> receptorGrids;
 	vector<Grid> ligandGrids;
 	vector<int> rmap; //map atom types to position in grid vectors
@@ -123,10 +122,10 @@ protected:
 
 
 	//output a grid the file in map format (for debug)
-	void outputMAPGrid(ostream& out, Grid& grid);
+	virtual void outputMAPGrid(ostream& out, Grid& grid);
 
 	//output a grid the file in dx format (for debug)
-	void outputDXGrid(ostream& out, Grid& grid);
+	virtual void outputDXGrid(ostream& out, Grid& grid);
 
 	//read dx file into grid
 	bool readDXGrid(istream& in, vec& center, double& res, Grid& grid);
@@ -157,7 +156,9 @@ public:
 			gpu_ligandAInfo(NULL), gpu_ligWhichGrid(NULL)
 			{}
 
-	void initialize(const gridoptions& opt);
+  virtual ~NNGridder() {delete gmaker;}
+
+	virtual void initialize(const gridoptions& opt);
 
 	//set grids (receptor and ligand)
 	//reinits should be set to true if have different molecule than previously scene
@@ -167,16 +168,16 @@ public:
 	string getParamString(bool outputrec, bool outputlig) const;
 
 	//output an AD4 map for each grid
-	void outputMAP(const string& base);
+	virtual void outputMAP(const string& base);
 
 	//output an dx map for each grid
-	void outputDX(const string& base);
+	virtual void outputDX(const string& base);
 
 	//output binary form of raw data in 3D multi-channel form
-	void outputBIN(ostream& out, bool outputrec=true, bool outputlig=true);
+	virtual void outputBIN(ostream& out, bool outputrec=true, bool outputlig=true);
 
 	//set vector to full set of grids
-	void outputMem(vector<float>& out);
+	virtual void outputMem(vector<float>& out);
 
 	unsigned nchannels() const { return receptorGrids.size() + ligandGrids.size() + userGrids.size(); }
 
@@ -195,6 +196,7 @@ private:
 public:
 
 	NNMolsGridder(const gridoptions& opt);
+  ~NNMolsGridder() {}
 
 	//read a molecule (return false if unsuccessful)
 	//set the ligand grid appropriately
@@ -202,6 +204,31 @@ public:
 
 };
 
+class RNNMolsGridder : public NNMolsGridder 
+{
+public:
+  RNNMolsGridder(const gridoptions& opt);
+  ~RNNMolsGridder() {}
+	virtual void initialize(const gridoptions& opt) override;
 
+	//output an AD4 map for each grid
+	void outputMAP(const string& base) override;
+
+	//output an dx map for each grid
+	void outputDX(const string& base) override;
+
+	//output binary form of raw data in 3D multi-channel form
+	void outputBIN(ostream& out, bool outputrec=true, bool outputlig=true) override;
+
+	//set vector to full set of grids
+	void outputMem(vector<float>& out) override;
+protected:
+  double subgrid_dim;
+	//output a grid the file in map format (for debug)
+	void outputMAPGrid(ostream& out, Grid& grid) override;
+
+	//output a grid the file in dx format (for debug)
+	void outputDXGrid(ostream& out, Grid& grid) override;
+};
 
 #endif

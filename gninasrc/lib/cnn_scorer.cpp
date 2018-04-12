@@ -205,8 +205,8 @@ void CNNScorer::gradient_setup(const model& m, const string& recname, const stri
 
     caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
-    mgrid->setReceptor<atom>(m.get_fixed_atoms());
-    mgrid->setLigand<atom,vec>(m.get_movable_atoms(),m.coordinates());
+    mgrid->setReceptor(m.get_fixed_atoms());
+    mgrid->setLigand(m.get_movable_atoms(),m.coordinates());
     mgrid->setLabels(1); //for now pose optimization only
     mgrid->enableAtomGradients();
 
@@ -248,7 +248,7 @@ bool CNNScorer::adjust_center(model& m) const
 {
   if(maintain_grid_center) {
     //todo - make this more efficent, i.e. only set center
-    mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(), true);
+    mgrid->setLigand(m.get_movable_atoms(), m.coordinates(), true);
     return true;
   }
   return false;
@@ -284,8 +284,8 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity, float& 
 
 	caffe::Caffe::set_random_seed(seed); //same random rotations for each ligand..
 
-	mgrid->setReceptor<atom>(m.get_fixed_atoms());
-	mgrid->setLigand<atom,vec>(m.get_movable_atoms(), m.coordinates(),!maintain_grid_center);
+	mgrid->setReceptor(m.get_fixed_atoms());
+	mgrid->setLigand(m.get_movable_atoms(), m.coordinates(),!maintain_grid_center);
 
 	m.clear_minus_forces();
 	double score = 0.0;
