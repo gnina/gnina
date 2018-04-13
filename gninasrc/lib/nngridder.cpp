@@ -57,7 +57,13 @@ void NNGridder::outputMAPGrid(ostream& out, Grid& grid)
 //output a grid the file in map format (for debug)
 void RNNMolsGridder::outputMAPGrid(ostream& out, Grid& grid)
 {
-	unsigned max = (dims[0].n + 1) / (dimension / subgrid_dim);
+  unsigned dim = dims[0].n + 1;
+	unsigned max = (dim) / (dimension / subgrid_dim);
+  unsigned grids_per_dim = dimension / subgrid_dim;
+  std::vector<unsigned> subgrid_indices(3);
+  subgrid_indices[0] = grid_idx / (grids_per_dim * grids_per_dim);
+  subgrid_indices[1] = (grid_idx % (grids_per_dim * grids_per_dim)) / grids_per_dim; 
+  subgrid_indices[2] = grid_idx % grids_per_dim; 
 	out.precision(5);
 	out << "GRID_PARAMETER_FILE\nGRID_DATA_FILE\nMACROMOLECULE\n";
 	out << "SPACING " << resolution << "\n";
@@ -65,7 +71,8 @@ void RNNMolsGridder::outputMAPGrid(ostream& out, Grid& grid)
 	out << "CENTER";
 	for (unsigned i = 0; i < 3; i++)
 	{
-		double c = (dims[i].end + dims[i].begin) / 2.0;
+		double c = (dims[i].end - subgrid_dim*(grids_per_dim-subgrid_indices[i]) + 
+        dims[i].begin + subgrid_dim*(subgrid_indices[i])) / 2.0;
 		out << " " << c;
 	}
 	out << "\n";
@@ -120,7 +127,13 @@ void NNGridder::outputDXGrid(ostream& out, Grid& grid)
 //output a grid the file in dx format (for debug)
 void RNNMolsGridder::outputDXGrid(ostream& out, Grid& grid)
 {
-	unsigned n = (dims[0].n + 1) / (dimension / subgrid_dim);
+  unsigned dim = dims[0].n + 1;
+	unsigned n = dim / (dimension / subgrid_dim);
+  unsigned grids_per_dim = dimension / subgrid_dim;
+  std::vector<unsigned> subgrid_indices(3);
+  subgrid_indices[0] = grid_idx / (grids_per_dim * grids_per_dim);
+  subgrid_indices[1] = (grid_idx % (grids_per_dim * grids_per_dim)) / grids_per_dim; 
+  subgrid_indices[2] = grid_idx % grids_per_dim; 
   out.precision(5);
   setprecision(5);
   out << fixed;
@@ -128,7 +141,7 @@ void RNNMolsGridder::outputDXGrid(ostream& out, Grid& grid)
   out << "origin";
   for (unsigned i = 0; i < 3; i++)
   {
-    out << " " << dims[i].begin;
+    out << " " << dims[i].begin + subgrid_indices[i] * subgrid_dim;
   }
   out << "\n";
   out << "delta " << resolution << " 0 0\ndelta 0 " << resolution << " 0\ndelta 0 0 " << resolution << "\n";
@@ -303,6 +316,7 @@ void RNNMolsGridder::outputMAP(const string& base)
   unsigned ngrids = factor * factor * factor;
 	for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
 	{
+    grid_idx = a % ngrids;
 		//this is for debugging, so avoid outputting empty grids
 		if (!gridIsEmpty(receptorGrids[a]))
 		{
@@ -316,6 +330,7 @@ void RNNMolsGridder::outputMAP(const string& base)
 	}
 	for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
 	{
+    grid_idx = a % ngrids;
 		if (!gridIsEmpty(ligandGrids[a]))
 		{
       unsigned aidx = a / ngrids;
@@ -363,6 +378,7 @@ void RNNMolsGridder::outputDX(const string& base)
   unsigned ngrids = factor * factor * factor;
   for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
   {
+    grid_idx = a % ngrids;
     //this is for debugging, so avoid outputting empty grids
     if (!gridIsEmpty(receptorGrids[a]))
     {
@@ -376,6 +392,7 @@ void RNNMolsGridder::outputDX(const string& base)
   }
   for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
   {
+    grid_idx = a % ngrids;
     if (!gridIsEmpty(ligandGrids[a]))
     {
       unsigned aidx = a / ngrids;
@@ -823,6 +840,10 @@ RNNMolsGridder::RNNMolsGridder(const gridoptions& opt) : NNMolsGridder(opt)
 void RNNMolsGridder::initialize(const gridoptions& opt) 
 {
   subgrid_dim = opt.subgrid_dim;
+  unsigned npts = round(dimension / resolution) + 1;
+  unsigned grids_per_dim = npts / (opt.dim / opt.subgrid_dim);
+  ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
+  grid_idx = 0;
 }
 
 void NNGridder::initialize(const gridoptions& opt)

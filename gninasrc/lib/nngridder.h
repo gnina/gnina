@@ -224,6 +224,8 @@ public:
 	void outputMem(vector<float>& out) override;
 protected:
   double subgrid_dim;
+  unsigned ngrids;
+  unsigned grid_idx;
 	//output a grid the file in map format (for debug)
 	void outputMAPGrid(ostream& out, Grid& grid) override;
 

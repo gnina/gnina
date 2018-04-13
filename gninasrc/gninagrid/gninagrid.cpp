@@ -126,56 +126,60 @@ int main(int argc, char *argv[])
 		srand(opt.seed);
 
 		//setup receptor grid
-		NNMolsGridder gridder(opt);
+    NNMolsGridder* gridder = nullptr;
+    if (opt.subgrid_dim)
+      gridder = new RNNMolsGridder(opt);
+    else
+      gridder = new NNMolsGridder(opt);
 
 		if(opt.separate)
 		{
-			string outname = opt.outname + "." + gridder.getParamString(true,false) + ".binmap";
+			string outname = opt.outname + "." + gridder->getParamString(true,false) + ".binmap";
 			ofstream binout(outname.c_str());
 			if (!binout)
 			{
 				cerr << "Could not open " << outname << "\n";
 				exit(-1);
 			}
-			gridder.outputBIN(binout,true,false);
+			gridder->outputBIN(binout,true,false);
 		}
 
 		//for each ligand..
 		unsigned ligcnt = 0;
-		while (gridder.readMolecule(opt.timeit))
+		while (gridder->readMolecule(opt.timeit))
 		{ //computes ligand grid
 			//and output
 			string base = opt.outname + "_" + lexical_cast<string>(ligcnt);
 
 			if (opt.outmap)
 			{
-				gridder.outputMAP(base);
+				gridder->outputMAP(base);
 			}
 			else if(opt.outdx)
 			{
-			  gridder.outputDX(base);
+			  gridder->outputDX(base);
 			}
 			else if(opt.separate)
 			{
-				string outname = base + "." + gridder.getParamString(false, true) + ".binmap";
+				string outname = base + "." + gridder->getParamString(false, true) + ".binmap";
 				ofstream binout(outname.c_str());
 				if (!binout)
 				{
 					cerr << "Could not open " << outname << "\n";
 					exit(-1);
 				}
-				gridder.outputBIN(binout,false,true);
+				gridder->outputBIN(binout,false,true);
 			}
 			else
 			{
-				string outname = base + "." + gridder.getParamString(true, true) + ".binmap";
+				string outname = base + "." + gridder->getParamString(true, true) + ".binmap";
 				ofstream binout(outname.c_str());
 				if (!binout)
 				{
 					cerr << "Could not open " << outname << "\n";
 					exit(-1);
 				}
-				gridder.outputBIN(binout);
+				gridder->outputBIN(binout);
 			}
 			ligcnt++;
 		}
