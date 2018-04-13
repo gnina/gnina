@@ -149,13 +149,6 @@ void result_info::write(std::ostream& out, std::string& ext,
 			out << std::fixed  << std::setprecision(10) << cnnaffinity << "\n\n";
 		}
 
-		if(cnngradient >= 0)
-		{
-			out << "> <CNNgradient>\n";
-			out << std::fixed  << std::setprecision(10) << cnngradient << "\n\n";
-		}
-		std::cout << "CNNgradient = " << cnngradient << "\n";
-
 
 		if (include_atom_terms)
 		{
@@ -209,12 +202,6 @@ void result_info::write(std::ostream& out, std::string& ext,
 			setMolData(format, mol,
 					"CNNaffinity",
 					boost::lexical_cast<std::string>((float) cnnaffinity));
-		}
-		if (cnngradient >= 0)
-		{
-			setMolData(format, mol,
-					"CNNgradient",
-					boost::lexical_cast<std::string>((float) cnngradient));
 		}
 
 		if (include_atom_terms)

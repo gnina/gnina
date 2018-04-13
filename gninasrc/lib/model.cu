@@ -248,10 +248,12 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 			do_minimization_printing(eval_deriv_counter, (force_energy_tup*)&minus_forces[0],
 					minus_forces.size(), e, ie);
 	}
+
 	// calculate derivatives
 	ligands.derivative(coords, minus_forces, g.ligands);
 	flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
-    eval_deriv_counter++;
+	g.receptor = rec_change; //for cnn
+	eval_deriv_counter++;
 	t.stop();
 	return e;
 }
@@ -310,19 +312,34 @@ void model::sub_minus_forces(const std::vector<float3>& forces)
 	}
 }
 
-fl model::get_minus_forces_magnitude() const
+void model::scale_minus_forces(fl scale)
 {
-	fl m = 0;
+  unsigned j = 0;
+  VINA_FOR(i, m_num_movable_atoms)
+  {
+    if (!atoms[i].is_hydrogen()) // no hydrogen forces
+    {
+      minus_forces[i].data[0] *= scale;
+      minus_forces[i].data[1] *= scale;
+      minus_forces[i].data[2] *= scale;
+      j += 1;
+    }
+  }
+}
+
+fl model::get_minus_forces_sum_magnitude() const
+{
+	fl x = 0, y = 0, z = 0;
 	VINA_FOR(i, m_num_movable_atoms)
 	{
 		if (!atoms[i].is_hydrogen()) // no hydrogen forces
 		{
-			m += pow(minus_forces[i].data[0], 2)
-			   + pow(minus_forces[i].data[1], 2)
-			   + pow(minus_forces[i].data[2], 2);
+			x += minus_forces[i].data[0];
+			y += minus_forces[i].data[1];
+			z += minus_forces[i].data[2];
 		}
 	}
-	return m;
+	return sqrt(x*x+y*y+z*z);
 }
 
 //evaluate interactiongs between all of flex (including rigid) and protein

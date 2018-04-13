@@ -762,9 +762,9 @@ conf_size model::get_size() const {
 	return tmp;
 }
 
-conf model::get_initial_conf() const { // torsions = 0, orientations = identity, ligand positions = current
+conf model::get_initial_conf(bool enable_receptor) const { // torsions = 0, orientations = identity, ligand positions = current
 	conf_size cs = get_size();
-	conf tmp(cs);
+	conf tmp(cs, enable_receptor);
 	tmp.set_to_null();
 	VINA_FOR_IN(i, ligands)
 		tmp.ligands[i].rigid.position = ligands[i].node.get_origin();
@@ -903,6 +903,20 @@ void model::write_context(const context& c, std::ostream& out) const {
 	c.writePDBQT(coords, out);
 }
 
+//more for debugging, dump fixed atoms as xyz to out
+//applies transformation
+void model::write_rigid_xyz(std::ostream& out, const vec& center) const {
+  out << grid_atoms.size() << "\n\n";
+  gfloat3 c = gfloat3(center[0],center[1],center[2]);
+  gfloat3 t = gfloat3(rec_conf.position[0], rec_conf.position[1], rec_conf.position[2]);
+  VINA_FOR_IN(i, grid_atoms) {
+    const atom& a = grid_atoms[i];
+    out << smina_type_to_element_name(a.sm) << " ";
+    gfloat3 pt = rec_conf.orientation.transform(a.coords[0],a.coords[1],a.coords[2], c, t);
+    out << pt.x << " " << pt.y << " " << pt.z << "\n";
+  }
+}
+
 
 void model::seti(const conf& c) {
 	/* TODO */
@@ -920,8 +934,11 @@ void model::sete(const conf& c) {
 
 void model::set(const conf& c) {
 	ligands.set_conf(atoms, coords, c.ligands);
-	/* TODO */
 	flex.set_conf(atoms, coords, c.flex);
+	//for cnn, we do not change the receptor coordinates here
+	//instead the cnn layer applies the rigid body transformation, which will
+	//apply the inverse of to the ligand when we are done
+	rec_conf = c.receptor;
 }
 
 //dkoes - return the string corresponding to i'th ligand atoms pdb information

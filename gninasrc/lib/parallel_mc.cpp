@@ -42,19 +42,19 @@ struct parallel_mc_aux
 {
 	const monte_carlo* mc;
 	const precalculate* p;
-	const igrid* ig;
+	igrid* ig;
 	const vec* corner1;
 	const vec* corner2;
 	parallel_progress* pg;
 	grid* user_grid;
 	parallel_mc_aux(const monte_carlo* mc_, const precalculate* p_,
-			const igrid* ig_, const vec* corner1_, const vec* corner2_,
+			igrid* ig_, const vec* corner1_, const vec* corner2_,
 			parallel_progress* pg_, grid* user_grid_)
 	:
-			mc(mc_), p(p_), ig(ig_), corner1(corner1_), corner2(corner2_), pg(
-					pg_), user_grid(user_grid_)
+			mc(mc_), p(p_), ig(ig_), corner1(corner1_), corner2(corner2_), pg(pg_), user_grid(user_grid_)
 	{
 	}
+
 	void operator()(parallel_mc_task& t) const
 	{
 		(*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
@@ -78,7 +78,7 @@ void merge_output_containers(const parallel_mc_task_container& many,
 }
 
 void parallel_mc::operator()(const model& m, output_container& out,
-		const precalculate& p, const igrid& ig, const vec& corner1,
+		const precalculate& p, igrid& ig, const vec& corner1,
 		const vec& corner2, rng& generator, grid& user_grid) const
 {
 	parallel_progress pp;
