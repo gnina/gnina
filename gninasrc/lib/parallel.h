@@ -100,8 +100,8 @@ private:
     }
 };
 
-template<typename F>
-struct parallel_for<F, true> : private boost::thread_group {
+template<typename F, bool gpu_on>
+struct parallel_for<F, true, gpu_on> : private boost::thread_group {
 	parallel_for(const F* f, sz num_threads) : m_f(f), destructing(false), size(0), started(0), finished(0) {
 		a.par = this; // VC8 warning workaround
         VINA_FOR(i, num_threads)
@@ -127,7 +127,7 @@ struct parallel_for<F, true> : private boost::thread_group {
 private:
 	void loop() {
     if (gpu_on) {
-	    caffe::Caffe::SetDevice(m_f->settings->device);
+	    caffe::Caffe::SetDevice(m_f->f->settings->device);
 	    caffe::Caffe::set_mode(caffe::Caffe::GPU);
     }
 		while(boost::optional<sz> i = get_next()) {
@@ -165,7 +165,7 @@ private:
 };
 
 
-template<typename F, typename Container, typename Input, bool Sync = false>
+template<typename F, typename Container, typename Input, bool Sync = false, bool gpu_on = false>
 struct parallel_iter { 
 	parallel_iter(const F* f, sz num_threads) : a(f), pf(&a, num_threads) {}
 	void run(Container& v) {
@@ -183,7 +183,7 @@ private:
 		}
 	};
 	aux a;
-	parallel_for<aux, Sync> pf;
+	parallel_for<aux, Sync, gpu_on> pf;
 };
 
 #endif

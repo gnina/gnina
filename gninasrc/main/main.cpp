@@ -227,7 +227,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 {
 	boost::timer::cpu_timer time;
 
-    m.settings = &settings;
+  m.settings = &settings;
 	precalculate_exact exact_prec(sf); //use exact computations for final score
 	conf_size s = m.get_size();
 	conf c = m.get_initial_conf(nc.move_receptor());
@@ -235,31 +235,18 @@ void do_search(model& m, const boost::optional<model>& ref,
     fl intramolecular_energy = max_fl;
 	fl cnnscore = 0, cnnaffinity = 0, cnnforces = 0;
 	fl rmsd = 0;
-  if (settings.gpu_on)
+  if (settings.gpu_on && !settings.cnnopts.cnn_scoring)
 	  m.initialize_gpu();
 	const vec authentic_v(settings.forcecap, settings.forcecap,
 			settings.forcecap); //small cap restricts initial movement from clash
 
 	if (settings.score_only)
 	{
-        if (settings.true_score && settings.gpu_on) {
-            m.initialize_gpu();
-	        non_cache_gpu* nc_gpu = dynamic_cast<non_cache_gpu*>(&nc);
-            assert(nc_gpu);
-            e = m.gdata.eval(nc_gpu->get_info(), authentic_v[1]);
-            intramolecular_energy = m.gdata.eval_intramolecular(nc_gpu->get_info(), authentic_v[0]);
-        }
-        else if (settings.true_score) {
-            e = nc.eval_deriv(m, authentic_v[1], user_grid);
-            intramolecular_energy = m.eval_intra(prec, authentic_v);
-        }
-        else {
-		    intramolecular_energy = m.eval_intramolecular(exact_prec,
-		    		authentic_v, c);
-		    naive_non_cache nnc(&exact_prec); // for out of grid issues
-		    e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
-		    		intramolecular_energy, user_grid);
-        }
+		 intramolecular_energy = m.eval_intramolecular(exact_prec,
+		 		authentic_v, c);
+		 naive_non_cache nnc(&exact_prec); // for out of grid issues
+		 e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
+		 		intramolecular_energy, user_grid);
 
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
@@ -528,7 +515,7 @@ void main_procedure(model& m, precalculate& prec,
 			}
 		}
 
-		if (no_cache)
+		if (no_cache || settings.cnnopts.cnn_scoring)
 		{
 			do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
 					settings, compute_atominfo, log,
@@ -1165,7 +1152,6 @@ Thank you!\n";
 				"Adjust the verbosity of the output, default: 1")
 		("flex_hydrogens", bool_switch(&flex_hydrogens),
 				"Enable torsions affecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
-        ("true_score", bool_switch(&settings.true_score), "Enable printing for the true GPU-computed score for correctness testing.")
 		("outputmin", value<int>(&minparms.outputframes), "output minout.sdf of minimization with provided amount of interpolation")
     ("cnn_gradient_check", bool_switch(&cnnopts.gradient_check)->default_value(false),
                   "Perform internal checks on gradient.");
@@ -1613,14 +1599,9 @@ Thank you!\n";
 					}
 					m->set_pose_num(i);
 
-					if (settings.local_only || settings.true_score)
+					if (settings.local_only)
 					{
 						gd = m->movable_atoms_box(autobox_add, granularity);
-					}
-
-					if (settings.local_only && settings.true_score) {
-						m->print_during_minimization = true;
-						m->gdata.print_during_minimization = true;
 					}
 
 					done(settings.verbosity, log);
