@@ -12,6 +12,7 @@ struct cnn_options {
     fl resolution; //this isn't specified in model file, so be careful about straying from default
     unsigned cnn_rotations; //do we want to score multiple orientations?
     bool cnn_scoring; //if true, do cnn_scoring of final pose
+    bool cnn_refinement;
     bool outputdx;
     bool outputxyz;
     bool gradient_check;

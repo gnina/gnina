@@ -235,7 +235,7 @@ void do_search(model& m, const boost::optional<model>& ref,
     fl intramolecular_energy = max_fl;
 	fl cnnscore = 0, cnnaffinity = 0, cnnforces = 0;
 	fl rmsd = 0;
-  if (settings.gpu_on && !settings.cnnopts.cnn_scoring)
+  if (settings.gpu_on && !(settings.cnnopts.cnn_scoring || settings.cnnopts.cnn_refinement))
 	  m.initialize_gpu();
 	const vec authentic_v(settings.forcecap, settings.forcecap,
 			settings.forcecap); //small cap restricts initial movement from clash
@@ -491,7 +491,7 @@ void main_procedure(model& m, precalculate& prec,
 		non_cache *nc = NULL;
 		if (settings.gpu_on)
 		{
-			if (settings.cnnopts.cnn_scoring)
+			if (settings.cnnopts.cnn_scoring || settings.cnnopts.cnn_refinement)
 			{
 				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
 			}
@@ -505,7 +505,7 @@ void main_procedure(model& m, precalculate& prec,
 		}
 		else
 		{
-			if (settings.cnnopts.cnn_scoring)
+			if (settings.cnnopts.cnn_scoring || settings.cnnopts.cnn_refinement)
 			{
 				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
 			}
@@ -1168,6 +1168,8 @@ Thank you!\n";
 				"evaluate multiple rotations of pose (max 24)")
 		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring),
 				"Use a convolutional neural network to score final pose.")
+    ("cnn_refinement", bool_switch(&cnnopts.cnn_refinement), 
+        "Use a convolutional neural network for final minimization of docked poses")
 		("cnn_update_min_frame", bool_switch(&cnnopts.move_minimize_frame),
 		    "During minimization, recenter coordinate frame as ligand moves")
 		("cnn_freeze_receptor", bool_switch(&cnnopts.fix_receptor),
