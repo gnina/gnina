@@ -22,7 +22,7 @@ struct cnn_options {
     std::string xyzprefix;
     unsigned seed; //random seed
 
-    cnn_options(): cnn_center(NAN,NAN,NAN), resolution(0.5), cnn_rotations(0), cnn_scoring(false), outputdx(false), outputxyz(false), gradient_check(false), move_minimize_frame(false), fix_receptor(true), verbose(false), seed(0) {}
+    cnn_options(): cnn_center(NAN,NAN,NAN), resolution(0.5), cnn_rotations(0), cnn_scoring(false), cnn_refinement(false), outputdx(false), outputxyz(false), gradient_check(false), move_minimize_frame(false), fix_receptor(true), verbose(false), seed(0) {}
 };
 
 //just a collection of user-specified configurations
