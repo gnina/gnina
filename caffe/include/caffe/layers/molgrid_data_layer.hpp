@@ -49,8 +49,7 @@ public:
       example_size(0), inmem(false), resolution(0.5),
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
       binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
-      numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
-      gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
+      numReceptorTypes(0), numLigandTypes(0), compute_atom_gradients(false) {}
   virtual ~MolGridDataLayer();
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -688,17 +687,17 @@ public:
   unsigned numLigandTypes;
 
 
-  unsigned gpu_alloc_size;
-  float4 *gpu_gridatoms;
-  short *gpu_gridwhich;
+  static thread_local unsigned gpu_alloc_size;
+  static thread_local float4 *gpu_gridatoms;
+  static thread_local short *gpu_gridwhich;
   bool compute_atom_gradients;
 
   //need to remember how mols were transformed for backward pass
-  vector<mol_transform> batch_transform;
+  static thread_local vector<mol_transform> batch_transform;
 
-  boost::unordered_map<string, mol_info> molcache;
-  mol_info mem_rec; //molecular data set programmatically with setReceptor
-  mol_info mem_lig; //molecular data set programmatically with setLigand
+  static thread_local boost::unordered_map<string, mol_info> molcache;
+  static thread_local mol_info mem_rec; //molecular data set programmatically with setReceptor
+  static thread_local mol_info mem_lig; //molecular data set programmatically with setLigand
 
   ////////////////////   PROTECTED METHODS   //////////////////////
   static void remove_missing_and_setup(vector<balanced_example_provider>& examples);

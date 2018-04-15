@@ -63,14 +63,16 @@ struct parallel_mc_aux
 
 	void operator()(parallel_mc_task& t) const
 	{
-        const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(ig);
-        if (cnn) {
-          thread_local CNNScorer cnn_scorer(t.m.settings->cnnopts, t.m);
-	        thread_local szv_grid_cache gridcache(t.m, cnn->p->cutoff_sqr());
-          thread_local non_cache_cnn new_cnn(gridcache, cnn->gd, cnn->p, cnn->slope, cnn_scorer);
-		      (*mc)(t.m, t.out, *p, new_cnn, *corner1, *corner2, pg, t.generator, *user_grid);
-        }
-        else
+        // non_cache_cnn* cnn = dynamic_cast<non_cache_cnn*>(ig);
+        // if (cnn) {
+          // thread_local CNNScorer cnn_scorer(t.m.settings->cnnopts, t.m);
+          // thread_local const precalculate* p = cnn->get_precalculate();
+	        // thread_local szv_grid_cache gridcache(t.m, p->cutoff_sqr());
+          // thread_local non_cache_cnn new_cnn(gridcache, cnn->get_grid_dims(), 
+              // p, cnn->getSlope(), cnn_scorer);
+		      // (*mc)(t.m, t.out, *p, new_cnn, *corner1, *corner2, pg, t.generator, *user_grid);
+        // }
+        // else
 		      (*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
 	}
 };
