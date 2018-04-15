@@ -39,8 +39,31 @@ namespace smina_atom_type
   atom_data_initializer initialize_defaults;
 }
 
-
 namespace caffe {
+
+template <typename Dtype>
+thread_local unsigned MolGridDataLayer<Dtype>::gpu_alloc_size = 0;
+
+template <typename Dtype>
+thread_local float4* MolGridDataLayer<Dtype>::gpu_gridatoms = nullptr;
+
+template <typename Dtype>
+thread_local short* MolGridDataLayer<Dtype>::gpu_gridwhich = nullptr;
+
+template <typename Dtype>
+thread_local vector<typename MolGridDataLayer<Dtype>::mol_transform> 
+  MolGridDataLayer<Dtype>::batch_transform(1);
+
+template <typename Dtype>
+thread_local boost::unordered_map<string, typename MolGridDataLayer<Dtype>::mol_info> MolGridDataLayer<Dtype>::molcache = boost::unordered_map<string, typename MolGridDataLayer<Dtype>::mol_info> {};
+
+template <typename Dtype>
+thread_local typename MolGridDataLayer<Dtype>::mol_info MolGridDataLayer<Dtype>::mem_rec = 
+  MolGridDataLayer<Dtype>::mol_info();
+
+template <typename Dtype>
+thread_local typename MolGridDataLayer<Dtype>::mol_info MolGridDataLayer<Dtype>::mem_lig = 
+  MolGridDataLayer<Dtype>::mol_info();
 
 template <typename Dtype>
 MolGridDataLayer<Dtype>::~MolGridDataLayer<Dtype>() {
