@@ -1327,6 +1327,9 @@ Thank you!\n";
 		bool search_box_needed = !(settings.score_only || settings.local_only); // randomize_only and local_only still need the search space; dkoes - for local get box from ligand
 		bool output_produced = !settings.score_only;
 		bool receptor_needed = !settings.randomize_only;
+    if (cnnopts.cnn_scoring && 
+        !(settings.score_only || settings.local_only || settings.randomize_only))
+      cnnopts.move_minimize_frame = true;
 
 		if (receptor_needed)
 		{

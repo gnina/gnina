@@ -21,10 +21,6 @@
 using namespace caffe;
 using namespace std;
 
-thread_local vector<float3> CNNScorer::gradient = {};
-thread_local vector<float4> CNNScorer::atoms = {};
-thread_local vector<short> CNNScorer::channels = {};
-
 //initialize from commandline options
 //throw error if missing required info
 CNNScorer::CNNScorer(const cnn_options& opts, const model& m) :
