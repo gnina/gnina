@@ -63,7 +63,17 @@ struct parallel_mc_aux
 
 	void operator()(parallel_mc_task& t) const
 	{
-		(*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
+        non_cache_cnn* cnn = dynamic_cast<non_cache_cnn*>(ig);
+        if (cnn) {
+          CNNScorer cnn_scorer(t.m.settings->cnnopts, t.m);
+          const precalculate* p = cnn->get_precalculate();
+	        szv_grid_cache gridcache(t.m, p->cutoff_sqr());
+          non_cache_cnn new_cnn(gridcache, cnn->get_grid_dims(), 
+              p, cnn->getSlope(), cnn_scorer);
+		      (*mc)(t.m, t.out, *p, new_cnn, *corner1, *corner2, pg, t.generator, *user_grid);
+        }
+        else
+		      (*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
 	}
 };
 
