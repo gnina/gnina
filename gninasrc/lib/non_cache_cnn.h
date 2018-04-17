@@ -28,7 +28,6 @@
 #include "non_cache.h"
 #include "cnn_scorer.h"
 
-struct parallel_mc_aux;
 struct non_cache_cnn : public non_cache {
 	non_cache_cnn(szv_grid_cache& gcache,
 		      const grid_dims& gd_,
@@ -41,7 +40,6 @@ struct non_cache_cnn : public non_cache {
 	virtual bool within(const model& m, fl margin = 0.0001) const;
 	void setSlope(fl sl) { slope = sl; }
 	fl getSlope() { return slope; }
-  void setCNNScorer(CNNScorer& new_scorer) {cnn_scorer = new_scorer;}
 	virtual bool skip_interacting_pairs() const { return true; }
 	virtual bool adjust_center(model& m);
 	virtual vec get_center() const;

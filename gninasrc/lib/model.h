@@ -251,7 +251,7 @@ struct model {
   ligands(m.ligands), minus_forces(m.minus_forces), 
   m_num_movable_atoms(m.m_num_movable_atoms), atoms(m.atoms), 
   grid_atoms(m.grid_atoms), other_pairs(m.other_pairs), 
-  hydrogens_stripped(m.hydrogens_stripped), settings(m.settings), 
+  hydrogens_stripped(m.hydrogens_stripped), 
   internal_coords(m.internal_coords), flex(m.flex), 
   flex_context(m.flex_context), name(m.name), pose_num(m.pose_num) {}
 
@@ -450,7 +450,7 @@ struct model {
   atomv atoms; // movable, inflex
   atomv grid_atoms;
   interacting_pairs other_pairs;
-  const user_settings* settings;
+  static user_settings settings;
 
   //for cnn, allow rigid body movement of receptor
   rigid_change rec_change; //set by non_cache/cnn scoring
@@ -470,7 +470,7 @@ private:
 	friend class appender;
 	friend struct pdbqt_initializer;
 	friend struct model_test;
-    friend void test_eval_intra();
+  friend void test_eval_intra();
 
 	const atom& get_atom(const atom_index& i) const {
 		return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]);

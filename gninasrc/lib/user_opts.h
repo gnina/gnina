@@ -47,7 +47,6 @@ struct user_settings
 	bool gpu_on;
 
   cnn_options cnnopts;
-	bool cnn_scoring;
 
 	//reasonable defaults
 	user_settings() :

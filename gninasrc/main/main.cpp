@@ -227,7 +227,6 @@ void do_search(model& m, const boost::optional<model>& ref,
 {
 	boost::timer::cpu_timer time;
 
-  m.settings = &settings;
 	precalculate_exact exact_prec(sf); //use exact computations for final score
 	conf_size s = m.get_size();
 	conf c = m.get_initial_conf(nc.move_receptor());
@@ -1052,7 +1051,7 @@ Thank you!\n";
 		bool strip_hydrogens = false;
 		bool no_lig = false;
 
-		user_settings settings;
+		user_settings& settings = model::settings;
 		cnn_options& cnnopts = settings.cnnopts;
 
 		minimization_params minparms;

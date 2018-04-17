@@ -31,10 +31,8 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition.hpp>
-#include "caffe/caffe.hpp"
 
-struct non_cache_cnn;
-template<typename F, bool Sync = false, bool gpu_on = false>
+template<typename F, typename thread_init, bool Sync = false>
 struct parallel_for : private boost::thread_group {
 	parallel_for(const F* f, sz num_threads) : m_f(f), destructing(false), size(0), thread_finished(num_threads, true), count_finished(0), num_threads(num_threads) {
         VINA_FOR(i, num_threads)
@@ -60,10 +58,7 @@ struct parallel_for : private boost::thread_group {
     }
 private:
 	void loop(sz offset) {
-    if (gpu_on) {
-	    caffe::Caffe::SetDevice(m_f->settings->device);
-	    caffe::Caffe::set_mode(caffe::Caffe::GPU);
-    }
+    thread_init()();
 		while(boost::optional<sz> sz_option = get_size(offset)) {
 			sz s = sz_option.get();
 			for(sz i = offset; i < s; i += num_threads)
@@ -100,8 +95,8 @@ private:
     }
 };
 
-template<typename F, bool gpu_on>
-struct parallel_for<F, true, gpu_on> : private boost::thread_group {
+template<typename F, typename thread_init>
+struct parallel_for<F, thread_init, true> : private boost::thread_group {
 	parallel_for(const F* f, sz num_threads) : m_f(f), destructing(false), size(0), started(0), finished(0) {
 		a.par = this; // VC8 warning workaround
         VINA_FOR(i, num_threads)
@@ -126,10 +121,7 @@ struct parallel_for<F, true, gpu_on> : private boost::thread_group {
     }
 private:
 	void loop() {
-    if (gpu_on) {
-	    caffe::Caffe::SetDevice(m_f->f->settings->device);
-	    caffe::Caffe::set_mode(caffe::Caffe::GPU);
-    }
+    thread_init()();
 		while(boost::optional<sz> i = get_next()) {
 			(*m_f)(i.get());
 			{
@@ -165,7 +157,7 @@ private:
 };
 
 
-template<typename F, typename Container, typename Input, bool Sync = false, bool gpu_on = false>
+template<typename F, typename Container, typename Input, typename thread_init, bool Sync = false>
 struct parallel_iter { 
 	parallel_iter(const F* f, sz num_threads) : a(f), pf(&a, num_threads) {}
 	void run(Container& v) {
@@ -183,7 +175,7 @@ private:
 		}
 	};
 	aux a;
-	parallel_for<aux, Sync, gpu_on> pf;
+	parallel_for<aux, thread_init, Sync> pf;
 };
 
 #endif

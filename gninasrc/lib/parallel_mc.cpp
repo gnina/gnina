@@ -29,6 +29,21 @@
 #include "non_cache_cnn.h"
 #include "user_opts.h"
 
+class thread_initializer 
+{
+  public:
+  virtual void operator()() {}
+};
+
+class host_thread_initializer : public thread_initializer
+{
+  public:
+  virtual void operator()() override {
+	  caffe::Caffe::SetDevice(model::settings.device);
+	  caffe::Caffe::set_mode(caffe::Caffe::GPU);
+  }
+};
+
 struct parallel_mc_task
 {
 	model m;
@@ -51,13 +66,12 @@ struct parallel_mc_aux
 	const vec* corner2;
 	parallel_progress* pg;
 	grid* user_grid;
-  const user_settings* settings;
 	parallel_mc_aux(const monte_carlo* mc_, const precalculate* p_,
 			igrid* ig_, const vec* corner1_, const vec* corner2_,
-			parallel_progress* pg_, grid* user_grid_, const user_settings* settings_)
+			parallel_progress* pg_, grid* user_grid_)
 	:
 			mc(mc_), p(p_), ig(ig_), corner1(corner1_), corner2(corner2_), pg(
-					pg_), user_grid(user_grid_), settings(settings_)
+					pg_), user_grid(user_grid_)
 	{
 	}
 
@@ -65,7 +79,7 @@ struct parallel_mc_aux
 	{
         non_cache_cnn* cnn = dynamic_cast<non_cache_cnn*>(ig);
         if (cnn) {
-          CNNScorer cnn_scorer(t.m.settings->cnnopts, t.m);
+          CNNScorer cnn_scorer(t.m.settings.cnnopts, t.m);
           const precalculate* p = cnn->get_precalculate();
 	        szv_grid_cache gridcache(t.m, p->cutoff_sqr());
           non_cache_cnn new_cnn(gridcache, cnn->get_grid_dims(), 
@@ -99,24 +113,27 @@ void parallel_mc::operator()(const model& m, output_container& out,
 {
 	parallel_progress pp;
 	parallel_mc_aux parallel_mc_aux_instance(&mc, &p, &ig, &corner1, &corner2,
-			(display_progress ? (&pp) : NULL), &user_grid, m.settings);
+			(display_progress ? (&pp) : NULL), &user_grid);
 	parallel_mc_task_container task_container;
 	VINA_FOR(i, num_tasks)
 		task_container.push_back(new parallel_mc_task(m, random_int(0, 1000000, generator)));
 	if (display_progress)
 		pp.init(num_tasks * mc.num_steps);
-  if (m.settings->gpu_on) {
+
+  if (m.settings.gpu_on) {
 	  parallel_iter<parallel_mc_aux, parallel_mc_task_container, parallel_mc_task,
-	  		true, true> parallel_iter_instance(&parallel_mc_aux_instance,
+	  		host_thread_initializer, true> parallel_iter_instance(&parallel_mc_aux_instance,
 	  		num_threads);
 	  parallel_iter_instance.run(task_container);
   }
   else {
 	  parallel_iter<parallel_mc_aux, parallel_mc_task_container, parallel_mc_task,
-	  		true, false> parallel_iter_instance(&parallel_mc_aux_instance,
+	  		thread_initializer, true> parallel_iter_instance(&parallel_mc_aux_instance,
 	  		num_threads);
 	  parallel_iter_instance.run(task_container);
   }
+
 	merge_output_containers(task_container, out, mc.min_rmsd,
 			mc.num_saved_mins);
+
 }
