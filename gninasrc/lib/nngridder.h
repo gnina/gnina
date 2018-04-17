@@ -136,7 +136,7 @@ protected:
 
 	//setup ligand/receptor maps
 	//setup grid dimensions and zero-init
-	void setMapsAndGrids(const gridoptions& opt);
+	virtual void setMapsAndGrids(const gridoptions& opt);
 
 	//set the center of the grid, must reset receptor/ligand
 	void setCenter(double x, double y, double z);
@@ -230,6 +230,8 @@ protected:
 
 	//output a grid the file in dx format (for debug)
 	void outputDXGrid(ostream& out, Grid& grid) override;
+
+	virtual void setMapsAndGrids(const gridoptions& opt) override;
 };
 
 #endif

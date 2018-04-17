@@ -1018,6 +1018,7 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 		ainfo.push_back(ai);
 	}
 
+  RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
 	if(gpu)
 	{
 		unsigned nlatoms = m.coordinates().size();
@@ -1028,10 +1029,16 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 	    CUDA_CHECK(cudaMemcpy(gpu_receptorAInfo, &recAInfo[0], recAInfo.size()*sizeof(float4),cudaMemcpyHostToDevice));
 		}
 
-		gmaker->setAtomsGPU<float>(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);
+    if (rnn)
+		  rnn->setAtomsGPU<float>(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);
+    else
+		  gmaker->setAtomsGPU<float>(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);
 		cudaCopyGrids(receptorGrids, gpu_receptorGrids);
 
-		gmaker->setAtomsGPU<float>(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, Q, ligandGrids.size(), gpu_ligandGrids);
+    if (rnn)
+		  rnn->setAtomsGPU<float>(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, Q, ligandGrids.size(), gpu_ligandGrids);
+    else
+		  gmaker->setAtomsGPU<float>(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, Q, ligandGrids.size(), gpu_ligandGrids);
 		cudaCopyGrids(ligandGrids, gpu_ligandGrids);
 
 		CUDA_CHECK(cudaDeviceSynchronize());
@@ -1039,9 +1046,14 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 	else
 	{
 		//put in to gridmaker format
-
-		gmaker->setAtomsCPU(recAInfo, recWhichGrid, Q, receptorGrids);
-		gmaker->setAtomsCPU(ainfo, ligWhichGrid,  Q, ligandGrids);
+    if(rnn) {
+		  rnn->setAtomsCPU(recAInfo, recWhichGrid, Q, receptorGrids);
+		  rnn->setAtomsCPU(ainfo, ligWhichGrid,  Q, ligandGrids);
+    }
+    else {
+		  gmaker->setAtomsCPU(recAInfo, recWhichGrid, Q, receptorGrids);
+		  gmaker->setAtomsCPU(ainfo, ligWhichGrid,  Q, ligandGrids);
+    }
 	}
 }
 

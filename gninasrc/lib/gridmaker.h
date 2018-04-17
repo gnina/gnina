@@ -719,6 +719,18 @@ class RNNGridMaker : public GridMaker {
 		}
   }
 
+	template<typename Grids>
+	void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex,  const quaternion& Q, Grids& grids)
+	{
+		zeroGridsCPU(grids);
+		for (unsigned i = 0, n = ainfo.size(); i < n; i++)
+		{
+			int pos = gridindex[i];
+			if (pos >= 0)
+				setAtomCPU(ainfo[i], pos, Q, grids);
+		}
+	}
+
   template <typename Dtype>
 	void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
                            quaternion Q, Dtype* data, vector<float3>& agrad,
@@ -748,6 +760,20 @@ class RNNGridMaker : public GridMaker {
         setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
       }
     }
+  }
+
+  template<typename Grids>
+  auto& getGridElement(Grids& grids, unsigned grid_idx, unsigned whichgrid, 
+      unsigned x, unsigned y, unsigned z) -> decltype(grids[0][0][0][0][0][0]) {
+    return grids[grid_idx][batch_idx][whichgrid][x][y][z];
+  }
+
+  template<typename Allocator>
+  float& getGridElement(std::vector<boost::multi_array<float, 3, Allocator>>& grids, 
+      unsigned grid_idx, unsigned whichgrid, unsigned x, unsigned y, unsigned z) {
+    unsigned factor = dimension / subgrid_dim;
+    unsigned ngrids = factor * factor * factor;
+    return grids[whichgrid * ngrids + grid_idx][x][y][z];
   }
 
   //TODO: possible to merge this with base version?
@@ -816,10 +842,10 @@ class RNNGridMaker : public GridMaker {
 	        if (binary)
 	        {
 	          if (val != 0)
-              grids[grid_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z] = 1.0;
+              getGridElement(grids, grid_idx, whichgrid, rel_x, rel_y, rel_z) = 1.0;
 	        }
 	        else {
-            grids[grid_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z] += val;
+            getGridElement(grids, grid_idx, whichgrid, rel_x, rel_y, rel_z) += val;
           }
 
 	      }
