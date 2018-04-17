@@ -156,7 +156,7 @@ public:
 			gpu_ligandAInfo(NULL), gpu_ligWhichGrid(NULL)
 			{}
 
-  virtual ~NNGridder() {delete gmaker;}
+  virtual ~NNGridder() {if (gmaker) delete gmaker;}
 
 	virtual void initialize(const gridoptions& opt);
 
@@ -209,7 +209,6 @@ class RNNMolsGridder : public NNMolsGridder
 public:
   RNNMolsGridder(const gridoptions& opt);
   ~RNNMolsGridder() {}
-	virtual void initialize(const gridoptions& opt) override;
 
 	//output an AD4 map for each grid
 	void outputMAP(const string& base) override;

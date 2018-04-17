@@ -688,11 +688,14 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 			unsigned i = rmap[at];
 			if (receptorGrids.size() <= i * ngrids)
 				receptorGrids.resize((i + 1) * ngrids);
-			if (receptorGrids[i * ngrids].num_elements() == 0)
-			{
-				receptorGrids[i * ngrids].resize(extents[n][n][n]);
-				fill_n(receptorGrids[i * ngrids].data(), receptorGrids[i * ngrids].num_elements(), 0.0);
-			}
+      for (unsigned cid = 0; cid < ngrids; ++cid) {
+        unsigned idx = i * ngrids + cid;
+			  if (receptorGrids[idx].num_elements() == 0)
+			  {
+			  	receptorGrids[idx].resize(extents[n][n][n]);
+			  	fill_n(receptorGrids[idx].data(), receptorGrids[idx].num_elements(), 0.0);
+			  }
+      }
 		}
 
 		if (lmap[at] >= 0)
@@ -700,11 +703,14 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 			unsigned i = lmap[at];
 			if (ligandGrids.size() <= i * ngrids)
 				ligandGrids.resize((i + 1) * ngrids);
-			if (ligandGrids[i * ngrids].num_elements() == 0)
-			{
-				ligandGrids[i * ngrids].resize(extents[n][n][n]);
-				fill_n(ligandGrids[i * ngrids].data(), ligandGrids[i * ngrids].num_elements(), 0.0);
-			}
+      for (unsigned cid = 0; cid < ngrids; ++cid) {
+        unsigned idx = i * ngrids + cid;
+			  if (ligandGrids[idx].num_elements() == 0)
+			  {
+			  	ligandGrids[idx].resize(extents[n][n][n]);
+			  	fill_n(ligandGrids[idx].data(), ligandGrids[idx].num_elements(), 0.0);
+			  }
+      }
 		}
 	}
 
@@ -833,11 +839,6 @@ NNMolsGridder::NNMolsGridder(const gridoptions& opt)
 }
 
 RNNMolsGridder::RNNMolsGridder(const gridoptions& opt) : NNMolsGridder(opt)
-{
-  initialize(opt);
-}
-
-void RNNMolsGridder::initialize(const gridoptions& opt) 
 {
   subgrid_dim = opt.subgrid_dim;
   unsigned npts = round(dimension / resolution) + 1;
