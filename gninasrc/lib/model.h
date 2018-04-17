@@ -66,7 +66,6 @@ struct gpu_data {
   	unsigned forces_size;
   	unsigned pairs_size;
     unsigned other_pairs_size;
-    bool print_during_minimization;
 
     //TODO delete
     size_t nlig_roots;
@@ -75,8 +74,7 @@ struct gpu_data {
   			treegpu(NULL), interacting_pairs(NULL), other_pairs(NULL), 
             dfs_order_bfs_indices(NULL), bfs_order_dfs_indices(NULL), 
             scratch(NULL), coords_size(0),
-  			atom_coords_size(0), forces_size(0), pairs_size(0), other_pairs_size(0), 
-            print_during_minimization(false) {}
+  			atom_coords_size(0), forces_size(0), pairs_size(0), other_pairs_size(0) {}
 
     __host__ __device__
 	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v, interacting_pair* pairs, unsigned pairs_sz) const;

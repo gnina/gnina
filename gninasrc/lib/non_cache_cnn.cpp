@@ -96,6 +96,7 @@ bool non_cache_cnn::within(const model& m, fl margin) const
   return gd_within(cnn_gd, m, margin) ||  non_cache::within(m, margin);
 }
 
+//return the cnn loss plus any out of bounds penalties
 fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const
 {
 	fl e = 0;
