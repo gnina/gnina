@@ -404,6 +404,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   ligpeturb = param.peturb_ligand();
   ligpeturb_translate = param.peturb_ligand_translate();
   ligpeturb_rotate = param.peturb_ligand_rotate();
+  ignore_ligand = param.ignore_ligand();
   radiusmultiple = param.radius_multiple();
   fixedradius = param.fixed_radius();
   bool hasaffinity = param.has_affinity();
@@ -633,7 +634,13 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
        std::cerr << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded\n";
       }
     }
-    center /= cnt;
+
+    if(cnt == 0) {
+      std::cerr << "WARNING: No atoms in " << file <<"\n";
+    }
+    else {
+      center /= cnt;
+    }
   }
   else if(!boost::algorithm::ends_with(file,"none")) //reserved word
   {
@@ -732,6 +739,8 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
 
   //include receptor and ligand atoms
   transform.mol.append(recatoms);
+  //set center to ligand center
+  transform.mol.center = ligatoms.center;
 
   if(ligpeturb) {
     if(ligpeturb_rotate)
@@ -753,12 +762,13 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
     qt qinv = conj(ligtrans.Q)/norm(ligtrans.Q); //not Cayley, not euclidean norm - already squared
     peturb.set_from_quaternion(qinv);
 
+    //set the center to the translated value
+    transform.mol.center = ligatoms.center + ligtrans.center;
+  } else if(ignore_ligand) {
+    //do nothing - ligand is only used to set center
   } else {
     transform.mol.append(ligatoms);
   }
-
-  //set center to ligand center
-  transform.mol.center = ligatoms.center;
 
   //figure out transformation
   transform.Q = quaternion(1,0,0,0);
@@ -778,6 +788,7 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
   {
     double radius = ligatoms.radius();
     //don't let ligand atoms translate out of sphere inscribed in box
+    if(ignore_ligand) radius = 0;
     double maxtrans = max(dimension/2.0 - radius,0.0);
     transform.add_random_displacement(rng, min(randtranslate,maxtrans));
   }
