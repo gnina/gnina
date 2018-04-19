@@ -54,6 +54,7 @@
 #include <boost/bind.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <boost/unordered_map.hpp>
+#include "user_opts.h"
 
 #include <cuda_profiler_api.h>
 
@@ -61,44 +62,6 @@ using namespace boost::iostreams;
 using boost::filesystem::path;
 
 extern thread_local float_buffer buffer;
-
-//just a collection of user-specified configurations
-struct user_settings
-{
-	fl energy_range;
-	sz num_modes;
-	fl out_min_rmsd;
-	fl forcecap;
-	int seed;
-	int verbosity;
-	int cpu;
-	int device; //gpu number
-
-	int exhaustiveness;
-	int num_mc_steps; //override default
-	bool score_only;
-	bool randomize_only;
-	bool local_only;
-	bool dominimize;
-	bool include_atom_info;
-	bool gpu_on;
-	bool true_score;
-
-    cnn_options cnnopts;
-	bool cnn_scoring;
-
-	//reasonable defaults
-	user_settings() :
-			energy_range(2.0), num_modes(9), out_min_rmsd(1),
-					forcecap(1000), seed(auto_seed()), verbosity(1), cpu(1),
-					device(0), exhaustiveness(10), num_mc_steps(0),
-					score_only(false), randomize_only(false), local_only(false),
-					dominimize(false), include_atom_info(false), gpu_on(false),
-                    true_score(false), cnn_scoring(false)
-	{
-
-	}
-};
 
 void doing(int verbosity, const std::string& str, tee& log)
 {
@@ -271,29 +234,18 @@ void do_search(model& m, const boost::optional<model>& ref,
     fl intramolecular_energy = max_fl;
 	fl cnnscore = 0, cnnaffinity = 0, cnnforces = 0;
 	fl rmsd = 0;
+  if (settings.gpu_on && !(settings.cnnopts.cnn_scoring || settings.cnnopts.cnn_refinement))
+	  m.initialize_gpu();
 	const vec authentic_v(settings.forcecap, settings.forcecap,
 			settings.forcecap); //small cap restricts initial movement from clash
 
 	if (settings.score_only)
 	{
-        if (settings.true_score && settings.gpu_on) {
-            m.initialize_gpu();
-	        non_cache_gpu* nc_gpu = dynamic_cast<non_cache_gpu*>(&nc);
-            assert(nc_gpu);
-            e = m.gdata.eval(nc_gpu->get_info(), authentic_v[1]);
-            intramolecular_energy = m.gdata.eval_intramolecular(nc_gpu->get_info(), authentic_v[0]);
-        }
-        else if (settings.true_score) {
-            e = nc.eval_deriv(m, authentic_v[1], user_grid);
-            intramolecular_energy = m.eval_intra(prec, authentic_v);
-        }
-        else {
-		    intramolecular_energy = m.eval_intramolecular(exact_prec,
-		    		authentic_v, c);
-		    naive_non_cache nnc(&exact_prec); // for out of grid issues
-		    e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
-		    		intramolecular_energy, user_grid);
-        }
+		 intramolecular_energy = m.eval_intramolecular(exact_prec,
+		 		authentic_v, c);
+		 naive_non_cache nnc(&exact_prec); // for out of grid issues
+		 e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
+		 		intramolecular_energy, user_grid);
 
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
@@ -538,7 +490,7 @@ void main_procedure(model& m, precalculate& prec,
 		non_cache *nc = NULL;
 		if (settings.gpu_on)
 		{
-			if (settings.cnnopts.cnn_scoring)
+			if (settings.cnnopts.cnn_scoring || settings.cnnopts.cnn_refinement)
 			{
 				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
 			}
@@ -552,7 +504,7 @@ void main_procedure(model& m, precalculate& prec,
 		}
 		else
 		{
-			if (settings.cnnopts.cnn_scoring)
+			if (settings.cnnopts.cnn_scoring || settings.cnnopts.cnn_refinement)
 			{
 				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
 			}
@@ -562,7 +514,7 @@ void main_procedure(model& m, precalculate& prec,
 			}
 		}
 
-		if (no_cache)
+		if (no_cache || settings.cnnopts.cnn_scoring)
 		{
 			do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
 					settings, compute_atominfo, log,
@@ -1199,7 +1151,6 @@ Thank you!\n";
 				"Adjust the verbosity of the output, default: 1")
 		("flex_hydrogens", bool_switch(&flex_hydrogens),
 				"Enable torsions affecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
-        ("true_score", bool_switch(&settings.true_score), "Enable printing for the true GPU-computed score for correctness testing.")
 		("outputmin", value<int>(&minparms.outputframes), "output minout.sdf of minimization with provided amount of interpolation")
     ("cnn_gradient_check", bool_switch(&cnnopts.gradient_check)->default_value(false),
                   "Perform internal checks on gradient.");
@@ -1216,6 +1167,8 @@ Thank you!\n";
 				"evaluate multiple rotations of pose (max 24)")
 		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring),
 				"Use a convolutional neural network to score final pose.")
+    ("cnn_refinement", bool_switch(&cnnopts.cnn_refinement), 
+        "Use a convolutional neural network for final minimization of docked poses")
 		("cnn_update_min_frame", bool_switch(&cnnopts.move_minimize_frame),
 		    "During minimization, recenter coordinate frame as ligand moves")
 		("cnn_freeze_receptor", bool_switch(&cnnopts.fix_receptor),
@@ -1373,6 +1326,9 @@ Thank you!\n";
 		bool search_box_needed = !(settings.score_only || settings.local_only); // randomize_only and local_only still need the search space; dkoes - for local get box from ligand
 		bool output_produced = !settings.score_only;
 		bool receptor_needed = !settings.randomize_only;
+    if (cnnopts.cnn_scoring && 
+        !(settings.score_only || settings.local_only || settings.randomize_only))
+      cnnopts.move_minimize_frame = true;
 
 		if (receptor_needed)
 		{
@@ -1646,15 +1602,12 @@ Thank you!\n";
 						break;
 					}
 					m->set_pose_num(i);
+          m->gdata.device_on = settings.gpu_on;
+          m->gdata.device_id = settings.device;
 
-					if (settings.local_only || settings.true_score)
+					if (settings.local_only)
 					{
 						gd = m->movable_atoms_box(autobox_add, granularity);
-					}
-
-					if (settings.local_only && settings.true_score) {
-						m->print_during_minimization = true;
-						m->gdata.print_during_minimization = true;
 					}
 
 					done(settings.verbosity, log);

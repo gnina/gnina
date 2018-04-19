@@ -39,7 +39,6 @@ namespace smina_atom_type
   atom_data_initializer initialize_defaults;
 }
 
-
 namespace caffe {
 
 template <typename Dtype>

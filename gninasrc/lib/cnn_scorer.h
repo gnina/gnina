@@ -17,31 +17,11 @@
 #include "nngridder.h"
 #include "model.h"
 
-struct cnn_options {
-    //stores options associated with cnn scoring
-    std::string cnn_model; //path to model file
-    std::string cnn_weights; //weights for model
-    std::string cnn_recmap; //optional file specifying receptor atom typing to channel map
-    std::string cnn_ligmap; //optional file specifying ligand atom typing to channel map
-    vec cnn_center;
-    fl resolution; //this isn't specified in model file, so be careful about straying from default
-    unsigned cnn_rotations; //do we want to score multiple orientations?
-    bool cnn_scoring; //if true, do cnn_scoring of final pose
-    bool outputdx;
-    bool outputxyz;
-    bool gradient_check;
-    bool move_minimize_frame;  //recenter with every scoring evaluation
-    bool fix_receptor;
-    bool verbose;
-    std::string xyzprefix;
-    unsigned seed; //random seed
-
-    cnn_options(): cnn_center(NAN,NAN,NAN), resolution(0.5), cnn_rotations(0), cnn_scoring(false), outputdx(false), outputxyz(false), gradient_check(false), move_minimize_frame(false), fix_receptor(true), verbose(false), seed(0) {}
-};
 
 /* This class evaluates protein-ligand poses according to a provided
  * Caffe convolutional neural net (CNN) model.
  */
+
 class CNNScorer {
     typedef float Dtype;
     caffe::shared_ptr<caffe::Net<Dtype> > net;
