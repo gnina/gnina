@@ -163,8 +163,6 @@ void context::set(sz pdbqtindex, sz sdfindex, sz atomindex, bool inf) {
 	}
 }
 
-user_settings model::settings;
-
 void model::append(const model& m) {
 	deallocate_gpu();
 	appender t(*this, m);

@@ -29,21 +29,6 @@
 #include "non_cache_cnn.h"
 #include "user_opts.h"
 
-class thread_initializer 
-{
-  public:
-  virtual void operator()() {}
-};
-
-class host_thread_initializer : public thread_initializer
-{
-  public:
-  virtual void operator()() override {
-	  caffe::Caffe::SetDevice(model::settings.device);
-	  caffe::Caffe::set_mode(caffe::Caffe::GPU);
-  }
-};
-
 struct parallel_mc_task
 {
 	model m;
@@ -79,7 +64,7 @@ struct parallel_mc_aux
 	{
         non_cache_cnn* cnn = dynamic_cast<non_cache_cnn*>(ig);
         if (cnn) {
-          CNNScorer cnn_scorer(t.m.settings.cnnopts, t.m);
+          CNNScorer cnn_scorer(cnn->get_scorer().options(), t.m);
           const precalculate* p = cnn->get_precalculate();
 	        szv_grid_cache gridcache(t.m, p->cutoff_sqr());
           non_cache_cnn new_cnn(gridcache, cnn->get_grid_dims(), 
@@ -120,8 +105,8 @@ void parallel_mc::operator()(const model& m, output_container& out,
 	if (display_progress)
 		pp.init(num_tasks * mc.num_steps);
 
-  auto thread_init = [&](){if (m.settings.gpu_on) {
-    caffe::Caffe::SetDevice(m.settings.device);
+  auto thread_init = [&](){if (m.gdata.device_on) {
+    caffe::Caffe::SetDevice(m.gdata.device_id);
 	  caffe::Caffe::set_mode(caffe::Caffe::GPU);}};
 	parallel_iter<parallel_mc_aux, parallel_mc_task_container, parallel_mc_task,
 			decltype(thread_init), true> parallel_iter_instance(&parallel_mc_aux_instance,

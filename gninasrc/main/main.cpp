@@ -1051,7 +1051,7 @@ Thank you!\n";
 		bool strip_hydrogens = false;
 		bool no_lig = false;
 
-		user_settings& settings = model::settings;
+		user_settings settings;
 		cnn_options& cnnopts = settings.cnnopts;
 
 		minimization_params minparms;
@@ -1602,6 +1602,8 @@ Thank you!\n";
 						break;
 					}
 					m->set_pose_num(i);
+          m->gdata.device_on = settings.gpu_on;
+          m->gdata.device_id = settings.device;
 
 					if (settings.local_only)
 					{

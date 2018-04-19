@@ -66,6 +66,8 @@ struct gpu_data {
   	unsigned forces_size;
   	unsigned pairs_size;
     unsigned other_pairs_size;
+    bool device_on;
+    int device_id;
 
     //TODO delete
     size_t nlig_roots;
@@ -74,7 +76,8 @@ struct gpu_data {
   			treegpu(NULL), interacting_pairs(NULL), other_pairs(NULL), 
             dfs_order_bfs_indices(NULL), bfs_order_dfs_indices(NULL), 
             scratch(NULL), coords_size(0),
-  			atom_coords_size(0), forces_size(0), pairs_size(0), other_pairs_size(0) {}
+  			atom_coords_size(0), forces_size(0), pairs_size(0), other_pairs_size(0), 
+        device_on(false), device_id(0) {}
 
     __host__ __device__
 	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v, interacting_pair* pairs, unsigned pairs_sz) const;
@@ -448,7 +451,6 @@ struct model {
   atomv atoms; // movable, inflex
   atomv grid_atoms;
   interacting_pairs other_pairs;
-  static user_settings settings;
 
   //for cnn, allow rigid body movement of receptor
   rigid_change rec_change; //set by non_cache/cnn scoring
