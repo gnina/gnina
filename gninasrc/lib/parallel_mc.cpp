@@ -120,18 +120,13 @@ void parallel_mc::operator()(const model& m, output_container& out,
 	if (display_progress)
 		pp.init(num_tasks * mc.num_steps);
 
-  if (m.settings.gpu_on) {
-	  parallel_iter<parallel_mc_aux, parallel_mc_task_container, parallel_mc_task,
-	  		host_thread_initializer, true> parallel_iter_instance(&parallel_mc_aux_instance,
-	  		num_threads);
-	  parallel_iter_instance.run(task_container);
-  }
-  else {
-	  parallel_iter<parallel_mc_aux, parallel_mc_task_container, parallel_mc_task,
-	  		thread_initializer, true> parallel_iter_instance(&parallel_mc_aux_instance,
-	  		num_threads);
-	  parallel_iter_instance.run(task_container);
-  }
+  auto thread_init = [&](){if (m.settings.gpu_on) {
+    caffe::Caffe::SetDevice(m.settings.device);
+	  caffe::Caffe::set_mode(caffe::Caffe::GPU);}};
+	parallel_iter<parallel_mc_aux, parallel_mc_task_container, parallel_mc_task,
+			decltype(thread_init), true> parallel_iter_instance(&parallel_mc_aux_instance,
+			num_threads, thread_init);
+	parallel_iter_instance.run(task_container);
 
 	merge_output_containers(task_container, out, mc.min_rmsd,
 			mc.num_saved_mins);
