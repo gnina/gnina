@@ -763,17 +763,17 @@ class RNNGridMaker : public GridMaker {
   }
 
   template<typename Grids>
-  auto& getGridElement(Grids& grids, unsigned grid_idx, unsigned whichgrid, 
-      unsigned x, unsigned y, unsigned z) -> decltype(grids[0][0][0][0][0][0]) {
-    return grids[grid_idx][batch_idx][whichgrid][x][y][z];
+  auto getGridElement(Grids& grids, unsigned grid_idx, unsigned whichgrid, 
+      unsigned x, unsigned y, unsigned z) -> decltype(&grids[0][0][0][0][0][0]){
+    return &grids[grid_idx][batch_idx][whichgrid][x][y][z];
   }
 
-  template<typename Allocator>
-  float& getGridElement(std::vector<boost::multi_array<float, 3, Allocator>>& grids, 
+  template<typename Allocator, typename Dtype>
+  Dtype* getGridElement(std::vector<boost::multi_array<Dtype, 3, Allocator>>& grids, 
       unsigned grid_idx, unsigned whichgrid, unsigned x, unsigned y, unsigned z) {
     unsigned factor = dimension / subgrid_dim;
     unsigned ngrids = factor * factor * factor;
-    return grids[whichgrid * ngrids + grid_idx][x][y][z];
+    return &grids[whichgrid * ngrids + grid_idx][x][y][z];
   }
 
   //TODO: possible to merge this with base version?
@@ -829,23 +829,23 @@ class RNNGridMaker : public GridMaker {
 	        float y = dims[1].x + j * resolution;
 	        float z = dims[2].x + k * resolution;
 	        float val = calcPoint(coords, radius, x, y, z);
-          unsigned grids_per_dim = dimension / subgrid_dim;
-          unsigned subgrid_idx_x = i / (dim / grids_per_dim); 
-          unsigned subgrid_idx_y = j / (dim / grids_per_dim); 
-          unsigned subgrid_idx_z = k / (dim / grids_per_dim); 
-          unsigned rel_x = i % (dim / grids_per_dim); 
-          unsigned rel_y = j % (dim / grids_per_dim); 
-          unsigned rel_z = k % (dim / grids_per_dim); 
-          unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + subgrid_idx_y) * 
+            unsigned grids_per_dim = dimension / subgrid_dim;
+            unsigned subgrid_idx_x = i / (dim / grids_per_dim); 
+            unsigned subgrid_idx_y = j / (dim / grids_per_dim); 
+            unsigned subgrid_idx_z = k / (dim / grids_per_dim); 
+            unsigned rel_x = i % (dim / grids_per_dim); 
+            unsigned rel_y = j % (dim / grids_per_dim); 
+            unsigned rel_z = k % (dim / grids_per_dim); 
+            unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + subgrid_idx_y) * 
               grids_per_dim + subgrid_idx_z);
 
 	        if (binary)
 	        {
 	          if (val != 0)
-              getGridElement(grids, grid_idx, whichgrid, rel_x, rel_y, rel_z) = 1.0;
+              *getGridElement(grids, grid_idx, whichgrid, rel_x, rel_y, rel_z) = 1.0;
 	        }
 	        else {
-            getGridElement(grids, grid_idx, whichgrid, rel_x, rel_y, rel_z) += val;
+            *getGridElement(grids, grid_idx, whichgrid, rel_x, rel_y, rel_z) += val;
           }
 
 	      }

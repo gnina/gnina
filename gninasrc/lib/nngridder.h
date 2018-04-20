@@ -230,8 +230,6 @@ protected:
 
 	//output a grid the file in dx format (for debug)
 	void outputDXGrid(ostream& out, Grid& grid) override;
-
-	virtual void setMapsAndGrids(const gridoptions& opt) override;
 };
 
 #endif
