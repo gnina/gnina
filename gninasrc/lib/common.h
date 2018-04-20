@@ -55,8 +55,9 @@ struct minimization_params
 	Type type;
 	unsigned maxiters; //maximum number of iterations of algorithm
 	bool early_term; //terminate early based on different of function values
+	bool single_min; //do single full minimization instead of hunt_cap truncated followed by full
 	int outputframes;
-	minimization_params(): type(BFGSFastLineSearch), maxiters(0), early_term(false), outputframes(0)
+	minimization_params(): type(BFGSFastLineSearch), maxiters(0), early_term(false), single_min(false), outputframes(0)
 	{
 
 	}

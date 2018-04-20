@@ -1131,6 +1131,8 @@ Thank you!\n";
 		("simple_ascent", bool_switch(&simple_ascent), "use simple gradient ascent")
 		("minimize_early_term", bool_switch(&minparms.early_term),
 				"Stop minimization before convergence conditions are fully met.")
+		("minimize_single_full", bool_switch(&minparms.single_min),
+		    "During docking perform a single full minimization instead of a truncated pre-evaluate followed by a full.")
 		("approximation", value<ApproxType>(&approx),
 				"approximation (linear, spline, or exact) to use")
 		("factor", value<fl>(&approx_factor),
