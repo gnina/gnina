@@ -971,6 +971,7 @@ void thread_a_writing(boost::lockfree::queue<writer_job>* writerq,
 		}
 		else
 		{
+		  sleep(1);
 			boost::thread::yield();
 		}
 	}
