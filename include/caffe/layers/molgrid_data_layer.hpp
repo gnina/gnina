@@ -178,7 +178,7 @@ public:
         center += coord;
         acnt++;
       }
-      else
+      else if(t > 1) //don't warn about hydrogens
       {
         CHECK_LE(t, 1) << "Unsupported atom type " << smina_type_to_string(t);
       }
