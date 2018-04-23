@@ -221,7 +221,7 @@ template<bool Binary, typename Dtype> __device__ void set_atoms(float3 origin,
 			float r = ainfos[i].w;
 			float rsq = r*r;
 			float d = sqDistance(coord, x,y,z);
-      unsigned grids_per_dim = dimension / subgrid_dim;
+      unsigned grids_per_dim = (dimension-subgrid_dim) / (subgrid_dim+resolution) + 1;
       unsigned subgrid_dim_in_points = dim / grids_per_dim;
       unsigned subgrid_idx_x = xi / subgrid_dim_in_points;
       unsigned subgrid_idx_y = yi / subgrid_dim_in_points;

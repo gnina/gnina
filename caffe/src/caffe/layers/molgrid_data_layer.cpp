@@ -443,7 +443,8 @@ void RNNMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& top,
   BaseMolGridDataLayer<Dtype, RNNGridMaker>::setBlobShape(top, hasrmsd, hasaffinity);
   //LSTM layer requires a "sequence continuation" blob
   unsigned batch_size = this->batch_transform.size();
-  unsigned grids_per_dim = this->dimension / this->gmaker.subgrid_dim;
+  unsigned grids_per_dim = (this->dimension-this->gmaker.subgrid_dim) / 
+      (this->gmaker.subgrid_dim+this->resolution) + 1;
   vector<int> seqcont_shape(grids_per_dim * grids_per_dim * grids_per_dim, batch_size);
   int idx = this->ExactNumTopBlobs() - this->ligpeturb;
   top[idx]->Reshape(seqcont_shape);

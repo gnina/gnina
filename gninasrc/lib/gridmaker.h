@@ -506,7 +506,7 @@ public:
 	}
 	}
 
-	static unsigned createDefaultMap(const char *names[], vector<int>& map)
+	virtual unsigned createDefaultMap(const char *names[], vector<int>& map)
 	{
 		map.assign(smina_atom_type::NumTypes, -1);
 		const char **nameptr = names;
@@ -541,7 +541,7 @@ public:
 
 	//initialize default receptor/ligand maps
 	//these were determined by an analysis of type frequencies
-	static unsigned createDefaultRecMap(vector<int>& map)
+	virtual unsigned createDefaultRecMap(vector<int>& map)
 	{
 		const char *names[] =
 		{ "AliphaticCarbonXSHydrophobe",
@@ -564,7 +564,7 @@ public:
 		return createDefaultMap(names, map);
 	}
 
-	static unsigned createDefaultLigMap(vector<int>& map)
+	virtual unsigned createDefaultLigMap(vector<int>& map)
 	{
 		const char *names[] =
 		{ "AliphaticCarbonXSHydrophobe",
@@ -595,7 +595,7 @@ public:
 	//on the same line, they are merged, if the file isn't specified, use default mapping
 	//return total number of types
 	//map is indexed by smina_atom_type, maps to -1 if type should be ignored
-	static unsigned createAtomTypeMap(const string& fname, vector<int>& map)
+	virtual unsigned createAtomTypeMap(const string& fname, vector<int>& map)
 	{
 		using namespace std;
 		using namespace boost::algorithm;
@@ -662,8 +662,8 @@ class RNNGridMaker : public GridMaker {
     batch_idx = bi;
     ntypes = nt;
     GridMaker::initialize(res, d, rm, b, s);
-    if (subgrid_dim) assert(fmod(dimension, subgrid_dim)==0 && 
-      "Subgrid dimension must evenly divide total grid dimension");
+    if (subgrid_dim && fmod((dimension-subgrid_dim), subgrid_dim+resolution)!=0)
+      printf("Subgrid dimension must evenly divide total grid dimension");
   }
 
   virtual void initialize(const caffe::MolGridDataParameter& param) {
@@ -680,25 +680,13 @@ class RNNGridMaker : public GridMaker {
     GridMaker::setCenter(x, y, z);
   }
 
-	unsigned createDefaultMap(const char *names[], vector<int>& map) {
+	virtual unsigned createDefaultMap(const char *names[], vector<int>& map) {
     unsigned _ntypes = GridMaker::createDefaultMap(names, map);
     ntypes += _ntypes;
     return _ntypes;
   }
 
-	unsigned createDefaultRecMap(vector<int>& map) {
-    unsigned _ntypes = GridMaker::createDefaultRecMap(map);
-    ntypes += _ntypes;
-    return _ntypes;
-  }
-
-	unsigned createDefaultLigMap(vector<int>& map) {
-    unsigned _ntypes = GridMaker::createDefaultLigMap(map);
-    ntypes += _ntypes;
-    return _ntypes;
-  }
-
-	unsigned createAtomTypeMap(const string& fname, vector<int>& map) {
+	virtual unsigned createAtomTypeMap(const string& fname, vector<int>& map) {
     unsigned _ntypes = GridMaker::createAtomTypeMap(fname, map);
     ntypes += _ntypes;
     return _ntypes;
@@ -706,7 +694,7 @@ class RNNGridMaker : public GridMaker {
 
   template <typename Dtype>
 	void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q, Dtype* data, unsigned ntypes) {
-    unsigned grids_per_dim = this->dimension / subgrid_dim;
+    unsigned grids_per_dim = (this->dimension-subgrid_dim) / (subgrid_dim+resolution) + 1;
     unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
     unsigned subgrid_dim_in_points = dim / grids_per_dim;
     boost::multi_array_ref<Dtype, 6> grids(data, boost::extents[ngrids][batch_size][ntypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
@@ -731,37 +719,6 @@ class RNNGridMaker : public GridMaker {
 		}
 	}
 
-  template <typename Dtype>
-	void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
-                           quaternion Q, Dtype* data, vector<float3>& agrad,
-                           unsigned offset, unsigned ntypes) {
-    unsigned grids_per_dim = this->dimension / subgrid_dim;
-    unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
-    unsigned subgrid_dim_in_points = dim / grids_per_dim;
-    boost::multi_array_ref<Dtype, 6> grids(data, boost::extents[ngrids][batch_size][ntypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
-    zeroAtomGradientsCPU(agrad);
-    for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
-    {
-      int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
-      if (whichgrid >= 0) {
-        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
-      }
-    }
-  }
-
-  template<typename Grids>
-  void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
-                           const Grids& grids, vector<float3>& agrad) {
-    zeroAtomGradientsCPU(agrad);
-    for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
-    {
-      int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
-      if (whichgrid >= 0) {
-        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
-      }
-    }
-  }
-
   template<typename Grids>
   auto getGridElement(Grids& grids, unsigned grid_idx, unsigned whichgrid, 
       unsigned x, unsigned y, unsigned z) -> decltype(&grids[0][0][0][0][0][0]){
@@ -771,9 +728,7 @@ class RNNGridMaker : public GridMaker {
   template<typename Allocator, typename Dtype>
   Dtype* getGridElement(std::vector<boost::multi_array<Dtype, 3, Allocator>>& grids, 
       unsigned grid_idx, unsigned whichgrid, unsigned x, unsigned y, unsigned z) {
-    unsigned factor = dimension / subgrid_dim;
-    unsigned ngrids = factor * factor * factor;
-    return &grids[whichgrid * ngrids + grid_idx][x][y][z];
+    return &grids[grid_idx * ntypes + whichgrid][x][y][z];
   }
 
   //TODO: possible to merge this with base version?
@@ -829,13 +784,14 @@ class RNNGridMaker : public GridMaker {
 	        float y = dims[1].x + j * resolution;
 	        float z = dims[2].x + k * resolution;
 	        float val = calcPoint(coords, radius, x, y, z);
-            unsigned grids_per_dim = dimension / subgrid_dim;
-            unsigned subgrid_idx_x = i / (dim / grids_per_dim); 
-            unsigned subgrid_idx_y = j / (dim / grids_per_dim); 
-            unsigned subgrid_idx_z = k / (dim / grids_per_dim); 
-            unsigned rel_x = i % (dim / grids_per_dim); 
-            unsigned rel_y = j % (dim / grids_per_dim); 
-            unsigned rel_z = k % (dim / grids_per_dim); 
+            unsigned grids_per_dim = (dimension-subgrid_dim) / (subgrid_dim+resolution) + 1;
+            unsigned subgrid_dim_in_points = dim / grids_per_dim;
+            unsigned subgrid_idx_x = i / subgrid_dim_in_points; 
+            unsigned subgrid_idx_y = j / subgrid_dim_in_points; 
+            unsigned subgrid_idx_z = k / subgrid_dim_in_points; 
+            unsigned rel_x = i % subgrid_dim_in_points; 
+            unsigned rel_y = j % subgrid_dim_in_points; 
+            unsigned rel_z = k % subgrid_dim_in_points; 
             unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + subgrid_idx_y) * 
               grids_per_dim + subgrid_idx_z);
 
@@ -858,6 +814,37 @@ class RNNGridMaker : public GridMaker {
 	template<typename Dtype>
 	void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, quaternion Q, 
       unsigned ngrids, Dtype *grids);
+
+  template <typename Dtype>
+	void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
+                           quaternion Q, Dtype* data, vector<float3>& agrad,
+                           unsigned offset, unsigned ntypes) {
+    unsigned grids_per_dim = (this->dimension-subgrid_dim) / (subgrid_dim+resolution) + 1;
+    unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
+    unsigned subgrid_dim_in_points = dim / grids_per_dim;
+    boost::multi_array_ref<Dtype, 6> grids(data, boost::extents[ngrids][batch_size][ntypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
+    zeroAtomGradientsCPU(agrad);
+    for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
+    {
+      int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
+      if (whichgrid >= 0) {
+        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
+      }
+    }
+  }
+
+  template<typename Grids>
+  void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, const quaternion& Q,
+                           const Grids& grids, vector<float3>& agrad) {
+    zeroAtomGradientsCPU(agrad);
+    for (unsigned i = 0, n = ainfo.size(); i < n; ++i)
+    {
+      int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
+      if (whichgrid >= 0) {
+        setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
+      }
+    }
+  }
 
   //TODO: possible to merge this with base version?
 	template<typename Grids>
@@ -902,7 +889,7 @@ class RNNGridMaker : public GridMaker {
           //subgrids from different examples in the same batch be interleaved.
           //we need to convert the absolute grid index to the index in this
           //subgrid grid, which is T x B x ntypes x subgrid_dim x subgrid_dim x subgrid_dim
-          unsigned grids_per_dim = dimension / subgrid_dim;
+          unsigned grids_per_dim = (dimension-subgrid_dim) / (subgrid_dim+resolution) + 1;
           unsigned subgrid_idx_x = i / (dim / grids_per_dim); 
           unsigned subgrid_idx_y = j / (dim / grids_per_dim); 
           unsigned subgrid_idx_z = k / (dim / grids_per_dim); 
@@ -969,7 +956,7 @@ class RNNGridMaker : public GridMaker {
 				float x = dims[0].x + i * resolution;
 				float y = dims[1].x + j * resolution;
 				float z = dims[2].x + k * resolution;
-        unsigned grids_per_dim = dimension / subgrid_dim;
+        unsigned grids_per_dim = (dimension-subgrid_dim) / (subgrid_dim+resolution) + 1;
         unsigned subgrid_idx_x = i / (dim / grids_per_dim); 
         unsigned subgrid_idx_y = j / (dim / grids_per_dim); 
         unsigned subgrid_idx_z = k / (dim / grids_per_dim); 
