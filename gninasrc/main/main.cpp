@@ -138,7 +138,7 @@ fl do_randomization(model& m, const vec& corner1,
 
 void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 		output_type& out, const vec& cap, const minimization_params& minparm,
-		grid& user_grid)
+		grid& user_grid, bool gpu_on)
 {
 	// std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
 	change g(m.get_size(), nc.move_receptor());
@@ -157,7 +157,9 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 	VINA_FOR(p, 5)
 	{
 		nc.setSlope(slope);
-        buffer.reinitialize();
+		if(gpu_on) {
+		  buffer.reinitialize();
+		}
 		quasi_newton_par(m, prec, nc, out, g, cap, user_grid); //quasi_newton operator
 		m.set(out.c); // just to be sure
 		if (nc.within(m))
@@ -289,7 +291,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		output_type out(c, e);
 		doing(settings.verbosity, "Performing local search", log);
 		refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm,
-				user_grid);
+				user_grid, settings.gpu_on);
 		done(settings.verbosity, log);
     m.set(out.c);
 
@@ -339,7 +341,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		doing(settings.verbosity, "Refining results", log);
 		VINA_FOR_IN(i, out_cont) {
 			refine_structure(m, prec, nc, out_cont[i], authentic_v,
-					par.mc.ssd_par.minparm, user_grid);
+					par.mc.ssd_par.minparm, user_grid, settings.gpu_on);
 			get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 		}
 
@@ -971,7 +973,7 @@ void thread_a_writing(boost::lockfree::queue<writer_job>* writerq,
 		}
 		else
 		{
-		  sleep(1);
+		  sleep(1); //just until jss merges in her improved thread handling code
 			boost::thread::yield();
 		}
 	}
