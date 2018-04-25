@@ -535,6 +535,7 @@ void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
         radiusmultiple, natoms, ainfos, gridindex, grids, mask);
 		CUDA_CHECK(cudaPeekAtLastError() );
 	}
+	CUDA_CHECK(cudaStreamSynchronize(cudaStreamPerThread)); 
 
 	if(mask) {
 	  cudaFree(mask);
@@ -548,10 +549,13 @@ void RNNGridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
 	//each thread is responsible for a grid point location and will handle all atom types
 	//each block is 8x8x8=512 threads
 	float3 origin(dims[0].x, dims[1].x, dims[2].x); //actually a gfloat3
+    unsigned grids_per_dim = (dimension-subgrid_dim) / (subgrid_dim+resolution) + 1;
+    unsigned subgrid_dim_in_points = dim / grids_per_dim;
 	dim3 threads(BLOCKDIM, BLOCKDIM, BLOCKDIM);
 	unsigned blocksperside = ceil(dim / float(BLOCKDIM));
 	dim3 blocks(blocksperside, blocksperside, blocksperside);
-	unsigned gsize = ngrids * dim * dim * dim;
+	unsigned gsize = ngrids * subgrid_dim_in_points * subgrid_dim_in_points *
+        subgrid_dim_in_points;
 	CUDA_CHECK(cudaMemset(grids, 0, gsize * sizeof(float)));	//TODO: see if faster to do in kernel - it isn't, but this still may not be fastest
 	
 	if(natoms == 0) return;
@@ -582,6 +586,7 @@ void RNNGridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
         batch_size, ntypes, subgrid_dim, dimension);
 		CUDA_CHECK(cudaPeekAtLastError() );
 	}
+	CUDA_CHECK(cudaStreamSynchronize(cudaStreamPerThread)); 
 
 	if(mask) {
 	  cudaFree(mask);

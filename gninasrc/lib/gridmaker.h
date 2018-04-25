@@ -647,20 +647,27 @@ class RNNGridMaker : public GridMaker {
   unsigned batch_size;
   unsigned batch_idx;
   unsigned ntypes;
+  unsigned nrec_types;
+  unsigned nlig_types;
   RNNGridMaker(float res=0, float d=0, float rm=1.5, bool b=false, bool s=false, 
-      float sd=3.0, unsigned bs=1, unsigned bi=0, unsigned nt=0) : GridMaker(res, d, rm, b, s), 
-      subgrid_dim(sd), batch_size(bs), batch_idx(bi), ntypes(nt) {
-    initialize(res, d, rm, b, s, sd, bs, bi, nt);
+      float sd=3.0, unsigned bs=1, unsigned bi=0, unsigned nt=0, unsigned nrt=0, 
+      unsigned nlt=0) : GridMaker(res, d, rm, b, s), 
+      subgrid_dim(sd), batch_size(bs), batch_idx(bi), ntypes(nt), nrec_types(nrt), 
+      nlig_types(nlt) {
+    initialize(res, d, rm, b, s, sd, bs, bi, nt, nrt, nlt);
   }
 
   virtual ~RNNGridMaker() {}
 
   virtual void initialize(float res, float d, float rm=1.5, bool b = false, 
-      bool s = false, float sd=3.0, unsigned bs=1, unsigned bi=0, unsigned nt=0) {
+      bool s = false, float sd=3.0, unsigned bs=1, unsigned bi=0, unsigned nt=0, 
+      unsigned nrt=0, unsigned nlt=0) {
     subgrid_dim = sd;
     batch_size = bs;
     batch_idx = bi;
     ntypes = nt;
+    nrec_types = nrt;
+    nlig_types = nlt;
     GridMaker::initialize(res, d, rm, b, s);
     if (subgrid_dim && fmod((dimension-subgrid_dim), subgrid_dim+resolution)!=0)
       printf("Subgrid dimension must evenly divide total grid dimension");
@@ -685,6 +692,16 @@ class RNNGridMaker : public GridMaker {
     ntypes += _ntypes;
     return _ntypes;
   }
+
+	virtual unsigned createDefaultRecMap(vector<int>& map) {
+    nrec_types = GridMaker::createDefaultRecMap(map);
+    return nrec_types;
+    }
+
+	virtual unsigned createDefaultLigMap(vector<int>& map) {
+    nlig_types = GridMaker::createDefaultLigMap(map);
+    return nlig_types;
+    }
 
 	virtual unsigned createAtomTypeMap(const string& fname, vector<int>& map) {
     unsigned _ntypes = GridMaker::createAtomTypeMap(fname, map);

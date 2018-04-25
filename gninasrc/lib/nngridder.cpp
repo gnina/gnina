@@ -690,41 +690,41 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
     n = n / grids_per_dim;
   }
 
+  RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
+
 	receptorGrids.reserve(ngrids * smina_atom_type::NumTypes);
 	ligandGrids.reserve(ngrids * smina_atom_type::NumTypes);
 
-	for (unsigned at = 0; at < smina_atom_type::NumTypes; at++)
-	{
-		if (rmap[at] >= 0) //valid type for receptor
-		{
-			unsigned i = rmap[at];
-			if (receptorGrids.size() <= i * ngrids)
-				receptorGrids.resize((i + 1) * ngrids);
-      for (unsigned cid = 0; cid < ngrids; ++cid) {
-        unsigned idx = i * ngrids + cid;
-			  if (receptorGrids[idx].num_elements() == 0)
-			  {
-			  	receptorGrids[idx].resize(extents[n][n][n]);
-			  	fill_n(receptorGrids[idx].data(), receptorGrids[idx].num_elements(), 0.0);
-			  }
-      }
-		}
+    for (unsigned cid = 0; cid < ngrids; ++cid) {
+	    for (unsigned at = 0; at < smina_atom_type::NumTypes; at++)
+	    {
+	    	if (rmap[at] >= 0) //valid type for receptor
+	    	{
+	    		unsigned i = rmap[at];
+                unsigned idx = rnn ? cid * rnn->nrec_types + i : i;
+	    		if (receptorGrids.size() <= i * ngrids)
+	    			receptorGrids.resize((i + 1) * ngrids);
+	    		  if (receptorGrids[idx].num_elements() == 0)
+	    		  {
+	    		  	receptorGrids[idx].resize(extents[n][n][n]);
+	    		  	fill_n(receptorGrids[idx].data(), receptorGrids[idx].num_elements(), 0.0);
+	    		  }
+	    	}
 
-		if (lmap[at] >= 0)
-		{
-			unsigned i = lmap[at];
-			if (ligandGrids.size() <= i * ngrids)
-				ligandGrids.resize((i + 1) * ngrids);
-      for (unsigned cid = 0; cid < ngrids; ++cid) {
-        unsigned idx = i * ngrids + cid;
-			  if (ligandGrids[idx].num_elements() == 0)
-			  {
-			  	ligandGrids[idx].resize(extents[n][n][n]);
-			  	fill_n(ligandGrids[idx].data(), ligandGrids[idx].num_elements(), 0.0);
-			  }
-      }
-		}
-	}
+	    	if (lmap[at] >= 0)
+	    	{
+	    		unsigned i = lmap[at];
+                unsigned idx = rnn ? cid * rnn->nlig_types + i : i;
+	    		if (ligandGrids.size() <= i * ngrids)
+	    			ligandGrids.resize((i + 1) * ngrids);
+	    		  if (ligandGrids[idx].num_elements() == 0)
+	    		  {
+	    		  	ligandGrids[idx].resize(extents[n][n][n]);
+	    		  	fill_n(ligandGrids[idx].data(), ligandGrids[idx].num_elements(), 0.0);
+	    		  }
+	    	}
+	    }
+    }
 
 	//check for empty mappings
 	for (unsigned i = 0, nr = receptorGrids.size(); i < nr; i++)
@@ -1040,14 +1040,22 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 	    CUDA_CHECK(cudaMemcpy(gpu_receptorAInfo, &recAInfo[0], recAInfo.size()*sizeof(float4),cudaMemcpyHostToDevice));
 		}
 
-    if (rnn)
+    if (rnn) {
+          unsigned ntypes = rnn->ntypes;
+          rnn->ntypes = rnn->nrec_types;
 		  rnn->setAtomsGPU<float>(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);
+          rnn->ntypes = ntypes;
+    }
     else
 		  gmaker->setAtomsGPU<float>(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);
 		cudaCopyGrids(receptorGrids, gpu_receptorGrids);
 
-    if (rnn)
+    if (rnn) {
+          unsigned ntypes = rnn->ntypes;
+          rnn->ntypes = rnn->nlig_types;
 		  rnn->setAtomsGPU<float>(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, Q, ligandGrids.size(), gpu_ligandGrids);
+          rnn->ntypes = ntypes;
+    }
     else
 		  gmaker->setAtomsGPU<float>(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, Q, ligandGrids.size(), gpu_ligandGrids);
 		cudaCopyGrids(ligandGrids, gpu_ligandGrids);
@@ -1058,14 +1066,10 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
 	{
 		//put in to gridmaker format
     if(rnn) {
-          unsigned grids_per_dim = (dimension-rnn->subgrid_dim) / (rnn->subgrid_dim+resolution) + 1;
-          unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
-          unsigned nrec_types = receptorGrids.size() / ngrids;
-          unsigned nlig_types = ligandGrids.size() / ngrids;
           unsigned ntypes = rnn->ntypes;
-          rnn->ntypes = nrec_types;
+          rnn->ntypes = rnn->nrec_types;
 		  rnn->setAtomsCPU(recAInfo, recWhichGrid, Q, receptorGrids);
-          rnn->ntypes = nlig_types;
+          rnn->ntypes = rnn->nlig_types;
 		  rnn->setAtomsCPU(ainfo, ligWhichGrid,  Q, ligandGrids);
           rnn->ntypes = ntypes;
     }
