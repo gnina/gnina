@@ -48,7 +48,7 @@ public:
       num_rotations(0), current_rotation(0),
       example_size(0), inmem(false), resolution(0.5),
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
-      binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
+      jitter(0.0), binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
       gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
   virtual ~MolGridDataLayer();
@@ -673,6 +673,7 @@ public:
   double fixedradius;
   double randtranslate;
   double ligpeturb_translate;
+  double jitter;
   bool ligpeturb_rotate;
   bool binary; //produce binary occupancies
   bool randrotate;
