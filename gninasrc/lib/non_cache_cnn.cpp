@@ -59,7 +59,6 @@ fl non_cache_cnn::eval(model& m, fl v) const
 	return e;
 }
 
-
 //reset center; will apply inverse of receptor transformation to ligand as well
 bool non_cache_cnn::adjust_center(model& m)
 {

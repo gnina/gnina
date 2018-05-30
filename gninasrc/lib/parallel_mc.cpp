@@ -24,6 +24,10 @@
 #include "parallel_mc.h"
 #include "coords.h"
 #include "parallel_progress.h"
+#include "gpucode.h"
+#include "device_buffer.h"
+#include "non_cache_cnn.h"
+#include "user_opts.h"
 
 struct parallel_mc_task
 {
@@ -51,13 +55,24 @@ struct parallel_mc_aux
 			igrid* ig_, const vec* corner1_, const vec* corner2_,
 			parallel_progress* pg_, grid* user_grid_)
 	:
-			mc(mc_), p(p_), ig(ig_), corner1(corner1_), corner2(corner2_), pg(pg_), user_grid(user_grid_)
+			mc(mc_), p(p_), ig(ig_), corner1(corner1_), corner2(corner2_), pg(
+					pg_), user_grid(user_grid_)
 	{
 	}
 
 	void operator()(parallel_mc_task& t) const
 	{
-		(*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
+        non_cache_cnn* cnn = dynamic_cast<non_cache_cnn*>(ig);
+        if (cnn) {
+          CNNScorer cnn_scorer(cnn->get_scorer().options(), t.m);
+          const precalculate* p = cnn->get_precalculate();
+	        szv_grid_cache gridcache(t.m, p->cutoff_sqr());
+          non_cache_cnn new_cnn(gridcache, cnn->get_grid_dims(), 
+              p, cnn->getSlope(), cnn_scorer);
+		      (*mc)(t.m, t.out, *p, new_cnn, *corner1, *corner2, pg, t.generator, *user_grid);
+        }
+        else
+		      (*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
 	}
 };
 
@@ -89,10 +104,16 @@ void parallel_mc::operator()(const model& m, output_container& out,
 		task_container.push_back(new parallel_mc_task(m, random_int(0, 1000000, generator)));
 	if (display_progress)
 		pp.init(num_tasks * mc.num_steps);
+
+  auto thread_init = [&](){if (m.gdata.device_on) {
+    caffe::Caffe::SetDevice(m.gdata.device_id);
+	  caffe::Caffe::set_mode(caffe::Caffe::GPU);}};
 	parallel_iter<parallel_mc_aux, parallel_mc_task_container, parallel_mc_task,
-			true> parallel_iter_instance(&parallel_mc_aux_instance,
-			num_threads);
+			decltype(thread_init), true> parallel_iter_instance(&parallel_mc_aux_instance,
+			num_threads, thread_init);
 	parallel_iter_instance.run(task_container);
+
 	merge_output_containers(task_container, out, mc.min_rmsd,
 			mc.num_saved_mins);
+
 }

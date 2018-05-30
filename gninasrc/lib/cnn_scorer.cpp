@@ -26,7 +26,7 @@ using namespace std;
 CNNScorer::CNNScorer(const cnn_options& opts, const model& m) :
         mgrid(NULL), cnnopts(opts), mtx(new boost::mutex) {
 
-    if (cnnopts.cnn_scoring)
+    if (cnnopts.cnn_scoring || cnnopts.cnn_refinement)
     {
         NetParameter param;
 
