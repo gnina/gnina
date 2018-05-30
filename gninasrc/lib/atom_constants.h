@@ -42,34 +42,34 @@
 namespace smina_atom_type
 {
 enum type {
-	Hydrogen, // H_H_X,
-	PolarHydrogen, //(can donate) H_HD_X,
-	AliphaticCarbonXSHydrophobe, // C_C_C_H, //hydrophobic according to xscale
-	AliphaticCarbonXSNonHydrophobe, //C_C_C_P, //not hydrophobic (according to xs)
-	AromaticCarbonXSHydrophobe, //C_A_C_H,
-	AromaticCarbonXSNonHydrophobe, //C_A_C_P,
-	Nitrogen, //N_N_N_P, no hydrogen bonding
-	NitrogenXSDonor, //N_N_N_D,
-	NitrogenXSDonorAcceptor, //N_NA_N_DA, also an autodock acceptor
-	NitrogenXSAcceptor, //N_NA_N_A, also considered an acceptor by autodock
-	Oxygen, //O_O_O_P,
-	OxygenXSDonor, //O_O_O_D,
-	OxygenXSDonorAcceptor, //O_OA_O_DA, also an autodock acceptor
-	OxygenXSAcceptor, //O_OA_O_A, also an autodock acceptor
-	Sulfur, //S_S_S_P,
-	SulfurAcceptor, //S_SA_S_P, XS doesn't do sulfur acceptors
-	Phosphorus, //P_P_P_P,
-	Fluorine, //F_F_F_H,
-	Chlorine, //Cl_Cl_Cl_H,
-	Bromine, //Br_Br_Br_H,
-	Iodine, //I_I_I_H,
-	Magnesium, //Met_Mg_Met_D,
-	Manganese, //Met_Mn_Met_D,
-	Zinc, // Met_Zn_Met_D,
-	Calcium, //Met_Ca_Met_D,
-	Iron, //Met_Fe_Met_D,
-	GenericMetal, //Met_METAL_Met_D,
-	Boron, //there are 160 cmpds in pdbbind with boron
+/* 0 */   Hydrogen, // H_H_X,
+/* 1 */   PolarHydrogen, //(can donate) H_HD_X,
+/* 2 */   AliphaticCarbonXSHydrophobe, // C_C_C_H,  //hydrophobic according to xscale
+/* 3 */   AliphaticCarbonXSNonHydrophobe, //C_C_C_P, //not hydrophobic (according to xs)
+/* 4 */   AromaticCarbonXSHydrophobe, //C_A_C_H,
+/* 5 */   AromaticCarbonXSNonHydrophobe, //C_A_C_P,
+/* 6 */   Nitrogen, //N_N_N_P, no hydrogen bonding
+/* 7 */   NitrogenXSDonor, //N_N_N_D,
+/* 8 */   NitrogenXSDonorAcceptor, //N_NA_N_DA, also an autodock acceptor
+/* 9 */   NitrogenXSAcceptor, //N_NA_N_A, also considered an acceptor by autodock
+/* 10 */  Oxygen, //O_O_O_P,
+/* 11 */  OxygenXSDonor, //O_O_O_D,
+/* 12 */  OxygenXSDonorAcceptor, //O_OA_O_DA, also an autodock acceptor
+/* 13 */  OxygenXSAcceptor, //O_OA_O_A, also an autodock acceptor
+/* 14 */  Sulfur, //S_S_S_P,
+/* 15 */  SulfurAcceptor, //S_SA_S_P, XS doesn't do sulfur acceptors
+/* 16 */  Phosphorus, //P_P_P_P,
+/* 17 */  Fluorine, //F_F_F_H,
+/* 18 */  Chlorine, //Cl_Cl_Cl_H,
+/* 19 */  Bromine, //Br_Br_Br_H,
+/* 20 */  Iodine, //I_I_I_H,
+/* 21 */  Magnesium, //Met_Mg_Met_D,
+/* 22 */  Manganese, //Met_Mn_Met_D,
+/* 23 */  Zinc, // Met_Zn_Met_D,
+/* 24 */  Calcium, //Met_Ca_Met_D,
+/* 25 */  Iron, //Met_Fe_Met_D,
+/* 26 */  GenericMetal, //Met_METAL_Met_D,
+/* 27 */  Boron, //there are 160 cmpds in pdbbind (general, not refined) with boron
 	NumTypes
 };
 
