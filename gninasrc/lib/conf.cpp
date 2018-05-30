@@ -39,7 +39,12 @@ fl change::get_with_node_idx(sz index, sz* node_idx, sz* offset_in_node) const {
         index -= res.torsions.size();
     }
 
-    __builtin_unreachable();
+    if(index < 3)
+      return receptor.position[index];
+    else if(index <6)
+      return receptor.orientation[index-3];
+    else
+      abort();
 }
 
 bool conf::operator==(const conf& other) const

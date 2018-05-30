@@ -32,7 +32,7 @@ class quasi_newton {
 public:
 	quasi_newton(const minimization_params& p) : params(p), average_required_improvement(0.0) {}
 	// clean up
-	void operator()(model& m, const precalculate& p, const igrid& ig, output_type& out, change& g, const vec& v, const grid& user_grid) const; // g must have correct size
+	void operator()(model& m, const precalculate& p, igrid& ig, output_type& out, change& g, const vec& v, const grid& user_grid) const; // g must have correct size
 };
 
 template<typename infoT> struct quasi_newton_aux_gpu {

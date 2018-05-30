@@ -86,7 +86,7 @@ qt random_orientation(rng& generator) {
 		 random_normal(0, 1, generator), 
 		 random_normal(0, 1, generator), 
 		 random_normal(0, 1, generator));
-	fl nrm = boost::math::abs((bqt&)q);
+	fl nrm = abs(q);
 	if(nrm > epsilon_fl) {
 		q /= nrm;
 		assert(quaternion_is_normalized(q));
@@ -111,7 +111,7 @@ vec quaternion_difference(const qt& b, const qt& a) { // rotation that needs to 
 }
 
 void print(const qt& q, std::ostream& out) { // print as an angle
-	out << "(" << q.x << "," << q.y << "," << q.z << "," << q.w << ")";
+	out << "(" << q.a << "," << q.b << "," << q.c << "," << q.d << ")";
 	//print(quaternion_to_angle(q), out);
 }
 

@@ -66,20 +66,20 @@ struct parallel_mc_aux
 {
 	const monte_carlo* mc;
 	const precalculate* p;
-	const igrid* ig;
+	igrid* ig;
 	const vec* corner1;
 	const vec* corner2;
 	parallel_progress* pg;
 	grid* user_grid;
-    const user_settings* settings;
 	parallel_mc_aux(const monte_carlo* mc_, const precalculate* p_,
-			const igrid* ig_, const vec* corner1_, const vec* corner2_,
-			parallel_progress* pg_, grid* user_grid_, const user_settings* settings_)
+			igrid* ig_, const vec* corner1_, const vec* corner2_,
+			parallel_progress* pg_, grid* user_grid_)
 	:
 			mc(mc_), p(p_), ig(ig_), corner1(corner1_), corner2(corner2_), pg(
-					pg_), user_grid(user_grid_), settings(settings_)
+					pg_), user_grid(user_grid_)
 	{
 	}
+
 	void operator()(parallel_mc_task& t) const
 	{
         //TODO: remove when the CNN is using the device buffer
@@ -133,16 +133,16 @@ struct parallel_mc_aux
             memcpy(bfs_order_dfs_indices, t.m.gdata.bfs_order_dfs_indices, sizeof(size_t[num_nodes]));
             t.m.gdata.bfs_order_dfs_indices = bfs_order_dfs_indices;
         }
-        vec center(((*corner1)[0] + (*corner2)[0]) / 2.0, ((*corner1)[1] + (*corner2)[1]) / 2.0, 
-                ((*corner1)[2] + (*corner2)[2]) / 2.0);
         if (cnn) {
-            CNNScorer cnn_scorer(t.m.settings->cnnopts, center, t.m);
-	        szv_grid_cache gridcache(t.m, cnn->p->cutoff_sqr());
-            non_cache_cnn new_cnn(gridcache, cnn->gd, cnn->p, cnn->slope, cnn_scorer);
-		    (*mc)(t.m, t.out, *p, new_cnn, *corner1, *corner2, pg, t.generator, *user_grid);
+          CNNScorer cnn_scorer(cnn->get_scorer().options(), t.m);
+          const precalculate* p = cnn->get_precalculate();
+	        szv_grid_cache gridcache(t.m, p->cutoff_sqr());
+          non_cache_cnn new_cnn(gridcache, cnn->get_grid_dims(), 
+              p, cnn->getSlope(), cnn_scorer);
+		      (*mc)(t.m, t.out, *p, new_cnn, *corner1, *corner2, pg, t.generator, *user_grid);
         }
         else
-		    (*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
+		      (*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
 	}
 };
 
@@ -165,7 +165,7 @@ void merge_output_containers(const parallel_mc_task_container& many,
 }
 
 void parallel_mc::operator()(const model& m, output_container& out,
-		const precalculate& p, const igrid& ig, const vec& corner1,
+		const precalculate& p, igrid& ig, const vec& corner1,
 		const vec& corner2, rng& generator, grid& user_grid) const
 {
 	parallel_progress pp;
@@ -176,18 +176,20 @@ void parallel_mc::operator()(const model& m, output_container& out,
 		task_container.push_back(new parallel_mc_task(m, random_int(0, 1000000, generator)));
 	if (display_progress)
 		pp.init(num_tasks * mc.num_steps);
-    if (m.gpu_initialized()) {
-	    parallel_iter<parallel_mc_aux, parallel_mc_task_container, parallel_mc_task,
-	    		true, true> parallel_iter_instance(&parallel_mc_aux_instance,
-	    		num_threads);
-	    parallel_iter_instance.run(task_container);
-    }
-    else {
-	    parallel_iter<parallel_mc_aux, parallel_mc_task_container, parallel_mc_task,
-	    		true, false> parallel_iter_instance(&parallel_mc_aux_instance,
-	    		num_threads);
-	    parallel_iter_instance.run(task_container);
-    }
+
+  auto thread_init = [&](){if (m.gdata.device_on) {
+    caffe::Caffe::SetDevice(m.gdata.device_id);
+	  caffe::Caffe::set_mode(caffe::Caffe::GPU);
+    const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(&ig);
+    if (!cnn)
+        thread_buffer.init(free_mem(num_threads));
+  }};
+	parallel_iter<parallel_mc_aux, parallel_mc_task_container, parallel_mc_task,
+			decltype(thread_init), true> parallel_iter_instance(&parallel_mc_aux_instance,
+			num_threads, thread_init);
+	parallel_iter_instance.run(task_container);
+
 	merge_output_containers(task_container, out, mc.min_rmsd,
 			mc.num_saved_mins);
+
 }

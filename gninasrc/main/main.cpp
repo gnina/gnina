@@ -104,7 +104,7 @@ void write_all_output(model& m, const output_container& out, sz how_many,
 fl do_randomization(model& m, const vec& corner1,
 		const vec& corner2, int seed, int verbosity, tee& log)
 {
-	conf init_conf = m.get_initial_conf();
+	conf init_conf = m.get_initial_conf(false);
 	rng generator(static_cast<rng::result_type>(seed));
 	if (verbosity > 1)
 	{
@@ -138,11 +138,15 @@ fl do_randomization(model& m, const vec& corner1,
 
 void refine_structure(model& m, const precalculate& prec, non_cache& nc,
 		output_type& out, const vec& cap, const minimization_params& minparm,
-		grid& user_grid)
+		grid& user_grid, bool gpu_on)
 {
 	// std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
-	change g(m.get_size());
+	change g(m.get_size(), nc.move_receptor());
 
+	nc.adjust_center(m); //for cnn, set cnn box
+	if(!nc.within(m)) {
+	  std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | initial pose not within box\n";
+	}
 	quasi_newton quasi_newton_par(minparm);
 	const fl slope_orig = nc.getSlope();
 	//try 5 times to get ligand into box
@@ -186,9 +190,33 @@ output_container remove_redundant(const output_container& in, fl min_rmsd)
 	return tmp;
 }
 
+//print info to log about cnn scoring
+static void get_cnn_info(model& m, CNNScorer& cnn, tee& log, float& cnnscore, float& cnnaffinity, float& cnnforces)
+{
+   float loss = 0;
+   cnnscore = 0;
+   cnnforces = 0;
+   cnnaffinity = 0;
+   cnnscore = cnn.score(m, false, cnnaffinity, loss);
+   if (cnnscore >= 0)
+   {
+     log << "CNNscore1: " << std::fixed << std::setprecision(10) << cnnscore;
+     log.endl();
+     log << "CNNaffinity1: " << std::fixed << std::setprecision(10) << cnnaffinity;
+     log.endl();
+
+     cnn.set_center_from_model(m);
+     cnnscore = cnn.score(m, false, cnnaffinity, loss);
+     log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
+     log.endl();
+     log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
+     log.endl();
+   }
+}
+
 //dkoes - return all energies and rmsds to original conf with result
 void do_search(model& m, const boost::optional<model>& ref,
-		const weighted_terms& sf, const precalculate& prec, const igrid& ig,
+		const weighted_terms& sf, const precalculate& prec, igrid& ig,
 		non_cache& nc, // nc.slope is changed
 		const vec& corner1, const vec& corner2,
 		const parallel_mc& par, const user_settings& settings,
@@ -200,45 +228,29 @@ void do_search(model& m, const boost::optional<model>& ref,
     m.settings = &settings;
 	precalculate_exact exact_prec(sf); //use exact computations for final score
 	conf_size s = m.get_size();
-	conf c = m.get_initial_conf();
+	conf c = m.get_initial_conf(nc.move_receptor());
 	fl e = max_fl;
     fl intramolecular_energy = max_fl;
-	fl cnnscore = -1.0;
+	fl cnnscore = 0, cnnaffinity = 0, cnnforces = 0;
 	fl rmsd = 0;
-    if (settings.gpu_on)
-	    m.initialize_gpu();
+  if (settings.gpu_on && !(settings.cnnopts.cnn_scoring || settings.cnnopts.cnn_refinement))
+	  m.initialize_gpu();
 	const vec authentic_v(settings.forcecap, settings.forcecap,
 			settings.forcecap); //small cap restricts initial movement from clash
 
 	if (settings.score_only)
 	{
-		intramolecular_energy = m.eval_intramolecular(exact_prec,
-				authentic_v, c);
-		naive_non_cache nnc(&exact_prec); // for out of grid issues
-		e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
-				intramolecular_energy, user_grid);
+		 intramolecular_energy = m.eval_intramolecular(exact_prec,
+		 		authentic_v, c);
+		 naive_non_cache nnc(&exact_prec); // for out of grid issues
+		 e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
+		 		intramolecular_energy, user_grid);
 
 		log << "Affinity: " << std::fixed << std::setprecision(5) << e
 				<< " (kcal/mol)";
 		log.endl();
 
-		float cnnaffinity = -1;
-		float cnngradient = -1;
-		cnnscore = cnn.score(m, true, cnnaffinity);
-		cnngradient = m.get_minus_forces_magnitude();
-		if (cnnscore >= 0.0)
-		{
-			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
-			log.endl();
-			if (cnnaffinity >= 0) {
-				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
-				log.endl();
-			}
-			if (cnngradient >= 0) {
-				log << "CNNgradient: " << std::fixed << std::setprecision(10) << cnngradient;
-				log.endl();
-			}
-		}
+		get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 
 		std::vector<flv> atominfo;
 		flv term_values = t->evale_robust(m);
@@ -265,7 +277,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 		}
 		log << '\n';
 
-		results.push_back(result_info(e, cnnscore, cnnaffinity, cnngradient, -1, m));
+		results.push_back(result_info(e, cnnscore, cnnaffinity, cnnforces, -1, m));
 
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
@@ -276,8 +288,9 @@ void do_search(model& m, const boost::optional<model>& ref,
 		output_type out(c, e);
 		doing(settings.verbosity, "Performing local search", log);
 		refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm,
-				user_grid);
+				user_grid, settings.gpu_on);
 		done(settings.verbosity, log);
+    m.set(out.c);
 
 		//be as exact as possible for final score
 		naive_non_cache nnc(&exact_prec); // for out of grid issues
@@ -301,30 +314,14 @@ void do_search(model& m, const boost::optional<model>& ref,
 				<< " (kcal/mol)\nRMSD: " << rmsd;
 		log.endl();
 
-		float cnnaffinity = -1;
-		float cnngradient = -1;
-		cnnscore = cnn.score(m, true, cnnaffinity);
-		cnngradient = m.get_minus_forces_magnitude();
-		if (cnnscore >= 0.0)
-		{
-			log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
-			log.endl();
-			if (cnnaffinity >= 0) {
-				log << "CNNaffinity: " << std::fixed << std::setprecision(10) << cnnaffinity;
-				log.endl();
-			}
-			if (cnngradient >= 0) {
-				log << "CNNgradient: " << std::fixed << std::setprecision(10) << cnngradient;
-				log.endl();
-			}
-		}
+    //reset the center after last call to set
+    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 
 		if (!nc.within(m))
 			log << "WARNING: not all movable atoms are within the search space\n";
 
-		m.set(out.c);
 		done(settings.verbosity, log);
-		results.push_back(result_info(e, cnnscore, cnnaffinity, cnngradient, rmsd, m));
+		results.push_back(result_info(e, cnnscore, cnnaffinity, cnnforces, rmsd, m));
 
 		if (compute_atominfo)
 			results.back().setAtomValues(m, &sf);
@@ -339,28 +336,30 @@ void do_search(model& m, const boost::optional<model>& ref,
 		par(m, out_cont, prec, ig, corner1, corner2, generator, user_grid);
 		done(settings.verbosity, log);
 		doing(settings.verbosity, "Refining results", log);
-		VINA_FOR_IN(i, out_cont)
+		VINA_FOR_IN(i, out_cont) {
 			refine_structure(m, prec, nc, out_cont[i], authentic_v,
-					par.mc.ssd_par.minparm, user_grid);
-
-		if (!out_cont.empty())
-		{
-			out_cont.sort();
-            non_cache_cnn* nc_cnn = dynamic_cast<non_cache_cnn*>(&nc);
-            if (!nc_cnn) {
-                non_cache nc_base = *(dynamic_cast<non_cache*>(&nc));
-			    const fl best_mode_intramolecular_energy = m.eval_intramolecular(
-			    		prec, authentic_v, out_cont[0].c);
-
-			    VINA_FOR_IN(i, out_cont)
-			    	if (not_max(out_cont[i].e))
-			    		out_cont[i].e = m.eval_adjusted(sf, prec, nc_base, authentic_v,
-			    				out_cont[i].c, best_mode_intramolecular_energy,
-			    				user_grid);
-			    // the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
-			    out_cont.sort();
-            }
+					par.mc.ssd_par.minparm, user_grid, settings.gpu_on);
+			get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 		}
+
+    if (!out_cont.empty())
+    {
+      out_cont.sort();
+      non_cache_cnn* nc_cnn = dynamic_cast<non_cache_cnn*>(&nc);
+      if (!nc_cnn)
+      {
+        non_cache nc_base = *(dynamic_cast<non_cache*>(&nc));
+        const fl best_mode_intramolecular_energy = m.eval_intramolecular(prec,
+            authentic_v, out_cont[0].c);
+
+        VINA_FOR_IN(i, out_cont)
+          if (not_max(out_cont[i].e))
+            out_cont[i].e = m.eval_adjusted(sf, prec, nc_base, authentic_v,
+                out_cont[i].c, best_mode_intramolecular_energy, user_grid);
+        // the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
+        out_cont.sort();
+      }
+    }
 		out_cont = remove_redundant(out_cont, settings.out_min_rmsd);
 
 		done(settings.verbosity, log);
@@ -395,11 +394,12 @@ void do_search(model& m, const boost::optional<model>& ref,
 			log.endl();
       
 	  	float cnnaffinity = -1;
-	  	float cnngradient = -1;
-	  	cnnscore = cnn.score(m, true, cnnaffinity);
-		  cnngradient = m.get_minus_forces_magnitude();
+	  	float cnnforces = -1;
+	  	float loss = 0;
+	  	cnnscore = cnn.score(m, true, cnnaffinity, loss);
+	  	cnnforces = m.get_minus_forces_sum_magnitude();
       //dkoes - setup result_info
-			results.push_back(result_info(out_cont[i].e, cnnscore, cnnaffinity, cnngradient, -1, m));
+			results.push_back(result_info(out_cont[i].e, cnnscore, cnnaffinity, cnnforces, -1, m));
 
 			if (compute_atominfo)
 				results.back().setAtomValues(m, &sf);
@@ -457,6 +457,10 @@ void main_procedure(model& m, precalculate& prec,
 	sz heuristic = m.num_movable_atoms()
 			+ 10 * m.get_size().num_degrees_of_freedom();
 	par.mc.num_steps = unsigned(70 * 3 * (50 + heuristic) / 2); // 2 * 70 -> 8 * 20 // FIXME
+	if(settings.num_mc_steps > 0) {
+	  par.mc.num_steps = settings.num_mc_steps;
+	}
+
 	par.mc.ssd_par.evals = unsigned((25 + m.num_movable_atoms()) / 3);
 	if (minparm.maxiters == 0)
 		minparm.maxiters = par.mc.ssd_par.evals;
@@ -484,7 +488,7 @@ void main_procedure(model& m, precalculate& prec,
 		non_cache *nc = NULL;
 		if (settings.gpu_on)
 		{
-			if (settings.cnnopts.cnn_scoring)
+			if (settings.cnnopts.cnn_scoring || settings.cnnopts.cnn_refinement)
 			{
 				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
 			}
@@ -498,7 +502,7 @@ void main_procedure(model& m, precalculate& prec,
 		}
 		else
 		{
-			if (settings.cnnopts.cnn_scoring)
+			if (settings.cnnopts.cnn_scoring || settings.cnnopts.cnn_refinement)
 			{
 				nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
 			}
@@ -1137,6 +1141,7 @@ Thank you!\n";
 				"energy minimization")
 		("randomize_only", bool_switch(&settings.randomize_only),
 				"generate random poses, attempting to avoid clashes")
+		("num_mc_steps", value<int>(&settings.num_mc_steps), "number of monte carlo steps to take in each chain")
 		("minimize_iters",
 				value<unsigned>(&minparms.maxiters)->default_value(0),
 				"number iterations of steepest descent; default scales with rotors and usually isn't sufficient for convergence")
@@ -1145,6 +1150,8 @@ Thank you!\n";
 		("simple_ascent", bool_switch(&simple_ascent), "use simple gradient ascent")
 		("minimize_early_term", bool_switch(&minparms.early_term),
 				"Stop minimization before convergence conditions are fully met.")
+		("minimize_single_full", bool_switch(&minparms.single_min),
+		    "During docking perform a single full minimization instead of a truncated pre-evaluate followed by a full.")
 		("approximation", value<ApproxType>(&approx),
 				"approximation (linear, spline, or exact) to use")
 		("factor", value<fl>(&approx_factor),
@@ -1179,14 +1186,24 @@ Thank you!\n";
 				"resolution of grids, don't change unless you really know what you are doing")
 		("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
 				"evaluate multiple rotations of pose (max 24)")
-		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
+		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring),
 				"Use a convolutional neural network to score final pose.")
-		("cnn_outputdx", bool_switch(&cnnopts.outputdx)->default_value(false),
+    ("cnn_refinement", bool_switch(&cnnopts.cnn_refinement), 
+        "Use a convolutional neural network for final minimization of docked poses")
+		("cnn_update_min_frame", bool_switch(&cnnopts.move_minimize_frame),
+		    "During minimization, recenter coordinate frame as ligand moves")
+		("cnn_freeze_receptor", bool_switch(&cnnopts.fix_receptor),
+		    "Don't move the receptor with respect to a fixed coordinate system")
+		("cnn_outputdx", bool_switch(&cnnopts.outputdx),
 		               "Dump .dx files of atom grid gradient.")
-		("cnn_outputxyz", bool_switch(&cnnopts.outputxyz)->default_value(false),
+		("cnn_outputxyz", bool_switch(&cnnopts.outputxyz),
 		               "Dump .xyz files of atom gradient.")
 		("cnn_xyzprefix", value<std::string>(&cnnopts.xyzprefix)->default_value("gradient"),
-		               "Prefix for atom gradient .xyz files");
+		               "Prefix for atom gradient .xyz files")
+		("cnn_center_x", value<fl>(&cnnopts.cnn_center[0]), "X coordinate of the CNN center")
+		("cnn_center_y", value<fl>(&cnnopts.cnn_center[1]), "Y coordinate of the CNN center")
+		("cnn_center_z", value<fl>(&cnnopts.cnn_center[2]), "Z coordinate of the CNN center")
+		("cnn_verbose", bool_switch(&cnnopts.verbose),"Enable verbose output for CNN debugging");
 
 
 		options_description misc("Misc (optional)");
@@ -1332,6 +1349,9 @@ Thank you!\n";
 		bool search_box_needed = !(settings.score_only || settings.local_only); // randomize_only and local_only still need the search space; dkoes - for local get box from ligand
 		bool output_produced = !settings.score_only;
 		bool receptor_needed = !settings.randomize_only;
+    if (cnnopts.cnn_scoring && 
+        !(settings.score_only || settings.local_only || settings.randomize_only))
+      cnnopts.move_minimize_frame = true;
 
 		if (receptor_needed)
 		{
@@ -1501,7 +1521,7 @@ Thank you!\n";
 
 		//dkoes - parse in receptor once
 		MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
-		CNNScorer cnn_scorer(cnnopts, vec(center_x, center_y, center_z), mols.getInitModel());
+		CNNScorer cnn_scorer(cnnopts, mols.getInitModel());
 
 		//dkoes, hoist precalculation outside of loop
 		weighted_terms wt(&t, t.weights());
@@ -1602,6 +1622,8 @@ Thank you!\n";
 						break;
 					}
 					m->set_pose_num(i);
+          m->gdata.device_on = settings.gpu_on;
+          m->gdata.device_id = settings.device;
 
 					if (settings.local_only)
 					{

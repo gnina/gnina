@@ -34,10 +34,9 @@
 #include <boost/thread/condition.hpp>
 #include "caffe/caffe.hpp"
 
-struct non_cache_cnn;
-template<typename F, bool Sync = false, bool gpu_on = false>
+template<typename F, typename thread_init_t, bool Sync = false>
 struct parallel_for : private boost::thread_group {
-	parallel_for(const F* f, sz num_threads) : m_f(f), destructing(false), size(0), thread_finished(num_threads, true), count_finished(0), num_threads(num_threads) {
+	parallel_for(const F* f, sz num_threads, thread_init_t thread_init) : m_f(f), tinit(thread_init), destructing(false), size(0), thread_finished(num_threads, true), count_finished(0), num_threads(num_threads) {
         VINA_FOR(i, num_threads)
             create_thread(aux(i, this));
     }
@@ -61,14 +60,7 @@ struct parallel_for : private boost::thread_group {
     }
 private:
 	void loop(sz offset) {
-        const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(m_f->ig);
-        if (gpu_on) {
-	        caffe::Caffe::SetDevice(m_f->settings->device);
-	        caffe::Caffe::set_mode(caffe::Caffe::GPU);
-            //TODO: remove when we're using the device buffer with the CNN
-            if (!cnn)
-                thread_buffer.init(free_mem(num_threads));
-        }
+    tinit();
 		while(boost::optional<sz> sz_option = get_size(offset)) {
 			sz s = sz_option.get();
 			for(sz i = offset; i < s; i += num_threads)
@@ -90,6 +82,7 @@ private:
         }
     };
     const F* m_f; // does not keep a local copy!
+    thread_init_t tinit;
     boost::condition cond;
     boost::condition busy;
     bool destructing; // dtor called
@@ -110,6 +103,9 @@ private:
 template<typename F, bool gpu_on>
 struct parallel_for<F, true, gpu_on> : private boost::thread_group {
 	parallel_for(const F* f, sz num_threads) : m_f(f), destructing(false), size(0), started(0), finished(0), num_threads(num_threads) {
+template<typename F, typename thread_init_t>
+struct parallel_for<F, thread_init_t, true> : private boost::thread_group {
+	parallel_for(const F* f, sz num_threads, thread_init_t thread_init) : m_f(f), tinit(thread_init), destructing(false), size(0), started(0), finished(0) {
 		a.par = this; // VC8 warning workaround
         VINA_FOR(i, num_threads)
             create_thread(boost::ref(a));
@@ -133,14 +129,7 @@ struct parallel_for<F, true, gpu_on> : private boost::thread_group {
     }
 private:
 	void loop() {
-        const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(m_f->f->ig);
-        if (gpu_on) {
-	        caffe::Caffe::SetDevice(m_f->f->settings->device);
-	        caffe::Caffe::set_mode(caffe::Caffe::GPU);
-            //TODO: remove when we're using the device buffer with the CNN
-            if (!cnn)
-                thread_buffer.init(free_mem(num_threads));
-        }
+    tinit();
 		while(boost::optional<sz> i = get_next()) {
 			(*m_f)(i.get());
 			{
@@ -159,6 +148,7 @@ private:
     };
     aux a;
     const F* m_f; // does not keep a local copy!
+    thread_init_t tinit;
     boost::condition cond;
     boost::condition busy;
     bool destructing; // dtor called
@@ -179,9 +169,9 @@ private:
 };
 
 
-template<typename F, typename Container, typename Input, bool Sync = false, bool gpu_on = false>
+template<typename F, typename Container, typename Input, typename thread_init_t, bool Sync = false>
 struct parallel_iter { 
-	parallel_iter(const F* f, sz num_threads) : a(f), pf(&a, num_threads) {}
+	parallel_iter(const F* f, sz num_threads, thread_init_t tinit) : a(f), pf(&a, num_threads, tinit) {}
 	void run(Container& v) {
 		a.v = &v;
 		pf.run(v.size());
@@ -197,7 +187,7 @@ private:
 		}
 	};
 	aux a;
-	parallel_for<aux, Sync, gpu_on> pf;
+	parallel_for<aux, thread_init_t, Sync> pf;
 };
 
 #endif

@@ -65,7 +65,7 @@ void cnn_visualization::lrp() {
 
     std::stringstream rec_stream(rec_string);
     model receptor = parse_receptor_pdbqt("", rec_stream);
-    CNNScorer scorer(cnnopts, center, receptor);
+    CNNScorer scorer(cnnopts, receptor);
 
     std::stringstream lig_stream(lig_string);
     model ligand = parse_ligand_stream_pdbqt("", lig_stream);
@@ -105,7 +105,7 @@ void cnn_visualization::gradient_vis() {
 
     std::stringstream rec_stream(rec_string);
     model receptor = parse_receptor_pdbqt("", rec_stream);
-    CNNScorer scorer(cnnopts, center, receptor);
+    CNNScorer scorer(cnnopts, receptor);
 
     std::stringstream lig_stream(lig_string);
     model ligand = parse_ligand_stream_pdbqt("", lig_stream);
@@ -152,22 +152,22 @@ void cnn_visualization::setup(){
 
     std::stringstream rec_stream(rec_string);
     unmodified_receptor = parse_receptor_pdbqt("", rec_stream);
-    CNNScorer base_scorer(cnnopts, center, unmodified_receptor);
+    CNNScorer base_scorer(cnnopts, unmodified_receptor);
 
     std::stringstream lig_stream(lig_string);
     unmodified_ligand = parse_ligand_stream_pdbqt("", lig_stream);
     model temp_rec = unmodified_receptor;
 
     temp_rec.append(unmodified_ligand);
+    float aff, loss;
     if(visopts.target == "pose")
     {
-        original_score = base_scorer.score(temp_rec, true);
+        original_score = base_scorer.score(temp_rec, true, aff, loss);
         std::cout << "CNN SCORE: " << original_score << "\n\n";
     }
     else if(visopts.target == "affinity")
     {
-        float aff;
-        original_score = base_scorer.score(temp_rec, false, aff);
+        original_score = base_scorer.score(temp_rec, false, aff, loss);
         original_score = aff;
         std::cout << "AFF: " << original_score << "\n\n";
     }
@@ -300,13 +300,13 @@ float cnn_visualization::score_modified_receptor(
 
     model m = parse_receptor_pdbqt("", rec_stream);
 
-    CNNScorer cnn_scorer(cnnopts, center, m);
+    CNNScorer cnn_scorer(cnnopts, m);
 
     model l = parse_ligand_stream_pdbqt("", lig_stream);
     m.append(l);
 
-    float aff;
-    float score_val = cnn_scorer.score(m, true, aff);
+    float aff, loss;
+    float score_val = cnn_scorer.score(m, true, aff, loss);
 
     //use affinity instead of cnn score if required
     if (visopts.target == "affinity")
@@ -339,15 +339,15 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string) {
 
     static bool first = true;
     if (first) {
-        cnn_scorer = CNNScorer(cnnopts, center, temp);
+        cnn_scorer = CNNScorer(cnnopts, temp);
         first = false;
     }
 
     model l = parse_ligand_stream_pdbqt("", lig_stream);
     temp.append(l);
 
-    float aff;
-    float score_val = cnn_scorer.score(temp, true, aff);
+    float aff, loss;
+    float score_val = cnn_scorer.score(temp, true, aff, loss);
     if (visopts.verbose) {
         std::cout << "SCORE: " << score_val << '\n';
     }

@@ -43,6 +43,7 @@ typedef std::vector<interacting_pair> interacting_pairs;
 
 typedef std::pair<std::string, boost::optional<sz> > parsed_line;
 typedef std::vector<parsed_line> pdbqtcontext;
+struct parallel_mc_task;
 void test_eval_intra();
 struct parallel_mc_task;
 
@@ -66,6 +67,8 @@ struct gpu_data {
   	unsigned forces_size;
   	unsigned pairs_size;
     unsigned other_pairs_size;
+    bool device_on;
+    int device_id;
 
     //TODO delete
     size_t nlig_roots;
@@ -74,7 +77,8 @@ struct gpu_data {
   			treegpu(NULL), interacting_pairs(NULL), other_pairs(NULL), 
             dfs_order_bfs_indices(NULL), bfs_order_dfs_indices(NULL), 
             scratch(NULL), coords_size(0),
-  			atom_coords_size(0), forces_size(0), pairs_size(0), other_pairs_size(0) {}
+  			atom_coords_size(0), forces_size(0), pairs_size(0), other_pairs_size(0), 
+        device_on(false), device_id(0) {}
 
     template<typename infoT>
     __host__ __device__
@@ -247,13 +251,13 @@ struct model_test;
 
 struct model {
 
-    model(const model& m) : tree_width(m.tree_width), coords(m.coords), 
-    ligands(m.ligands), minus_forces(m.minus_forces), 
-    m_num_movable_atoms(m.m_num_movable_atoms), atoms(m.atoms), 
-    grid_atoms(m.grid_atoms), other_pairs(m.other_pairs), 
-    hydrogens_stripped(m.hydrogens_stripped), settings(m.settings), 
-    internal_coords(m.internal_coords), flex(m.flex), 
-    flex_context(m.flex_context), name(m.name), pose_num(m.pose_num) {}
+  model(const model& m) : tree_width(m.tree_width), coords(m.coords), 
+  ligands(m.ligands), minus_forces(m.minus_forces), 
+  m_num_movable_atoms(m.m_num_movable_atoms), atoms(m.atoms), 
+  grid_atoms(m.grid_atoms), other_pairs(m.other_pairs), 
+  hydrogens_stripped(m.hydrogens_stripped), 
+  internal_coords(m.internal_coords), flex(m.flex), 
+  flex_context(m.flex_context), name(m.name), pose_num(m.pose_num) {}
 
 	void append(const model& m);
 	void strip_hydrogens();
@@ -278,7 +282,7 @@ struct model {
 
 	conf_size get_size() const;
 	// torsions = 0, orientations = identity, ligand positions = current
-	conf get_initial_conf() const; 
+	conf get_initial_conf(bool enable_receptor) const;
 
 	grid_dims movable_atoms_box(fl add_to_each_dimension, fl granularity = 0.375) const;
 
@@ -298,6 +302,8 @@ struct model {
 		VINA_FOR_IN(i, ligands)
 			write_context(ligands[i].cont, out);
 	}
+
+	void write_rigid_xyz(std::ostream& out, const vec& center) const;
 	void write_structure(std::ostream& out) const {
 		VINA_FOR_IN(i, ligands)
 			write_context(ligands[i].cont, out);
@@ -424,8 +430,9 @@ struct model {
 	void clear_minus_forces();
 	void add_minus_forces(const std::vector<float3>& forces);
 	void sub_minus_forces(const std::vector<float3>& forces);
+  void scale_minus_forces(fl scale);
 
-	fl get_minus_forces_magnitude() const;
+	fl get_minus_forces_sum_magnitude() const;
 
 	//allocate gpu memory, model must be setup
 	//also copies over data that does not change during minimization
@@ -439,15 +446,18 @@ struct model {
 	model() : m_num_movable_atoms(0), hydrogens_stripped(false) {};
 	~model() {};
 
-    vecv coords;
-	vecv minus_forces;
-    gpu_data gdata;
-    vector_mutable<ligand> ligands;
-	sz m_num_movable_atoms;
-	atomv atoms; // movable, inflex
-	atomv grid_atoms;
-	interacting_pairs other_pairs; 
-    const user_settings* settings;
+  vecv coords;
+  vecv minus_forces;
+  gpu_data gdata;
+  vector_mutable<ligand> ligands;
+  sz m_num_movable_atoms;
+  atomv atoms; // movable, inflex
+  atomv grid_atoms;
+  interacting_pairs other_pairs;
+
+  //for cnn, allow rigid body movement of receptor
+  rigid_change rec_change; //set by non_cache/cnn scoring
+  rigid_conf rec_conf;
 
 private:
 	//my, aren't we friendly!
@@ -463,7 +473,7 @@ private:
 	friend class appender;
 	friend struct pdbqt_initializer;
 	friend struct model_test;
-    friend void test_eval_intra();
+  friend void test_eval_intra();
 
 	const atom& get_atom(const atom_index& i) const {
 		return (i.in_grid ? grid_atoms[i.i] : atoms[i.i]);

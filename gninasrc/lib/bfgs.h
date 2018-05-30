@@ -130,6 +130,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 	if (slope >= 0)
 	{
 		//gradient isn't actually in a decreasing direction
+	  //std::cout << "positive slope" << "\n";
 		x_new = x;
 		g_new.clear(); //dkoes - set gradient to zero
 		return 0;
@@ -147,14 +148,16 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 		f1 = f(x_new, g_new);
 
 		//std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
-		if (alpha < alamin || !std::isfinite(alpha)) //convergence
+		if (alpha < alamin || !std::isfinite(alpha)) //too small a step
 		{
+		  //std::cout << "alpha < alamin\n";
 			x_new = x;
 			g_new.clear(); //dkoes - set gradient to zero
 			return 0;
 		}
 		else if (f1 <= f0 + ALF * alpha * slope)
 		{
+		  //std::cout << "sufficient decrease\n";
 			//sufficient function decrease, stop searching
 			return alpha;
 		}
@@ -232,14 +235,24 @@ void numerical_gradient(F& f, conf&x, change& g)
     diff.clear();
     fl temp = x(i);
     newx = x;
-    fl h = 5*epsilon_fl;
+    fl h = 10*epsilon_fl;
     if(h == 0.0) h = epsilon_fl;
     diff(i) = h;
     newx.increment(diff,1.0);
     diff(i) = 0.0;
+    std::cout << "ng newx1 ";
+    newx.print();
     fl fh = f(newx, diff);
-    g(i) = (fh-fold)/h;
-    //std::cout << "ng " << i << " " << fh << " " << fold << " " << h << " " << temp << "\n";
+    diff.clear();
+    diff(i) = -h;
+    newx = x;
+    newx.increment(diff,1.0);
+    diff(i) = 0.0;
+    std::cout << "ng newx2 ";
+    newx.print();
+    fl fh2 = f(newx,diff);
+    g(i) = (fh-fh2)/(2*h);
+    std::cout << "ng " << i << " " << fh << " " << fold << " " << fh2 << " " << h << " " << temp << " " << g(i) << "\n";
   }
 }
 
@@ -266,10 +279,12 @@ fl simple_gradient_ascent(F& f, Conf& x, Change& g, const fl average_required_im
     std::cout << "x: ";
     x.print();
     std::cout << "\n";
-    //std::cout << "numerical gradient: ";
-    //change ngrad(g); ngrad.clear();
-    //numerical_gradient(f, x,g);
-    //ngrad.print();
+/*    std::cout << "numerical gradient: ";
+    change ngrad(g); ngrad.clear();
+    numerical_gradient(f, x,g);
+    ngrad.print();
+    f(x, g); //reset
+    */
   }
 
   std::ofstream minout;
@@ -295,13 +310,15 @@ fl simple_gradient_ascent(F& f, Conf& x, Change& g, const fl average_required_im
       g_new.print();
       std::cout << "x_new: ";
       x_new.print();
-      //numerical_gradient(f, x_new,g_new);
-      //std::cout << "numerical g_new: ";
-      //g_new.print();
+  //    numerical_gradient(f, x_new,g_new);
+  //    std::cout << "numerical g_new: ";
+  //    g_new.print();
     }
 
     if(alpha == 0) {
-      std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | " << f0 << " wrong direction\n";
+      fl gradnormsq = scalar_product(g, g, n);
+      std::cout << "wrongdir gradnorm " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+
       if(false && f.adjust_center()) {
         //for cnn scoring, let's try recentering before giving up
         fl prevf0 = f0;
@@ -398,15 +415,16 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
     g.print();
     std::cout << "x: ";
     x.print();
-    std::cout << "\n";
 	  //std::cout << "numerical gradient: ";
 	  //change ngrad(g); ngrad.clear();
 	  //numerical_gradient(f, x,g);
 	  //ngrad.print();
 	}
-	std::ofstream minout;
-	if(params.outputframes > 0)
+	std::ofstream minout, recout;
+	if(params.outputframes > 0) {
 		minout.open("minout.sdf");
+		recout.open("recout.xyz");
+	}
 	VINA_U_FOR(step, params.maxiters)
 	{
 		minus_mat_vec_product(h, g, p);
@@ -435,7 +453,9 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 		}
 
 		if(alpha == 0) {
-			std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num() << " | " << f0 << " wrong direction\n";
+      fl gradnormsq = scalar_product(g, g, n);
+      std::cout << "wrongdir step,f0,gradnorm,alpha " << step << " " << f0 << " " << gradnormsq << " " << alpha << "\n";
+
 			if(false && f.adjust_center()) {
 			  //for cnn scoring, let's try recentering before giving up
 			  fl prevf0 = f0;
@@ -470,6 +490,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 				f.m->set(xi);
 				f.m->write_sdf(minout);
 				minout << "$$$$\n";
+				f.m->write_rigid_xyz(recout, f.get_center());
 			}
 		}
 		x = x_new;

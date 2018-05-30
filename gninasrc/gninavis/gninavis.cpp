@@ -114,20 +114,6 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  if(vm.count("cnn_model") <= 0)
-  {
-    std::cerr << "Missing cnn_model.\n" << "\nCorrect usage:\n"
-            << desc << '\n';
-    return 1;
-  }
-
-  if(vm.count("cnn_weights") <= 0)
-  {
-    std::cerr << "Missing cnn_weights.\n" << "\nCorrect usage:\n"
-            << desc << '\n';
-    return 1;
-  }
-
   if(visopts.frags_only && visopts.atoms_only)
   {
     std::cerr << "Cannot use 'frags_only' and 'atoms_only' together.\n" << "\nCorrect usage:\n"

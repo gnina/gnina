@@ -96,7 +96,6 @@ docs/gathered
 _site
 doxygen
 docs/dev
-compile_commands.json
 
 # tag files
 TAGS
@@ -104,3 +103,6 @@ tags
 
 # auto-generated history files
 .gdb_history
+
+# compile command databases
+compile_commands.json

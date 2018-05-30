@@ -25,7 +25,7 @@
 #include "mutate.h"
 #include "quasi_newton.h"
 
-output_type monte_carlo::operator()(model& m, const precalculate& p, const igrid& ig, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator, grid& user_grid) const {
+output_type monte_carlo::operator()(model& m, const precalculate& p, igrid& ig, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator, grid& user_grid) const {
 	output_container tmp;
 	this->operator()(m, tmp, p, ig, corner1, corner2, increment_me, generator, user_grid); // call the version that produces the whole container
 	VINA_CHECK(!tmp.empty());
@@ -38,9 +38,9 @@ bool metropolis_accept(fl old_f, fl new_f, fl temperature, rng& generator) {
 	return random_fl(0, 1, generator) < acceptance_probability;
 }
 
-void monte_carlo::single_run(model& m, output_type& out, const precalculate& p, const igrid& ig, rng& generator, grid& user_grid) const {
+void monte_carlo::single_run(model& m, output_type& out, const precalculate& p, igrid& ig, rng& generator, grid& user_grid) const {
 	conf_size s = m.get_size();
-	change g(s);
+	change g(s, ig.move_receptor());
 	vec authentic_v(1000, 1000, 1000);
 	out.e = max_fl;
 	output_type current(out);
@@ -63,10 +63,10 @@ void monte_carlo::single_run(model& m, output_type& out, const precalculate& p, 
 	quasi_newton_par(m, p, ig, out, g, authentic_v, user_grid);
 }
 
-void monte_carlo::many_runs(model& m, output_container& out, const precalculate& p, const igrid& ig, const vec& corner1, const vec& corner2, sz num_runs, rng& generator, grid& user_grid) const {
-	conf_size s = m.get_size();
+void monte_carlo::many_runs(model& m, output_container& out, const precalculate& p, igrid& ig, const vec& corner1, const vec& corner2, sz num_runs, rng& generator, grid& user_grid) const {
+	conf c(m.get_size(), ig.move_receptor());
 	VINA_FOR(run, num_runs) {
-		output_type tmp(s, 0);
+		output_type tmp(c, 0);
 		tmp.c.randomize(corner1, corner2, generator);
 		single_run(m, tmp, p, ig, generator, user_grid);
 		out.push_back(new output_type(tmp));
@@ -74,7 +74,7 @@ void monte_carlo::many_runs(model& m, output_container& out, const precalculate&
 	out.sort();
 }
 
-output_type monte_carlo::many_runs(model& m, const precalculate& p, const igrid& ig, const vec& corner1, const vec& corner2, sz num_runs, rng& generator, grid& user_grid) const {
+output_type monte_carlo::many_runs(model& m, const precalculate& p, igrid& ig, const vec& corner1, const vec& corner2, sz num_runs, rng& generator, grid& user_grid) const {
 	output_container tmp;
 	many_runs(m, tmp, p, ig, corner1, corner2, num_runs, generator, user_grid);
 	VINA_CHECK(!tmp.empty());
@@ -83,11 +83,11 @@ output_type monte_carlo::many_runs(model& m, const precalculate& p, const igrid&
 
 
 // out is sorted
-void monte_carlo::operator()(model& m, output_container& out, const precalculate& p, const igrid& ig, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator, grid& user_grid) const {
+void monte_carlo::operator()(model& m, output_container& out, const precalculate& p, igrid& ig, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator, grid& user_grid) const {
 	vec authentic_v(1000, 1000, 1000); // FIXME? this is here to avoid max_fl/max_fl
 	conf_size s = m.get_size();
-	change g(s);
-	output_type tmp(s, 0);
+	change g(s, ig.move_receptor());
+	output_type tmp(conf(s, ig.move_receptor()), 0);
 	tmp.c.randomize(corner1, corner2, generator);
 	fl best_e = max_fl;
 	minimization_params minparms = ssd_par.minparm;
@@ -99,7 +99,11 @@ void monte_carlo::operator()(model& m, output_container& out, const precalculate
 			++(*increment_me);
 		output_type candidate = tmp;
 		mutate_conf(candidate.c, m, mutation_amplitude, generator);
-		quasi_newton_par(m, p, ig, candidate, g, hunt_cap, user_grid);
+		if(minparms.single_min) //use full v to begin with
+		  quasi_newton_par(m, p, ig, candidate, g, authentic_v, user_grid);
+		else
+		  quasi_newton_par(m, p, ig, candidate, g, hunt_cap, user_grid);
+
 		if(step == 0 || metropolis_accept(tmp.e, candidate.e, temperature, generator)) {
 			tmp = candidate;
 
@@ -107,8 +111,10 @@ void monte_carlo::operator()(model& m, output_container& out, const precalculate
 
 			// FIXME only for very promising ones
 			if(tmp.e < best_e || out.size() < num_saved_mins) {
-				quasi_newton_par(m, p, ig, tmp, g, authentic_v, user_grid);
-				m.set(tmp.c); // FIXME? useless?
+			  if(!minparms.single_min) { //refine with full v
+			    quasi_newton_par(m, p, ig, tmp, g, authentic_v, user_grid);
+			    m.set(tmp.c); // FIXME? useless?
+			  }
 				tmp.coords = m.get_heavy_atom_movable_coords();
 				add_to_output_container(out, tmp, min_rmsd, num_saved_mins); // 20 - max size
 				if(tmp.e < best_e)

@@ -288,7 +288,7 @@ void bfgs_gpu(quasi_newton_aux_gpu<infoT> f,
 		if (params.type == minimization_params::BFGSAccurateLineSearch)
 		    alpha = accurate_line_search_gpu(f, n, x, g, f0,
                                                 p, x_new, g_new, f1);
-        else
+    else
 		    alpha = fast_line_search(f, n, x, g, f0,
                                                 p, x_new, g_new, f1);
 		if(alpha == 0) 

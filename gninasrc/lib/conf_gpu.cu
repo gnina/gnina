@@ -141,7 +141,7 @@ sz change_gpu::num_floats() const {
 	return n;
 }
 
-static
+inline
 bool constructor_valid(const conf_gpu& gpu, const conf& src, const gpu_data& d){
     conf test_dst = src;
     gpu.set_cpu(test_dst, d);
