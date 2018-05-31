@@ -225,9 +225,7 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
 			ie += eval_interacting_pairs_deriv(p, v[0], ligands[i].pairs, coords,
 					minus_forces); // adds to minus_forces
 		e += ie;
-    }
-
-	}
+  }
 
 	// calculate derivatives
 	ligands.derivative(coords, minus_forces, g.ligands);

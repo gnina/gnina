@@ -100,9 +100,6 @@ private:
     }
 };
 
-template<typename F, bool gpu_on>
-struct parallel_for<F, true, gpu_on> : private boost::thread_group {
-	parallel_for(const F* f, sz num_threads) : m_f(f), destructing(false), size(0), started(0), finished(0), num_threads(num_threads) {
 template<typename F, typename thread_init_t>
 struct parallel_for<F, thread_init_t, true> : private boost::thread_group {
 	parallel_for(const F* f, sz num_threads, thread_init_t thread_init) : m_f(f), tinit(thread_init), destructing(false), size(0), started(0), finished(0) {

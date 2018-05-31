@@ -170,7 +170,7 @@ void parallel_mc::operator()(const model& m, output_container& out,
 {
 	parallel_progress pp;
 	parallel_mc_aux parallel_mc_aux_instance(&mc, &p, &ig, &corner1, &corner2,
-			(display_progress ? (&pp) : NULL), &user_grid, m.settings);
+			(display_progress ? (&pp) : NULL), &user_grid);
 	parallel_mc_task_container task_container;
 	VINA_FOR(i, num_tasks)
 		task_container.push_back(new parallel_mc_task(m, random_int(0, 1000000, generator)));
@@ -182,8 +182,7 @@ void parallel_mc::operator()(const model& m, output_container& out,
 	  caffe::Caffe::set_mode(caffe::Caffe::GPU);
     const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(&ig);
     if (!cnn)
-        thread_buffer.init(free_mem(num_threads));
-  }};
+        thread_buffer.init(free_mem(num_threads));}};
 	parallel_iter<parallel_mc_aux, parallel_mc_task_container, parallel_mc_task,
 			decltype(thread_init), true> parallel_iter_instance(&parallel_mc_aux_instance,
 			num_threads, thread_init);
