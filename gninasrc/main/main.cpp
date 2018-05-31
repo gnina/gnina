@@ -1305,8 +1305,12 @@ Thank you!\n";
 			return 0;
 		}
 
-		google::InitGoogleLogging(argv[0]); //otherwise caffe spits crap out on stderr
-		google::SetStderrLogging(2);
+    FLAGS_minloglevel = google::GLOG_ERROR; //don't spit out info messages
+    // Google logging.
+    ::google::InitGoogleLogging(argv[0]);
+    // Provide a backtrace on segfault.
+    ::google::InstallFailureSignalHandler();
+
 #if (OB_VERSION > OB_VERSION_CHECK(2, 3, 2))
 		OpenBabel::OBPlugin::LoadAllPlugins(); //for some reason loading on demand can be slow
 #endif
