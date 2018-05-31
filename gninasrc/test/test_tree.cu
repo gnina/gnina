@@ -6,8 +6,6 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
 
-thread_local device_buffer test_buffer;
-
 void make_tree(model* m) {
     p_args.log << "Tree Set Conf Test \n";
     p_args.log << "Using random seed: " << p_args.seed << "\n";
@@ -90,7 +88,7 @@ void test_set_conf() {
     model* m = new model;
     make_tree(m);
     conf x_cpu = m->get_initial_conf(false);
-    conf_gpu x_gpu(x_cpu, m->gdata, test_buffer);
+    conf_gpu x_gpu(x_cpu, m->gdata, thread_buffer);
     change g_cpu(m->get_size(), false);
     fl factor = 1;
 
@@ -106,7 +104,7 @@ void test_set_conf() {
     for (auto& torsion : g_cpu.ligands[0].torsions)
         torsion = change_dist(engine);
 
-    change_gpu g_gpu(g_cpu, m->gdata, test_buffer);
+    change_gpu g_gpu(g_cpu, m->gdata, thread_buffer);
     gpu_data* gpu_gdata;
     CUDA_CHECK_GNINA(cudaMalloc(&gpu_gdata, sizeof(gpu_data)));
     CUDA_CHECK_GNINA(cudaMemcpy(gpu_gdata, &m->gdata, sizeof(gpu_data), cudaMemcpyHostToDevice));
@@ -142,7 +140,7 @@ void test_derivative() {
     make_tree(m);
     //for this one we need to generate forces and provide a change object to be set
     change g_cpu(m->get_size(), false);
-    change_gpu g_gpu(g_cpu, m->gdata, test_buffer);
+    change_gpu g_gpu(g_cpu, m->gdata, thread_buffer);
     std::mt19937 engine(p_args.seed);
     std::uniform_real_distribution<float> forces_dist(-10, 10);
     for (size_t i=0; i < m->coords.size(); ++i) 
