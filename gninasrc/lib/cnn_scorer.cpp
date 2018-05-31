@@ -165,7 +165,7 @@ std::unordered_map<string, float> CNNScorer::get_scores_per_atom(bool receptor, 
 
 void CNNScorer::lrp(const model& m, const string& layer_to_ignore, bool zero_values)
 {
-    // boost::lock_guard<boost::mutex> guard(*mtx);
+    boost::lock_guard<boost::mutex> guard(*mtx);
     
     caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
@@ -197,7 +197,7 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore, bool zero_val
 //do forward and backward pass for gradient visualization
 void CNNScorer::gradient_setup(const model& m, const string& recname, const string& ligname, const string& layer_to_ignore)
 {
-    // boost::lock_guard<boost::mutex> guard(*mtx);
+    boost::lock_guard<boost::mutex> guard(*mtx);
 
     caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
@@ -305,7 +305,7 @@ void CNNScorer::get_net_output(Dtype& score, Dtype& aff, Dtype& loss)
 //ALERT: clears minus forces
 float CNNScorer::score(model& m, bool compute_gradient, float& affinity, float& loss)
 {
-	// boost::lock_guard<boost::mutex> guard(*mtx);
+	boost::lock_guard<boost::mutex> guard(*mtx);
 	if (!initialized())
 		return -1.0;
 
