@@ -37,6 +37,26 @@ struct parallel_mc_task
 	parallel_mc_task(const model& m_, int seed) :
 			m(m_), generator(static_cast<rng::result_type>(seed))
 	{
+        if (m_.gpu_initialized()) {
+            //TODO: need to ensure that worker threads using these copies can't
+            //deallocate GPU memory - race condition in
+            //parallel_mc_aux::operator(), plus inefficiency of having to copy
+            //buffers that won't change but could be freed
+            m.gdata.coords = m_.gdata.coords;
+            m.gdata.atom_coords = m_.gdata.atom_coords;
+            m.gdata.minus_forces = m_.gdata.minus_forces;
+            m.gdata.treegpu = m_.gdata.treegpu;
+            m.gdata.interacting_pairs = m_.gdata.interacting_pairs;
+            m.gdata.other_pairs = m_.gdata.other_pairs;
+            m.gdata.dfs_order_bfs_indices = m_.gdata.dfs_order_bfs_indices;
+            m.gdata.bfs_order_dfs_indices = m_.gdata.bfs_order_dfs_indices;
+            m.gdata.coords_size = m_.gdata.coords_size;
+            m.gdata.atom_coords_size = m_.gdata.atom_coords_size;
+            m.gdata.forces_size = m_.gdata.forces_size;
+            m.gdata.pairs_size = m_.gdata.pairs_size;
+            m.gdata.other_pairs_size = m_.gdata.other_pairs_size;
+            m.gdata.nlig_roots = m_.gdata.nlig_roots;
+        }
 	}
 };
 
@@ -62,7 +82,57 @@ struct parallel_mc_aux
 
 	void operator()(parallel_mc_task& t) const
 	{
-        non_cache_cnn* cnn = dynamic_cast<non_cache_cnn*>(ig);
+        //TODO: remove when the CNN is using the device buffer
+        const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(ig);
+        if (t.m.gpu_initialized() && !cnn) {
+            thread_buffer.reinitialize();
+            //update our copy of gpu_data to have local buffers; N.B. this
+            //theoretically could be restricted to fields we intend to modify,
+            //but currently we also need copies of the things that are
+            //deallocated in the model destructor
+            atom_params *coords;
+            thread_buffer.alloc(&coords, sizeof(atom_params[t.m.gdata.coords_size]));
+            definitelyPinnedMemcpy(coords, t.m.gdata.coords, sizeof(atom_params[t.m.gdata.coords_size]), cudaMemcpyDeviceToDevice);
+            t.m.gdata.coords = coords;
+
+            vec *atom_coords;
+            thread_buffer.alloc(&atom_coords, sizeof(vec[t.m.gdata.atom_coords_size]));
+            definitelyPinnedMemcpy(atom_coords, t.m.gdata.atom_coords, sizeof(vec[t.m.gdata.atom_coords_size]), cudaMemcpyDeviceToDevice);
+            t.m.gdata.atom_coords = atom_coords;
+
+            force_energy_tup *minus_forces;
+            thread_buffer.alloc(&minus_forces, sizeof(force_energy_tup[t.m.gdata.forces_size]));
+            definitelyPinnedMemcpy(minus_forces, t.m.gdata.minus_forces, sizeof(force_energy_tup[t.m.gdata.forces_size]), cudaMemcpyDeviceToDevice);
+            t.m.gdata.minus_forces = minus_forces;
+
+            segment_node *device_nodes;
+            gfloat4p *force_torques;
+
+            //TODO: we really just want to copy data device-to-device
+            tree_gpu old_tree;
+            definitelyPinnedMemcpy(&old_tree, t.m.gdata.treegpu, sizeof(tree_gpu), cudaMemcpyDeviceToHost);
+            unsigned num_nodes = old_tree.num_nodes;
+            thread_buffer.alloc(&device_nodes, sizeof(segment_node[num_nodes]));
+            thread_buffer.alloc(&force_torques, sizeof(gfloat4p[num_nodes]));
+            definitelyPinnedMemcpy(device_nodes, old_tree.device_nodes, sizeof(segment_node[num_nodes]), cudaMemcpyDeviceToDevice);
+            definitelyPinnedMemcpy(force_torques, old_tree.force_torques, sizeof(gfloat4p[num_nodes]), cudaMemcpyDeviceToDevice);
+            tree_gpu* new_tree;
+            thread_buffer.alloc(&new_tree, sizeof(tree_gpu));
+            old_tree.device_nodes = device_nodes;
+            old_tree.force_torques = force_torques;
+            definitelyPinnedMemcpy(new_tree, &old_tree, sizeof(tree_gpu), cudaMemcpyHostToDevice);
+            t.m.gdata.treegpu = new_tree;
+
+            thread_buffer.alloc(&t.m.gdata.scratch, sizeof(float));
+
+            size_t* dfs_order_bfs_indices = new size_t[num_nodes];
+            memcpy(dfs_order_bfs_indices, t.m.gdata.dfs_order_bfs_indices, sizeof(size_t[num_nodes]));
+            t.m.gdata.dfs_order_bfs_indices = dfs_order_bfs_indices;
+
+            size_t* bfs_order_dfs_indices = new size_t[num_nodes]; 
+            memcpy(bfs_order_dfs_indices, t.m.gdata.bfs_order_dfs_indices, sizeof(size_t[num_nodes]));
+            t.m.gdata.bfs_order_dfs_indices = bfs_order_dfs_indices;
+        }
         if (cnn) {
           CNNScorer cnn_scorer(cnn->get_scorer().options(), t.m);
           const precalculate* p = cnn->get_precalculate();
@@ -75,6 +145,8 @@ struct parallel_mc_aux
 		      (*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator, *user_grid);
 	}
 };
+
+//TODO: null model.gdata pointers at task exit
 
 void merge_output_containers(const output_container& in, output_container& out,
 		fl min_rmsd, sz max_size)
@@ -107,7 +179,10 @@ void parallel_mc::operator()(const model& m, output_container& out,
 
   auto thread_init = [&](){if (m.gdata.device_on) {
     caffe::Caffe::SetDevice(m.gdata.device_id);
-	  caffe::Caffe::set_mode(caffe::Caffe::GPU);}};
+	  caffe::Caffe::set_mode(caffe::Caffe::GPU);
+    const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(&ig);
+    if (!cnn)
+        thread_buffer.init(free_mem(num_threads));}};
 	parallel_iter<parallel_mc_aux, parallel_mc_task_container, parallel_mc_task,
 			decltype(thread_init), true> parallel_iter_instance(&parallel_mc_aux_instance,
 			num_threads, thread_init);

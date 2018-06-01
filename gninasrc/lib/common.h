@@ -63,6 +63,7 @@ struct minimization_params
 	}
 };
 
+
 template<typename T>
 __host__ __device__
 inline T sqr(T x) {

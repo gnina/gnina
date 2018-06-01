@@ -7,17 +7,17 @@
 // CUDA runtime
 #include <cuda_runtime.h>
 #include <vector>
-#include "gpu_math.h"
 #include "interacting_pairs.h"
+#include "grid_gpu.h"
 
 struct GPUSplineInfo
 {
-  unsigned n; //number of components
-  float **splines; //pointer to spline data in device memory, size is number of components
-  float fraction; //how spline is binned
-  float cutoff; //where to stop
+    unsigned n; //number of components
+    float **splines; //pointer to spline data in device memory, size is number of components
+    float fraction; //how spline is binned
+    float cutoff; //where to stop
 
-GPUSplineInfo(): n(0), splines(NULL), fraction(0), cutoff(0) {}
+    GPUSplineInfo(): n(0), splines(NULL), fraction(0), cutoff(0) {}
 };
 
 /* float3 reads/writes can't be coalesced into a single load/store. But
@@ -25,8 +25,8 @@ GPUSplineInfo(): n(0), splines(NULL), fraction(0), cutoff(0) {}
    pack it in with a relevant piece of 1-dimensional data. NB: without
    __align__, the compiler can't do this coalescing. */
 struct __align__(sizeof(float4)) atom_params{
-  float3 coords;
-  float charge;
+    float3 coords;
+    float charge;
 };
 
 struct __align__(sizeof(float4)) force_energy_tup{
@@ -87,12 +87,33 @@ struct GPUNonCacheInfo
   GPUSplineInfo *splineInfo;
 };
 
+struct GPUCacheInfo
+{
+  float3 gridends;
+  float3 gridbegins;
+  fl slope;
+  float cutoff_sq;
+  unsigned num_movable_atoms;
+
+  //lig atom types
+  unsigned *types; 
+  //grids used to interpolate atom energies
+  grid_gpu* grids;
+  unsigned ngrids;
+  GPUSplineInfo *splineInfo;
+};
+
 void evaluate_splines_host(const GPUSplineInfo& spInfo, float r,
                            float *device_vals, float *device_derivs);
 
 __host__ __device__
 float single_point_calc(const GPUNonCacheInfo &dinfo, atom_params *lig,
                         force_energy_tup *out, float v);
+
+__host__ __device__
+float single_point_calc(const GPUCacheInfo &dinfo, atom_params *lig,
+                        force_energy_tup *out, float v);
+
 __global__
 void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
 		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr, float v, force_energy_tup *out, float *e);

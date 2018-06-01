@@ -2,21 +2,53 @@
 #include "conf_gpu.h"
 #include "matrix.h"
 #include "bfgs.h"
+#include "device_buffer.h"
 
 #include <cuda_runtime.h>
 
-thread_local float_buffer buffer;
+static __device__
+fl new_lambdamin_val(fl p_val, fl x_val, fl cur_val)
+{
+    // return fabsf(p.values[i]) / fmaxf(fabsf(x.values[i]),
+    //                                   1.0f);
+    fl v = fabsf(p_val / fmaxf(fabsf(x_val), 1.0f));
+    return fmaxf(v, cur_val);
+}
 
-__device__ fl compute_lambdamin(const change_gpu& p, const conf_gpu& x, sz n)
+__device__ fl compute_lambdamin(const change_gpu& p, const conf_gpu& x, sz n, const gpu_data& d)
 
 {
+    const tree_gpu& tree = *d.treegpu;
     fl test = 0;
-	for (sz i = 0; i < n; i++)
+	for (sz i = 0; i < tree.num_nodes; i++)
 	{
-		fl temp = fabsf(p.values[i]) / fmaxf(fabsf(x.values[i]),
-                                                    1.0f);
-		if (temp > test)
-			test = temp;
+        if(i < tree.nlig_roots){
+            float* conf_start = &x.values[i * 7];
+            float* change_start = &p.values[i * 6];
+
+            for(sz i = 0; i < 3; i++)
+                test = new_lambdamin_val(change_start[i], conf_start[i], test);
+
+            qt orientation(conf_start[3],
+                           conf_start[4],
+                           conf_start[5],
+                           conf_start[6]);
+            // qt *orientation = (qt *)(void*) &conf_start[3];
+            vec angle = quaternion_to_angle(orientation);
+            for(sz i = 0; i < 3; i++)
+                test = new_lambdamin_val(change_start[3 + i], angle[i], test);
+
+        } else {
+            float* conf_start = &x.values[i + tree.nlig_roots * 6];
+            float* change_start = &p.values[i + tree.nlig_roots * 5];
+            test = new_lambdamin_val(*change_start, *conf_start, test);
+        }
+
+
+		// fl temp = fabsf(p.values[i]) / fmaxf(fabsf(x.values[i]),
+        //                                      1.0f);
+		// if (temp > test)
+		// 	test = temp;
 	}
     return test;
 }
@@ -53,8 +85,40 @@ __device__ inline void minus_mat_vec_product(const flmat_gpu& m,
 	in.minus_mat_vec_product(m, out);
 }
 
+template<typename infoT>
 __device__
-fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
+fl fast_line_search(quasi_newton_aux_gpu<infoT>& f, sz n, const conf_gpu& x, const change_gpu& g, const fl f0,
+		const change_gpu& p, conf_gpu& x_new, change_gpu& g_new, fl& f1)
+{ // returns alpha
+	const fl c0 = 0.0001;
+	const unsigned max_trials = 10;
+	const fl multiplier = 0.5;
+	fl alpha = 1;
+    int idx = threadIdx.x;
+
+	const fl pg = scalar_product(p, g, n);
+
+	VINA_U_FOR(trial, max_trials)
+	{
+        if (idx == 0)
+		    x_new = x;
+        __syncthreads();
+        if (idx < x_new.n)
+		    x_new.increment(p, alpha, &f.gdata);
+        __syncthreads();
+        if (idx == 0)
+		    f1 = f(x_new, g_new);
+        __syncthreads();
+		if (f1 - f0 < c0 * alpha * pg) // FIXME check - div by norm(p) ? no?
+			break;
+		alpha *= multiplier;
+	}
+	return alpha;
+}
+
+template<typename infoT>
+__device__
+fl accurate_line_search_gpu(quasi_newton_aux_gpu<infoT>& f, sz n, const conf_gpu& x,
                             const change_gpu& g, const fl f0,
                             const change_gpu& p, conf_gpu& x_new,
                             change_gpu& g_new, fl& f1)
@@ -78,7 +142,7 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
 		return 0;
 	}
     if (idx == 0) {
-	    test = compute_lambdamin(p, x, n);
+	    test = compute_lambdamin(p, x, n, f.gdata);
 
 	    alamin = epsilon_fl / test;
 	    alpha = FIRST; //single newton step
@@ -92,6 +156,7 @@ fl accurate_line_search_gpu(quasi_newton_aux_gpu& f, sz n, const conf_gpu& x,
         if (idx < x_new.n)
 		    x_new.increment(p, alpha, &f.gdata);
 
+        __syncthreads();
         if (idx == 0)
             f1 = f(x_new, g_new);
 
@@ -190,8 +255,9 @@ void bfgs_update(flmat_gpu& h, const change_gpu& p,
     // s * s == alpha * alpha * p * p	} *
 }
 
+template<typename infoT>
 __global__
-void bfgs_gpu(quasi_newton_aux_gpu f,
+void bfgs_gpu(quasi_newton_aux_gpu<infoT> f,
               conf_gpu x, conf_gpu x_orig, conf_gpu x_new,
               change_gpu g, change_gpu g_orig, change_gpu g_new,
               change_gpu p, change_gpu y, flmat_gpu h, change_gpu minus_hy,
@@ -217,12 +283,13 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
 		    minus_mat_vec_product(h, g, p);
             // f1 is the returned energy for the next iteration of eval_deriv_gpu
 		    f1 = 0;
-            //TODO: FastLineSearch is implemented in develop, until then just
-            //always do accurage here
-		    // assert(params.type == minimization_params::BFGSAccurateLineSearch);
         }
         __syncthreads();
-		alpha = accurate_line_search_gpu(f, n, x, g, f0,
+		if (params.type == minimization_params::BFGSAccurateLineSearch)
+		    alpha = accurate_line_search_gpu(f, n, x, g, f0,
+                                                p, x_new, g_new, f1);
+    else
+		    alpha = fast_line_search(f, n, x, g, f0,
                                                 p, x_new, g_new, f1);
 		if(alpha == 0) 
 			break;
@@ -283,40 +350,73 @@ void bfgs_gpu(quasi_newton_aux_gpu f,
     }
 }
 
-fl bfgs(quasi_newton_aux_gpu &f, conf_gpu& x, change_gpu& g,
-    const fl average_required_improvement, const minimization_params& params)
-{
-  sz n = g.num_floats();
+template<typename infoT> 
+fl bfgs(quasi_newton_aux_gpu<infoT> &f, conf_gpu& x,
+        change_gpu& g, const fl average_required_improvement,
+		const minimization_params& params) {
+    sz n = g.num_floats();
 
-  // Initialize and copy Hessian
-  flmat_gpu h(n);
+    // Initialize and copy Hessian
+    flmat_gpu h(n);
 
-  // Initialize and copy additional conf and change objects
-  change_gpu g_orig(g, buffer);
-  change_gpu g_new(g, buffer);
+    // Initialize and copy additional conf and change objects
+	change_gpu g_orig(g, thread_buffer);
+	change_gpu g_new(g, thread_buffer);
+    
+	conf_gpu x_orig(x, thread_buffer);
+	conf_gpu x_new(x, thread_buffer);
 
-  conf_gpu x_orig(x, buffer);
-  conf_gpu x_new(x, buffer);
+	change_gpu p(g, thread_buffer);
+    change_gpu y(g, thread_buffer);
 
-  change_gpu p(g, buffer);
-  change_gpu y(g, buffer);
+    change_gpu minus_hy(g, thread_buffer);
+    float* f0;
+    float out_energy;
 
-  change_gpu minus_hy(g, buffer);
-  float* f0;
-  float out_energy;
-
-  CUDA_CHECK_GNINA(cudaMalloc(&f0, sizeof(float)));
-  //TODO: make safe for the case where num_movable_atoms > 1024
-  assert(f.ig.num_movable_atoms <= 1024);
-  bfgs_gpu<<<1,max(WARPSIZE,f.ig.num_movable_atoms)>>>(f,
-      x, x_orig, x_new,
-      g, g_orig, g_new,
-      p, y, h, minus_hy,
-      average_required_improvement, params, f0);
-  sync_and_errcheck();
-  CUDA_CHECK_GNINA(cudaFree(h.m_data));
-  CUDA_CHECK_GNINA(
-      cudaMemcpy(&out_energy, f0, sizeof(float), cudaMemcpyDeviceToHost));
-  CUDA_CHECK_GNINA(cudaFree(f0));
-  return out_energy;
+    CUDA_CHECK_GNINA(device_malloc(&f0, sizeof(float)));
+    //TODO: make safe for the case where num_movable_atoms > 1024
+    assert(f.ig.num_movable_atoms <= 1024);
+    bfgs_gpu<<<1,ROUND_TO_WARP(max(WARPSIZE,f.ig.num_movable_atoms))>>>(f,
+                      x, x_orig, x_new,
+                      g, g_orig, g_new,
+                      p, y, h, minus_hy,
+                      average_required_improvement, params, f0);
+    CUDA_CHECK_GNINA(definitelyPinnedMemcpy(&out_energy,
+                                f0, sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK_GNINA(device_free(f0));
+	return out_energy;
 }
+
+template __device__ fl accurate_line_search_gpu(quasi_newton_aux_gpu<GPUNonCacheInfo>&,
+        sz, const conf_gpu&, const change_gpu&, const fl, const change_gpu&, 
+        conf_gpu&, change_gpu&, fl&);
+template __device__ fl accurate_line_search_gpu(quasi_newton_aux_gpu<GPUCacheInfo>&,
+        sz, const conf_gpu&, const change_gpu&, const fl, const change_gpu&, 
+        conf_gpu&, change_gpu&, fl&);
+
+template __device__ fl fast_line_search(quasi_newton_aux_gpu<GPUNonCacheInfo>&,
+        sz, const conf_gpu&, const change_gpu&, const fl, const change_gpu&, 
+        conf_gpu&, change_gpu&, fl&);
+template __device__ fl fast_line_search(quasi_newton_aux_gpu<GPUCacheInfo>&,
+        sz, const conf_gpu&, const change_gpu&, const fl, const change_gpu&, 
+        conf_gpu&, change_gpu&, fl&);
+
+template __global__ void bfgs_gpu(quasi_newton_aux_gpu<GPUNonCacheInfo>,
+              conf_gpu x, conf_gpu x_orig, conf_gpu x_new,
+              change_gpu g, change_gpu g_orig, change_gpu g_new,
+              change_gpu p, change_gpu y, flmat_gpu h, change_gpu minus_hy,
+              const fl average_required_improvement,
+              const minimization_params params,
+              float* out_energy);
+template __global__ void bfgs_gpu(quasi_newton_aux_gpu<GPUCacheInfo>,
+              conf_gpu x, conf_gpu x_orig, conf_gpu x_new,
+              change_gpu g, change_gpu g_orig, change_gpu g_new,
+              change_gpu p, change_gpu y, flmat_gpu h, change_gpu minus_hy,
+              const fl average_required_improvement,
+              const minimization_params params,
+              float* out_energy);
+
+template fl bfgs(quasi_newton_aux_gpu<GPUNonCacheInfo>&, conf_gpu&,
+        change_gpu&, const fl, const minimization_params&);
+template fl bfgs(quasi_newton_aux_gpu<GPUCacheInfo>&, conf_gpu&,
+        change_gpu&, const fl, const minimization_params&);

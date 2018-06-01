@@ -1,8 +1,10 @@
 #include <boost/program_options.hpp>
 #include <iostream>
 #include "parsed_args.h"
+#include "device_buffer.h"
 #include "test_gpucode.h"
 #include "test_tree.h"
+#include "test_cache.h"
 #include "test_cnn.h"
 #include "test_utils.h"
 #define N_ITERS 10
@@ -14,6 +16,8 @@ namespace ut = boost::unit_test;
 namespace po = boost::program_options;
 
 parsed_args p_args;
+bool run_on_gpu = true;
+int cuda_dev_id = 0;
 
 void boost_loop_test(void (*func)());
 
@@ -44,6 +48,14 @@ BOOST_AUTO_TEST_CASE(derivative) {
 
 BOOST_AUTO_TEST_SUITE_END()
 
+BOOST_AUTO_TEST_SUITE(cache_gpu)
+
+BOOST_AUTO_TEST_CASE(eval_deriv) {
+    boost_loop_test(&test_cache_eval_deriv);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
 BOOST_AUTO_TEST_SUITE(test_cnn)
 
 BOOST_AUTO_TEST_CASE(set_conf) {
@@ -52,8 +64,49 @@ BOOST_AUTO_TEST_CASE(set_conf) {
 
 BOOST_AUTO_TEST_SUITE_END()
 
+void initializeCUDA(int device)
+{
+	cudaError_t error;
+	cudaDeviceProp deviceProp;
+
+	error = cudaSetDevice(device);
+	if (error != cudaSuccess)
+	{
+		std::cerr << "cudaSetDevice returned error code " << error << "\n";
+		exit(-1);
+	}
+
+	error = cudaGetDevice(&device);
+
+	if (error != cudaSuccess)
+	{
+		std::cerr << "cudaGetDevice returned error code " << error << "\n";
+		exit(-1);
+	}
+
+	error = cudaGetDeviceProperties(&deviceProp, device);
+
+	if (deviceProp.computeMode == cudaComputeModeProhibited)
+	{
+		std::cerr
+				<< "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n";
+		exit(-1);
+	}
+
+	if (error != cudaSuccess)
+	{
+		std::cerr << "cudaGetDeviceProperties returned error code " << error
+				<< "\n";
+		exit(-1);
+	}
+
+}
+
 bool init_unit_test()
 {
+    // initializeCUDA(0);
+    // TODO: multithread running tests
+    thread_buffer.init(free_mem(1));
     std::string logname;
     unsigned seed;
     po::positional_options_description positional;

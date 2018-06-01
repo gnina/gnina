@@ -95,7 +95,7 @@ fl conf::get_with_node_idx(sz index, sz* node_idx, sz* offset_in_node) const {
     __builtin_unreachable();
 }
 
-fl& conf::operator()(sz index) { // returns by value
+fl& conf::flat_index(sz index) { // returns by value
     VINA_FOR_IN(i, ligands) {
         ligand_conf& lig = ligands[i];
         if(index < 3) return lig.rigid.position[index];

@@ -42,6 +42,7 @@ template<typename T>
 class array3d {
 	sz m_i, m_j, m_k;
 	std::vector<T> m_data;
+    template<typename U, typename V> friend class array3d_gpu;
 	friend class boost::serialization::access;
 	template<typename Archive>
 	void serialize(Archive& ar, const unsigned version) {

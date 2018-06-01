@@ -39,8 +39,8 @@ struct non_cache : public igrid {
 	virtual bool within(const model& m, fl margin = 0.0001) const;
 	fl getSlope() { return slope; }
 	virtual void setSlope(fl sl) { slope = sl; }
-  virtual const precalculate* get_precalculate() {return p; }
-    grid_dims get_grid_dims() {return gd; }
+  virtual const precalculate* get_precalculate() const {return p; }
+  grid_dims get_grid_dims() const {return gd; }
 
 protected:
 	fl slope;

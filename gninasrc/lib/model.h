@@ -45,6 +45,7 @@ typedef std::pair<std::string, boost::optional<sz> > parsed_line;
 typedef std::vector<parsed_line> pdbqtcontext;
 struct parallel_mc_task;
 void test_eval_intra();
+struct parallel_mc_task;
 
 struct gpu_data {
 	//put all pointers to gpu data into a struct that provides a lightweight 
@@ -79,11 +80,12 @@ struct gpu_data {
   			atom_coords_size(0), forces_size(0), pairs_size(0), other_pairs_size(0), 
         device_on(false), device_id(0) {}
 
+    template<typename infoT>
     __host__ __device__
-	fl eval_interacting_pairs_deriv_gpu(const GPUNonCacheInfo& info, fl v, interacting_pair* pairs, unsigned pairs_sz) const;
+	fl eval_interacting_pairs_deriv_gpu(const infoT& info, fl v, interacting_pair* pairs, unsigned pairs_sz) const;
 
-    __device__
-	fl eval_deriv_gpu(const GPUNonCacheInfo& info, const vec& v,
+    template<typename infoT> __device__
+	fl eval_deriv_gpu(const infoT& info, const vec& v,
 	                     const conf_gpu& c, change_gpu& g);
    
     size_t node_idx_dfs2bfs(const size_t node_idx);
@@ -95,9 +97,10 @@ struct gpu_data {
 	void copy_from_gpu(model& m);
 
     size_t node_idx_cpu2gpu(size_t cpu_idx) const;
-  private:
+
+    private:
     gpu_data(const gpu_data&) = default;
-    friend struct quasi_newton_aux_gpu;
+    template<typename T> friend struct quasi_newton_aux_gpu;
     friend parallel_mc_task;
 };
 
@@ -436,12 +439,12 @@ struct model {
 	//if model changes, must re-initialize
 	void initialize_gpu();
 
-	bool gpu_initialized() { return gdata.coords != NULL; } //true if good to go
+	bool gpu_initialized() const { return gdata.coords != NULL; } //true if good to go
 	//deallocate gpu memory
 	void deallocate_gpu();
 
 	model() : m_num_movable_atoms(0), hydrogens_stripped(false) {};
-	~model() {deallocate_gpu();};
+	~model() {};
 
   vecv coords;
   vecv minus_forces;
@@ -537,7 +540,5 @@ private:
 	std::string name;
 	int pose_num;
 };
-
-
 
 #endif

@@ -41,6 +41,7 @@ class grid
 
 	friend class cache;
 	friend class non_cache;
+    friend class grid_gpu;
 	public:
 	grid() :
 			m_init(0, 0, 0), m_range(1, 1, 1), m_factor(1, 1, 1), m_dim_fl_minus_1(

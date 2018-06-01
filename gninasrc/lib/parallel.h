@@ -26,11 +26,13 @@
 #include <vector>
 
 #include "common.h"
+#include "device_buffer.h"
 
 #include <boost/optional.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition.hpp>
+#include "caffe/caffe.hpp"
 
 template<typename F, typename thread_init_t, bool Sync = false>
 struct parallel_for : private boost::thread_group {
@@ -75,7 +77,9 @@ private:
 		sz offset;
         parallel_for* par;
 		aux(sz offset, parallel_for* par) : offset(offset), par(par) {}
-		void operator()() const { par->loop(offset); }
+		void operator()() const { 
+            par->loop(offset); 
+        }
     };
     const F* m_f; // does not keep a local copy!
     thread_init_t tinit;
@@ -135,7 +139,9 @@ private:
     struct aux {
         parallel_for* par;
         aux() : par(NULL) {}
-		void operator()() const { par->loop(); }
+		void operator()() const { 
+            par->loop(); 
+        }
     };
     aux a;
     const F* m_f; // does not keep a local copy!
@@ -146,6 +152,7 @@ private:
     sz size; // size of the vector given to run() // FIXME?
     sz started; // the number of jobs given to run() the work started on
     sz finished; // the number of jobs given to run() the work finished on
+    sz num_threads;
 	boost::mutex self; // any modification or reading of mutables should lock this first
 	boost::optional<sz> get_next() {
 		boost::mutex::scoped_lock self_lk(self);

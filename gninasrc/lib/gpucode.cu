@@ -1,8 +1,7 @@
-#include <thrust/reduce.h>
-#include <thrust/device_ptr.h>
 #include <stdio.h>
 #include "gpu_util.h"
 #include "gpucode.h"
+#include "curl.h"
 
 #define THREADS_PER_BLOCK 1024
 #define warpSize 32
@@ -32,7 +31,6 @@ void evaluate_splines(float **splines, float r, float fraction, float cutoff,
 	derivs[i] = (3 * a * lx + 2 * b) * lx + c;
 }
 
-//TODO: buy compute 3.0 or greater card and implement dynamic paralellism
 //evaluate a single spline
 __device__
 float evaluate_spline(float *spline, float r, float fraction, float cutoff,
@@ -125,20 +123,6 @@ float eval_deriv_gpu(const GPUSplineInfo* splineInfo, unsigned t, float charge,
 	return ret;
 }
 
-
-//curl function to scale back positive energies and match vina calculations
-//assume v is reasonable
-__device__
-void curl(float& e, float3& deriv, float v) {
-	if (e > 0) {
-		float tmp = (v / (v + e));
-		e *= tmp;
-		tmp *= tmp;
-		for (unsigned i = 0; i < 3; i++)
-			deriv[i] *= tmp;
-	}
-}
-
 template<typename T> T __device__ __host__ zero(void);
 template<> float3 zero(void) {
 	return float3(0, 0, 0);
@@ -202,7 +186,6 @@ __device__
 void eval_intra_st(const GPUSplineInfo * spinfo, const atom_params * atoms,
 		const interacting_pair* pairs, unsigned npairs, float cutoff_sqr,
 		float v, float *st_e) {
-
 	float total = 0.0;
 	for (unsigned i = 0; i < npairs; i += 1) {
 
@@ -238,7 +221,7 @@ void eval_intra_st(const GPUSplineInfo * spinfo, const atom_params * atoms,
 //needs enough shared memory for derivatives and energies of single ligand atom
 //roffset specifies how far into the receptor atoms we are
 template<bool remainder> __global__
-void interaction_energy(const GPUNonCacheInfo dinfo, //intentionally copying from host to device
+void interaction_energy(const GPUNonCacheInfo dinfo, 
                         unsigned remainder_offset, 
                         const atom_params *ligs, force_energy_tup *out)
 {
@@ -289,6 +272,33 @@ void interaction_energy(const GPUNonCacheInfo dinfo, //intentionally copying fro
 	}
 }
 
+__device__ void reduce_energy(force_energy_tup *result, float energy) {
+    unsigned idx = threadIdx.x;
+	float e = block_sum<float>(energy);
+	if (idx == 0)
+		result[0].energy = e;
+}
+
+/*Cached version of GPU energy/deriv eval*/
+__device__
+void interaction_energy(const GPUCacheInfo& dinfo,  
+                        const atom_params *ligs, force_energy_tup *out, 
+                        float v) {
+    force_energy_tup val = force_energy_tup(0,0,0,0);
+
+    unsigned idx = threadIdx.x;
+    if (idx < dinfo.num_movable_atoms) {
+        const atom_params& a = ligs[idx];
+        unsigned t = dinfo.types[idx];
+		if (t > 1) {
+            const grid_gpu& g = dinfo.grids[t];
+            g.evaluate(a, dinfo.slope, v, val);
+            out[idx] = val;
+        }
+    }
+    reduce_energy(out, val.energy);
+}
+
 __global__ void reduce_energy(force_energy_tup *result, int n, 
         float v, float3 gridbegins, float3 gridends, float slope,
         const atom_params* ligs) {
@@ -333,6 +343,7 @@ __global__ void reduce_energy(force_energy_tup *result, int n,
 
 /* } */
 
+
 __host__ __device__
 float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
                         force_energy_tup *out, float v)
@@ -343,7 +354,7 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
     unsigned nrec_atoms = info.nrec_atoms;
 
 	//this will calculate the per-atom energies and forces.
-	//there is one execution stream for the blocks with
+	//TODO: there could be one execution stream for the blocks with
 	//a full complement of threads and a separate stream
 	//for the blocks that have the remaining threads
 	unsigned nfull_blocks = nrec_atoms / THREADS_PER_BLOCK;
@@ -356,8 +367,6 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
 		interaction_energy<1> <<<num_movable_atoms, ROUND_TO_WARP(nthreads_remain)>>>(info,
 				nrec_atoms - nthreads_remain, ligs, out);
 
-	//get total energy
-    cudaDeviceSynchronize();
     //TODO: reduce energy only launches one block, thus enforcing the
     //hardware restriction on the number of threads per block for the number of
     //movable atoms. generalize this to remove this unnecessary constraint
@@ -371,7 +380,33 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
 	return out->energy;
     #else
     float cpu_out;
-    cudaMemcpy(&cpu_out, &out->energy, sizeof(float), cudaMemcpyDeviceToHost);
+    definitelyPinnedMemcpy(&cpu_out, &out->energy, sizeof(float), cudaMemcpyDeviceToHost);
+    return cpu_out;
+    #endif
+}
+
+__global__ 
+void cache_gpu_kernel(const GPUCacheInfo info, atom_params *ligs,
+                        force_energy_tup *out, float v) {
+	interaction_energy(info, ligs, out, v);
+}
+
+__host__ __device__
+float single_point_calc(const GPUCacheInfo &info, atom_params *ligs,
+                        force_energy_tup *out, float v)
+{
+    #ifdef __CUDA_ARCH__
+	/* Assumed by warp_sum */
+	assert(THREADS_PER_BLOCK <= 1024);
+	interaction_energy(info, ligs, out, v);
+	return out->energy;
+    #else
+    /*If we're on the CPU we need to launch a kernel to do this eval*/
+    cache_gpu_kernel<<<1, ROUND_TO_WARP(info.num_movable_atoms)>>>(info, ligs, out, v);
+    abort_on_gpu_err();
+    float cpu_out;
+    definitelyPinnedMemcpy(&cpu_out, &out->energy, sizeof(float), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
     return cpu_out;
     #endif
 }
@@ -421,3 +456,30 @@ void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
 		}
 	}
 }
+
+void *getHostMem(){
+    void *r = nullptr;
+    CUDA_CHECK_GNINA(cudaHostAlloc(&r, 40960 * 1024, cudaHostAllocDefault));
+    return r;
+}
+
+cudaError definitelyPinnedMemcpy(void* dst, const void *src, size_t n, cudaMemcpyKind k){
+    assert(k != cudaMemcpyDefault);
+    if(k == cudaMemcpyDeviceToDevice || k == cudaMemcpyHostToHost)
+        return cudaMemcpy(dst, src, n, k);
+    thread_local void *buf = getHostMem();
+    assert(n < 40960 * 1024);
+    if(k == cudaMemcpyHostToDevice){
+        memcpy(buf, src, n);
+        CUDA_CHECK_GNINA(cudaMemcpyAsync(dst, buf, n, k, cudaStreamPerThread));
+        CUDA_CHECK_GNINA(cudaStreamSynchronize(cudaStreamPerThread));
+    }else{
+        assert(k == cudaMemcpyDeviceToHost);
+
+        CUDA_CHECK_GNINA(cudaMemcpyAsync(buf, src, n, k, cudaStreamPerThread));
+        CUDA_CHECK_GNINA(cudaStreamSynchronize(cudaStreamPerThread));
+        memcpy(dst, buf, n);
+    }
+    return cudaSuccess;
+}
+

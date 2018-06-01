@@ -27,6 +27,7 @@
 #include "triangular_matrix_index.h"
 #include <cuda_runtime.h>
 #include "gpu_util.h"
+#include "device_buffer.h"
 
 // these 4 lines are used 3 times verbatim - defining a temp macro to ease the pain
 #define VINA_MATRIX_DEFINE_OPERATORS \
@@ -109,9 +110,13 @@ struct triangular_matrix_gpu {
 	triangular_matrix_gpu(sz n) : m_data(NULL), m_dim(n) {
 	    triangular_matrix<T> cpu_matrix(n, 0);
 	    set_diagonal(cpu_matrix, 1);
-        CUDA_CHECK_GNINA(cudaMalloc(&m_data, sizeof(T)*cpu_matrix.m_data.size()));
-        CUDA_CHECK_GNINA(cudaMemcpy(m_data, &cpu_matrix.m_data[0], sizeof(T) * cpu_matrix.m_data.size(), cudaMemcpyHostToDevice));
+        CUDA_CHECK_GNINA(device_malloc(&m_data, sizeof(T)*cpu_matrix.m_data.size()));
+        CUDA_CHECK_GNINA(definitelyPinnedMemcpy(m_data, &cpu_matrix.m_data[0], sizeof(T) * cpu_matrix.m_data.size(), cudaMemcpyHostToDevice));
     } 
+
+    ~triangular_matrix_gpu(){
+        device_free(m_data);
+    }
 
 	__device__ const T& operator()(sz i) const { return m_data[i]; } \
 	__device__ T& operator()(sz i)       { return m_data[i]; } \

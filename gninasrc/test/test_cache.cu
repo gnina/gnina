@@ -2,25 +2,21 @@
 #include <cmath>
 #include <random>
 #include "common.h"
-#include "gpucode.h"
-#include "non_cache.h"
-#include "non_cache_gpu.h"
-#include "tree_gpu.h"
-#include "model.h"
-#include "curl.h"
+#include "cache_gpu.h"
 #include "weighted_terms.h"
 #include "custom_terms.h"
 #include "precalculate_gpu.h"
+#include "szv_grid.h"
+#include "test_cache.h"
 #include "parsed_args.h"
-#include "test_gpucode.h"
 #include "test_utils.h"
-#include "gpu_debug.h"
+#include <cuda_runtime.h>
 #define BOOST_TEST_DYN_LINK
 #include <boost/test/unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
 
-void test_interaction_energy() {
-    p_args.log << "Interaction Energy Test \n";
+void test_cache_eval_deriv() {
+    p_args.log << "Cache Eval Test \n";
     p_args.log << "Using random seed: " << p_args.seed << "\n";
     p_args.log << "Iteration " << p_args.iter_count;
     p_args.log.endl();
@@ -45,8 +41,8 @@ void test_interaction_energy() {
     weighted_terms wt(&t, t.weights());
 
     //set up splines
-    const precalculate_gpu* gprec = new precalculate_gpu(wt, approx_factor);
-    const precalculate_splines* prec = new precalculate_splines(wt, approx_factor);
+    std::unique_ptr<precalculate_gpu> gprec (new precalculate_gpu(wt, approx_factor));
+    std::unique_ptr<precalculate_splines> prec (new precalculate_splines(wt, approx_factor));
 
     //set up lig
     std::vector<atom_params> lig_atoms;
@@ -93,7 +89,7 @@ void test_interaction_energy() {
             cutoff, max_z + cutoff);
 
     //manually initialize model object
-    model* m = new model;
+    std::unique_ptr<model> m (new model);
     m->m_num_movable_atoms = lig_atoms.size();
     m->minus_forces = std::vector<vec>(m->m_num_movable_atoms);
 
@@ -114,9 +110,14 @@ void test_interaction_energy() {
 
     szv_grid_cache gridcache(*m, cutoff_sqr);
 
-    //make non_cache
-    non_cache* nc = new non_cache(gridcache, gd, prec, slope);
-    non_cache_gpu* nc_gpu = new non_cache_gpu(gridcache, gd, gprec, slope);
+    //set up cache
+    std::unique_ptr<cache> c (new cache("scoring_function_version001", gd, slope));
+    std::unique_ptr<cache_gpu> cg (new cache_gpu("scoring_function_version001", gd, slope, &(*gprec)));
+
+	std::vector<smt> atom_types_needed;
+	m->get_movable_atom_types(atom_types_needed);
+	c->populate(*m, *prec, atom_types_needed, user_grid);
+	cg->populate(*m, *gprec, atom_types_needed, user_grid);
 
     //set up GPU data
     m->initialize_gpu();
@@ -124,8 +125,8 @@ void test_interaction_energy() {
     cudaMemset(gdat.minus_forces, 0, m->minus_forces.size()*sizeof(gdat.minus_forces[0]));
 
     //get intermolecular energy and forces
-    fl g_out = single_point_calc(nc_gpu->info, gdat.coords, gdat.minus_forces, v);
-    fl c_out = nc->eval_deriv(*m, v, user_grid);
+    fl c_out = c->eval_deriv(*m, v, user_grid);
+    fl g_out = single_point_calc(cg->get_info(), gdat.coords, gdat.minus_forces, v);
 
     vec g_forces[m->minus_forces.size()];
     cudaMemcpy(g_forces, gdat.minus_forces, m->minus_forces.size()*sizeof(gdat.minus_forces[0]), cudaMemcpyDeviceToHost);
@@ -141,106 +142,4 @@ void test_interaction_energy() {
     for (size_t i=0; i<m->minus_forces.size(); ++i)
         for (size_t j=0; j<3; ++j)
             BOOST_REQUIRE_SMALL(m->minus_forces[i][j] - g_forces[i][j], (float)0.01);
-
-    //clean up after yourself
-    delete nc;
-    delete nc_gpu;
-    delete gprec;
-    delete prec;
-    delete m;
-}
-
-void test_eval_intra() {
-
-    p_args.log << "Intramolecular Energy Test \n";
-    p_args.log << "Using random seed: " << p_args.seed << "\n";
-    p_args.log << "Iteration " << p_args.iter_count;
-    p_args.log.endl();
-
-    //set up scoring function
-    custom_terms t;
-    t.add("gauss(o=0,_w=0.5,_c=8)", -0.035579);
-    t.add("gauss(o=3,_w=2,_c=8)", -0.005156);
-    t.add("repulsion(o=0,_c=8)", 0.840245);
-    t.add("hydrophobic(g=0.5,_b=1.5,_c=8)", -0.035069);
-    t.add("non_dir_h_bond(g=-0.7,_b=0,_c=8)", -0.587439);
-    t.add("num_tors_div", 5 * 0.05846 / 0.1 - 1);
-    
-    //set up a bunch of constants
-    const fl approx_factor = 10;
-    const fl v = 10;
-    const fl slope = 10;
-    const size_t natoms=0;
-    const size_t min_atoms=1;
-    const size_t max_atoms=200;
-    
-    weighted_terms wt(&t, t.weights());
-
-    //set up splines
-    const precalculate_gpu* gprec = new precalculate_gpu(wt, approx_factor);
-    const precalculate_splines* prec = new precalculate_splines(wt, approx_factor);
-
-    //generate the mol
-    std::mt19937 engine(p_args.seed);
-    std::vector<atom_params> atoms;
-    std::vector<smt> types;
-    make_mol(atoms, types, engine, natoms, min_atoms, max_atoms);
-
-    //generate pairs vector consisting of every combination that isn't super close
-    model* m = new model;
-    for (size_t i=0; i<atoms.size(); ++i) {
-        for (size_t j=i+1; j<atoms.size(); ++j) {
-            float r2 = vec_distance_sqr(*(vec*)&atoms[i], *(vec*)&atoms[j]);
-            //TODO? threshold for "closeness" is pretty arbitrary here...
-            if (r2 > 4) {
-                interacting_pair ip;
-                ip.t1 = types[i];
-                ip.t2 = types[j];
-                ip.a = i;
-                ip.b = j;
-                m->other_pairs.push_back(ip);
-            }
-        }
-    }
-
-    //set up model
-    m->minus_forces = std::vector<vec>(atoms.size(), zero_vec);
-    for (size_t i=0; i <atoms.size(); ++i) {
-        m->coords.push_back(*(vec*)&atoms[i]);
-        m->atoms.push_back(atom());
-        m->atoms[i].sm = types[i];
-        m->atoms[i].charge = atoms[i].charge;
-        m->atoms[i].coords = *(vec*)&atoms[i];
-    }
-
-    //set up GPU data structures
-    gpu_data& gdat = m->gdata;
-    m->initialize_gpu();
-    cudaMemset(gdat.minus_forces, 0, m->minus_forces.size()*sizeof(gdat.minus_forces[0]));
-    GPUNonCacheInfo dinfo;
-    dinfo.cutoff_sq = prec->cutoff_sqr();
-    dinfo.splineInfo = gprec->deviceData;
-
-    //compute intra energy 
-    fl c_out = m->eval_interacting_pairs_deriv(*prec, v, m->other_pairs, m->coords, m->minus_forces);
-    fl g_out = gdat.eval_interacting_pairs_deriv_gpu(dinfo, v, gdat.other_pairs, 
-            m->other_pairs.size());
-
-    //copy device forces
-    vec g_forces[m->minus_forces.size()];
-    cudaMemcpy(g_forces, gdat.minus_forces, m->minus_forces.size()*sizeof(gdat.minus_forces[0]), cudaMemcpyDeviceToHost);
-
-    //log the mols and check results
-    print_mol(atoms, types, p_args.log);
-    p_args.log << "CPU energy: " << c_out << " GPU energy: " << g_out << "\n\n";
-
-    BOOST_REQUIRE_SMALL(c_out - g_out, (float)0.01);
-    for (size_t i=0; i<m->minus_forces.size(); ++i)
-        for (size_t j=0; j<3; ++j)
-            BOOST_REQUIRE_SMALL(m->minus_forces[i][j] -  g_forces[i][j], (float)0.01);
-
-    //clean up
-    delete m;
-    delete gprec;
-    delete prec;
 }
