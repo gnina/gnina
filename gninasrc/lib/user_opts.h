@@ -22,41 +22,44 @@ struct cnn_options {
     std::string xyzprefix;
     unsigned seed; //random seed
 
-    cnn_options(): cnn_center(NAN,NAN,NAN), resolution(0.5), cnn_rotations(0), cnn_scoring(false), cnn_refinement(false), outputdx(false), outputxyz(false), gradient_check(false), move_minimize_frame(false), fix_receptor(true), verbose(false), seed(0) {}
+    cnn_options()
+        : cnn_center(NAN, NAN, NAN), resolution(0.5), cnn_rotations(0),
+            cnn_scoring(false), cnn_refinement(false), outputdx(false),
+            outputxyz(false), gradient_check(false), move_minimize_frame(false),
+            fix_receptor(true), verbose(false), seed(0) {
+    }
 };
 
 //just a collection of user-specified configurations
-struct user_settings
-{
-	fl energy_range;
-	sz num_modes;
-	fl out_min_rmsd;
-	fl forcecap;
-	int seed;
-	int verbosity;
-	int cpu;
-	int device; //gpu number
+struct user_settings {
+    fl energy_range;
+    sz num_modes;
+    fl out_min_rmsd;
+    fl forcecap;
+    int seed;
+    int verbosity;
+    int cpu;
+    int device; //gpu number
 
-	int exhaustiveness;
-  int num_mc_steps;
-	bool score_only;
-	bool randomize_only;
-	bool local_only;
-	bool dominimize;
-	bool include_atom_info;
-	bool gpu_on;
+    int exhaustiveness;
+    int num_mc_steps;
+    bool score_only;
+    bool randomize_only;
+    bool local_only;
+    bool dominimize;
+    bool include_atom_info;
+    bool gpu_on;
 
-  cnn_options cnnopts;
+    cnn_options cnnopts;
 
-	//reasonable defaults
-	user_settings() :
-			energy_range(2.0), num_modes(9), out_min_rmsd(1),
-					forcecap(1000), seed(auto_seed()), verbosity(1), cpu(1),
-					device(0), exhaustiveness(10), num_mc_steps(0), 
-					score_only(false), randomize_only(false), local_only(false),
-					dominimize(false), include_atom_info(false), gpu_on(false)
-	{
+    //reasonable defaults
+    user_settings()
+        : energy_range(2.0), num_modes(9), out_min_rmsd(1), forcecap(1000),
+            seed(auto_seed()), verbosity(1), cpu(1), device(0),
+            exhaustiveness(10), num_mc_steps(0), score_only(false),
+            randomize_only(false), local_only(false), dominimize(false),
+            include_atom_info(false), gpu_on(false) {
 
-	}
+    }
 };
 

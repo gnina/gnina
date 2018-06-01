@@ -10,8 +10,7 @@
 
 size_t free_mem(size_t num_cpu_threads);
 
-class device_buffer
-{
+class device_buffer {
     char* begin; //pointer to the beginning of the buffer
     size_t capacity; //buffer size in bytes is capacity*sizeof(type),
     char* next_alloc;  //pointer to the beginning of the unused region
@@ -22,14 +21,16 @@ class device_buffer
 
     bool has_space(size_t n_bytes);
 
-public:
+  public:
     device_buffer();
     void init(size_t capacity);
 
     void resize(size_t n_bytes);
     template<typename T>
     T* copy(T* cpu_object, size_t n_requested, cudaMemcpyKind kind); //returns ptr to segment
-    void reinitialize() {next_alloc = begin;}
+    void reinitialize() {
+      next_alloc = begin;
+    }
 
     ~device_buffer();
     template<typename T>
@@ -45,25 +46,24 @@ cudaError_t device_alloc_bytes(void **alloc, size_t n_bytes);
 cudaError_t device_free(void *buf);
 
 template<typename T>
-cudaError_t device_malloc(T **alloc, size_t n_bytes)
-{
-    return device_alloc_bytes((void **) alloc, n_bytes);
+cudaError_t device_malloc(T **alloc, size_t n_bytes) {
+  return device_alloc_bytes((void **) alloc, n_bytes);
 }
 
 template<typename T>
 T* device_buffer::copy(T* cpu_object, size_t n_requested, cudaMemcpyKind kind) {
-    return (T*) copy_bytes(cpu_object, n_requested * sizeof(T), kind);
+  return (T*) copy_bytes(cpu_object, n_requested * sizeof(T), kind);
 }
 
 template<typename T>
 cudaError_t device_buffer::alloc(T** alloc, size_t n_bytes) {
-    return alloc_bytes((void **) alloc, n_bytes);
+  return alloc_bytes((void **) alloc, n_bytes);
 }
 
 template<typename T>
 cudaError_t device_buffer::dealloc(T* alloc) {
-    assert(alloc >= begin && alloc < next_alloc);
-    return cudaSuccess;
+  assert(alloc >= begin && alloc < next_alloc);
+  return cudaSuccess;
 }
 
 #endif
