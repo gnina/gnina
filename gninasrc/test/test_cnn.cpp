@@ -38,29 +38,9 @@ void test_set_atom_gradients() {
     caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>* mgrid = 
       dynamic_cast<caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>*>(cnn_scorer.mgrid);
     assert(mgrid);
-    mgrid->batch_transform.resize(1);
-    mgrid->batch_transform[0] = caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>::mol_transform();
-    caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>::mol_transform& transform = mgrid->batch_transform[0];
-    vec center(0,0,0);
-    for (size_t i=0; i<mol_atoms.size(); ++i) {
-        atom_params& ainfo = mol_atoms[i];
-        transform.mol.atoms.push_back(make_float4(ainfo.coords.x,
-                    ainfo.coords.y, ainfo.coords.z, ainfo.charge));
-        transform.mol.whichGrid.push_back(mol_types[i]);
-        transform.mol.gradient.push_back(make_float3(0,0,0));
-        center += vec(ainfo.coords.x, ainfo.coords.y, ainfo.coords.z);
-    }
-    center /= mol_atoms.size();
-    transform.center = center;
-    transform.Q = quaternion(1,0,0,0);
-    transform.set_random_quaternion(caffe::caffe_rng());
-    //initialize gmaker
     GridMaker gmaker;
-    bool spherize = false;
-    double dim = round(mgrid->dimension/mgrid->resolution)+1;
-    gmaker.initialize(mgrid->resolution, mgrid->dimension, mgrid->radiusmultiple, 
-            mgrid->binary, spherize);
-    gmaker.setCenter(center[0], center[1], center[2]);
+    //set up gmaker and mgrid
+    set_cnn_grids(mgrid, gmaker, mol_atoms, mol_types);
 
     //randomly intialize gridpoint gradients
     std::vector<float> diff((smt::NumTypes)*dim*dim*dim);
@@ -91,4 +71,34 @@ void test_set_atom_gradients() {
         }
     }
     cudaFree(gpu_diff);
+}
+
+void test_subcube_grids() {
+    //randomly generate mol, randomly choose a subgrid size, generate full grid
+    //and subcube grid, check that the grid points match
+    p_args.log << "CNN Subcube Grids Test \n";
+    p_args.log << "Using random seed: " << p_args.seed << '\n';
+    p_args.log << "Iteration " << p_args.iter_count << '\n';
+    std::mt19937 engine(p_args.seed);
+
+    std::normal_distribution<> diff_dist(0, 5);
+    auto gen = std::bind(diff_dist, engine);
+
+    std::vector<atom_params> mol_atoms;
+    std::vector<smt> mol_types;
+    make_mol(mol_atoms, mol_types, engine, 0, 1, 5000, 11.5, 11.5, 11.5);
+    cnn_options cnnopts;
+    cnnopts.cnn_scoring = true;
+    model m;
+
+    //full grid first
+    CNNScorer cnn_scorer(cnnopts, m);
+    caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>* mgrid = 
+      dynamic_cast<caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>*>(cnn_scorer.mgrid);
+    assert(mgrid);
+    GridMaker gmaker;
+    //set up gmaker and mgrid
+    set_cnn_grids(mgrid, gmaker, mol_atoms, mol_types);
+
+    //now subcube grid
 }

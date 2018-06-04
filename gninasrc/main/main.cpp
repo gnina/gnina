@@ -1205,6 +1205,8 @@ Thank you!\n";
 				"resolution of grids, don't change unless you really know what you are doing")
 		("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
 				"evaluate multiple rotations of pose (max 24)")
+    ("subgrid_dim", value<double>(&cnnopts.subgrid_dim)->default_value(0.0), 
+        "Generate RNN grids with provided subgrid dim. Currently only cubic subgrids are supported.")
 		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring)->default_value(false),
 				"Use a convolutional neural network to score final pose.")
 		("cnn_update_min_frame", bool_switch(&cnnopts.keep_minimize_frame)->default_value(true),
