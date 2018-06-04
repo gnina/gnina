@@ -19,6 +19,7 @@ include(caffe/cmake/Utils.cmake)
 include(caffe/cmake/Cuda.cmake)
 #our version of caffe needs to pull in headers from gnina and we'll use c++11
 include_directories(.) 
+set(CXX11_SET 1)
 add_compile_options(-std=c++11)
 list(APPEND CUDA_NVCC_FLAGS -std=c++11)
 
