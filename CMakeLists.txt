@@ -43,6 +43,9 @@ caffe_option(ALLOW_LMDB_NOLOCK "Allow MDB_NOLOCK when reading LMDB files (only i
 # ---[ Dependencies
 include(cmake/Dependencies.cmake)
 
+find_package(OpenBabel2 REQUIRED)
+
+
 # ---[ Flags
 if(UNIX OR APPLE)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall")
@@ -67,6 +70,11 @@ configure_file(cmake/Templates/caffe_config.h.in "${PROJECT_BINARY_DIR}/caffe_co
 set(Caffe_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
 include_directories(${Caffe_INCLUDE_DIR} ${PROJECT_BINARY_DIR})
 include_directories(BEFORE src) # This is needed for gtest.
+
+include_directories(${OPENBABEL2_INCLUDE_DIR})
+
+add_compile_options(-std=c++11)
+list(APPEND CUDA_NVCC_FLAGS -std=c++11)
 
 # ---[ Subdirectories
 add_subdirectory(src/gtest)
