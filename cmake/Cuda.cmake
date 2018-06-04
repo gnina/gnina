@@ -6,6 +6,7 @@ endif()
 # This list will be used for CUDA_ARCH_NAME = All option
 set(Caffe_known_gpu_archs "35 50 60 61 70")
 
+
 ################################################################################################
 # A function for automatic detection of GPUs installed  (if autodetection is enabled)
 # Usage:
@@ -93,6 +94,7 @@ function(caffe_select_nvcc_arch_flags out_variable)
     set(__cuda_arch_bin "60 61")
   elseif(${CUDA_ARCH_NAME} STREQUAL "Volta")
     set(__cuda_arch_bin "70")
+
   elseif(${CUDA_ARCH_NAME} STREQUAL "All")
     set(__cuda_arch_bin ${Caffe_known_gpu_archs})
   elseif(${CUDA_ARCH_NAME} STREQUAL "Auto")
@@ -110,6 +112,12 @@ function(caffe_select_nvcc_arch_flags out_variable)
 
   set(__nvcc_flags "")
   set(__nvcc_archs_readable "")
+
+  string(COMPARE LESS "${CUDA_VERSION}" "9.0" iscudaolderthan90)
+  if(NOT iscudaolderthan90)
+    string(REPLACE "21(20)" "" __cuda_arch_bin "${__cuda_arch_bin}")
+    string(REPLACE "20" "" __cuda_arch_bin "${__cuda_arch_bin}")
+  endif()
 
   # Tell NVCC to add binaries for the specified GPUs
   foreach(__arch ${__cuda_arch_bin})
@@ -234,7 +242,7 @@ endfunction()
 ################################################################################################
 
 find_package(CUDA 5.5 QUIET)
-find_cuda_helper_libs(curand)  # cmake 2.8.7 compartibility which doesn't search for curand
+find_cuda_helper_libs(curand)  # cmake 2.8.7 compatibility which doesn't search for curand
 
 if(NOT CUDA_FOUND)
   return()
@@ -242,17 +250,17 @@ endif()
 
 set(HAVE_CUDA TRUE)
 message(STATUS "CUDA detected: " ${CUDA_VERSION})
-include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
-list(APPEND Caffe_LINKER_LIBS ${CUDA_CUDART_LIBRARY}
-                              ${CUDA_curand_LIBRARY} ${CUDA_CUBLAS_LIBRARIES})
+list(APPEND Caffe_INCLUDE_DIRS PUBLIC ${CUDA_INCLUDE_DIRS})
+list(APPEND Caffe_LINKER_LIBS PUBLIC ${CUDA_CUDART_LIBRARY}
+                                     ${CUDA_curand_LIBRARY} ${CUDA_CUBLAS_LIBRARIES})
 
 # cudnn detection
 if(USE_CUDNN)
   detect_cuDNN()
   if(HAVE_CUDNN)
-    add_definitions(-DUSE_CUDNN)
-    include_directories(SYSTEM ${CUDNN_INCLUDE})
-    list(APPEND Caffe_LINKER_LIBS ${CUDNN_LIBRARY})
+    list(APPEND Caffe_DEFINITIONS PUBLIC -DUSE_CUDNN)
+    list(APPEND Caffe_INCLUDE_DIRS PUBLIC ${CUDNN_INCLUDE})
+    list(APPEND Caffe_LINKER_LIBS PUBLIC ${CUDNN_LIBRARY})
   endif()
 endif()
 

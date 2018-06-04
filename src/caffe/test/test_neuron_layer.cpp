@@ -19,6 +19,7 @@
 #include "caffe/layers/prelu_layer.hpp"
 #include "caffe/layers/relu_layer.hpp"
 #include "caffe/layers/sigmoid_layer.hpp"
+#include "caffe/layers/swish_layer.hpp"
 #include "caffe/layers/tanh_layer.hpp"
 #include "caffe/layers/threshold_layer.hpp"
 
@@ -339,6 +340,84 @@ TYPED_TEST(NeuronLayerTest, TestSigmoidGradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
   SigmoidLayer<Dtype> layer(layer_param);
+  GradientChecker<Dtype> checker(1e-2, 1e-3, 1701, 0., 0.01);
+  checker.CheckGradientEltwise(&layer, this->blob_bottom_vec_,
+      this->blob_top_vec_);
+}
+
+TYPED_TEST(NeuronLayerTest, TestSwish) {
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  SwishLayer<Dtype> layer(layer_param);
+  layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+  layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+  // Now, check values
+  const Dtype* bottom_data = this->blob_bottom_->cpu_data();
+  const Dtype* top_data = this->blob_top_->cpu_data();
+  for (int i = 0; i < this->blob_bottom_->count(); ++i) {
+    EXPECT_FLOAT_EQ(top_data[i], bottom_data[i] / (1. + exp(-bottom_data[i])));
+  }
+}
+
+TYPED_TEST(NeuronLayerTest, TestSwishWithBeta) {
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  CHECK(google::protobuf::TextFormat::ParseFromString(
+      "swish_param { beta: 1.5 }", &layer_param));
+  SwishLayer<Dtype> layer(layer_param);
+  layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+  layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+  // Now, check values
+  const Dtype* bottom_data = this->blob_bottom_->cpu_data();
+  const Dtype* top_data = this->blob_top_->cpu_data();
+  for (int i = 0; i < this->blob_bottom_->count(); ++i) {
+    EXPECT_FLOAT_EQ(top_data[i], bottom_data[i] / (1. + exp(-1.5 *
+        bottom_data[i])));
+  }
+}
+
+TYPED_TEST(NeuronLayerTest, TestSwishAsLinear) {
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  CHECK(google::protobuf::TextFormat::ParseFromString(
+      "swish_param { beta: 0.0 }", &layer_param));
+  SwishLayer<Dtype> layer(layer_param);
+  layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+  layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+  // Now, check values
+  const Dtype* bottom_data = this->blob_bottom_->cpu_data();
+  const Dtype* top_data = this->blob_top_->cpu_data();
+  for (int i = 0; i < this->blob_bottom_->count(); ++i) {
+    EXPECT_FLOAT_EQ(top_data[i], bottom_data[i] / 2.0);
+  }
+}
+
+TYPED_TEST(NeuronLayerTest, TestSwishGradient) {
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  SwishLayer<Dtype> layer(layer_param);
+  GradientChecker<Dtype> checker(1e-2, 1e-3, 1701, 0., 0.01);
+  checker.CheckGradientEltwise(&layer, this->blob_bottom_vec_,
+      this->blob_top_vec_);
+}
+
+TYPED_TEST(NeuronLayerTest, TestSwishWithBetaGradient) {
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  CHECK(google::protobuf::TextFormat::ParseFromString(
+      "swish_param { beta: 1.5 }", &layer_param));
+  SwishLayer<Dtype> layer(layer_param);
+  GradientChecker<Dtype> checker(1e-2, 1e-3, 1701, 0., 0.01);
+  checker.CheckGradientEltwise(&layer, this->blob_bottom_vec_,
+      this->blob_top_vec_);
+}
+
+TYPED_TEST(NeuronLayerTest, TestSwishAsLinearGradient) {
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  CHECK(google::protobuf::TextFormat::ParseFromString(
+      "swish_param { beta: 0.0 }", &layer_param));
+  SwishLayer<Dtype> layer(layer_param);
   GradientChecker<Dtype> checker(1e-2, 1e-3, 1701, 0., 0.01);
   checker.CheckGradientEltwise(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_);
@@ -791,16 +870,19 @@ TYPED_TEST(NeuronLayerTest, TestPReLUInPlace) {
   ip2.Backward(blob_middle_vec_2, propagate_down, blob_bottom_vec_2);
   // Check numbers
   for (int s = 0; s < blob_bottom_2->count(); ++s) {
-    EXPECT_EQ(this->blob_bottom_->cpu_diff()[s], blob_bottom_2->cpu_diff()[s]);
+    EXPECT_FLOAT_EQ(this->blob_bottom_->cpu_diff()[s],
+        blob_bottom_2->cpu_diff()[s]);
   }
   for (int s = 0; s < ip.blobs()[0]->count(); ++s) {
-    EXPECT_EQ(ip.blobs()[0]->cpu_diff()[s], ip2.blobs()[0]->cpu_diff()[s]);
+    EXPECT_FLOAT_EQ(ip.blobs()[0]->cpu_diff()[s],
+        ip2.blobs()[0]->cpu_diff()[s]);
   }
   for (int s = 0; s < ip.blobs()[1]->count(); ++s) {
-    EXPECT_EQ(ip.blobs()[1]->cpu_diff()[s], ip2.blobs()[1]->cpu_diff()[s]);
+    EXPECT_FLOAT_EQ(ip.blobs()[1]->cpu_diff()[s],
+        ip2.blobs()[1]->cpu_diff()[s]);
   }
   for (int s = 0; s < prelu.blobs()[0]->count(); ++s) {
-    EXPECT_EQ(prelu.blobs()[0]->cpu_diff()[s],
+    EXPECT_FLOAT_EQ(prelu.blobs()[0]->cpu_diff()[s],
         prelu2.blobs()[0]->cpu_diff()[s]);
   }
 }
