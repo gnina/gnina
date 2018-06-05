@@ -3,7 +3,6 @@ project (gnina C CXX)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 #disable parts of caffe we don't need
-set(USE_CUDNN 0)
 set(USE_LMDB 0)
 set(USE_LEVELDB 0)
 set(USE_OPENCV 0)
