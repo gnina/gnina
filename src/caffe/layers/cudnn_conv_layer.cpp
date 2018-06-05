@@ -4,6 +4,7 @@
 
 #include "caffe/layers/cudnn_conv_layer.hpp"
 
+
 namespace caffe {
 
 // Set to three for the benefit of the backward pass, which

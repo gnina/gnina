@@ -41,8 +41,8 @@ void CuDNNPoolingLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
   PoolingLayer<Dtype>::Reshape(bottom, top);
 
-  cudnnSetTensorNdDescriptorEx(bottom_desc_, CUDNN_TENSOR_NCHW, cudnn::dataType<Dtype>::type, this->input_shape_.count(), this->input_shape_.cpu_data());
-  cudnnSetTensorNdDescriptorEx(top_desc_, CUDNN_TENSOR_NCHW, cudnn::dataType<Dtype>::type, this->output_shape_.count(), this->output_shape_.cpu_data());
+  cudnnSetTensorNdDescriptorEx(bottom_desc_, CUDNN_TENSOR_NCHW, cudnn::dataType<Dtype>::type, bottom[0]->shape().size(), &bottom[0]->shape()[0]);
+  cudnnSetTensorNdDescriptorEx(top_desc_, CUDNN_TENSOR_NCHW, cudnn::dataType<Dtype>::type, top[0]->shape().size(), &top[0]->shape()[0]);
 }
 
 template <typename Dtype>

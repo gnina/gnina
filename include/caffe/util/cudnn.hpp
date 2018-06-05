@@ -4,9 +4,12 @@
 
 #include <cudnn.h>
 #include <vector>
+#include <gflags/gflags.h>
 
 #include "caffe/common.hpp"
 #include "caffe/proto/caffe.pb.h"
+
+DECLARE_bool(use_tensor_core);
 
 #define CUDNN_VERSION_MIN(major, minor, patch) \
     (CUDNN_VERSION >= (major * 1000 + minor * 100 + patch))
@@ -108,6 +111,9 @@ inline void createFilterDesc(cudnnFilterDescriptor_t* desc, const std::vector<in
 template <typename Dtype>
 inline void createConvolutionDesc(cudnnConvolutionDescriptor_t* conv) {
   CUDNN_CHECK(cudnnCreateConvolutionDescriptor(conv));
+  if(FLAGS_use_tensor_core) {
+    CUDNN_CHECK(cudnnSetConvolutionMathType(*conv, CUDNN_TENSOR_OP_MATH));
+  }
 }
 
 template<typename Dtype>
