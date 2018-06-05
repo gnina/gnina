@@ -139,10 +139,10 @@ shared_ptr<Layer<Dtype> > GetPoolingLayer(const LayerParameter& param) {
     // cuDNN, use Caffe layer to max pooling, or don't use in place
     // layers after max pooling layers
     if (param.pooling_param().pool() == PoolingParameter_PoolMethod_MAX) {
-        return shared_ptr<Layer<Dtype> >(new PoolingLayer<Dtype>(param));
-    } else {
-        return shared_ptr<Layer<Dtype> >(new CuDNNPoolingLayer<Dtype>(param));
+      LOG(WARNING) << "Using cuDNN for MAX pool.  DO NOT MODIFY RESULT IN-PLACE!";
     }
+    return shared_ptr<Layer<Dtype> >(new CuDNNPoolingLayer<Dtype>(param));
+
 #endif
   } else {
     LOG(FATAL) << "Layer " << param.name() << " has unknown engine.";
