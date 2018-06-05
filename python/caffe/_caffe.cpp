@@ -376,47 +376,6 @@ bp::object NCCL_New_Uid() {
 }
 #endif
 
-template<typename Dtype>
-class NetCallback: public Net<Dtype>::Callback {
- public:
-  explicit NetCallback(bp::object run) : run_(run) {}
-
- protected:
-  virtual void run(int layer) {
-    run_(layer);
-  }
-  bp::object run_;
-};
-void Net_before_forward(Net<Dtype>* net, bp::object run) {
-  net->add_before_forward(new NetCallback<Dtype>(run));
-}
-void Net_after_forward(Net<Dtype>* net, bp::object run) {
-  net->add_after_forward(new NetCallback<Dtype>(run));
-}
-void Net_before_backward(Net<Dtype>* net, bp::object run) {
-  net->add_before_backward(new NetCallback<Dtype>(run));
-}
-void Net_after_backward(Net<Dtype>* net, bp::object run) {
-  net->add_after_backward(new NetCallback<Dtype>(run));
-}
-
-void Net_add_nccl(Net<Dtype>* net
-#ifdef USE_NCCL
-  , NCCL<Dtype>* nccl
-#endif
-) {
-#ifdef USE_NCCL
-  net->add_after_backward(nccl);
-#endif
-}
-#ifndef USE_NCCL
-template<typename Dtype>
-class NCCL {
- public:
-  NCCL(shared_ptr<Solver<Dtype> > solver, const string& uid) {}
-};
-#endif
-
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(SolveOverloads, Solve, 0, 1);
 
 BOOST_PYTHON_MODULE(_caffe) {

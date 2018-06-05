@@ -3,6 +3,7 @@
 #ifdef USE_CUDNN
 
 #include <cudnn.h>
+#include <vector>
 
 #include "caffe/common.hpp"
 #include "caffe/proto/caffe.pb.h"
@@ -74,7 +75,7 @@ template<> class dataType<double> {
 };
 
 template <typename Dtype>
-inline void createTensor4dDesc(cudnnTensorDescriptor_t* desc) {
+inline void createTensorDesc(cudnnTensorDescriptor_t* desc) {
   CUDNN_CHECK(cudnnCreateTensorDescriptor(desc));
 }
 
@@ -98,16 +99,10 @@ inline void setTensor4dDesc(cudnnTensorDescriptor_t* desc,
 }
 
 template <typename Dtype>
-inline void createFilterDesc(cudnnFilterDescriptor_t* desc,
-    int n, int c, int h, int w) {
+inline void createFilterDesc(cudnnFilterDescriptor_t* desc, const std::vector<int>& shape) {
   CUDNN_CHECK(cudnnCreateFilterDescriptor(desc));
-#if CUDNN_VERSION_MIN(5, 0, 0)
-  CUDNN_CHECK(cudnnSetFilter4dDescriptor(*desc, dataType<Dtype>::type,
-      CUDNN_TENSOR_NCHW, n, c, h, w));
-#else
-  CUDNN_CHECK(cudnnSetFilter4dDescriptor_v4(*desc, dataType<Dtype>::type,
-      CUDNN_TENSOR_NCHW, n, c, h, w));
-#endif
+  CUDNN_CHECK(cudnnSetFilterNdDescriptor(*desc, dataType<Dtype>::type,
+      CUDNN_TENSOR_NCHW, shape.size(), &shape[0]));
 }
 
 template <typename Dtype>
@@ -115,43 +110,18 @@ inline void createConvolutionDesc(cudnnConvolutionDescriptor_t* conv) {
   CUDNN_CHECK(cudnnCreateConvolutionDescriptor(conv));
 }
 
-template <typename Dtype>
+template<typename Dtype>
 inline void setConvolutionDesc(cudnnConvolutionDescriptor_t* conv,
     cudnnTensorDescriptor_t bottom, cudnnFilterDescriptor_t filter,
-    int pad_h, int pad_w, int stride_h, int stride_w) {
-#if CUDNN_VERSION_MIN(6, 0, 0)
-  CUDNN_CHECK(cudnnSetConvolution2dDescriptor(*conv,
-      pad_h, pad_w, stride_h, stride_w, 1, 1, CUDNN_CROSS_CORRELATION,
-      dataType<Dtype>::type));
-#else
-    CUDNN_CHECK(cudnnSetConvolution2dDescriptor(*conv,
-      pad_h, pad_w, stride_h, stride_w, 1, 1, CUDNN_CROSS_CORRELATION));
-#endif
+    const std::vector<int>& pad, const std::vector<int>& stride) {
+  CHECK_EQ(pad.size(),stride.size())<< "Mismatched pad and stride in setConvolutionDesc";
+  unsigned n = pad.size();
+  std::vector<int> dilation(n, 1);
+
+  CUDNN_CHECK(cudnnSetConvolutionNdDescriptor(*conv, n, &pad[0], &stride[0], &dilation[0],
+          CUDNN_CROSS_CORRELATION,  dataType<Dtype>::type));
 }
 
-template <typename Dtype>
-inline void createPoolingDesc(cudnnPoolingDescriptor_t* pool_desc,
-    PoolingParameter_PoolMethod poolmethod, cudnnPoolingMode_t* mode,
-    int h, int w, int pad_h, int pad_w, int stride_h, int stride_w) {
-  switch (poolmethod) {
-  case PoolingParameter_PoolMethod_MAX:
-    *mode = CUDNN_POOLING_MAX;
-    break;
-  case PoolingParameter_PoolMethod_AVE:
-    *mode = CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING;
-    break;
-  default:
-    LOG(FATAL) << "Unknown pooling method.";
-  }
-  CUDNN_CHECK(cudnnCreatePoolingDescriptor(pool_desc));
-#if CUDNN_VERSION_MIN(5, 0, 0)
-  CUDNN_CHECK(cudnnSetPooling2dDescriptor(*pool_desc, *mode,
-        CUDNN_PROPAGATE_NAN, h, w, pad_h, pad_w, stride_h, stride_w));
-#else
-  CUDNN_CHECK(cudnnSetPooling2dDescriptor_v4(*pool_desc, *mode,
-        CUDNN_PROPAGATE_NAN, h, w, pad_h, pad_w, stride_h, stride_w));
-#endif
-}
 
 template <typename Dtype>
 inline void createActivationDescriptor(cudnnActivationDescriptor_t* activ_desc,
