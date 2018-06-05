@@ -12,8 +12,8 @@ void CuDNNLCNLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   CUDNN_CHECK(cudnnCreate(&handle_));
   CUDNN_CHECK(cudnnCreateLRNDescriptor(&norm_desc_));
-  cudnn::createTensor4dDesc<Dtype>(&bottom_desc_);
-  cudnn::createTensor4dDesc<Dtype>(&top_desc_);
+  cudnn::createTensorDesc<Dtype>(&bottom_desc_);
+  cudnn::createTensorDesc<Dtype>(&top_desc_);
 
   // create a LRN handle
   handles_setup_ = true;
@@ -29,15 +29,12 @@ template <typename Dtype>
 void CuDNNLCNLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
   LRNLayer<Dtype>::Reshape(bottom, top);
-  cudnn::setTensor4dDesc<Dtype>(&bottom_desc_, bottom[0]->num(),
-      this->channels_, this->height_, this->width_);
-  cudnn::setTensor4dDesc<Dtype>(&top_desc_, bottom[0]->num(),
-      this->channels_, this->height_, this->width_);
+  cudnnSetTensorNdDescriptorEx(bottom_desc_, CUDNN_TENSOR_NCHW, cudnn::dataType<Dtype>::type, bottom[0]->num_axes(), &bottom[0]->shape()[0]);
+  cudnnSetTensorNdDescriptorEx(top_desc_, CUDNN_TENSOR_NCHW, cudnn::dataType<Dtype>::type, top[0]->num_axes(), &top[0]->shape()[0]);
   CUDNN_CHECK(cudnnSetLRNDescriptor(norm_desc_, size_, alpha_, beta_, k_));
 
   // allocate / reallocate tempData buffers
-  size_t totalSizeInBytes = sizeof(Dtype)*bottom[0]->num()* \
-                            this->channels_*this->height_*this->width_;
+  size_t totalSizeInBytes = sizeof(Dtype)*bottom[0]->count();
 
   if (totalSizeInBytes > tempDataSize) {
     tempDataSize = totalSizeInBytes;
