@@ -244,6 +244,9 @@ void bfgs_gpu(quasi_newton_aux_gpu<infoT> f, conf_gpu x, conf_gpu x_orig,
   if (idx == 0) {
     f0 = f(x, g);
     f_orig = f0;
+    g_orig = g;
+    x_orig = x; 
+    p = g;
   }
   VINA_U_FOR(step, params.maxiters) {
     if (idx < g.n) {
