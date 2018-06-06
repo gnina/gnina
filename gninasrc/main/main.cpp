@@ -525,7 +525,9 @@ void main_procedure(model& m, precalculate& prec,
 
 			if (cache_needed)
 				doing(settings.verbosity, "Analyzing the binding site", log);
-            std::unique_ptr<cache> c (settings.gpu_on ? 
+            std::unique_ptr<cache> c ((settings.gpu_on && 
+                  !(settings.cnnopts.cnn_scoring || 
+                    settings.cnnopts.cnn_refinement)) ? 
                 new cache_gpu("scoring_function_version001", 
                 gd, slope, dynamic_cast<precalculate_gpu*>(&prec)) : 
                 new cache("scoring_function_version001", gd, slope));
