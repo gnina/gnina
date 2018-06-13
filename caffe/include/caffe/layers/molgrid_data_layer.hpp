@@ -12,7 +12,6 @@
 #include <boost/thread/condition_variable.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
-#include <boost/math/quaternion.hpp>
 #include <boost/multi_array/multi_array_ref.hpp>
 #include "caffe/blob.hpp"
 #include "caffe/data_transformer.hpp"
@@ -79,10 +78,9 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     explicit BaseMolGridDataLayer(const LayerParameter& param) : 
       MolGridDataLayer<Dtype>(param), data(NULL), data2(NULL), data_ratio(0),
       num_rotations(0), current_rotation(0),
-      example_size(0), inmem(false), resolution(0.5), 
-      dimension(23.5), radiusmultiple(1.5), fixedradius(0), 
-      randtranslate(0), ligpeturb_translate(0),
-      binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
+      example_size(0), inmem(false), resolution(0.5),
+      dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
+      jitter(0.0), binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
       gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
   virtual ~BaseMolGridDataLayer();
@@ -152,16 +150,20 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   void getLigandChannels(int batch_idx, vector<short>& whichGrid);
   void getReceptorGradient(int batch_idx, vector<float3>& gradient);
   void getReceptorTransformationGradient(int batch_idx, vec& force, vec& torque);
-  void getMappedReceptorGradient(int batch_idx, unordered_map<string ,float3>& gradient);
+  void getMappedReceptorGradient(int batch_idx, unordered_map<string, float3>& gradient);
   void getLigandGradient(int batch_idx, vector<float3>& gradient);
   void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient);
 
   //set in memory buffer
-  void setReceptor(const vector<atom>& receptor)
+  //will apply translate and rotate iff rotate is valid
+  void setReceptor(const vector<atom>& receptor, const vec& translate = {}, const qt& rotate = {})
   {
     mem_rec.atoms.clear();
     mem_rec.whichGrid.clear();
     mem_rec.gradient.clear();
+
+    float3 c = make_float3(mem_lig.center[0], mem_lig.center[1], mem_lig.center[2]);
+    float3 trans = make_float3(translate[0],translate[1],translate[2]);
 
     //receptor atoms
     for(unsigned i = 0, n = receptor.size(); i < n; i++)
@@ -174,6 +176,16 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
         ainfo.x = a.coords[0];
         ainfo.y = a.coords[1];
         ainfo.z = a.coords[2];
+
+        if(rotate.real() != 0) {
+          //transform receptor coordinates
+          //todo: move this to the gpu
+          float3 pt = rotate.transform(ainfo.x, ainfo.y, ainfo.z, c, trans);
+          ainfo.x = pt.x;
+          ainfo.y = pt.y;
+          ainfo.z = pt.z;
+        }
+
         if (fixedradius <= 0)
           ainfo.w = xs_radius(t);
         else
@@ -224,9 +236,9 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
         center += coord;
         acnt++;
       }
-      else
+      else if(t > 1) //don't warn about hydrogens
       {
-        CHECK_LE(t, 1) << "Unsupported atom type " << smina_type_to_string(t);
+        std::cerr << "Unsupported atom type " << smina_type_to_string(t);
       }
     }
     center /= acnt; //not ligand.size() because of hydrogens
@@ -247,7 +259,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   friend void ::test_set_atom_gradients();
   protected:
   ///////////////////////////   PROTECTED DATA TYPES   //////////////////////////////
-  typedef GridMaker::quaternion quaternion;
+  typedef qt quaternion;
   typedef typename boost::multi_array_ref<Dtype, 4>  Grids;
   typedef typename boost::multi_array_ref<Dtype, 6>  RNNGrids;
 
@@ -568,11 +580,12 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
         gradient.push_back(a.gradient[i]); //NOT rotating, but that shouldn't matter, right?
 
         float4 atom = a.atoms[i];
-        quaternion p(0, atom.x-a.center[0], atom.y-a.center[1], atom.z-a.center[2]);
-        p = transform.Q * p * (conj(transform.Q) / norm(transform.Q));
-        atom.x = p.R_component_2() + a.center[0] + transform.center[0];
-        atom.y = p.R_component_3() + a.center[1] + transform.center[1];
-        atom.z = p.R_component_4() + a.center[2] + transform.center[2];
+        gfloat3 center(a.center[0],a.center[1],a.center[2]);
+        gfloat3 translate(transform.center[0],transform.center[1], transform.center[2]);
+        float3 pt = transform.Q.transform(atom.x, atom.y, atom.z, center, translate);
+        atom.x = pt.x;
+        atom.y = pt.y;
+        atom.z = pt.z;
         atoms.push_back(atom);
 
         //LOG(INFO) << "Transforming " << a.atoms[i].x<<","<<a.atoms[i].y<<","<<a.atoms[i].z<<" to "<<atom.x<<","<<atom.y<<","<<atom.z;
@@ -614,11 +627,11 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
 
     output_transform(): x(0), y(0), z(0), pitch(0), yaw(0), roll(0) {}
 
-    output_transform(Dtype X, Dtype Y, Dtype, Dtype Z, const quaternion& Q): x(X), y(Y), z(Z) {
+    output_transform(Dtype X, Dtype Y, Dtype, Dtype Z, const qt& Q): x(X), y(Y), z(Z) {
       set_from_quaternion(Q);
     }
 
-    void set_from_quaternion(const quaternion& Q) {
+    void set_from_quaternion(const qt& Q) {
       //convert to euler angles
       //https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
       // roll (x-axis rotation)
@@ -646,12 +659,12 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   };
   struct mol_transform {
     mol_info mol;
-    quaternion Q;  // rotation
+    qt Q;  // rotation
     vec center; // translation
 
     mol_transform() {
       mol = mol_info();
-      Q = quaternion(0,0,0,0);
+      Q = qt(0,0,0,0);
       center[0] = center[1] = center[2] = 0;
     }
 
@@ -681,7 +694,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
       double r3 = sqr*sin(2*M_PI*u3);
       double r4 = sqr*cos(2*M_PI*u3);
 
-      Q = quaternion(r1,r2,r3,r4);
+      Q = qt(r1,r2,r3,r4);
     }
 
   };
@@ -721,10 +734,12 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   double fixedradius;
   double randtranslate;
   double ligpeturb_translate;
+  double jitter;
   bool ligpeturb_rotate;
   bool binary; //produce binary occupancies
   bool randrotate;
   bool ligpeturb; //for spatial transformer
+  bool ignore_ligand; //for debugging
 
   unsigned dim; //grid points on one side
   unsigned numgridpoints; //dim*dim*dim

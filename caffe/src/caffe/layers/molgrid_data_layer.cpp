@@ -39,7 +39,6 @@ namespace smina_atom_type
   atom_data_initializer initialize_defaults;
 }
 
-
 namespace caffe {
 
 template <typename Dtype, class GridMakerT>
@@ -160,6 +159,10 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::getReceptorTransformationGradient(
 
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
   mol_info& mol = batch_transform[batch_idx].mol;
+
+  CHECK(mol.center == mem_lig.center) << "Centers not equal; receptor transformation gradient only supported in-mem";
+
+
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
   {
     if (mol.whichGrid[i] < numReceptorTypes)
@@ -467,6 +470,8 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
   ligpeturb = param.peturb_ligand();
   ligpeturb_translate = param.peturb_ligand_translate();
   ligpeturb_rotate = param.peturb_ligand_rotate();
+  jitter = param.jitter();
+  ignore_ligand = param.ignore_ligand();
   radiusmultiple = param.radius_multiple();
   fixedradius = param.fixed_radius();
   bool hasaffinity = param.has_affinity();
@@ -561,9 +566,8 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
 template <typename Dtype, class GridMakerT>
 typename BaseMolGridDataLayer<Dtype, GridMakerT>::quaternion BaseMolGridDataLayer<Dtype, GridMakerT>::axial_quaternion()
 {
-  using namespace boost::math;
   unsigned rot = current_rotation;
-  quaternion ret;
+  qt ret;
   //first rotate to a face
   switch(rot%6) {
     case 0:
@@ -660,7 +664,13 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_mol_info(const string& file, c
        std::cerr << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded\n";
       }
     }
-    center /= cnt;
+
+    if(cnt == 0) {
+      std::cerr << "WARNING: No atoms in " << file <<"\n";
+    }
+    else {
+      center /= cnt;
+    }
   }
   else if(!boost::algorithm::ends_with(file,"none")) //reserved word
   {
@@ -763,6 +773,8 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_minfo(Dtype *data,
 
   //include receptor and ligand atoms
   transform.mol.append(recatoms);
+  //set center to ligand center
+  transform.mol.center = ligatoms.center;
 
   if(ligpeturb) {
     if(ligpeturb_rotate)
@@ -781,15 +793,16 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_minfo(Dtype *data,
     peturb.y = -ligtrans.center[1];
     peturb.z = -ligtrans.center[2];
 
-    quaternion qinv = conj(ligtrans.Q)/norm(ligtrans.Q); //not Cayley, not euclidean norm - already squared
+    qt qinv = conj(ligtrans.Q)/norm(ligtrans.Q); //not Cayley, not euclidean norm - already squared
     peturb.set_from_quaternion(qinv);
 
+    //set the center to the translated value
+    transform.mol.center = ligatoms.center + ligtrans.center;
+  } else if(ignore_ligand) {
+    //do nothing - ligand is only used to set center
   } else {
     transform.mol.append(ligatoms);
   }
-
-  //set center to ligand center
-  transform.mol.center = ligatoms.center;
 
   //figure out transformation
   transform.Q = quaternion(1,0,0,0);
@@ -809,6 +822,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_minfo(Dtype *data,
   {
     double radius = ligatoms.radius();
     //don't let ligand atoms translate out of sphere inscribed in box
+    if(ignore_ligand) radius = 0;
     double maxtrans = max(dimension/2.0 - radius,0.0);
     transform.add_random_displacement(rng, min(randtranslate,maxtrans));
   }
@@ -817,13 +831,26 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_minfo(Dtype *data,
     transform.Q *= axial_quaternion();
   }
 
-  //TODO move this into gridmaker.setAtoms, have it just take the mol_transform as input
+  //TODO move this into gridmaker.setAtoms, have it just take the mol_transform as input - separate receptor transform as well
   gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
- 
+
   if(transform.mol.atoms.size() == 0) {
      std::cerr << "ERROR: No atoms in molecule.  I can't deal with this.\n";
      exit(-1); //presumably you never actually want this and it results in a cuda error
   } 
+  if(jitter > 0) {
+    //add small random displacement (in-place) to atoms
+    for(unsigned i = 0, n = transform.mol.atoms.size(); i < n; i++) {
+      float4& atom = transform.mol.atoms[i];
+      float xdiff = jitter*(unit_sample(rng)*2.0-1.0);
+      atom.x += xdiff;
+      float ydiff = jitter*(unit_sample(rng)*2.0-1.0);
+      atom.y += ydiff;
+      float zdiff = jitter*(unit_sample(rng)*2.0-1.0);
+      atom.z += zdiff;
+    }
+  }
+
   //compute grid from atom info arrays
   if(gpu)
   {
@@ -836,7 +863,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_minfo(Dtype *data,
   }
   else
   {
-    gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, data, numReceptorTypes + numLigandTypes);
+    gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(), data, numReceptorTypes + numLigandTypes);
   }
 }
 
@@ -1053,7 +1080,7 @@ template <typename Dtype, class GridMakerT>
 void BaseMolGridDataLayer<Dtype, GridMakerT>::backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, bool gpu)
 {
   //propagate gradient grid onto atom positions
-  if(compute_atom_gradients || true) {
+  if(compute_atom_gradients) {
     unsigned batch_size = top_shape[0];
     Dtype *diff = NULL;
     if(gpu) {
@@ -1067,11 +1094,8 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::backward(const vector<Blob<Dtype>*
         int offset = item_id*example_size;
         mol_transform& transform = batch_transform[item_id];
         gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
-
-	      // boost::timer::cpu_timer time;
         gmaker.setAtomGradientsCPU(transform.mol.atoms, transform.mol.whichGrid, 
-                transform.Q, diff, transform.mol.gradient, offset, numReceptorTypes+numLigandTypes);
-	      // std::cout << "CPU grid time " << time.elapsed().wall/1000000000.0 << "\n";
+                transform.Q.boost(), diff, transform.mol.gradient, offset, numReceptorTypes+numLigandTypes);
       }
     }
   }
@@ -1104,8 +1128,8 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::Backward_relevance(const vector<Bl
 
     Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
 
-    gmaker.setAtomRelevanceCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q, grids,
-        transform.mol.gradient, item_id);
+    gmaker.setAtomRelevanceCPU(transform.mol.atoms, transform.mol.whichGrid, 
+        transform.Q.boost(), grids, transform.mol.gradient, item_id);
   }
 
   //float bottom_sum = 0.0;

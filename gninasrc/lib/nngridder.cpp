@@ -13,7 +13,6 @@
 #include <cuda_runtime.h>
 #include "gpu_math.h"
 
-
 #define CUDA_CHECK(condition) \
   /* Code block avoids redefinition of cudaError_t error */ \
   do { \
@@ -23,35 +22,28 @@
 
 using namespace boost;
 
-
-
 //output a grid the file in map format (for debug)
-void NNGridder::outputMAPGrid(ostream& out, Grid& grid)
-{
-	unsigned max = dims[0].n + 1;
-	out.precision(5);
-	out << "GRID_PARAMETER_FILE\nGRID_DATA_FILE\nMACROMOLECULE\n";
-	out << "SPACING " << resolution << "\n";
-	out << "NELEMENTS " << max - 1 << " " << max - 1 << " " << max - 1 << "\n";
-	out << "CENTER";
-	for (unsigned i = 0; i < 3; i++)
-	{
-		double c = (dims[i].end + dims[i].begin) / 2.0;
-		out << " " << c;
-	}
-	out << "\n";
+void NNGridder::outputMAPGrid(ostream& out, Grid& grid) {
+  unsigned max = dims[0].n + 1;
+  out.precision(5);
+  out << "GRID_PARAMETER_FILE\nGRID_DATA_FILE\nMACROMOLECULE\n";
+  out << "SPACING " << resolution << "\n";
+  out << "NELEMENTS " << max - 1 << " " << max - 1 << " " << max - 1 << "\n";
+  out << "CENTER";
+  for (unsigned i = 0; i < 3; i++) {
+    double c = (dims[i].end + dims[i].begin) / 2.0;
+    out << " " << c;
+  }
+  out << "\n";
 
-	//now coordinates - z,y,x
-	for (unsigned k = 0; k < max; k++)
-	{
-		for (unsigned j = 0; j < max; j++)
-		{
-			for (unsigned i = 0; i < max; i++)
-			{
-				out << grid[i][j][k] << "\n";
-			}
-		}
-	}
+  //now coordinates - z,y,x
+  for (unsigned k = 0; k < max; k++) {
+    for (unsigned j = 0; j < max; j++) {
+      for (unsigned i = 0; i < max; i++) {
+        out << grid[i][j][k] << "\n";
+      }
+    }
+  }
 }
 
 //output a grid the file in map format (for debug)
@@ -93,34 +85,35 @@ void RNNMolsGridder::outputMAPGrid(ostream& out, Grid& grid)
 }
 
 //output a grid the file in dx format (for debug)
-void NNGridder::outputDXGrid(ostream& out, Grid& grid)
-{
-	unsigned n = dims[0].n + 1;
+void NNGridder::outputDXGrid(ostream& out, Grid& grid) {
+  unsigned n = dims[0].n + 1;
   out.precision(5);
   setprecision(5);
   out << fixed;
-  out << "object 1 class gridpositions counts " << n << " " << n << " " << " " << n << "\n";
+  out << "object 1 class gridpositions counts " << n << " " << n << " " << " "
+      << n << "\n";
   out << "origin";
-  for (unsigned i = 0; i < 3; i++)
-  {
+  for (unsigned i = 0; i < 3; i++) {
     out << " " << dims[i].begin;
   }
   out << "\n";
-  out << "delta " << resolution << " 0 0\ndelta 0 " << resolution << " 0\ndelta 0 0 " << resolution << "\n";
-  out << "object 2 class gridconnections counts " << n << " " << n << " " << " " << n << "\n";
-  out << "object 3 class array type double rank 0 items [ " << n*n*n << "] data follows\n";
+  out << "delta " << resolution << " 0 0\ndelta 0 " << resolution
+      << " 0\ndelta 0 0 " << resolution << "\n";
+  out << "object 2 class gridconnections counts " << n << " " << n << " " << " "
+      << n << "\n";
+  out << "object 3 class array type double rank 0 items [ " << n * n * n
+      << "] data follows\n";
   //now coordinates - x,y,z
   unsigned total = 0;
-  for (unsigned i = 0; i < n; i++)
-  {
-    for (unsigned j = 0; j < n; j++)
-    {
-      for (unsigned k = 0; k < n; k++)
-      {
+  for (unsigned i = 0; i < n; i++) {
+    for (unsigned j = 0; j < n; j++) {
+      for (unsigned k = 0; k < n; k++) {
         out << grid[i][j][k];
         total++;
-        if(total % 3 == 0) out << "\n";
-        else out << " ";
+        if (total % 3 == 0)
+          out << "\n";
+        else
+          out << " ";
       }
     }
   }
@@ -169,147 +162,126 @@ void RNNMolsGridder::outputDXGrid(ostream& out, Grid& grid)
 }
 
 //read a dx file into grid
-bool NNGridder::readDXGrid(istream& in, vec& center, double& res, Grid& grid)
-{
-	string line;
-	vector<string> tokens;
+bool NNGridder::readDXGrid(istream& in, vec& center, double& res, Grid& grid) {
+  string line;
+  vector<string> tokens;
 
-	res = 0;
-	getline(in, line);
-	split(tokens, line, is_any_of(" \t"), token_compress_on);
-	if(tokens.size() != 8) return false;
-	unsigned n = lexical_cast<unsigned>(tokens[7]);
-	if(lexical_cast<unsigned>(tokens[6]) != n) return false;
-	if(lexical_cast<unsigned>(tokens[5]) != n) return false;
+  res = 0;
+  getline(in, line);
+  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  if (tokens.size() != 8) return false;
+  unsigned n = lexical_cast<unsigned>(tokens[7]);
+  if (lexical_cast<unsigned>(tokens[6]) != n) return false;
+  if (lexical_cast<unsigned>(tokens[5]) != n) return false;
 
-	//the center
-	getline(in, line);
-	split(tokens, line, is_any_of(" \t"), token_compress_on);
-	if(tokens.size() != 4) return false;
-	double x = lexical_cast<double>(tokens[1]);
-	double y = lexical_cast<double>(tokens[2]);
-	double z = lexical_cast<double>(tokens[3]);
+  //the center
+  getline(in, line);
+  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  if (tokens.size() != 4) return false;
+  double x = lexical_cast<double>(tokens[1]);
+  double y = lexical_cast<double>(tokens[2]);
+  double z = lexical_cast<double>(tokens[3]);
 
-	//the transformation matrix, which has the resolution
-	getline(in, line);
-	split(tokens, line, is_any_of(" \t"), token_compress_on);
-	if(tokens.size() != 4) return false;
-	res = lexical_cast<float>(tokens[1]);
+  //the transformation matrix, which has the resolution
+  getline(in, line);
+  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  if (tokens.size() != 4) return false;
+  res = lexical_cast<float>(tokens[1]);
 
-	getline(in, line);
-	split(tokens, line, is_any_of(" \t"), token_compress_on);
-	if(tokens.size() != 4) return false;
-	if(res != lexical_cast<float>(tokens[2])) return false;
+  getline(in, line);
+  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  if (tokens.size() != 4) return false;
+  if (res != lexical_cast<float>(tokens[2])) return false;
 
-	getline(in, line);
-	split(tokens, line, is_any_of(" \t"), token_compress_on);
-	if(tokens.size() != 4) return false;
-	if(res != lexical_cast<float>(tokens[3])) return false;
+  getline(in, line);
+  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  if (tokens.size() != 4) return false;
+  if (res != lexical_cast<float>(tokens[3])) return false;
 
-	//figure out center
-	double half = res*n/2.0;
-	center[0] = x+half;
-	center[1] = y+half;
-	center[2] = z+half;
+  //figure out center
+  double half = res * n / 2.0;
+  center[0] = x + half;
+  center[1] = y + half;
+  center[2] = z + half;
 
-	//grid connections
-	getline(in, line);
-	//object 3
-	getline(in, line);
+  //grid connections
+  getline(in, line);
+  //object 3
+  getline(in, line);
 
-	//data begins
-	grid.resize(extents[n][n][n]);
-	fill_n(grid.data(), grid.num_elements(), 0.0);
+  //data begins
+  grid.resize(extents[n][n][n]);
+  fill_n(grid.data(), grid.num_elements(), 0.0);
 
-	unsigned total = 0;
-	for (unsigned i = 0; i < n; i++)
-	{
-		for (unsigned j = 0; j < n; j++)
-		{
-			for (unsigned k = 0; k < n; k++)
-			{
-				in >> grid[i][j][k];
-				total++;
-			}
-		}
-	}
-	if(total != n*n*n) return false;
+  unsigned total = 0;
+  for (unsigned i = 0; i < n; i++) {
+    for (unsigned j = 0; j < n; j++) {
+      for (unsigned k = 0; k < n; k++) {
+        in >> grid[i][j][k];
+        total++;
+      }
+    }
+  }
+  if (total != n * n * n) return false;
 
-	return true;
+  return true;
 }
-
 
 //return a string representation of the atom type(s) represented by index
 //in map - this isn't particularly efficient, but is only for debug purposes
-string NNGridder::getIndexName(const vector<int>& map, unsigned index) const
-		{
-	stringstream ret;
-	stringstream altret;
-	for (unsigned at = 0; at < smina_atom_type::NumTypes; at++)
-	{
-		if (map[at] == index)
-		{
-			ret << smina_type_to_string((smt) at);
-			altret << "_" << at;
-		}
-	}
+string NNGridder::getIndexName(const vector<int>& map, unsigned index) const {
+  stringstream ret;
+  stringstream altret;
+  for (unsigned at = 0; at < smina_atom_type::NumTypes; at++) {
+    if (map[at] == index) {
+      ret << smina_type_to_string((smt) at);
+      altret << "_" << at;
+    }
+  }
 
-	if (ret.str().length() > 32) //there are limits on file name lengths
-		return altret.str();
-	else
-		return ret.str();
+  if (ret.str().length() > 32) //there are limits on file name lengths
+    return altret.str();
+  else
+    return ret.str();
 }
 
-
-
 //return string detailing the configuration (size.channels)
-string NNGridder::getParamString(bool outputrec, bool outputlig) const
-		{
-	unsigned n = dims[0].n + 1;
-	unsigned chan = 0;
-	if (outputrec)
-		chan += receptorGrids.size()+userGrids.size();
-	if (outputlig)
-		chan += ligandGrids.size();
-	return lexical_cast<string>(n) + "." + lexical_cast<string>(chan);
+string NNGridder::getParamString(bool outputrec, bool outputlig) const {
+  unsigned n = dims[0].n + 1;
+  unsigned chan = 0;
+  if (outputrec) chan += receptorGrids.size() + userGrids.size();
+  if (outputlig) chan += ligandGrids.size();
+  return lexical_cast<string>(n) + "." + lexical_cast<string>(chan);
 }
 
 //return true if grid only contains zeroes
-static bool gridIsEmpty(const NNGridder::Grid& grid)
-{
-	for (const float *ptr = grid.data(), *end = grid.data()
-			+ grid.num_elements(); ptr != end; ptr++)
-	{
-		if (*ptr != 0.0)
-			return false;
-	}
-	return true;
+static bool gridIsEmpty(const NNGridder::Grid& grid) {
+  for (const float *ptr = grid.data(), *end = grid.data() + grid.num_elements();
+      ptr != end; ptr++) {
+    if (*ptr != 0.0) return false;
+  }
+  return true;
 }
 
 //output an AD4 map for each grid
-void NNGridder::outputMAP(const string& base)
-{
-	for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
-	{
-		//this is for debugging, so avoid outputting empty grids
-		if (!gridIsEmpty(receptorGrids[a]))
-		{
-			string name = getIndexName(rmap, a);
-			string fname = base + "_rec_" + name + ".map";
-			ofstream out(fname.c_str());
-			outputMAPGrid(out, receptorGrids[a]);
-		}
-	}
-	for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
-	{
-		if (!gridIsEmpty(ligandGrids[a]))
-		{
-			string name = getIndexName(lmap, a);
-			string fname = base + "_lig_" + name + ".map";
-			ofstream out(fname.c_str());
-			outputMAPGrid(out, ligandGrids[a]);
-		}
-	}
+void NNGridder::outputMAP(const string& base) {
+  for (unsigned a = 0, na = receptorGrids.size(); a < na; a++) {
+    //this is for debugging, so avoid outputting empty grids
+    if (!gridIsEmpty(receptorGrids[a])) {
+      string name = getIndexName(rmap, a);
+      string fname = base + "_rec_" + name + ".map";
+      ofstream out(fname.c_str());
+      outputMAPGrid(out, receptorGrids[a]);
+    }
+  }
+  for (unsigned a = 0, na = ligandGrids.size(); a < na; a++) {
+    if (!gridIsEmpty(ligandGrids[a])) {
+      string name = getIndexName(lmap, a);
+      string fname = base + "_lig_" + name + ".map";
+      ofstream out(fname.c_str());
+      outputMAPGrid(out, ligandGrids[a]);
+    }
+  }
 
 }
 
@@ -353,23 +325,18 @@ void RNNMolsGridder::outputMAP(const string& base)
 }
 
 //output an AD4 map for each grid
-void NNGridder::outputDX(const string& base)
-{
-  for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
-  {
+void NNGridder::outputDX(const string& base) {
+  for (unsigned a = 0, na = receptorGrids.size(); a < na; a++) {
     //this is for debugging, so avoid outputting empty grids
-    if (!gridIsEmpty(receptorGrids[a]))
-    {
+    if (!gridIsEmpty(receptorGrids[a])) {
       string name = getIndexName(rmap, a);
       string fname = base + "_rec_" + name + ".dx";
       ofstream out(fname.c_str());
       outputDXGrid(out, receptorGrids[a]);
     }
   }
-  for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
-  {
-    if (!gridIsEmpty(ligandGrids[a]))
-    {
+  for (unsigned a = 0, na = ligandGrids.size(); a < na; a++) {
+    if (!gridIsEmpty(ligandGrids[a])) {
       string name = getIndexName(lmap, a);
       string fname = base + "_lig_" + name + ".dx";
       ofstream out(fname.c_str());
@@ -419,69 +386,51 @@ void RNNMolsGridder::outputDX(const string& base)
 }
 
 //output binary form of raw data in 3D multi-channel form (types are last)
-void NNGridder::outputBIN(ostream& out, bool outputrec, bool outputlig)
-{
-	unsigned n = dims[0].n + 1;
+void NNGridder::outputBIN(ostream& out, bool outputrec, bool outputlig) {
+  unsigned n = dims[0].n + 1;
 
-	if(outputrec)
-	{
-		//receptor
-		for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
-		{
-			assert(receptorGrids[a].shape()[0] == n);
+  if (outputrec) {
+    //receptor
+    for (unsigned a = 0, na = receptorGrids.size(); a < na; a++) {
+      assert(receptorGrids[a].shape()[0] == n);
 
-			for (unsigned i = 0; i < n; i++)
-			{
-				for (unsigned j = 0; j < n; j++)
-				{
-					for (unsigned k = 0; k < n; k++)
-					{
-						//when you see this many loops you known you're going to generate a lot of data..
+      for (unsigned i = 0; i < n; i++) {
+        for (unsigned j = 0; j < n; j++) {
+          for (unsigned k = 0; k < n; k++) {
+            //when you see this many loops you known you're going to generate a lot of data..
 
-						out.write((char*) &receptorGrids[a][i][j][k],
-								sizeof(float));
-					}
-				}
-			}
-		}
+            out.write((char*) &receptorGrids[a][i][j][k], sizeof(float));
+          }
+        }
+      }
+    }
 
-		//user grids
-		for (unsigned a = 0, na = userGrids.size(); a < na; a++)
-		{
-			assert(userGrids[a].shape()[0] == n);
-			for (unsigned i = 0; i < n; i++)
-			{
-				for (unsigned j = 0; j < n; j++)
-				{
-					for (unsigned k = 0; k < n; k++)
-					{
-						out.write((char*) &userGrids[a][i][j][k],
-								sizeof(float));
-					}
-				}
-			}
-		}
-	}
+    //user grids
+    for (unsigned a = 0, na = userGrids.size(); a < na; a++) {
+      assert(userGrids[a].shape()[0] == n);
+      for (unsigned i = 0; i < n; i++) {
+        for (unsigned j = 0; j < n; j++) {
+          for (unsigned k = 0; k < n; k++) {
+            out.write((char*) &userGrids[a][i][j][k], sizeof(float));
+          }
+        }
+      }
+    }
+  }
 
-	if(outputlig)
-	{
-		//ligand
-		for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
-		{
-			assert(ligandGrids[a].shape()[0] == n);
-			for (unsigned i = 0; i < n; i++)
-			{
-				for (unsigned j = 0; j < n; j++)
-				{
-					for (unsigned k = 0; k < n; k++)
-					{
-						out.write((char*) &ligandGrids[a][i][j][k],
-								sizeof(float));
-					}
-				}
-			}
-		}
-	}
+  if (outputlig) {
+    //ligand
+    for (unsigned a = 0, na = ligandGrids.size(); a < na; a++) {
+      assert(ligandGrids[a].shape()[0] == n);
+      for (unsigned i = 0; i < n; i++) {
+        for (unsigned j = 0; j < n; j++) {
+          for (unsigned k = 0; k < n; k++) {
+            out.write((char*) &ligandGrids[a][i][j][k], sizeof(float));
+          }
+        }
+      }
+    }
+  }
 
 }
 
@@ -552,23 +501,20 @@ void RNNMolsGridder::outputBIN(ostream& out, bool outputrec, bool outputlig)
 
 }
 
-void NNGridder::outputMem(vector<float>& out)
-{
-	unsigned n = dims[0].n + 1;
-	unsigned gsize = n * n * n;
-	out.resize(gsize * receptorGrids.size() + gsize * ligandGrids.size());
+void NNGridder::outputMem(vector<float>& out) {
+  unsigned n = dims[0].n + 1;
+  unsigned gsize = n * n * n;
+  out.resize(gsize * receptorGrids.size() + gsize * ligandGrids.size());
 
-	float *ptr = &out[0];
-	for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
-	{
-		memcpy(ptr, receptorGrids[a].origin(), gsize * sizeof(float));
-		ptr += gsize;
-	}
-	for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
-	{
-		memcpy(ptr, ligandGrids[a].origin(), gsize * sizeof(float));
-		ptr += gsize;
-	}
+  float *ptr = &out[0];
+  for (unsigned a = 0, na = receptorGrids.size(); a < na; a++) {
+    memcpy(ptr, receptorGrids[a].origin(), gsize * sizeof(float));
+    ptr += gsize;
+  }
+  for (unsigned a = 0, na = ligandGrids.size(); a < na; a++) {
+    memcpy(ptr, ligandGrids[a].origin(), gsize * sizeof(float));
+    ptr += gsize;
+  }
 }
 
 void RNNMolsGridder::outputMem(vector<float>& out)
@@ -592,77 +538,67 @@ void RNNMolsGridder::outputMem(vector<float>& out)
 
 //copy gpu grid to passed cpu grid
 //TODO: rearchitect to use flat grids on the cpu?
-void NNGridder::cudaCopyGrids(vector<Grid>& grid, float* gpu_grid)
-{
-	for(unsigned i = 0, n = grid.size(); i < n; i++)
-	{
-		float *cpu = grid[i].data();
-		unsigned sz = grid[i].num_elements();
-		CUDA_CHECK(cudaMemcpyAsync(cpu, gpu_grid, sz*sizeof(float),cudaMemcpyDeviceToHost));
-		gpu_grid += sz;
-	}
+void NNGridder::cudaCopyGrids(vector<Grid>& grid, float* gpu_grid) {
+  for (unsigned i = 0, n = grid.size(); i < n; i++) {
+    float *cpu = grid[i].data();
+    unsigned sz = grid[i].num_elements();
+    CUDA_CHECK(
+        cudaMemcpyAsync(cpu, gpu_grid, sz * sizeof(float),
+            cudaMemcpyDeviceToHost));
+    gpu_grid += sz;
+  }
 }
 
-bool NNGridder::compareGrids(Grid& g1, Grid& g2, const char *name, int index)
-{
-	if(g1.size() != g2.size())
-	{
-		cerr << "Invalid initialize grid size " << name << index << "\n";
-		return false;
-	}
-	for(unsigned i = 0, I = g1.size(); i < I; i++)
-	{
-		if(g1[i].size() != g2[i].size())
-		{
-			cerr << "Invalid secondary grid size " << name << index << "\n";
-			return false;
-		}
-		for(unsigned j = 0, J = g1[i].size(); j < J; j++)
-		{
-			if(g1[i][j].size() != g2[i][j].size())
-			{
-				cerr << "Invalid tertiary grid size " << name << index << "\n";
-				return false;
-			}
-			for(unsigned k = 0, K = g1[i][j].size(); k < K; k++)
-			{
-				float diff = g1[i][j][k] - g2[i][j][k];
-				if(fabs(diff) > 0.0001)
-				{
-					cerr << "Values differ " << g1[i][j][k] <<  " != " << g2[i][j][k] << " " << name << index << " " << i <<","<<j<<","<<k <<"\n";
-					return false;
-				}
-			}
-		}
-	}
-	return true;
+bool NNGridder::compareGrids(Grid& g1, Grid& g2, const char *name, int index) {
+  if (g1.size() != g2.size()) {
+    cerr << "Invalid initialize grid size " << name << index << "\n";
+    return false;
+  }
+  for (unsigned i = 0, I = g1.size(); i < I; i++) {
+    if (g1[i].size() != g2[i].size()) {
+      cerr << "Invalid secondary grid size " << name << index << "\n";
+      return false;
+    }
+    for (unsigned j = 0, J = g1[i].size(); j < J; j++) {
+      if (g1[i][j].size() != g2[i][j].size()) {
+        cerr << "Invalid tertiary grid size " << name << index << "\n";
+        return false;
+      }
+      for (unsigned k = 0, K = g1[i][j].size(); k < K; k++) {
+        float diff = g1[i][j][k] - g2[i][j][k];
+        if (fabs(diff) > 0.0001) {
+          cerr << "Values differ " << g1[i][j][k] << " != " << g2[i][j][k]
+              << " " << name << index << " " << i << "," << j << "," << k
+              << "\n";
+          return false;
+        }
+      }
+    }
+  }
+  return true;
 }
 
+void NNGridder::setCenter(double x, double y, double z) {
+  if (userGrids.size() > 0) {
+    cerr << "Attempting to re-set grid center with user specified grids.\n";
+    exit(1);
+  }
+  gmaker->setCenter(x, y, z);
 
+  trans = vec(x, y, z);
+  int numpts = round(dimension / resolution);
+  double half = dimension / 2.0;
+  dims[0].begin = x - half;
+  dims[0].end = x + half;
+  dims[0].n = numpts;
 
-void NNGridder::setCenter(double x, double y, double z)
-{
-	if(userGrids.size() > 0)
-	{
-		cerr << "Attempting to re-set grid center with user specified grids.\n";
-		exit(1);
-	}
-	gmaker->setCenter(x,y,z);
+  dims[1].begin = y - half;
+  dims[1].end = y + half;
+  dims[1].n = numpts;
 
-	trans = vec(x, y, z);
-	int numpts = round(dimension / resolution);
-	double half = dimension / 2.0;
-	dims[0].begin = x - half;
-	dims[0].end = x + half;
-	dims[0].n = numpts;
-
-	dims[1].begin = y - half;
-	dims[1].end = y + half;
-	dims[1].n = numpts;
-
-	dims[2].begin = z - half;
-	dims[2].end = z + half;
-	dims[2].n = numpts;
+  dims[2].begin = z - half;
+  dims[2].end = z + half;
+  dims[2].n = numpts;
 }
 
 void NNGridder::setMapsAndGrids(const gridoptions& opt)
@@ -695,36 +631,36 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 	receptorGrids.reserve(ngrids * smina_atom_type::NumTypes);
 	ligandGrids.reserve(ngrids * smina_atom_type::NumTypes);
 
-    for (unsigned cid = 0; cid < ngrids; ++cid) {
-	    for (unsigned at = 0; at < smina_atom_type::NumTypes; at++)
-	    {
-	    	if (rmap[at] >= 0) //valid type for receptor
-	    	{
-	    		unsigned i = rmap[at];
-                unsigned idx = rnn ? cid * rnn->nrec_types + i : i;
-	    		if (receptorGrids.size() <= i * ngrids)
-	    			receptorGrids.resize((i + 1) * ngrids);
-	    		  if (receptorGrids[idx].num_elements() == 0)
-	    		  {
-	    		  	receptorGrids[idx].resize(extents[n][n][n]);
-	    		  	fill_n(receptorGrids[idx].data(), receptorGrids[idx].num_elements(), 0.0);
-	    		  }
-	    	}
+  for (unsigned cid = 0; cid < ngrids; ++cid) {
+	  for (unsigned at = 0; at < smina_atom_type::NumTypes; at++)
+	  {
+	  	if (rmap[at] >= 0) //valid type for receptor
+	  	{
+	  		unsigned i = rmap[at];
+              unsigned idx = rnn ? cid * rnn->nrec_types + i : i;
+	  		if (receptorGrids.size() <= i * ngrids)
+	  			receptorGrids.resize((i + 1) * ngrids);
+	  		  if (receptorGrids[idx].num_elements() == 0)
+	  		  {
+	  		  	receptorGrids[idx].resize(extents[n][n][n]);
+	  		  	fill_n(receptorGrids[idx].data(), receptorGrids[idx].num_elements(), 0.0);
+	  		  }
+	  	}
 
-	    	if (lmap[at] >= 0)
-	    	{
-	    		unsigned i = lmap[at];
-                unsigned idx = rnn ? cid * rnn->nlig_types + i : i;
-	    		if (ligandGrids.size() <= i * ngrids)
-	    			ligandGrids.resize((i + 1) * ngrids);
-	    		  if (ligandGrids[idx].num_elements() == 0)
-	    		  {
-	    		  	ligandGrids[idx].resize(extents[n][n][n]);
-	    		  	fill_n(ligandGrids[idx].data(), ligandGrids[idx].num_elements(), 0.0);
-	    		  }
-	    	}
-	    }
-    }
+	  	if (lmap[at] >= 0)
+	  	{
+	  		unsigned i = lmap[at];
+              unsigned idx = rnn ? cid * rnn->nlig_types + i : i;
+	  		if (ligandGrids.size() <= i * ngrids)
+	  			ligandGrids.resize((i + 1) * ngrids);
+	  		  if (ligandGrids[idx].num_elements() == 0)
+	  		  {
+	  		  	ligandGrids[idx].resize(extents[n][n][n]);
+	  		  	fill_n(ligandGrids[idx].data(), ligandGrids[idx].num_elements(), 0.0);
+	  		  }
+	  	}
+	  }
+  }
 
 	//check for empty mappings
 	for (unsigned i = 0, nr = receptorGrids.size(); i < nr; i++)
@@ -775,79 +711,71 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 		dimension = resolution*(g.shape()[0]-1);
 	}
 	
-	vec savedcenter;
-	userGrids.resize(0); userGrids.reserve(opt.usergrids.size());
-	for(unsigned i = 0, ng = opt.usergrids.size(); i < ng; i++)
-	{
-		//load dx file
-		ifstream gridfile(opt.usergrids[i].c_str());
-		if(!gridfile)
-		{
-			cerr << "Could not open grid file " << opt.usergrids[i] << "\n";
-			exit(1);
-		}
-		vec gridcenter;
-		double gridres = 0;
-		Grid g;
-		if(!readDXGrid(gridfile,gridcenter, gridres, g))
-		{
-			cerr << "I couldn't understand the provided dx file " << opt.usergrids[i] << ". I apologize for not being more informative and possibly being too picky about my file formats.\n";
-			exit(1);
-		}
+  vec savedcenter;
+  userGrids.resize(0);
+  userGrids.reserve(opt.usergrids.size());
+  for (unsigned i = 0, ng = opt.usergrids.size(); i < ng; i++) {
+    //load dx file
+    ifstream gridfile(opt.usergrids[i].c_str());
+    if (!gridfile) {
+      cerr << "Could not open grid file " << opt.usergrids[i] << "\n";
+      exit(1);
+    }
+    vec gridcenter;
+    double gridres = 0;
+    Grid g;
+    if (!readDXGrid(gridfile, gridcenter, gridres, g)) {
+      cerr << "I couldn't understand the provided dx file " << opt.usergrids[i]
+          << ". I apologize for not being more informative and possibly being too picky about my file formats.\n";
+      exit(1);
+    }
 
-		unsigned npts = g.shape()[0];
+    unsigned npts = g.shape()[0];
 
-		//check resolution/dimensions
-		if(i == 0)
-		{
-			resolution = gridres;
-			savedcenter = gridcenter;
-			dimension = resolution*(npts-1); //fencepost
-			setCenter(savedcenter[0],savedcenter[1],savedcenter[2]);
-		}
-		else
-		{
-			if(gridres != resolution)
-			{
-				cerr << "Inconsistent resolutions in grids: " << gridres << " vs " << resolution << "\n";
-				exit(1);
-			}
-			double dim = resolution*(npts-1);
-			if(dim != dimension)
-			{
-				cerr << "Inconsistent dimensions in grids: " << dim << " vs " << dimension << "\n";
-				exit(1);
-			}
+    //check resolution/dimensions
+    if (i == 0) {
+      resolution = gridres;
+      savedcenter = gridcenter;
+      dimension = resolution * (npts - 1); //fencepost
+      setCenter(savedcenter[0], savedcenter[1], savedcenter[2]);
+    } else {
+      if (gridres != resolution) {
+        cerr << "Inconsistent resolutions in grids: " << gridres << " vs "
+            << resolution << "\n";
+        exit(1);
+      }
+      double dim = resolution * (npts - 1);
+      if (dim != dimension) {
+        cerr << "Inconsistent dimensions in grids: " << dim << " vs "
+            << dimension << "\n";
+        exit(1);
+      }
 
-			for(unsigned c = 0; c < 3; c++)
-			{
-				if(savedcenter[c] != gridcenter[c])
-				{
-					cerr << "Inconsistent center in grids at position " << c << ": " << savedcenter[c] << " vs " << gridcenter[c] << "\n";
-					exit(1);
-				}
-			}
-		}
+      for (unsigned c = 0; c < 3; c++) {
+        if (savedcenter[c] != gridcenter[c]) {
+          cerr << "Inconsistent center in grids at position " << c << ": "
+              << savedcenter[c] << " vs " << gridcenter[c] << "\n";
+          exit(1);
+        }
+      }
+    }
 
-		//add grid
-		userGrids.push_back(g);
+    //add grid
+    userGrids.push_back(g);
 
-	}
+  }
 
 }
 
-
-
-NNMolsGridder::NNMolsGridder(const gridoptions& opt)
-{
-	initialize(opt);
-	//open receptor
-	tee log(true);
-	FlexInfo finfo(log); //dummy
-	mols.create_init_model(opt.receptorfile, "", finfo, log);
-	setModel(mols.getInitModel(), false, true);
-	//set ligand file
-	mols.setInputFile(opt.ligandfile);
+NNMolsGridder::NNMolsGridder(const gridoptions& opt) {
+  initialize(opt);
+  //open receptor
+  tee log(true);
+  FlexInfo finfo(log); //dummy
+  mols.create_init_model(opt.receptorfile, "", finfo, log);
+  setModel(mols.getInitModel(), false, true);
+  //set ligand file
+  mols.setInputFile(opt.ligandfile);
 }
 
 RNNMolsGridder::RNNMolsGridder(const gridoptions& opt) : NNMolsGridder(opt)
@@ -858,270 +786,260 @@ RNNMolsGridder::RNNMolsGridder(const gridoptions& opt) : NNMolsGridder(opt)
   grid_idx = 0;
 }
 
-void NNGridder::initialize(const gridoptions& opt)
-{
-	binary = opt.binary;
-	resolution = opt.res;
-	radiusmultiple = 1.5;
-	randtranslate = opt.randtranslate;
-	randrotate = opt.randrotate;
-	gpu = opt.gpu;
-	Q = quaternion(0, 0, 0, 0);
+void NNGridder::initialize(const gridoptions& opt) {
+  binary = opt.binary;
+  resolution = opt.res;
+  radiusmultiple = 1.5;
+  randtranslate = opt.randtranslate;
+  randrotate = opt.randrotate;
+  gpu = opt.gpu;
+  Q = quaternion(0, 0, 0, 0);
 
   if (opt.subgrid_dim)
     gmaker = new RNNGridMaker();
   else
     gmaker = new GridMaker();
 
-	gmaker->initialize(opt, radiusmultiple);
+  gmaker->initialize(resolution, opt.dim, radiusmultiple, binary, opt.spherize);
 
-	if (binary)
-		radiusmultiple = 1.0;
+  if (binary) radiusmultiple = 1.0;
 
-	setMapsAndGrids(opt);
+  setMapsAndGrids(opt);
 
-	if(gpu)
-	{
-		//allocate gpu memory for grids
-		unsigned nrgrids = receptorGrids.size();
-		unsigned nlgrids = ligandGrids.size();
-		assert(nrgrids > 0);
-		assert(nlgrids > 0);
-		unsigned n = receptorGrids[0].num_elements();
-		CUDA_CHECK(cudaMalloc(&gpu_receptorGrids, nrgrids*n*sizeof(float)));
-		CUDA_CHECK(cudaMalloc(&gpu_ligandGrids, nlgrids*n*sizeof(float)));
-	}
+  if (gpu) {
+    //allocate gpu memory for grids
+    unsigned nrgrids = receptorGrids.size();
+    unsigned nlgrids = ligandGrids.size();
+    assert(nrgrids > 0);
+    assert(nlgrids > 0);
+    unsigned n = receptorGrids[0].num_elements();
+    CUDA_CHECK(cudaMalloc(&gpu_receptorGrids, nrgrids * n * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&gpu_ligandGrids, nlgrids * n * sizeof(float)));
+  }
 }
 
 //allocate (if neccessary) and copy recCoords,radii, and whichgrid
 //assumes cpu version is set
-void NNGridder::setRecGPU()
-{
-	if(gpu_receptorAInfo == NULL) {
-		CUDA_CHECK(cudaMalloc(&gpu_receptorAInfo, recAInfo.size()*sizeof(float4)));
-		CUDA_CHECK(cudaMemcpy(gpu_receptorAInfo, &recAInfo[0], recAInfo.size()*sizeof(float4),cudaMemcpyHostToDevice));
-	}
+void NNGridder::setRecGPU() {
+  if (gpu_receptorAInfo == NULL) {
+    CUDA_CHECK(
+        cudaMalloc(&gpu_receptorAInfo, recAInfo.size() * sizeof(float4)));
+    CUDA_CHECK(
+        cudaMemcpy(gpu_receptorAInfo, &recAInfo[0],
+            recAInfo.size() * sizeof(float4), cudaMemcpyHostToDevice));
+  }
 
-	if(gpu_recWhichGrid == NULL) {
-		CUDA_CHECK(cudaMalloc(&gpu_recWhichGrid, recWhichGrid.size()*sizeof(float3)));
-		CUDA_CHECK(cudaMemcpy(gpu_recWhichGrid, &recWhichGrid[0], recWhichGrid.size()*sizeof(float3),cudaMemcpyHostToDevice));
-	}
+  if (gpu_recWhichGrid == NULL) {
+    CUDA_CHECK(
+        cudaMalloc(&gpu_recWhichGrid, recWhichGrid.size()*sizeof(float3)));
+    CUDA_CHECK(
+        cudaMemcpy(gpu_recWhichGrid, &recWhichGrid[0], recWhichGrid.size()*sizeof(float3),cudaMemcpyHostToDevice));
+  }
 }
 
-void NNGridder::setLigGPU()
-{
-	if(gpu_ligandAInfo == NULL) {
-		CUDA_CHECK(cudaMalloc(&gpu_ligandAInfo, ligWhichGrid.size()*sizeof(float4)));
-		//ligand coordinates
-	}
+void NNGridder::setLigGPU() {
+  if (gpu_ligandAInfo == NULL) {
+    CUDA_CHECK(
+        cudaMalloc(&gpu_ligandAInfo, ligWhichGrid.size() * sizeof(float4)));
+    //ligand coordinates
+  }
 
-	if(gpu_ligWhichGrid == NULL) {
-		CUDA_CHECK(cudaMalloc(&gpu_ligWhichGrid, ligWhichGrid.size()*sizeof(short)));
-		CUDA_CHECK(cudaMemcpy(gpu_ligWhichGrid, &ligWhichGrid[0], ligWhichGrid.size()*sizeof(short),cudaMemcpyHostToDevice));
-	}
+  if (gpu_ligWhichGrid == NULL) {
+    CUDA_CHECK(
+        cudaMalloc(&gpu_ligWhichGrid, ligWhichGrid.size() * sizeof(short)));
+    CUDA_CHECK(
+        cudaMemcpy(gpu_ligWhichGrid, &ligWhichGrid[0],
+            ligWhichGrid.size() * sizeof(short), cudaMemcpyHostToDevice));
+  }
 }
 
-static double unit_sample()
-{
-  return (double)(rand())/(double)RAND_MAX;
+static double unit_sample() {
+  return (double) (rand()) / (double) RAND_MAX;
 }
 
-void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec)
-{
-	//compute center from ligand
-	const atomv& atoms = m.get_movable_atoms();
-	assert(atoms.size() == m.coordinates().size());
+void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec) {
+  //compute center from ligand
+  const atomv& atoms = m.get_movable_atoms();
+  assert(atoms.size() == m.coordinates().size());
 
-	if(userGrids.size() > 0)
-	{
-		//use grid specified by user
-		if(randrotate || randtranslate)
-		{
-			cerr << "Random rotation/translation is not supported with user grids.\n";
-			exit(1);
-		}
-		//the grid is already set - do nothing
-	}
-	else //center around ligand
-	{
-		vec center(0,0,0);
-		for (unsigned i = 0, n = atoms.size(); i < n; i++)
-		{
-			center += m.coordinates()[i];
-		}
-		if(atoms.size() > 0)
-		  center /= atoms.size();
+  if (userGrids.size() > 0) {
+    //use grid specified by user
+    if (randrotate || randtranslate) {
+      cerr << "Random rotation/translation is not supported with user grids.\n";
+      exit(1);
+    }
+    //the grid is already set - do nothing
+  } else //center around ligand
+  {
+    vec center(0, 0, 0);
+    for (unsigned i = 0, n = atoms.size(); i < n; i++) {
+      center += m.coordinates()[i];
+    }
+    if (atoms.size() > 0) center /= atoms.size();
 
-		//apply random modifications
-		if (randrotate)
-		{
-	    //http://planning.cs.uiuc.edu/node198.html
-	    //sample 3 numbers from 0-1
-	    double u1 = unit_sample();
-	    double u2 = unit_sample();
-	    double u3 = unit_sample();
-	    double sq1 = sqrt(1-u1);
-	    double sqr = sqrt(u1);
-	    double r1 = sq1*sin(2*M_PI*u2);
-	    double r2 = sq1*cos(2*M_PI*u2);
-	    double r3 = sqr*sin(2*M_PI*u3);
-	    double r4 = sqr*cos(2*M_PI*u3);
-			Q = NNGridder::quaternion(r1,r2,r3,r4);
-		}
+    //apply random modifications
+    if (randrotate) {
+      //http://planning.cs.uiuc.edu/node198.html
+      //sample 3 numbers from 0-1
+      double u1 = unit_sample();
+      double u2 = unit_sample();
+      double u3 = unit_sample();
+      double sq1 = sqrt(1 - u1);
+      double sqr = sqrt(u1);
+      double r1 = sq1 * sin(2 * M_PI * u2);
+      double r2 = sq1 * cos(2 * M_PI * u2);
+      double r3 = sqr * sin(2 * M_PI * u3);
+      double r4 = sqr * cos(2 * M_PI * u3);
+      Q = NNGridder::quaternion(r1, r2, r3, r4);
+    }
 
-		if (randtranslate)
-		{
-			double offx = rand() / double(RAND_MAX / 2.0) - 1.0;
-			double offy = rand() / double(RAND_MAX / 2.0) - 1.0;
-			double offz = rand() / double(RAND_MAX / 2.0) - 1.0;
-			center[0] += offx * randtranslate;
-			center[1] += offy * randtranslate;
-			center[2] += offz * randtranslate;
-		}
+    if (randtranslate) {
+      double offx = rand() / double(RAND_MAX / 2.0) - 1.0;
+      double offy = rand() / double(RAND_MAX / 2.0) - 1.0;
+      double offz = rand() / double(RAND_MAX / 2.0) - 1.0;
+      center[0] += offx * randtranslate;
+      center[1] += offy * randtranslate;
+      center[2] += offz * randtranslate;
+    }
 
-		setCenter(center[0], center[1], center[2]);
-	}
+    setCenter(center[0], center[1], center[2]);
+  }
 
-	//set constant arrays if needed
-	if(recAInfo.size() == 0 || reinitrec)
-	{
-		const atomv& atoms = m.get_fixed_atoms();
-		recAInfo.resize(0); recAInfo.reserve(atoms.size());
-		recWhichGrid.resize(0); recWhichGrid.reserve(atoms.size());
+  //set constant arrays if needed
+  if (recAInfo.size() == 0 || reinitrec) {
+    const atomv& atoms = m.get_fixed_atoms();
+    recAInfo.resize(0);
+    recAInfo.reserve(atoms.size());
+    recWhichGrid.resize(0);
+    recWhichGrid.reserve(atoms.size());
 
-		for (unsigned i = 0, n = atoms.size(); i < n; i++)
-		{
-			const atom& a = atoms[i];
-			if(rmap[a.sm] >= 0) {
-				float4 ai = {a.coords[0], a.coords[1], a.coords[2], xs_radius(a.sm)};
-				recWhichGrid.push_back(rmap[a.sm]);
-				recAInfo.push_back(ai);
-			}
-		}
+    for (unsigned i = 0, n = atoms.size(); i < n; i++) {
+      const atom& a = atoms[i];
+      if (rmap[a.sm] >= 0) {
+        float4 ai = { a.coords[0], a.coords[1], a.coords[2], xs_radius(a.sm) };
+        recWhichGrid.push_back(rmap[a.sm]);
+        recAInfo.push_back(ai);
+      }
+    }
 
-		if(gpu) setRecGPU();
+    if (gpu) setRecGPU();
 
-	}
+  }
 
+  if (ligRadii.size() == 0 || reinitlig) {
+    const atomv& atoms = m.get_movable_atoms();
+    assert(atoms.size() == m.coordinates().size());
+    ligRadii.resize(atoms.size());
+    ligWhichGrid.resize(atoms.size());
+    //we can't omit stupid atoms since they are included in the coordinates
+    for (unsigned i = 0, n = atoms.size(); i < n; i++) {
+      atom a = atoms[i];
+      ligWhichGrid[i] = lmap[a.sm];
+      ligRadii[i] = xs_radius(a.sm);
+    }
 
-	if(ligRadii.size() == 0 || reinitlig)
-	{
-		const atomv& atoms = m.get_movable_atoms();
-		assert(atoms.size() == m.coordinates().size());
-		ligRadii.resize(atoms.size());
-		ligWhichGrid.resize(atoms.size());
-		//we can't omit stupid atoms since they are included in the coordinates
-		for (unsigned i = 0, n = atoms.size(); i < n; i++)
-		{
-			atom a = atoms[i];
-			ligWhichGrid[i] = lmap[a.sm];
-			ligRadii[i] = xs_radius(a.sm);
-		}
+    if (gpu) setLigGPU();
+  }
 
-		if(gpu) setLigGPU();
-	}
-
-	const vecv& coords = m.coordinates();
-	vector<float4> ainfo; ainfo.reserve(coords.size());
-	for(unsigned i = 0, na = coords.size(); i < na; i++)
-	{
-		float4 ai = {coords[i][0],coords[i][1],coords[i][2],ligRadii[i]};
-		ainfo.push_back(ai);
-	}
+  const vecv& coords = m.coordinates();
+  vector<float4> ainfo;
+  ainfo.reserve(coords.size());
+  for (unsigned i = 0, na = coords.size(); i < na; i++) {
+    float4 ai = { coords[i][0], coords[i][1], coords[i][2], ligRadii[i] };
+    ainfo.push_back(ai);
+  }
 
   RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
-	if(gpu)
-	{
-		unsigned nlatoms = m.coordinates().size();
-		CUDA_CHECK(cudaMemcpy(gpu_ligandAInfo, &ainfo[0], nlatoms*sizeof(float4),cudaMemcpyHostToDevice));
-		//cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 1024*1024*4);
-		if(randrotate) {
-		  //gpu coordinates are modified in place, so have to reset to original receptor
-	    CUDA_CHECK(cudaMemcpy(gpu_receptorAInfo, &recAInfo[0], recAInfo.size()*sizeof(float4),cudaMemcpyHostToDevice));
-		}
+  if (gpu) {
+    unsigned nlatoms = m.coordinates().size();
+    CUDA_CHECK(
+        cudaMemcpy(gpu_ligandAInfo, &ainfo[0], nlatoms * sizeof(float4),
+            cudaMemcpyHostToDevice));
+    //cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 1024*1024*4);
+    if (randrotate) {
+      //gpu coordinates are modified in place, so have to reset to original receptor
+      CUDA_CHECK(
+          cudaMemcpy(gpu_receptorAInfo, &recAInfo[0],
+              recAInfo.size() * sizeof(float4), cudaMemcpyHostToDevice));
+    }
 
     if (rnn) {
-          unsigned ntypes = rnn->ntypes;
-          rnn->ntypes = rnn->nrec_types;
+      unsigned ntypes = rnn->ntypes;
+      rnn->ntypes = rnn->nrec_types;
 		  rnn->setAtomsGPU<float>(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);
-          rnn->ntypes = ntypes;
+      rnn->ntypes = ntypes;
     }
     else
-		  gmaker->setAtomsGPU<float>(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);
-		cudaCopyGrids(receptorGrids, gpu_receptorGrids);
+      gmaker->setAtomsGPU<float>(recAInfo.size(), gpu_receptorAInfo,
+          gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);
+    cudaCopyGrids(receptorGrids, gpu_receptorGrids);
 
     if (rnn) {
-          unsigned ntypes = rnn->ntypes;
-          rnn->ntypes = rnn->nlig_types;
+      unsigned ntypes = rnn->ntypes;
+      rnn->ntypes = rnn->nlig_types;
 		  rnn->setAtomsGPU<float>(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, Q, ligandGrids.size(), gpu_ligandGrids);
-          rnn->ntypes = ntypes;
+      rnn->ntypes = ntypes;
     }
     else
-		  gmaker->setAtomsGPU<float>(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, Q, ligandGrids.size(), gpu_ligandGrids);
-		cudaCopyGrids(ligandGrids, gpu_ligandGrids);
+      gmaker->setAtomsGPU<float>(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, Q,
+          ligandGrids.size(), gpu_ligandGrids);
+    cudaCopyGrids(ligandGrids, gpu_ligandGrids);
 
-		CUDA_CHECK(cudaDeviceSynchronize());
-	}
-	else
-	{
-		//put in to gridmaker format
+    CUDA_CHECK(cudaDeviceSynchronize());
+  } else {
+    //put in to gridmaker format
+
     if(rnn) {
-          unsigned ntypes = rnn->ntypes;
-          rnn->ntypes = rnn->nrec_types;
+      unsigned ntypes = rnn->ntypes;
+      rnn->ntypes = rnn->nrec_types;
 		  rnn->setAtomsCPU(recAInfo, recWhichGrid, Q, receptorGrids);
-          rnn->ntypes = rnn->nlig_types;
+      rnn->ntypes = rnn->nlig_types;
 		  rnn->setAtomsCPU(ainfo, ligWhichGrid,  Q, ligandGrids);
-          rnn->ntypes = ntypes;
+      rnn->ntypes = ntypes;
     }
     else {
-		  gmaker->setAtomsCPU(recAInfo, recWhichGrid, Q, receptorGrids);
-		  gmaker->setAtomsCPU(ainfo, ligWhichGrid,  Q, ligandGrids);
+      gmaker->setAtomsCPU(recAInfo, recWhichGrid, Q, receptorGrids);
+      gmaker->setAtomsCPU(ainfo, ligWhichGrid, Q, ligandGrids);
     }
-	}
+  }
 }
 
-bool NNGridder::cpuSetModelCheck(const model& m, bool reinitlig, bool reinitrec)
-{
-	vector<Grid> savedRGrid = receptorGrids;
-	vector<Grid> savedLGrid = ligandGrids;
+bool NNGridder::cpuSetModelCheck(const model& m, bool reinitlig,
+    bool reinitrec) {
+  vector<Grid> savedRGrid = receptorGrids;
+  vector<Grid> savedLGrid = ligandGrids;
 
-	bool savedgpu = gpu;
-	gpu = false;
-	bool saverandrotate = randrotate;
-	randrotate = false; //keep current Q, don't have a convenient way to chekc rand translate
-	setModel(m, reinitlig, reinitrec);
-	randrotate = saverandrotate;
+  bool savedgpu = gpu;
+  gpu = false;
+  bool saverandrotate = randrotate;
+  randrotate = false; //keep current Q, don't have a convenient way to chekc rand translate
+  setModel(m, reinitlig, reinitrec);
+  randrotate = saverandrotate;
 
-	gpu = savedgpu;
+  gpu = savedgpu;
 
-	for(unsigned i = 0, n = receptorGrids.size(); i < n; i++)
-	{
-		compareGrids(receptorGrids[i], savedRGrid[i], "receptor", i);
-	}
-	for(unsigned i = 0, n = ligandGrids.size(); i < n; i++)
-	{
-		compareGrids(ligandGrids[i], savedLGrid[i], "ligand", i);
-	}
+  for (unsigned i = 0, n = receptorGrids.size(); i < n; i++) {
+    compareGrids(receptorGrids[i], savedRGrid[i], "receptor", i);
+  }
+  for (unsigned i = 0, n = ligandGrids.size(); i < n; i++) {
+    compareGrids(ligandGrids[i], savedLGrid[i], "ligand", i);
+  }
 }
-
 
 //read a molecule (return false if unsuccessful)
 //set the ligand grid appropriately
-bool NNMolsGridder::readMolecule(bool timeit)
-{
-	model m;
-	if (!mols.readMoleculeIntoModel(m))
-		return false;
+bool NNMolsGridder::readMolecule(bool timeit) {
+  model m;
+  if (!mols.readMoleculeIntoModel(m)) return false;
 
-	timer::cpu_timer t;
-	setModel(m, true);
+  timer::cpu_timer t;
+  setModel(m, true);
 
-	if(timeit)
-	{
-		cout << "Grid Time: " << t.elapsed().wall << "\n";
-		//DEBUG CODE BELOW
-		if(gpu) cpuSetModelCheck(m, true);
+  if (timeit) {
+    cout << "Grid Time: " << t.elapsed().wall << "\n";
+    //DEBUG CODE BELOW
+    if (gpu) cpuSetModelCheck(m, true);
 
-	}
-	return true;
+  }
+  return true;
 }

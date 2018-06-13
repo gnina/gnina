@@ -897,6 +897,8 @@ message MolGridDataParameter {
   optional float peturb_ligand_translate = 34 [default = 2.0]; //max amount to translate ligand by
   optional bool peturb_ligand_rotate = 35 [default = true]; //do random rotation
   optional float subgrid_dim = 36 [default = 0.0]; //perform recurrence over subgrids with this dim
+  optional bool ignore_ligand = 36 [default = false]; //for debugging
+  optional float jitter = 37 [default = 0]; //random perturbations of atom cartesian coordinates by +/- jitter amount
 }
 
 message NDimDataParameter {

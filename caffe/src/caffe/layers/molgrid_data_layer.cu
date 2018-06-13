@@ -61,9 +61,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::setAtomGradientsGPU(GridMakerT& gm
     
     gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
 
-    quaternion& cpu_q = transform.Q;
-    qt gpu_q(cpu_q.R_component_2(), cpu_q.R_component_3(),
-            cpu_q.R_component_4(), cpu_q.R_component_1());
+    qt gpu_q(transform.Q);
     vec& molcenter = transform.mol.center;
     //diff is batch x channel x X x Y x Z
 	unsigned nfull_blocks = natoms / THREADS_PER_BLOCK;

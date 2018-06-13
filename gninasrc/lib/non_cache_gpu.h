@@ -26,19 +26,20 @@
 #include "non_cache.h"
 #include "precalculate_gpu.h"
 
-struct non_cache_gpu: public non_cache
-{
+struct non_cache_gpu : public non_cache {
     //TODO: info was private, but I needed to access it in test_runner - reprotect?
-	GPUNonCacheInfo info; //host struct of device pointers
-	non_cache_gpu(szv_grid_cache& gcache, const grid_dims& gd_,
-                  const precalculate_gpu* p_, fl slope_);
+    GPUNonCacheInfo info; //host struct of device pointers
+    non_cache_gpu(szv_grid_cache& gcache, const grid_dims& gd_,
+        const precalculate_gpu* p_, fl slope_);
     virtual void setSlope(fl sl);
-	virtual ~non_cache_gpu();
-	fl eval(const model& m, fl v) const;
-	//evaluate the model on the gpu, v is the curl amount
-	//sets m.minus_forces and returns total energy
+    virtual ~non_cache_gpu();
+    fl eval(const model& m, fl v) const;
+    //evaluate the model on the gpu, v is the curl amount
+    //sets m.minus_forces and returns total energy
 
-	const GPUNonCacheInfo& get_info() const { return info; }
+    const GPUNonCacheInfo& get_info() const {
+      return info;
+    }
 };
 
 #endif
