@@ -784,12 +784,12 @@ class RNNGridMaker : public GridMaker {
         }
       }
     }
-  }
+
     //defined in cu. N.B. this _cannot_ be virtual because we are passing the
     //gridmaker to a GPU kernel by value and the vtable is not copied
     template<typename Dtype>
-    void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, 
-        quaternion Q, unsigned ngrids, Dtype *grids);
+    void setAtomsGPU(unsigned natoms, float4 *ainfos, short *gridindex, 
+        qt Q, unsigned ngrids, Dtype *grids);
 
     template <typename Dtype>
     void setAtomGradientsCPU(const vector<float4>& ainfo, 
@@ -956,7 +956,8 @@ class RNNGridMaker : public GridMaker {
       }
     }
 #endif
-  };
+  }
+};
 
   template <typename Dtype, class GridMakerT>
   __global__ 

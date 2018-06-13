@@ -48,6 +48,7 @@ CNNScorer::CNNScorer(const cnn_options& opts, const model& m)
       throw usage_error("First layer of model must be MolGridData.");
     }
     mgridparam->set_inmemory(true);
+    mgridparam->set_subgrid_dim(opts.subgrid_dim);
 
     //set batch size to 1
     unsigned bsize = 1;
@@ -280,7 +281,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   if (!isnan(cnnopts.cnn_center[0])) {
     mgrid->setCenter(cnnopts.cnn_center);
   }
-  mgrid->setLigand<atom, vec>(m.get_movable_atoms(), m.coordinates(),
+  mgrid->setLigand(m.get_movable_atoms(), m.coordinates(),
       cnnopts.move_minimize_frame);
   if (!cnnopts.move_minimize_frame) {
     mgrid->setReceptor(m.get_fixed_atoms(), m.rec_conf.position,

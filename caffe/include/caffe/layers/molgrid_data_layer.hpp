@@ -59,9 +59,11 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
         float3>& gradient) = 0;
     virtual void getMappedLigandGradient(int batch_idx, unordered_map<string, 
         float3>& gradient) = 0;
-    virtual void setReceptor(const vector<atom>& receptor) = 0;
+    virtual void setReceptor(const vector<atom>& receptor, const vec& translate = 
+        {}, const qt& rotate = {}) = 0;
     virtual void setLigand(const vector<atom>& ligand, const vector<vec>& coords, 
         bool calcCenter=true) = 0;
+    virtual void setCenter(const vec& center) = 0;
     virtual void setLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) = 0;
     virtual void enableAtomGradients() = 0;
     virtual void getReceptorChannels(int batch_idx, vector<short>& whichGrid) = 0;
