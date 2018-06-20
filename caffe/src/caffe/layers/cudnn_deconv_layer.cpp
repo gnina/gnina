@@ -107,8 +107,8 @@ void CuDNNDeconvolutionLayer<Dtype>::Reshape(
   size_t workspace_limit_bytes = 16*1024*1024;
 
   for (int i = 0; i < bottom.size(); i++) {
-    cudnnSetTensorNdDescriptorEx(bottom_descs_[i], CUDNN_TENSOR_NCHW, cudnn::dataType<Dtype>::type, bottom[i]->num_axes(), &bottom[i]->shape()[0]);
-    cudnnSetTensorNdDescriptorEx(top_descs_[i], CUDNN_TENSOR_NCHW, cudnn::dataType<Dtype>::type, top[i]->num_axes(), &top[i]->shape()[0]);
+    cudnn::setTensorNdDesc<Dtype>(&bottom_descs_[i], bottom[i]->shape());
+    cudnn::setTensorNdDesc<Dtype>(&top_descs_[i], top[i]->shape());
 
     cudnn::setConvolutionDesc<Dtype>(&conv_descs_[i],
                                      top_descs_[i],
@@ -264,7 +264,7 @@ void CuDNNDeconvolutionLayer<Dtype>::Reshape(
     for(int i = 0; i < this->num_spatial_axes_; i++) {
       bias_shape.push_back(1);
     }
-    cudnnSetTensorNdDescriptorEx(bias_desc_, CUDNN_TENSOR_NCHW, cudnn::dataType<Dtype>::type, bias_shape.size(), &bias_shape[0]);
+    cudnn::setTensorNdDesc<Dtype>(&bias_desc_, bias_shape);
   }
 }
 

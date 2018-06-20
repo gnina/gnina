@@ -91,6 +91,16 @@ inline void setTensor4dDesc(cudnnTensorDescriptor_t* desc,
 }
 
 template <typename Dtype>
+inline void setTensorNdDesc(cudnnTensorDescriptor_t* desc, const std::vector<int>& shape_) {
+  std::vector<int> shape(shape_);
+  while(shape.size() < 4) {
+    //apparently tensors can't be too small (not documented)
+    shape.push_back(1);
+  }
+  CUDNN_CHECK(cudnnSetTensorNdDescriptorEx(*desc, CUDNN_TENSOR_NCHW, dataType<Dtype>::type, shape.size(), &shape[0]));
+}
+
+template <typename Dtype>
 inline void setTensor4dDesc(cudnnTensorDescriptor_t* desc,
     int n, int c, int h, int w) {
   const int stride_w = 1;

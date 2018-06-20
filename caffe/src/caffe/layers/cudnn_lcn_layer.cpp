@@ -29,8 +29,8 @@ template <typename Dtype>
 void CuDNNLCNLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
   LRNLayer<Dtype>::Reshape(bottom, top);
-  cudnnSetTensorNdDescriptorEx(bottom_desc_, CUDNN_TENSOR_NCHW, cudnn::dataType<Dtype>::type, bottom[0]->num_axes(), &bottom[0]->shape()[0]);
-  cudnnSetTensorNdDescriptorEx(top_desc_, CUDNN_TENSOR_NCHW, cudnn::dataType<Dtype>::type, top[0]->num_axes(), &top[0]->shape()[0]);
+  cudnn::setTensorNdDesc<Dtype>(&bottom_desc_, bottom[0]->shape());
+  cudnn::setTensorNdDesc<Dtype>(&top_desc_, top[0]->shape());
   CUDNN_CHECK(cudnnSetLRNDescriptor(norm_desc_, size_, alpha_, beta_, k_));
 
   // allocate / reallocate tempData buffers
