@@ -384,7 +384,8 @@ class GridMaker {
         }
       }
     }
-  
+ 
+    __host__ __device__
     void accumulateAtomRelevance(const float3& coords, double ar, float x,
         float y, float z, float gridval, float3& agrad) {
       //simple sum of values that the atom overlaps
@@ -414,14 +415,11 @@ class GridMaker {
       float4 atom = ainfo[idx];
       float3 coords; 
 
-      if (Q.real() != 0) {//apply rotation
-        qt p(atom.x - center.x, atom.y - center.y,
-            atom.z - center.z, 0);
-        p = Q * p * (Q.conj() / Q.norm());
-
-        coords.x = p.R_component_1() + center.x;
-        coords.y = p.R_component_2() + center.y;
-        coords.z = p.R_component_3() + center.z;
+      if (Q.real() != 0) //apply rotation
+          {
+        float3 p = Q.rotate(atom.x - center.x, atom.y - center.y,
+            atom.z - center.z);
+        coords = p + center;
       } else {
         coords.x = atom.x;
         coords.y = atom.y;
@@ -436,19 +434,23 @@ class GridMaker {
       ranges[1] = getrange_gpu(dims[1], coords.y, r);
       ranges[2] = getrange_gpu(dims[2], coords.z, r);
 
-      for (unsigned i = ranges[0].x, iend = ranges[0].y; i < iend;
-          ++i) {
-        for (unsigned j = ranges[1].x, jend = ranges[1].y;
-            j < jend; ++j) {
-          for (unsigned k = ranges[2].x, kend = ranges[2].y;
-              k < kend; ++k) {
+      for (unsigned i = ranges[0].x, iend = ranges[0].y; i < iend; ++i) {
+        for (unsigned j = ranges[1].x, jend = ranges[1].y; j < jend; ++j) {
+          for (unsigned k = ranges[2].x, kend = ranges[2].y; k < kend; ++k) {
             //convert grid point coordinates to angstroms
             float x = dims[0].x + i * resolution;
             float y = dims[1].x + j * resolution;
             float z = dims[2].x + k * resolution;
+
+            if (isrelevance) {
+              accumulateAtomRelevance(coords, radius, x, y, z,
+                  grids[(((whichgrid * dim) + i) * dim + j) * dim + k],
+                  agrads[idx]);
+            } else {
             accumulateAtomGradient(coords, radius, x, y, z, 
                       grids[(((whichgrid * dim) + i) * dim + j) * dim + k], 
                           agrads[idx], whichgrid);
+            }
           }
         }
       }
