@@ -96,7 +96,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   virtual inline const char* type() const { return "MolGridData"; }
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int ExactNumTopBlobs() const { return 2+
-      (this->layer_param_.molgrid_data_param().subgrid_dim()!=0) +
+      (this->layer_param_.molgrid_data_param().subgrid_dim() != 0) +
       this->layer_param_.molgrid_data_param().has_affinity()+
       this->layer_param_.molgrid_data_param().has_rmsd()+
       this->layer_param_.molgrid_data_param().peturb_ligand();

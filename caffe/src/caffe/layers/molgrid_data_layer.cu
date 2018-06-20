@@ -62,6 +62,8 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::setAtomGradientsGPU(GridMakerT& gm
     gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
 
     qt gpu_q(transform.Q);
+    std::cout << "quaternion " << gpu_q.a << " " << gpu_q.b << " " << gpu_q.c << " " << 
+      gpu_q.d << "\n";
     vec& molcenter = transform.mol.center;
     //diff is batch x channel x X x Y x Z
 	unsigned nfull_blocks = natoms / THREADS_PER_BLOCK;
