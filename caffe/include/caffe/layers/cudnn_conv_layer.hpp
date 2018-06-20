@@ -12,6 +12,7 @@
 namespace caffe {
 
 #ifdef USE_CUDNN
+
 /*
  * @brief cuDNN implementation of ConvolutionLayer.
  *        Fallback to ConvolutionLayer for CPU mode.

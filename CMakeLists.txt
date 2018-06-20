@@ -3,7 +3,6 @@ project (gnina C CXX)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 #disable parts of caffe we don't need
-set(USE_CUDNN 0)
 set(USE_LMDB 0)
 set(USE_LEVELDB 0)
 set(USE_OPENCV 0)
@@ -19,6 +18,7 @@ include(caffe/cmake/Utils.cmake)
 include(caffe/cmake/Cuda.cmake)
 #our version of caffe needs to pull in headers from gnina and we'll use c++11
 include_directories(.) 
+set(CXX11_SET 1)
 add_compile_options(-std=c++11)
 list(APPEND CUDA_NVCC_FLAGS -std=c++11)
 

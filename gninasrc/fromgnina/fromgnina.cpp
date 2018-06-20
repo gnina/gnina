@@ -19,27 +19,23 @@ using namespace OpenBabel;
 cl::opt<string> infile("in", cl::desc("input file"), cl::Required,
     cl::Positional);
 
-
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   cl::ParseCommandLineOptions(argc, argv);
 
   ifstream ifile(infile.c_str());
 
   model initm;
   size_t position = 0;
-  while (ifile)
-  {
+  while (ifile) {
     unsigned sz;
-    ifile.read((char*)&sz, sizeof(sz));
-    char buffer[sz+1];
+    ifile.read((char*) &sz, sizeof(sz));
+    char buffer[sz + 1];
     ifile.read(buffer, sz);
 
-    if(!ifile) break;
+    if (!ifile) break;
 
     stringstream data;
-    for(unsigned i = 0; i < sz; i++)
-    {
+    for (unsigned i = 0; i < sz; i++) {
       data.put(buffer[i]);
     }
 

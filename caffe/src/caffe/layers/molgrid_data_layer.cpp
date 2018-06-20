@@ -39,7 +39,6 @@ namespace smina_atom_type
   atom_data_initializer initialize_defaults;
 }
 
-
 namespace caffe {
 
 template <typename Dtype>
@@ -73,12 +72,12 @@ MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache&
    stream >> rmsd;
   //receptor
   stream >> tmp;
-  CHECK(tmp.length() > 0) << "Empty receptor, missing affinity/rmsd?";
+  CHECK(tmp.length() > 0) << "Empty receptor, missing affinity/rmsd? Line:\n" << line;
   receptor = cache.get(tmp);
   //ligand
   tmp.clear();
   stream >> tmp;
-  CHECK(tmp.length() > 0) << "Empty ligand, missing affinity/rmsd?";
+  CHECK(tmp.length() > 0) << "Empty ligand, missing affinity/rmsd? Line:\n" << line;
 
   ligand = cache.get(tmp);
 }
@@ -404,6 +403,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   ligpeturb = param.peturb_ligand();
   ligpeturb_translate = param.peturb_ligand_translate();
   ligpeturb_rotate = param.peturb_ligand_rotate();
+  jitter = param.jitter();
   ignore_ligand = param.ignore_ligand();
   radiusmultiple = param.radius_multiple();
   fixedradius = param.fixed_radius();
@@ -804,6 +804,19 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
      std::cerr << "ERROR: No atoms in molecule.  I can't deal with this.\n";
      exit(-1); //presumably you never actually want this and it results in a cuda error
   } 
+  if(jitter > 0) {
+    //add small random displacement (in-place) to atoms
+    for(unsigned i = 0, n = transform.mol.atoms.size(); i < n; i++) {
+      float4& atom = transform.mol.atoms[i];
+      float xdiff = jitter*(unit_sample(rng)*2.0-1.0);
+      atom.x += xdiff;
+      float ydiff = jitter*(unit_sample(rng)*2.0-1.0);
+      atom.y += ydiff;
+      float zdiff = jitter*(unit_sample(rng)*2.0-1.0);
+      atom.z += zdiff;
+    }
+  }
+
   //compute grid from atom info arrays
   if(gpu)
   {

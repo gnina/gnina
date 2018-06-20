@@ -1,6 +1,8 @@
 #ifdef USE_CUDNN
 #include "caffe/util/cudnn.hpp"
 
+DEFINE_bool(use_tensor_core, false, "Use Volta tensor operations");
+
 namespace caffe {
 namespace cudnn {
 

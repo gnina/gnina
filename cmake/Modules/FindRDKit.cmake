@@ -54,7 +54,7 @@ else()
   endif()
 
   if(NOT RDKIT_LIBRARIES)
-    find_library(FILEPARSERS_LIB NAMES FileParsers
+      find_library(FILEPARSERS_LIB NAMES FileParsers RDKitFileParsers
       PATHS
         ${RDBASE}/lib
         $ENV{RDKIT_LIB_DIR}
@@ -72,30 +72,30 @@ else()
     )
 
     #run with default paths this time
-    find_library(FILEPARSERS_LIB NAMES FileParsers)
+    find_library(FILEPARSERS_LIB NAMES FileParsers RDKitFileParsers)
 
     if(FILEPARSERS_LIB)
        GET_FILENAME_COMPONENT(RDKIT_LIBRARY_DIR ${FILEPARSERS_LIB} PATH)
        message(STATUS "Found RDKit libraries at ${RDKIT_LIBRARY_DIR}")
 
       # Note that the order of the following libraries is significant!!
-      find_library(SMILESPARSE_LIB NAMES SmilesParse
+      find_library(SMILESPARSE_LIB NAMES SmilesParse RDKitSmilesParse
                                    HINTS ${RDKIT_LIBRARY_DIR})
-      find_library(DEPICTOR_LIB NAMES Depictor
+      find_library(DEPICTOR_LIB NAMES Depictor RDKitDepictor
                                 HINTS ${RDKIT_LIBRARY_DIR})
-      find_library(GRAPHMOL_LIB NAMES GraphMol
+      find_library(GRAPHMOL_LIB NAMES GraphMol RDKitGraphMol
                                 HINTS ${RDKIT_LIBRARY_DIR})
-      find_library(RDGEOMETRYLIB_LIB NAMES RDGeometryLib
-                                     HINTS ${RDKIT_LIBRARY_DIR})
-      find_library(RDGENERAL_LIB NAMES RDGeneral
+      find_library(RDGEOMETRYLIB_LIB NAMES RDGeometryLib RDKitRDGeometryLib
+                                HINTS ${RDKIT_LIBRARY_DIR})
+      find_library(RDGENERAL_LIB NAMES RDGeneral RDKitRDGeneral
                                  HINTS ${RDKIT_LIBRARY_DIR})
 
       #jhochuli - additional libraries for gninavis
-      find_library(SUBSTRUCTMATCH_LIB NAMES SubstructMatch
+      find_library(SUBSTRUCTMATCH_LIB NAMES SubstructMatch RDKitSubstructMatch
                                  HINTS ${RDKIT_LIBRARY_DIR})
-      find_library(SUBGRAPHS_LIB NAME Subgraphs
+      find_library(SUBGRAPHS_LIB NAMES Subgraphs RDKitSubgraphs
                                  HINTS ${RDKIT_LIBRARY_DIR})
-      find_library(DATASTRUCTS_LIB NAME DataStructs
+      find_library(DATASTRUCTS_LIB NAMES DataStructs RDKitDataStructs
                                  HINTS ${RDKIT_LIBRARY_DIR})
 
       set (RDKIT_LIBRARIES ${FILEPARSERS_LIB} ${SMILESPARSE_LIB}
