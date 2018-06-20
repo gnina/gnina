@@ -25,6 +25,11 @@
 #include "gninasrc/lib/gridmaker.h"
 
 void test_set_atom_gradients();
+void test_subcube_grids();
+struct atom_params;
+template <typename atomT, typename MGridT, typename GridMakerT> 
+  void set_cnn_grids(MGridT* mgrid, GridMakerT& gmaker, 
+      std::vector<atom_params>& mol_atoms, std::vector<atomT>& mol_types);
 
 namespace caffe {
 
@@ -91,7 +96,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   virtual inline const char* type() const { return "MolGridData"; }
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int ExactNumTopBlobs() const { return 2+
-      this->layer_param_.molgrid_data_param().has_subgrid_dim() +
+      (this->layer_param_.molgrid_data_param().subgrid_dim()!=0) +
       this->layer_param_.molgrid_data_param().has_affinity()+
       this->layer_param_.molgrid_data_param().has_rmsd()+
       this->layer_param_.molgrid_data_param().peturb_ligand();
@@ -259,6 +264,10 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
 
   virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
   friend void ::test_set_atom_gradients();
+  friend void ::test_subcube_grids();
+  template <typename atomT, typename MGridT, typename GridMakerU> 
+    friend void ::set_cnn_grids(MGridT* mgrid, GridMakerU& gmaker, 
+        std::vector<atom_params>& mol_atoms, std::vector<atomT>& mol_types);
   protected:
   ///////////////////////////   PROTECTED DATA TYPES   //////////////////////////////
   typedef qt quaternion;
@@ -808,6 +817,11 @@ class GenericMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
     }
 
     virtual ~GenericMolGridDataLayer() {};
+    friend void ::test_set_atom_gradients();
+    friend void ::test_subcube_grids();
+    template <typename atomT, typename MGridT, typename GridMakerU> 
+      friend void ::set_cnn_grids(MGridT* mgrid, GridMakerU& gmaker, 
+          std::vector<atom_params>& mol_atoms, std::vector<atomT>& mol_types);
 
 };
 
@@ -855,6 +869,11 @@ class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
     
     virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
 
+    friend void ::test_set_atom_gradients();
+    friend void ::test_subcube_grids();
+    template <typename atomT, typename MGridT, typename GridMakerU> 
+      friend void ::set_cnn_grids(MGridT* mgrid, GridMakerU& gmaker, 
+          std::vector<atom_params>& mol_atoms, std::vector<atomT>& mol_types);
   protected:
   vector<Dtype> seqcont; //necessary for LSTM layer; indicates if a batch instance 
                          //is a continuation of a previous example sequence or 

@@ -36,7 +36,7 @@ BOOST_AUTO_TEST_CASE(eval_intra) {
 
 BOOST_AUTO_TEST_SUITE_END()
 
-BOOST_AUTO_TEST_SUITE(tree_gpu)
+BOOST_AUTO_TEST_SUITE(test_tree_gpu)
 
 BOOST_AUTO_TEST_CASE(set_conf) {
   boost_loop_test(&test_set_conf);
@@ -58,7 +58,7 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(test_cnn)
 
-BOOST_AUTO_TEST_CASE(set_conf) {
+BOOST_AUTO_TEST_CASE(set_atom_gradients) {
   boost_loop_test(&test_set_atom_gradients);
 }
 

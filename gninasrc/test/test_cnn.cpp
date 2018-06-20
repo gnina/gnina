@@ -5,7 +5,6 @@
 #include "gridmaker.h"
 #include "cnn_scorer.h"
 #include <cuda_runtime.h>
-#include <boost/math/quaternion.hpp>
 #include "quaternion.h"
 #define BOOST_TEST_DYN_LINK
 #include <boost/test/unit_test.hpp>
@@ -14,7 +13,6 @@
 
 extern parsed_args p_args;
 
-typedef boost::math::quaternion<float> quaternion;
 void test_set_atom_gradients() {
   // randomly generate gridpoint gradients, accumulate for atoms, and then compare
   p_args.log << "CNN Set Atom Gradients Test \n";
@@ -24,10 +22,6 @@ void test_set_atom_gradients() {
   std::normal_distribution<> diff_dist(0, 5);
   auto gen = std::bind(diff_dist, engine);
 
-  // TODO? not using the actual CNN atom types, but I don't think this should
-  // matter for correctness. however, I did template the relevant test_utils
-  // functions to facilitate changing this. the following also (relatedly) 
-  // does not distinguish between ligand and receptor atoms.
   std::vector<atom_params> mol_atoms;
   std::vector<smt> mol_types;
   make_mol(mol_atoms, mol_types, engine, 0, 1, 5000, 11.5, 11.5, 11.5);
@@ -35,14 +29,15 @@ void test_set_atom_gradients() {
   cnnopts.cnn_scoring = true;
   model m;
   CNNScorer cnn_scorer(cnnopts, m);
-  caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>* mgrid = 
-    dynamic_cast<caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>*>(cnn_scorer.mgrid);
+  caffe::GenericMolGridDataLayer<CNNScorer::Dtype>* mgrid = 
+    dynamic_cast<caffe::GenericMolGridDataLayer<CNNScorer::Dtype>*>(cnn_scorer.mgrid);
   assert(mgrid);
   GridMaker gmaker;
   //set up gmaker and mgrid
   set_cnn_grids(mgrid, gmaker, mol_atoms, mol_types);
 
   //randomly intialize gridpoint gradients
+  double dim = round(mgrid->dimension/mgrid->resolution)+1;
   std::vector<float> diff((smt::NumTypes) * dim * dim * dim);
   generate(begin(diff), end(diff), gen);
 
@@ -52,7 +47,7 @@ void test_set_atom_gradients() {
   caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>::mol_transform cpu_transform =
       mgrid->batch_transform[0];
   gmaker.setAtomGradientsCPU(cpu_transform.mol.atoms, cpu_transform.mol.whichGrid,
-          cpu_transform.Q, grids, cpu_transform.mol.gradient);
+          cpu_transform.Q.boost(), grids, cpu_transform.mol.gradient);
 
   //calculate GPU atom gradients
   float* gpu_diff;
@@ -62,6 +57,7 @@ void test_set_atom_gradients() {
   mgrid->setAtomGradientsGPU(gmaker, gpu_diff, 1);
 
   //compare results
+  caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>::mol_transform& transform = mgrid->batch_transform[0];
   for (size_t i = 0; i < mol_atoms.size(); ++i) {
     for (size_t j = 0; j < 3; ++j) {
       p_args.log << "CPU " << cpu_transform.mol.gradient[i][j] << " GPU "
@@ -102,4 +98,11 @@ void test_subcube_grids() {
   set_cnn_grids(mgrid, gmaker, mol_atoms, mol_types);
 
   //now subcube grid
+  CNNScorer sub_cnn_scorer(cnnopts, m);
+  caffe::RNNMolGridDataLayer<CNNScorer::Dtype>* sub_mgrid = 
+    dynamic_cast<caffe::RNNMolGridDataLayer<CNNScorer::Dtype>*>(sub_cnn_scorer.mgrid);
+  assert(sub_mgrid);
+  RNNGridMaker sub_gmaker;
+  //set up gmaker and mgrid
+  // set_cnn_grids(sub_mgrid, sub_gmaker, mol_atoms, mol_types);
 }

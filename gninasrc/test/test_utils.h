@@ -1,8 +1,12 @@
 #ifndef TEST_UTILS_H
 #define TEST_UTILS_H
+#include "caffe/util/rng.hpp"
+#include "caffe/layers/molgrid_data_layer.hpp"
 #include <string>
 #include "tee.h"
 #include "gpucode.h"
+#include <boost/math/quaternion.hpp>
+#include "cnn_scorer.h"
 #include "parsed_args.h"
 #include "atom_constants.h"
 #include "device_buffer.h"
@@ -10,6 +14,7 @@
 extern parsed_args p_args;
 extern bool run_on_gpu;
 extern int cuda_dev_id;
+typedef boost::math::quaternion<float> quaternion;
 
 //TODO: doesn't explicitly prevent/check atoms from overlapping, which could
 //theoretically lead to runtime errors later
@@ -73,9 +78,9 @@ inline void print_tree(atom_params* atoms, unsigned coords_size, tee& log) {
 }
 
 //set up CNN grids from randomly-generated mol
-template <typename atomT, typename GridMakerT>
-inline void set_cnn_grids(caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMakerT>* mgrid, 
-  GridMakerT& gmaker, std::vector<atom_params>& mol_atoms, std::vector<smt>& mol_types) {
+template <typename atomT, typename MGridT, typename GridMakerT>
+inline void set_cnn_grids(MGridT* mgrid, 
+  GridMakerT& gmaker, std::vector<atom_params>& mol_atoms, std::vector<atomT>& mol_types) {
   //first set up mgrid
   mgrid->batch_transform.resize(1);
   mgrid->batch_transform[0] = caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>::mol_transform();
