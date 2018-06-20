@@ -72,12 +72,12 @@ MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache&
    stream >> rmsd;
   //receptor
   stream >> tmp;
-  CHECK(tmp.length() > 0) << "Empty receptor, missing affinity/rmsd?";
+  CHECK(tmp.length() > 0) << "Empty receptor, missing affinity/rmsd? Line:\n" << line;
   receptor = cache.get(tmp);
   //ligand
   tmp.clear();
   stream >> tmp;
-  CHECK(tmp.length() > 0) << "Empty ligand, missing affinity/rmsd?";
+  CHECK(tmp.length() > 0) << "Empty ligand, missing affinity/rmsd? Line:\n" << line;
 
   ligand = cache.get(tmp);
 }
