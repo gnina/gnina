@@ -608,7 +608,7 @@ class RNNGridMaker : public GridMaker {
     unsigned nrec_types;
     unsigned nlig_types;
     RNNGridMaker(float res=0, float d=0, float rm=1.5, bool b=false, 
-        bool s=false, float sd=3.0, unsigned bs=1, unsigned bi=0, 
+        bool s=false, float sd=0.0, unsigned bs=1, unsigned bi=0, 
         unsigned nt=0, unsigned nrt=0, unsigned nlt=0) : 
       GridMaker(res, d, rm, b, s), subgrid_dim(sd), batch_size(bs), 
       batch_idx(bi), ntypes(nt), nrec_types(nrt), nlig_types(nlt) {
@@ -618,7 +618,7 @@ class RNNGridMaker : public GridMaker {
     virtual ~RNNGridMaker() {}
 
     virtual void initialize(float res, float d, float rm=1.5, bool b = false, 
-        bool s = false, float sd=3.0, unsigned bs=1, unsigned bi=0, 
+        bool s = false, float sd=0.0, unsigned bs=1, unsigned bi=0, 
         unsigned nt=0, unsigned nrt=0, unsigned nlt=0) {
       subgrid_dim = sd;
       batch_size = bs;
@@ -627,9 +627,6 @@ class RNNGridMaker : public GridMaker {
       nrec_types = nrt;
       nlig_types = nlt;
       GridMaker::initialize(res, d, rm, b, s);
-      if (subgrid_dim && fmod((dimension - subgrid_dim), subgrid_dim + 
-            resolution) != 0)
-        printf("Subgrid dimension must evenly divide total grid dimension");
     }
 
     virtual void initialize(const caffe::MolGridDataParameter& param) {
@@ -672,10 +669,11 @@ class RNNGridMaker : public GridMaker {
     template <typename Dtype>
     void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
         const quaternion& Q, Dtype* data, unsigned ntypes) {
-      unsigned grids_per_dim = (this->dimension - subgrid_dim) / (subgrid_dim 
-          + resolution) + 1;
+      unsigned subgrid_dim_in_points = std::round(subgrid_dim / resolution) + 1;
+      float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
+      unsigned grids_per_dim = std::round((this->dimension - effective_subgrid_dim) / 
+      (effective_subgrid_dim + resolution)) + 1;
       unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
-      unsigned subgrid_dim_in_points = dim / grids_per_dim;
       boost::multi_array_ref<Dtype, 6> grids(data, 
           boost::extents[ngrids][batch_size][ntypes][subgrid_dim_in_points]
           [subgrid_dim_in_points][subgrid_dim_in_points]);
@@ -760,9 +758,10 @@ class RNNGridMaker : public GridMaker {
             float y = dims[1].x + j * resolution;
             float z = dims[2].x + k * resolution;
             float val = calcPoint(coords, radius, x, y, z);
-            unsigned grids_per_dim = (dimension - subgrid_dim) / 
-              (subgrid_dim + resolution) + 1;
-            unsigned subgrid_dim_in_points = dim / grids_per_dim;
+            unsigned subgrid_dim_in_points = std::round(subgrid_dim / resolution) + 1;
+            float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
+            unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
+                (effective_subgrid_dim + resolution)) + 1;
             unsigned subgrid_idx_x = i / subgrid_dim_in_points; 
             unsigned subgrid_idx_y = j / subgrid_dim_in_points; 
             unsigned subgrid_idx_z = k / subgrid_dim_in_points; 
@@ -797,10 +796,11 @@ class RNNGridMaker : public GridMaker {
     void setAtomGradientsCPU(const vector<float4>& ainfo, 
         const vector<short>& gridindex, quaternion Q, Dtype* data, 
         vector<float3>& agrad, unsigned offset, unsigned ntypes) {
-      unsigned grids_per_dim = (this->dimension - subgrid_dim) / 
-        (subgrid_dim + resolution) + 1;
+      unsigned subgrid_dim_in_points = std::round(subgrid_dim / resolution) + 1;
+      float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
+      unsigned grids_per_dim = std::round((this->dimension - effective_subgrid_dim) / 
+          (effective_subgrid_dim + resolution)) + 1;
       unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
-      unsigned subgrid_dim_in_points = dim / grids_per_dim;
       boost::multi_array_ref<Dtype, 6> grids(data, boost::extents[ngrids]
           [batch_size][ntypes][subgrid_dim_in_points][subgrid_dim_in_points]
           [subgrid_dim_in_points]);
@@ -869,8 +869,10 @@ class RNNGridMaker : public GridMaker {
             //subgrids from different examples in the same batch be interleaved.
             //we need to convert the absolute grid index to the index in this
             //subgrid grid, which is T x B x ntypes x subgrid_dim x subgrid_dim x subgrid_dim
-            unsigned grids_per_dim = (dimension - subgrid_dim) / 
-              (subgrid_dim + resolution) + 1;
+            unsigned subgrid_dim_in_points = std::round(subgrid_dim / resolution) + 1;
+            float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
+            unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
+                (effective_subgrid_dim + resolution)) + 1;
             unsigned subgrid_idx_x = i / (dim / grids_per_dim); 
             unsigned subgrid_idx_y = j / (dim / grids_per_dim); 
             unsigned subgrid_idx_z = k / (dim / grids_per_dim); 
@@ -939,8 +941,10 @@ class RNNGridMaker : public GridMaker {
           float x = dims[0].x + i * resolution;
           float y = dims[1].x + j * resolution;
           float z = dims[2].x + k * resolution;
-          unsigned grids_per_dim = (dimension - subgrid_dim) / 
-            (subgrid_dim + resolution) + 1;
+          unsigned subgrid_dim_in_points = ::round(subgrid_dim / resolution) + 1;
+          float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
+          unsigned grids_per_dim = ::round((dimension - effective_subgrid_dim) / 
+              (effective_subgrid_dim + resolution)) + 1;
           unsigned subgrid_idx_x = i / (dim / grids_per_dim); 
           unsigned subgrid_idx_y = j / (dim / grids_per_dim); 
           unsigned subgrid_idx_z = k / (dim / grids_per_dim); 

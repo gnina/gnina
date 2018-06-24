@@ -839,8 +839,10 @@ class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
     }
 
     virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) {
-      unsigned grids_per_dim = (this->dimension - this->gmaker.subgrid_dim) / 
-          (this->gmaker.subgrid_dim+this->resolution) + 1;
+      unsigned subgrid_dim_in_points = std::round(this->gmaker.subgrid_dim / this->resolution) + 1;
+      float effective_subgrid_dim = this->resolution * (subgrid_dim_in_points - 1);
+      unsigned grids_per_dim = std::round((this->dimension - effective_subgrid_dim) / 
+          (effective_subgrid_dim + this->resolution)) + 1;
       unsigned ncubes = grids_per_dim * grids_per_dim * grids_per_dim;
       unsigned batch_size = this->gmaker.batch_size;
       unsigned batch_idx = this->gmaker.batch_idx;

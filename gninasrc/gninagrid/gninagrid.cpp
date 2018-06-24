@@ -171,5 +171,4 @@ int main(int argc, char *argv[]) {
         << (e.in ? "reading" : "writing") << ".\n";
     return -1;
   }
->>>>>>> master
 }

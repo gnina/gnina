@@ -210,9 +210,10 @@ template<bool Binary, typename Dtype> __device__ void set_atoms(float3 origin,
       float r = ainfos[i].w;
       float rsq = r * r;
       float d = sqDistance(coord, x, y, z);
-      unsigned grids_per_dim = (dimension - subgrid_dim) / (subgrid_dim + 
-          resolution) + 1;
-      unsigned subgrid_dim_in_points = dim / grids_per_dim;
+      unsigned subgrid_dim_in_points = ::round(subgrid_dim / resolution) + 1;
+      float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
+      unsigned grids_per_dim = ::round((dimension - effective_subgrid_dim) / 
+          (effective_subgrid_dim + resolution)) + 1;
       unsigned subgrid_idx_x = xi / subgrid_dim_in_points;
       unsigned subgrid_idx_y = yi / subgrid_dim_in_points;
       unsigned subgrid_idx_z = zi / subgrid_dim_in_points;
@@ -489,9 +490,10 @@ void RNNGridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
   //each thread is responsible for a grid point location and will handle all atom types
   //each block is 8x8x8=512 threads
   float3 origin(dims[0].x, dims[1].x, dims[2].x); //actually a gfloat3
-  unsigned grids_per_dim = (dimension - subgrid_dim) / (subgrid_dim 
-      + resolution) + 1;
-  unsigned subgrid_dim_in_points = dim / grids_per_dim;
+  unsigned subgrid_dim_in_points = std::round(subgrid_dim / resolution) + 1;
+  float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
+  unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
+      (effective_subgrid_dim + resolution)) + 1;
   dim3 threads(BLOCKDIM, BLOCKDIM, BLOCKDIM);
   unsigned blocksperside = ceil(dim / float(BLOCKDIM));
   dim3 blocks(blocksperside, blocksperside, blocksperside);
