@@ -674,9 +674,11 @@ class RNNGridMaker : public GridMaker {
       unsigned grids_per_dim = std::round((this->dimension - effective_subgrid_dim) / 
       (effective_subgrid_dim + resolution)) + 1;
       unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
+
       boost::multi_array_ref<Dtype, 6> grids(data, 
           boost::extents[ngrids][batch_size][ntypes][subgrid_dim_in_points]
           [subgrid_dim_in_points][subgrid_dim_in_points]);
+
       zeroGridsCPU(grids);
       for (unsigned i = 0, n = ainfo.size(); i < n; i++) {
         int pos = gridindex[i];

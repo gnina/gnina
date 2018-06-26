@@ -167,6 +167,7 @@ void test_subcube_grids() {
   //now subcube grid, CPU first
   Dtype* rnndata = new Dtype[ntypes * dim * dim * dim];
   RNNGridMaker rnngmaker;
+  rnngmaker.ntypes = ntypes;
   param->set_subgrid_dim(subcube_dim);
   rnngmaker.initialize(*param);
   rnngmaker.setCenter(center[0], center[1], center[2]);
@@ -179,9 +180,28 @@ void test_subcube_grids() {
       (effective_subgrid_dim + resolution)) + 1;
   unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
 
-  boost::multi_array_ref<Dtype, 4> grids(&data[0], boost::extents[ntypes][dim][dim][dim]);
-  //effectively a batch size of 1 so skipping that axis here
-  boost::multi_array_ref<Dtype, 5> rnngrids(&rnndata[0], 
+  boost::multi_array_ref<Dtype, 4> grids(data, boost::extents[ntypes][dim][dim][dim]);
+  //batch size of 1 so skipping that axis here
+  boost::multi_array_ref<Dtype, 5> rnngrids(rnndata, 
+      boost::extents[ngrids][ntypes][subgrid_dim_in_points]
+      [subgrid_dim_in_points][subgrid_dim_in_points]);
+
+  //set subcube grid atoms, GPU version
+  Dtype* rnndata_gpu = new Dtype[ntypes * dim * dim * dim];
+  Dtype* gpu_grids;
+  CUDA_CHECK(cudaMalloc(&gpu_grids, sizeof(Dtype)*ntypes*dim*dim*dim));
+  CUDA_CHECK(cudaMemset(gpu_grids, 0, sizeof(Dtype)*ntypes*dim*dim*dim));
+  unsigned natoms = transform.mol.atoms.size();
+  mgrid->allocateGPUMem(natoms);
+  CUDA_CHECK(cudaMemcpy(mgrid->gpu_gridatoms, &transform.mol.atoms[0], 
+        natoms*sizeof(float4), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(mgrid->gpu_gridwhich, &transform.mol.whichGrid[0], 
+        natoms*sizeof(short), cudaMemcpyHostToDevice));
+  rnngmaker.setAtomsGPU(natoms, mgrid->gpu_gridatoms, 
+      mgrid->gpu_gridwhich, transform.Q.boost(), ntypes, gpu_grids);
+  CUDA_CHECK(cudaMemcpy(rnndata_gpu, gpu_grids, sizeof(Dtype)*ntypes*dim*dim*dim, 
+        cudaMemcpyDeviceToHost));
+  boost::multi_array_ref<Dtype, 5> rnngrids_gpu(rnndata_gpu, 
       boost::extents[ngrids][ntypes][subgrid_dim_in_points]
       [subgrid_dim_in_points][subgrid_dim_in_points]);
 
@@ -199,16 +219,20 @@ void test_subcube_grids() {
           unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + 
                 subgrid_idx_y) * grids_per_dim + subgrid_idx_z);
           p_args.log << "CPU full grid " << grids[type][i][j][k] << " CPU subcube grid " << 
-            rnngrids[grid_idx][type][rel_x][rel_y][rel_z] << "\n";
+            rnngrids[grid_idx][type][rel_x][rel_y][rel_z] << " GPU subcube grid " << 
+            rnngrids_gpu[grid_idx][type][rel_x][rel_y][rel_z] << "\n";
           BOOST_REQUIRE_SMALL(
               grids[type][i][j][k] - rnngrids[grid_idx][type][rel_x][rel_y][rel_z],
+              (float )0.01);
+          BOOST_REQUIRE_SMALL(
+              grids[type][i][j][k] - rnngrids_gpu[grid_idx][type][rel_x][rel_y][rel_z],
               (float )0.01);
         }
       }
     }
   }
 
-  //subcube grid, GPU
   delete data;
   delete rnndata;
+  delete rnndata_gpu;
 }

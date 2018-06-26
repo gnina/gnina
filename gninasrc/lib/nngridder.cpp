@@ -130,7 +130,7 @@ void RNNMolsGridder::outputDXGrid(ostream& out, Grid& grid)
   float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
   unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
       (effective_subgrid_dim + resolution)) + 1;
-  unsigned n = dim / grids_per_dim;
+  unsigned n = subgrid_dim_in_points;
   unsigned slice = grids_per_dim * grids_per_dim;
   unsigned mod_idx = grid_idx % slice;
   std::vector<unsigned> subgrid_indices(3);
@@ -638,7 +638,7 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
     unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
         (effective_subgrid_dim + resolution)) + 1;
     ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
-    n = n / grids_per_dim;
+    n = subgrid_dim_in_points;
   }
 
   RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
@@ -652,7 +652,7 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 	  	if (rmap[at] >= 0) //valid type for receptor
 	  	{
 	  		unsigned i = rmap[at];
-              unsigned idx = rnn ? cid * rnn->nrec_types + i : i;
+        unsigned idx = rnn ? cid * rnn->nrec_types + i : i;
 	  		if (receptorGrids.size() <= i * ngrids)
 	  			receptorGrids.resize((i + 1) * ngrids);
 	  		  if (receptorGrids[idx].num_elements() == 0)
@@ -665,7 +665,7 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 	  	if (lmap[at] >= 0)
 	  	{
 	  		unsigned i = lmap[at];
-              unsigned idx = rnn ? cid * rnn->nlig_types + i : i;
+        unsigned idx = rnn ? cid * rnn->nlig_types + i : i;
 	  		if (ligandGrids.size() <= i * ngrids)
 	  			ligandGrids.resize((i + 1) * ngrids);
 	  		  if (ligandGrids[idx].num_elements() == 0)
@@ -818,7 +818,7 @@ void NNGridder::initialize(const gridoptions& opt) {
   else
     gmaker = new GridMaker();
 
-  gmaker->initialize(resolution, opt.dim, radiusmultiple, binary, opt.spherize);
+  gmaker->initialize(opt, radiusmultiple);
 
   if (binary) radiusmultiple = 1.0;
 

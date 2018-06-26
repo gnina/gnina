@@ -222,21 +222,19 @@ template<bool Binary, typename Dtype> __device__ void set_atoms(float3 origin,
       unsigned rel_z = zi % subgrid_dim_in_points;
       unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + subgrid_idx_y) * 
           grids_per_dim + subgrid_idx_z);
+      unsigned gpos = ((((grid_idx * batch_size + batch_idx) * ntypes + 
+              which) * grids_per_dim + rel_x) * grids_per_dim + rel_y) * 
+              grids_per_dim + rel_z;
 
       if(Binary) {
         if(d < rsq) {
-          grids[((((grid_idx * batch_size + batch_idx) * ntypes + which) *
-              grids_per_dim + rel_x) * grids_per_dim + rel_y) * grids_per_dim
-          + rel_z] = 1.0;
+          grids[gpos] = 1.0;
         }
       }
       else {
         float dist = sqrtf(d);
         if (dist < r * rmult) {
           float h = 0.5 * r;
-          unsigned gpos = ((((grid_idx * batch_size + batch_idx) * ntypes + 
-                  which) * grids_per_dim + rel_x) * grids_per_dim + rel_y) * 
-                  grids_per_dim + rel_z;
 
           if (dist <= r) {
             //return gaussian
@@ -494,10 +492,11 @@ void RNNGridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
   float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
   unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
       (effective_subgrid_dim + resolution)) + 1;
+  unsigned ncubes = grids_per_dim * grids_per_dim * grids_per_dim;
   dim3 threads(BLOCKDIM, BLOCKDIM, BLOCKDIM);
   unsigned blocksperside = ceil(dim / float(BLOCKDIM));
   dim3 blocks(blocksperside, blocksperside, blocksperside);
-  unsigned gsize = ngrids * subgrid_dim_in_points * subgrid_dim_in_points *
+  unsigned gsize = ntypes * batch_size * ncubes * subgrid_dim_in_points * subgrid_dim_in_points *
         subgrid_dim_in_points;
   CUDA_CHECK(cudaMemset(grids, 0, gsize * sizeof(float)));  //TODO: see if faster to do in kernel - it isn't, but this still may not be fastest
   
