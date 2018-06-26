@@ -183,10 +183,8 @@ template<bool Binary, typename Dtype> __device__ void set_atoms(float3 origin,
   }
 }
 
-template<bool Binary, typename Dtype> __device__ void set_atoms(float3 origin,
-    int dim, float resolution, float rmult, unsigned n, float4 *ainfos, 
-    short *gridindex, Dtype *grids, unsigned batch_idx, unsigned batch_size, 
-    unsigned ntypes, float subgrid_dim, float dimension) {
+template<bool Binary, typename Dtype> __device__ void RNNGridMaker::set_atoms(float3 origin,
+    unsigned n, float4 *ainfos, short *gridindex, Dtype *grids) {
   //figure out what grid point we are 
   unsigned xi = threadIdx.x + blockIdx.x * blockDim.x;
   unsigned yi = threadIdx.y + blockIdx.y * blockDim.y;
@@ -210,10 +208,6 @@ template<bool Binary, typename Dtype> __device__ void set_atoms(float3 origin,
       float r = ainfos[i].w;
       float rsq = r * r;
       float d = sqDistance(coord, x, y, z);
-      unsigned subgrid_dim_in_points = ::round(subgrid_dim / resolution) + 1;
-      float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
-      unsigned grids_per_dim = ::round((dimension - effective_subgrid_dim) / 
-          (effective_subgrid_dim + resolution)) + 1;
       unsigned subgrid_idx_x = xi / subgrid_dim_in_points;
       unsigned subgrid_idx_y = yi / subgrid_dim_in_points;
       unsigned subgrid_idx_z = zi / subgrid_dim_in_points;
@@ -233,7 +227,7 @@ template<bool Binary, typename Dtype> __device__ void set_atoms(float3 origin,
       }
       else {
         float dist = sqrtf(d);
-        if (dist < r * rmult) {
+        if (dist < r * radiusmultiple) {
           float h = 0.5 * r;
 
           if (dist <= r) {
@@ -349,10 +343,9 @@ void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n,
 
 template<bool Binary, typename Dtype> __global__ 
 //__launch_bounds__(THREADSPERBLOCK, 64)
-void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n,
-    float4 *ainfos, short *gridindex, Dtype *grids, bool *mask, 
-    unsigned batch_idx, unsigned batch_size, unsigned ntypes, 
-    float subgrid_dim, float dimension) {
+void gpu_grid_set(float3 origin, int n, float4 *ainfos, short *gridindex, Dtype *grids, 
+    bool *mask, RNNGridMaker gmaker)
+    {
   unsigned tIndex = ((threadIdx.z * BLOCKDIM) + threadIdx.y) * BLOCKDIM 
     + threadIdx.x;
 
@@ -362,8 +355,9 @@ void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n,
     unsigned aindex = atomoffset + tIndex;
     
     if(aindex < n) {
-      atomMask[tIndex] = atomOverlapsBlock(aindex, origin, resolution, ainfos, 
-          gridindex, rmult);
+      atomMask[tIndex] = atomOverlapsBlock(aindex, origin, 
+          gmaker.get_resolution(), ainfos, gridindex,
+          gmaker.get_radiusmultiple());
       if(mask) atomMask[tIndex] &= !(mask[aindex]);
     }
     else {
@@ -388,9 +382,7 @@ void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n,
     unsigned nAtoms = scanOutput[THREADSPERBLOCK - 1] 
       + atomMask[THREADSPERBLOCK - 1];
     //atomIndex is now a list of nAtoms atom indices
-    set_atoms<Binary, Dtype>(origin, dim, resolution, rmult, nAtoms, ainfos,
-        gridindex, grids, batch_idx, batch_size, ntypes, subgrid_dim, 
-        dimension);
+    gmaker.set_atoms<Binary, Dtype>(origin, nAtoms, ainfos, gridindex, grids);
     __syncthreads();//everyone needs to finish before we muck with atomIndices again
   }
 }
@@ -488,10 +480,6 @@ void RNNGridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
   //each thread is responsible for a grid point location and will handle all atom types
   //each block is 8x8x8=512 threads
   float3 origin(dims[0].x, dims[1].x, dims[2].x); //actually a gfloat3
-  unsigned subgrid_dim_in_points = std::round(subgrid_dim / resolution) + 1;
-  float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
-  unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
-      (effective_subgrid_dim + resolution)) + 1;
   unsigned ncubes = grids_per_dim * grids_per_dim * grids_per_dim;
   dim3 threads(BLOCKDIM, BLOCKDIM, BLOCKDIM);
   unsigned blocksperside = ceil(dim / float(BLOCKDIM));
@@ -518,15 +506,13 @@ void RNNGridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
         ainfos);
   }
   if(binary) {
-    gpu_grid_set<true> <<<blocks, threads>>>(origin, dim, resolution,
-        radiusmultiple, natoms, ainfos, gridindex, grids, mask, batch_idx,
-        batch_size, ntypes, subgrid_dim, dimension);
+    gpu_grid_set<true> <<<blocks, threads>>>(origin, natoms, ainfos, gridindex, 
+        grids, mask, *this);
     CUDA_CHECK (cudaPeekAtLastError());
   }
   else {
-    gpu_grid_set<false> <<<blocks, threads>>>(origin, dim, resolution,
-        radiusmultiple, natoms, ainfos, gridindex, grids, mask, batch_idx,
-        batch_size, ntypes, subgrid_dim, dimension);
+    gpu_grid_set<false> <<<blocks, threads>>>(origin, natoms, ainfos, gridindex, 
+        grids, mask, *this);
     CUDA_CHECK(cudaPeekAtLastError());
   }
   CUDA_CHECK(cudaStreamSynchronize(cudaStreamPerThread)); 

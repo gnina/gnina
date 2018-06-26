@@ -446,10 +446,7 @@ void RNNMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& top,
   BaseMolGridDataLayer<Dtype, RNNGridMaker>::setBlobShape(top, hasrmsd, hasaffinity);
   //LSTM layer requires a "sequence continuation" blob
   unsigned batch_size = this->batch_transform.size();
-  unsigned subgrid_dim_in_points = std::round(this->gmaker.subgrid_dim / this->resolution) + 1;
-  float effective_subgrid_dim = this->resolution * (subgrid_dim_in_points - 1);
-  unsigned grids_per_dim = std::round((this->dimension - effective_subgrid_dim) / 
-      (effective_subgrid_dim + this->resolution)) + 1;
+  unsigned& grids_per_dim = this->gmaker.grids_per_dim;
   vector<int> seqcont_shape(grids_per_dim * grids_per_dim * grids_per_dim, batch_size);
   int idx = this->ExactNumTopBlobs() - this->ligpeturb;
   top[idx]->Reshape(seqcont_shape);
@@ -964,9 +961,9 @@ void RNNMolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
   Dtype* diff = top->mutable_cpu_diff();
   CHECK_GT(this->mem_lig.atoms.size(),0) << "DX dump only works with in-memory ligand";
   CHECK_EQ(this->randrotate, false) << "DX dump requires no rotation";
-  unsigned cubes_per_dim = this->dimension / this->gmaker.subgrid_dim;
-  unsigned ncubes = cubes_per_dim * cubes_per_dim * cubes_per_dim;
-  unsigned subgrid_dim_in_points = std::round(this->gmaker.subgrid_dim / this->resolution) + 1;
+  unsigned ncubes = this->gmaker.grids_per_dim * this->gmaker.grids_per_dim * 
+    this->gmaker.grids_per_dim;
+  const unsigned& subgrid_dim_in_points = this->gmaker.subgrid_dim_in_points;
   unsigned instance_size = (this->numReceptorTypes + this->numLigandTypes) * subgrid_dim_in_points * subgrid_dim_in_points * subgrid_dim_in_points;
 	for (unsigned a = 0, na = this->numReceptorTypes; a < na; a++) {
 		string name = this->getIndexName(this->rmap, a);
@@ -985,7 +982,8 @@ void RNNMolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
 		      ofstream out(fname.c_str());
           unsigned offset = i * instance_size; 
           typename BaseMolGridDataLayer<Dtype, RNNGridMaker>::Grids subgrids(diff+offset, boost::extents[this->numReceptorTypes+this->numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
-		      this->outputDXGrid(out, subgrids, a, scale, subgrid_dim_in_points);
+		      this->outputDXGrid(out, subgrids, this->numReceptorTypes+a, scale, 
+              subgrid_dim_in_points);
         }
 	}
 

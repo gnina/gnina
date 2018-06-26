@@ -51,10 +51,9 @@ void RNNMolsGridder::outputMAPGrid(ostream& out, Grid& grid)
 {
   unsigned dim = dims[0].n + 1;
 	unsigned max = (dim) / (dimension / subgrid_dim);
-  unsigned subgrid_dim_in_points = std::round(subgrid_dim / resolution) + 1;
-  float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
-  unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
-      (effective_subgrid_dim + resolution)) + 1;
+  RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
+  assert(rnn);
+  unsigned& grids_per_dim = rnn->grids_per_dim;
   unsigned slice = grids_per_dim * grids_per_dim;
   unsigned mod_idx = grid_idx % slice;
   std::vector<unsigned> subgrid_indices(3);
@@ -126,11 +125,10 @@ void NNGridder::outputDXGrid(ostream& out, Grid& grid) {
 void RNNMolsGridder::outputDXGrid(ostream& out, Grid& grid)
 {
   unsigned dim = dims[0].n + 1;
-  unsigned subgrid_dim_in_points = std::round(subgrid_dim / resolution) + 1;
-  float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
-  unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
-      (effective_subgrid_dim + resolution)) + 1;
-  unsigned n = subgrid_dim_in_points;
+  RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
+  assert(rnn);
+  unsigned& grids_per_dim = rnn->grids_per_dim;
+  unsigned n = rnn->subgrid_dim_in_points;
   unsigned slice = grids_per_dim * grids_per_dim;
   unsigned mod_idx = grid_idx % slice;
   std::vector<unsigned> subgrid_indices(3);
@@ -294,10 +292,9 @@ void NNGridder::outputMAP(const string& base) {
 //output an AD4 map for each grid
 void RNNMolsGridder::outputMAP(const string& base)
 {
-  unsigned subgrid_dim_in_points = std::round(subgrid_dim / resolution) + 1;
-  float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
-  unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
-      (effective_subgrid_dim + resolution)) + 1;
+  RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
+  assert(rnn);
+  unsigned& grids_per_dim = rnn->grids_per_dim;
   unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
   unsigned nrec_types = receptorGrids.size() / ngrids;
   unsigned nlig_types = ligandGrids.size() / ngrids;
@@ -358,10 +355,9 @@ void NNGridder::outputDX(const string& base) {
 //output an AD4 map for each grid
 void RNNMolsGridder::outputDX(const string& base)
 {
-  unsigned subgrid_dim_in_points = std::round(subgrid_dim / resolution) + 1;
-  float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
-  unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
-      (effective_subgrid_dim + resolution)) + 1;
+  RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
+  assert(rnn);
+  unsigned& grids_per_dim = rnn->grids_per_dim;
   unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
   unsigned nrec_types = receptorGrids.size() / ngrids;
   unsigned nlig_types = ligandGrids.size() / ngrids;
@@ -632,16 +628,14 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 	int numpts = round(dimension / resolution);
 	unsigned n = numpts + 1; //fencepost
   unsigned ngrids = 1;
-  if (opt.subgrid_dim) {
-    unsigned subgrid_dim_in_points = std::round(opt.subgrid_dim / resolution) + 1;
-    float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
-    unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
-        (effective_subgrid_dim + resolution)) + 1;
-    ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
-    n = subgrid_dim_in_points;
-  }
 
   RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
+  if (opt.subgrid_dim) {
+    assert(rnn);
+    unsigned grids_per_dim = rnn->grids_per_dim;
+    ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
+    n = rnn->subgrid_dim_in_points;
+  }
 
 	receptorGrids.reserve(ngrids * smina_atom_type::NumTypes);
 	ligandGrids.reserve(ngrids * smina_atom_type::NumTypes);
@@ -795,11 +789,10 @@ NNMolsGridder::NNMolsGridder(const gridoptions& opt) {
 
 RNNMolsGridder::RNNMolsGridder(const gridoptions& opt) : NNMolsGridder(opt)
 {
-  subgrid_dim = opt.subgrid_dim;
-  unsigned subgrid_dim_in_points = std::round(opt.subgrid_dim / resolution) + 1;
-  float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
-  unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
-      (effective_subgrid_dim + resolution)) + 1;
+  RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
+  assert(rnn);
+  subgrid_dim = rnn->subgrid_dim;
+  unsigned& grids_per_dim = rnn->grids_per_dim;
   ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
   grid_idx = 0;
 }

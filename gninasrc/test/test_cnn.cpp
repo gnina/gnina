@@ -157,7 +157,8 @@ void test_subcube_grids() {
   caffe::Caffe::set_random_seed(p_args.seed);
   transform.set_random_quaternion(caffe::caffe_rng());
 
-  Dtype* data = new Dtype[ntypes * dim * dim * dim];
+  unsigned gsize = ntypes * dim * dim * dim;
+  Dtype* data = new Dtype[gsize];
   GridMaker gmaker;
   gmaker.initialize(*param);
   gmaker.setCenter(center[0], center[1], center[2]);
@@ -165,7 +166,7 @@ void test_subcube_grids() {
       &data[0], ntypes);
 
   //now subcube grid, CPU first
-  Dtype* rnndata = new Dtype[ntypes * dim * dim * dim];
+  Dtype* rnndata = new Dtype[gsize];
   RNNGridMaker rnngmaker;
   rnngmaker.ntypes = ntypes;
   param->set_subgrid_dim(subcube_dim);
@@ -174,10 +175,8 @@ void test_subcube_grids() {
   rnngmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(), 
       &rnndata[0], ntypes);
 
-  unsigned subgrid_dim_in_points = std::round(subcube_dim / resolution) + 1;
-  float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
-  unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
-      (effective_subgrid_dim + resolution)) + 1;
+  unsigned& grids_per_dim = rnngmaker.grids_per_dim;
+  unsigned& subgrid_dim_in_points = rnngmaker.subgrid_dim_in_points;
   unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
 
   boost::multi_array_ref<Dtype, 4> grids(data, boost::extents[ntypes][dim][dim][dim]);
@@ -187,10 +186,10 @@ void test_subcube_grids() {
       [subgrid_dim_in_points][subgrid_dim_in_points]);
 
   //set subcube grid atoms, GPU version
-  Dtype* rnndata_gpu = new Dtype[ntypes * dim * dim * dim];
+  Dtype* rnndata_gpu = new Dtype[gsize];
   Dtype* gpu_grids;
-  CUDA_CHECK(cudaMalloc(&gpu_grids, sizeof(Dtype)*ntypes*dim*dim*dim));
-  CUDA_CHECK(cudaMemset(gpu_grids, 0, sizeof(Dtype)*ntypes*dim*dim*dim));
+  CUDA_CHECK(cudaMalloc(&gpu_grids, sizeof(Dtype) * gsize));
+  CUDA_CHECK(cudaMemset(gpu_grids, 0, sizeof(Dtype) * gsize));
   unsigned natoms = transform.mol.atoms.size();
   mgrid->allocateGPUMem(natoms);
   CUDA_CHECK(cudaMemcpy(mgrid->gpu_gridatoms, &transform.mol.atoms[0], 
@@ -199,7 +198,7 @@ void test_subcube_grids() {
         natoms*sizeof(short), cudaMemcpyHostToDevice));
   rnngmaker.setAtomsGPU(natoms, mgrid->gpu_gridatoms, 
       mgrid->gpu_gridwhich, transform.Q.boost(), ntypes, gpu_grids);
-  CUDA_CHECK(cudaMemcpy(rnndata_gpu, gpu_grids, sizeof(Dtype)*ntypes*dim*dim*dim, 
+  CUDA_CHECK(cudaMemcpy(rnndata_gpu, gpu_grids, sizeof(Dtype) * gsize, 
         cudaMemcpyDeviceToHost));
   boost::multi_array_ref<Dtype, 5> rnngrids_gpu(rnndata_gpu, 
       boost::extents[ngrids][ntypes][subgrid_dim_in_points]

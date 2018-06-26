@@ -77,7 +77,11 @@ class GridMaker {
     virtual void initialize(const gridoptions& opt, float rm) {
       initialize(opt.res, opt.dim, rm, opt.binary, opt.spherize);
     }
-  
+
+    __host__ __device__ unsigned get_resolution() {return resolution;}
+
+    __host__ __device__ float get_radiusmultiple() {return radiusmultiple;}
+
     //mus set center before gridding
     virtual void setCenter(double x, double y, double z) {
       center.x = x;
@@ -607,25 +611,34 @@ class RNNGridMaker : public GridMaker {
     unsigned ntypes;
     unsigned nrec_types;
     unsigned nlig_types;
+    unsigned subgrid_dim_in_points;
+    unsigned grids_per_dim;
     RNNGridMaker(float res=0, float d=0, float rm=1.5, bool b=false, 
         bool s=false, float sd=0.0, unsigned bs=1, unsigned bi=0, 
-        unsigned nt=0, unsigned nrt=0, unsigned nlt=0) : 
+        unsigned nt=0, unsigned nrt=0, unsigned nlt=0, unsigned sdip=0, 
+        unsigned gpd=0) : 
       GridMaker(res, d, rm, b, s), subgrid_dim(sd), batch_size(bs), 
-      batch_idx(bi), ntypes(nt), nrec_types(nrt), nlig_types(nlt) {
-      initialize(res, d, rm, b, s, sd, bs, bi, nt, nrt, nlt);
+      batch_idx(bi), ntypes(nt), nrec_types(nrt), nlig_types(nlt), subgrid_dim_in_points(sdip),
+      grids_per_dim(gpd) {
+      initialize(res, d, rm, b, s, sd, bs, bi, nt, nrt, nlt, sdip, gpd);
     }
 
     virtual ~RNNGridMaker() {}
 
     virtual void initialize(float res, float d, float rm=1.5, bool b = false, 
         bool s = false, float sd=0.0, unsigned bs=1, unsigned bi=0, 
-        unsigned nt=0, unsigned nrt=0, unsigned nlt=0) {
+        unsigned nt=0, unsigned nrt=0, unsigned nlt=0, unsigned sdip=0, 
+        unsigned gpd=0) {
       subgrid_dim = sd;
       batch_size = bs;
       batch_idx = bi;
       ntypes = nt;
       nrec_types = nrt;
       nlig_types = nlt;
+      subgrid_dim_in_points = ::round(subgrid_dim / res) + 1;
+      subgrid_dim = res * (subgrid_dim_in_points - 1);
+      grids_per_dim = ::round((d - subgrid_dim) / (subgrid_dim + res)) + 1;
+      d = (subgrid_dim + res) * (grids_per_dim - 1) + subgrid_dim;
       GridMaker::initialize(res, d, rm, b, s);
     }
 
@@ -669,10 +682,6 @@ class RNNGridMaker : public GridMaker {
     template <typename Dtype>
     void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
         const quaternion& Q, Dtype* data, unsigned ntypes) {
-      unsigned subgrid_dim_in_points = std::round(subgrid_dim / resolution) + 1;
-      float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
-      unsigned grids_per_dim = std::round((this->dimension - effective_subgrid_dim) / 
-      (effective_subgrid_dim + resolution)) + 1;
       unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
 
       boost::multi_array_ref<Dtype, 6> grids(data, 
@@ -760,10 +769,6 @@ class RNNGridMaker : public GridMaker {
             float y = dims[1].x + j * resolution;
             float z = dims[2].x + k * resolution;
             float val = calcPoint(coords, radius, x, y, z);
-            unsigned subgrid_dim_in_points = std::round(subgrid_dim / resolution) + 1;
-            float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
-            unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
-                (effective_subgrid_dim + resolution)) + 1;
             unsigned subgrid_idx_x = i / subgrid_dim_in_points; 
             unsigned subgrid_idx_y = j / subgrid_dim_in_points; 
             unsigned subgrid_idx_z = k / subgrid_dim_in_points; 
@@ -788,6 +793,10 @@ class RNNGridMaker : public GridMaker {
       }
     }
 
+    template<bool Binary, typename Dtype> __device__ 
+    void set_atoms(float3 origin, unsigned n, float4 *ainfos, short *gridindex, 
+        Dtype *grids);
+
     //defined in cu. N.B. this _cannot_ be virtual because we are passing the
     //gridmaker to a GPU kernel by value and the vtable is not copied
     template<typename Dtype>
@@ -798,10 +807,6 @@ class RNNGridMaker : public GridMaker {
     void setAtomGradientsCPU(const vector<float4>& ainfo, 
         const vector<short>& gridindex, quaternion Q, Dtype* data, 
         vector<float3>& agrad, unsigned offset, unsigned ntypes) {
-      unsigned subgrid_dim_in_points = std::round(subgrid_dim / resolution) + 1;
-      float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
-      unsigned grids_per_dim = std::round((this->dimension - effective_subgrid_dim) / 
-          (effective_subgrid_dim + resolution)) + 1;
       unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
       boost::multi_array_ref<Dtype, 6> grids(data, boost::extents[ngrids]
           [batch_size][ntypes][subgrid_dim_in_points][subgrid_dim_in_points]
@@ -871,10 +876,6 @@ class RNNGridMaker : public GridMaker {
             //subgrids from different examples in the same batch be interleaved.
             //we need to convert the absolute grid index to the index in this
             //subgrid grid, which is T x B x ntypes x subgrid_dim x subgrid_dim x subgrid_dim
-            unsigned subgrid_dim_in_points = std::round(subgrid_dim / resolution) + 1;
-            float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
-            unsigned grids_per_dim = std::round((dimension - effective_subgrid_dim) / 
-                (effective_subgrid_dim + resolution)) + 1;
             unsigned subgrid_idx_x = i / (dim / grids_per_dim); 
             unsigned subgrid_idx_y = j / (dim / grids_per_dim); 
             unsigned subgrid_idx_z = k / (dim / grids_per_dim); 
@@ -943,10 +944,6 @@ class RNNGridMaker : public GridMaker {
           float x = dims[0].x + i * resolution;
           float y = dims[1].x + j * resolution;
           float z = dims[2].x + k * resolution;
-          unsigned subgrid_dim_in_points = ::round(subgrid_dim / resolution) + 1;
-          float effective_subgrid_dim = resolution * (subgrid_dim_in_points - 1);
-          unsigned grids_per_dim = ::round((dimension - effective_subgrid_dim) / 
-              (effective_subgrid_dim + resolution)) + 1;
           unsigned subgrid_idx_x = i / (dim / grids_per_dim); 
           unsigned subgrid_idx_y = j / (dim / grids_per_dim); 
           unsigned subgrid_idx_z = k / (dim / grids_per_dim); 
