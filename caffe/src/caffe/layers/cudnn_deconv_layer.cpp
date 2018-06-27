@@ -92,10 +92,7 @@ template <typename Dtype>
 void CuDNNDeconvolutionLayer<Dtype>::Reshape(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
   DeconvolutionLayer<Dtype>::Reshape(bottom, top);
-  CHECK_EQ(2, this->num_spatial_axes_)
-      << "CuDNNDeconvolutionLayer input must have 2 spatial axes "
-      << "(e.g., height and width). "
-      << "Use 'engine: CAFFE' for general ND convolution.";
+
   bottom_offset_ = this->bottom_dim_ / this->group_;
   top_offset_ = this->top_dim_ / this->group_;
 
