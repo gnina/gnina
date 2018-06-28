@@ -35,6 +35,14 @@ class NNGridder {
         typedef const float& const_reference;
         typedef std::size_t size_type;
         typedef std::ptrdiff_t difference_type;
+        bool std_alloc;
+
+        float_pinned_allocator() : std_alloc(true) {
+          int count = 0;
+          cudaGetDeviceCount(&count);
+          if (count) 
+            std_alloc = false;
+        }
 
         pointer address(reference r) {
           return &r;
@@ -50,19 +58,30 @@ class NNGridder {
           }
 
           pointer result(0);
-          cudaError_t error = cudaMallocHost(reinterpret_cast<void**>(&result),
-              cnt * sizeof(value_type));
-
-          if (error) {
-            throw std::bad_alloc();
+          if (std_alloc) {
+            std::allocator<value_type> host_allocator;
+            result = host_allocator.allocate(cnt);
+          }
+          else {
+            cudaError_t error = cudaMallocHost(reinterpret_cast<void**>(&result),
+                cnt * sizeof(value_type));
+            if (error) {
+              cout << "CUDA error " << cudaGetErrorName(error) << "\n";
+              throw std::bad_alloc();
+            }
           }
 
           return result;
         }
 
         void deallocate(pointer p, size_type cnt) {
-          cudaFreeHost(p);
-
+          if (std_alloc) {
+            std::allocator<value_type> host_allocator;
+            host_allocator.deallocate(p, cnt);
+          }
+          else {
+            cudaFreeHost(p);
+          }
         }
 
         size_type max_size() const {
