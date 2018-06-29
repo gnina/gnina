@@ -684,7 +684,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
       }
       else
       {
-        std::cerr << "WARNING: Unknown atom type in " << file << ".  This atom will be discarded\n";
+        std::cerr << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded\n";
       }	
     }
     center /= cnt;
