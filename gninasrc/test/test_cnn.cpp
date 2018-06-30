@@ -84,7 +84,6 @@ void test_set_atom_gradients() {
   mgrid->setAtomGradientsGPU(gmaker, gpu_diff, 1);
 
   //compare results
-  // caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>::mol_transform& transform = mgrid->batch_transform[0];
   for (size_t i = 0; i < mol_atoms.size(); ++i) {
     for (size_t j = 0; j < 3; ++j) {
       p_args.log << "CPU " << cpu_transform.mol.gradient[i][j] << " GPU "
@@ -189,7 +188,6 @@ void test_subcube_grids() {
   Dtype* rnndata_gpu = new Dtype[gsize];
   Dtype* gpu_grids;
   CUDA_CHECK(cudaMalloc(&gpu_grids, sizeof(Dtype) * gsize));
-  CUDA_CHECK(cudaMemset(gpu_grids, 0, sizeof(Dtype) * gsize));
   unsigned natoms = transform.mol.atoms.size();
   mgrid->allocateGPUMem(natoms);
   CUDA_CHECK(cudaMemcpy(mgrid->gpu_gridatoms, &transform.mol.atoms[0], 
