@@ -78,7 +78,7 @@ class GridMaker {
       initialize(opt.res, opt.dim, rm, opt.binary, opt.spherize);
     }
 
-    __host__ __device__ unsigned get_resolution() {return resolution;}
+    __host__ __device__ float get_resolution() {return resolution;}
 
     __host__ __device__ float get_radiusmultiple() {return radiusmultiple;}
 
@@ -955,8 +955,8 @@ class RNNGridMaker : public GridMaker {
 
           accumulateAtomGradient(coords, radius, x, y, z, 
                     grids[((((grid_idx * batch_size + batch_idx) * ntypes + 
-                          whichgrid) * grids_per_dim + rel_x) * grids_per_dim + 
-                      rel_y) * grids_per_dim + rel_z], agrads[idx], whichgrid);
+                          whichgrid) * subgrid_dim_in_points + rel_x) * subgrid_dim_in_points + 
+                      rel_y) * subgrid_dim_in_points + rel_z], agrads[idx], whichgrid);
         }
       }
     }

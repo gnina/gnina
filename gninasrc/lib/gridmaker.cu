@@ -214,8 +214,8 @@ template<bool Binary, typename Dtype> __device__ void RNNGridMaker::set_atoms(fl
     float4 coord = ainfos[i];
     short which = gridindex[i];
     unsigned gpos = ((((grid_idx * batch_size + batch_idx) * ntypes + 
-            which) * grids_per_dim + rel_x) * grids_per_dim + rel_y) * 
-            grids_per_dim + rel_z;
+            which) * subgrid_dim_in_points + rel_x) * subgrid_dim_in_points + rel_y) * 
+            subgrid_dim_in_points + rel_z;
 
     if(which >= 0){ //because of hydrogens on ligands
       float r = ainfos[i].w;
@@ -337,11 +337,6 @@ void gpu_grid_set(float3 origin, int dim, float resolution, float rmult, int n,
 
     unsigned nAtoms = scanOutput[THREADSPERBLOCK - 1] 
       + atomMask[THREADSPERBLOCK - 1];
-    if (tIndex == 0) {
-      for (unsigned tmpidx = 0; tmpidx < nAtoms; ++tmpidx) {
-        printf("%d\n", atomIndices[tmpidx]);
-      }
-    }
     //atomIndex is now a list of nAtoms atom indices
     set_atoms<Binary, Dtype>(origin, dim, resolution, rmult, nAtoms, ainfos,
         gridindex, grids);
@@ -357,9 +352,6 @@ void gpu_grid_set(float3 origin, int n, float4 *ainfos, short *gridindex, Dtype 
   unsigned tIndex = ((threadIdx.z * BLOCKDIM) + threadIdx.y) * BLOCKDIM 
     + threadIdx.x;
 
-  float res = gmaker.get_resolution();
-  if (tIndex == 0)
-    printf("resolution %f\n", res);
   //there may be more than THREADPERBLOCK atoms, in which case we have to chunk them
   for(unsigned atomoffset = 0; atomoffset < n; atomoffset += THREADSPERBLOCK) {
     //first parallelize over atoms to figure out if they might overlap this block
@@ -392,11 +384,6 @@ void gpu_grid_set(float3 origin, int n, float4 *ainfos, short *gridindex, Dtype 
 
     unsigned nAtoms = scanOutput[THREADSPERBLOCK - 1] 
       + atomMask[THREADSPERBLOCK - 1];
-    if (tIndex == 0) {
-      for (unsigned tmpidx = 0; tmpidx < nAtoms; ++tmpidx) {
-        printf("%d\n", atomIndices[tmpidx]);
-      }
-    }
     //atomIndex is now a list of nAtoms atom indices
     gmaker.set_atoms<Binary, Dtype>(origin, nAtoms, ainfos, gridindex, grids);
     __syncthreads();//everyone needs to finish before we muck with atomIndices again
