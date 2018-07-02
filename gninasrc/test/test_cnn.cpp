@@ -167,9 +167,9 @@ void test_subcube_grids() {
   //now subcube grid, CPU first
   Dtype* rnndata = new Dtype[gsize];
   RNNGridMaker rnngmaker;
-  rnngmaker.ntypes = ntypes;
   param->set_subgrid_dim(subcube_dim);
   rnngmaker.initialize(*param);
+  rnngmaker.ntypes = ntypes;
   rnngmaker.setCenter(center[0], center[1], center[2]);
   rnngmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(), 
       &rnndata[0], ntypes);
@@ -215,6 +215,7 @@ void test_subcube_grids() {
           unsigned rel_z = k % subgrid_dim_in_points; 
           unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + 
                 subgrid_idx_y) * grids_per_dim + subgrid_idx_z);
+          p_args.log << "grid_idx: " << grid_idx << " type: " << type << " rel_x: " << rel_x << " rel_y: " << rel_y << " rel_z: " << rel_z << "\n";
           p_args.log << "CPU full grid " << grids[type][i][j][k] << " CPU subcube grid " << 
             rnngrids[grid_idx][type][rel_x][rel_y][rel_z] << " GPU subcube grid " << 
             rnngrids_gpu[grid_idx][type][rel_x][rel_y][rel_z] << "\n";
