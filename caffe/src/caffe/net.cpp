@@ -528,6 +528,7 @@ Dtype Net<Dtype>::ForwardFromTo(int start, int end) {
     for (int c = 0; c < after_forward_.size(); ++c) {
       after_forward_[c]->run(i);
     }
+    CUDA_CHECK(cudaDeviceSynchronize());
   }
   return loss;
 }
@@ -580,7 +581,9 @@ void Net<Dtype>::BackwardFromTo(int start, int end) {
     for (int c = 0; c < after_backward_.size(); ++c) {
       after_backward_[c]->run(i);
     }
+    CUDA_CHECK(cudaDeviceSynchronize());
   }
+
 }
 
 template <typename Dtype>

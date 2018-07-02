@@ -399,6 +399,7 @@ BOOST_PYTHON_MODULE(_caffe) {
   bp::def("solver_rank", &Caffe::solver_rank);
   bp::def("set_solver_rank", &Caffe::set_solver_rank);
   bp::def("set_multiprocess", &Caffe::set_multiprocess);
+  bp::def("device_synchronize", &Caffe::device_synchronize);
 
   bp::def("layer_type_list", &LayerRegistry<Dtype>::LayerTypeList);
 
