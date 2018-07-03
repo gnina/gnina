@@ -26,11 +26,9 @@
 #include "model.h"
 
 model parse_receptor_pdbqt(const std::string& rigid_name, std::istream& rigidin,
-		const std::string& flex_name, std::istream& flexin); // can throw parse_error
+    const std::string& flex_name, std::istream& flexin); // can throw parse_error
 model parse_receptor_pdbqt(const std::string& rigid_name, std::istream& in); // can throw parse_error
 model parse_ligand_pdbqt(const path& name); // can throw parse_error
 model parse_ligand_stream_pdbqt(const std::string& name, std::istream& in);
-
-
 
 #endif

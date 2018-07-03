@@ -72,12 +72,12 @@ MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache&
    stream >> rmsd;
   //receptor
   stream >> tmp;
-  CHECK(tmp.length() > 0) << "Empty receptor, missing affinity/rmsd?";
+  CHECK(tmp.length() > 0) << "Empty receptor, missing affinity/rmsd? Line:\n" << line;
   receptor = cache.get(tmp);
   //ligand
   tmp.clear();
   stream >> tmp;
-  CHECK(tmp.length() > 0) << "Empty ligand, missing affinity/rmsd?";
+  CHECK(tmp.length() > 0) << "Empty ligand, missing affinity/rmsd? Line:\n" << line;
 
   ligand = cache.get(tmp);
 }
@@ -684,7 +684,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
       }
       else
       {
-        std::cerr << "WARNING: Unknown atom type in " << file << ".  This atom will be discarded\n";
+        std::cerr << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded\n";
       }	
     }
     center /= cnt;

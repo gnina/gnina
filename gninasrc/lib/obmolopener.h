@@ -16,23 +16,22 @@
 #include <fstream>
 #include <vector>
 
-class obmol_opener
-{
-public:
+class obmol_opener {
+  public:
 
-	obmol_opener() {}
-	virtual ~obmol_opener();
+    obmol_opener() {
+    }
+    virtual ~obmol_opener();
 
+    void openForInput(OpenBabel::OBConversion& conv, const std::string& name);
+    void openForOutput(OpenBabel::OBConversion& conv, const std::string& name);
 
-	void openForInput(OpenBabel::OBConversion& conv, const std::string& name);
-	void openForOutput(OpenBabel::OBConversion& conv, const std::string& name);
+    void clear();
 
-	void clear();
+  private:
 
-private:
-
-	obmol_opener& operator=(const obmol_opener& rhs); //you don't want to do this
-	std::vector<std::ios*> streams;
+    obmol_opener& operator=(const obmol_opener& rhs); //you don't want to do this
+    std::vector<std::ios*> streams;
 };
 
 #endif /* OBMOLOPENER_H_ */
