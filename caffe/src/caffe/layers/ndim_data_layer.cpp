@@ -178,6 +178,8 @@ void  NDimDataLayer<Dtype>::load_data_from_files(Dtype* buffer, const std::strin
       in.push(gzip_decompressor());
       in.push(inorig);
       total += copy(in, data);
+
+      CHECK_EQ(inorig.peek(), EOF) << "File " << fname << " not fully read.  Are grid input sizes correct?";
     }
     else
     {
@@ -193,6 +195,7 @@ void  NDimDataLayer<Dtype>::load_data_from_files(Dtype* buffer, const std::strin
     }
 
   }
+
   CHECK_EQ(total,example_size*sizeof(Dtype)) << "Incorrect size of inputs (" << total << " vs. " << example_size*sizeof(Dtype) << ") on " << files[0];
 
   if(current_rotation > 0) {
