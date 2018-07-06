@@ -443,13 +443,53 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::setBlobShape(const vector<Blob<Dty
 template <typename Dtype>
 void RNNMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& top, 
     bool hasrmsd, bool hasaffinity) {
-  BaseMolGridDataLayer<Dtype, RNNGridMaker>::setBlobShape(top, hasrmsd, hasaffinity);
-  //LSTM layer requires a "sequence continuation" blob
-  unsigned batch_size = this->batch_transform.size();
-  unsigned& grids_per_dim = this->gmaker.grids_per_dim;
-  vector<int> seqcont_shape(grids_per_dim * grids_per_dim * grids_per_dim, batch_size);
-  int idx = this->ExactNumTopBlobs() - this->ligpeturb;
+  //layer shape is TxNx... for RNN
+  int batch_size = this->batch_transform.size();
+  unsigned grids_per_dim = this->gmaker.grids_per_dim;
+  unsigned n_timesteps = grids_per_dim * grids_per_dim * grids_per_dim;
+
+  //setup shape of layer
+  this->top_shape.clear();
+  this->top_shape.push_back(n_timesteps);
+  this->top_shape.push_back(batch_size);
+  this->top_shape.push_back(this->numReceptorTypes+this->numLigandTypes);
+  this->top_shape.push_back(this->dim);
+  this->top_shape.push_back(this->dim);
+  this->top_shape.push_back(this->dim);
+
+  this->example_size = 0;
+
+  // Reshape prefetch_data and top[0] according to the batch_size.
+  top[0]->Reshape(this->top_shape);
+
+  // Reshape label, affinity, rmsds
+  vector<int> label_shape;
+  label_shape.push_back(n_timesteps);
+  label_shape.push_back(batch_size);
+
+  top[1]->Reshape(label_shape);
+  if (hasaffinity)
+  {
+    top[2]->Reshape(label_shape);
+    if (hasrmsd)
+      top[3]->Reshape(label_shape);
+  else if(hasrmsd)
+    top[2]->Reshape(label_shape);
+  }
+
+  //RNN layer requires a TxN "sequence continuation" blob
+  seqcont_shape.clear();
+  seqcont_shape.push_back(n_timesteps);
+  seqcont_shape.push_back(batch_size);
+  int idx = this->ExactNumTopBlobs() - this->ligpeturb - 1;
   top[idx]->Reshape(seqcont_shape);
+
+  if(this->ligpeturb) {
+    vector<int> peturbshape(2);
+    peturbshape[0] = batch_size;
+    peturbshape[1] = 6; //trans+orient
+    top.back()->Reshape(peturbshape);
+  }
 }
 
 //read in structure input and atom type maps
@@ -1002,6 +1042,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
 {
   bool hasaffinity = this->layer_param_.molgrid_data_param().has_affinity();
   bool hasrmsd = this->layer_param_.molgrid_data_param().has_rmsd();
+  float subgrid_dim = this->layer_param_.molgrid_data_param().subgrid_dim();
 
   Dtype *top_data = NULL;
   if(gpu)
@@ -1010,7 +1051,13 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
     top_data = top[0]->mutable_cpu_data();
 
   perturbations.clear();
-  unsigned batch_size = top_shape[0];
+
+  unsigned batch_size;
+  if (subgrid_dim != 0)
+    batch_size = top_shape[1];
+  else
+    batch_size = top_shape[0];
+
   output_transform peturb;
 
   //if in memory must be set programmatically

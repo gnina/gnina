@@ -839,10 +839,7 @@ class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
     }
 
     virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) {
-      unsigned subgrid_dim_in_points = std::round(this->gmaker.subgrid_dim / this->resolution) + 1;
-      float effective_subgrid_dim = this->resolution * (subgrid_dim_in_points - 1);
-      unsigned grids_per_dim = std::round((this->dimension - effective_subgrid_dim) / 
-          (effective_subgrid_dim + this->resolution)) + 1;
+      unsigned grids_per_dim = this->gmaker.grids_per_dim;
       unsigned ncubes = grids_per_dim * grids_per_dim * grids_per_dim;
       unsigned batch_size = this->gmaker.batch_size;
       unsigned batch_idx = this->gmaker.batch_idx;
@@ -856,6 +853,7 @@ class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
       if (this->rmsds.size() < nexamples)
         this->rmsds.resize(nexamples);
 
+      //this need to be TxN, so we end up having to write a column at a time
       for (size_t cube_id = 0; cube_id < ncubes; ++cube_id) {
         unsigned idx = cube_id * batch_size + batch_idx;
         //TODO: generalize
@@ -877,6 +875,7 @@ class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
       friend void ::set_cnn_grids(MGridT* mgrid, GridMakerU& gmaker, 
           std::vector<atom_params>& mol_atoms, std::vector<atomT>& mol_types);
   protected:
+  vector<int> seqcont_shape;
   vector<Dtype> seqcont; //necessary for LSTM layer; indicates if a batch instance 
                          //is a continuation of a previous example sequence or 
                          //the beginning of a new one
@@ -884,7 +883,7 @@ class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
 
   virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, 
       bool gpu) {
-    int idx = this->ExactNumTopBlobs() - this->ligpeturb;
+    int idx = this->ExactNumTopBlobs() - this->ligpeturb - 1;
     this->copyToBlob(&seqcont[0], seqcont.size(), top[idx], gpu);
     BaseMolGridDataLayer<Dtype, RNNGridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, gpu);
   }
