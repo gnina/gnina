@@ -67,7 +67,7 @@ void NDimDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
 		while (getline(infile, line)) {
 			stringstream example(line);
-			int label = 0;
+			float label = 0;
 			//first the label
 			example >> label;
 			//then all binmaps for the example
@@ -85,6 +85,10 @@ void NDimDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 			all_.push_back(make_pair(binmaps,label));
 			if(label) actives_.push_back(binmaps);
 			else decoys_.push_back(binmaps);
+
+			if(label != 0.0 && label != 1.0) {
+			  CHECK(!balanced) << "Non-binary labels with balanced set to true";
+			}
 		}
 
 		if (this->layer_param_.ndim_data_param().shuffle()) {
