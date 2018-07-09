@@ -453,9 +453,9 @@ void RNNMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& top,
   this->top_shape.push_back(n_timesteps);
   this->top_shape.push_back(batch_size);
   this->top_shape.push_back(this->numReceptorTypes+this->numLigandTypes);
-  this->top_shape.push_back(this->dim);
-  this->top_shape.push_back(this->dim);
-  this->top_shape.push_back(this->dim);
+  this->top_shape.push_back(this->gmaker.subgrid_dim_in_points);
+  this->top_shape.push_back(this->gmaker.subgrid_dim_in_points);
+  this->top_shape.push_back(this->gmaker.subgrid_dim_in_points);
 
   this->example_size = 0;
 
