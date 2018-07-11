@@ -853,7 +853,8 @@ class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
       if (this->rmsds.size() < nexamples)
         this->rmsds.resize(nexamples);
 
-      //this need to be TxN, so we end up having to write a column at a time
+      //this need to be TxN, so we end up having to write a column at a time, 
+      //sadly
       for (size_t cube_id = 0; cube_id < ncubes; ++cube_id) {
         unsigned idx = cube_id * batch_size + batch_idx;
         //TODO: generalize
@@ -861,7 +862,10 @@ class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
           seqcont[idx] = 0;
         else
           seqcont[idx] = 1;
-        this->labels[idx] = pose;
+        if (cube_id == ncubes-1)
+          this->labels[idx] = pose;
+        else
+          this->labels[idx] = -1;
         this->affinities[idx] = affinity;
         this->rmsds[idx] = rmsd;
       }
