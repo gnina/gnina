@@ -688,7 +688,8 @@ class RNNGridMaker : public GridMaker {
           boost::extents[ngrids][batch_size][ntypes][subgrid_dim_in_points]
           [subgrid_dim_in_points][subgrid_dim_in_points]);
 
-      zeroGridsCPU(grids);
+      if (batch_idx == 0)
+        zeroGridsCPU(grids);
       for (unsigned i = 0, n = ainfo.size(); i < n; i++) {
         int pos = gridindex[i];
         if (pos >= 0)
@@ -699,7 +700,8 @@ class RNNGridMaker : public GridMaker {
     template<typename Grids>
     void setAtomsCPU(const vector<float4>& ainfo, 
         const vector<short>& gridindex,  const quaternion& Q, Grids& grids) {
-      zeroGridsCPU(grids);
+      if (batch_idx == 0)
+        zeroGridsCPU(grids);
       for (unsigned i = 0, n = ainfo.size(); i < n; i++) {
         int pos = gridindex[i];
         if (pos >= 0)

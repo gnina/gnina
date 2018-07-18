@@ -862,10 +862,7 @@ class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
           seqcont[idx] = 0;
         else
           seqcont[idx] = 1;
-        if (cube_id == ncubes-1)
-          this->labels[idx] = pose;
-        else
-          this->labels[idx] = -1;
+        this->labels[idx] = pose;
         this->affinities[idx] = affinity;
         this->rmsds[idx] = rmsd;
       }
