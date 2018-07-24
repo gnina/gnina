@@ -48,7 +48,8 @@ public:
       num_rotations(0), current_rotation(0),
       example_size(0), inmem(false), resolution(0.5),
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
-      jitter(0.0), binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
+      jitter(0.0), numposes(1), ligpeturb_rotate(false),
+      binary(false), randrotate(false), ligpeturb(false), ignore_ligand(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
       gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
   virtual ~MolGridDataLayer();
@@ -218,15 +219,15 @@ public:
   struct example
   {
     const char* receptor;
-    const char* ligand;
+    vector<const char*> ligands;
     Dtype label;
     Dtype affinity;
     Dtype rmsd;
 
-    example(): receptor(NULL), ligand(NULL), label(0), affinity(0), rmsd(0) {}
-    example(Dtype l, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0) {}
-    example(Dtype l, Dtype a, Dtype rms, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms) {}
-    example(string_cache& cache, string line, bool hasaffinity, bool hasrmsd);
+    example(): receptor(NULL), label(0), affinity(0), rmsd(0) {}
+    example(Dtype l, const char* r, const vector<const char*>& ligs): receptor(r), ligands(ligs), label(l), affinity(0), rmsd(0) {}
+    example(Dtype l, Dtype a, Dtype rms, const char* r, const vector<const char*>& ligs): receptor(r), ligands(ligs), label(l), affinity(a), rmsd(rms) {}
+    example(string_cache& cache, string line, bool hasaffinity, bool hasrmsd, unsigned numposes);
   };
 
   //abstract class for storing training examples
@@ -674,6 +675,7 @@ public:
   double randtranslate;
   double ligpeturb_translate;
   double jitter;
+  unsigned numposes;
   bool ligpeturb_rotate;
   bool binary; //produce binary occupancies
   bool randrotate;
@@ -711,7 +713,7 @@ public:
   quaternion axial_quaternion();
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
   void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
-                    mol_transform& transform, output_transform& pertub, bool gpu);
+                    mol_transform& transform, unsigned pose, output_transform& pertub, bool gpu);
   void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms,
                     mol_transform& transform, output_transform& peturb, bool gpu);
 

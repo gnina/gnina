@@ -59,7 +59,7 @@ MolGridDataLayer<Dtype>::~MolGridDataLayer<Dtype>() {
 }
 
 template <typename Dtype>
-MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache& cache, string line, bool hasaffinity, bool hasrmsd)
+MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache& cache, string line, bool hasaffinity, bool hasrmsd, unsigned numposes)
   : label(0), affinity(0.0), rmsd(0.0)
 {
   stringstream stream(line);
@@ -74,12 +74,14 @@ MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache&
   stream >> tmp;
   CHECK(tmp.length() > 0) << "Empty receptor, missing affinity/rmsd? Line:\n" << line;
   receptor = cache.get(tmp);
-  //ligand
-  tmp.clear();
-  stream >> tmp;
-  CHECK(tmp.length() > 0) << "Empty ligand, missing affinity/rmsd? Line:\n" << line;
+  //ligand(s)
 
-  ligand = cache.get(tmp);
+  for(unsigned i = 0; i < numposes; i++) {
+    tmp.clear();
+    stream >> tmp;
+    CHECK(tmp.length() > 0) << "Empty ligand, missing affinity/rmsd? Line:\n" << line;
+    ligands.push_back(cache.get(tmp));
+  }
 }
 
 
@@ -102,6 +104,7 @@ template<typename Dtype>
 void MolGridDataLayer<Dtype>::getReceptorAtoms(int batch_idx, vector<float4>& atoms)
 {
   atoms.resize(0);
+  CHECK_LT(batch_idx,batch_transform.size()) << "Incorrect batch size in getReceptorAtoms";
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
     if (mol.whichGrid[i] < numReceptorTypes)
@@ -112,6 +115,7 @@ template<typename Dtype>
 void MolGridDataLayer<Dtype>::getLigandAtoms(int batch_idx, vector<float4>& atoms)
 {
   atoms.resize(0);
+  CHECK_LT(batch_idx,batch_transform.size()) << "Incorrect batch size in getLigandAtoms";
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
     if (mol.whichGrid[i] >= numReceptorTypes)
@@ -122,6 +126,7 @@ template<typename Dtype>
 void MolGridDataLayer<Dtype>::getReceptorChannels(int batch_idx, vector<short>& whichGrid)
 {
   whichGrid.resize(0);
+  CHECK_LT(batch_idx,batch_transform.size()) << "Incorrect batch size in getReceptorChannels";
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
     if (mol.whichGrid[i] < numReceptorTypes)
@@ -132,6 +137,8 @@ template<typename Dtype>
 void MolGridDataLayer<Dtype>::getLigandChannels(int batch_idx, vector<short>& whichGrid)
 {
   whichGrid.resize(0);
+  CHECK_LT(batch_idx,batch_transform.size()) << "Incorrect batch size in getLigandChannels";
+
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
     if (mol.whichGrid[i] >= numReceptorTypes)
@@ -142,6 +149,7 @@ template<typename Dtype>
 void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<float3>& gradient)
 {
   gradient.resize(0);
+  CHECK_LT(batch_idx,batch_transform.size()) << "Incorrect batch size in getReceptorGradient";
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
@@ -162,6 +170,8 @@ void MolGridDataLayer<Dtype>::getReceptorTransformationGradient(int batch_idx, v
   torque = vec(0,0,0);
 
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
+  CHECK_LT(batch_idx,batch_transform.size()) << "Incorrect batch size in getReceptorTransformationGradient";
+
   mol_info& mol = batch_transform[batch_idx].mol;
 
   CHECK(mol.center == mem_lig.center) << "Centers not equal; receptor transformation gradient only supported in-mem";
@@ -187,6 +197,8 @@ template<typename Dtype>
 void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered_map<string, float3>& gradient)
 {
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
+  CHECK_LT(batch_idx,batch_transform.size()) << "Incorrect batch size in getMappedReceptorGradient";
+
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
   {
@@ -203,6 +215,8 @@ template<typename Dtype>
 void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& gradient)
 {
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
+  CHECK_LT(batch_idx,batch_transform.size()) << "Incorrect batch size in getLigandGradient";
+
   gradient.resize(0);
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
@@ -216,6 +230,8 @@ template<typename Dtype>
 void MolGridDataLayer<Dtype>::getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient)
 {
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
+  CHECK_LT(batch_idx,batch_transform.size()) << "Incorrect batch size in getMappedLigandGradient";
+
   mol_info& mol = batch_transform[batch_idx].mol;
   for (unsigned i = 0, n = mol.atoms.size(); i < n; ++i)
   {
@@ -251,7 +267,7 @@ void MolGridDataLayer<Dtype>::remove_missing_and_setup(vector<typename MolGridDa
     {
       example tmp;
       examples[i].next_decoy(tmp);
-      LOG(INFO) << "Dropping receptor " << tmp.receptor << " with no decoys.";
+      LOG(INFO) << "Dropping receptor " << tmp.receptor << " with no actives.";
     }
   }
 
@@ -376,7 +392,7 @@ void MolGridDataLayer<Dtype>::populate_data(const string& root_folder, const str
   string line;
   while (getline(infile, line))
   {
-    example ex(scache, line, hasaffinity, hasrmsd);
+    example ex(scache, line, hasaffinity, hasrmsd, numposes);
     data->add(ex);
   }
   CHECK_GT(data->size(),0) << "No examples provided in source: " << source;
@@ -411,6 +427,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   bool hasrmsd = param.has_rmsd();
   data_ratio = param.source_ratio();
   root_folder2 = param.root_folder2();
+  numposes = param.num_poses();
 
   if(binary) radiusmultiple = 1.0;
 
@@ -495,7 +512,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   //setup shape of layer
   top_shape.clear();
-  top_shape.push_back(batch_size);
+  top_shape.push_back(batch_size*numposes);
   top_shape.push_back(numReceptorTypes+numLigandTypes);
   top_shape.push_back(dim);
   top_shape.push_back(dim);
@@ -507,7 +524,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   top[0]->Reshape(top_shape);
 
   // Reshape label, affinity, rmsds
-  vector<int> label_shape(1, batch_size); // [batch_size]
+  vector<int> label_shape(1, batch_size*numposes); // [batch_size]
 
   top[1]->Reshape(label_shape);
 
@@ -696,11 +713,14 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dtype>::example& ex,
-    const string& root_folder, MolGridDataLayer<Dtype>::mol_transform& transform, output_transform& peturb, bool gpu)
+    const string& root_folder, MolGridDataLayer<Dtype>::mol_transform& transform, unsigned pose, output_transform& peturb, bool gpu)
 {
   //set grid values for example
   //cache atom info
   bool docache = this->layer_param_.molgrid_data_param().cache_structs();
+
+  CHECK_LT(pose, ex.ligands.size()) << "Incorrect pose index";
+  const char* ligand = ex.ligands[pose];
 
   if(docache)
   {
@@ -708,19 +728,19 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
     {
       set_mol_info(root_folder+ex.receptor, rmap, 0, molcache[ex.receptor]);
     }
-    if(molcache.count(ex.ligand) == 0)
+    if(molcache.count(ligand) == 0)
     {
-      set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, molcache[ex.ligand]);
+      set_mol_info(root_folder+ligand, lmap, numReceptorTypes, molcache[ligand]);
     }
 
-    set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, peturb, gpu);
+    set_grid_minfo(data, molcache[ex.receptor], molcache[ligand], transform, peturb, gpu);
   }
   else
   {
     mol_info rec;
     mol_info lig;
     set_mol_info(root_folder+ex.receptor, rmap, 0, rec);
-    set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, lig);
+    set_mol_info(root_folder+ligand, lmap, numReceptorTypes, lig);
     set_grid_minfo(data, rec, lig, transform, peturb, gpu);
   }
 }
@@ -942,7 +962,8 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     top_data = top[0]->mutable_cpu_data();
 
   perturbations.clear();
-  unsigned batch_size = top_shape[0];
+  unsigned batch_size = top_shape[0]/numposes;
+  CHECK_EQ(top_shape[0] % numposes,0) << "Batch size not multiple of numposes??";
   output_transform peturb;
 
   //if in memory must be set programmatically
@@ -988,14 +1009,18 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         root = &root_folder2;
       }
 
-      labels.push_back(ex.label);
-      affinities.push_back(ex.affinity);
-      rmsds.push_back(ex.rmsd);
+      for(unsigned p = 0; p < numposes; p++) {
+        labels.push_back(ex.label);
+        affinities.push_back(ex.affinity);
+        rmsds.push_back(ex.rmsd);
 
-      int offset = batch_idx*example_size;
-      set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], peturb, gpu);
-      perturbations.push_back(peturb);
-      //NOTE: num_rotations not actually implemented!
+        int offset = batch_idx*example_size;
+        set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], p, peturb, gpu);
+        perturbations.push_back(peturb);
+        //NOTE: num_rotations not actually implemented!
+      }
+      //NOTE: batch_transform contains transformation of last pose only - don't use unless numposes == 1
+
     }
 
   }
@@ -1052,6 +1077,7 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const ve
 {
   //propagate gradient grid onto atom positions
   if(compute_atom_gradients) {
+    CHECK(numposes == 1) << "Atomic gradient calculation not supported with numposes != 1";
     unsigned batch_size = top_shape[0];
     Dtype *diff = NULL;
     if(gpu) {
@@ -1078,16 +1104,7 @@ template <typename Dtype>
 void MolGridDataLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
 
-  /*
-  float top_sum = 0.0;
-
-  std::cout << "MOLGRID TOP:";
-  for(int i = 0; i < top[0]->count(); i++)
-  {
-          top_sum += top[0]->cpu_diff()[i];
-  }
-  std::cout << "MOLGRID TOP: " << top_sum << '\n';
-  */
+  CHECK(numposes == 1) << "Relevance calculations not supported with numposes != 1";
 
   Dtype *diff = top[0]->mutable_cpu_diff(); //TODO: implement gpu
 
