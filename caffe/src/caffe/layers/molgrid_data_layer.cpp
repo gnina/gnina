@@ -969,7 +969,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
   //if in memory must be set programmatically
   if(inmem)
   {
-    CHECK_GT(mem_rec.atoms.size(),0) << "Receptor not set in MolGridDataLayer";
+    if(mem_rec.atoms.size() == 0) LOG(INFO) << "Receptor not set in MolGridDataLayer";
     CHECK_GT(mem_lig.atoms.size(),0) << "Ligand not set in MolGridDataLayer";
     //memory is now available
     set_grid_minfo(top_data, mem_rec, mem_lig, batch_transform[0], peturb, gpu); //TODO how do we know what batch position?
