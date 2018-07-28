@@ -306,10 +306,12 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   class example_provider
   {
   public:
+    typedef pair<const char*, const char*> fnames;
     virtual void add(const example& ex) = 0;
     virtual void setup() = 0; //essentially shuffle if necessary
     virtual void next(example& ex) = 0;
     virtual unsigned size() const = 0;
+    virtual vector<fnames>* get_frames(int group) { return nullptr; }
     virtual ~example_provider() {}
   };
 
@@ -568,11 +570,13 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
 
   template<class Provider> 
   class grouped_example_provider : public example_provider {
-    typedef pair<const char*, const char*> fnames;
+    using typename example_provider::fnames;
     Provider examples;
     boost::unordered_map<int, vector<fnames>> frame_groups;
 
   public:
+    grouped_example_provider(): examples() {}
+    grouped_example_provider(const MolGridDataParameter& parm): examples(parm) {}
     //only add the first example for each group to examples; after that just
     //the filenames to the frame_groups map
     void add(const example& ex) {
@@ -590,12 +594,16 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     }
 
     void next(example& ex) {
-      examples.next();
+      examples.next(ex);
     }
 
     unsigned size() const
     {
       return examples.size();
+    }
+
+    vector<fnames>* get_frames(int group) {
+      return &frame_groups[group];
     }
   };
 
@@ -812,7 +820,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   void allocateGPUMem(unsigned sz);
 
   example_provider* create_example_data(const MolGridDataParameter& parm);
-  void populate_data(const string& root_folder, const string& source, example_provider* data, bool hasaffinity, bool hasrmsd);
+  void populate_data(const string& root_folder, const string& source, example_provider* data, bool hasaffinity, bool hasrmsd, bool hasgroup);
 
   quaternion axial_quaternion();
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
@@ -863,7 +871,8 @@ template <typename Dtype>
 class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
   public:
     explicit GroupedMolGridDataLayer(const LayerParameter& param) : 
-      BaseMolGridDataLayer<Dtype, GridMaker>(param), maxgroupsize(param.maxgroupsize()) {}
+      BaseMolGridDataLayer<Dtype, GridMaker>(param), 
+      maxgroupsize(param.molgrid_data_param().maxgroupsize()) {}
     virtual void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
     virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
         const vector<Blob<Dtype>*>& top) { this->forward(bottom, top, false); }

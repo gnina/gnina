@@ -410,7 +410,7 @@ static string sanitize_path(const string& p)
 //fill in training examples
 template <typename Dtype, class GridMakerT>
 void BaseMolGridDataLayer<Dtype, GridMakerT>::populate_data(const string& root_folder, const string& source,
-    BaseMolGridDataLayer<Dtype, GridMakerT>::example_provider* data, bool hasaffinity, bool hasrmsd)
+    BaseMolGridDataLayer<Dtype, GridMakerT>::example_provider* data, bool hasaffinity, bool hasrmsd, bool hasgroup)
 {
   LOG(INFO) << "Opening file " << source;
   std::ifstream infile(source.c_str());
@@ -418,7 +418,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::populate_data(const string& root_f
   string line;
   while (getline(infile, line))
   {
-    example ex(scache, line, hasaffinity, hasrmsd);
+    example ex(scache, line, hasaffinity, hasrmsd, hasgroup);
     data->add(ex);
   }
   CHECK_GT(data->size(),0) << "No examples provided in source: " << source;
@@ -545,6 +545,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
   fixedradius = param.fixed_radius();
   bool hasaffinity = param.has_affinity();
   bool hasrmsd = param.has_rmsd();
+  bool hasgroup = param.maxgroupsize();
   data_ratio = param.source_ratio();
   root_folder2 = param.root_folder2();
 
@@ -575,13 +576,13 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
     // Read source file(s) with labels and structures,
     // each line is label [affinity] [rmsd] receptor_file ligand_file
     data = create_example_data(param);
-    populate_data(root_folder, source, data, hasaffinity, hasrmsd);
+    populate_data(root_folder, source, data, hasaffinity, hasrmsd, hasgroup);
 
     if(source2.length() > 0)
     {
       CHECK_GE(data_ratio, 0) << "Must provide non-negative ratio for two data sources";
       data2 = create_example_data(param);
-      populate_data(root_folder2, source2, data2, hasaffinity, hasrmsd);
+      populate_data(root_folder2, source2, data2, hasaffinity, hasrmsd, hasgroup);
     }
 
     LOG(INFO) << "Total examples: " << data->size() + (data2 ? data2->size() : 0);
@@ -1301,22 +1302,13 @@ template <typename Dtype>
   {
     clearLabels();
 
-    //requires a grouped_example_provider
-    typename BaseMolGridDataLayer<Dtype, GridMaker>::grouped_example_provider* grouped_data = 
-      dynamic_cast<typename BaseMolGridDataLayer<Dtype, GridMaker>::grouped_example_provider*>(this->data);
-    assert(grouped_data);
     //percent of batch from first data source
     unsigned dataswitch = batch_size;
-    typename BaseMolGridDataLayer<Dtype, GridMaker>::grouped_example_provider* grouped_data2;
-    if (this->data2) {
-      grouped_data2 = 
-        dynamic_cast<typename BaseMolGridDataLayer<Dtype, GridMaker>::grouped_example_provider*>(this->data2);
-      assert(grouped_data2);
+    if (this->data2) 
       dataswitch = batch_size*this->data_ratio/(this->data_ratio+1);
-    }
 
     vector<vector<typename BaseMolGridDataLayer<Dtype, 
-      GridMaker>::grouped_example_provider::fnames>*> remaining_timesteps; //ugly
+      GridMaker>::example_provider::fnames>*> remaining_timesteps; //ugly
     for (int batch_idx = 0; batch_idx < batch_size; ++batch_idx)
     {
       typename caffe::BaseMolGridDataLayer<Dtype, GridMaker>::example ex;
@@ -1325,36 +1317,34 @@ template <typename Dtype>
       {
         this->data->next(ex);
         root = &this->root_folder;
-        remaining_timesteps.push_back(&grouped_data->frame_groups[ex.group]);
+        remaining_timesteps.push_back(this->data->get_frames(ex.group));
       }
       else
       {
         this->data2->next(ex);
         root = &this->root_folder2;
-        remaining_timesteps.push_back(&grouped_data2->frame_groups[ex.group]);
+        remaining_timesteps.push_back(this->data2->get_frames(ex.group));
       }
 
       appendLabels(ex.label, ex.affinity, ex.rmsd);
 
       int offset = batch_idx*this->example_size;
-      set_grid_ex(top_data+offset, ex, *root, this->batch_transform[batch_idx], peturb, gpu);
+      this->set_grid_ex(top_data+offset, ex, *root, this->batch_transform[batch_idx], peturb, gpu);
       this->perturbations.push_back(peturb);
+      seqcont.push_back(0);
     }
     //now go over the extra timesteps for the chosen examples
     //we have a bunch of iterators over those vectors and need to construct and interleave
     //the associated examples
-    auto timesteps_begin = remaining_timesteps.begin();
+    auto timesteps_begin = &remaining_timesteps[0];
     for (unsigned step = 0; step < maxgroupsize; ++step) {
       for (auto& timestep_group : remaining_timesteps) {
-        if (step==0)
-          seqcont.push_back(0);
-        else
-          seqcont.push_back(1);
+        seqcont.push_back(1);
         typename BaseMolGridDataLayer<Dtype, GridMaker>::example ex;
         ptrdiff_t batch_idx = &timestep_group - timesteps_begin;
-        int offset = ((batch_idx * maxgroupsize) + step) * this->example_size;
+        int offset = ((batch_size * (step + 1)) + batch_idx) * this->example_size;
         if (step > timestep_group->size() - 1) {
-          unsigned natoms = this->batch_transform[batch_idx].size();
+          unsigned natoms = this->batch_transform[batch_idx].mol.atoms.size();
           unsigned gsize = (this->numReceptorTypes + this->numLigandTypes) * this->dim * 
             this->dim * this->dim;
           //just memset data to zero and set labels to ignore
@@ -1369,12 +1359,12 @@ template <typename Dtype>
           appendLabels(-1, -1, -1);
         }
         else {
-          ex.receptor = timestep_group[step][0];
-          ex.ligand = timestep_group[step][1];
+          ex.receptor = std::get<0>((*timestep_group)[step]);
+          ex.ligand = std::get<1>((*timestep_group)[step]);
           ex.label = this->labels[batch_idx];
-          ex.affinity = this->affinity[batch_idx];
-          ex.rmds = this->rmsd[batch_idx];
-          ex.group = this->group[batch_idx];
+          ex.affinity = this->affinities[batch_idx];
+          ex.rmsd = this->rmsds[batch_idx];
+          ex.group = -1;
           appendLabels(ex.label, ex.affinity, ex.rmsd);
           typename BaseMolGridDataLayer<Dtype, GridMaker>::output_transform peturb;
           string *root;
@@ -1386,7 +1376,7 @@ template <typename Dtype>
           {
             root = &this->root_folder2;
           }
-          set_grid_ex(top_data+offset, ex, *root, this->batch_transform[batch_idx], peturb, gpu);
+          this->set_grid_ex(top_data+offset, ex, *root, this->batch_transform[batch_idx], peturb, gpu);
           this->perturbations.push_back(peturb);
         }
       }
