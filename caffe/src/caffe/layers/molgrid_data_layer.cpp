@@ -423,6 +423,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   ignore_ligand = param.ignore_ligand();
   radiusmultiple = param.radius_multiple();
   fixedradius = param.fixed_radius();
+  use_covalent_radius = param.use_covalent_radius();
   bool hasaffinity = param.has_affinity();
   bool hasrmsd = param.has_rmsd();
   data_ratio = param.source_ratio();
