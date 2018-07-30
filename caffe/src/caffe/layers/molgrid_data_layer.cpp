@@ -636,7 +636,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         ainfo.y = atom.y;
         ainfo.z = atom.z;
         if(fixedradius <= 0)
-        	ainfo.w = xs_radius(t);
+        	ainfo.w = use_covalent_radius ? covalent_radius(t) : xs_radius(t);
         else
         	ainfo.w = fixedradius;
         float3 gradient(0,0,0);
@@ -689,7 +689,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
         ainfo.y = a->y();
         ainfo.z  = a->z();
         if(fixedradius <= 0)
-        	ainfo.w = xs_radius(t);
+        	ainfo.w = use_covalent_radius ? covalent_radius(t) : xs_radius(t);
         else
         	ainfo.w = fixedradius;
         float3 gradient(0,0,0);

@@ -923,6 +923,7 @@ message MolGridDataParameter {
   optional bool ignore_ligand = 36 [default = false]; //for debugging
   optional float jitter = 37 [default = 0]; //random perturbations of atom cartesian coordinates by +/- jitter amount
   optional uint32 num_poses = 38 [default = 1]; //number of ligands specified on line, all will be generated as examples with receptor resulting in batch_size*num_poses examples
+  optional bool use_covalent_radius = 39 [default = false]; //use covalent instead of xs_radius
 }
 
 message NDimDataParameter {

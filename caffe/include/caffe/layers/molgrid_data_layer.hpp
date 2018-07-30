@@ -49,7 +49,8 @@ public:
       example_size(0), inmem(false), resolution(0.5),
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
       jitter(0.0), numposes(1), ligpeturb_rotate(false),
-      binary(false), randrotate(false), ligpeturb(false), ignore_ligand(false), dim(0), numgridpoints(0),
+      binary(false), randrotate(false), ligpeturb(false), ignore_ligand(false),
+      use_covalent_radius(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
       gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
   virtual ~MolGridDataLayer();
@@ -681,6 +682,7 @@ public:
   bool randrotate;
   bool ligpeturb; //for spatial transformer
   bool ignore_ligand; //for debugging
+  bool use_covalent_radius;
 
   unsigned dim; //grid points on one side
   unsigned numgridpoints; //dim*dim*dim

@@ -244,6 +244,9 @@ void cnn_visualization::process_molecules() {
   conv.AddOption("r", OBConversion::OUTOPTIONS); //treat as rigid
   conv.AddOption("c", OBConversion::OUTOPTIONS); //combine rotatable portions of molecule
   conv.AddOption("p", OBConversion::OUTOPTIONS);
+
+  conv.AddOption("h", OBConversion::OUTOPTIONS);
+
   conv.SetOutFormat("PDBQT"); //use pdbqt to make passing to parse_pdbqt possible
 
   //generate base ligand pdbqt string
