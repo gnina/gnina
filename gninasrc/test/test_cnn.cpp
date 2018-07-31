@@ -118,15 +118,14 @@ void test_subcube_grids() {
   typedef CNNScorer::Dtype Dtype;
   unsigned ntypes = smt::NumTypes;
 
-  //make mol
-  std::vector<atom_params> mol_atoms;
-  std::vector<smt> mol_types;
-  make_mol(mol_atoms, mol_types, engine, 0, 1, 5000, dimension/2, dimension/2, dimension/2);
+  //allow batch size to be > 1
+  std::uniform_int_distribution<unsigned> batch_dist(1, 17);
+  unsigned batch_size = batch_dist(engine);
+
+  //set params that don't change first
   cnn_options cnnopts;
   cnnopts.cnn_scoring = true;
   model m;
-
-  //full grid first
   CNNScorer cnn_scorer(cnnopts, m);
   caffe::GenericMolGridDataLayer<Dtype>* mgrid = 
     dynamic_cast<caffe::GenericMolGridDataLayer<Dtype>*>(cnn_scorer.mgrid);
@@ -134,97 +133,122 @@ void test_subcube_grids() {
   caffe::MolGridDataParameter* param = mgrid->layer_param_.mutable_molgrid_data_param();
   param->set_dimension(dimension);
   param->set_resolution(resolution);
-  param->set_batch_size(1);
-  mgrid->batch_transform.resize(1);
-  mgrid->batch_transform[0] =
-      caffe::BaseMolGridDataLayer<Dtype, GridMaker>::mol_transform();
-  caffe::BaseMolGridDataLayer<Dtype, GridMaker>::mol_transform& transform =
-      mgrid->batch_transform[0];
-  vec center(0, 0, 0);
-  for (size_t i = 0; i < mol_atoms.size(); ++i) {
-    atom_params& ainfo = mol_atoms[i];
-    transform.mol.atoms.push_back(
-        make_float4(ainfo.coords.x, ainfo.coords.y, ainfo.coords.z,
-            xs_radius(mol_types[i])));
-    transform.mol.whichGrid.push_back(mol_types[i]);
-    transform.mol.gradient.push_back(make_float3(0, 0, 0));
-    center += vec(ainfo.coords.x, ainfo.coords.y, ainfo.coords.z);
-  }
-  center /= mol_atoms.size();
-  transform.center = center;
-  transform.Q = quaternion(1, 0, 0, 0);
-  caffe::Caffe::set_random_seed(p_args.seed);
-  transform.set_random_quaternion(caffe::caffe_rng());
+  param->set_batch_size(batch_size);
+  param->set_subgrid_dim(subcube_dim);
+  mgrid->batch_transform.resize(batch_size);
 
-  unsigned gsize = ntypes * dim * dim * dim;
+  unsigned example_size = ntypes * dim * dim * dim;
+  unsigned gsize = batch_size * example_size;
+
+  //full grid
   Dtype* data = new Dtype[gsize];
   GridMaker gmaker;
   gmaker.initialize(*param);
-  gmaker.setCenter(center[0], center[1], center[2]);
-  gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(), 
-      &data[0], ntypes);
-
-  //now subcube grid, CPU first
+  //cpu subgrids
   Dtype* rnndata = new Dtype[gsize];
   RNNGridMaker rnngmaker;
-  param->set_subgrid_dim(subcube_dim);
   rnngmaker.initialize(*param);
   rnngmaker.ntypes = ntypes;
-  rnngmaker.setCenter(center[0], center[1], center[2]);
-  rnngmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(), 
-      &rnndata[0], ntypes);
+  //gpu subgrids (don't share gridmaker because it's batch-aware)
+  Dtype* rnndata_gpu = new Dtype[gsize];
+  Dtype* gpu_grids;
+  CUDA_CHECK(cudaMalloc(&gpu_grids, sizeof(Dtype) * gsize));
+  RNNGridMaker rnngmaker_gpu;
+  rnngmaker_gpu.initialize(*param);
+  rnngmaker_gpu.ntypes = ntypes;
 
   unsigned& grids_per_dim = rnngmaker.grids_per_dim;
   unsigned& subgrid_dim_in_points = rnngmaker.subgrid_dim_in_points;
   unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
 
-  boost::multi_array_ref<Dtype, 4> grids(data, boost::extents[ntypes][dim][dim][dim]);
-  //batch size of 1 so skipping that axis here
-  boost::multi_array_ref<Dtype, 5> rnngrids(rnndata, 
-      boost::extents[ngrids][ntypes][subgrid_dim_in_points]
+  for (unsigned batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
+    //make mol
+    std::vector<atom_params> mol_atoms;
+    std::vector<smt> mol_types;
+    make_mol(mol_atoms, mol_types, engine, 0, 1, 5000, dimension/2, dimension/2, dimension/2);
+
+    mgrid->batch_transform[batch_idx] =
+        caffe::BaseMolGridDataLayer<Dtype, GridMaker>::mol_transform();
+    caffe::BaseMolGridDataLayer<Dtype, GridMaker>::mol_transform& transform =
+        mgrid->batch_transform[batch_idx];
+    vec center(0, 0, 0);
+    for (size_t i = 0; i < mol_atoms.size(); ++i) {
+      atom_params& ainfo = mol_atoms[i];
+      transform.mol.atoms.push_back(
+          make_float4(ainfo.coords.x, ainfo.coords.y, ainfo.coords.z,
+              xs_radius(mol_types[i])));
+      transform.mol.whichGrid.push_back(mol_types[i]);
+      transform.mol.gradient.push_back(make_float3(0, 0, 0));
+      center += vec(ainfo.coords.x, ainfo.coords.y, ainfo.coords.z);
+    }
+    center /= mol_atoms.size();
+    transform.center = center;
+    transform.Q = quaternion(1, 0, 0, 0);
+    caffe::Caffe::set_random_seed(p_args.seed);
+    transform.set_random_quaternion(caffe::caffe_rng());
+
+    //full grid
+    int offset = batch_idx * example_size;
+    gmaker.setCenter(center[0], center[1], center[2]);
+    gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(), 
+        data+offset, ntypes);
+
+    //now subcube grid, CPU first
+    rnngmaker.setCenter(center[0], center[1], center[2]);
+    rnngmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(), 
+        &rnndata[0], ntypes);
+
+    //set subcube grid atoms, GPU version
+    unsigned natoms = transform.mol.atoms.size();
+    mgrid->allocateGPUMem(natoms);
+    CUDA_CHECK(cudaMemcpy(mgrid->gpu_gridatoms, &transform.mol.atoms[0], 
+          natoms*sizeof(float4), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(mgrid->gpu_gridwhich, &transform.mol.whichGrid[0], 
+          natoms*sizeof(short), cudaMemcpyHostToDevice));
+    rnngmaker_gpu.setCenter(center[0], center[1], center[2]);
+    rnngmaker_gpu.setAtomsGPU(natoms, mgrid->gpu_gridatoms, 
+        mgrid->gpu_gridwhich, transform.Q.boost(), ntypes, gpu_grids);
+  }
+
+  boost::multi_array_ref<Dtype, 6> rnngrids(rnndata, 
+      boost::extents[ngrids][batch_size][ntypes][subgrid_dim_in_points]
       [subgrid_dim_in_points][subgrid_dim_in_points]);
 
-  //set subcube grid atoms, GPU version
-  Dtype* rnndata_gpu = new Dtype[gsize];
-  Dtype* gpu_grids;
-  CUDA_CHECK(cudaMalloc(&gpu_grids, sizeof(Dtype) * gsize));
-  unsigned natoms = transform.mol.atoms.size();
-  mgrid->allocateGPUMem(natoms);
-  CUDA_CHECK(cudaMemcpy(mgrid->gpu_gridatoms, &transform.mol.atoms[0], 
-        natoms*sizeof(float4), cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(mgrid->gpu_gridwhich, &transform.mol.whichGrid[0], 
-        natoms*sizeof(short), cudaMemcpyHostToDevice));
-  rnngmaker.setAtomsGPU(natoms, mgrid->gpu_gridatoms, 
-      mgrid->gpu_gridwhich, transform.Q.boost(), ntypes, gpu_grids);
   CUDA_CHECK(cudaMemcpy(rnndata_gpu, gpu_grids, sizeof(Dtype) * gsize, 
         cudaMemcpyDeviceToHost));
-  boost::multi_array_ref<Dtype, 5> rnngrids_gpu(rnndata_gpu, 
-      boost::extents[ngrids][ntypes][subgrid_dim_in_points]
+  boost::multi_array_ref<Dtype, 6> rnngrids_gpu(rnndata_gpu, 
+      boost::extents[ngrids][batch_size][ntypes][subgrid_dim_in_points]
       [subgrid_dim_in_points][subgrid_dim_in_points]);
 
   //compare them
-  for (size_t type = 0; type < ntypes; ++type) {
-    for (size_t i = 0; i < dim; ++i) {
-      for (size_t j = 0; j < dim; ++j) {
-        for (size_t k = 0; k < dim; ++k) {
-          unsigned subgrid_idx_x = i / subgrid_dim_in_points; 
-          unsigned subgrid_idx_y = j / subgrid_dim_in_points; 
-          unsigned subgrid_idx_z = k / subgrid_dim_in_points; 
-          unsigned rel_x = i % subgrid_dim_in_points; 
-          unsigned rel_y = j % subgrid_dim_in_points; 
-          unsigned rel_z = k % subgrid_dim_in_points; 
-          unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + 
-                subgrid_idx_y) * grids_per_dim + subgrid_idx_z);
-          p_args.log << "grid_idx: " << grid_idx << " type: " << type << " rel_x: " << rel_x << " rel_y: " << rel_y << " rel_z: " << rel_z << "\n";
-          p_args.log << "CPU full grid " << grids[type][i][j][k] << " CPU subcube grid " << 
-            rnngrids[grid_idx][type][rel_x][rel_y][rel_z] << " GPU subcube grid " << 
-            rnngrids_gpu[grid_idx][type][rel_x][rel_y][rel_z] << "\n";
-          BOOST_REQUIRE_SMALL(
-              grids[type][i][j][k] - rnngrids[grid_idx][type][rel_x][rel_y][rel_z],
-              (float )0.01);
-          BOOST_REQUIRE_SMALL(
-              grids[type][i][j][k] - rnngrids_gpu[grid_idx][type][rel_x][rel_y][rel_z],
-              (float )0.01);
+  for (size_t batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
+    for (size_t type = 0; type < ntypes; ++type) {
+      for (size_t i = 0; i < dim; ++i) {
+        for (size_t j = 0; j < dim; ++j) {
+          for (size_t k = 0; k < dim; ++k) {
+            int offset = batch_idx * example_size;
+            boost::multi_array_ref<Dtype, 4> grids(data+offset, 
+                boost::extents[ntypes][dim][dim][dim]);
+            unsigned subgrid_idx_x = i / subgrid_dim_in_points; 
+            unsigned subgrid_idx_y = j / subgrid_dim_in_points; 
+            unsigned subgrid_idx_z = k / subgrid_dim_in_points; 
+            unsigned rel_x = i % subgrid_dim_in_points; 
+            unsigned rel_y = j % subgrid_dim_in_points; 
+            unsigned rel_z = k % subgrid_dim_in_points; 
+            unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + 
+                  subgrid_idx_y) * grids_per_dim + subgrid_idx_z);
+            p_args.log << "batch_idx: " << batch_idx << " grid_idx: " << grid_idx << 
+              " type: " << type << " rel_x: " << rel_x << " rel_y: " << rel_y << 
+              " rel_z: " << rel_z << " CPU full grid " << grids[type][i][j][k] << 
+              " CPU subcube grid " << rnngrids[grid_idx][batch_idx][type][rel_x][rel_y][rel_z] << 
+              " GPU subcube grid " << rnngrids_gpu[grid_idx][batch_idx][type][rel_x][rel_y][rel_z] << "\n";
+            BOOST_REQUIRE_SMALL(
+                grids[type][i][j][k] - rnngrids[grid_idx][batch_idx][type][rel_x][rel_y][rel_z],
+                (float )0.01);
+            BOOST_REQUIRE_SMALL(
+                grids[type][i][j][k] - rnngrids_gpu[grid_idx][batch_idx][type][rel_x][rel_y][rel_z],
+                (float )0.01);
+          }
         }
       }
     }

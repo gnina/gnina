@@ -524,6 +524,7 @@ void RNNGridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
   if(mask) {
     cudaFree(mask);
   }
+  batch_idx = (batch_idx + 1) % batch_size;
 }
 
 //instantiations
