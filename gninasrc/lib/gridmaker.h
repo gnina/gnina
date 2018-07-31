@@ -17,6 +17,7 @@
 #include <thrust/system/cuda/experimental/pinned_allocator.h>
 #include <vector_types.h>
 #include <boost/array.hpp>
+#include <boost/multi_array/multi_array_ref.hpp>
 #include <boost/math/quaternion.hpp>
 #include <boost/algorithm/string.hpp>
 #include "quaternion.h"
@@ -249,7 +250,7 @@ class GridMaker {
 
     __host__ __device__
     void accumulateAtomRelevance(const float3& coords, double ar, float x,
-        float y, float z, float gridval, float3& agrad) {
+        float y, float z, float gridval, float denseval, float3& agrad) {
       //simple sum of values that the atom overlaps
       float dist_x = x - coords.x;
       float dist_y = y - coords.y;
@@ -259,7 +260,13 @@ class GridMaker {
       if (dist >= ar * radiusmultiple) {
         return;
       } else {
-        agrad.x += gridval;
+        if(denseval > 0) {
+          //weight by contribution to density grid
+          float val = calcPoint(coords, ar, x, y, z);
+          agrad.x += gridval*val/denseval;
+        } else {
+          agrad.x += gridval;
+        }
       }
     }
 
@@ -307,10 +314,9 @@ class GridMaker {
     template<typename Grids>
     void setAtomGradientCPU(const float4& ainfo, int whichgrid,
         const quaternion& Q, const Grids& grids,
-        float3& agrad, bool isrelevance = false) {
+        float3& agrad, bool isrelevance = false, const Grids& densegrids = Grids(NULL, boost::extents[0][0][0][0])) {
       float3 coords;
-      if (Q.real() != 0) //apply rotation
-          {
+      if (Q.real() != 0) { //apply rotation
         quaternion p(0, ainfo.x - center.x, ainfo.y - center.y,
             ainfo.z - center.z);
         p = Q * p * (conj(Q) / norm(Q));
@@ -345,7 +351,7 @@ class GridMaker {
             float z = dims[2].x + k * resolution;
             if (isrelevance) {
               accumulateAtomRelevance(coords, radius, x, y, z,
-                  grids[whichgrid][i][j][k], agrad);
+                  grids[whichgrid][i][j][k], densegrids[whichgrid][i][j][k], agrad);
             } else //true gradient, distance matters
             {
               accumulateAtomGradient(coords, radius, x, y, z,
@@ -411,7 +417,7 @@ class GridMaker {
 
             if (isrelevance) {
               accumulateAtomRelevance(coords, radius, x, y, z,
-                  grids[(((whichgrid * dim) + i) * dim + j) * dim + k],
+                  grids[(((whichgrid * dim) + i) * dim + j) * dim + k], 0, /* TODO TODO: gpu-ize relevance */
                   agrads[idx]);
             } else {
               accumulateAtomGradient(coords, radius, x, y, z,
@@ -427,13 +433,13 @@ class GridMaker {
     //summ up gradient values overlapping atoms
     template<typename Grids>
     void setAtomRelevanceCPU(const vector<float4>& ainfo,
-        const vector<short>& gridindex, const quaternion& Q, const Grids& grids,
-        vector<float3>& agrad) {
+        const vector<short>& gridindex, const quaternion& Q, const Grids& densegrids,
+        const Grids& diffgrids, vector<float3>& agrad) {
       zeroAtomGradientsCPU(agrad);
       for (unsigned i = 0, n = ainfo.size(); i < n; ++i) {
         int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
         if (whichgrid >= 0) {
-          setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i], true);
+          setAtomGradientCPU(ainfo[i], whichgrid, Q, diffgrids, agrad[i], true, densegrids);
         }
       }
     }

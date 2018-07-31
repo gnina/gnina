@@ -1108,18 +1108,19 @@ void MolGridDataLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
   CHECK(numposes == 1) << "Relevance calculations not supported with numposes != 1";
 
   Dtype *diff = top[0]->mutable_cpu_diff(); //TODO: implement gpu
+  Dtype *data = top[0]->mutable_cpu_data();
 
   //propagate gradient grid onto atom positions
   unsigned batch_size = top_shape[0];
   for (int item_id = 0; item_id < batch_size; ++item_id) {
 
     int offset = item_id*example_size;
-    Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
-
+    Grids diffgrids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+    Grids densegrids(data+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
     mol_transform& transform = batch_transform[item_id];
     gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
-    gmaker.setAtomRelevanceCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(), grids,
-        transform.mol.gradient);
+    gmaker.setAtomRelevanceCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(),
+        densegrids, diffgrids, transform.mol.gradient);
   }
 
   //float bottom_sum = 0.0;
