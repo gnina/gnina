@@ -59,11 +59,19 @@ MolGridDataLayer<Dtype>::~MolGridDataLayer<Dtype>() {
 }
 
 template <typename Dtype>
-MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache& cache, string line, bool hasaffinity, bool hasrmsd, unsigned numposes)
-  : label(0), affinity(0.0), rmsd(0.0)
+MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache& cache, string line, const MolGridDataParameter& param)
+  : label(0), affinity(0.0), rmsd(0.0), affinity_weight(1.0)
 {
   stringstream stream(line);
   string tmp;
+
+  bool hasaffinity = param.has_affinity();
+  bool hasrmsd = param.has_rmsd();
+  unsigned numposes = param.num_poses();
+  double affinity_reweight_mean = param.affinity_reweight_mean();
+  double affinity_reweight_std = param.affinity_reweight_std();
+  double affinity_reweight_stdcut = param.affinity_reweight_stdcut();
+
   //first the label
   stream >> label;
   if(hasaffinity)
@@ -82,6 +90,15 @@ MolGridDataLayer<Dtype>::example::example(MolGridDataLayer<Dtype>::string_cache&
     CHECK(tmp.length() > 0) << "Empty ligand, missing affinity/rmsd? Line:\n" << line;
     ligands.push_back(cache.get(tmp));
   }
+
+  if(affinity_reweight_stdcut > 0 && affinity != 0) {
+    //weight the affinities inversely to a normal distribution
+    double x = fabs(fabs(affinity)-affinity_reweight_mean);
+    x = min(x,affinity_reweight_stdcut*affinity_reweight_std);
+    x = x*x; //square, but no negative since we want the inverse
+    affinity_weight = exp(x/(2.0*affinity_reweight_std*affinity_reweight_std));
+  }
+
 }
 
 
@@ -392,7 +409,7 @@ void MolGridDataLayer<Dtype>::populate_data(const string& root_folder, const str
   string line;
   while (getline(infile, line))
   {
-    example ex(scache, line, hasaffinity, hasrmsd, numposes);
+    example ex(scache, line, this->layer_param_.molgrid_data_param());
     data->add(ex);
   }
   CHECK_GT(data->size(),0) << "No examples provided in source: " << source;
@@ -540,6 +557,12 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   else if(hasrmsd)
   {
     top[2]->Reshape(label_shape);
+  }
+
+  if(param.affinity_reweight_stdcut() > 0) {
+    unsigned indx = top.size()-1;
+    if(ligpeturb) indx--; //this is getting cumbersome
+    top[indx]->Reshape(label_shape);
   }
 
   if(ligpeturb) {
@@ -955,6 +978,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
 {
   bool hasaffinity = this->layer_param_.molgrid_data_param().has_affinity();
   bool hasrmsd = this->layer_param_.molgrid_data_param().has_rmsd();
+  bool hasweights = (this->layer_param_.molgrid_data_param().affinity_reweight_stdcut() > 0);
 
   Dtype *top_data = NULL;
   if(gpu)
@@ -989,6 +1013,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     labels.clear();
     affinities.clear();
     rmsds.clear();
+    weights.clear();
 
     //percent of batch from first data source
     unsigned dataswitch = batch_size;
@@ -1014,6 +1039,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         labels.push_back(ex.label);
         affinities.push_back(ex.affinity);
         rmsds.push_back(ex.rmsd);
+        weights.push_back(ex.affinity_weight);
 
         int offset = batch_idx*example_size;
         set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], p, peturb, gpu);
@@ -1026,17 +1052,20 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
 
   }
 
+  unsigned weighti = top.size()-1-ligpeturb;
+  unsigned rmsdi = 2+hasaffinity;
+
   if(gpu) {
     caffe_copy(labels.size(), &labels[0], top[1]->mutable_gpu_data());
     if(hasaffinity) {
       caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_gpu_data());
-      if(hasrmsd) {
-        caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_gpu_data());
-      }
-    } else if(hasrmsd) {
-      caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_gpu_data());
     }
-
+    if(hasrmsd) {
+      caffe_copy(rmsds.size(), &rmsds[0], top[rmsdi]->mutable_gpu_data());
+    }
+    if(hasweights) {
+      caffe_copy(weights.size(), &weights[0],top[weighti]->mutable_gpu_data());
+    }
     if(ligpeturb) {
       //trusting struct layout is normal
       caffe_copy(perturbations.size()*6, (Dtype*)&perturbations[0], top.back()->mutable_gpu_data());
@@ -1047,12 +1076,14 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     caffe_copy(labels.size(), &labels[0], top[1]->mutable_cpu_data());
     if(hasaffinity) {
       caffe_copy(affinities.size(), &affinities[0], top[2]->mutable_cpu_data());
-      if(hasrmsd) {
-        caffe_copy(rmsds.size(), &rmsds[0], top[3]->mutable_cpu_data());
-      }
-    } else if(hasrmsd) {
-      caffe_copy(rmsds.size(), &rmsds[0], top[2]->mutable_cpu_data());
     }
+    if(hasrmsd) {
+      caffe_copy(rmsds.size(), &rmsds[0], top[rmsdi]->mutable_cpu_data());
+    }
+    if(hasweights) {
+      caffe_copy(weights.size(), &weights[0],top[weighti]->mutable_cpu_data());
+    }
+
     if(ligpeturb) {
       //trusting struct layout is normal
       caffe_copy(perturbations.size()*6, (Dtype*)&perturbations[0], top.back()->mutable_cpu_data());

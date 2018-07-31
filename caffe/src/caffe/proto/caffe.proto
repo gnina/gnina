@@ -926,6 +926,7 @@ message MolGridDataParameter {
   optional bool use_covalent_radius = 39 [default = false]; //use covalent instead of xs_radius
   optional float affinity_reweight_mean = 40 [default = 0.0]; //mean of normal distribution to use to reweight affinities, 0 for no reweighting
   optional float affinity_reweight_std = 41 [default = 0.0]; //std of normal distribution to use to reweight affinities
+  optional float affinity_reweight_stdcut = 42 [default = 0.0]; // cutoff for outlier treatment (limit at most this much out)
 }
 
 message NDimDataParameter {
