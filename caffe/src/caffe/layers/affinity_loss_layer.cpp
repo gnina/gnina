@@ -25,16 +25,21 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   Dtype ranklossm = this->layer_param_.affinity_loss_param().ranklossmult();
   bool fractional_gap = this->layer_param_.affinity_loss_param().fractional_gap();
   Dtype defaultzero = this->layer_param_.affinity_loss_param().diff_for_zero();
+  bool hasweights = this->layer_param_.affinity_loss_param().weighted();
 
   Dtype delta2 = delta*delta;
   const Dtype *labels = bottom[1]->cpu_data();
   const Dtype *preds = bottom[0]->cpu_data();
+  const Dtype *weights = NULL;
+  if(hasweights) weights = bottom[2]->cpu_data();
+
   Dtype *d = diff_.mutable_cpu_data();
 
   for (unsigned i = 0; i < count; i++) {
     Dtype label = labels[i];
     Dtype pred = preds[i];
     Dtype diff = 0.0;
+    Dtype weight = hasweights ? weights[i] : 1.0;
     if (label > 0) { //normal euclidean
       diff = pred - label;
       if(fractional_gap && gap > 0) {
@@ -56,15 +61,15 @@ void AffinityLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       diff = defaultzero;
     }
 
-    d[i] = diff;
+    d[i] = weight*diff;
 
     if(huber) {
       //https://en.wikipedia.org/wiki/Huber_loss
       Dtype hval = diff/delta;
-      sum += delta2*(sqrt(1+hval*hval) - 1.0);
+      sum += weight*delta2*(sqrt(1+hval*hval) - 1.0);
     }
     else {
-      sum += diff * diff;
+      sum += weight*diff * diff;
     }
 
   }

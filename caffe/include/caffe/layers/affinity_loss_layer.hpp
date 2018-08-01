@@ -42,6 +42,10 @@ class AffinityLossLayer : public LossLayer<Dtype> {
     return true;
   }
 
+  virtual inline int ExactNumBottomBlobs() const {
+    return 2 + this->layer_param_.affinity_loss_param().weighted();
+  }
+
   virtual inline const char* type() const { return "AffinityLoss"; }
 
  protected:
