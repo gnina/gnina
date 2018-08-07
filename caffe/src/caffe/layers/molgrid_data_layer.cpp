@@ -725,13 +725,21 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
       }
       else
       {
-        std::cerr << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded\n";
+        static bool madewarning = false;
+        if(!madewarning) {
+          LOG(WARNING) << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded.  Future warnings will be suppressed\n";
+          madewarning = true;
+        }
       }	
     }
     center /= cnt;
   }
 
   minfo.center = center;
+
+  if(this->layer_param_.molgrid_data_param().fix_center_to_origin()) {
+    minfo.center = vec(0,0,0);
+  }
 
 }
 
