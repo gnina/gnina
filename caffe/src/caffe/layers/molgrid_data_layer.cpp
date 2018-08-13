@@ -527,6 +527,17 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   else
     numLigandTypes = GridMaker::createAtomTypeMap(ligmap, lmap);
 
+  //if specified, preload all gninatype information
+  string reccache = param.recmolcache();
+  string ligcache = param.ligmolcache();
+
+  if(reccache.size() > 0) {
+    load_cache(reccache, rmap, 0);
+  }
+
+  if(ligcache.size() > 0) {
+    load_cache(ligcache, rmap, numReceptorTypes);
+  }
 
   //setup shape of layer
   top_shape.clear();
@@ -619,6 +630,12 @@ typename MolGridDataLayer<Dtype>::quaternion MolGridDataLayer<Dtype>::axial_quat
   return ret;
 }
 
+//load custom formatted cache file of all gninatypes into molcache using specified mapping and offset
+template <typename Dtype>
+void MolGridDataLayer<Dtype>::load_cache(const string& file, const vector<int>& atommap, unsigned atomoffset)
+{
+
+}
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>& atommap,

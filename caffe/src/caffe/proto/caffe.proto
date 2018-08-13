@@ -929,6 +929,8 @@ message MolGridDataParameter {
   optional float affinity_reweight_std = 41 [default = 0.0]; //std of normal distribution to use to reweight affinities
   optional float affinity_reweight_stdcut = 42 [default = 0.0]; // cutoff for outlier treatment (limit at most this much out)
   optional bool fix_center_to_origin = 43 [default = false]; // center box at origin
+  optional string recmolcache = 44 [default = ""]; //single binary file of combined receptor gninatypes
+  optional string ligmolcache = 45 [default = ""]; //single binary file of combined ligand gninatypes
 }
 
 message NDimDataParameter {

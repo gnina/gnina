@@ -716,6 +716,8 @@ public:
   void populate_data(const string& root_folder, const string& source, example_provider* data, bool hasaffinity, bool hasrmsd);
 
   quaternion axial_quaternion();
+
+  void load_cache(const string& file, const vector<int>& atommap, unsigned atomoffset);
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
   void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
                     mol_transform& transform, unsigned pose, output_transform& pertub, bool gpu);
