@@ -16,6 +16,7 @@
 
 #include "nngridder.h"
 #include "model.h"
+#include "cnn_data.h"
 
 /* This class evaluates protein-ligand poses according to a provided
  * Caffe convolutional neural net (CNN) model.

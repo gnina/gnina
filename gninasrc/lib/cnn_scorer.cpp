@@ -31,10 +31,14 @@ CNNScorer::CNNScorer(const cnn_options& opts, const model& m)
 
     //load cnn model
     if (cnnopts.cnn_model.size() == 0) {
-      google::protobuf::io::ArrayInputStream modeldata(cnn_default_model,
-          strlen(cnn_default_model));
+      if(cnn_models.count(cnnopts.cnn_model_name) == 0) {
+        throw usage_error("Invalid model name: "+cnnopts.cnn_model_name);
+      }
+
+      const char *model = cnn_models[cnnopts.cnn_model_name].model;
+      google::protobuf::io::ArrayInputStream modeldata(model, strlen(model));
       bool success = google::protobuf::TextFormat::Parse(&modeldata, &param);
-      if (!success) throw usage_error("Error with default cnn model.");
+      if (!success) throw usage_error("Error with built-in cnn model "+cnnopts.cnn_model_name);
       UpgradeNetAsNeeded("default", &param);
     } else {
       ReadNetParamsFromTextFileOrDie(cnnopts.cnn_model, &param);
@@ -70,8 +74,11 @@ CNNScorer::CNNScorer(const cnn_options& opts, const model& m)
     //load weights
     if (cnnopts.cnn_weights.size() == 0) {
       NetParameter wparam;
-      google::protobuf::io::ArrayInputStream weightdata(cnn_default_weights,
-          cnn_default_weights_len);
+
+      const unsigned char *weights = cnn_models[cnnopts.cnn_model_name].weights;
+      unsigned int nweights = cnn_models[cnnopts.cnn_model_name].num_weights;
+
+      google::protobuf::io::ArrayInputStream weightdata(weights,nweights);
       google::protobuf::io::CodedInputStream strm(&weightdata);
       strm.SetTotalBytesLimit(INT_MAX, 536870912);
       bool success = wparam.ParseFromCodedStream(&strm);

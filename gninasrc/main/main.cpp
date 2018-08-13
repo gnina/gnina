@@ -200,10 +200,12 @@ static void get_cnn_info(model& m, CNNScorer& cnn, tee& log, float& cnnscore, fl
    cnnscore = cnn.score(m, false, cnnaffinity, loss);
    if (cnnscore >= 0)
    {
-     log << "CNNscore1: " << std::fixed << std::setprecision(10) << cnnscore;
-     log.endl();
-     log << "CNNaffinity1: " << std::fixed << std::setprecision(10) << cnnaffinity;
-     log.endl();
+     if(cnn.options().verbose) {
+       log << "CNNscore1: " << std::fixed << std::setprecision(10) << cnnscore;
+       log.endl();
+       log << "CNNaffinity1: " << std::fixed << std::setprecision(10) << cnnaffinity;
+       log.endl();
+     }
 
      cnn.set_center_from_model(m);
      cnnscore = cnn.score(m, false, cnnaffinity, loss);
@@ -1179,6 +1181,8 @@ Thank you!\n";
 
 		options_description cnn("Convolutional neural net (CNN) scoring");
 		cnn.add_options()
+		("cnn", value<std::string>(&cnnopts.cnn_model_name),
+		    ("built-in model to use: "+builtin_cnn_models()).c_str())
 		("cnn_model", value<std::string>(&cnnopts.cnn_model),
 				"caffe cnn model file; if not specified a default model will be used")
 		("cnn_weights", value<std::string>(&cnnopts.cnn_weights),

@@ -290,9 +290,11 @@ fl simple_gradient_ascent(F& f, Conf& x, Change& g,
 
     if (alpha == 0) {
       fl gradnormsq = scalar_product(g, g, n);
-      std::cout << "wrongdir gradnorm " << step << " " << f0 << " "
-          << gradnormsq << " " << alpha << "\n";
 
+      if(params.outputframes > 0) {
+        std::cout << "wrongdir gradnorm " << step << " " << f0 << " "
+          << gradnormsq << " " << alpha << "\n";
+      }
       if (false && f.adjust_center()) {
         //for cnn scoring, let's try recentering before giving up
         fl prevf0 = f0;
@@ -426,8 +428,11 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
 
     if (alpha == 0) {
       fl gradnormsq = scalar_product(g, g, n);
-      std::cout << "wrongdir step,f0,gradnorm,alpha " << step << " " << f0
+
+      if(params.outputframes > 0) {
+        std::cout << "wrongdir step,f0,gradnorm,alpha " << step << " " << f0
           << " " << gradnormsq << " " << alpha << "\n";
+      }
 
       if (false && f.adjust_center()) {
         //for cnn scoring, let's try recentering before giving up
