@@ -630,10 +630,115 @@ typename MolGridDataLayer<Dtype>::quaternion MolGridDataLayer<Dtype>::axial_quat
   return ret;
 }
 
+//add atom information to minfo, return true if atom actually added
+template <typename Dtype>
+bool MolGridDataLayer<Dtype>::add_to_minfo(const string& file, const vector<int>& atommap, unsigned mapoffset, smt t, float x, float y, float z,  mol_info& minfo)
+{
+  int index = atommap[t];
+  if(index >= 0)
+  {
+    float4 ainfo;
+    ainfo.x = x;
+    ainfo.y = y;
+    ainfo.z  = z;
+    if(fixedradius <= 0)
+      ainfo.w = use_covalent_radius ? covalent_radius(t) : xs_radius(t);
+    else
+      ainfo.w = fixedradius;
+
+    float3 gradient(0,0,0);
+    minfo.atoms.push_back(ainfo);
+    minfo.whichGrid.push_back(index+mapoffset);
+    minfo.gradient.push_back(gradient);
+  }
+  else
+  {
+    static bool madewarning = false;
+    if(!madewarning) {
+      LOG(WARNING) << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded.  Future warnings will be suppressed\n";
+      madewarning = true;
+    }
+    return 0;
+  }
+  return 1;
+}
+
+//a single shared cache for the whole program
+template<>
+MolGridDataLayer<float>::MolCache MolGridDataLayer<float>::molcache = MolGridDataLayer<float>::MolCache();
+template<>
+MolGridDataLayer<double>::MolCache MolGridDataLayer<double>::molcache =  MolGridDataLayer<double>::MolCache();
+
+
+
 //load custom formatted cache file of all gninatypes into molcache using specified mapping and offset
 template <typename Dtype>
-void MolGridDataLayer<Dtype>::load_cache(const string& file, const vector<int>& atommap, unsigned atomoffset)
+void MolGridDataLayer<Dtype>::load_cache(const string& file, const vector<int>& atommap, unsigned mapoffset)
 {
+  //file shoudl be organized
+  //name size (1byte)
+  //name (string)
+  //number of atoms (4bytes)
+  //atoms (3 floats and an int of the type)
+
+  char buffer[257] = {0,};
+  struct info {
+    float x,y,z;
+    int type;
+  } atom;
+
+  string fullpath = root_folder + file;
+  ifstream in(fullpath.c_str());
+  CHECK(in) << "Could not read " << fullpath;
+
+  std::cout << "Loading from " << fullpath << " with cache at size " << molcache.size() << "\n";
+  while(in && in.peek() != EOF)
+  {
+    char sz = 0;
+    int natoms = 0;
+    in.read(&sz, sizeof(char));
+    in.read(buffer,sizeof(char)*sz);
+    buffer[(int)sz] = 0; //null terminate
+    string fname(buffer);
+
+    in.read((char*)&natoms, sizeof(int));
+
+    if(molcache.count(fname)) {
+      LOG(WARNING) << "File " << fname << " duplicated in provided cache " << file;
+    }
+
+    mol_info& minfo = molcache[fname];
+    minfo.atoms.clear();
+    minfo.whichGrid.clear();
+    minfo.gradient.clear();
+    int cnt = 0;
+    vec center(0,0,0);
+
+    for(unsigned i = 0; i < natoms; i++)
+    {
+      in.read((char*)&atom, sizeof(atom));
+      smt t = (smt)atom.type;
+
+      if(add_to_minfo(fname, atommap, mapoffset, t, atom.x, atom.y, atom.z, minfo)) {
+        cnt++;
+        center += vec(atom.x,atom.y,atom.z);
+      }
+    }
+
+    if(cnt == 0) {
+      std::cerr << "WARNING: No atoms in " << file <<"\n";
+      continue;
+    }
+
+    center /= cnt;
+    minfo.center = center;
+
+    if(this->layer_param_.molgrid_data_param().fix_center_to_origin()) {
+      minfo.center = vec(0,0,0);
+    }
+  }
+
+  std::cout << "Done loading from " << fullpath << " with cache at size " << molcache.size() << std::endl;
 
 }
 
@@ -647,10 +752,11 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
   //but since this gets amortized across many hits to the same example, not a high priority
   using namespace OpenBabel;
 
-  vec center(0,0,0);
   minfo.atoms.clear();
   minfo.whichGrid.clear();
   minfo.gradient.clear();
+  int cnt = 0;
+  vec center(0,0,0);
 
   //also, implemented a custom gninatypes files to precalc this info
   if(boost::algorithm::ends_with(file,".gninatypes"))
@@ -663,45 +769,14 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
     ifstream in(file.c_str());
     CHECK(in) << "Could not read " << file;
 
-    int cnt = 0;
     while(in.read((char*)&atom, sizeof(atom)))
     {
       smt t = (smt)atom.type;
-      int index = atommap[t];
 
-      if(index >= 0)
-      {
+      if(add_to_minfo(file, atommap, mapoffset, t, atom.x, atom.y, atom.z, minfo)) {
         cnt++;
-        float4 ainfo;
-        ainfo.x = atom.x;
-        ainfo.y = atom.y;
-        ainfo.z = atom.z;
-        if(fixedradius <= 0)
-        	ainfo.w = use_covalent_radius ? covalent_radius(t) : xs_radius(t);
-        else
-        	ainfo.w = fixedradius;
-        float3 gradient(0,0,0);
-
-        minfo.atoms.push_back(ainfo);
-        minfo.whichGrid.push_back(index+mapoffset);
-        minfo.gradient.push_back(gradient);
         center += vec(atom.x,atom.y,atom.z);
       }
-      else if(t > 1) //silence on hydrogens
-      {
-        static bool madewarning = false;
-        if(!madewarning) {
-          LOG(WARNING) << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded.  Future warnings will be suppressed\n";
-          madewarning = true;
-        }
-      }
-    }
-
-    if(cnt == 0) {
-      std::cerr << "WARNING: No atoms in " << file <<"\n";
-    }
-    else {
-      center /= cnt;
     }
   }
   else if(!boost::algorithm::ends_with(file,"none")) //reserved word
@@ -720,42 +795,22 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
     minfo.whichGrid.reserve(mol.NumHvyAtoms());
     minfo.gradient.reserve(mol.NumHvyAtoms());
 
-    int cnt = 0;
     FOR_ATOMS_OF_MOL(a, mol)
     {
       smt t = obatom_to_smina_type(*a);
-      int index = atommap[t];
-
-      if(index >= 0)
-      {
+      if(add_to_minfo(file, atommap, mapoffset, t, a->x(), a->y(), a->z(), minfo)) {
         cnt++;
-        float4 ainfo;
-        ainfo.x = a->x();
-        ainfo.y = a->y();
-        ainfo.z  = a->z();
-        if(fixedradius <= 0)
-        	ainfo.w = use_covalent_radius ? covalent_radius(t) : xs_radius(t);
-        else
-        	ainfo.w = fixedradius;
-        float3 gradient(0,0,0);
-
-        minfo.atoms.push_back(ainfo);
-        minfo.whichGrid.push_back(index+mapoffset);
-        minfo.gradient.push_back(gradient);
-        center += vec(a->x(),a->y(),a->z());
+        center += vec(a->x(), a->y(), a->z());
       }
-      else
-      {
-        static bool madewarning = false;
-        if(!madewarning) {
-          LOG(WARNING) << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded.  Future warnings will be suppressed\n";
-          madewarning = true;
-        }
-      }	
     }
-    center /= cnt;
   }
 
+  if(cnt == 0) {
+    std::cerr << "WARNING: No atoms in " << file <<"\n";
+  }
+  else {
+    center /= cnt;
+  }
   minfo.center = center;
 
   if(this->layer_param_.molgrid_data_param().fix_center_to_origin()) {

@@ -704,7 +704,9 @@ public:
   //need to remember how mols were transformed for backward pass
   vector<mol_transform> batch_transform;
 
-  boost::unordered_map<string, mol_info> molcache;
+  typedef boost::unordered_map<string, mol_info> MolCache;
+  static MolCache molcache; //the cache is shared GLOBALLY
+
   mol_info mem_rec; //molecular data set programmatically with setReceptor
   mol_info mem_lig; //molecular data set programmatically with setLigand
 
@@ -717,6 +719,7 @@ public:
 
   quaternion axial_quaternion();
 
+  bool add_to_minfo(const string& file, const vector<int>& atommap, unsigned mapoffset, smt t, float x, float y, float z,  mol_info& minfo);
   void load_cache(const string& file, const vector<int>& atommap, unsigned atomoffset);
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
   void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
