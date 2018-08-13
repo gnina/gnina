@@ -45,13 +45,26 @@ CNNScorer::CNNScorer(const cnn_options& opts, const model& m)
     }
 
     param.mutable_state()->set_phase(TEST);
+
+    //the first layer must be MolGridLayer
+    const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
+    mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(layers[0].get());
+    if (mgrid == NULL) {
+      throw usage_error("First layer of model must be MolGridDataLayer.");
+    }
+
     LayerParameter *first = param.mutable_layer(0);
-    //must be molgrid
     mgridparam = first->mutable_molgrid_data_param();
     if (mgridparam == NULL) {
       throw usage_error("First layer of model must be MolGridData.");
     }
     mgridparam->set_inmemory(true);
+
+    //setup atom maps
+    if(cnnopts.cnn_model.size() == 0) {
+      mgrid->setRecMap(cnn_models[cnnopts.cnn_model_name].recmap);
+      mgrid->setLigMap(cnn_models[cnnopts.cnn_model_name].ligmap);
+    }
 
     //set batch size to 1
     unsigned bsize = 1;
@@ -91,17 +104,9 @@ CNNScorer::CNNScorer(const cnn_options& opts, const model& m)
 
     //check that network matches our expectations
 
-    //the first layer must be MolGridLayer
-    const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
-
     //we also need an output layer
     if (layers.size() < 1) {
       throw usage_error("No layers in model!");
-    }
-
-    mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(layers[0].get());
-    if (mgrid == NULL) {
-      throw usage_error("First layer of model must be MolGridDataLayer.");
     }
 
     if (!net->has_blob("output")) {

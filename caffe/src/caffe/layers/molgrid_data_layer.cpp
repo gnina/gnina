@@ -509,23 +509,29 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     batch_size = 1;
   }
 
-  CHECK_GT(batch_size, 0) << "Positive batch size required";
-  //keep track of atoms and transformations for each example in batch
-  batch_transform.resize(batch_size);
-
   //initialize atom type maps
   string recmap = param.recmap();
   string ligmap = param.ligmap();
 
-  if (recmap.size() == 0)
-    numReceptorTypes = GridMaker::createDefaultRecMap(rmap);
-  else
+  //can specify maps programatically
+  if(mem_recmap)
+    numReceptorTypes = GridMaker::createDefaultMap(mem_recmap, rmap);
+  else if(recmap.size() > 0)
     numReceptorTypes = GridMaker::createAtomTypeMap(recmap, rmap);
-
-  if (ligmap.size() == 0)
-    numLigandTypes = GridMaker::createDefaultLigMap(lmap);
   else
+    numReceptorTypes = GridMaker::createDefaultRecMap(rmap);
+
+
+  if(mem_ligmap)
+    numLigandTypes = GridMaker::createDefaultMap(mem_ligmap, lmap);
+  else if (ligmap.size() > 0)
     numLigandTypes = GridMaker::createAtomTypeMap(ligmap, lmap);
+  else
+    numLigandTypes = GridMaker::createDefaultLigMap(lmap);
+
+  CHECK_GT(batch_size, 0) << "Positive batch size required";
+  //keep track of atoms and transformations for each example in batch
+  batch_transform.resize(batch_size);
 
   //if specified, preload all gninatype information
   string reccache = param.recmolcache();

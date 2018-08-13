@@ -22,11 +22,14 @@
 
 struct cnn_model_def {
     const char *model;
+    const char **recmap; //these are null terminated arrays of strings
+    const char **ligmap;
     const unsigned char *weights;
     const int num_weights;
 
-    cnn_model_def(const char *m, const unsigned char *w, int n): model(m), weights(w), num_weights(n) {}
-    cnn_model_def(): model(NULL), weights(NULL), num_weights(0) {}
+    cnn_model_def(const char *m, const char **r, const char **l, const unsigned char *w, int n):
+      model(m), recmap(r), ligmap(l), weights(w), num_weights(n) {}
+    cnn_model_def(): model(NULL), recmap(NULL), ligmap(NULL), weights(NULL), num_weights(0) {}
 };
 
 
