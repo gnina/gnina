@@ -691,7 +691,7 @@ void MolGridDataLayer<Dtype>::load_cache(const string& file, const vector<int>& 
   ifstream in(fullpath.c_str());
   CHECK(in) << "Could not read " << fullpath;
 
-  std::cout << "Loading from " << fullpath << " with cache at size " << molcache.size() << "\n";
+  LOG(INFO) << "Loading from " << fullpath << " with cache at size " << molcache.size() << "\n";
   while(in && in.peek() != EOF)
   {
     char sz = 0;
@@ -704,7 +704,12 @@ void MolGridDataLayer<Dtype>::load_cache(const string& file, const vector<int>& 
     in.read((char*)&natoms, sizeof(int));
 
     if(molcache.count(fname)) {
-      LOG(WARNING) << "File " << fname << " duplicated in provided cache " << file;
+      static int warncnt = 0;
+
+      if(warncnt == 0) {
+        LOG(WARNING) << "File " << fname << " duplicated in provided cache " << file << ".  Future warnings are supressed.";
+        warncnt++;
+      }
     }
 
     mol_info& minfo = molcache[fname];
@@ -726,7 +731,7 @@ void MolGridDataLayer<Dtype>::load_cache(const string& file, const vector<int>& 
     }
 
     if(cnt == 0) {
-      std::cerr << "WARNING: No atoms in " << file <<"\n";
+      LOG(WARNING) << "WARNING: No atoms in " << file <<"\n";
       continue;
     }
 
@@ -738,7 +743,7 @@ void MolGridDataLayer<Dtype>::load_cache(const string& file, const vector<int>& 
     }
   }
 
-  std::cout << "Done loading from " << fullpath << " with cache at size " << molcache.size() << std::endl;
+  LOG(INFO) << "Done loading from " << fullpath << " with cache at size " << molcache.size() << std::endl;
 
 }
 
