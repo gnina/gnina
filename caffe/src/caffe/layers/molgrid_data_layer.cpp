@@ -672,7 +672,11 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
       }
       else if(t > 1) //silence on hydrogens
       {
-       std::cerr << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded\n";
+        static bool madewarning = false;
+        if(!madewarning) {
+          LOG(WARNING) << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded.  Future warnings will be suppressed\n";
+          madewarning = true;
+        }
       }
     }
 
