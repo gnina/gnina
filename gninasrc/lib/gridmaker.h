@@ -652,11 +652,6 @@ class RNNGridMaker : public GridMaker {
       initialize(opt.res, opt.dim, rm, opt.binary, opt.spherize, opt.subgrid_dim);
     }
 
-    virtual void setCenter(double x, double y, double z) {
-      batch_idx = (batch_idx + 1) % batch_size;
-      GridMaker::setCenter(x, y, z);
-    }
-
     virtual unsigned createDefaultMap(const char *names[], vector<int>& map) {
       unsigned _ntypes = GridMaker::createDefaultMap(names, map);
       ntypes += _ntypes;
@@ -695,6 +690,7 @@ class RNNGridMaker : public GridMaker {
         if (pos >= 0)
           setAtomCPU(ainfo[i], pos, Q, grids);
       }
+      batch_idx = (batch_idx + 1) % batch_size;
     }
 
     template<typename Grids>
@@ -707,6 +703,7 @@ class RNNGridMaker : public GridMaker {
         if (pos >= 0)
           setAtomCPU(ainfo[i], pos, Q, grids);
       }
+      batch_idx = (batch_idx + 1) % batch_size;
     }
 
     template<typename Grids>
