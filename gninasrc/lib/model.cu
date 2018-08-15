@@ -287,6 +287,21 @@ void model::scale_minus_forces(fl scale) {
   }
 }
 
+/* This is my attempt to make gpus more deterministic.. */
+void model::round_minus_forces() {
+  VINA_FOR(i, m_num_movable_atoms) {
+    if (!atoms[i].is_hydrogen()) // no hydrogen forces
+    {
+      for(unsigned j = 0; j < 3; j++) {
+          double val = minus_forces[i].data[j];
+          val *= 10000; 
+          val = roundf(val);
+          minus_forces[i].data[j] = val/10000;
+      }
+    }
+  }
+}
+
 fl model::get_minus_forces_sum_magnitude() const {
   fl x = 0, y = 0, z = 0;
   VINA_FOR(i, m_num_movable_atoms) {

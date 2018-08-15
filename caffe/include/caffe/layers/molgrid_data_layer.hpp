@@ -52,8 +52,7 @@ public:
       binary(false), randrotate(false), ligpeturb(false), ignore_ligand(false),
       use_covalent_radius(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
-      gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false),
-      mem_recmap(NULL), mem_ligmap(NULL) {}
+      gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
   virtual ~MolGridDataLayer();
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -91,9 +90,6 @@ public:
   void getMappedReceptorGradient(int batch_idx, unordered_map<string, float3>& gradient);
   void getLigandGradient(int batch_idx, vector<float3>& gradient);
   void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient);
-
-  void setRecMap(const char **rmap) { mem_recmap = rmap; }
-  void setLigMap(const char **lmap) { mem_ligmap = lmap; }
 
   //set in memory buffer
   //will apply translate and rotate iff rotate is valid
@@ -192,7 +188,7 @@ public:
     }
     center /= acnt; //not ligand.size() because of hydrogens
 
-    if(calcCenter || isnan(mem_lig.center[0])) {
+    if(calcCenter || !isfinite(mem_lig.center[0])) {
       mem_lig.center = center;
     }
   }
@@ -713,9 +709,6 @@ public:
 
   mol_info mem_rec; //molecular data set programmatically with setReceptor
   mol_info mem_lig; //molecular data set programmatically with setLigand
-
-  const char **mem_recmap; //receptor map to use in memory
-  const char **mem_ligmap; //ligand map to use in memory
 
   ////////////////////   PROTECTED METHODS   //////////////////////
   static void remove_missing_and_setup(vector<balanced_example_provider>& examples);

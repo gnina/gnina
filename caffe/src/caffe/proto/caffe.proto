@@ -931,6 +931,8 @@ message MolGridDataParameter {
   optional bool fix_center_to_origin = 43 [default = false]; // center box at origin
   optional string recmolcache = 44 [default = ""]; //single binary file of combined receptor gninatypes, relative to root_folder
   optional string ligmolcache = 45 [default = ""]; //single binary file of combined ligand gninatypes, relative to root_folder
+  optional string mem_recmap = 46 [default = ""]; //contents of a recmap
+  optional string mem_ligmap = 47 [default = ""]; //contents of a ligmap
 }
 
 message NDimDataParameter {

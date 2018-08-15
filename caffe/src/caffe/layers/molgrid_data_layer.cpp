@@ -510,22 +510,26 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   }
 
   //initialize atom type maps
-  string recmap = param.recmap();
-  string ligmap = param.ligmap();
+  string recmapfile = param.recmap();  //these are file names
+  string ligmapfile = param.ligmap();
+
+  //these are the actual contents
+  string recmapstr = param.mem_recmap();
+  string ligmapstr = param.mem_ligmap();
 
   //can specify maps programatically
-  if(mem_recmap)
-    numReceptorTypes = GridMaker::createDefaultMap(mem_recmap, rmap);
-  else if(recmap.size() > 0)
-    numReceptorTypes = GridMaker::createAtomTypeMap(recmap, rmap);
+  if(recmapstr.size())
+    numReceptorTypes = GridMaker::createMapFromString(recmapstr, rmap);
+  else if(recmapfile.size() > 0)
+    numReceptorTypes = GridMaker::createAtomTypeMap(recmapfile, rmap);
   else
     numReceptorTypes = GridMaker::createDefaultRecMap(rmap);
 
 
-  if(mem_ligmap)
-    numLigandTypes = GridMaker::createDefaultMap(mem_ligmap, lmap);
-  else if (ligmap.size() > 0)
-    numLigandTypes = GridMaker::createAtomTypeMap(ligmap, lmap);
+  if(ligmapstr.size())
+    numLigandTypes = GridMaker::createMapFromString(ligmapstr, lmap);
+  else if (ligmapfile.size() > 0)
+    numLigandTypes = GridMaker::createAtomTypeMap(ligmapfile, lmap);
   else
     numLigandTypes = GridMaker::createDefaultLigMap(lmap);
 

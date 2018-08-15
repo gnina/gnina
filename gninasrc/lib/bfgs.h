@@ -295,21 +295,7 @@ fl simple_gradient_ascent(F& f, Conf& x, Change& g,
         std::cout << "wrongdir gradnorm " << step << " " << f0 << " "
           << gradnormsq << " " << alpha << "\n";
       }
-      if (false && f.adjust_center()) {
-        //for cnn scoring, let's try recentering before giving up
-        fl prevf0 = f0;
-        f0 = f(x, g);
-        didreset = true;
-
-        alpha = accurate_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
-        if (alpha == 0) {
-          std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num()
-              << " | " << f0 << " really wrong direction\n";
-          f0 = prevf0; // the recentered f0 might be worse than the starting
-          break;
-        }
-      } else
-        break; //line direction was wrong, give up
+      break; //line direction was wrong, give up
     }
 
     fl prevf0 = f0;
@@ -433,24 +419,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
         std::cout << "wrongdir step,f0,gradnorm,alpha " << step << " " << f0
           << " " << gradnormsq << " " << alpha << "\n";
       }
-
-      if (false && f.adjust_center()) {
-        //for cnn scoring, let's try recentering before giving up
-        fl prevf0 = f0;
-        f0 = f(x, g);
-        set_diagonal(h, 1);
-        minus_mat_vec_product(h, g, p);
-        didreset = true;
-
-        alpha = accurate_line_search(f, n, x, g, f0, p, x_new, g_new, f1);
-        if (alpha == 0) {
-          std::cout << f.m->get_name() << " | pose " << f.m->get_pose_num()
-              << " | " << f0 << " really wrong direction\n";
-          f0 = prevf0; // the recentered f0 might be worse than the starting
-          break;
-        }
-      } else
-        break; //line direction was wrong, give up
+      break; //line direction was wrong, give up
     }
 
     Change y(g_new);

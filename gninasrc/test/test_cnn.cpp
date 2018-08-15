@@ -33,7 +33,7 @@ void test_set_atom_gradients() {
   cnn_options cnnopts;
   cnnopts.cnn_scoring = true;
   model m;
-  CNNScorer cnn_scorer(cnnopts, m);
+  CNNScorer cnn_scorer(cnnopts);
   caffe::MolGridDataLayer<CNNScorer::Dtype>* mgrid = cnn_scorer.mgrid;
   mgrid->batch_transform.resize(1);
   mgrid->batch_transform[0] =

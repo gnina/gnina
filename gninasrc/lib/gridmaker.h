@@ -474,6 +474,36 @@ class GridMaker {
       return cnt;
     }
 
+    //create atom mapping from whitespace/newline delimited string
+    static unsigned createMapFromString(const std::string& rmap, vector<int>& map) {
+      map.assign(smina_atom_type::NumTypes, -1);
+
+      //split string into lines
+      vector<string> lines;
+      boost::algorithm::split(lines, rmap, boost::is_any_of("\n"),boost::algorithm::token_compress_on);
+      unsigned cnt = 0;
+      for (auto line : lines) {
+        vector<string> names;
+
+        //split line into distinct types
+        boost::algorithm::split(names, line, boost::is_space(),
+            boost::algorithm::token_compress_on);
+        for (unsigned i = 0, n = names.size(); i < n; i++) {
+          string name = names[i];
+          smt t = string_to_smina_type(name);
+          if (t < smina_atom_type::NumTypes) { //valid
+            map[t] = cnt;
+          } else {//should never happen
+            cerr << "Invalid atom type " << name << "\n";
+            exit(-1);
+          }
+        }
+
+        if(names.size()) cnt++;
+      }
+      return cnt;
+    }
+
     //initialize default receptor/ligand maps
     //these were determined by an analysis of type frequencies
     static unsigned createDefaultRecMap(vector<int>& map) {
