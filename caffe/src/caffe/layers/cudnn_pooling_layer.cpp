@@ -15,7 +15,7 @@ void CuDNNPoolingLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   //check pooling type
   switch (this->layer_param_.pooling_param().pool()) {
   case PoolingParameter_PoolMethod_MAX:
-    mode_ = CUDNN_POOLING_MAX;
+    mode_ = CUDNN_POOLING_MAX_DETERMINISTIC;
     break;
   case PoolingParameter_PoolMethod_AVE:
     mode_ = CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING;

@@ -918,16 +918,17 @@ struct global_state
 };
 
 //function to occupy the worker threads with individual ligands from the work queue
+//TODO: see if implementing weight sharing between CNNScorer instances results
+//in enough memory efficiency to avoid using a single one
 void threads_at_work(job_queue<worker_job>* wrkq,
     job_queue<writer_job>* writerq, global_state* gs,
-    MolGetter* mols, int* nligs) //copy cnn_scorer so it can maintain state
+    MolGetter* mols, int* nligs, CNNScorer cnn_scorer) //copy cnn_scorer so it can maintain state
     {
   if (gs->settings->gpu_on) {
     initializeCUDA(gs->settings->device);
     thread_buffer.init(free_mem(gs->settings->cpu));
   }
 
-  CNNScorer cnn_scorer(gs->cnnopts);
   worker_job j;
   while (!wrkq->wait_and_pop(j))
   {
@@ -1614,6 +1615,7 @@ Thank you!\n";
         &log, &atomoutfile, cnnopts);
     boost::thread_group worker_threads;
     boost::timer::cpu_timer time;
+    CNNScorer cnn_scorer(cnnopts); //shared network
 
     if (!settings.local_only)
       nthreads = 1; //docking is multithreaded already, don't add additional parallelism other than pipeline
@@ -1622,7 +1624,7 @@ Thank you!\n";
     for (int i = 0; i < nthreads; i++)
         {
       worker_threads.create_thread(boost::bind(threads_at_work, &wrkq,
-          &writerq, &gs, &mols, &nligs));
+          &writerq, &gs, &mols, &nligs, cnn_scorer));
 
     }
 
