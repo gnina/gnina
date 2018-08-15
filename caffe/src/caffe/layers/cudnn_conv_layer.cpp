@@ -120,7 +120,7 @@ cudnnConvolutionBwdFilterAlgo_t bestBackwardFilterAlgorithm(cudnnHandle_t handle
   return CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT; //error
 }
 
-static cudnnConvolutionBwdDataAlgo_t bestBackwardDataAlgorithm(cudnnHandle_t handle,
+cudnnConvolutionBwdDataAlgo_t bestBackwardDataAlgorithm(cudnnHandle_t handle,
     const cudnnFilterDescriptor_t          wDesc,
     const cudnnTensorDescriptor_t          dyDesc,
     const cudnnConvolutionDescriptor_t     convDesc,
@@ -147,7 +147,7 @@ static cudnnConvolutionBwdDataAlgo_t bestBackwardDataAlgorithm(cudnnHandle_t han
   return CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT; //error
 }
 
-static cudnnConvolutionFwdAlgo_t bestForwardAlgorithm(cudnnHandle_t handle,
+cudnnConvolutionFwdAlgo_t bestForwardAlgorithm(cudnnHandle_t handle,
         const cudnnTensorDescriptor_t      xDesc,
         const cudnnFilterDescriptor_t      wDesc,
         const cudnnConvolutionDescriptor_t convDesc,
