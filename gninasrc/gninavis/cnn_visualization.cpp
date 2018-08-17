@@ -25,7 +25,7 @@ using namespace OpenBabel;
 
 cnn_visualization::cnn_visualization(const vis_options &viso,
     const cnn_options &copts, const vec &c)
-    : visopts(viso), cnnopts(copts), center(c) {
+    : visopts(viso), cnnopts(copts), center(c),score_scale(viso.score_scale) {
   if (visopts.gpu > -1) {
     caffe::Caffe::SetDevice(visopts.gpu);
     caffe::Caffe::set_mode(caffe::Caffe::GPU);
@@ -425,7 +425,7 @@ void cnn_visualization::write_scores(
         }
 
         else {
-          score = scores[xyz];
+          score = scores[xyz]*score_scale;
           found_count++;
           found_scores[xyz] = true;
         }

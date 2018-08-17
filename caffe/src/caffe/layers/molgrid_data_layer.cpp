@@ -697,7 +697,9 @@ void MolGridDataLayer<Dtype>::load_cache(const string& file, const vector<int>& 
     int type;
   } atom;
 
-  string fullpath = root_folder + file;
+  string fullpath = file;
+  if(file.size() > 0 && file[0] != '/')
+    fullpath = root_folder + file; //prepend dataroot if not absolute
   ifstream in(fullpath.c_str());
   CHECK(in) << "Could not read " << fullpath;
 
