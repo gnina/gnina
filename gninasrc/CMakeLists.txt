@@ -1,4 +1,5 @@
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(CUDA REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options system iostreams timer
