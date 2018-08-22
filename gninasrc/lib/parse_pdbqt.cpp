@@ -20,9 +20,7 @@
 
  */
 
-#include <fstream> // for getline ?#include <sstream> // in parse_two_unsigneds#include <cctype> // isspace#include <boost/utility.hpp> // for noncopyable #include <boost/optional.hpp>
-#include <boost/filesystem/fstream.hpp>
-#include <boost/lexical_cast.hpp>
+#include <fstream> // for getline ?#include <sstream> // in parse_two_unsigneds#include <cctype> // isspace#include <boost/utility.hpp> // for noncopyable #include <boost/optional.hpp>#include <boost/filesystem/fstream.hpp>#include <boost/lexical_cast.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
@@ -151,49 +149,36 @@ void parse_pdbqt_rigid(const std::string& name, std::istream& in, rigid& r) {
     ++count;
     if (str.empty()) {
     } // ignore ""
-    else
-      if (starts_with(str, "TER")) {
-      } // ignore 
-      else
-        if (starts_with(str, "WARNING")) {
-        } // ignore - AutoDockTools bug workaround
-        else
-          if (starts_with(str, "REMARK")) {
-          } // ignore
-          else
-            if (starts_with(str, "ROOT")) {
-            } //ignore
-            else
-              if (starts_with(str, "COMPND")) {
-              } //ignore
-              else
-                if (starts_with(str, "ENDROOT")) {
-                } //ignore
-                else
-                  if (starts_with(str, "TORSDOF")) {
-                  } //ignore
-                  else
-                    if (starts_with(str, "USER")) {
-                    } // ignore
-                    else
-                      if (starts_with(str, "ATOM  ")
-                          || starts_with(str, "HETATM")) {
-                        try {
-                          parsed_atom pa = parse_pdbqt_atom_string(str);
-                          r.atoms.push_back(pa);
-                        } catch (atom_syntax_error& e) {
-                          throw parse_error(name, count,
-                              "ATOM syntax incorrect: " + e.nature);
-                        } catch (...) {
-                          throw parse_error(name, count,
-                              "ATOM syntax incorrect");
-                        }
-                      } else
-                        if (starts_with(str, "MODEL"))
-                          throw stream_parse_error(count,
-                              "Unexpected multi-MODEL input. Use \"vina_split\" first?");
-                        else {
-                        } //ignore - dkoes, let's be forgiving
+    else if (starts_with(str, "TER")) {
+    } // ignore
+    else if (starts_with(str, "WARNING")) {
+    } // ignore - AutoDockTools bug workaround
+    else if (starts_with(str, "REMARK")) {
+    } // ignore
+    else if (starts_with(str, "ROOT")) {
+    } //ignore
+    else if (starts_with(str, "COMPND")) {
+    } //ignore
+    else if (starts_with(str, "ENDROOT")) {
+    } //ignore
+    else if (starts_with(str, "TORSDOF")) {
+    } //ignore
+    else if (starts_with(str, "USER")) {
+    } // ignore
+    else if (starts_with(str, "ATOM  ") || starts_with(str, "HETATM")) {
+      try {
+        parsed_atom pa = parse_pdbqt_atom_string(str);
+        r.atoms.push_back(pa);
+      } catch (atom_syntax_error& e) {
+        throw parse_error(name, count, "ATOM syntax incorrect: " + e.nature);
+      } catch (...) {
+        throw parse_error(name, count, "ATOM syntax incorrect");
+      }
+    } else if (starts_with(str, "MODEL"))
+      throw stream_parse_error(count,
+          "Unexpected multi-MODEL input. Use \"vina_split\" first?");
+    else {
+    } //ignore - dkoes, let's be forgiving
   }
 }
 
@@ -205,38 +190,29 @@ void parse_pdbqt_root_aux(std::istream& in, unsigned& count, parsing_struct& p,
     ++count;
     if (str.empty()) {
     } // ignore ""
+    else if (starts_with(str, "WARNING")) {
+    } // ignore - AutoDockTools bug workaround
+    else if (starts_with(str, "REMARK")) {
+    } // ignore
+    else if (starts_with(str, "USER")) {
+    } // ignore
+    else if (starts_with(str, "TER")) {
+    } //ignore
+    else if (starts_with(str, "ATOM  ") || starts_with(str, "HETATM")) {
+      try {
+        p.add(parse_pdbqt_atom_string(str), c);
+      } catch (atom_syntax_error& e) {
+        throw stream_parse_error(count, "ATOM syntax incorrect: " + e.nature);
+      } catch (...) {
+        throw stream_parse_error(count, "ATOM syntax incorrect");
+      }
+    } else if (starts_with(str, "ENDROOT"))
+      return;
+    else if (starts_with(str, "MODEL"))
+      throw stream_parse_error(count,
+          "Unexpected multi-MODEL input. Use \"vina_split\" first?");
     else
-      if (starts_with(str, "WARNING")) {
-      } // ignore - AutoDockTools bug workaround
-      else
-        if (starts_with(str, "REMARK")) {
-        } // ignore
-        else
-          if (starts_with(str, "USER")) {
-          } // ignore
-          else
-            if (starts_with(str, "TER")) {
-            } //ignore
-            else
-              if (starts_with(str, "ATOM  ") || starts_with(str, "HETATM")) {
-                try {
-                  p.add(parse_pdbqt_atom_string(str), c);
-                } catch (atom_syntax_error& e) {
-                  throw stream_parse_error(count,
-                      "ATOM syntax incorrect: " + e.nature);
-                } catch (...) {
-                  throw stream_parse_error(count, "ATOM syntax incorrect");
-                }
-              } else
-                if (starts_with(str, "ENDROOT"))
-                  return;
-                else
-                  if (starts_with(str, "MODEL"))
-                    throw stream_parse_error(count,
-                        "Unexpected multi-MODEL input. Use \"vina_split\" first?");
-                  else
-                    throw stream_parse_error(count,
-                        "Unknown or inappropriate tag");
+      throw stream_parse_error(count, "Unknown or inappropriate tag");
   }
 }
 
@@ -248,29 +224,22 @@ void parse_pdbqt_root(std::istream& in, unsigned& count, parsing_struct& p,
     ++count;
     if (str.empty()) {
     } // ignore
+    else if (starts_with(str, "WARNING")) {
+    } // ignore - AutoDockTools bug workaround
+    else if (starts_with(str, "REMARK")) {
+    } // ignore
+    else if (starts_with(str, "USER")) {
+    } // ignore
+    else if (starts_with(str, "TER")) {
+    } //ignore
+    else if (starts_with(str, "ROOT")) {
+      parse_pdbqt_root_aux(in, count, p, c);
+      break;
+    } else if (starts_with(str, "MODEL"))
+      throw stream_parse_error(count,
+          "Unexpected multi-MODEL input. Use \"vina_split\" first?");
     else
-      if (starts_with(str, "WARNING")) {
-      } // ignore - AutoDockTools bug workaround
-      else
-        if (starts_with(str, "REMARK")) {
-        } // ignore
-        else
-          if (starts_with(str, "USER")) {
-          } // ignore
-          else
-            if (starts_with(str, "TER")) {
-            } //ignore
-            else
-              if (starts_with(str, "ROOT")) {
-                parse_pdbqt_root_aux(in, count, p, c);
-                break;
-              } else
-                if (starts_with(str, "MODEL"))
-                  throw stream_parse_error(count,
-                      "Unexpected multi-MODEL input. Use \"vina_split\" first?");
-                else
-                  throw stream_parse_error(count,
-                      "Unknown or inappropriate tag");
+      throw stream_parse_error(count, "Unknown or inappropriate tag");
   }
 }
 
@@ -311,37 +280,27 @@ void parse_pdbqt_aux(std::istream& in, unsigned& count, parsing_struct& p,
     ++count;
     if (str.empty()) {
     } // ignore ""
+    else if (starts_with(str, "WARNING")) {
+    } // ignore - AutoDockTools bug workaround
+    else if (starts_with(str, "REMARK")) {
+    } // ignore
+    else if (starts_with(str, "USER")) {
+    } // ignore
+    else if (starts_with(str, "TER")) {
+    } //ignore
+    else if (starts_with(str, "BRANCH"))
+      parse_pdbqt_branch_aux(in, count, str, p, c);
+    else if (!residue && starts_with(str, "TORSDOF")) {
+      if (torsdof)
+        throw stream_parse_error(count, "TORSDOF can occur only once");
+      torsdof = parse_one_unsigned(str, "TORSDOF", count);
+    } else if (residue && starts_with(str, "END_RES"))
+      return;
+    else if (starts_with(str, "MODEL"))
+      throw stream_parse_error(count,
+          "Unexpected multi-MODEL input. Use \"vina_split\" first?");
     else
-      if (starts_with(str, "WARNING")) {
-      } // ignore - AutoDockTools bug workaround
-      else
-        if (starts_with(str, "REMARK")) {
-        } // ignore
-        else
-          if (starts_with(str, "USER")) {
-          } // ignore
-          else
-            if (starts_with(str, "TER")) {
-            } //ignore
-            else
-              if (starts_with(str, "BRANCH"))
-                parse_pdbqt_branch_aux(in, count, str, p, c);
-              else
-                if (!residue && starts_with(str, "TORSDOF")) {
-                  if (torsdof)
-                    throw stream_parse_error(count,
-                        "TORSDOF can occur only once");
-                  torsdof = parse_one_unsigned(str, "TORSDOF", count);
-                } else
-                  if (residue && starts_with(str, "END_RES"))
-                    return;
-                  else
-                    if (starts_with(str, "MODEL"))
-                      throw stream_parse_error(count,
-                          "Unexpected multi-MODEL input. Use \"vina_split\" first?");
-                    else
-                      throw stream_parse_error(count,
-                          "Unknown or inappropriate tag");
+      throw stream_parse_error(count, "Unknown or inappropriate tag");
   }
 }
 
@@ -364,11 +323,10 @@ void set_rotor(non_rigid_parsed& nr, atom_reference axis_begin,
     if (r2.inflex) {
       VINA_CHECK(r1.inflex); // no atom-inflex rotors
       nr.inflex_inflex_bonds(r1.index, r2.index) = DISTANCE_ROTOR;
-    } else
-      if (r1.inflex)
-        nr.atoms_inflex_bonds(r2.index, r1.index) = DISTANCE_ROTOR; // (atoms, inflex)
-      else
-        nr.atoms_atoms_bonds(r1.index, r2.index) = DISTANCE_ROTOR;
+    } else if (r1.inflex)
+      nr.atoms_inflex_bonds(r2.index, r1.index) = DISTANCE_ROTOR; // (atoms, inflex)
+    else
+      nr.atoms_atoms_bonds(r1.index, r2.index) = DISTANCE_ROTOR;
   }
 }
 
@@ -497,30 +455,25 @@ void parse_pdbqt_flex(const std::string& name, std::istream& in,
     ++count;
     if (str.empty()) {
     } // ignore ""
+    else if (starts_with(str, "WARNING")) {
+    } // ignore - AutoDockTools bug workaround
+    else if (starts_with(str, "REMARK")) {
+    } // ignore
+    else if (starts_with(str, "USER")) {
+    } // ignore
+    else if (starts_with(str, "BEGIN_RES")) {
+      try {
+        parsing_struct p;
+        parse_pdbqt_residue(in, count, p, c);
+        postprocess_residue(nr, p, c);
+      } catch (stream_parse_error& e) {
+        throw e.to_parse_error(name);
+      }
+    } else if (starts_with(str, "MODEL"))
+      throw stream_parse_error(count,
+          "Unexpected multi-MODEL input. Use \"vina_split\" first?");
     else
-      if (starts_with(str, "WARNING")) {
-      } // ignore - AutoDockTools bug workaround
-      else
-        if (starts_with(str, "REMARK")) {
-        } // ignore
-        else
-          if (starts_with(str, "USER")) {
-          } // ignore
-          else
-            if (starts_with(str, "BEGIN_RES")) {
-              try {
-                parsing_struct p;
-                parse_pdbqt_residue(in, count, p, c);
-                postprocess_residue(nr, p, c);
-              } catch (stream_parse_error& e) {
-                throw e.to_parse_error(name);
-              }
-            } else
-              if (starts_with(str, "MODEL"))
-                throw stream_parse_error(count,
-                    "Unexpected multi-MODEL input. Use \"vina_split\" first?");
-              else
-                throw parse_error(name, count, "Unknown or inappropriate tag");
+      throw parse_error(name, count, "Unknown or inappropriate tag");
   }
   VINA_CHECK(nr.atoms_atoms_bonds.dim() == nr.atoms.size());
 }
@@ -533,49 +486,39 @@ void parse_pdbqt_branch(std::istream& in, unsigned& count, parsing_struct& p,
     ++count;
     if (str.empty()) {
     } //ignore ""
+    else if (starts_with(str, "WARNING")) {
+    } // ignore - AutoDockTools bug workaround
+    else if (starts_with(str, "REMARK")) {
+    } // ignore
+    else if (starts_with(str, "USER")) {
+    } // ignore
+    else if (starts_with(str, "BRANCH"))
+      parse_pdbqt_branch_aux(in, count, str, p, c);
+    else if (starts_with(str, "ENDBRANCH")) {
+      unsigned first, second;
+      parse_two_unsigneds(str, "ENDBRANCH", count, first, second);
+      if (first != from || second != to)
+        throw stream_parse_error(count, "Inconsistent branch numbers");
+      if (!p.immobile_atom)
+        throw stream_parse_error(count,
+            "Atom " + boost::lexical_cast<std::string>(to)
+                + " has not been found in this branch");
+      return;
+    } else if (starts_with(str, "ATOM  ") || starts_with(str, "HETATM")) {
+      try {
+        parsed_atom a = parse_pdbqt_atom_string(str);
+        if (a.number == to) p.immobile_atom = p.atoms.size();
+        p.add(a, c);
+      } catch (atom_syntax_error& e) {
+        throw stream_parse_error(count, "ATOM syntax incorrect: " + e.nature);
+      } catch (...) {
+        throw stream_parse_error(count, "ATOM syntax incorrect");
+      }
+    } else if (starts_with(str, "MODEL"))
+      throw stream_parse_error(count,
+          "Unexpected multi-MODEL input. Use \"vina_split\" first?");
     else
-      if (starts_with(str, "WARNING")) {
-      } // ignore - AutoDockTools bug workaround
-      else
-        if (starts_with(str, "REMARK")) {
-        } // ignore
-        else
-          if (starts_with(str, "USER")) {
-          } // ignore
-          else
-            if (starts_with(str, "BRANCH"))
-              parse_pdbqt_branch_aux(in, count, str, p, c);
-            else
-              if (starts_with(str, "ENDBRANCH")) {
-                unsigned first, second;
-                parse_two_unsigneds(str, "ENDBRANCH", count, first, second);
-                if (first != from || second != to)
-                  throw stream_parse_error(count,
-                      "Inconsistent branch numbers");
-                if (!p.immobile_atom)
-                  throw stream_parse_error(count,
-                      "Atom " + boost::lexical_cast<std::string>(to)
-                          + " has not been found in this branch");
-                return;
-              } else
-                if (starts_with(str, "ATOM  ") || starts_with(str, "HETATM")) {
-                  try {
-                    parsed_atom a = parse_pdbqt_atom_string(str);
-                    if (a.number == to) p.immobile_atom = p.atoms.size();
-                    p.add(a, c);
-                  } catch (atom_syntax_error& e) {
-                    throw stream_parse_error(count,
-                        "ATOM syntax incorrect: " + e.nature);
-                  } catch (...) {
-                    throw stream_parse_error(count, "ATOM syntax incorrect");
-                  }
-                } else
-                  if (starts_with(str, "MODEL"))
-                    throw stream_parse_error(count,
-                        "Unexpected multi-MODEL input. Use \"vina_split\" first?");
-                  else
-                    throw stream_parse_error(count,
-                        "Unknown or inappropriate tag");
+      throw stream_parse_error(count, "Unknown or inappropriate tag");
   }
 }
 

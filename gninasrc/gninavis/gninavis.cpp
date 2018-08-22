@@ -43,8 +43,8 @@ int main(int argc, char* argv[]) {
   options_description options("Misc options");
   options.add_options()("box_size",
       value<float>(&visopts.box_size)->default_value(23.5),
-      "diameter of bounding box for receptor coloring, in angstroms (default 23.5)")(
-      "frags_only", bool_switch(&visopts.frags_only)->default_value(false),
+      "diameter of bounding box for receptor coloring, in angstroms (default 23.5)")
+      ("frags_only", bool_switch(&visopts.frags_only)->default_value(false),
       "only run fragment removal on ligand")("atoms_only",
       bool_switch(&visopts.atoms_only)->default_value(false),
       "only run individual removal on ligand")("verbose",
@@ -59,7 +59,9 @@ int main(int argc, char* argv[]) {
       bool_switch(&visopts.outputdx)->default_value(false),
       "output DX grid files")("zero_values",
       bool_switch(&visopts.zero_values)->default_value(false),
-      "only propagate values from dead nodes");
+      "only propagate values from dead nodes")
+      ("score_scale", value<double>(&visopts.score_scale)->default_value(10.0),
+            "Amount to scale score output by (default 10.0)");
 
   options_description debug("Debug");
   debug.add_options()("output_files",

@@ -142,7 +142,7 @@ struct parallel_mc_aux {
         t.m.gdata.bfs_order_dfs_indices = bfs_order_dfs_indices;
       }
       if (cnn) {
-        CNNScorer cnn_scorer(cnn->get_scorer().options(), t.m);
+        CNNScorer cnn_scorer(cnn->get_scorer().options());
         const precalculate* p = cnn->get_precalculate();
         szv_grid_cache gridcache(t.m, p->cutoff_sqr());
         non_cache_cnn new_cnn(gridcache, cnn->get_grid_dims(), p,

@@ -42,6 +42,7 @@ lib/builtinscoring.cpp
 lib/cache.cpp
 lib/cache_gpu.cpp
 lib/cnn_scorer.cpp
+lib/cnn_data.cpp
 lib/coords.cpp
 lib/custom_terms.cpp
 lib/device_buffer.cpp

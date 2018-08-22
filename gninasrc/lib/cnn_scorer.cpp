@@ -23,31 +23,42 @@ using namespace std;
 
 //initialize from commandline options
 //throw error if missing required info
-CNNScorer::CNNScorer(const cnn_options& opts, const model& m)
-    : mgrid(NULL), cnnopts(opts), mtx(new boost::mutex) {
+CNNScorer::CNNScorer(const cnn_options& opts)
+    : mgrid(NULL), cnnopts(opts), mtx(new boost::mutex), current_center(NAN,NAN,NAN) {
 
   if (cnnopts.cnn_scoring || cnnopts.cnn_refinement) {
     NetParameter param;
 
     //load cnn model
     if (cnnopts.cnn_model.size() == 0) {
-      google::protobuf::io::ArrayInputStream modeldata(cnn_default_model,
-          strlen(cnn_default_model));
+      if(cnn_models.count(cnnopts.cnn_model_name) == 0) {
+        throw usage_error("Invalid model name: "+cnnopts.cnn_model_name);
+      }
+
+      const char *model = cnn_models[cnnopts.cnn_model_name].model;
+      google::protobuf::io::ArrayInputStream modeldata(model, strlen(model));
       bool success = google::protobuf::TextFormat::Parse(&modeldata, &param);
-      if (!success) throw usage_error("Error with default cnn model.");
+      if (!success) throw usage_error("Error with built-in cnn model "+cnnopts.cnn_model_name);
       UpgradeNetAsNeeded("default", &param);
     } else {
       ReadNetParamsFromTextFileOrDie(cnnopts.cnn_model, &param);
     }
 
     param.mutable_state()->set_phase(TEST);
+
     LayerParameter *first = param.mutable_layer(0);
-    //must be molgrid
     mgridparam = first->mutable_molgrid_data_param();
     if (mgridparam == NULL) {
       throw usage_error("First layer of model must be MolGridData.");
     }
     mgridparam->set_inmemory(true);
+
+    if (cnnopts.cnn_model.size() == 0) {
+      const char *recmap = cnn_models[cnnopts.cnn_model_name].recmap;
+      const char *ligmap = cnn_models[cnnopts.cnn_model_name].ligmap;
+      mgridparam->set_mem_recmap(recmap);
+      mgridparam->set_mem_ligmap(ligmap);
+    }
 
     //set batch size to 1
     unsigned bsize = 1;
@@ -61,6 +72,7 @@ CNNScorer::CNNScorer(const cnn_options& opts, const model& m)
       //bsize = nrot;
     } else {
       mgridparam->set_random_rotation(false);
+      mgridparam->set_random_translate(0);
     }
 
     param.set_force_backward(true);
@@ -70,8 +82,11 @@ CNNScorer::CNNScorer(const cnn_options& opts, const model& m)
     //load weights
     if (cnnopts.cnn_weights.size() == 0) {
       NetParameter wparam;
-      google::protobuf::io::ArrayInputStream weightdata(cnn_default_weights,
-          cnn_default_weights_len);
+
+      const unsigned char *weights = cnn_models[cnnopts.cnn_model_name].weights;
+      unsigned int nweights = cnn_models[cnnopts.cnn_model_name].num_weights;
+
+      google::protobuf::io::ArrayInputStream weightdata(weights,nweights);
       google::protobuf::io::CodedInputStream strm(&weightdata);
       strm.SetTotalBytesLimit(INT_MAX, 536870912);
       bool success = wparam.ParseFromCodedStream(&strm);
@@ -83,18 +98,16 @@ CNNScorer::CNNScorer(const cnn_options& opts, const model& m)
     }
 
     //check that network matches our expectations
-
     //the first layer must be MolGridLayer
     const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net->layers();
+    mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(layers[0].get());
+    if (mgrid == NULL) {
+      throw usage_error("First layer of model must be MolGridDataLayer.");
+    }
 
     //we also need an output layer
     if (layers.size() < 1) {
       throw usage_error("No layers in model!");
-    }
-
-    mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(layers[0].get());
-    if (mgrid == NULL) {
-      throw usage_error("First layer of model must be MolGridDataLayer.");
     }
 
     if (!net->has_blob("output")) {
@@ -205,46 +218,25 @@ bool CNNScorer::has_affinity() const {
   return (bool) net->blob_by_name("predaff");
 }
 
-//reset center to be around ligand, apply receptor transormation (inverted) to ligand
+//reset center to be around ligand; reset receptor transformation
+//call this before minimizing a ligand
 bool CNNScorer::set_center_from_model(model& m) {
+
+  boost::lock_guard<boost::mutex> guard(*mtx);
+
+  //reset protein
+  m.rec_conf.position = vec(0, 0, 0);
+  m.rec_conf.orientation = qt(1, 0, 0, 0);
+
   if (!cnnopts.move_minimize_frame) {
-    vec center = get_center();
-    if (cnnopts.verbose) {
-      std::cout << "CNN center " << center[0] << "," << center[1] << ","
-          << center[2] << "\n";
-      std::cout << "Rec transform ";
-      m.rec_conf.print();
-      std::cout << "\n";
+
+    //calc center for ligand
+    current_center = vec(0,0,0);
+    for(auto coord : m.coordinates()) {
+      current_center += coord;
     }
-    vecv& coords = m.coordinates();
-    gfloat3 c(center[0], center[1], center[2]);
-    gfloat3 trans(-m.rec_conf.position[0], -m.rec_conf.position[1],
-        -m.rec_conf.position[2]);
-    qt rot = m.rec_conf.orientation.inverse();
+    current_center /= (float)m.coordinates().size();
 
-    VINA_FOR_IN(i, coords) {
-      gfloat3 pt = rot.transform(coords[i][0], coords[i][1], coords[i][2], c,
-          trans);
-      coords[i][0] = pt.x;
-      coords[i][1] = pt.y;
-      coords[i][2] = pt.z;
-    }
-
-    //reset protein
-    m.rec_conf.position = vec(0, 0, 0);
-    m.rec_conf.orientation = qt(1, 0, 0, 0);
-
-    float cnnaffinity, loss;
-    float cnnscore = score(m, false, cnnaffinity, loss);
-
-    if (cnnopts.verbose) {
-      std::cout << "CNNscoreX: " << std::fixed << std::setprecision(10)
-          << cnnscore << "\n";
-      std::cout << "CNNaffinityX: " << std::fixed << std::setprecision(10)
-          << cnnaffinity << "\n";
-    }
-    //todo - make this more efficent, i.e. only set center
-    mgrid->setLigand<atom, vec>(m.get_movable_atoms(), m.coordinates(), true);
     return true;
   }
   return false;
@@ -279,14 +271,17 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
 
   if (!isnan(cnnopts.cnn_center[0])) {
     mgrid->setCenter(cnnopts.cnn_center);
+    current_center = mgrid->getCenter();
+  } else {
+    mgrid->setCenter(current_center);      
   }
-  mgrid->setLigand<atom, vec>(m.get_movable_atoms(), m.coordinates(),
-      cnnopts.move_minimize_frame);
+
+  mgrid->setLigand<atom, vec>(m.get_movable_atoms(), m.coordinates(), cnnopts.move_minimize_frame);
   if (!cnnopts.move_minimize_frame) {
-    mgrid->setReceptor<atom>(m.get_fixed_atoms(), m.rec_conf.position,
-        m.rec_conf.orientation);
+    mgrid->setReceptor<atom>(m.get_fixed_atoms(), m.rec_conf.position, m.rec_conf.orientation);
   } else { //don't move receptor
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
+    current_center = mgrid->getCenter(); //has been recalculated from ligand
   }
 
   m.clear_minus_forces();
@@ -364,7 +359,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
 float CNNScorer::score(model& m) {
   float aff = 0;
   float loss = 0;
-  return score(m, false, aff, loss);
+  return score(m, false, aff, loss); 
 }
 
 // To aid in debugging, will compute the gradient at the

@@ -15,6 +15,7 @@ void Layer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
             }
             else
             {
+              LOG(ERROR) << "Backward relevance not implemented in layer " << this->type();
                 abort(); // you need to implement
             }
         }

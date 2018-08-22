@@ -16,6 +16,7 @@
 
 #include "nngridder.h"
 #include "model.h"
+#include "cnn_data.h"
 
 /* This class evaluates protein-ligand poses according to a provided
  * Caffe convolutional neural net (CNN) model.
@@ -34,15 +35,16 @@ class CNNScorer {
     vector<float3> gradient;
     vector<float4> atoms;
     vector<short> channels;
+    vec current_center;
 
   public:
     CNNScorer()
-        : mgrid(NULL), mtx(new boost::mutex) {
+        : mgrid(NULL), mtx(new boost::mutex), current_center(NAN,NAN,NAN) {
     }
     virtual ~CNNScorer() {
     }
 
-    CNNScorer(const cnn_options& opts, const model& m);
+    CNNScorer(const cnn_options& opts);
 
     bool initialized() const {
       return net.get();
@@ -73,7 +75,7 @@ class CNNScorer {
     }
 
     vec get_center() const {
-      return mgrid->getCenter();
+      return current_center;
     }
     fl get_grid_dim() const {
       return mgrid->getDimension();

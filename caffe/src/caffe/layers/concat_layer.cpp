@@ -94,6 +94,21 @@ void ConcatLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
+
+template <typename Dtype>
+void ConcatLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
+{
+  //copy top to each bottom
+    unsigned n = bottom[0]->count();
+    for(unsigned i = 0, nbottom = bottom.size(); i < nbottom; i++) {
+      Dtype *bottom_diff = bottom[i]->mutable_cpu_diff();
+      caffe_copy(n, top[0]->cpu_diff(), bottom_diff);
+    }
+
+
+}
+
 #ifdef CPU_ONLY
 STUB_GPU(ConcatLayer);
 #endif

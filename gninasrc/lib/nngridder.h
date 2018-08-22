@@ -108,6 +108,7 @@ class NNGridder {
     bool binary; //produce binary occupancies
     bool randrotate;
     bool gpu; //use gpu
+    bool use_covalent_radius; //instead of xs_radius
 
     GridMaker gmaker;
     vector<Grid> receptorGrids;
@@ -163,11 +164,13 @@ class NNGridder {
     //for debugging
     static bool compareGrids(Grid& g1, Grid& g2, const char *name, int index);
 
+    float radius(smt sm) { return use_covalent_radius ? covalent_radius(sm) : xs_radius(sm); }
+
   public:
 
     NNGridder()
         : resolution(0.5), dimension(24), radiusmultiple(1.5), randtranslate(0),
-            binary(false), randrotate(false), gpu(false),
+            binary(false), randrotate(false), gpu(false), use_covalent_radius(false),
             gpu_receptorGrids(NULL), gpu_ligandGrids(NULL),
             gpu_receptorAInfo(NULL), gpu_recWhichGrid(NULL),
             gpu_ligandAInfo(NULL), gpu_ligWhichGrid(NULL) {

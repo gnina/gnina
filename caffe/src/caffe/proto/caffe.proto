@@ -515,6 +515,7 @@ message AffinityLossParameter {
 	optional bool ranklossneg = 9 [default = false]; // rank neg against positive examples - for balanced only
 	optional bool fractional_gap = 10 [default = false]; // actual gap is abs(diff)/gap, i.e. larger for larger values
 	optional float diff_for_zero = 11 [default = 0.0]; //default gradient for examples with zero affinity
+	optional bool weighted = 12 [default = false]; //take an extra weight input for weighting magnitude of loss
 }
 
 message ArgMaxParameter {
@@ -661,6 +662,11 @@ message ConvolutionParameter {
   // implementation; for input blobs with num_axes != 2, this option is
   // ignored and the ND implementation will be used.)
   optional bool force_nd_im2col = 17 [default = false];
+  
+  //cudnn algorithms, specify manually to avoid initialization overhead
+  optional int32 cudnnConvolutionFwdAlgo = 19 [default = 1];
+  optional int32 cudnnConvolutionBwdDataAlgo = 20 [default = 1];
+  optional int32 cudnnConvolutionBwdFilterAlgo = 21 [default = 1];
 }
 
 message CropParameter {
@@ -922,6 +928,16 @@ message MolGridDataParameter {
   optional bool peturb_ligand_rotate = 35 [default = true]; //do random rotation
   optional bool ignore_ligand = 36 [default = false]; //for debugging
   optional float jitter = 37 [default = 0]; //random perturbations of atom cartesian coordinates by +/- jitter amount
+  optional uint32 num_poses = 38 [default = 1]; //number of ligands specified on line, all will be generated as examples with receptor resulting in batch_size*num_poses examples
+  optional bool use_covalent_radius = 39 [default = false]; //use covalent instead of xs_radius
+  optional float affinity_reweight_mean = 40 [default = 0.0]; //mean of normal distribution to use to reweight affinities, 0 for no reweighting
+  optional float affinity_reweight_std = 41 [default = 0.0]; //std of normal distribution to use to reweight affinities
+  optional float affinity_reweight_stdcut = 42 [default = 0.0]; // cutoff for outlier treatment (limit at most this much out)
+  optional bool fix_center_to_origin = 43 [default = false]; // center box at origin
+  optional string recmolcache = 44 [default = ""]; //single binary file of combined receptor gninatypes, relative to root_folder
+  optional string ligmolcache = 45 [default = ""]; //single binary file of combined ligand gninatypes, relative to root_folder
+  optional string mem_recmap = 46 [default = ""]; //contents of a recmap
+  optional string mem_ligmap = 47 [default = ""]; //contents of a ligmap
 }
 
 message NDimDataParameter {

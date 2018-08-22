@@ -97,8 +97,9 @@ namespace smina_atom_type
 //dkoes - eventually I'd like to switch to a single unified atom typing, but
 //for now stitch everything together with a smina atom type
   const info default_data[NumTypes] = { //el, ad, xs
-    { Hydrogen,"Hydrogen", "H", 1, 1.000000, 0.020000, 0.000510, 0.000000, 0.370000, 0.000000, false, false, false, false},
-    { PolarHydrogen, "PolarHydrogen", "HD", 1, 1.000000, 0.020000, 0.000510, 0.000000, 0.370000, 0.000000, false, false, false, false},
+    { Hydrogen,"Hydrogen", "H", 1, 1.000000, 0.020000, 0.000510, 0.000000, 0.370000, 0.37, false, false, false, false},
+    { PolarHydrogen, "PolarHydrogen", "HD", 1, 1.000000, 0.020000, 0.000510, 0.000000, 0.370000, 0.370000, false, false, false, false},
+    //note we typically use the xs_radius, which assumes a heavy atom-only model
     { AliphaticCarbonXSHydrophobe, "AliphaticCarbonXSHydrophobe", "C", 6, 2.000000, 0.150000, -0.001430, 33.510300, 0.770000, 1.900000, true, false, false, false},
     { AliphaticCarbonXSNonHydrophobe, "AliphaticCarbonXSNonHydrophobe", "C", 6, 2.000000, 0.150000, -0.001430, 33.510300, 0.770000, 1.900000, false, false, false, false},
     { AromaticCarbonXSHydrophobe, "AromaticCarbonXSHydrophobe", "A", 6, 2.000000, 0.150000, -0.000520, 33.510300, 0.770000, 1.900000, true, false, false, false},

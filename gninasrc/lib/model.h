@@ -494,6 +494,7 @@ struct model {
     void add_minus_forces(const std::vector<float3>& forces);
     void sub_minus_forces(const std::vector<float3>& forces);
     void scale_minus_forces(fl scale);
+    void round_minus_forces();
 
     fl get_minus_forces_sum_magnitude() const;
 
