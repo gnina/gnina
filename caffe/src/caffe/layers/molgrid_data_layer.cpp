@@ -1283,6 +1283,7 @@ template <typename Dtype>
   typename BaseMolGridDataLayer<Dtype, GridMaker>::output_transform peturb;
 
   //if in memory must be set programmatically
+  //TODO: how to handle multiple frames here?
   if(this->inmem)
   {
     CHECK_GT(this->mem_rec.atoms.size(),0) << "Receptor not set in MolGridDataLayer";
@@ -1337,7 +1338,7 @@ template <typename Dtype>
     //we have a bunch of iterators over those vectors and need to construct and interleave
     //the associated examples
     auto timesteps_begin = &remaining_timesteps[0];
-    for (unsigned step = 0; step < maxgroupsize; ++step) {
+    for (unsigned step = 0; step < maxgroupsize-1; ++step) {
       for (auto& timestep_group : remaining_timesteps) {
         seqcont.push_back(1);
         typename BaseMolGridDataLayer<Dtype, GridMaker>::example ex;
@@ -1348,8 +1349,8 @@ template <typename Dtype>
           unsigned gsize = (this->numReceptorTypes + this->numLigandTypes) * this->dim * 
             this->dim * this->dim;
           //just memset data to zero and set labels to ignore
-          //in general we expect this to not be wasteful because things
-          //should be the same length
+          //in general we expect this to not be wasteful because simulations
+          //should mostly be the same length
           if (gpu) {
             this->allocateGPUMem(natoms);
             CUDA_CHECK(cudaMemset(top_data+offset, 0, gsize * sizeof(Dtype)));

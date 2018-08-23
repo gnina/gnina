@@ -99,6 +99,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
       (this->layer_param_.molgrid_data_param().subgrid_dim() != 0) +
       this->layer_param_.molgrid_data_param().has_affinity()+
       this->layer_param_.molgrid_data_param().has_rmsd()+
+      (this->layer_param_.molgrid_data_param().maxgroupsize() != 0) + 
       this->layer_param_.molgrid_data_param().peturb_ligand();
   }
   virtual inline void resetRotation() { current_rotation = 0; }
