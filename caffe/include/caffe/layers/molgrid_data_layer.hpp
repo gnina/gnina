@@ -99,6 +99,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
       (this->layer_param_.molgrid_data_param().subgrid_dim() != 0) +
       this->layer_param_.molgrid_data_param().has_affinity()+
       this->layer_param_.molgrid_data_param().has_rmsd()+
+      (this->layer_param_.molgrid_data_param().maxgroupsize() != 0) + 
       this->layer_param_.molgrid_data_param().peturb_ligand();
   }
   virtual inline void resetRotation() { current_rotation = 0; }
@@ -294,21 +295,24 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     Dtype label;
     Dtype affinity;
     Dtype rmsd;
+    int group;
 
-    example(): receptor(NULL), ligand(NULL), label(0), affinity(0), rmsd(0) {}
-    example(Dtype l, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0) {}
-    example(Dtype l, Dtype a, Dtype rms, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms) {}
-    example(string_cache& cache, string line, bool hasaffinity, bool hasrmsd);
+    example(): receptor(NULL), ligand(NULL), label(0), affinity(0), rmsd(0), group(-1) {}
+    example(Dtype l, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0), group(-1) {}
+    example(Dtype l, Dtype a, Dtype rms, int gr, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms), group(gr) {}
+    example(string_cache& cache, string line, bool hasaffinity, bool hasrmsd, bool hasgroup);
   };
 
   //abstract class for storing training examples
   class example_provider
   {
   public:
+    typedef pair<const char*, const char*> fnames;
     virtual void add(const example& ex) = 0;
     virtual void setup() = 0; //essentially shuffle if necessary
     virtual void next(example& ex) = 0;
     virtual unsigned size() const = 0;
+    virtual vector<fnames>* get_frames(int group) { return nullptr; }
     virtual ~example_provider() {}
   };
 
@@ -565,6 +569,45 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     }
   };
 
+  template<class Provider> 
+  class grouped_example_provider : public example_provider {
+    using typename example_provider::fnames;
+    Provider examples;
+    boost::unordered_map<int, vector<fnames>> frame_groups;
+
+  public:
+    grouped_example_provider(): examples() {}
+    grouped_example_provider(const MolGridDataParameter& parm): examples(parm) {}
+    //only add the first example for each group to examples; after that just
+    //the filenames to the frame_groups map
+    void add(const example& ex) {
+      unsigned group = ex.group;
+      if (frame_groups.find(group) == frame_groups.end()) {
+        examples.add(ex);
+        frame_groups[group] = vector<fnames>();
+      }
+      else
+        frame_groups[group].push_back(fnames(ex.receptor, ex.ligand));
+    }
+
+    void setup() {
+      examples.setup();
+    }
+
+    void next(example& ex) {
+      examples.next(ex);
+    }
+
+    unsigned size() const
+    {
+      return examples.size();
+    }
+
+    vector<fnames>* get_frames(int group) {
+      return &frame_groups[group];
+    }
+  };
+
   struct mol_transform;
   struct mol_info {
     vector<float4> atoms;
@@ -778,7 +821,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   void allocateGPUMem(unsigned sz);
 
   example_provider* create_example_data(const MolGridDataParameter& parm);
-  void populate_data(const string& root_folder, const string& source, example_provider* data, bool hasaffinity, bool hasrmsd);
+  void populate_data(const string& root_folder, const string& source, example_provider* data, bool hasaffinity, bool hasrmsd, bool hasgroup);
 
   quaternion axial_quaternion();
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
@@ -823,6 +866,55 @@ class GenericMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
       friend void ::set_cnn_grids(MGridT* mgrid, GridMakerU& gmaker, 
           std::vector<atom_params>& mol_atoms, std::vector<atomT>& mol_types);
 
+};
+
+template <typename Dtype>
+class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
+  public:
+    explicit GroupedMolGridDataLayer(const LayerParameter& param) : 
+      BaseMolGridDataLayer<Dtype, GridMaker>(param), 
+      maxgroupsize(param.molgrid_data_param().maxgroupsize()) {}
+    virtual void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
+    virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+        const vector<Blob<Dtype>*>& top) { this->forward(bottom, top, false); }
+    virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+        const vector<Blob<Dtype>*>& top) { this->forward(bottom, top, true); }
+    virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+        const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) { 
+      NOT_IMPLEMENTED;
+    }
+    virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+        const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+      NOT_IMPLEMENTED;
+    }
+
+    virtual void Backward_relevance(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+      NOT_IMPLEMENTED;
+    }
+    virtual void clearLabels() {
+      seqcont.clear();
+      BaseMolGridDataLayer<Dtype, GridMaker>::clearLabels();
+    }
+
+    virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) {
+      this->labels.push_back(pose);
+      this->affinities.push_back(affinity);
+      this->rmsds.push_back(rmsd);
+    }
+    protected:
+    unsigned maxgroupsize;
+    vector<int> seqcont_shape;
+    vector<Dtype> seqcont; //necessary for LSTM layer; indicates if a batch instance 
+                           //is a continuation of a previous example sequence or 
+                           //the beginning of a new one
+    virtual void setBlobShape(const vector<Blob<Dtype>*>& top, bool hasrmsd, bool hasaffinity);
+
+    virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, 
+        bool gpu) {
+      int idx = this->ExactNumTopBlobs() - this->ligpeturb - 1;
+      this->copyToBlob(&seqcont[0], seqcont.size(), top[idx], gpu);
+      BaseMolGridDataLayer<Dtype, GridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, gpu);
+    }
 };
 
 template <typename Dtype>
