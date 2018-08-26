@@ -938,6 +938,7 @@ message MolGridDataParameter {
   optional string ligmolcache = 45 [default = ""]; //single binary file of combined ligand gninatypes, relative to root_folder
   optional string mem_recmap = 46 [default = ""]; //contents of a recmap
   optional string mem_ligmap = 47 [default = ""]; //contents of a ligmap
+  optional bool duplicate_poses = 48 [default = false]; //if num_poses > 1, create separate examples (with receptor) for each ligand pose
 }
 
 message NDimDataParameter {
