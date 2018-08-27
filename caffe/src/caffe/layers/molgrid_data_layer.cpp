@@ -1225,7 +1225,7 @@ void GroupedMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& to
     bool hasrmsd, bool hasaffinity) {
   int batch_size = this->batch_transform.size();
   this->top_shape.clear();
-  this->top_shape.push_back(maxgroupsize);
+  this->top_shape.push_back(maxchunksize);
   this->top_shape.push_back(batch_size);
   this->top_shape.push_back(this->numReceptorTypes+this->numLigandTypes);
   this->top_shape.push_back(this->dim);
@@ -1238,7 +1238,7 @@ void GroupedMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& to
 
   // Reshape label, affinity, rmsds
   vector<int> label_shape;
-  label_shape.push_back(maxgroupsize);
+  label_shape.push_back(maxchunksize);
   label_shape.push_back(batch_size);
 
   top[1]->Reshape(label_shape);
@@ -1253,7 +1253,7 @@ void GroupedMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& to
 
   //RNN layer requires a TxN "sequence continuation" blob
   seqcont_shape.clear();
-  seqcont_shape.push_back(maxgroupsize);
+  seqcont_shape.push_back(maxchunksize);
   seqcont_shape.push_back(batch_size);
   int idx = this->ExactNumTopBlobs() - this->ligpeturb - 1;
   top[idx]->Reshape(seqcont_shape);
