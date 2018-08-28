@@ -68,7 +68,7 @@ class CNNScorer {
         const string& ligname, const string& layer_to_ignore = "");
 
     //readjust center
-    bool set_center_from_model(model &m);
+    void set_center_from_model(model &m);
 
     const cnn_options& options() const {
       return cnnopts;

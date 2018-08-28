@@ -161,7 +161,9 @@ struct gauss : public charge_independent {
           boost::regex::perl);
 
     }
-    fl eval(smt t1, smt t2, fl r) const {
+
+    using charge_independent::eval;
+    virtual fl eval(smt t1, smt t2, fl r) const {
       return gaussian(r - (optimal_distance(t1, t2) + offset), width);
     }
 
@@ -185,7 +187,8 @@ struct repulsion : public charge_independent {
       rexpr.assign("repulsion\\(o=(\\S+),_c=(\\S+)\\)", boost::regex::perl);
 
     }
-    fl eval(smt t1, smt t2, fl r) const {
+    using charge_independent::eval;
+    virtual fl eval(smt t1, smt t2, fl r) const {
       fl d = r - (optimal_distance(t1, t2) + offset);
       if (d > 0) return 0;
       return d * d;
@@ -222,7 +225,9 @@ struct hydrophobic : public charge_independent {
       rexpr.assign("hydrophobic\\(g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",
           boost::regex::perl);
     }
-    fl eval(smt t1, smt t2, fl r) const {
+
+    using charge_independent::eval;
+    virtual fl eval(smt t1, smt t2, fl r) const {
       //std::cout << "HYDRO " << t1 << " " << t2 << " " << r << " " << slope_step(bad, good, r - optimal_distance(t1, t2)) << "\n";
       if (xs_is_hydrophobic(t1) && xs_is_hydrophobic(t2))
         return slope_step(bad, good, r - optimal_distance(t1, t2));
@@ -252,7 +257,9 @@ struct non_hydrophobic : public charge_independent {
           boost::regex::perl);
 
     }
-    fl eval(smt t1, smt t2, fl r) const {
+
+    using charge_independent::eval;
+    virtual fl eval(smt t1, smt t2, fl r) const {
       if (!xs_is_hydrophobic(t1) && !xs_is_hydrophobic(t2))
         return slope_step(bad, good, r - optimal_distance(t1, t2));
       else
@@ -291,7 +298,9 @@ struct vdw : public charge_independent {
           boost::regex::perl);
 
     }
-    fl eval(smt t1, smt t2, fl r) const {
+
+    using charge_independent::eval;
+    virtual fl eval(smt t1, smt t2, fl r) const {
       fl d0 = optimal_distance(t1, t2);
       fl depth = 1;
       fl c_i = 0;
@@ -344,6 +353,8 @@ struct non_dir_h_bond_lj : public charge_independent {
       rexpr.assign("non_dir_h_bond_lj\\(o=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",
           boost::regex::perl);
     }
+
+    using charge_independent::eval;
     fl eval(smt t1, smt t2, fl r) const {
       if (xs_h_bond_possible(t1, t2)) {
         fl d0 = optimal_distance(t1, t2) + offset;
@@ -383,6 +394,8 @@ struct non_dir_anti_h_bond_quadratic : public charge_independent {
       rexpr.assign("non_dir_anti_h_bond_quadratic\\(o=(\\S+),_c=(\\S+)\\)",
           boost::regex::perl);
     }
+
+    using charge_independent::eval;
     fl eval(smt t1, smt t2, fl r) const {
       if (xs_anti_h_bond(t1, t2)) {
         fl d = r - (optimal_distance(t1, t2) + offset);
@@ -412,6 +425,8 @@ struct donor_donor_quadratic : public charge_independent {
       rexpr.assign("donor_donor_quadratic\\(o=(\\S+),_c=(\\S+)\\)",
           boost::regex::perl);
     }
+
+    using charge_independent::eval;
     fl eval(smt t1, smt t2, fl r) const {
       if (xs_is_donor(t1) && xs_is_donor(t2)) {
         fl d = r - (optimal_distance(t1, t2) + offset);
@@ -441,6 +456,8 @@ struct acceptor_acceptor_quadratic : public charge_independent {
       rexpr.assign("acceptor_acceptor_quadratic\\(o=(\\S+),_c=(\\S+)\\)",
           boost::regex::perl);
     }
+
+    using charge_independent::eval;
     fl eval(smt t1, smt t2, fl r) const {
       if (xs_is_acceptor(t1) && xs_is_acceptor(t2)) {
         fl d = r - (optimal_distance(t1, t2) + offset);
@@ -470,6 +487,7 @@ struct non_dir_h_bond : public charge_independent {
       rexpr.assign("non_dir_h_bond\\(g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",
           boost::regex::perl);
     }
+    using charge_independent::eval;
     fl eval(smt t1, smt t2, fl r) const {
       if (xs_h_bond_possible(t1, t2))
         return slope_step(bad, good, r - optimal_distance(t1, t2));
@@ -495,6 +513,8 @@ struct atom_type_base : public charge_independent {
     //base type for atom type functions
     std::string name1, name2;
     smt t1, t2; //atom type pair
+
+    using charge_independent::eval;
 
     atom_type_base(const std::string& n1, const std::string& n2, fl cutoff_ = 8)
         : charge_independent(cutoff_), name1(n1), name2(n2),
@@ -527,6 +547,8 @@ struct atom_type_inverse_power : public atom_type_base {
           "atom_type_inverse_power\\(t1=(\\S+),t2=(\\S+),i=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",
           boost::regex::perl);
     }
+    using charge_independent::eval;
+
     fl eval(smt T1, smt T2, fl r) const {
       if (types_match(T1, T2)) {
         fl tmp = int_pow<power>(r);
@@ -573,7 +595,8 @@ struct atom_type_gaussian : public atom_type_base {
           "atom_type_gaussian\\(t1=(\\S+),t2=(\\S+),o=(\\S+),_w=(\\S+),_c=(\\S+)\\)",
           boost::regex::perl);
     }
-    fl eval(smt T1, smt T2, fl r) const {
+    using charge_independent::eval;
+    virtual fl eval(smt T1, smt T2, fl r) const {
       if (types_match(T1, T2)) {
         return gaussian(r - (optimal_distance(t1, t2) + offset), width);
       }
@@ -606,7 +629,8 @@ struct atom_type_linear : public atom_type_base {
           "atom_type_linear\\(t1=(\\S+),t2=(\\S+),g=(\\S+),_b=(\\S+),_c=(\\S+)\\)",
           boost::regex::perl);
     }
-    fl eval(smt T1, smt T2, fl r) const {
+    using charge_independent::eval;
+    virtual fl eval(smt T1, smt T2, fl r) const {
       if (types_match(T1, T2)) {
         return slope_step(bad, good, r - optimal_distance(t1, t2));
       }
@@ -637,7 +661,8 @@ struct atom_type_quadratic : public atom_type_base {
           "atom_type_quadratic\\(t1=(\\S+),t2=(\\S+),o=(\\S+),_c=(\\S+)\\)",
           boost::regex::perl);
     }
-    fl eval(smt T1, smt T2, fl r) const {
+    using charge_independent::eval;
+    virtual fl eval(smt T1, smt T2, fl r) const {
       if (types_match(T1, T2)) {
         fl d = r - (optimal_distance(t1, t2) + offset);
         if (d > 0) return 0;
