@@ -166,6 +166,7 @@ class Caffe {
   inline static bool multiprocess() { return Get().multiprocess_; }
   inline static void set_multiprocess(bool val) { Get().multiprocess_ = val; }
   inline static bool root_solver() { return Get().solver_rank_ == 0; }
+  inline static void device_synchronize() { CUDA_CHECK(cudaDeviceSynchronize()); }
 
  protected:
 #ifndef CPU_ONLY

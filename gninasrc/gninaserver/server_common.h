@@ -25,5 +25,4 @@ using namespace std;
 
 typedef boost::shared_ptr<boost::asio::ip::tcp::iostream> stream_ptr;
 
-
 #endif /* SERVER_COMMON_H_ */

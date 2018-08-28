@@ -6,49 +6,92 @@
 #include <cmath>
 #include "gpu_util.h"
 #include <cassert>
+#include <boost/thread/thread.hpp>
+#include <cuda.h>
 
-template<typename T>
-device_buffer<T>::device_buffer(size_t capacity) : capacity(capacity){
-    CUDA_CHECK_GNINA(cudaMalloc(&begin, capacity*sizeof(T)));
-    current = begin;
+#define align_down_pow2(n, size)            \
+    ((decltype (n)) ((uintptr_t) (n) & ~((size) - 1)))
+
+#define align_up_pow2(n, size)                                    \
+    ((decltype (n)) align_down_pow2((uintptr_t) (n) + (size) - 1, size))
+
+size_t free_mem(size_t num_cpu_threads) {
+  size_t free, total;
+  cudaError_t res;
+  res = cudaMemGetInfo(&free, &total);
+  if (res != cudaSuccess) {
+    std::cerr << "cudaMemGetInfo returned status " << res << "\n";
+    return 1;
+  }
+  return (free / num_cpu_threads) * .8;
 }
 
-template<typename T>
-bool device_buffer<T>::has_space(size_t n_requested) {
-    size_t space_used = current - begin; //in elements
-    return capacity - space_used >= n_requested;
+thread_local device_buffer thread_buffer;
+
+device_buffer::device_buffer()
+    : capacity(0), begin(nullptr), next_alloc(nullptr) {
 }
 
-template<typename T>
-void device_buffer<T>::resize(size_t n_requested) {
-    if (begin == current && capacity >= n_requested)
-        return;
-    //This doesn't memcpy the old contents because of the baked-in assumption
-    //that you are resizing before you start copying. 
-    else if (!has_space(n_requested)) {
-        int factor = n_requested % capacity ? ((n_requested/capacity)+1)*capacity: n_requested;
-        size_t new_capacity = capacity * factor;
-        CUDA_CHECK_GNINA(cudaFree(begin));
-        CUDA_CHECK_GNINA(cudaMalloc(&begin, sizeof(T)*new_capacity));
-        capacity = new_capacity;
-    }
+void device_buffer::init(size_t capacity) {
+  this->capacity = capacity;
+  CUDA_CHECK_GNINA(cudaMalloc(&begin, capacity));
+  next_alloc = begin;
 }
 
-template<typename T>
-T* device_buffer<T>::copy(T* cpu_object, size_t n_requested, cudaMemcpyKind kind) {
-    //N.B. you need to resize appropriately before starting to copy into the
-    //buffer. This function avoids resizing so data structures in the buffer can use
-    //pointers, and the only internal protection is the following assert.
-    assert(has_space(n_requested));
-    CUDA_CHECK_GNINA(cudaMemcpy(current, cpu_object, n_requested*sizeof(T), kind));
-    T* old_current = current;
-    current += n_requested;
-    return old_current;
+bool device_buffer::has_space(size_t n_bytes) {
+  size_t bytes_used = next_alloc - begin; //in elements
+  return capacity - bytes_used >= n_bytes;
 }
 
-template<typename T>
-device_buffer<T>::~device_buffer() {
+cudaError_t device_alloc_bytes(void **alloc, size_t n_bytes) {
+  // static here gives us lazy initialization and saves us from
+  // constructing a thread_buffer for non-worker threads not included in
+  // the free_mem() calculation.
+  return thread_buffer.alloc((char **) alloc, n_bytes);
+}
+
+cudaError_t device_free(void *buf) {
+  return thread_buffer.dealloc(buf);
+}
+
+void device_buffer::resize(size_t n_bytes) {
+  assert(
+      begin == next_alloc
+          || !(std::cerr
+              << "Device buffer only supports resize when buffer is empty.\n"));
+  if (n_bytes > capacity) {
     CUDA_CHECK_GNINA(cudaFree(begin));
+    CUDA_CHECK_GNINA(cudaMalloc(&begin, n_bytes));
+    capacity = n_bytes;
+  }
 }
 
-template struct device_buffer<float>;
+cudaError_t device_buffer::alloc_bytes(void** alloc, size_t n_bytes) {
+  //N.B. you need to resize appropriately before starting to copy into the
+  //buffer. This function avoids resizing so data structures in the buffer can use
+  //pointers, and the only internal protection is the following assert.
+  bool can_alloc = has_space(n_bytes);
+  assert(can_alloc);
+  if (!can_alloc) {
+    std::cerr << "Alloc of " << n_bytes << " failed for buffer with "
+        << capacity - (next_alloc - begin) << "/" << capacity
+        << " bytes free.\n";
+    abort();
+  }
+  *alloc = (void *) next_alloc;
+  next_alloc = align_up_pow2(next_alloc + n_bytes, 128);
+  return cudaSuccess;
+}
+
+void* device_buffer::copy_bytes(void* cpu_object, size_t n_bytes,
+    cudaMemcpyKind kind) {
+  assert(has_space(n_bytes));
+  void *r;
+  CUDA_CHECK_GNINA(alloc_bytes(&r, n_bytes));
+  CUDA_CHECK_GNINA(definitelyPinnedMemcpy(r, cpu_object, n_bytes, kind));
+  return r;
+}
+
+device_buffer::~device_buffer() {
+  CUDA_CHECK_GNINA(cudaFree(begin));
+}

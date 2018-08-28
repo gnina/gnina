@@ -12,7 +12,6 @@
 #include <boost/thread/condition_variable.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
-#include <boost/math/quaternion.hpp>
 #include <boost/multi_array/multi_array_ref.hpp>
 #include "caffe/blob.hpp"
 #include "caffe/data_transformer.hpp"
@@ -49,7 +48,9 @@ public:
       num_rotations(0), current_rotation(0),
       example_size(0), inmem(false), resolution(0.5),
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
-      binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
+      jitter(0.0), numposes(1), ligpeturb_rotate(false),
+      binary(false), randrotate(false), ligpeturb(false), ignore_ligand(false),
+      use_covalent_radius(false), dim(0), numgridpoints(0), numchannels(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
       gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
   virtual ~MolGridDataLayer();
@@ -61,6 +62,7 @@ public:
   virtual inline int ExactNumTopBlobs() const { return 2+
       this->layer_param_.molgrid_data_param().has_affinity()+
       this->layer_param_.molgrid_data_param().has_rmsd()+
+      (this->layer_param_.molgrid_data_param().affinity_reweight_stdcut() > 0) +
       this->layer_param_.molgrid_data_param().peturb_ligand();
   }
 
@@ -85,18 +87,22 @@ public:
   void getLigandChannels(int batch_idx, vector<short>& whichGrid);
   void getReceptorGradient(int batch_idx, vector<float3>& gradient);
   void getReceptorTransformationGradient(int batch_idx, vec& force, vec& torque);
-  void getMappedReceptorGradient(int batch_idx, unordered_map<string ,float3>& gradient);
+  void getMappedReceptorGradient(int batch_idx, unordered_map<string, float3>& gradient);
   void getLigandGradient(int batch_idx, vector<float3>& gradient);
   void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient);
 
   //set in memory buffer
+  //will apply translate and rotate iff rotate is valid
   template<typename Atom>
-  void setReceptor(const vector<Atom>& receptor)
+  void setReceptor(const vector<Atom>& receptor, const vec& translate = {}, const qt& rotate = {})
   {
     //make this a template mostly so I don't have to pull in gnina atom class
     mem_rec.atoms.clear();
     mem_rec.whichGrid.clear();
     mem_rec.gradient.clear();
+
+    float3 c = make_float3(mem_lig.center[0], mem_lig.center[1], mem_lig.center[2]);
+    float3 trans = make_float3(translate[0],translate[1],translate[2]);
 
     //receptor atoms
     for(unsigned i = 0, n = receptor.size(); i < n; i++)
@@ -109,6 +115,16 @@ public:
         ainfo.x = a.coords[0];
         ainfo.y = a.coords[1];
         ainfo.z = a.coords[2];
+
+        if(rotate.real() != 0) {
+          //transform receptor coordinates
+          //todo: move this to the gpu
+          float3 pt = rotate.transform(ainfo.x, ainfo.y, ainfo.z, c, trans);
+          ainfo.x = pt.x;
+          ainfo.y = pt.y;
+          ainfo.z = pt.z;
+        }
+
         if (fixedradius <= 0)
           ainfo.w = xs_radius(t);
         else
@@ -165,14 +181,14 @@ public:
         center += coord;
         acnt++;
       }
-      else
+      else if(t > 1) //don't warn about hydrogens
       {
-        CHECK_LE(t, 1) << "Unsupported atom type " << smina_type_to_string(t);
+        std::cerr << "Unsupported atom type " << smina_type_to_string(t);
       }
     }
     center /= acnt; //not ligand.size() because of hydrogens
 
-    if(calcCenter || isnan(mem_lig.center[0])) {
+    if(calcCenter || !isfinite(mem_lig.center[0])) {
       mem_lig.center = center;
     }
   }
@@ -186,7 +202,7 @@ public:
  protected:
 
   ///////////////////////////   PROTECTED DATA TYPES   //////////////////////////////
-  typedef GridMaker::quaternion quaternion;
+  typedef qt quaternion;
   typedef typename boost::multi_array_ref<Dtype, 4>  Grids;
 
   //for memory efficiency, only store a given string once and use the const char*
@@ -205,15 +221,16 @@ public:
   struct example
   {
     const char* receptor;
-    const char* ligand;
+    vector<const char*> ligands;
     Dtype label;
     Dtype affinity;
     Dtype rmsd;
+    Dtype affinity_weight;
 
-    example(): receptor(NULL), ligand(NULL), label(0), affinity(0), rmsd(0) {}
-    example(Dtype l, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0) {}
-    example(Dtype l, Dtype a, Dtype rms, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms) {}
-    example(string_cache& cache, string line, bool hasaffinity, bool hasrmsd);
+    example(): receptor(NULL), label(0), affinity(0), rmsd(0), affinity_weight(1.0) {}
+    example(Dtype l, const char* r, const vector<const char*>& ligs): receptor(r), ligands(ligs), label(l), affinity(0), rmsd(0) {}
+    example(Dtype l, Dtype a, Dtype rms, const char* r, const vector<const char*>& ligs, Dtype weight=1.0): receptor(r), ligands(ligs), label(l), affinity(a), rmsd(rms), affinity_weight(weight) {}
+    example(string_cache& cache, string line,  const MolGridDataParameter& param);
   };
 
   //abstract class for storing training examples
@@ -489,10 +506,14 @@ public:
 
     mol_info() { center[0] = center[1] = center[2] = NAN;}
 
-    void append(const mol_info& a)
+    //add contents of a to this, incrementing whichGrid by offset
+    void append(const mol_info& a, unsigned offset=0)
     {
       atoms.insert(atoms.end(), a.atoms.begin(), a.atoms.end());
-      whichGrid.insert(whichGrid.end(), a.whichGrid.begin(), a.whichGrid.end());
+      whichGrid.reserve(whichGrid.size()+a.whichGrid.size());
+      for(auto g : a.whichGrid) {
+          whichGrid.push_back(g+offset);
+      }
       gradient.insert(gradient.end(), a.gradient.begin(), a.gradient.end());
     }
 
@@ -506,11 +527,12 @@ public:
         gradient.push_back(a.gradient[i]); //NOT rotating, but that shouldn't matter, right?
 
         float4 atom = a.atoms[i];
-        quaternion p(0, atom.x-a.center[0], atom.y-a.center[1], atom.z-a.center[2]);
-        p = transform.Q * p * (conj(transform.Q) / norm(transform.Q));
-        atom.x = p.R_component_2() + a.center[0] + transform.center[0];
-        atom.y = p.R_component_3() + a.center[1] + transform.center[1];
-        atom.z = p.R_component_4() + a.center[2] + transform.center[2];
+        gfloat3 center(a.center[0],a.center[1],a.center[2]);
+        gfloat3 translate(transform.center[0],transform.center[1], transform.center[2]);
+        float3 pt = transform.Q.transform(atom.x, atom.y, atom.z, center, translate);
+        atom.x = pt.x;
+        atom.y = pt.y;
+        atom.z = pt.z;
         atoms.push_back(atom);
 
         //LOG(INFO) << "Transforming " << a.atoms[i].x<<","<<a.atoms[i].y<<","<<a.atoms[i].z<<" to "<<atom.x<<","<<atom.y<<","<<atom.z;
@@ -552,11 +574,11 @@ public:
 
     output_transform(): x(0), y(0), z(0), pitch(0), yaw(0), roll(0) {}
 
-    output_transform(Dtype X, Dtype Y, Dtype, Dtype Z, const quaternion& Q): x(X), y(Y), z(Z) {
+    output_transform(Dtype X, Dtype Y, Dtype, Dtype Z, const qt& Q): x(X), y(Y), z(Z) {
       set_from_quaternion(Q);
     }
 
-    void set_from_quaternion(const quaternion& Q) {
+    void set_from_quaternion(const qt& Q) {
       //convert to euler angles
       //https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
       // roll (x-axis rotation)
@@ -584,12 +606,12 @@ public:
   };
   struct mol_transform {
     mol_info mol;
-    quaternion Q;  // rotation
+    qt Q;  // rotation
     vec center; // translation
 
     mol_transform() {
       mol = mol_info();
-      Q = quaternion(0,0,0,0);
+      Q = qt(0,0,0,0);
       center[0] = center[1] = center[2] = 0;
     }
 
@@ -619,7 +641,7 @@ public:
       double r3 = sqr*sin(2*M_PI*u3);
       double r4 = sqr*cos(2*M_PI*u3);
 
-      Q = quaternion(r1,r2,r3,r4);
+      Q = qt(r1,r2,r3,r4);
     }
 
   };
@@ -649,6 +671,7 @@ public:
   vector<Dtype> labels;
   vector<Dtype> affinities;
   vector<Dtype> rmsds;
+  vector<Dtype> weights;
   vector<output_transform> perturbations;
 
   //grid stuff
@@ -659,16 +682,22 @@ public:
   double fixedradius;
   double randtranslate;
   double ligpeturb_translate;
+  double jitter;
+  unsigned numposes;
   bool ligpeturb_rotate;
   bool binary; //produce binary occupancies
   bool randrotate;
   bool ligpeturb; //for spatial transformer
+  bool ignore_ligand; //for debugging
+  bool use_covalent_radius;
 
   unsigned dim; //grid points on one side
   unsigned numgridpoints; //dim*dim*dim
+  unsigned numchannels;
 
   vector<int> rmap; //map atom types to position in grid vectors
   vector<int> lmap;
+  
   unsigned numReceptorTypes;
   unsigned numLigandTypes;
 
@@ -681,7 +710,9 @@ public:
   //need to remember how mols were transformed for backward pass
   vector<mol_transform> batch_transform;
 
-  boost::unordered_map<string, mol_info> molcache;
+  typedef boost::unordered_map<string, mol_info> MolCache;
+  static MolCache molcache; //the cache is shared GLOBALLY
+
   mol_info mem_rec; //molecular data set programmatically with setReceptor
   mol_info mem_lig; //molecular data set programmatically with setLigand
 
@@ -693,9 +724,12 @@ public:
   void populate_data(const string& root_folder, const string& source, example_provider* data, bool hasaffinity, bool hasrmsd);
 
   quaternion axial_quaternion();
+
+  bool add_to_minfo(const string& file, const vector<int>& atommap, unsigned mapoffset, smt t, float x, float y, float z,  mol_info& minfo);
+  void load_cache(const string& file, const vector<int>& atommap, unsigned atomoffset);
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
   void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
-                    mol_transform& transform, output_transform& pertub, bool gpu);
+                    mol_transform& transform, int pose, output_transform& pertub, bool gpu);
   void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms,
                     mol_transform& transform, output_transform& peturb, bool gpu);
 

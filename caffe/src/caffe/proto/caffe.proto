@@ -102,7 +102,7 @@ message NetParameter {
 // NOTE
 // Update the next available ID when you add a new SolverParameter field.
 //
-// SolverParameter next available ID: 42 (last added: layer_wise_reduce)
+// SolverParameter next available ID: 43 (last added: weights)
 message SolverParameter {
   //////////////////////////////////////////////////////////////////////////////
   // Specifying the train and test networks
@@ -132,8 +132,7 @@ message SolverParameter {
   // The states for the train/test nets. Must be unspecified or
   // specified once per net.
   //
-  // By default, all states will have solver = true;
-  // train_state will have phase = TRAIN,
+  // By default, train_state will have phase = TRAIN,
   // and all test_state's will have phase = TEST.
   // Other defaults are set according to the NetState defaults.
   optional NetState train_state = 26;
@@ -191,7 +190,11 @@ message SolverParameter {
   optional float clip_gradients = 35 [default = -1];
 
   optional int32 snapshot = 14 [default = 0]; // The snapshot interval
-  optional string snapshot_prefix = 15; // The prefix for the snapshot.
+  // The prefix for the snapshot.
+  // If not set then is replaced by prototxt file path without extention.
+  // If is set to directory then is augmented by prototxt file name
+  // without extention.
+  optional string snapshot_prefix = 15;
   // whether to snapshot diff in the results or not. Snapshotting diff will help
   // debugging but the final protocol buffer size will be much larger.
   optional bool snapshot_diff = 16 [default = false];
@@ -246,6 +249,16 @@ message SolverParameter {
 
   // Overlap compute and communication for data parallel training
   optional bool layer_wise_reduce = 41 [default = true];
+
+  // Path to caffemodel file(s) with pretrained weights to initialize finetuning.
+  // Tha same as command line --weights parameter for caffe train command.
+  // If command line --weights parameter if specified, it has higher priority
+  // and owerwrites this one(s).
+  // If --snapshot command line parameter is specified, this one(s) are ignored.
+  // If several model files are expected, they can be listed in a one 
+  // weights parameter separated by ',' (like in a command string) or
+  // in repeated weights parameters separately.
+  repeated string weights = 42;
 }
 
 // A message that stores the solver snapshots
@@ -313,7 +326,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 153 (last added: RankLossParameter)
+// LayerParameter next available layer-specific ID: 154 (last added: softmax_noisy_label_loss_param)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -409,9 +422,10 @@ message LayerParameter {
   optional ScaleParameter scale_param = 142;
   optional SigmoidParameter sigmoid_param = 124;
   optional SoftmaxParameter softmax_param = 125;
-  optional SoftmaxNoisyLabelLossParameter softmax_noisy_label_loss_param = 147;
+  optional SoftmaxNoisyLabelLossParameter softmax_noisy_label_loss_param = 153;
   optional SPPParameter spp_param = 132;
   optional SliceParameter slice_param = 126;
+  optional SwishParameter swish_param = 147;
   optional TanHParameter tanh_param = 127;
   optional ThresholdParameter threshold_param = 128;
   optional TileParameter tile_param = 138;
@@ -501,6 +515,7 @@ message AffinityLossParameter {
 	optional bool ranklossneg = 9 [default = false]; // rank neg against positive examples - for balanced only
 	optional bool fractional_gap = 10 [default = false]; // actual gap is abs(diff)/gap, i.e. larger for larger values
 	optional float diff_for_zero = 11 [default = 0.0]; //default gradient for examples with zero affinity
+	optional bool weighted = 12 [default = false]; //take an extra weight input for weighting magnitude of loss
 }
 
 message ArgMaxParameter {
@@ -526,11 +541,21 @@ message ConcatParameter {
 }
 
 message BatchNormParameter {
-  // If false, accumulate global mean/variance values via a moving average. If
-  // true, use those accumulated values instead of computing mean/variance
-  // across the batch.
+  // If false, normalization is performed over the current mini-batch
+  // and global statistics are accumulated (but not yet used) by a moving
+  // average.
+  // If true, those accumulated mean and variance values are used for the
+  // normalization.
+  // By default, it is set to false when the network is in the training
+  // phase and true when the network is in the testing phase.
   optional bool use_global_stats = 1;
-  // How much does the moving average decay each iteration?
+  // What fraction of the moving average remains each iteration?
+  // Smaller values make the moving average decay faster, giving more
+  // weight to the recent values.
+  // Each iteration updates the moving average @f$S_{t-1}@f$ with the
+  // current mean @f$ Y_t @f$ by
+  // @f$ S_t = (1-\beta)Y_t + \beta \cdot S_{t-1} @f$, where @f$ \beta @f$
+  // is the moving_average_fraction parameter.
   optional float moving_average_fraction = 2 [default = .999];
   // Small value to add to the variance estimate so that we don't divide by
   // zero.
@@ -637,6 +662,11 @@ message ConvolutionParameter {
   // implementation; for input blobs with num_axes != 2, this option is
   // ignored and the ND implementation will be used.)
   optional bool force_nd_im2col = 17 [default = false];
+  
+  //cudnn algorithms, specify manually to avoid initialization overhead
+  optional int32 cudnnConvolutionFwdAlgo = 19 [default = 1];
+  optional int32 cudnnConvolutionBwdDataAlgo = 20 [default = 1];
+  optional int32 cudnnConvolutionBwdFilterAlgo = 21 [default = 1];
 }
 
 message CropParameter {
@@ -896,6 +926,19 @@ message MolGridDataParameter {
   optional bool peturb_ligand = 33 [default = false]; //apply additional random displacement/rotation to ligand, generate output of inverse transform
   optional float peturb_ligand_translate = 34 [default = 2.0]; //max amount to translate ligand by
   optional bool peturb_ligand_rotate = 35 [default = true]; //do random rotation
+  optional bool ignore_ligand = 36 [default = false]; //for debugging
+  optional float jitter = 37 [default = 0]; //random perturbations of atom cartesian coordinates by +/- jitter amount
+  optional uint32 num_poses = 38 [default = 1]; //number of ligands specified on line, all will be generated as examples with receptor resulting in batch_size*num_poses examples
+  optional bool use_covalent_radius = 39 [default = false]; //use covalent instead of xs_radius
+  optional float affinity_reweight_mean = 40 [default = 0.0]; //mean of normal distribution to use to reweight affinities, 0 for no reweighting
+  optional float affinity_reweight_std = 41 [default = 0.0]; //std of normal distribution to use to reweight affinities
+  optional float affinity_reweight_stdcut = 42 [default = 0.0]; // cutoff for outlier treatment (limit at most this much out)
+  optional bool fix_center_to_origin = 43 [default = false]; // center box at origin
+  optional string recmolcache = 44 [default = ""]; //single binary file of combined receptor gninatypes, relative to root_folder
+  optional string ligmolcache = 45 [default = ""]; //single binary file of combined ligand gninatypes, relative to root_folder
+  optional string mem_recmap = 46 [default = ""]; //contents of a recmap
+  optional string mem_ligmap = 47 [default = ""]; //contents of a ligmap
+  optional bool duplicate_poses = 48 [default = false]; //if num_poses > 1, create separate examples (with receptor) for each ligand pose
 }
 
 message NDimDataParameter {
@@ -930,6 +973,7 @@ message NDimDataParameter {
 message InfogainLossParameter {
   // Specify the infogain matrix source.
   optional string source = 1;
+  optional int32 axis = 2 [default = 1]; // axis of prob
 }
 
 message InnerProductParameter {
@@ -1058,9 +1102,7 @@ message PythonParameter {
   // string, dictionary in Python dict format, JSON, etc. You may parse this
   // string in `setup` method and use it in `forward` and `backward`.
   optional string param_str = 3 [default = ''];
-  // Whether this PythonLayer is shared among worker solvers during data parallelism.
-  // If true, each worker solver sequentially run forward from this layer.
-  // This value should be set true if you are using it as a data layer.
+  // DEPRECATED
   optional bool share_in_parallel = 4 [default = false];
 }
 
@@ -1274,6 +1316,15 @@ message SoftmaxNoisyLabelLossParameter {
   optional FillerParameter matrix_c_filler = 2;
 }
 
+
+// Message that stores parameters used by SwishLayer
+message SwishParameter {
+  // Beta parameter for the Swish activation function
+  // Described in:
+  // Prajit Ramachandran, Barret Zoph, Quoc V. Le. (2017). Searching for
+  // Activation Functions. https://arxiv.org/abs/1710.05941v2
+  optional float beta = 1 [default = 1];
+}
 
 message TanHParameter {
   enum Engine {

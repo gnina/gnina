@@ -96,8 +96,13 @@ docs/gathered
 _site
 doxygen
 docs/dev
->>>>>>> c86433aaf1ecec5e82ab19a61330c008d1980dab
 
 # tag files
 TAGS
 tags
+
+# auto-generated history files
+.gdb_history
+
+# compile command databases
+compile_commands.json
