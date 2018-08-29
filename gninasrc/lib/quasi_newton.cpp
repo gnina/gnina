@@ -37,8 +37,8 @@ struct quasi_newton_aux {
         : m(m_), p(p_), ig(ig_), v(v_), user_grid(user_grid_) {
     }
 
-    bool adjust_center() {
-      return ig->adjust_center(*m);
+    void adjust_center() {
+      ig->adjust_center(*m);
     }
 
     vec get_center() const {

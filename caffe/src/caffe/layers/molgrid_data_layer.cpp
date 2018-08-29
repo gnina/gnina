@@ -424,6 +424,8 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
 
   const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
+  bool duplicate = param.duplicate_poses();
+
   root_folder = param.root_folder();
   num_rotations = param.rotate();
   inmem = param.inmemory();
@@ -551,19 +553,24 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   //setup shape of layer
   top_shape.clear();
-  top_shape.push_back(batch_size*numposes);
-  top_shape.push_back(numReceptorTypes+numLigandTypes);
+  unsigned number_examples = batch_size;
+  if(duplicate) number_examples = batch_size*numposes;
+  top_shape.push_back(number_examples);
+  
+  numchannels = numReceptorTypes+numLigandTypes;
+  if(!duplicate && numposes > 1) numchannels = numReceptorTypes+numposes*numLigandTypes;
+  top_shape.push_back(numchannels);
   top_shape.push_back(dim);
   top_shape.push_back(dim);
   top_shape.push_back(dim);
 
-  example_size = (numReceptorTypes+numLigandTypes)*numgridpoints;
+  example_size = (numchannels)*numgridpoints;
 
   // Reshape prefetch_data and top[0] according to the batch_size.
   top[0]->Reshape(top_shape);
 
   // Reshape label, affinity, rmsds
-  vector<int> label_shape(1, batch_size*numposes); // [batch_size]
+  vector<int> label_shape(1, number_examples); // [batch_size]
 
   top[1]->Reshape(label_shape);
 
@@ -767,11 +774,13 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
   //OpenBabel is SLOW, especially for the receptor, so we cache the result
   //if this gets too annoying, can add support for spawning a thread for openbabel
   //but since this gets amortized across many hits to the same example, not a high priority
+  //if clear is true, set, otherwise add
   using namespace OpenBabel;
 
   minfo.atoms.clear();
   minfo.whichGrid.clear();
   minfo.gradient.clear();
+  
   int cnt = 0;
   vec center(0,0,0);
 
@@ -838,11 +847,18 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dtype>::example& ex,
-    const string& root_folder, MolGridDataLayer<Dtype>::mol_transform& transform, unsigned pose, output_transform& peturb, bool gpu)
+    const string& root_folder, MolGridDataLayer<Dtype>::mol_transform& transform, int pose, output_transform& peturb, bool gpu)
 {
   //set grid values for example
   //cache atom info
+  //pose specifies which ligand pose to use (relevant if num_poses > 1)
+  //if it is negative, use them all!
   bool docache = this->layer_param_.molgrid_data_param().cache_structs();
+  bool doall = false;
+  if(pose < 0) {
+      doall = true;
+      pose = 0;
+  }
 
   CHECK_LT(pose, ex.ligands.size()) << "Incorrect pose index";
   const char* ligand = ex.ligands[pose];
@@ -858,7 +874,21 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
       set_mol_info(root_folder+ligand, lmap, numReceptorTypes, molcache[ligand]);
     }
 
-    set_grid_minfo(data, molcache[ex.receptor], molcache[ligand], transform, peturb, gpu);
+    if(doall) {
+      //make sure every ligand is in the cache, then aggregate
+      mol_info lig(molcache[ligand]);
+      for(unsigned p = 1, np = ex.ligands.size(); p < np; p++) {
+        ligand = ex.ligands[p];
+        if(molcache.count(ligand) == 0)
+        {
+          set_mol_info(root_folder+ligand, lmap, numReceptorTypes, molcache[ligand]);
+        }
+        lig.append(molcache[ligand],numLigandTypes*p);
+      }
+      set_grid_minfo(data, molcache[ex.receptor], lig, transform, peturb, gpu);
+    } else {
+        set_grid_minfo(data, molcache[ex.receptor], molcache[ligand], transform, peturb, gpu);
+    }
   }
   else
   {
@@ -866,6 +896,13 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
     mol_info lig;
     set_mol_info(root_folder+ex.receptor, rmap, 0, rec);
     set_mol_info(root_folder+ligand, lmap, numReceptorTypes, lig);
+    if(doall) {
+        for(unsigned p = 1, np = ex.ligands.size(); p < np; p++) {
+          mol_info tmplig;
+          set_mol_info(root_folder+ligand, lmap, numReceptorTypes+numLigandTypes*p, tmplig);
+          lig.append(tmplig);
+        }
+    }    
     set_grid_minfo(data, rec, lig, transform, peturb, gpu);
   }
 }
@@ -970,11 +1007,11 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
     CUDA_CHECK(cudaMemcpy(gpu_gridatoms, &transform.mol.atoms[0], natoms*sizeof(float4), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(gpu_gridwhich, &transform.mol.whichGrid[0], natoms*sizeof(short), cudaMemcpyHostToDevice));
 
-    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, transform.Q, numReceptorTypes+numLigandTypes, data);
+    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, transform.Q, numchannels, data);
   }
   else
   {
-    Grids grids(data, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+    Grids grids(data, boost::extents[numchannels][dim][dim][dim]);
     gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(), grids);
   }
 }
@@ -1050,6 +1087,7 @@ void MolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
 			boost::extents[numReceptorTypes + numLigandTypes][dim][dim][dim]);
     CHECK_GT(mem_lig.atoms.size(),0) << "DX dump only works with in-memory ligand";
     CHECK_EQ(randrotate, false) << "DX dump requires no rotation";
+    CHECK_LE(numposes, 1) << "DX dump requires numposes == 1";
 	for (unsigned a = 0, na = numReceptorTypes; a < na; a++) {
 		string name = getIndexName(rmap, a);
 		string fname = prefix + "_rec_" + name + ".dx";
@@ -1080,6 +1118,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
   bool hasaffinity = this->layer_param_.molgrid_data_param().has_affinity();
   bool hasrmsd = this->layer_param_.molgrid_data_param().has_rmsd();
   bool hasweights = (this->layer_param_.molgrid_data_param().affinity_reweight_stdcut() > 0);
+  bool duplicate = this->layer_param_.molgrid_data_param().duplicate_poses();
 
   Dtype *top_data = NULL;
   if(gpu)
@@ -1088,8 +1127,10 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     top_data = top[0]->mutable_cpu_data();
 
   perturbations.clear();
-  unsigned batch_size = top_shape[0]/numposes;
-  CHECK_EQ(top_shape[0] % numposes,0) << "Batch size not multiple of numposes??";
+  unsigned div = 1;
+  if(numposes > 1 && duplicate) div = numposes;
+  unsigned batch_size = top_shape[0]/div;
+  if(duplicate) CHECK_EQ(top_shape[0] % numposes,0) << "Batch size not multiple of numposes??";
   output_transform peturb;
 
   //if in memory must be set programmatically
@@ -1136,16 +1177,26 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         root = &root_folder2;
       }
 
-      for(unsigned p = 0; p < numposes; p++) {
+      if(!duplicate) {
         labels.push_back(ex.label);
         affinities.push_back(ex.affinity);
         rmsds.push_back(ex.rmsd);
         weights.push_back(ex.affinity_weight);
-
-        int offset = batch_idx*example_size;
-        set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], p, peturb, gpu);
         perturbations.push_back(peturb);
+        int offset = batch_idx*example_size;
+        set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], numposes > 1 ? -1 : 0, peturb, gpu);        
+      } else {
+      	for(unsigned p = 0; p < numposes; p++) {
+          labels.push_back(ex.label);
+          affinities.push_back(ex.affinity);
+          rmsds.push_back(ex.rmsd);
+          weights.push_back(ex.affinity_weight);
+
+          int offset = batch_idx*example_size;
+          set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], p, peturb, gpu);
+          perturbations.push_back(peturb);
         //NOTE: num_rotations not actually implemented!
+        }
       }
       //NOTE: batch_transform contains transformation of last pose only - don't use unless numposes == 1
 
@@ -1222,7 +1273,7 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top, const ve
       for (int item_id = 0; item_id < batch_size; ++item_id) {
 
         int offset = item_id*example_size;
-        Grids grids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+        Grids grids(diff+offset, boost::extents[numchannels][dim][dim][dim]);
 
         mol_transform& transform = batch_transform[item_id];
         gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
@@ -1247,8 +1298,8 @@ void MolGridDataLayer<Dtype>::Backward_relevance(const vector<Blob<Dtype>*>& top
   for (int item_id = 0; item_id < batch_size; ++item_id) {
 
     int offset = item_id*example_size;
-    Grids diffgrids(diff+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
-    Grids densegrids(data+offset, boost::extents[numReceptorTypes+numLigandTypes][dim][dim][dim]);
+    Grids diffgrids(diff+offset, boost::extents[numchannels][dim][dim][dim]);
+    Grids densegrids(data+offset, boost::extents[numchannels][dim][dim][dim]);
     mol_transform& transform = batch_transform[item_id];
     gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
     gmaker.setAtomRelevanceCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(),

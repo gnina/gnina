@@ -220,7 +220,7 @@ bool CNNScorer::has_affinity() const {
 
 //reset center to be around ligand; reset receptor transformation
 //call this before minimizing a ligand
-bool CNNScorer::set_center_from_model(model& m) {
+void CNNScorer::set_center_from_model(model& m) {
 
   boost::lock_guard<boost::mutex> guard(*mtx);
 
@@ -228,18 +228,18 @@ bool CNNScorer::set_center_from_model(model& m) {
   m.rec_conf.position = vec(0, 0, 0);
   m.rec_conf.orientation = qt(1, 0, 0, 0);
 
-  if (!cnnopts.move_minimize_frame) {
-
-    //calc center for ligand
-    current_center = vec(0,0,0);
-    for(auto coord : m.coordinates()) {
-      current_center += coord;
-    }
-    current_center /= (float)m.coordinates().size();
-
-    return true;
+  //calc center for ligand
+  current_center = vec(0, 0, 0);
+  for (auto coord : m.coordinates()) {
+    current_center += coord;
   }
-  return false;
+  current_center /= (float) m.coordinates().size();
+
+  if (cnnopts.verbose) {
+    std::cout << "new center: ";
+    current_center.print(std::cout);
+    std::cout << "\n";
+  }
 }
 
 //populate score and aff with current network output
@@ -282,6 +282,11 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   } else { //don't move receptor
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     current_center = mgrid->getCenter(); //has been recalculated from ligand
+    if(cnnopts.verbose) {
+      std::cout << "current center: ";
+      current_center.print(std::cout);
+      std::cout << "\n";
+    }
   }
 
   m.clear_minus_forces();

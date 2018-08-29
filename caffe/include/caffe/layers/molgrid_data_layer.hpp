@@ -50,7 +50,7 @@ public:
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
       jitter(0.0), numposes(1), ligpeturb_rotate(false),
       binary(false), randrotate(false), ligpeturb(false), ignore_ligand(false),
-      use_covalent_radius(false), dim(0), numgridpoints(0),
+      use_covalent_radius(false), dim(0), numgridpoints(0), numchannels(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
       gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
   virtual ~MolGridDataLayer();
@@ -506,10 +506,14 @@ public:
 
     mol_info() { center[0] = center[1] = center[2] = NAN;}
 
-    void append(const mol_info& a)
+    //add contents of a to this, incrementing whichGrid by offset
+    void append(const mol_info& a, unsigned offset=0)
     {
       atoms.insert(atoms.end(), a.atoms.begin(), a.atoms.end());
-      whichGrid.insert(whichGrid.end(), a.whichGrid.begin(), a.whichGrid.end());
+      whichGrid.reserve(whichGrid.size()+a.whichGrid.size());
+      for(auto g : a.whichGrid) {
+          whichGrid.push_back(g+offset);
+      }
       gradient.insert(gradient.end(), a.gradient.begin(), a.gradient.end());
     }
 
@@ -689,9 +693,11 @@ public:
 
   unsigned dim; //grid points on one side
   unsigned numgridpoints; //dim*dim*dim
+  unsigned numchannels;
 
   vector<int> rmap; //map atom types to position in grid vectors
   vector<int> lmap;
+  
   unsigned numReceptorTypes;
   unsigned numLigandTypes;
 
@@ -723,7 +729,7 @@ public:
   void load_cache(const string& file, const vector<int>& atommap, unsigned atomoffset);
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
   void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
-                    mol_transform& transform, unsigned pose, output_transform& pertub, bool gpu);
+                    mol_transform& transform, int pose, output_transform& pertub, bool gpu);
   void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms,
                     mol_transform& transform, output_transform& peturb, bool gpu);
 
