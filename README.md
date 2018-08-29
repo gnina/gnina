@@ -8,11 +8,23 @@ Help
 
 Citation
 ========
-If you find gnina useful, please cite our paper (hopefully more to come):  
-**Protein–Ligand Scoring with Convolutional Neural Networks**  
+If you find gnina useful, please cite our paper(s):  
+**Protein–Ligand Scoring with Convolutional Neural Networks**  (Primary citation)
 M Ragoza, J Hochuli, E Idrobo, J Sunseri, DR Koes. *J. Chem. Inf. Model*, 2017  
-[link](http://pubs.acs.org/doi/full/10.1021/acs.jcim.6b00740) [arXiv version](https://arxiv.org/abs/1612.02751)
+[link](http://pubs.acs.org/doi/full/10.1021/acs.jcim.6b00740) [arXiv version](https://arxiv.org/abs/1612.02751)  
 
+
+**Ligand pose optimization with atomic grid-based convolutional neural networks**
+M Ragoza, L Turner, DR Koes. *Machine Learning for Molecules and Materials NIPS 2017 Workshop*, 2017
+[arXiv version](https://arxiv.org/abs/1710.07400)  
+
+**Visualizing convolutional neural network protein-ligand scoring**
+J Hochuli, A Helbling, T Skaist, M Ragoza, DR Koes.  *Journal of Molecular Graphics and Modelling*, 2018
+[link](https://www.sciencedirect.com/science/article/pii/S1093326318301670) [arXiv](https://arxiv.org/abs/1803.02398)
+
+**Convolutional neural network scoring and minimization in the D3R 2017 community challenge**
+J Sunseri, JE King, PG Francoeur, DR Koes.  *Journal of computer-aided molecular design*, 2018
+[link](https://link.springer.com/article/10.1007/s10822-018-0133-y) [PubMed](https://www.ncbi.nlm.nih.gov/pubmed/29992528)
 
 Installation
 ============
