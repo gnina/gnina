@@ -24,7 +24,7 @@ using namespace std;
 //initialize from commandline options
 //throw error if missing required info
 CNNScorer::CNNScorer(const cnn_options& opts)
-    : mgrid(NULL), cnnopts(opts), mtx(new boost::mutex), current_center(NAN,NAN,NAN) {
+    : mgrid(NULL), cnnopts(opts), mtx(new boost::recursive_mutex), current_center(NAN,NAN,NAN) {
 
   if (cnnopts.cnn_scoring || cnnopts.cnn_refinement) {
     NetParameter param;
@@ -156,7 +156,7 @@ std::unordered_map<string, float> CNNScorer::get_scores_per_atom(bool receptor,
 
 void CNNScorer::lrp(const model& m, const string& layer_to_ignore,
     bool zero_values) {
-  boost::lock_guard<boost::mutex> guard(*mtx);
+  boost::lock_guard<boost::recursive_mutex> guard(*mtx);
 
   caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
@@ -181,7 +181,7 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore,
 //do forward and backward pass for gradient visualization
 void CNNScorer::gradient_setup(const model& m, const string& recname,
     const string& ligname, const string& layer_to_ignore) {
-  boost::lock_guard<boost::mutex> guard(*mtx);
+  boost::lock_guard<boost::recursive_mutex> guard(*mtx);
 
   caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
@@ -222,7 +222,31 @@ bool CNNScorer::has_affinity() const {
 //call this before minimizing a ligand
 void CNNScorer::set_center_from_model(model& m) {
 
-  boost::lock_guard<boost::mutex> guard(*mtx);
+  if (isfinite(current_center[0]) && !cnnopts.move_minimize_frame && !cnnopts.fix_receptor) {
+    //when we recenter, we need to apply any receptor transformations to the ligand (inversed)
+    //unless, of course, the center hasn't been set yet
+    vec center = get_center();
+    if (cnnopts.verbose) {
+      std::cout << "CNN center " << center[0] << "," << center[1] << ","
+          << center[2] << "\n";
+      std::cout << "Rec transform ";
+      m.rec_conf.print();
+      std::cout << "\n";
+    }
+    vecv& coords = m.coordinates();
+    gfloat3 c(center[0], center[1], center[2]);
+    gfloat3 trans(-m.rec_conf.position[0], -m.rec_conf.position[1],
+        -m.rec_conf.position[2]);
+    qt rot = m.rec_conf.orientation.inverse();
+
+    VINA_FOR_IN(i, coords) {
+      gfloat3 pt = rot.transform(coords[i][0], coords[i][1], coords[i][2], c,
+          trans);
+      coords[i][0] = pt.x;
+      coords[i][1] = pt.y;
+      coords[i][2] = pt.z;
+    }
+  }
 
   //reset protein
   m.rec_conf.position = vec(0, 0, 0);
@@ -235,12 +259,20 @@ void CNNScorer::set_center_from_model(model& m) {
   }
   current_center /= (float) m.coordinates().size();
 
+  if(!cnnopts.move_minimize_frame) {
+    //recenter mgrid around ligand
+    mgrid->setCenter(current_center);
+  }
+
+
+
   if (cnnopts.verbose) {
     std::cout << "new center: ";
     current_center.print(std::cout);
     std::cout << "\n";
   }
 }
+
 
 //populate score and aff with current network output
 void CNNScorer::get_net_output(Dtype& score, Dtype& aff, Dtype& loss) {
@@ -264,7 +296,7 @@ void CNNScorer::get_net_output(Dtype& score, Dtype& aff, Dtype& loss) {
 //ALERT: clears minus forces
 float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
     float& loss) {
-  boost::lock_guard<boost::mutex> guard(*mtx);
+  boost::lock_guard<boost::recursive_mutex> guard(*mtx);
   if (!initialized()) return -1.0;
 
   caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
