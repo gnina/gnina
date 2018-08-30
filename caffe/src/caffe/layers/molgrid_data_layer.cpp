@@ -446,6 +446,10 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   data_ratio = param.source_ratio();
   root_folder2 = param.root_folder2();
   numposes = param.num_poses();
+  batch_rotate = param.batch_rotate();
+  batch_rotate_yaw = param.batch_rotate_yaw();
+  batch_rotate_roll = param.batch_rotate_roll();
+  batch_rotate_pitch = param.batch_rotate_pitch();
 
   if(binary) radiusmultiple = 1.0;
 
@@ -838,7 +842,7 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dtype>::example& ex,
-    const string& root_folder, MolGridDataLayer<Dtype>::mol_transform& transform, unsigned pose, output_transform& peturb, bool gpu)
+    const string& root_folder, MolGridDataLayer<Dtype>::mol_transform& transform, unsigned pose, output_transform& peturb, const quaternion& Q, bool gpu)
 {
   //set grid values for example
   //cache atom info
@@ -858,7 +862,7 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
       set_mol_info(root_folder+ligand, lmap, numReceptorTypes, molcache[ligand]);
     }
 
-    set_grid_minfo(data, molcache[ex.receptor], molcache[ligand], transform, peturb, gpu);
+    set_grid_minfo(data, molcache[ex.receptor], molcache[ligand], transform, peturb, Q, gpu);
   }
   else
   {
@@ -866,7 +870,7 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
     mol_info lig;
     set_mol_info(root_folder+ex.receptor, rmap, 0, rec);
     set_mol_info(root_folder+ligand, lmap, numReceptorTypes, lig);
-    set_grid_minfo(data, rec, lig, transform, peturb, gpu);
+    set_grid_minfo(data, rec, lig, transform, peturb, Q, gpu);
   }
 }
 
@@ -874,7 +878,7 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer<Dtype>::mol_info& recatoms,
   const MolGridDataLayer<Dtype>::mol_info& ligatoms, MolGridDataLayer<Dtype>::mol_transform& transform,
-  output_transform& peturb, bool gpu)
+  output_transform& peturb, const quaternion& Q, bool gpu)
 {
   //set grid values from mol info
   //first clear transform from the previous batch
@@ -924,6 +928,10 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
   if (randrotate)
   {
     transform.set_random_quaternion(rng);
+  }
+  if (batch_rotate)
+  {
+    transform.Q = Q;
   }
 
   transform.center[0] = transform.mol.center[0];
@@ -1091,6 +1099,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
   unsigned batch_size = top_shape[0]/numposes;
   CHECK_EQ(top_shape[0] % numposes,0) << "Batch size not multiple of numposes??";
   output_transform peturb;
+  quaternion Q;
 
   //if in memory must be set programmatically
   if(inmem)
@@ -1098,7 +1107,8 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     if(mem_rec.atoms.size() == 0) LOG(WARNING) << "Receptor not set in MolGridDataLayer";
     CHECK_GT(mem_lig.atoms.size(),0) << "Ligand not set in MolGridDataLayer";
     //memory is now available
-    set_grid_minfo(top_data, mem_rec, mem_lig, batch_transform[0], peturb, gpu); //TODO how do we know what batch position?
+    Q = quaternion(0,0,0,0);
+    set_grid_minfo(top_data, mem_rec, mem_lig, batch_transform[0], peturb, Q, gpu); //TODO how do we know what batch position?
     perturbations.push_back(peturb);
 
     if (num_rotations > 0) {
@@ -1121,6 +1131,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     if (data2)
       dataswitch = batch_size*data_ratio/(data_ratio+1);
 
+
     for (int batch_idx = 0; batch_idx < batch_size; ++batch_idx)
     {
       example ex;
@@ -1136,6 +1147,24 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         root = &root_folder2;
       }
 
+      if (batch_rotate)
+      {
+        double cy = cos(batch_rotate_yaw * 0.5 * batch_idx);
+        double sy = sin(batch_rotate_yaw * 0.5 * batch_idx);
+        double cr = cos(batch_rotate_roll * 0.5 * batch_idx);
+        double sr = sin(batch_rotate_roll * 0.5 * batch_idx);
+        double cp = cos(batch_rotate_pitch * 0.5 * batch_idx);
+        double sp = sin(batch_rotate_pitch * 0.5 * batch_idx);
+        Q = quaternion(cy*cr*cp + sy*sr*sp,
+                       cy*sr*cp - sy*cr*sp,
+                       cy*cr*sp + sy*sr*cp,
+                       sy*cr*cp - cy*sr*sp);
+      }
+      else
+      {
+        Q = quaternion(0,0,0,0);
+      }
+
       for(unsigned p = 0; p < numposes; p++) {
         labels.push_back(ex.label);
         affinities.push_back(ex.affinity);
@@ -1143,7 +1172,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         weights.push_back(ex.affinity_weight);
 
         int offset = batch_idx*example_size;
-        set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], p, peturb, gpu);
+        set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], p, peturb, Q, gpu);
         perturbations.push_back(peturb);
         //NOTE: num_rotations not actually implemented!
       }

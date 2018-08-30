@@ -52,7 +52,8 @@ public:
       binary(false), randrotate(false), ligpeturb(false), ignore_ligand(false),
       use_covalent_radius(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
-      gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
+      gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false),
+      batch_rotate(false), batch_rotate_yaw(0.0), batch_rotate_roll(0.0), batch_rotate_pitch(0.0) {}
   virtual ~MolGridDataLayer();
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -686,6 +687,10 @@ public:
   bool ligpeturb; //for spatial transformer
   bool ignore_ligand; //for debugging
   bool use_covalent_radius;
+  bool batch_rotate;
+  double batch_rotate_yaw;
+  double batch_rotate_roll;
+  double batch_rotate_pitch;
 
   unsigned dim; //grid points on one side
   unsigned numgridpoints; //dim*dim*dim
@@ -723,9 +728,9 @@ public:
   void load_cache(const string& file, const vector<int>& atommap, unsigned atomoffset);
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
   void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
-                    mol_transform& transform, unsigned pose, output_transform& pertub, bool gpu);
+                    mol_transform& transform, unsigned pose, output_transform& pertub, const quaternion& Q, bool gpu);
   void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms,
-                    mol_transform& transform, output_transform& peturb, bool gpu);
+                    mol_transform& transform, output_transform& peturb, const quaternion& Q, bool gpu);
 
   void setAtomGradientsGPU(GridMaker& gmaker, Dtype *diff, unsigned batch_size);
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
