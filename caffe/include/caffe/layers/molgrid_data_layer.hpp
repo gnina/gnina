@@ -96,10 +96,10 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   virtual inline const char* type() const { return "MolGridData"; }
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int ExactNumTopBlobs() const { return 2+
-      (this->layer_param_.molgrid_data_param().subgrid_dim() != 0) +
+      ((this->layer_param_.molgrid_data_param().subgrid_dim() != 0) || 
+       (this->layer_param_.molgrid_data_param().maxgroupsize() != 0)) +
       this->layer_param_.molgrid_data_param().has_affinity()+
       this->layer_param_.molgrid_data_param().has_rmsd()+
-      (this->layer_param_.molgrid_data_param().maxgroupsize() != 0) + 
       this->layer_param_.molgrid_data_param().peturb_ligand();
   }
   virtual inline void resetRotation() { current_rotation = 0; }
@@ -307,12 +307,10 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   class example_provider
   {
   public:
-    typedef pair<const char*, const char*> fnames;
     virtual void add(const example& ex) = 0;
     virtual void setup() = 0; //essentially shuffle if necessary
     virtual void next(example& ex) = 0;
     virtual unsigned size() const = 0;
-    virtual vector<fnames>* get_frames(int group) { return nullptr; }
     virtual ~example_provider() {}
   };
 
@@ -571,40 +569,63 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
 
   template<class Provider> 
   class grouped_example_provider : public example_provider {
-    using typename example_provider::fnames;
+
+    typedef std::pair<typename std::vector<example>::iterator, typename std::vector<example>::iterator> location;
+
     Provider examples;
-    boost::unordered_map<int, vector<fnames>> frame_groups;
+    unsigned batch_size;
+    unsigned maxgroupsize;
+    boost::unordered_map<int, vector<example>> frame_groups;
+    std::deque<location> current_locations;
 
   public:
-    grouped_example_provider(): examples() {}
-    grouped_example_provider(const MolGridDataParameter& parm): examples(parm) {}
+    grouped_example_provider(): examples(), batch_size(1), maxgroupsize(1) {}
+    grouped_example_provider(const MolGridDataParameter& parm): examples(parm), 
+                                                batch_size(parm.batch_size()), 
+                                                maxgroupsize(parm.maxgroupsize()) {}
     //only add the first example for each group to examples; after that just
     //the filenames to the frame_groups map
     void add(const example& ex) {
       unsigned group = ex.group;
       if (frame_groups.find(group) == frame_groups.end()) {
         examples.add(ex);
-        frame_groups[group] = vector<fnames>();
+        frame_groups[group] = vector<example>();
       }
       else
-        frame_groups[group].push_back(fnames(ex.receptor, ex.ligand));
+        frame_groups[group].push_back(ex);
     }
 
     void setup() {
       examples.setup();
+      for (auto& group : frame_groups) {
+        //if we have fewer than maxgroupsize examples for this group, pad with
+        //ignore_labels
+        for (unsigned idx=group.second.size(); idx<(maxgroupsize-1); ++idx) {
+          group.second.push_back(example(-1, -1, -1, -1, NULL, NULL));
+        }
+      }
     }
 
     void next(example& ex) {
-      examples.next(ex);
+      if (current_locations.size() < batch_size) {
+        examples.next(ex);
+        current_locations.push_back(location(frame_groups[ex.group].begin(), 
+              frame_groups[ex.group].end()));
+      }
+      else {
+        auto progress = current_locations[0];
+        current_locations.pop_front();
+        ex = *progress.first;
+        progress.first++;
+        if (progress.first != progress.second) {
+          current_locations.push_back(progress);
+        }
+      }
     }
 
     unsigned size() const
     {
       return examples.size();
-    }
-
-    vector<fnames>* get_frames(int group) {
-      return &frame_groups[group];
     }
   };
 
@@ -873,12 +894,20 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
   public:
     explicit GroupedMolGridDataLayer(const LayerParameter& param) : 
       BaseMolGridDataLayer<Dtype, GridMaker>(param), 
-      maxgroupsize(param.molgrid_data_param().maxgroupsize()) {}
-    virtual void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);
-    virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-        const vector<Blob<Dtype>*>& top) { this->forward(bottom, top, false); }
-    virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
-        const vector<Blob<Dtype>*>& top) { this->forward(bottom, top, true); }
+      maxgroupsize(param.molgrid_data_param().maxgroupsize()), 
+      batch_size(param.molgrid_data_param().batch_size()), 
+      example_idx(0) {
+        CHECK_EQ(param.molgrid_data_param().subgrid_dim(), 0) << 
+          "Subgrids and groups are mutually exclusive";
+        unsigned input_chunksize = param.molgrid_data_param().maxchunksize();
+        if (input_chunksize) {
+          CHECK_EQ(maxgroupsize % input_chunksize, 0) << 
+            "maxchunksize must evenly divide maxgroupsize; pad if necessary";
+          maxchunksize = input_chunksize;
+        }
+        else
+          maxchunksize = maxgroupsize;
+      }
     virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
         const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) { 
       NOT_IMPLEMENTED;
@@ -900,9 +929,15 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
       this->labels.push_back(pose);
       this->affinities.push_back(affinity);
       this->rmsds.push_back(rmsd);
+      this->seqcont.push_back(example_idx < batch_size ? 0 : 1);
+      ++example_idx;
+      example_idx = example_idx % (maxgroupsize * batch_size);
     }
     protected:
     unsigned maxgroupsize;
+    unsigned maxchunksize;
+    unsigned batch_size;
+    unsigned example_idx;
     vector<int> seqcont_shape;
     vector<Dtype> seqcont; //necessary for LSTM layer; indicates if a batch instance 
                            //is a continuation of a previous example sequence or 
@@ -921,7 +956,10 @@ template <typename Dtype>
 class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
   public:
     explicit RNNMolGridDataLayer(const LayerParameter& param) : 
-      BaseMolGridDataLayer<Dtype, RNNGridMaker>(param) {}
+      BaseMolGridDataLayer<Dtype, RNNGridMaker>(param) {
+        CHECK_EQ(param.molgrid_data_param().maxgroupsize(), 0) << 
+          "Subgrids and groups are mutually exclusive";
+      }
 
     virtual ~RNNMolGridDataLayer() {};
       

@@ -1074,6 +1074,10 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
   bool hasaffinity = this->layer_param_.molgrid_data_param().has_affinity();
   bool hasrmsd = this->layer_param_.molgrid_data_param().has_rmsd();
   float subgrid_dim = this->layer_param_.molgrid_data_param().subgrid_dim();
+  unsigned maxgroupsize = this->layer_param_.molgrid_data_param().maxgroupsize();
+  unsigned maxchunksize = this->layer_param_.molgrid_data_param().maxchunksize();
+  if (maxgroupsize && !maxchunksize)
+    maxchunksize = maxgroupsize;
 
   Dtype *top_data = NULL;
   if(gpu)
@@ -1084,7 +1088,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
   perturbations.clear();
 
   unsigned batch_size;
-  if (subgrid_dim != 0)
+  if (subgrid_dim != 0 || maxgroupsize)
     batch_size = top_shape[1];
   else
     batch_size = top_shape[0];
@@ -1092,6 +1096,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
   output_transform peturb;
 
   //if in memory must be set programmatically
+  //TODO: how to handle multiple frames here?
   if(inmem)
   {
     CHECK_GT(mem_rec.atoms.size(),0) << "Receptor not set in MolGridDataLayer";
@@ -1116,8 +1121,9 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
     if (data2)
       dataswitch = batch_size*data_ratio/(data_ratio+1);
 
-    for (int batch_idx = 0; batch_idx < batch_size; ++batch_idx)
+    for (int idx = 0; idx < batch_size + (maxchunksize-1)*batch_size; ++idx)
     {
+      int batch_idx = idx % batch_size;
       example ex;
       string *root;
       if (batch_idx < dataswitch)
@@ -1132,11 +1138,27 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
       }
 
       appendLabels(ex.label, ex.affinity, ex.rmsd);
+      int step = idx / batch_size;
+      int offset = ((batch_size * step) + batch_idx) * example_size;
+      //if label == -1 then this is a padding example for grouped data; just
+      //memset data to 0
+      if (ex.label == -1) {
+          unsigned natoms = batch_transform[batch_idx].mol.atoms.size();
+          unsigned gsize = (numReceptorTypes + numLigandTypes) * dim * 
+            dim * dim;
+          if (gpu) {
+            allocateGPUMem(natoms);
+            CUDA_CHECK(cudaMemset(top_data+offset, 0, gsize * sizeof(Dtype)));
+          }
+          else
+            memset(top_data+offset, 0, gsize*sizeof(Dtype));
+      }
 
-      int offset = batch_idx*example_size;
-      set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], peturb, gpu);
-      perturbations.push_back(peturb);
-      //NOTE: num_rotations not actually implemented!
+      else {
+        set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], peturb, gpu);
+        perturbations.push_back(peturb);
+        //NOTE: num_rotations not actually implemented!
+      }
     }
 
   }
@@ -1267,130 +1289,9 @@ void GroupedMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& to
 }
 
 template <typename Dtype>
-  void GroupedMolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, 
-      const vector<Blob<Dtype>*>& top, bool gpu) {
-  bool hasaffinity = this->layer_param_.molgrid_data_param().has_affinity();
-  bool hasrmsd = this->layer_param_.molgrid_data_param().has_rmsd();
-
-  Dtype *top_data = NULL;
-  if(gpu)
-    top_data = top[0]->mutable_gpu_data();
-  else
-    top_data = top[0]->mutable_cpu_data();
-
-  this->perturbations.clear();
-  unsigned batch_size = this->top_shape[1];
-  typename BaseMolGridDataLayer<Dtype, GridMaker>::output_transform peturb;
-
-  //if in memory must be set programmatically
-  //TODO: how to handle multiple frames here?
-  if(this->inmem)
-  {
-    CHECK_GT(this->mem_rec.atoms.size(),0) << "Receptor not set in MolGridDataLayer";
-    CHECK_GT(this->mem_lig.atoms.size(),0) << "Ligand not set in MolGridDataLayer";
-    //memory is now available
-    this->set_grid_minfo(top_data, this->mem_rec, this->mem_lig, this->batch_transform[0], peturb, gpu); //TODO how do we know what batch position?
-    this->perturbations.push_back(peturb);
-
-    if (this->num_rotations > 0) {
-      this->current_rotation = (this->current_rotation+1) % this->num_rotations;
-    }
-
-    CHECK_GT(this->labels.size(),0) << "Did not set labels in memory based molgrid";
-
-  }
-  else
-  {
-    clearLabels();
-
-    //percent of batch from first data source
-    unsigned dataswitch = batch_size;
-    if (this->data2) 
-      dataswitch = batch_size*this->data_ratio/(this->data_ratio+1);
-
-    vector<vector<typename BaseMolGridDataLayer<Dtype, 
-      GridMaker>::example_provider::fnames>*> remaining_timesteps; //ugly
-    for (int batch_idx = 0; batch_idx < batch_size; ++batch_idx)
-    {
-      typename caffe::BaseMolGridDataLayer<Dtype, GridMaker>::example ex;
-      string *root;
-      if (batch_idx < dataswitch)
-      {
-        this->data->next(ex);
-        root = &this->root_folder;
-        remaining_timesteps.push_back(this->data->get_frames(ex.group));
-      }
-      else
-      {
-        this->data2->next(ex);
-        root = &this->root_folder2;
-        remaining_timesteps.push_back(this->data2->get_frames(ex.group));
-      }
-
-      appendLabels(ex.label, ex.affinity, ex.rmsd);
-
-      int offset = batch_idx*this->example_size;
-      this->set_grid_ex(top_data+offset, ex, *root, this->batch_transform[batch_idx], peturb, gpu);
-      this->perturbations.push_back(peturb);
-      seqcont.push_back(0);
-    }
-    //now go over the extra timesteps for the chosen examples
-    //we have a bunch of iterators over those vectors and need to construct and interleave
-    //the associated examples
-    auto timesteps_begin = &remaining_timesteps[0];
-    for (unsigned step = 0; step < maxgroupsize-1; ++step) {
-      for (auto& timestep_group : remaining_timesteps) {
-        seqcont.push_back(1);
-        typename BaseMolGridDataLayer<Dtype, GridMaker>::example ex;
-        ptrdiff_t batch_idx = &timestep_group - timesteps_begin;
-        int offset = ((batch_size * (step + 1)) + batch_idx) * this->example_size;
-        if (step > timestep_group->size() - 1) {
-          unsigned natoms = this->batch_transform[batch_idx].mol.atoms.size();
-          unsigned gsize = (this->numReceptorTypes + this->numLigandTypes) * this->dim * 
-            this->dim * this->dim;
-          //just memset data to zero and set labels to ignore
-          //in general we expect this to not be wasteful because simulations
-          //should mostly be the same length
-          if (gpu) {
-            this->allocateGPUMem(natoms);
-            CUDA_CHECK(cudaMemset(top_data+offset, 0, gsize * sizeof(Dtype)));
-          }
-          else
-            memset(top_data+offset, 0, gsize*sizeof(Dtype));
-          appendLabels(-1, -1, -1);
-        }
-        else {
-          ex.receptor = std::get<0>((*timestep_group)[step]);
-          ex.ligand = std::get<1>((*timestep_group)[step]);
-          ex.label = this->labels[batch_idx];
-          ex.affinity = this->affinities[batch_idx];
-          ex.rmsd = this->rmsds[batch_idx];
-          ex.group = -1;
-          appendLabels(ex.label, ex.affinity, ex.rmsd);
-          typename BaseMolGridDataLayer<Dtype, GridMaker>::output_transform peturb;
-          string *root;
-          if (batch_idx < dataswitch)
-          {
-            root = &this->root_folder;
-          }
-          else
-          {
-            root = &this->root_folder2;
-          }
-          this->set_grid_ex(top_data+offset, ex, *root, this->batch_transform[batch_idx], peturb, gpu);
-          this->perturbations.push_back(peturb);
-        }
-      }
-    }
-  }
-  copyToBlobs(top, hasaffinity, hasrmsd, gpu);
-}
-
-template <typename Dtype>
 shared_ptr<Layer<Dtype> > GetMolGridDataLayer(const LayerParameter& param) {
   const MolGridDataParameter& mgrid_param = param.molgrid_data_param();
   if (mgrid_param.subgrid_dim()) {
-    CHECK_EQ(mgrid_param.maxgroupsize(), 0) << "Subgrids and groups are mutually exclusive";
     return shared_ptr<Layer<Dtype> >(new RNNMolGridDataLayer<Dtype>(param));
   }
   else if(mgrid_param.maxgroupsize()) {

@@ -900,7 +900,7 @@ message MolGridDataParameter {
   optional bool ignore_ligand = 37 [default = false]; //for debugging
   optional float jitter = 38 [default = 0]; //random perturbations of atom cartesian coordinates by +/- jitter amount
   optional uint32 maxgroupsize = 39 [default = 0]; //max size of group when performing a recurrence over frame groups; 0 if there are no groups
-  optional uint32 maxchunksize = 40 [default=0]; //max size of subsequence for BPTT
+  optional uint32 maxchunksize = 40 [default = 0]; //max size of subsequence for BPTT
 }
 
 message NDimDataParameter {
