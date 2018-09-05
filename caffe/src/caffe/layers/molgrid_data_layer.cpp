@@ -324,7 +324,7 @@ typename BaseMolGridDataLayer<Dtype, GridMakerT>::example_provider* BaseMolGridD
   bool balanced  = parm.balanced();
   bool strat_receptor  = parm.stratify_receptor();
   bool strat_aff = parm.stratify_affinity_max() != parm.stratify_affinity_min();
-  bool grouped = parm.maxgroupsize();
+  bool grouped = parm.maxgroupsize()-1;
 
   //strat_aff > strat_receptor > balanced
   if(strat_aff)
@@ -545,7 +545,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
   fixedradius = param.fixed_radius();
   bool hasaffinity = param.has_affinity();
   bool hasrmsd = param.has_rmsd();
-  bool hasgroup = param.maxgroupsize();
+  bool hasgroup = param.maxgroupsize()-1;
   data_ratio = param.source_ratio();
   root_folder2 = param.root_folder2();
 
@@ -574,7 +574,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
     CHECK_GT(source.length(), 0) << "No data source file provided";
 
     // Read source file(s) with labels and structures,
-    // each line is label [affinity] [rmsd] receptor_file ligand_file
+    // each line is label [group] [affinity] [rmsd] receptor_file ligand_file
     data = create_example_data(param);
     populate_data(root_folder, source, data, hasaffinity, hasrmsd, hasgroup);
 
@@ -1076,7 +1076,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
   float subgrid_dim = this->layer_param_.molgrid_data_param().subgrid_dim();
   unsigned maxgroupsize = this->layer_param_.molgrid_data_param().maxgroupsize();
   unsigned maxchunksize = this->layer_param_.molgrid_data_param().maxchunksize();
-  if (maxgroupsize && !maxchunksize)
+  if ((maxgroupsize-1) && !maxchunksize)
     maxchunksize = maxgroupsize;
 
   Dtype *top_data = NULL;
@@ -1088,7 +1088,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
   perturbations.clear();
 
   unsigned batch_size;
-  if (subgrid_dim != 0 || maxgroupsize)
+  if (subgrid_dim != 0 || (maxgroupsize-1))
     batch_size = top_shape[1];
   else
     batch_size = top_shape[0];
@@ -1294,7 +1294,7 @@ shared_ptr<Layer<Dtype> > GetMolGridDataLayer(const LayerParameter& param) {
   if (mgrid_param.subgrid_dim()) {
     return shared_ptr<Layer<Dtype> >(new RNNMolGridDataLayer<Dtype>(param));
   }
-  else if(mgrid_param.maxgroupsize()) {
+  else if(mgrid_param.maxgroupsize() > 1) {
     return shared_ptr<Layer<Dtype> >(new GroupedMolGridDataLayer<Dtype>(param));
   }
   else
