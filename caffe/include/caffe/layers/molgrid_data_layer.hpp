@@ -593,8 +593,10 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
         examples.add(ex);
         frame_groups[group] = vector<example>();
       }
-      else
+      else {
+        CHECK(frame_groups[group].size() < (maxgroupsize -1)) << "Frame group exceeds max group size."; //TODO: this could be handled, but it'd be messy the way things are now
         frame_groups[group].push_back(ex);
+      }
     }
 
     void setup() {
