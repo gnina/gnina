@@ -222,7 +222,18 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
   ligands.derivative(coords, minus_forces, g.ligands);
   flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
   g.receptor = rec_change; //for cnn
+
+  //potentially apply inverse of receptor rigid-body change to ligand
+  if(ig.apply_receptor_to_ligand()) {
+    qt recrot = angle_to_quaternion(rec_change.orientation).inverse();
+    for(auto& lc : g.ligands) {
+      lc.rigid.position -= rec_change.position;
+      qt rot = angle_to_quaternion(lc.rigid.orientation);
+      lc.rigid.orientation = quaternion_to_angle(rot*recrot);
+    }
+  }
   t.stop();
+
   return e;
 }
 

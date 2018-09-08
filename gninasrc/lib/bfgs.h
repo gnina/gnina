@@ -134,8 +134,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
     f1 = f(x_new, g_new);
 
     //std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
-    if (alpha < alamin || !std::isfinite(alpha)) //too small a step
-        {
+    if (alpha < alamin || !std::isfinite(alpha)) { //too small a step
       //std::cout << "alpha < alamin\n";
       x_new = x;
       g_new.clear(); //dkoes - set gradient to zero
@@ -216,20 +215,20 @@ void numerical_gradient(F& f, conf&x, change& g) {
     diff(i) = h;
     newx.increment(diff, 1.0);
     diff(i) = 0.0;
-    std::cout << "ng newx1 ";
-    newx.print();
+    //std::cout << "ng newx1 ";
+    //newx.print();
     fl fh = f(newx, diff);
     diff.clear();
     diff(i) = -h;
     newx = x;
     newx.increment(diff, 1.0);
     diff(i) = 0.0;
-    std::cout << "ng newx2 ";
-    newx.print();
+    //std::cout << "ng newx2 ";
+    //newx.print();
     fl fh2 = f(newx, diff);
     g(i) = (fh - fh2) / (2 * h);
-    std::cout << "ng " << i << " " << fh << " " << fold << " " << fh2 << " "
-        << h << " " << temp << " " << g(i) << "\n";
+    //std::cout << "ng " << i << " " << fh << " " << fold << " " << fh2 << " "
+      //  << h << " " << temp << " " << g(i) << "\n";
   }
 }
 
@@ -407,9 +406,13 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
       g_new.print();
       std::cout << "x_new: ";
       x_new.print();
-      //numerical_gradient(f, x_new,g_new);
-      //std::cout << "numerical g_new: ";
-      //g_new.print();
+      /*
+      Change gnum(g_new);
+      Conf xnum(x_new);
+      numerical_gradient(f, xnum,gnum);
+      std::cout << "numerical g_new: ";
+      gnum.print();
+      */
     }
 
     if (alpha == 0) {
@@ -445,8 +448,7 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
     if (params.early_term) {
       //dkoes - use the progress in reducing the function value as an indication of when to stop
       fl diff = prevf0 - f0;
-      if (std::fabs(diff) < 1e-5) //arbitrary cutoff
-          {
+      if (std::fabs(diff) < 1e-5) { //arbitrary cutoff
         break;
       }
     }

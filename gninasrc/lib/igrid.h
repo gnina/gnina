@@ -40,9 +40,13 @@ struct igrid { // grids interface (that cache, etc. conform to)
     virtual vec get_center() const {
       return vec(0, 0, 0);
     } //current center
-    virtual bool move_receptor() {
+    virtual bool move_receptor() const {
       return false;
     } //for cnn, if we are moving receptor
+    virtual bool apply_receptor_to_ligand() const {
+      //for cnn, instead of moving receptor, apply inverse transformation to ligand
+      return false;
+    }
 };
 
 #endif

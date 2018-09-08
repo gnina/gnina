@@ -314,7 +314,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   } else { //don't move receptor
     mgrid->setReceptor<atom>(m.get_fixed_atoms());
     current_center = mgrid->getCenter(); //has been recalculated from ligand
-    if(cnnopts.verbose) {
+    if(cnnopts.verbose && false) {
       std::cout << "current center: ";
       current_center.print(std::cout);
       std::cout << "\n";
