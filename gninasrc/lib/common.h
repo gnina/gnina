@@ -217,6 +217,11 @@ __host__   __device__
 }
 
 __host__   __device__
+  inline vec operator/(const vec& v, fl s) {
+  return (1.0f/s) * v;
+}
+
+__host__   __device__
   inline vec cross_product(const vec& a, const vec& b) {
   return vec(a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
       a[0] * b[1] - a[1] * b[0]);

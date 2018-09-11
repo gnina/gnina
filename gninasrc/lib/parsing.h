@@ -232,6 +232,22 @@ struct parsing_struct {
       }
     }
 
+    vec get_center_of_mass() {
+      vec com(0, 0, 0);
+      fl count = 0;
+      for (auto& atom : atoms) {
+        com += atom.a.coords;
+        count++;
+        for (auto& child : atom.ps) {
+          for (auto& atom2 : child.atoms) {
+            com += atom2.a.coords;
+            count++;
+          }
+        }
+      }
+      return com / count;
+    }
+
     friend class boost::serialization::access;
     template<class Archive>
     void serialize(Archive& ar, const unsigned version) {

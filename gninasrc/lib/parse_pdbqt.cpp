@@ -385,7 +385,7 @@ void postprocess_ligand(non_rigid_parsed& nr, parsing_struct& p, context& c,
     unsigned torsdof) {
   VINA_CHECK(!p.atoms.empty());
   nr.ligands.push_back(
-      ligand(flexible_body(rigid_body(p.atoms[0].a.coords, 0, 0)), torsdof)); // postprocess_branch will assign begin and end
+      ligand(flexible_body(rigid_body(p.get_center_of_mass(), 0, 0)), torsdof)); // postprocess_branch will assign begin and end
   postprocess_branch(nr, p, c, nr.ligands.back());
   nr_update_matrixes(nr); // FIXME ?
 }
@@ -573,3 +573,4 @@ model parse_receptor_pdbqt(const std::string& rigid_name, std::istream& in) { //
   tmp.initialize(mobility_matrix);
   return tmp.m;
 }
+

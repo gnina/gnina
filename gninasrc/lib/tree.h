@@ -169,6 +169,14 @@ struct rigid_body : public atom_frame {
       c.orientation = force_torque.second;
     }
 
+    void update_origin(const vecv& coords) {
+      vec tmp(0, 0, 0);
+      for (auto& coord : coords) {
+        tmp += coord;
+      }
+      origin = tmp / coords.size();
+    }
+
     friend class boost::serialization::access;
     template<class Archive>
     void serialize(Archive& ar, const unsigned version) {
@@ -282,6 +290,8 @@ struct first_segment : public axis_frame {
       ++s;
     }
 
+    void update_origin(const vecv& coords) {}
+
     friend class boost::serialization::access;
     template<class Archive>
     void serialize(Archive& ar, const unsigned version) {
@@ -370,6 +380,7 @@ struct heterotree {
       ++p;
       branches_set_conf(children, node, atoms, coords, p);
       assert(p == c.torsions.end());
+      node.update_origin(coords);
     }
     void derivative(const vecv& coords, const vecv& forces,
         ligand_change& c) const {
@@ -390,6 +401,10 @@ struct heterotree {
           force_torque, p);
       node.set_derivative(force_torque, d);
       assert(p == c.torsions.end());
+    }
+
+    void update_origin(const vecv& coords) {
+      node.update_origin(coords);
     }
 
     friend class boost::serialization::access;
@@ -430,6 +445,11 @@ struct vector_mutable : public std::vector<T> {
         (*this)[i].derivative(coords, forces, c[i]);
     }
 
+    void update_origin(const vecv& coords) {
+      VINA_FOR_IN(i, (*this))
+        (*this)[i].update_origin(coords);
+    }
+
     friend class boost::serialization::access;
     template<class Archive>
     void serialize(Archive& ar, const unsigned version) {
@@ -448,4 +468,5 @@ void transform_ranges(T& t, const F& f) {
 //on the part of Vina concerning OH groups
 void set_fixed_rotable_hydrogens(bool set);
 bool get_fixed_rotable_hydrogens();
+
 #endif
