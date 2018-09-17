@@ -301,7 +301,7 @@ struct first_segment : public axis_frame {
       ++s;
     }
 
-    void update_origin(const vecv& coords) {}
+    void update_center_of_mass(const vecv& coords) {}
 
     friend class boost::serialization::access;
     template<class Archive>
