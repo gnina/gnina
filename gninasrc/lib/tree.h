@@ -130,7 +130,7 @@ struct atom_frame : public frame, public atom_range {
         coords[i] = local_to_lab(atoms[i].coords);
     }
 
-    vecp sum_force_and_torque(const vecv& coords, const vecv& forces) const {
+    virtual vecp sum_force_and_torque(const vecv& coords, const vecv& forces) const {
       vecp tmp(vec(0, 0, 0), vec(0, 0, 0));
       VINA_RANGE(i, begin, end) {
         tmp.first += forces[i];
@@ -154,8 +154,8 @@ struct rigid_body : public atom_frame {
     size_t bfs_idx;
     rigid_body() {
     }
-    rigid_body(const vec& origin_, sz begin_, sz end_)
-        : atom_frame(origin_, begin_, end_) {
+    rigid_body(const vec& center_of_mass_, const vec& origin_, sz begin_, sz end_)
+        : center_of_mass(center_of_mass_), atom_frame(origin_, begin_, end_) {
     }
     void set_conf(const atomv& atoms, vecv& coords, const rigid_conf& c) {
       origin = c.position;
@@ -169,12 +169,21 @@ struct rigid_body : public atom_frame {
       c.orientation = force_torque.second;
     }
 
-    void update_origin(const vecv& coords) {
+    virtual vecp sum_force_and_torque(const vecv& coords, const vecv& forces) const {
+      vecp tmp(vec(0, 0, 0), vec(0, 0, 0));
+      VINA_RANGE(i, begin, end) {
+        tmp.first += forces[i];
+        tmp.second += cross_product(coords[i] - center_of_mass, forces[i]);
+      }
+      return tmp;
+    }
+
+    void update_center_of_mass(const vecv& coords) {
       vec tmp(0, 0, 0);
       for (auto& coord : coords) {
         tmp += coord;
       }
-      origin = tmp / coords.size();
+      center_of_mass = tmp / coords.size();
     }
 
     friend class boost::serialization::access;
@@ -182,6 +191,8 @@ struct rigid_body : public atom_frame {
     void serialize(Archive& ar, const unsigned version) {
       ar & boost::serialization::base_object<atom_frame>(*this);
     }
+
+    vec center_of_mass;
 };
 
 struct axis_frame : public atom_frame {
@@ -373,6 +384,7 @@ struct heterotree {
       flv::const_iterator p = c.torsions.begin();
       branches_set_conf(children, node, atoms, coords, p);
       assert(p == c.torsions.end());
+      node.update_center_of_mass(coords);
     }
     void set_conf(const atomv& atoms, vecv& coords, const residue_conf& c) {
       flv::const_iterator p = c.torsions.begin();
@@ -380,7 +392,7 @@ struct heterotree {
       ++p;
       branches_set_conf(children, node, atoms, coords, p);
       assert(p == c.torsions.end());
-      node.update_origin(coords);
+      node.update_center_of_mass(coords);
     }
     void derivative(const vecv& coords, const vecv& forces,
         ligand_change& c) const {
@@ -403,8 +415,8 @@ struct heterotree {
       assert(p == c.torsions.end());
     }
 
-    void update_origin(const vecv& coords) {
-      node.update_origin(coords);
+    void update_center_of_mass(const vecv& coords) {
+      node.update_center_of_mass(coords);
     }
 
     friend class boost::serialization::access;
@@ -445,9 +457,9 @@ struct vector_mutable : public std::vector<T> {
         (*this)[i].derivative(coords, forces, c[i]);
     }
 
-    void update_origin(const vecv& coords) {
+    void update_center_of_mass(const vecv& coords) {
       VINA_FOR_IN(i, (*this))
-        (*this)[i].update_origin(coords);
+        (*this)[i].update_center_of_mass(coords);
     }
 
     friend class boost::serialization::access;
