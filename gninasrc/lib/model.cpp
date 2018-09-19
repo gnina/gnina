@@ -755,7 +755,7 @@ conf model::get_initial_conf(bool enable_receptor) const { // torsions = 0, orie
   conf tmp(cs, enable_receptor);
   tmp.set_to_null();
   VINA_FOR_IN(i, ligands)
-    tmp.ligands[i].rigid.position = ligands[i].node.get_origin();
+    tmp.ligands[i].rigid.position = ligands[i].node.get_center_of_mass();
   return tmp;
 }
 
@@ -958,7 +958,7 @@ fl model::gyration_radius(sz ligand_number) const {
   unsigned counter = 0;
   VINA_RANGE(i, lig.begin, lig.end) {
     if (!atoms[i].is_hydrogen()) { // only heavy atoms are used
-      acc += vec_distance_sqr(coords[i], lig.node.get_origin()); // FIXME? check!
+      acc += vec_distance_sqr(coords[i], lig.node.get_center_of_mass()); // FIXME? check!
       ++counter;
     }
   }

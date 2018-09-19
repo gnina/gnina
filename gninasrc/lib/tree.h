@@ -156,10 +156,11 @@ struct rigid_body : public atom_frame {
     }
     rigid_body(const vec& center_of_mass_, const vec& origin_, sz begin_, sz end_)
         : center_of_mass(center_of_mass_), atom_frame(origin_, begin_, end_) {
+      relative_origin = origin - center_of_mass;
     }
     void set_conf(const atomv& atoms, vecv& coords, const rigid_conf& c) {
-      origin = c.position;
       set_orientation(c.orientation);
+      origin = c.position + orientation_m * relative_origin;
       set_coords(atoms, coords);
     }
     void count_torsions(sz& s) const {
@@ -178,13 +179,32 @@ struct rigid_body : public atom_frame {
       return tmp;
     }
 
+    void set_internal_conf() {
+      set_orientation(c.orientation);
+      set_coords(atoms, coords);
+    }
+    
+    void update_absolute_position(const vec& target_center_of_mass) {
+      vec tmp(0, 0, 0);
+      for (auto& coord : coords) {
+        tmp += coord;
+      }
+      tmp = tmp / coords.size();
+      relative_origin = origin - tmp;
+      vec diff = target_center_of_mass - tmp;
+      origin = diff + relative_origin;
+    }
+
     void update_center_of_mass(const vecv& coords) {
       vec tmp(0, 0, 0);
       for (auto& coord : coords) {
         tmp += coord;
       }
       center_of_mass = tmp / coords.size();
+      relative_origin = origin - center_of_mass;
     }
+
+    const vec& get_center_of_mass() const {return center_of_mass;}
 
     friend class boost::serialization::access;
     template<class Archive>
@@ -193,6 +213,7 @@ struct rigid_body : public atom_frame {
     }
 
     vec center_of_mass;
+    vec relative_origin; 
 };
 
 struct axis_frame : public atom_frame {
@@ -303,6 +324,14 @@ struct first_segment : public axis_frame {
 
     void update_center_of_mass(const vecv& coords) {}
 
+    const vec& get_center_of_mass() {return origin;} //have to include this because of templating
+
+    void set_internal_conf(const atomv& atoms, vecv& coords, fl torsion) {
+      set_conf(atoms, coords, torsion);
+    }
+
+    void update_absolute_position(const vec& target_center_of_mass) {}
+
     friend class boost::serialization::access;
     template<class Archive>
     void serialize(Archive& ar, const unsigned version) {
@@ -386,19 +415,29 @@ struct heterotree {
       assert(p == c.torsions.end());
       node.update_center_of_mass(coords);
     }
+    void set_conf_absolute(const atomv& atoms, vecv& coords, const ligand_conf& c) {
+      node.set_internal_conf(atoms, coords, c.rigid);
+      flv::const_iterator p = c.torsions.begin();
+      branches_set_conf(children, node, atoms, coords, p);
+      assert(p == c.torsions.end());
+      update_absolute_position(c.rigid.position);
+      //do it again to update absolute locations
+      flv::const_iterator p = c.torsions.begin();
+      branches_set_conf(children, node, atoms, coords, p);
+      assert(p == c.torsions.end());
+    }
     void set_conf(const atomv& atoms, vecv& coords, const residue_conf& c) {
       flv::const_iterator p = c.torsions.begin();
       node.set_conf(atoms, coords, *p);
       ++p;
       branches_set_conf(children, node, atoms, coords, p);
       assert(p == c.torsions.end());
-      node.update_center_of_mass(coords);
     }
     void derivative(const vecv& coords, const vecv& forces,
         ligand_change& c) const {
       vecp force_torque = node.sum_force_and_torque(coords, forces);
       flv::iterator p = c.torsions.begin();
-      branches_derivative(children, node.get_origin(), coords, forces,
+      branches_derivative(children, node.get_center_of_mass(), coords, forces,
           force_torque, p);
       node.set_derivative(force_torque, c.rigid);
       assert(p == c.torsions.end());
@@ -413,10 +452,6 @@ struct heterotree {
           force_torque, p);
       node.set_derivative(force_torque, d);
       assert(p == c.torsions.end());
-    }
-
-    void update_center_of_mass(const vecv& coords) {
-      node.update_center_of_mass(coords);
     }
 
     friend class boost::serialization::access;
@@ -445,6 +480,11 @@ struct vector_mutable : public std::vector<T> {
         (*this)[i].set_conf(atoms, coords, c[i]);
     }
 
+    void set_conf_absolute(const atomv& atoms, vecv& coords, const std::vector<C>& c) { // C == ligand_conf || residue_conf
+      VINA_FOR_IN(i, (*this))
+        (*this)[i].set_conf_absolute(atoms, coords, c[i]);
+    }
+
     szv count_torsions() const {
       szv tmp(this->size(), 0);
       VINA_FOR_IN(i, (*this))
@@ -455,11 +495,6 @@ struct vector_mutable : public std::vector<T> {
     void derivative(const vecv& coords, const vecv& forces, VC& c) const { // C == vector of ligand_change || residue_change
       VINA_FOR_IN(i, (*this))
         (*this)[i].derivative(coords, forces, c[i]);
-    }
-
-    void update_center_of_mass(const vecv& coords) {
-      VINA_FOR_IN(i, (*this))
-        (*this)[i].update_center_of_mass(coords);
     }
 
     friend class boost::serialization::access;
