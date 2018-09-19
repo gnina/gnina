@@ -755,7 +755,7 @@ conf model::get_initial_conf(bool enable_receptor) const { // torsions = 0, orie
   conf tmp(cs, enable_receptor);
   tmp.set_to_null();
   VINA_FOR_IN(i, ligands)
-    tmp.ligands[i].rigid.position = ligands[i].node.get_center_of_mass();
+    tmp.ligands[i].rigid.position = ligands[i].node.get_origin();
   return tmp;
 }
 
@@ -927,12 +927,6 @@ void model::set(const conf& c) {
   rec_conf = c.receptor;
 }
 
-void model::set_absolute(const conf& c) {
-  ligands.set_conf_absolute(atoms, coords, c.ligands);
-  flex.set_conf(atoms, coords, c.flex);
-  rec_conf = c.receptor;
-}
-
 //dkoes - return the string corresponding to i'th ligand atoms pdb information
 //which is serial+name
 std::string model::ligand_atom_str(sz i, sz lig) const {
@@ -964,7 +958,7 @@ fl model::gyration_radius(sz ligand_number) const {
   unsigned counter = 0;
   VINA_RANGE(i, lig.begin, lig.end) {
     if (!atoms[i].is_hydrogen()) { // only heavy atoms are used
-      acc += vec_distance_sqr(coords[i], lig.node.get_center_of_mass()); // FIXME? check!
+      acc += vec_distance_sqr(coords[i], lig.node.get_origin()); // FIXME? check!
       ++counter;
     }
   }

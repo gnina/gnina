@@ -158,40 +158,16 @@ struct rigid_body : public atom_frame {
         : center_of_mass(center_of_mass_), atom_frame(origin_, begin_, end_) {
     }
     void set_conf(const atomv& atoms, vecv& coords, const rigid_conf& c) {
+      origin = c.position;
       set_orientation(c.orientation);
-      origin = origin + (c.position - center_of_mass);
       set_coords(atoms, coords);
     }
     void count_torsions(sz& s) const {
     } // do nothing
     void set_derivative(const vecp& force_torque, rigid_change& c) const {
       c.position = force_torque.first;
-      c.orientation = force_torque.second;
-    }
-
-    virtual vecp sum_force_and_torque(const vecv& coords, const vecv& forces) const {
-      vecp tmp(vec(0, 0, 0), vec(0, 0, 0));
-      VINA_RANGE(i, begin, end) {
-        tmp.first += forces[i];
-        tmp.second += cross_product(coords[i] - center_of_mass, forces[i]);
-      }
-      return tmp;
-    }
-
-    void set_internal_conf(const atomv& atoms, vecv& coords, const rigid_conf& c) {
-      set_orientation(c.orientation);
-      set_coords(atoms, coords);
-    }
-    
-    void update_absolute_position(const vec& target_center_of_mass, const atomv& atoms, 
-        vecv& coords) {
-      vec tmp(0, 0, 0);
-      for (auto& coord : coords) {
-        tmp += coord;
-      }
-      tmp = tmp / coords.size();
-      origin = origin + (target_center_of_mass - tmp);
-      set_coords(atoms, coords);
+      vec r = origin - center_of_mass;
+      c.orientation = cross_product(r, force_torque.first) + force_torque.second;
     }
 
     void update_center_of_mass(const vecv& coords) {
@@ -201,8 +177,6 @@ struct rigid_body : public atom_frame {
       }
       center_of_mass = tmp / coords.size();
     }
-
-    const vec& get_center_of_mass() const {return center_of_mass;}
 
     friend class boost::serialization::access;
     template<class Archive>
@@ -321,15 +295,6 @@ struct first_segment : public axis_frame {
 
     void update_center_of_mass(const vecv& coords) {}
 
-    const vec& get_center_of_mass() {return origin;} //have to include this because of templating
-
-    void set_internal_conf(const atomv& atoms, vecv& coords, fl torsion) {
-      set_conf(atoms, coords, torsion);
-    }
-
-    void update_absolute_position(const vec& target_center_of_mass, const atomv& atoms, 
-        vecv& coords) {}
-
     friend class boost::serialization::access;
     template<class Archive>
     void serialize(Archive& ar, const unsigned version) {
@@ -413,18 +378,6 @@ struct heterotree {
       assert(p == c.torsions.end());
       node.update_center_of_mass(coords);
     }
-    void set_conf_absolute(const atomv& atoms, vecv& coords, const ligand_conf& c) {
-      node.set_internal_conf(atoms, coords, c.rigid);
-      flv::const_iterator p = c.torsions.begin();
-      branches_set_conf(children, node, atoms, coords, p);
-      assert(p == c.torsions.end());
-      node.update_absolute_position(c.rigid.position, atoms, coords);
-      //do it again to update absolute locations
-      p = c.torsions.begin();
-      branches_set_conf(children, node, atoms, coords, p);
-      assert(p == c.torsions.end());
-      node.update_center_of_mass(coords);
-    }
     void set_conf(const atomv& atoms, vecv& coords, const residue_conf& c) {
       flv::const_iterator p = c.torsions.begin();
       node.set_conf(atoms, coords, *p);
@@ -436,7 +389,7 @@ struct heterotree {
         ligand_change& c) const {
       vecp force_torque = node.sum_force_and_torque(coords, forces);
       flv::iterator p = c.torsions.begin();
-      branches_derivative(children, node.get_center_of_mass(), coords, forces,
+      branches_derivative(children, node.get_origin(), coords, forces,
           force_torque, p);
       node.set_derivative(force_torque, c.rigid);
       assert(p == c.torsions.end());
@@ -477,12 +430,6 @@ struct vector_mutable : public std::vector<T> {
     void set_conf(const atomv& atoms, vecv& coords, const std::vector<C>& c) { // C == ligand_conf || residue_conf
       VINA_FOR_IN(i, (*this))
         (*this)[i].set_conf(atoms, coords, c[i]);
-    }
-
-    template<typename C>
-    void set_conf_absolute(const atomv& atoms, vecv& coords, const std::vector<C>& c) { // C == ligand_conf || residue_conf
-      VINA_FOR_IN(i, (*this))
-        (*this)[i].set_conf_absolute(atoms, coords, c[i]);
     }
 
     szv count_torsions() const {

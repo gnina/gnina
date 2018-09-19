@@ -389,7 +389,6 @@ struct model {
     void seti(const conf& c);
     void sete(const conf& c);
     void set(const conf& c);
-    void set_absolute(const conf& c);
 
     std::string ligand_atom_str(sz i, sz lig = 0) const;
     fl gyration_radius(sz ligand_number) const; // uses coords
