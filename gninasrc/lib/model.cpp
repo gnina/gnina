@@ -927,6 +927,12 @@ void model::set(const conf& c) {
   rec_conf = c.receptor;
 }
 
+void model::set_absolute(const conf& c) {
+  ligands.set_conf_absolute(atoms, coords, c.ligands);
+  flex.set_conf(atoms, coords, c.flex);
+  rec_conf = c.receptor;
+}
+
 //dkoes - return the string corresponding to i'th ligand atoms pdb information
 //which is serial+name
 std::string model::ligand_atom_str(sz i, sz lig) const {

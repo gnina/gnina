@@ -158,7 +158,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
   {
     nc.setSlope(slope);
     quasi_newton_par(m, prec, nc, out, g, cap, user_grid); //quasi_newton operator
-    m.set_conf_absolute(out.c); // just to be sure
+    m.set_absolute(out.c); // just to be sure
     if (nc.within(m))
         {
       break;

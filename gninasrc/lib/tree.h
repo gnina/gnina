@@ -179,20 +179,22 @@ struct rigid_body : public atom_frame {
       return tmp;
     }
 
-    void set_internal_conf() {
+    void set_internal_conf(const atomv& atoms, vecv& coords, const rigid_conf& c) {
       set_orientation(c.orientation);
       set_coords(atoms, coords);
     }
     
-    void update_absolute_position(const vec& target_center_of_mass) {
+    void update_absolute_position(const vec& target_center_of_mass, const atomv& atoms, 
+        vecv& coords) {
       vec tmp(0, 0, 0);
       for (auto& coord : coords) {
         tmp += coord;
       }
       tmp = tmp / coords.size();
       relative_origin = origin - tmp;
-      vec diff = target_center_of_mass - tmp;
-      origin = diff + relative_origin;
+      origin = target_center_of_mass + relative_origin;
+      center_of_mass = target_center_of_mass;
+      set_coords(atoms, coords);
     }
 
     void update_center_of_mass(const vecv& coords) {
@@ -330,7 +332,8 @@ struct first_segment : public axis_frame {
       set_conf(atoms, coords, torsion);
     }
 
-    void update_absolute_position(const vec& target_center_of_mass) {}
+    void update_absolute_position(const vec& target_center_of_mass, const atomv& atoms, 
+        vecv& coords) {}
 
     friend class boost::serialization::access;
     template<class Archive>
@@ -420,9 +423,9 @@ struct heterotree {
       flv::const_iterator p = c.torsions.begin();
       branches_set_conf(children, node, atoms, coords, p);
       assert(p == c.torsions.end());
-      update_absolute_position(c.rigid.position);
+      node.update_absolute_position(c.rigid.position, atoms, coords);
       //do it again to update absolute locations
-      flv::const_iterator p = c.torsions.begin();
+      p = c.torsions.begin();
       branches_set_conf(children, node, atoms, coords, p);
       assert(p == c.torsions.end());
     }
@@ -480,6 +483,7 @@ struct vector_mutable : public std::vector<T> {
         (*this)[i].set_conf(atoms, coords, c[i]);
     }
 
+    template<typename C>
     void set_conf_absolute(const atomv& atoms, vecv& coords, const std::vector<C>& c) { // C == ligand_conf || residue_conf
       VINA_FOR_IN(i, (*this))
         (*this)[i].set_conf_absolute(atoms, coords, c[i]);
