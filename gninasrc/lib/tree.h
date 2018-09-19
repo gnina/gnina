@@ -346,8 +346,10 @@ struct tree {
       branches_derivative(children, node.get_origin(), coords, forces,
           force_torque, p);
 
+      vecp net_forcetorque_for_parent = force_torque;
+      net_forcetorque_for_parent.second -= force_torque.second * node.axis;
       node.set_derivative(force_torque, d);
-      return force_torque;
+      return net_forcetorque_for_parent;
     }
 
     friend class boost::serialization::access;
