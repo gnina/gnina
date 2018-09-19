@@ -156,11 +156,10 @@ struct rigid_body : public atom_frame {
     }
     rigid_body(const vec& center_of_mass_, const vec& origin_, sz begin_, sz end_)
         : center_of_mass(center_of_mass_), atom_frame(origin_, begin_, end_) {
-      relative_origin = origin - center_of_mass;
     }
     void set_conf(const atomv& atoms, vecv& coords, const rigid_conf& c) {
       set_orientation(c.orientation);
-      origin = c.position + relative_origin;
+      origin = origin + (c.position - center_of_mass);
       set_coords(atoms, coords);
     }
     void count_torsions(sz& s) const {
@@ -191,9 +190,7 @@ struct rigid_body : public atom_frame {
         tmp += coord;
       }
       tmp = tmp / coords.size();
-      relative_origin = origin - tmp;
-      origin = target_center_of_mass + relative_origin;
-      center_of_mass = target_center_of_mass;
+      origin = origin + (target_center_of_mass - tmp);
       set_coords(atoms, coords);
     }
 
@@ -203,7 +200,6 @@ struct rigid_body : public atom_frame {
         tmp += coord;
       }
       center_of_mass = tmp / coords.size();
-      relative_origin = origin - center_of_mass;
     }
 
     const vec& get_center_of_mass() const {return center_of_mass;}
@@ -215,7 +211,6 @@ struct rigid_body : public atom_frame {
     }
 
     vec center_of_mass;
-    vec relative_origin; 
 };
 
 struct axis_frame : public atom_frame {
@@ -428,6 +423,7 @@ struct heterotree {
       p = c.torsions.begin();
       branches_set_conf(children, node, atoms, coords, p);
       assert(p == c.torsions.end());
+      node.update_center_of_mass(coords);
     }
     void set_conf(const atomv& atoms, vecv& coords, const residue_conf& c) {
       flv::const_iterator p = c.torsions.begin();

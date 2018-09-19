@@ -298,7 +298,7 @@ void do_search(model& m, const boost::optional<model>& ref,
     refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm,
         user_grid, settings.gpu_on);
     done(settings.verbosity, log);
-    m.set(out.c);
+    m.set_absolute(out.c);
     
     //be as exact as possible for final score
     naive_non_cache nnc(&exact_prec); // for out of grid issues
