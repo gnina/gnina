@@ -160,7 +160,7 @@ struct rigid_body : public atom_frame {
     }
     void set_conf(const atomv& atoms, vecv& coords, const rigid_conf& c) {
       set_orientation(c.orientation);
-      origin = c.position + orientation_m * relative_origin;
+      origin = c.position + relative_origin;
       set_coords(atoms, coords);
     }
     void count_torsions(sz& s) const {
