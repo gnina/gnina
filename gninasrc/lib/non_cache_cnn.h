@@ -51,13 +51,9 @@ struct non_cache_cnn : public non_cache {
     const CNNScorer& get_scorer() const {
       return cnn_scorer;
     }
-    virtual bool move_receptor() const {
+    virtual bool move_receptor() {
       return !cnn_scorer.options().move_minimize_frame
           && !cnn_scorer.options().fix_receptor;
-    }
-    virtual bool apply_receptor_to_ligand() const {
-      //for cnn, instead of moving receptor, apply inverse transformation to ligand
-      return cnn_scorer.options().move_minimize_frame && !cnn_scorer.options().fix_receptor;
     }
   protected:
     CNNScorer& cnn_scorer;

@@ -13,7 +13,6 @@
 #include "caffe/layer.hpp"
 #include "caffe/layers/molgrid_data_layer.hpp"
 #include "boost/thread/mutex.hpp"
-#include "boost/thread.hpp"
 
 #include "nngridder.h"
 #include "model.h"

@@ -158,14 +158,13 @@ public:
 
     //ligand atoms, grid positions offset and coordinates are specified separately
     vec center(0,0,0);
+    unsigned acnt = 0;
     for(unsigned i = 0, n = ligand.size(); i < n; i++)
     {
       smt t = ligand[i].sm;
-      const Vec3& coord = coords[i];
-      //center around all atoms
-      center += coord;
       if(lmap[t] >= 0)
       {
+        const Vec3& coord = coords[i];
         float4 ainfo;
         ainfo.x = coord[0];
         ainfo.y = coord[1];
@@ -179,14 +178,15 @@ public:
         mem_lig.atoms.push_back(ainfo);
         mem_lig.whichGrid.push_back(lmap[t]+numReceptorTypes);
         mem_lig.gradient.push_back(gradient);
-
+        center += coord;
+        acnt++;
       }
       else if(t > 1) //don't warn about hydrogens
       {
         std::cerr << "Unsupported atom type " << smina_type_to_string(t);
       }
     }
-    center /= ligand.size(); //not ligand.size() because of hydrogens
+    center /= acnt; //not ligand.size() because of hydrogens
 
     if(calcCenter || !isfinite(mem_lig.center[0])) {
       mem_lig.center = center;

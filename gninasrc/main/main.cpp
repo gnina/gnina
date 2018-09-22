@@ -299,21 +299,20 @@ void do_search(model& m, const boost::optional<model>& ref,
         user_grid, settings.gpu_on);
     done(settings.verbosity, log);
     m.set(out.c);
-    
+
     //be as exact as possible for final score
     naive_non_cache nnc(&exact_prec); // for out of grid issues
-    
+
     fl intramolecular_energy = m.eval_intramolecular(exact_prec,
-        authentic_v, out.c);
+        authentic_v,
+        out.c);
     e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, out.c,
         intramolecular_energy, user_grid);
 
-    //reset the center after last call to set
-    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
- 
     vecv newcoords = m.get_heavy_atom_movable_coords();
     assert(newcoords.size() == origcoords.size());
-    for (unsigned i = 0, n = newcoords.size(); i < n; i++) {
+    for (unsigned i = 0, n = newcoords.size(); i < n; i++)
+        {
       rmsd += (newcoords[i] - origcoords[i]).norm_sqr();
     }
     rmsd /= newcoords.size();
@@ -322,6 +321,9 @@ void do_search(model& m, const boost::optional<model>& ref,
         << intramolecular_energy
         << " (kcal/mol)\nRMSD: " << rmsd;
     log.endl();
+
+    //reset the center after last call to set
+    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 
     if (!nc.within(m))
       log << "WARNING: not all movable atoms are within the search space\n";
