@@ -49,6 +49,17 @@ void Flex_LSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   sum_param.mutable_eltwise_param()->set_operation(
       EltwiseParameter_EltwiseOp_SUM);
 
+  LayerParameter scale_param;
+  scale_param.set_type("Scale");
+  scale_param.mutable_scale_param()->set_axis(0);
+
+  LayerParameter split_param;
+  split_param.set_type("Split");
+
+  LayerParameter slice_param;
+  slice_param.set_type("Slice");
+  slice_param.mutable_slice_param()->set_axis(0);
+
   vector<BlobShape> input_shapes;
   RecurrentInputShapes(&input_shapes);
   CHECK_EQ(2, input_shapes.size());

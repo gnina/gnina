@@ -60,7 +60,7 @@ BaseMolGridDataLayer<Dtype, GridMakerT>::~BaseMolGridDataLayer<Dtype, GridMakerT
 
 template <typename Dtype, class GridMakerT>
 BaseMolGridDataLayer<Dtype, GridMakerT>::example::example(BaseMolGridDataLayer<Dtype, GridMakerT>::string_cache& cache, string line, bool hasaffinity, bool hasrmsd, bool hasgroup)
-  : label(0), affinity(0.0), rmsd(0.0)
+  : label(0), affinity(0.0), rmsd(0.0), group(NULL)
 {
   stringstream stream(line);
   string tmp;

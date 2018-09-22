@@ -295,11 +295,11 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     Dtype label;
     Dtype affinity;
     Dtype rmsd;
-    int group;
+    const char* group;
 
-    example(): receptor(NULL), ligand(NULL), label(0), affinity(0), rmsd(0), group(-1) {}
-    example(Dtype l, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0), group(-1) {}
-    example(Dtype l, Dtype a, Dtype rms, int gr, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms), group(gr) {}
+    example(): receptor(NULL), ligand(NULL), label(0), affinity(0), rmsd(0), group(NULL) {}
+    example(Dtype l, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0), group(NULL) {}
+    example(Dtype l, Dtype a, Dtype rms, const char* gr, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms), group(gr) {}
     example(string_cache& cache, string line, bool hasaffinity, bool hasrmsd, bool hasgroup);
   };
 
@@ -588,13 +588,13 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     //only add the first example for each group to examples; after that just
     //the filenames to the frame_groups map
     void add(const example& ex) {
-      unsigned group = ex.group;
+      const char* group = ex.group;
       if (frame_groups.find(group) == frame_groups.end()) {
         examples.add(ex);
         frame_groups[group] = vector<example>();
       }
       else {
-        CHECK(frame_groups[group].size() < (maxgroupsize -1)) << "Frame group exceeds max group size."; //TODO: this could be handled, but it'd be messy the way things are now
+        CHECK(frame_groups[group].size() <= (maxgroupsize - 1)) << "Frame group " << group << " size " << frame_groups[group].size()+1 << " exceeds max group size " << maxgroupsize << "."; //this could be handled, but it'd be messy the way things are now and it's proven to be a useful sanity check
         frame_groups[group].push_back(ex);
       }
     }
