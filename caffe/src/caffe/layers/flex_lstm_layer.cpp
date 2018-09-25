@@ -49,16 +49,8 @@ void Flex_LSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   sum_param.mutable_eltwise_param()->set_operation(
       EltwiseParameter_EltwiseOp_SUM);
 
-  LayerParameter scale_param;
-  scale_param.set_type("Scale");
-  scale_param.mutable_scale_param()->set_axis(0);
-
   LayerParameter split_param;
   split_param.set_type("Split");
-
-  LayerParameter slice_param;
-  slice_param.set_type("Slice");
-  slice_param.mutable_slice_param()->set_axis(0);
 
   vector<BlobShape> input_shapes;
   RecurrentInputShapes(&input_shapes);
@@ -75,29 +67,22 @@ void Flex_LSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   input_param->add_shape()->CopyFrom(input_shapes[1]);
 
   // Add LSTM DataGetter layer to update input blob contents
-  LayerParameter* lstm_datagetter_param = net_param->add_layer();
+  LayerParameter lstm_datagetter_param;
   lstm_datagetter_param->set_type("LSTMDataGetter");
-  lstm_datagetter_param->set_name("datagetter");
-  lstm_datagetter_param->add_bottom("x");
+  lstm_datagetter_param->add_bottom("data");
   lstm_datagetter_param->add_bottom("cont");
   lstm_datagetter_param->add_top("current_x");
   lstm_datagetter_param->add_top("h_conted");
 
-  LayerParameter* cont_slice_param = net_param->add_layer();
-  cont_slice_param->CopyFrom(slice_param);
-  cont_slice_param->set_name("cont_slice");
-  cont_slice_param->add_bottom("cont");
-  cont_slice_param->mutable_slice_param()->set_axis(0);
-
-  // Add layer to transform all timesteps of x to the hidden state dimension.
-  //     W_xc_x = W_xc * x + b_c
+  // Add layer to transform current piece of x to the hidden state dimension.
+  //     W_xc_x = W_xc * current_x + b_c
   {
     LayerParameter* x_transform_param = net_param->add_layer();
     x_transform_param->CopyFrom(biased_hidden_param);
     x_transform_param->set_name("x_transform");
     x_transform_param->add_param()->set_name("W_xc");
     x_transform_param->add_param()->set_name("b_c");
-    x_transform_param->add_bottom("x");
+    x_transform_param->add_bottom("current_x");
     x_transform_param->add_top("W_xc_x");
     x_transform_param->add_propagate_down(true);
   }
@@ -128,11 +113,6 @@ void Flex_LSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
     reshape_param->add_top("W_xc_x_static");
   }
 
-  LayerParameter* x_slice_param = net_param->add_layer();
-  x_slice_param->CopyFrom(slice_param);
-  x_slice_param->add_bottom("W_xc_x");
-  x_slice_param->set_name("W_xc_x_slice");
-
   LayerParameter output_concat_layer;
   output_concat_layer.set_name("h_concat");
   output_concat_layer.set_type("Concat");
@@ -143,24 +123,11 @@ void Flex_LSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
     string tm1s = format_int(t - 1);
     string ts = format_int(t);
 
-    cont_slice_param->add_top("cont_" + ts);
-    x_slice_param->add_top("W_xc_x_" + ts);
-
-    // Add layers to flush the hidden state when beginning a new
-    // sequence, as indicated by cont_t.
-    //     h_conted_{t-1} := cont_t * h_{t-1}
-    //
-    // Normally, cont_t is binary (i.e., 0 or 1), so:
-    //     h_conted_{t-1} := h_{t-1} if cont_t == 1
-    //                       0   otherwise
-    {
-      LayerParameter* cont_h_param = net_param->add_layer();
-      cont_h_param->CopyFrom(scale_param);
-      cont_h_param->set_name("h_conted_" + tm1s);
-      cont_h_param->add_bottom("h_" + tm1s);
-      cont_h_param->add_bottom("cont_" + ts);
-      cont_h_param->add_top("h_conted_" + tm1s);
-    }
+    //Add layer to choose the data for this timestep
+    LayerParameter* getdata_param = net_param->add_layer();
+    getdata_param->CopyFrom(lstm_datagetter_param);
+    getdata_param->set_name("datagetter_" + ts);
+    getdata_param->add_bottom("h_" + tm1s);
 
     // Add layer to compute
     //     W_hc_h_{t-1} := W_hc * h_conted_{t-1}
@@ -223,5 +190,8 @@ void Flex_LSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   }
   net_param->add_layer()->CopyFrom(output_concat_layer);
 }
+
+INSTANTIATE_CLASS(Flex_LSTMLayer);
+REGISTER_LAYER_CLASS(Flex_LSTM);
 
 }  // namespace caffe
