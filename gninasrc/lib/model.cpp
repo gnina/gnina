@@ -756,6 +756,7 @@ conf model::get_initial_conf(bool enable_receptor) const { // torsions = 0, orie
   tmp.set_to_null();
   VINA_FOR_IN(i, ligands)
     tmp.ligands[i].rigid.position = ligands[i].node.get_origin();
+    tmp.ligands[i].rigid.r = ligands[i].node.get_r();
   return tmp;
 }
 

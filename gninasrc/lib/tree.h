@@ -162,6 +162,9 @@ struct rigid_body : public atom_frame {
       set_orientation(c.orientation);
       set_coords(atoms, coords);
     }
+    vec get_r() {
+      return origin - center_of_mass;
+    }
     void count_torsions(sz& s) const {
     } // do nothing
     void set_derivative(const vecp& force_torque, rigid_change& c) const {
@@ -289,6 +292,9 @@ struct first_segment : public axis_frame {
       set_orientation(angle_to_quaternion(axis, torsion));
       set_coords(atoms, coords);
     }
+    vec get_r() {
+      return vec(0,0,0);
+    }
     void count_torsions(sz& s) const {
       ++s;
     }
@@ -377,6 +383,7 @@ struct heterotree {
       branches_set_conf(children, node, atoms, coords, p);
       assert(p == c.torsions.end());
       node.update_center_of_mass(coords);
+      c.set_r(node.get_r());
     }
     void set_conf(const atomv& atoms, vecv& coords, const residue_conf& c) {
       flv::const_iterator p = c.torsions.begin();

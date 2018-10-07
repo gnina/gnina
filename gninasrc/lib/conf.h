@@ -102,6 +102,7 @@ struct rigid_change {
 struct rigid_conf {
     vec position;
     qt orientation;
+    vec r; //center of mass to rigid node origin
     rigid_conf()
         : position(0, 0, 0), orientation(qt_identity) {
     }
@@ -113,6 +114,8 @@ struct rigid_conf {
       position += factor * c.position;
       vec rotation;
       rotation = factor * c.orientation;
+      fl angle = rotation.norm();
+      position += r / cos(angle);
       quaternion_increment(orientation, rotation); // orientation does not get normalized; tests show rounding errors growing very slowly
     }
     void randomize(const vec& corner1, const vec& corner2, rng& generator) {
@@ -184,6 +187,9 @@ struct ligand_conf {
     void increment(const ligand_change& c, fl factor) {
       rigid.increment(c.rigid, factor);
       torsions_increment(torsions, c.torsions, factor);
+    }
+    void set_r(vec r) {
+      rigid.r = r;
     }
     void randomize(const vec& corner1, const vec& corner2, rng& generator) {
       rigid.randomize(corner1, corner2, generator);
