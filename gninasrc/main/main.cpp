@@ -956,8 +956,7 @@ void write_out(std::vector<result_info> &results, ozfile &outfile,
   if (outfile)
   {
     //write out molecular data
-    for (unsigned j = 0, nr = results.size(); j < nr; j++)
-        {
+    for (unsigned j = 0, nr = results.size(); j < nr; j++) {
       results[j].write(outfile, outext, settings.include_atom_info, &wt,
           j + 1);
     }
@@ -965,15 +964,13 @@ void write_out(std::vector<result_info> &results, ozfile &outfile,
   if (outflex)
   {
     //write out flexible residue data data
-    for (unsigned j = 0, nr = results.size(); j < nr; j++)
-        {
+    for (unsigned j = 0, nr = results.size(); j < nr; j++) {
       results[j].writeFlex(outflex, outfext, j + 1);
     }
   }
   if (atomoutfile)
   {
-    for (unsigned j = 0, m = results.size(); j < m; j++)
-        {
+    for (unsigned j = 0, m = results.size(); j < m; j++) {
       results[j].writeAtomValues(atomoutfile, &wt);
     }
   }
@@ -984,33 +981,41 @@ void thread_a_writing(job_queue<writer_job>* writerq,
     global_state* gs,
     ozfile* outfile, std::string* outext, ozfile* outflex,
     std::string* outfext,
-    int* nligs)
+    int* nligs) {
+  try {
+    int nwritten = 0;
+    boost::unordered_map<int, std::vector<result_info>*> proc_out;
+    writer_job j;
+    while (!writerq->wait_and_pop(j))
     {
-  int nwritten = 0;
-  boost::unordered_map<int, std::vector<result_info>*> proc_out;
-  writer_job j;
-  while (!writerq->wait_and_pop(j))
-  {
-    if (j.molid == nwritten)
-        {
-      write_out(*j.results, *outfile, *outext, *gs->settings, *gs->wt,
-          *outflex, *outfext, *gs->atomoutfile);
-      nwritten++;
-      delete j.results;
-      for (boost::unordered_map<int, std::vector<result_info>*>::iterator i;
-          (i = proc_out.find(nwritten)) != proc_out.end();)
-          {
-        write_out(*i->second, *outfile, *outext, *gs->settings,
-            *gs->wt,
+      if (j.molid == nwritten) {
+        write_out(*j.results, *outfile, *outext, *gs->settings, *gs->wt,
             *outflex, *outfext, *gs->atomoutfile);
         nwritten++;
-        delete i->second;
+        delete j.results;
+        for (boost::unordered_map<int, std::vector<result_info>*>::iterator i;
+            (i = proc_out.find(nwritten)) != proc_out.end();)
+            {
+          write_out(*i->second, *outfile, *outext, *gs->settings,
+              *gs->wt, *outflex, *outfext, *gs->atomoutfile);
+          nwritten++;
+          delete i->second;
+        }
+      }
+      else {
+        proc_out[j.molid] = j.results;
       }
     }
-    else
-    {
-      proc_out[j.molid] = j.results;
-    }
+  } catch (file_error& e)
+  {
+    std::cerr << "\n\nError: could not open \"" << e.name.string()
+        << "\" for " << (e.in ? "reading" : "writing") << ".\n";
+  } catch (boost::filesystem::filesystem_error& e)
+  {
+    std::cerr << "\n\nFile system error: " << e.what() << '\n';
+  } catch (usage_error& e)
+  {
+    std::cerr << "\n\nUsage error: " << e.what() << "\n";
   }
 }
 
@@ -1579,8 +1584,7 @@ Thank you!\n";
     using namespace OpenBabel;
     ozfile outfile;
     std::string outext;
-    if (out_name.length() > 0)
-        {
+    if (out_name.length() > 0) {
       outext = outfile.open(out_name);
     }
 
@@ -1634,16 +1638,14 @@ Thank you!\n";
 
     try {
       //loop over input ligands, adding them to the work queue
-      for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++)
-          {
+      for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++) {
         doing(settings.verbosity, "Reading input", log);
         const std::string ligand_name = ligand_names[l];
         mols.setInputFile(ligand_name);
 
         unsigned i = 0;
 
-        for (;;)
-            {
+        for (;;)  {
           model* m = new model;
 
           if (!mols.readMoleculeIntoModel(*m))
