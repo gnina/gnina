@@ -15,27 +15,25 @@ enum AccessPattern {
 };
 
 template <typename Dtype>
-  class Flex_LSTMLayer : public LSTMLayer<Dtype> {
+  class FlexLSTMLayer : public LSTMLayer<Dtype> {
   public:
-    explicit Flex_LSTMLayer(const LayerParameter& param) : LSTMLayer<Dtype>(param) {}
-    virtual inline const char* type() const { return "Flex_LSTMUnit"; }
+    explicit FlexLSTMLayer(const LayerParameter& param) : LSTMLayer<Dtype>(param) {}
+    virtual inline const char* type() const { return "FlexLSTM"; }
 
   protected:
     virtual void FillUnrolledNet(NetParameter* net_param) const;
-    virtual void RecurrentInputBlobNames(vector<string>* names) const;
-    virtual void RecurrentOutputBlobNames(vector<string>* names) const;
-    virtual void RecurrentInputShapes(vector<BlobShape>* shapes) const;
-    virtual void OutputBlobNames(vector<string>* names) const;
 };
 
 /**
- * @brief A helper for Flex_LSTMLayer; it updates the contents of the current
+ * @brief A helper for FlexLSTMLayer; it updates the contents of the current
  *        data blob during forward and backward.
  */
 template <typename Dtype>
-class LSTMDataGetter : public Layer<Dtype> {
+class LSTMDataGetterLayer : public Layer<Dtype> {
   public:
-    explicit LSTMDataGetter(const LayerParameter& param) : Layer<Dtype>(param) {}
+    explicit LSTMDataGetterLayer(const LayerParameter& param) : Layer<Dtype>(param) {}
+    virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+        const vector<Blob<Dtype>*>& top);
     virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
         const vector<Blob<Dtype>*>& top);
 
@@ -45,11 +43,12 @@ class LSTMDataGetter : public Layer<Dtype> {
 
     virtual inline bool AllowForceBackward(const int bottom_index) const {
       // Can't propagate to sequence continuation indicators.
-      return bottom_index != 2;
+      return bottom_index != 1;
     }
 
   protected:
-    template <typename AccessPattern> void GetData(Dtype* input, Dtype* output);
+    template <typename AccessPattern> void GetData(const Dtype* src, Dtype* dest);
+    template <typename AccessPattern> void AccumulateDiff(const Dtype* src, Dtype* dest);
 
     virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
         const vector<Blob<Dtype>*>& top);
@@ -61,6 +60,14 @@ class LSTMDataGetter : public Layer<Dtype> {
         const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
     AccessPattern pattern;
+    unsigned num_timesteps;
+    unsigned batch_size;
+    unsigned ntypes;
+    unsigned dim;
+    unsigned subgrid_dim;
+    unsigned cube_stride;
+    unsigned example_size;
+    static unsigned current_timestep;
 };
 
 } // namespace caffe

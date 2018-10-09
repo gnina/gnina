@@ -11,17 +11,7 @@
 namespace caffe {
 
 template <typename Dtype>
-inline Dtype sigmoid(Dtype x) {
-  return 1. / (1. + exp(-x));
-}
-
-template <typename Dtype>
-inline Dtype tanh(Dtype x) {
-  return 2. * sigmoid(2. * x) - 1.;
-}
-
-template <typename Dtype>
-void Flex_LSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
+void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   const int num_output = this->layer_param_.recurrent_param().num_output();
   CHECK_GT(num_output, 0) << "num_output must be positive";
   const FillerParameter& weight_filler =
@@ -66,7 +56,7 @@ void Flex_LSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   input_layer_param->add_top("h_0");
   input_param->add_shape()->CopyFrom(input_shapes[1]);
 
-  // Add LSTM DataGetter layer to update input blob contents
+  // Template for LSTMDataGetter, which updates the cube buffer contents
   LayerParameter lstm_datagetter_param;
   lstm_datagetter_param->set_type("LSTMDataGetter");
   lstm_datagetter_param->add_bottom("data");
@@ -74,14 +64,10 @@ void Flex_LSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   lstm_datagetter_param->add_top("current_x");
   lstm_datagetter_param->add_top("h_conted");
 
-  // Add layer to transform current piece of x to the hidden state dimension.
-  //     W_xc_x = W_xc * current_x + b_c
+  // Template for W_xc_x layer
   {
-    LayerParameter* x_transform_param = net_param->add_layer();
+    LayerParameter* x_transform_param;
     x_transform_param->CopyFrom(biased_hidden_param);
-    x_transform_param->set_name("x_transform");
-    x_transform_param->add_param()->set_name("W_xc");
-    x_transform_param->add_param()->set_name("b_c");
     x_transform_param->add_bottom("current_x");
     x_transform_param->add_top("W_xc_x");
     x_transform_param->add_propagate_down(true);
@@ -128,6 +114,13 @@ void Flex_LSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
     getdata_param->CopyFrom(lstm_datagetter_param);
     getdata_param->set_name("datagetter_" + ts);
     getdata_param->add_bottom("h_" + tm1s);
+    getdata_param->add_bottom("current_x"); //everybody reuses this buffer
+
+    // Add layer to transform current piece of x to the hidden state dimension.
+    //     W_xc_x = W_xc * current_x + b_c
+    LayerParameter* current_x_transform_param = net_param->add_layer();
+    current_x_transform_param->CopyFrom(x_transform_param);
+    current_x_transform_param->set_name("x_transform_" + ts);
 
     // Add layer to compute
     //     W_hc_h_{t-1} := W_hc * h_conted_{t-1}
@@ -191,7 +184,7 @@ void Flex_LSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   net_param->add_layer()->CopyFrom(output_concat_layer);
 }
 
-INSTANTIATE_CLASS(Flex_LSTMLayer);
-REGISTER_LAYER_CLASS(Flex_LSTM);
+INSTANTIATE_CLASS(FlexLSTMLayer);
+REGISTER_LAYER_CLASS(FlexLSTM);
 
 }  // namespace caffe
