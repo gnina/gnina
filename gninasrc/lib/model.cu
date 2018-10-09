@@ -116,7 +116,7 @@ fl model::evale(const precalculate& p, const igrid& ig, const vec& v) const { //
 }
 
 fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
-    const conf& c, const grid& user_grid) { // clean up
+    conf& c, const grid& user_grid) { // clean up
   set(c);
   fl e = evale(p, ig, v);
   VINA_FOR_IN(i, ligands)
@@ -199,7 +199,7 @@ fl gpu_data::eval_intramolecular(const GPUNonCacheInfo& info, const float v) {
 }
 
 fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
-    const conf& c, change& g, const grid& user_grid) { // clean up
+    conf& c, change& g, const grid& user_grid) { // clean up
   static loop_timer t;
   t.resume();
 
@@ -328,7 +328,7 @@ fl model::get_minus_forces_sum_magnitude() const {
 
 //evaluate interactiongs between all of flex (including rigid) and protein
 //will ignore grid_atoms greater than max
-fl model::eval_flex(const precalculate& p, const vec& v, const conf& c,
+fl model::eval_flex(const precalculate& p, const vec& v, conf& c,
     unsigned maxGridAtom) {
   set(c);
   fl e = 0;
@@ -363,7 +363,7 @@ fl model::eval_flex(const precalculate& p, const vec& v, const conf& c,
 }
 
 fl model::eval_intramolecular(const precalculate& p, const vec& v,
-    const conf& c) {
+    conf& c) {
   set(c);
   fl e = 0;
 
@@ -409,7 +409,7 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
 }
 
 fl model::eval_adjusted(const scoring_function& sf, const precalculate& p,
-    const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy,
+    const igrid& ig, const vec& v, conf& c, fl intramolecular_energy,
     const grid& user_grid) {
   fl e = eval(p, ig, v, c, user_grid); // sets c
   return sf.conf_independent(*this, e - intramolecular_energy);

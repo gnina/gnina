@@ -88,7 +88,7 @@ std::string default_output(const std::string& input_name)
   return tmp + "_out.pdbqt";
 }
 
-void write_all_output(model& m, const output_container& out, sz how_many,
+void write_all_output(model& m, output_container& out, sz how_many,
     std::ostream& outstream)
     {
   if (out.size() < how_many)

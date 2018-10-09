@@ -754,9 +754,10 @@ conf model::get_initial_conf(bool enable_receptor) const { // torsions = 0, orie
   conf_size cs = get_size();
   conf tmp(cs, enable_receptor);
   tmp.set_to_null();
-  VINA_FOR_IN(i, ligands)
+  VINA_FOR_IN(i, ligands) {
     tmp.ligands[i].rigid.position = ligands[i].node.get_origin();
     tmp.ligands[i].rigid.r = ligands[i].node.get_r();
+  }
   return tmp;
 }
 
@@ -911,7 +912,7 @@ void model::seti(const conf& c) {
   /* ligands.set_conf(atoms, internal_coords, c.ligands); */
 }
 
-void model::sete(const conf& c) {
+void model::sete(conf& c) {
   VINA_FOR_IN(i, ligands)
     c.ligands[i].rigid.apply(internal_coords, coords, ligands[i].begin,
         ligands[i].end);
@@ -919,7 +920,7 @@ void model::sete(const conf& c) {
   flex.set_conf(atoms, coords, c.flex);
 }
 
-void model::set(const conf& c) {
+void model::set(conf& c) {
   ligands.set_conf(atoms, coords, c.ligands);
   flex.set_conf(atoms, coords, c.flex);
   //for cnn, we do not change the receptor coordinates here

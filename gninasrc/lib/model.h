@@ -387,8 +387,8 @@ struct model {
       out << "ENDMDL\n";
     }
     void seti(const conf& c);
-    void sete(const conf& c);
-    void set(const conf& c);
+    void sete(conf& c);
+    void set(conf& c);
 
     std::string ligand_atom_str(sz i, sz lig = 0) const;
     fl gyration_radius(sz ligand_number) const; // uses coords
@@ -420,16 +420,16 @@ struct model {
     // clean up
     fl evali(const precalculate& p, const vec& v) const;
     fl evale(const precalculate& p, const igrid& ig, const vec& v) const;
-    fl eval(const precalculate& p, const igrid& ig, const vec& v, const conf& c,
+    fl eval(const precalculate& p, const igrid& ig, const vec& v, conf& c,
         const grid& user_grid);
     fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
-        const conf& c, change& g, const grid& user_grid);
+        conf& c, change& g, const grid& user_grid);
     fl eval_intra(const precalculate& p, const vec& v);
-    fl eval_flex(const precalculate& p, const vec& v, const conf& c,
+    fl eval_flex(const precalculate& p, const vec& v, conf& c,
         unsigned maxGridAtom = 0);
-    fl eval_intramolecular(const precalculate& p, const vec& v, const conf& c);
+    fl eval_intramolecular(const precalculate& p, const vec& v, conf& c);
     fl eval_adjusted(const scoring_function& sf, const precalculate& p,
-        const igrid& ig, const vec& v, const conf& c, fl intramolecular_energy,
+        const igrid& ig, const vec& v, conf& c, fl intramolecular_energy,
         const grid& user_grid);
 
     fl rmsd_lower_bound(const model& m) const; // uses coords

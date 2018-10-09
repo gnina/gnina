@@ -162,7 +162,7 @@ struct rigid_body : public atom_frame {
       set_orientation(c.orientation);
       set_coords(atoms, coords);
     }
-    vec get_r() {
+    vec get_r() const {
       return origin - center_of_mass;
     }
     void count_torsions(sz& s) const {
@@ -292,7 +292,7 @@ struct first_segment : public axis_frame {
       set_orientation(angle_to_quaternion(axis, torsion));
       set_coords(atoms, coords);
     }
-    vec get_r() {
+    vec get_r() const {
       return vec(0,0,0);
     }
     void count_torsions(sz& s) const {
@@ -377,7 +377,7 @@ struct heterotree {
     heterotree(const Node& node_)
         : node(node_) {
     }
-    void set_conf(const atomv& atoms, vecv& coords, const ligand_conf& c) {
+    void set_conf(const atomv& atoms, vecv& coords, ligand_conf& c) {
       node.set_conf(atoms, coords, c.rigid);
       flv::const_iterator p = c.torsions.begin();
       branches_set_conf(children, node, atoms, coords, p);
@@ -434,7 +434,7 @@ typedef heterotree<first_segment> main_branch;
 template<typename T> // T == flexible_body || main_branch
 struct vector_mutable : public std::vector<T> {
     template<typename C>
-    void set_conf(const atomv& atoms, vecv& coords, const std::vector<C>& c) { // C == ligand_conf || residue_conf
+    void set_conf(const atomv& atoms, vecv& coords, std::vector<C>& c) { // C == ligand_conf || residue_conf
       VINA_FOR_IN(i, (*this))
         (*this)[i].set_conf(atoms, coords, c[i]);
     }

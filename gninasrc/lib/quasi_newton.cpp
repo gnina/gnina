@@ -45,7 +45,7 @@ struct quasi_newton_aux {
       return ig->get_center();
     }
 
-    fl operator()(const conf& c, change& g) {
+    fl operator()(conf& c, change& g) {
       return m->eval_deriv(*p, *ig, v, c, g, *user_grid);
     }
 };
