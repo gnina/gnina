@@ -259,12 +259,7 @@ void CNNScorer::set_center_from_model(model& m) {
   }
   current_center /= (float) m.coordinates().size();
 
-  if(!cnnopts.move_minimize_frame) {
-    //recenter mgrid around ligand
-    mgrid->setCenter(current_center);
-  }
-
-
+  //mgrid is shared across threads, so do not set center except when guarded by mutex
 
   if (cnnopts.verbose) {
     std::cout << "new center: ";
