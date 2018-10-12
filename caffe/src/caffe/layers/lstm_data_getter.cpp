@@ -18,10 +18,9 @@ void LSTMDataGetterLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   dim = bottom[0]->shape(3);
   unsigned resolution = mgrid_param.resolution();
   unsigned subgrid_dim_in_angstroms = mgrid_param.subgrid_dim();
-  subgrid_dim = ::round(subgrid_dim / resolution) + 1;
+  subgrid_dim = ::round(subgrid_dim_in_angstroms / resolution) + 1;
   example_size = ntypes * dim * dim * dim;
   current_timestep = 0;
-  RecurrentLayer<Dtype>::LayerSetup(bottom, top);
 }
 
 template <typename Dtype>
@@ -38,7 +37,7 @@ void LSTMDataGetterLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   CHECK_EQ(3, bottom[2]->num_axes());
   CHECK_EQ(1, bottom[2]->shape(0));
   CHECK_EQ(num_instances, bottom[2]->shape(1));
-  hidden_dim_ = bottom[2]->shape(2);
+  hidden_dim = bottom[2]->shape(2);
 
   CHECK_GT(2, bottom[3]->num_axes()); //TxBxCx...
   CHECK_EQ(1, bottom[3]->shape(0));
@@ -49,67 +48,23 @@ void LSTMDataGetterLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
 }
 
 template <typename Dtype>
-template <>
-void LSTMDataGetter<Dtype>::GetData<AccessPattern::strided_cube>(const Dtype* src, Dtype* dest) {
-  //extract a single "timestep" corresponding to the correct stride
-  for (unsigned batch_idx=0; batch_idx < batch_size; ++batch_idx) {
-    for (unsigned grid=0; grid < ntypes; ++grid) {
-      for (unsigned i=0; i<subgrid_dim; ++i) {
-        for (unsigned j=0; j<subgrid_dim; ++j) {
-          for (unsigned k=0; k<subgrid_dim; ++k) {
-            unsigned factor = (((dim - subgrid_dim) / cube_stride) + 1);
-            unsigned x_offset = (current_timestep / (factor * factor)) * cube_stride;
-            unsigned y_offset = (current_timestep / factor) * cube_stride;
-            unsigned z_offset = (current_timestep % factor) * cube_stride;
-            dest[(((batch_idx * ntypes + grid) * subgrid_dim + i) * subgrid_dim + j) * 
-              subgrid_dim + k] = src[batch_idx * example_size + 
-              (((x_offset + i) * dim + y_offset + j) * dim + z_offset + k) * dim];
-          }
-        }
-      }
-    }
-  }
-}
-
-template <typename Dtype>
-template <>
-void LSTMDataGetter<Dtype>::AccumulateDiff<AccessPattern::strided_cube>(const Dtype* src, 
-    Dtype* dest) {
-  //TODO: make sure dest is zeroed at the beginning of backprop
-  for (unsigned batch_idx=0; batch_idx < batch_size; ++batch_idx) {
-    for (unsigned grid=0; grid < ntypes; ++grid) {
-      for (unsigned i=0; i<subgrid_dim; ++i) {
-        for (unsigned j=0; j<subgrid_dim; ++j) {
-          for (unsigned k=0; k<subgrid_dim; ++k) {
-            unsigned factor = (((dim - subgrid_dim) / cube_stride) + 1);
-            unsigned x_offset = (current_timestep / (factor * factor)) * cube_stride;
-            unsigned y_offset = (current_timestep / factor) * cube_stride;
-            unsigned z_offset = (current_timestep % factor) * cube_stride;
-            dest[batch_idx * example_size + (((x_offset + i) * dim + y_offset + j) * dim + 
-                z_offset + k) * dim] +=
-            src[(((batch_idx * ntypes + grid) * subgrid_dim + i) * subgrid_dim + j) * 
-              subgrid_dim + k];
-          }
-        }
-      }
-    }
-  }
-}
-
-template <typename Dtype>
 void LSTMDataGetterLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
   //set up current_x = GetData<apat>
-  GetData<apat>(bottom[0]->cpu_data(), top[0]->mutable_cpu_data());
+  if (pattern == AccessPattern::strided_cube) {
+    strided_cube_data_handler handler;
+    handler.GetData(bottom[0]->cpu_data(), top[0]->mutable_cpu_data(), batch_size, ntypes, 
+        subgrid_dim, dim, current_timestep, cube_stride, example_size);
+  }
 
   //set up h_conted_{t-1} = cont_t * h_{t-1}
   const Dtype* cont = bottom[1]->cpu_data();
   const Dtype* h = bottom[2]->cpu_data();
   Dtype* h_conted = top[1]->mutable_cpu_data();
   for (int batch_idx = 0; batch_idx < bottom[0]->shape(1); ++batch_idx) {
-    for (int hidden_idx = 0; hidden_idx < hidden_dim_; ++hidden_idx) {
-      h_conted[batch_idx * hidden_dim_ + hidden_idx] = 
-        cont[current_timestep * batch_size + batch_idx] * h[batch_idx * hidden_dim_ + hidden_idx];
+    for (int hidden_idx = 0; hidden_idx < hidden_dim; ++hidden_idx) {
+      h_conted[batch_idx * hidden_dim + hidden_idx] = 
+        cont[current_timestep * batch_size + batch_idx] * h[batch_idx * hidden_dim + hidden_idx];
     }
   }
   if (current_timestep != num_timesteps - 1)
@@ -120,25 +75,30 @@ template <typename Dtype>
 void LSTMDataGetterLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
   //update the data blob contents to be correct for the previous timestep
-  GetData<apat>(bottom[0]->cpu_data(), top[0]->mutable_cpu_data());
+  if (pattern == AccessPattern::strided_cube) {
+    strided_cube_data_handler handler;
+    handler.GetData(bottom[0]->cpu_data(), top[0]->mutable_cpu_data(), batch_size, ntypes, 
+        subgrid_dim, dim, current_timestep, cube_stride, example_size);
+    //also accumulate gradients for the current timestep in the right location
+    handler.AccumulateDiff(top[0]->cpu_diff(), bottom[0]->mutable_cpu_diff(), batch_size, 
+        ntypes, subgrid_dim, dim, current_timestep, cube_stride, example_size);
+  }
   //set up h_conted_{t-1} = cont_t * h_{t-1} (again)
   const Dtype* cont = bottom[1]->cpu_data();
   const Dtype* h = bottom[2]->cpu_data();
   Dtype* h_conted = top[1]->mutable_cpu_data();
   for (int batch_idx = 0; batch_idx < bottom[0]->shape(1); ++batch_idx) {
-    for (int hidden_idx = 0; hidden_idx < hidden_dim_; ++hidden_idx) {
-      h_conted[batch_idx * hidden_dim_ + hidden_idx] = 
-        cont[current_timestep * batch_size + batch_idx] * h[batch_idx * hidden_dim_ + hidden_idx];
+    for (int hidden_idx = 0; hidden_idx < hidden_dim; ++hidden_idx) {
+      h_conted[batch_idx * hidden_dim + hidden_idx] = 
+        cont[current_timestep * batch_size + batch_idx] * h[batch_idx * hidden_dim + hidden_idx];
     }
   }
-  //also accumulate gradients for the current timestep in the right location
-  AccumulateDiff<apat>(top[0]->cpu_diff(), bottom[0]->mutable_cpu_diff());
   if (current_timestep != 0)
     --current_timestep;
 }
 
 #ifdef CPU_ONLY
-STUB_GPU(LSTMDataGetterLayer);
+// STUB_GPU(LSTMDataGetterLayer);
 #endif
 
 INSTANTIATE_CLASS(LSTMDataGetterLayer);

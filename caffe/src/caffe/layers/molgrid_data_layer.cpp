@@ -70,8 +70,11 @@ BaseMolGridDataLayer<Dtype, GridMakerT>::example::example(BaseMolGridDataLayer<D
    stream >> affinity;
   if(hasrmsd)
    stream >> rmsd;
-  if(hasgroup)
-    stream >> group;
+  if(hasgroup) {
+    stream >> tmp;
+    CHECK(tmp.length() > 0) << "Missing group identifier";
+    group = cache.get(tmp);
+  }
   //receptor
   stream >> tmp;
   CHECK(tmp.length() > 0) << "Empty receptor, missing affinity/rmsd?";
@@ -613,7 +616,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
 
   CHECK_GT(batch_size, 0) << "Positive batch size required";
   //keep track of atoms and transformations for each example in batch
-  batch_transform.resize(batch_size);
+  batch_transform.resize(batch_size * param.maxgroupsize());
 
   //initialize atom type maps
   string recmap = param.recmap();
@@ -894,7 +897,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_minfo(Dtype *data,
     //don't let ligand atoms translate out of sphere inscribed in box
     if(ignore_ligand) radius = 0;
     double maxtrans = max(dimension/2.0 - radius,0.0);
-    transform.add_random_displacement(rng, min(randtranslate,maxtrans));
+    updateTranslations(transform.add_random_displacement(rng, min(randtranslate,maxtrans)));
   }
 
   if(current_rotation > 0) {
@@ -937,6 +940,91 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_minfo(Dtype *data,
   }
 }
 
+template <typename Dtype>
+void GroupedMolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, 
+    const typename BaseMolGridDataLayer<Dtype, GridMaker>::mol_info& recatoms,
+    const typename BaseMolGridDataLayer<Dtype, GridMaker>::mol_info& ligatoms, 
+    typename BaseMolGridDataLayer<Dtype, GridMaker>::mol_transform& transform,
+    typename BaseMolGridDataLayer<Dtype, GridMaker>::output_transform& peturb, bool gpu)
+{
+  //if it's the first frame, call the base class method
+  if (example_idx < batch_size) {
+    BaseMolGridDataLayer<Dtype, GridMaker>::set_grid_minfo(data, recatoms, ligatoms, 
+        transform, peturb, gpu);
+  }
+  //otherwise use the same transformation from frame 0
+  else {
+    rng_t* rng = caffe_rng();
+    unsigned transform_idx = example_idx % batch_size;
+    transform.Q = this->batch_transform[transform_idx].Q;
+    transform.center = translations[transform_idx];
+    typename BaseMolGridDataLayer<Dtype, GridMaker>::mol_transform ligtrans;
+
+    //include receptor and ligand atoms
+    transform.mol.append(recatoms);
+    //set center to ligand center
+    transform.mol.center = ligatoms.center;
+
+    if(this->ligpeturb) {
+      ligtrans.center[0] = -this->perturbations[example_idx % batch_size].x;
+      ligtrans.center[1] = -this->perturbations[example_idx % batch_size].y;
+      ligtrans.center[2] = -this->perturbations[example_idx % batch_size].z;
+      //FIXME: is this quaternion already normalized? if so this is wrong
+      ligtrans.Q = conj(this->perturbations[example_idx % batch_size].get_quaternion());
+      transform.mol.transform_and_append(ligatoms, ligtrans);
+
+      //store the inverse transformation
+      peturb = this->perturbations[example_idx % batch_size];
+
+      //set the center to the translated value
+      transform.mol.center = ligatoms.center + ligtrans.center;
+    } else if(this->ignore_ligand) {
+      //do nothing - ligand is only used to set center
+    } else {
+      transform.mol.append(ligatoms);
+    }
+
+    transform.center += transform.mol.center;
+
+    //TODO move this into gridmaker.setAtoms, have it just take the mol_transform as input - separate receptor transform as well
+    this->gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
+
+    if(transform.mol.atoms.size() == 0) {
+       std::cerr << "ERROR: No atoms in molecule.  I can't deal with this.\n";
+       exit(-1); //presumably you never actually want this and it results in a cuda error
+    } 
+    if(this->jitter > 0) {
+      //add small random displacement (in-place) to atoms
+      for(unsigned i = 0, n = transform.mol.atoms.size(); i < n; i++) {
+        float4& atom = transform.mol.atoms[i];
+        float xdiff = this->jitter*(unit_sample(rng)*2.0-1.0);
+        atom.x += xdiff;
+        float ydiff = this->jitter*(unit_sample(rng)*2.0-1.0);
+        atom.y += ydiff;
+        float zdiff = this->jitter*(unit_sample(rng)*2.0-1.0);
+        atom.z += zdiff;
+      }
+    }
+
+    //compute grid from atom info arrays
+    if(gpu)
+    {
+      unsigned natoms = transform.mol.atoms.size();
+      BaseMolGridDataLayer<Dtype, GridMaker>::allocateGPUMem(natoms);
+      CUDA_CHECK(cudaMemcpy(this->gpu_gridatoms, &transform.mol.atoms[0], natoms*sizeof(float4), cudaMemcpyHostToDevice));
+      CUDA_CHECK(cudaMemcpy(this->gpu_gridwhich, &transform.mol.whichGrid[0], natoms*sizeof(short), cudaMemcpyHostToDevice));
+
+      this->gmaker.template setAtomsGPU<Dtype>(natoms, this->gpu_gridatoms, this->gpu_gridwhich, transform.Q, this->numReceptorTypes+this->numLigandTypes, data);
+    }
+    else
+    {
+      this->gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(), data, this->numReceptorTypes + this->numLigandTypes);
+    }
+  }
+  //either way, done with this example
+  ++example_idx;
+  example_idx = example_idx % (maxgroupsize * batch_size);
+}
 
 //return a string representation of the atom type(s) represented by index
 //in map - this isn't particularly efficient, but is only for debug purposes
@@ -1096,7 +1184,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
   output_transform peturb;
 
   //if in memory must be set programmatically
-  //TODO: how to handle multiple frames here?
+  //TODO: support for groups in cnn_scorer and elsewhere as needed
   if(inmem)
   {
     CHECK_GT(mem_rec.atoms.size(),0) << "Receptor not set in MolGridDataLayer";
@@ -1245,7 +1333,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::Backward_relevance(const vector<Bl
 template <typename Dtype>
 void GroupedMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& top, 
     bool hasrmsd, bool hasaffinity) {
-  int batch_size = this->batch_transform.size();
+  int batch_size = this->batch_transform.size() / maxgroupsize;
   this->top_shape.clear();
   this->top_shape.push_back(maxchunksize);
   this->top_shape.push_back(batch_size);

@@ -43,7 +43,7 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   split_param.set_type("Split");
 
   vector<BlobShape> input_shapes;
-  RecurrentInputShapes(&input_shapes);
+  LSTMLayer<Dtype>::RecurrentInputShapes(&input_shapes);
   CHECK_EQ(2, input_shapes.size());
 
   LayerParameter* input_layer_param = net_param->add_layer();
@@ -55,23 +55,6 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
 
   input_layer_param->add_top("h_0");
   input_param->add_shape()->CopyFrom(input_shapes[1]);
-
-  // Template for LSTMDataGetter, which updates the cube buffer contents
-  LayerParameter lstm_datagetter_param;
-  lstm_datagetter_param->set_type("LSTMDataGetter");
-  lstm_datagetter_param->add_bottom("data");
-  lstm_datagetter_param->add_bottom("cont");
-  lstm_datagetter_param->add_top("current_x");
-  lstm_datagetter_param->add_top("h_conted");
-
-  // Template for W_xc_x layer
-  {
-    LayerParameter* x_transform_param;
-    x_transform_param->CopyFrom(biased_hidden_param);
-    x_transform_param->add_bottom("current_x");
-    x_transform_param->add_top("W_xc_x");
-    x_transform_param->add_propagate_down(true);
-  }
 
   if (this->static_input_) {
     // Add layer to transform x_static to the gate dimension.
@@ -110,18 +93,25 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
     string ts = format_int(t);
 
     //Add layer to choose the data for this timestep
-    LayerParameter* getdata_param = net_param->add_layer();
-    getdata_param->CopyFrom(lstm_datagetter_param);
-    getdata_param->set_name("datagetter_" + ts);
-    getdata_param->add_bottom("h_" + tm1s);
-    getdata_param->add_bottom("current_x"); //everybody reuses this buffer
+    LayerParameter* datagetter_param = net_param->add_layer();
+    datagetter_param->set_type("LSTMDataGetter");
+    datagetter_param->set_name("datagetter_" + ts);
+    datagetter_param->add_bottom("data");
+    datagetter_param->add_bottom("cont");
+    datagetter_param->add_bottom("h_" + tm1s);
+    datagetter_param->add_bottom("current_x"); //everybody reuses this buffer
+    datagetter_param->add_top("current_x");
+    datagetter_param->add_top("h_conted");
 
     // Add layer to transform current piece of x to the hidden state dimension.
     //     W_xc_x = W_xc * current_x + b_c
     LayerParameter* current_x_transform_param = net_param->add_layer();
-    current_x_transform_param->CopyFrom(x_transform_param);
+    current_x_transform_param->CopyFrom(biased_hidden_param);
     current_x_transform_param->set_name("x_transform_" + ts);
-
+    current_x_transform_param->add_bottom("current_x");
+    current_x_transform_param->add_top("W_xc_x");
+    current_x_transform_param->add_propagate_down(true);
+  
     // Add layer to compute
     //     W_hc_h_{t-1} := W_hc * h_conted_{t-1}
     {

@@ -127,6 +127,8 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     rmsds.push_back(rmsd);
   }
 
+  virtual void updateTranslations(vec&& translation) {}
+
   virtual void copyToBlob(Dtype* src, size_t size, Blob<Dtype>* blob, bool gpu) {
     Dtype* dst = nullptr;
     if (gpu)
@@ -576,7 +578,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     unsigned batch_size;
     unsigned maxgroupsize;
     bool continuing;
-    boost::unordered_map<int, vector<example>> frame_groups;
+    boost::unordered_map<const char*, vector<example>> frame_groups;
     std::deque<location> current_locations;
 
   public:
@@ -605,7 +607,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
         //if we have fewer than maxgroupsize examples for this group, pad with
         //ignore_labels
         for (unsigned idx=group.second.size(); idx<(maxgroupsize-1); ++idx) {
-          group.second.push_back(example(-1, -1, -1, -1, NULL, NULL));
+          group.second.push_back(example(-1, -1, -1, NULL, NULL, NULL));
         }
       }
     }
@@ -740,6 +742,24 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
       double cosy = 1.0 - 2.0 * (y*y + z*z);
       yaw = atan2(siny, cosy);
     }
+
+    qt get_quaternion()
+    {
+    	qt q;
+    	Dtype cy = cos(yaw * 0.5);
+    	Dtype sy = sin(yaw * 0.5);
+    	Dtype cr = cos(roll * 0.5);
+    	Dtype sr = sin(roll * 0.5);
+    	Dtype cp = cos(pitch * 0.5);
+    	Dtype sp = sin(pitch * 0.5);
+    
+    	q.a = cy * cr * cp + sy * sr * sp;
+    	q.b = cy * sr * cp - sy * cr * sp;
+    	q.c = cy * cr * sp + sy * sr * cp;
+    	q.d = sy * cr * cp - cy * sr * sp;
+    	return q;
+    }
+
   };
   struct mol_transform {
     mol_info mol;
@@ -753,14 +773,19 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     }
 
     //add upto randtranslate in displacement (plus or minus) along each direction
-    void add_random_displacement(rng_t* rng, double randtranslate)
+    vec add_random_displacement(rng_t* rng, double randtranslate)
     {
       double offx = unit_sample(rng)*2.0-1.0;
       double offy = unit_sample(rng)*2.0-1.0;
       double offz = unit_sample(rng)*2.0-1.0;
-      center[0] += offx * randtranslate;
-      center[1] += offy * randtranslate;
-      center[2] += offz * randtranslate;
+      vec translation;
+      translation[0] = offx * randtranslate;
+      translation[1] = offy * randtranslate;
+      translation[2] = offz * randtranslate;
+      center[0] += translation[0];
+      center[1] += translation[1];
+      center[2] += translation[2];
+      return translation;
     }
 
     //set random quaternion
@@ -857,7 +882,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
   void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
                     mol_transform& transform, output_transform& pertub, bool gpu);
-  void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms,
+  virtual void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms,
                     mol_transform& transform, output_transform& peturb, bool gpu);
   void setAtomGradientsGPU(GridMakerT& gmaker, Dtype *diff, unsigned batch_size);
 
@@ -905,7 +930,7 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
       BaseMolGridDataLayer<Dtype, GridMaker>(param), 
       maxgroupsize(param.molgrid_data_param().maxgroupsize()), 
       batch_size(param.molgrid_data_param().batch_size()), 
-      example_idx(0) {
+      example_idx(0), translations(maxgroupsize) {
         CHECK_EQ(param.molgrid_data_param().subgrid_dim(), 0) << 
           "Subgrids and groups are mutually exclusive";
         unsigned input_chunksize = param.molgrid_data_param().maxchunksize();
@@ -939,14 +964,19 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
       this->affinities.push_back(affinity);
       this->rmsds.push_back(rmsd);
       this->seqcont.push_back(example_idx < batch_size ? 0 : 1);
-      ++example_idx;
-      example_idx = example_idx % (maxgroupsize * batch_size);
     }
+
+    virtual void updateTranslations(vec&& translation) {
+      CHECK_LT(example_idx, batch_size) << "Only first frame should update translations";
+      translations[example_idx] = translation;
+    }
+
     protected:
     unsigned maxgroupsize;
     unsigned maxchunksize;
     unsigned batch_size;
     unsigned example_idx;
+    vector<vec> translations; 
     vector<int> seqcont_shape;
     vector<Dtype> seqcont; //necessary for LSTM layer; indicates if a batch instance 
                            //is a continuation of a previous example sequence or 
@@ -959,6 +989,12 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
       this->copyToBlob(&seqcont[0], seqcont.size(), top[idx], gpu);
       BaseMolGridDataLayer<Dtype, GridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, gpu);
     }
+
+    virtual void set_grid_minfo(Dtype *data, 
+        const typename BaseMolGridDataLayer<Dtype, GridMaker>::mol_info& recatoms, 
+        const typename BaseMolGridDataLayer<Dtype, GridMaker>::mol_info& ligatoms,
+        typename BaseMolGridDataLayer<Dtype, GridMaker>::mol_transform& transform, 
+        typename BaseMolGridDataLayer<Dtype, GridMaker>::output_transform& peturb, bool gpu);
 };
 
 template <typename Dtype>
