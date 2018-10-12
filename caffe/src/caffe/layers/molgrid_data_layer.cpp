@@ -852,7 +852,7 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
   //set grid values for example
   //cache atom info
   //pose specifies which ligand pose to use (relevant if num_poses > 1)
-  //if it is negative, use them all!
+  //if it is negative, use them all (but with distinct channels
   bool docache = this->layer_param_.molgrid_data_param().cache_structs();
   bool doall = false;
   if(pose < 0) {
@@ -1182,9 +1182,10 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         affinities.push_back(ex.affinity);
         rmsds.push_back(ex.rmsd);
         weights.push_back(ex.affinity_weight);
-        perturbations.push_back(peturb);
         int offset = batch_idx*example_size;
         set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], numposes > 1 ? -1 : 0, peturb, gpu);        
+        perturbations.push_back(peturb); //peturb is set by grid_ex
+
       } else {
       	for(unsigned p = 0; p < numposes; p++) {
           labels.push_back(ex.label);
