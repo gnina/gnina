@@ -297,11 +297,11 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     Dtype label;
     Dtype affinity;
     Dtype rmsd;
-    const char* group;
+    int group;
 
-    example(): receptor(NULL), ligand(NULL), label(0), affinity(0), rmsd(0), group(NULL) {}
-    example(Dtype l, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0), group(NULL) {}
-    example(Dtype l, Dtype a, Dtype rms, const char* gr, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms), group(gr) {}
+    example(): receptor(NULL), ligand(NULL), label(0), affinity(0), rmsd(0), group(-1) {}
+    example(Dtype l, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0), group(-1) {}
+    example(Dtype l, Dtype a, Dtype rms, int gr, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms), group(gr) {}
     example(string_cache& cache, string line, bool hasaffinity, bool hasrmsd, bool hasgroup);
   };
 
@@ -578,7 +578,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     unsigned batch_size;
     unsigned maxgroupsize;
     bool continuing;
-    boost::unordered_map<const char*, vector<example>> frame_groups;
+    boost::unordered_map<int, vector<example>> frame_groups;
     std::deque<location> current_locations;
 
   public:
@@ -590,7 +590,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     //only add the first example for each group to examples; after that just
     //the filenames to the frame_groups map
     void add(const example& ex) {
-      const char* group = ex.group;
+      int group = ex.group;
       if (frame_groups.find(group) == frame_groups.end()) {
         examples.add(ex);
         frame_groups[group] = vector<example>();
@@ -607,7 +607,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
         //if we have fewer than maxgroupsize examples for this group, pad with
         //ignore_labels
         for (unsigned idx=group.second.size(); idx<(maxgroupsize-1); ++idx) {
-          group.second.push_back(example(-1, -1, -1, NULL, NULL, NULL));
+          group.second.push_back(example(-1, -1, -1, -1, NULL, NULL));
         }
       }
     }

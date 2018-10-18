@@ -38,13 +38,8 @@ class LSTMDataGetterLayer : public Layer<Dtype> {
         const vector<Blob<Dtype>*>& top);
 
     virtual inline const char* type() const { return "LSTMDataGetter"; }
-    virtual inline int ExactNumBottomBlobs() const { return 3; } //data, seqcont, h
-    virtual inline int ExactNumTopBlobs() const { return 2; } //x, h_conted
-
-    virtual inline bool AllowForceBackward(const int bottom_index) const {
-      // Can't propagate to sequence continuation indicators.
-      return bottom_index != 1;
-    }
+    virtual inline int ExactNumBottomBlobs() const { return 2; } //data, x
+    virtual inline int ExactNumTopBlobs() const { return 1; } //x
 
   protected:
     //alternatively could use enum as idx into array of function pointers, I

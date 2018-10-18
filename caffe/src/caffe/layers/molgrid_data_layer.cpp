@@ -60,7 +60,7 @@ BaseMolGridDataLayer<Dtype, GridMakerT>::~BaseMolGridDataLayer<Dtype, GridMakerT
 
 template <typename Dtype, class GridMakerT>
 BaseMolGridDataLayer<Dtype, GridMakerT>::example::example(BaseMolGridDataLayer<Dtype, GridMakerT>::string_cache& cache, string line, bool hasaffinity, bool hasrmsd, bool hasgroup)
-  : label(0), affinity(0.0), rmsd(0.0), group(NULL)
+  : label(0), affinity(0.0), rmsd(0.0), group(-1)
 {
   stringstream stream(line);
   string tmp;
@@ -71,9 +71,7 @@ BaseMolGridDataLayer<Dtype, GridMakerT>::example::example(BaseMolGridDataLayer<D
   if(hasrmsd)
    stream >> rmsd;
   if(hasgroup) {
-    stream >> tmp;
-    CHECK(tmp.length() > 0) << "Missing group identifier";
-    group = cache.get(tmp);
+    stream >> group;
   }
   //receptor
   stream >> tmp;

@@ -39,6 +39,10 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   sum_param.mutable_eltwise_param()->set_operation(
       EltwiseParameter_EltwiseOp_SUM);
 
+  LayerParameter scale_param;
+  scale_param.set_type("Scale");
+  scale_param.mutable_scale_param()->set_axis(0);
+
   LayerParameter split_param;
   split_param.set_type("Split");
 
@@ -55,6 +59,13 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
 
   input_layer_param->add_top("h_0");
   input_param->add_shape()->CopyFrom(input_shapes[1]);
+
+  vector<BlobShape> current_x_shape;
+  current_x_shape.resize(1);
+  //1xBxCxSdimxSdimxSdim
+  current_x_shape[0].add_dim(1);
+  input_layer_param->add_top("current_x");
+  // input_param->add_shape()->CopyFrom(current_x_shape);
 
   if (this->static_input_) {
     // Add layer to transform x_static to the gate dimension.
@@ -97,11 +108,24 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
     datagetter_param->set_type("LSTMDataGetter");
     datagetter_param->set_name("datagetter_" + ts);
     datagetter_param->add_bottom("data");
-    datagetter_param->add_bottom("cont");
-    datagetter_param->add_bottom("h_" + tm1s);
     datagetter_param->add_bottom("current_x"); //everybody reuses this buffer
     datagetter_param->add_top("current_x");
-    datagetter_param->add_top("h_conted");
+
+    // Add layers to flush the hidden state when beginning a new
+    // sequence, as indicated by cont_t.
+    //     h_conted_{t-1} := cont_t * h_{t-1}
+    //
+    // Normally, cont_t is binary (i.e., 0 or 1), so:
+    //     h_conted_{t-1} := h_{t-1} if cont_t == 1
+    //                       0   otherwise
+    {
+      LayerParameter* cont_h_param = net_param->add_layer();
+      cont_h_param->CopyFrom(scale_param);
+      cont_h_param->set_name("h_conted_" + tm1s);
+      cont_h_param->add_bottom("h_" + tm1s);
+      cont_h_param->add_bottom("cont_" + ts);
+      cont_h_param->add_top("h_conted_" + tm1s);
+    }
 
     // Add layer to transform current piece of x to the hidden state dimension.
     //     W_xc_x = W_xc * current_x + b_c
