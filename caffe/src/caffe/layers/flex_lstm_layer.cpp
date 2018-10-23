@@ -11,6 +11,20 @@
 namespace caffe {
 
 template <typename Dtype>
+void FlexLSTMLayer<Dtype>::RecurrentInputShapes(vector<BlobShape>* shapes) const {
+  const int num_output = this->layer_param_.recurrent_param().num_output();
+  const int num_blobs = 2;
+  shapes->resize(num_blobs);
+  //h and c
+  for (int i = 0; i < num_blobs; ++i) {
+    (*shapes)[i].Clear();
+    (*shapes)[i].add_dim(1);  // a single timestep
+    (*shapes)[i].add_dim(this->N_);
+    (*shapes)[i].add_dim(num_output);
+  }
+}
+
+template <typename Dtype>
 void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   const int num_output = this->layer_param_.recurrent_param().num_output();
   CHECK_GT(num_output, 0) << "num_output must be positive";
@@ -60,13 +74,6 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   input_layer_param->add_top("h_0");
   input_param->add_shape()->CopyFrom(input_shapes[1]);
 
-  vector<BlobShape> current_x_shape;
-  current_x_shape.resize(1);
-  //1xBxCxSdimxSdimxSdim
-  current_x_shape[0].add_dim(1);
-  input_layer_param->add_top("current_x");
-  // input_param->add_shape()->CopyFrom(current_x_shape);
-
   if (this->static_input_) {
     // Add layer to transform x_static to the gate dimension.
     //     W_xc_x_static = W_xc_static * x_static
@@ -108,7 +115,8 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
     datagetter_param->set_type("LSTMDataGetter");
     datagetter_param->set_name("datagetter_" + ts);
     datagetter_param->add_bottom("data");
-    datagetter_param->add_bottom("current_x"); //everybody reuses this buffer
+    if (t > 1) 
+      datagetter_param->add_bottom("current_x"); //everybody reuses this buffer
     datagetter_param->add_top("current_x");
 
     // Add layers to flush the hidden state when beginning a new

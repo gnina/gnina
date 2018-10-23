@@ -29,7 +29,17 @@ void LSTMDataGetterLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   //bottom is data, current_x; top is current_x
   const int num_instances = bottom[0]->shape(1);
   const int num_channels = bottom[0]->shape(2);
-  //current_x 1xBxCxSdimxSdimxSdim
+  vector<int> current_x_shape;
+  //if access_pattern == strided_cube, current_x 1xBxCxSdimxSdimxSdim
+  if (bottom[1]->num_axes() == 0) {
+    current_x_shape.push_back(1);
+    current_x_shape.push_back(batch_size);
+    current_x_shape.push_back(ntypes);
+    current_x_shape.push_back(subgrid_dim);
+    current_x_shape.push_back(subgrid_dim);
+    current_x_shape.push_back(subgrid_dim);
+    bottom[1]->Reshape(current_x_shape);
+  }
   CHECK_EQ(6, bottom[1]->num_axes());
   CHECK_EQ(1, bottom[1]->shape(0));
   CHECK_EQ(num_instances, bottom[1]->shape(1));
@@ -44,7 +54,7 @@ void LSTMDataGetterLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
   //set up current_x = GetData<apat>
   if (pattern == AccessPattern::strided_cube) {
-    strided_cube_data_handler handler;
+    strided_cube_data_handler<Dtype> handler;
     handler.GetData(bottom[0]->cpu_data(), top[0]->mutable_cpu_data(), batch_size, ntypes, 
         subgrid_dim, dim, current_timestep, cube_stride, example_size);
   }
@@ -56,13 +66,18 @@ void LSTMDataGetterLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void LSTMDataGetterLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+  Dtype* total_diff = bottom[0]->mutable_cpu_diff();
+  //if we're just starting backward, zero grid diff...is this necessary?
+  if (current_timestep == num_timesteps-1) {
+    memset(total_diff, 0, num_timesteps * batch_size * ntypes * dim * dim * dim);
+  }
   //update the data blob contents to be correct for the previous timestep
   if (pattern == AccessPattern::strided_cube) {
-    strided_cube_data_handler handler;
+    strided_cube_data_handler<Dtype> handler;
     handler.GetData(bottom[0]->cpu_data(), top[0]->mutable_cpu_data(), batch_size, ntypes, 
         subgrid_dim, dim, current_timestep, cube_stride, example_size);
     //also accumulate gradients for the current timestep in the right location
-    handler.AccumulateDiff(top[0]->cpu_diff(), bottom[0]->mutable_cpu_diff(), batch_size, 
+    handler.AccumulateDiff(top[0]->cpu_diff(), total_diff, batch_size, 
         ntypes, subgrid_dim, dim, current_timestep, cube_stride, example_size);
   }
   if (current_timestep != 0)
