@@ -621,6 +621,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
         std::cout << "new group is " << ex.group << std::endl;
         std::cout << "new rec is " << ex.receptor << std::endl;
         std::cout << "new lig is " << ex.ligand << std::endl;
+        std::cout << "number of frames is " << frame_groups[ex.group].size() << std::endl;
         current_locations.push_back(location(frame_groups[ex.group].begin(), 
               frame_groups[ex.group].end()));
       }

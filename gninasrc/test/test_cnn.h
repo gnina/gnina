@@ -2,4 +2,3 @@
 
 void test_set_atom_gradients();
 void test_subcube_grids();
-void test_strided_cube_data_handler();

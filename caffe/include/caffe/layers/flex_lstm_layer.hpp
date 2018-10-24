@@ -86,6 +86,11 @@ struct strided_cube_data_handler : public data_handler<Dtype> {
   __host__ __device__ virtual void GetData(const Dtype* src, Dtype* dest,
        unsigned batch_size, unsigned ntypes, unsigned subgrid_dim, unsigned dim, 
        unsigned current_timestep, unsigned cube_stride, unsigned example_size) {
+    unsigned overall_size = dim * dim * dim;
+    unsigned factor = (((dim - subgrid_dim) / cube_stride) + 1);
+    unsigned x_offset = (current_timestep / (factor * factor)) * cube_stride;
+    unsigned y_offset = (current_timestep / factor) * cube_stride;
+    unsigned z_offset = (current_timestep % factor) * cube_stride;
     //extract a single "timestep" corresponding to the correct stride
 #ifndef __CUDA_ARCH__
     for (unsigned batch_idx=0; batch_idx < batch_size; ++batch_idx) {
@@ -93,12 +98,8 @@ struct strided_cube_data_handler : public data_handler<Dtype> {
         for (unsigned i=0; i<subgrid_dim; ++i) {
           for (unsigned j=0; j<subgrid_dim; ++j) {
             for (unsigned k=0; k<subgrid_dim; ++k) {
-              unsigned factor = (((dim - subgrid_dim) / cube_stride) + 1);
-              unsigned x_offset = (current_timestep / (factor * factor)) * cube_stride;
-              unsigned y_offset = (current_timestep / factor) * cube_stride;
-              unsigned z_offset = (current_timestep % factor) * cube_stride;
               dest[(((batch_idx * ntypes + grid) * subgrid_dim + i) * subgrid_dim + j) * 
-                subgrid_dim + k] = src[batch_idx * example_size + 
+                subgrid_dim + k] = src[batch_idx * example_size + grid * overall_size + 
                 (((x_offset + i) * dim + y_offset + j) * dim + z_offset + k) * dim];
             }
           }
@@ -106,11 +107,6 @@ struct strided_cube_data_handler : public data_handler<Dtype> {
       }
     }
 #else
-    //initial offset is based on current timestep
-    unsigned factor = (((dim - subgrid_dim) / cube_stride) + 1);
-    unsigned x_offset = (current_timestep / (factor * factor)) * cube_stride;
-    unsigned y_offset = (current_timestep / factor) * cube_stride;
-    unsigned z_offset = (current_timestep % factor) * cube_stride;
     //we stop when we're out of the subgrid
     unsigned subgrid_size = ntypes * subgrid_dim * subgrid_dim * subgrid_dim;
     unsigned subgrid_count = subgrid_size * batch_size;
@@ -128,7 +124,7 @@ struct strided_cube_data_handler : public data_handler<Dtype> {
       unsigned batch_idx = idx % (batch_size + 1);
       //what overall index does that correspond to?
       dest[(((batch_idx * ntypes + type) * subgrid_dim + i) * subgrid_dim + j) * 
-        subgrid_dim + k] = src[batch_idx * example_size + 
+        subgrid_dim + k] = src[batch_idx * example_size + type * overall_size + 
         (((x_offset + i) * dim + y_offset + j) * dim + z_offset + k) * dim];
     }
 #endif
@@ -137,17 +133,19 @@ struct strided_cube_data_handler : public data_handler<Dtype> {
  __host__ __device__ virtual void AccumulateDiff(const Dtype* src, Dtype* dest, 
        unsigned batch_size, unsigned ntypes, unsigned subgrid_dim, unsigned dim, 
        unsigned current_timestep, unsigned cube_stride, unsigned example_size) {
+   unsigned overall_size = dim * dim * dim;
+   unsigned factor = (((dim - subgrid_dim) / cube_stride) + 1);
+   unsigned x_offset = (current_timestep / (factor * factor)) * cube_stride;
+   unsigned y_offset = (current_timestep / factor) * cube_stride;
+   unsigned z_offset = (current_timestep % factor) * cube_stride;
 #ifndef __CUDA_ARCH__
    for (unsigned batch_idx=0; batch_idx < batch_size; ++batch_idx) {
      for (unsigned grid=0; grid < ntypes; ++grid) {
        for (unsigned i=0; i<subgrid_dim; ++i) {
          for (unsigned j=0; j<subgrid_dim; ++j) {
            for (unsigned k=0; k<subgrid_dim; ++k) {
-             unsigned factor = (((dim - subgrid_dim) / cube_stride) + 1);
-             unsigned x_offset = (current_timestep / (factor * factor)) * cube_stride;
-             unsigned y_offset = (current_timestep / factor) * cube_stride;
-             unsigned z_offset = (current_timestep % factor) * cube_stride;
-             dest[batch_idx * example_size + (((x_offset + i) * dim + y_offset + j) * dim + 
+             dest[batch_idx * example_size + grid * overall_size + 
+               (((x_offset + i) * dim + y_offset + j) * dim + 
                  z_offset + k) * dim] +=
              src[(((batch_idx * ntypes + grid) * subgrid_dim + i) * subgrid_dim + j) * 
                subgrid_dim + k];
@@ -157,10 +155,6 @@ struct strided_cube_data_handler : public data_handler<Dtype> {
      }
    }
 #else
-   unsigned factor = (((dim - subgrid_dim) / cube_stride) + 1);
-   unsigned x_offset = (current_timestep / (factor * factor)) * cube_stride;
-   unsigned y_offset = (current_timestep / factor) * cube_stride;
-   unsigned z_offset = (current_timestep % factor) * cube_stride;
    unsigned subgrid_size = ntypes * subgrid_dim * subgrid_dim * subgrid_dim;
    unsigned subgrid_count = subgrid_size * batch_size;
    CUDA_KERNEL_LOOP(tidx, subgrid_count) {
@@ -174,7 +168,8 @@ struct strided_cube_data_handler : public data_handler<Dtype> {
      unsigned type = idx % (ntypes + 1);
      idx /= (ntypes + 1);
      unsigned batch_idx = idx % (batch_size + 1);
-     dest[batch_idx * example_size + (((x_offset + i) * dim + y_offset + j) * dim + 
+     dest[batch_idx * example_size + type * overall_size + 
+       (((x_offset + i) * dim + y_offset + j) * dim + 
          z_offset + k) * dim] +=
      src[(((batch_idx * ntypes + type) * subgrid_dim + i) * subgrid_dim + j) * 
        subgrid_dim + k];
