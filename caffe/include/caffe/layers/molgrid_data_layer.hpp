@@ -582,7 +582,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     std::deque<location> current_locations;
 
   public:
-    grouped_example_provider(): examples(), batch_size(1), maxgroupsize(1) {}
+    grouped_example_provider(): examples(), batch_size(1), maxgroupsize(1), continuing(false) {}
     grouped_example_provider(const MolGridDataParameter& parm): examples(parm), 
                                                 batch_size(parm.batch_size()), 
                                                 maxgroupsize(parm.maxgroupsize()),
@@ -590,11 +590,11 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     //only add the first example for each group to examples; after that just
     //the filenames to the frame_groups map
     void add(const example& ex) {
-      int group = ex.group;
-      if (frame_groups.find(group) == frame_groups.end()) {
+      auto& group = ex.group;
+      //TODO: when using c++17 switch to try_emplace
+      auto ret = frame_groups.emplace(group, vector<example>());
+      if (ret.second) 
         examples.add(ex);
-        frame_groups[group] = vector<example>();
-      }
       else {
         CHECK(frame_groups[group].size() <= (maxgroupsize - 1)) << "Frame group " << group << " size " << frame_groups[group].size()+1 << " exceeds max group size " << maxgroupsize << "."; //this could be handled, but it'd be messy the way things are now and it's proven to be a useful sanity check
         frame_groups[group].push_back(ex);
@@ -602,6 +602,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     }
 
     void setup() {
+      std::cout << "hit setup" << std::endl;
       examples.setup();
       for (auto& group : frame_groups) {
         //if we have fewer than maxgroupsize examples for this group, pad with
@@ -610,11 +611,16 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
           group.second.push_back(example(-1, -1, -1, -1, NULL, NULL));
         }
       }
+      CHECK_EQ(current_locations.size(), 0) << "All timesteps were not traversed prior to new provider setup";
+      continuing = false;
     }
 
     void next(example& ex) {
       if (current_locations.size() < batch_size && !continuing) {
         examples.next(ex);
+        std::cout << "new group is " << ex.group << std::endl;
+        std::cout << "new rec is " << ex.receptor << std::endl;
+        std::cout << "new lig is " << ex.ligand << std::endl;
         current_locations.push_back(location(frame_groups[ex.group].begin(), 
               frame_groups[ex.group].end()));
       }
@@ -622,6 +628,9 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
         auto progress = current_locations[0];
         current_locations.pop_front();
         ex = *progress.first;
+        std::cout << "continuing group is " << ex.group << std::endl;
+        std::cout << "continuing rec is " << ex.receptor << std::endl;
+        std::cout << "continuing lig is " << ex.ligand << std::endl;
         progress.first++;
         if (progress.first != progress.second) {
           current_locations.push_back(progress);

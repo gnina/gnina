@@ -254,7 +254,7 @@ void test_subcube_grids() {
     }
   }
 
-  delete data;
-  delete rnndata;
-  delete rnndata_gpu;
+  delete[] data;
+  delete[] rnndata;
+  delete[] rnndata_gpu;
 }
