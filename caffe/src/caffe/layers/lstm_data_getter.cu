@@ -36,7 +36,8 @@ void LSTMDataGetterLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
   const int count = top[0]->count();
   const Dtype* src = bottom[0]->gpu_data();
   Dtype* dest = top[0]->mutable_gpu_data();
-  LSTMFlexForward<Dtype><<<CAFFE_GET_BLOCKS(example_size),
+  unsigned subgrid_size = batch_size * ntypes * subgrid_dim * subgrid_dim * subgrid_dim;
+  LSTMFlexForward<Dtype><<<CAFFE_GET_BLOCKS(subgrid_size),
     CAFFE_CUDA_NUM_THREADS>>>(count, src, dest, pattern, batch_size, ntypes,
         subgrid_dim, dim, current_timestep, cube_stride, example_size);
   CUDA_POST_KERNEL_CHECK;
@@ -57,7 +58,8 @@ void LSTMDataGetterLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
   const int count = top[0]->count();
   const Dtype* src = bottom[0]->gpu_data();
   Dtype* dest = top[0]->mutable_gpu_data();
-  LSTMFlexBackward<Dtype><<<CAFFE_GET_BLOCKS(example_size),
+  unsigned subgrid_size = batch_size * ntypes * subgrid_dim * subgrid_dim * subgrid_dim;
+  LSTMFlexBackward<Dtype><<<CAFFE_GET_BLOCKS(subgrid_size),
     CAFFE_CUDA_NUM_THREADS>>>(count, src, dest, total_diff, partial_diff, pattern, 
         batch_size, ntypes, subgrid_dim, dim, current_timestep, cube_stride,
         example_size);

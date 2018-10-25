@@ -7,7 +7,9 @@
 #include <cuda_runtime.h>
 #include "quaternion.h"
 #include "caffe/proto/caffe.pb.h"
+#include "caffe/layers/flex_lstm_layer.hpp"
 #include "caffe/util/rng.hpp"
+#include "caffe/util/device_alternate.hpp"
 #include <boost/multi_array/multi_array_ref.hpp>
 #define BOOST_TEST_DYN_LINK
 #include <boost/test/unit_test.hpp>
@@ -257,4 +259,101 @@ void test_subcube_grids() {
   delete[] data;
   delete[] rnndata;
   delete[] rnndata_gpu;
+}
+
+void test_strided_cube_handler() {
+  typedef float Dtype;
+  //check whether we're getting the correct subcube of the parent grid
+  p_args.log << "CNN Strided Cube Handler Test \n";
+  p_args.log << "Using random seed: " << p_args.seed << '\n';
+  p_args.log << "Iteration " << p_args.iter_count << '\n';
+  std::mt19937 engine(p_args.seed);
+
+  //how big is subcube
+  std::uniform_int_distribution<unsigned> subcubedim_dist(1, 15); 
+  std::uniform_int_distribution<unsigned> res_dist(1, 20);
+  float resolution = res_dist(engine) * 0.05;
+  unsigned subcube_dim_pts = subcubedim_dist(engine);
+  float subcube_dim = subcube_dim_pts * resolution;
+
+  //full grid at least as big as subcube
+  std::uniform_int_distribution<unsigned> griddim_dist(subcube_dim_pts, 50);
+  unsigned dim = griddim_dist(engine);
+  unsigned ntypes = smt::NumTypes;
+
+  //get batch size and resolve sizes of things
+  std::uniform_int_distribution<unsigned> batch_dist(1, 32);
+  unsigned batch_size = batch_dist(engine);
+  unsigned example_size = ntypes * dim * dim * dim;
+  unsigned gsize = batch_size * example_size;
+  unsigned cube_size = batch_size * ntypes * subcube_dim_pts * 
+    subcube_dim_pts * subcube_dim_pts;
+  unsigned slices_per_dim = ((dim - subgrid_dim) / cube_stride) + 1;
+  unsigned n_timesteps = slices_per_dim * slices_per_dim * slices_per_dim;
+
+  //get subcube stride
+  std::uniform_int_distribution<unsigned> stride_dist(1, subcube_dim_pts+2);
+  unsigned cube_stride = stride_dist(engine);
+
+  //randomly populate full grid
+  typedef boost::multi_array<Dtype, 5> array_t;
+  typedef boost::multi_array_types::index_range range_t;
+  array_t::index_gen indices;
+  array_t data(boost::extents[batch_size][ntypes][dim][dim][dim]);
+  std::uniform_real_distribution<Dtype> dist;
+  generate(begin(data), end(data), bind(dist, eng));
+
+  caffe::strided_cube_data_handler handler;
+  //cpu subcube
+  array_t cpu_subcube(boost::extents[batch_size][ntypes][subcube_dim_pts][subcube_dim_pts][subcube_dim_pts]);
+  //gpu subcube, host and device
+  array_t gpu_subcube(boost::extents[batch_size][ntypes][subcube_dim_pts][subcube_dim_pts][subcube_dim_pts]);
+  Dtype* gpu_subcube_device;
+  CUDA_CHECK(cudaMalloc(&gpu_subcube_device, sizeof(Dtype) * cube_size));
+  //gpu full grid when it's on the gpu
+  Dtype* gpu_data;
+  CUDA_CHECK(cudaMalloc(&gpu_data, sizeof(Dtype) * gsize));
+  CUDA_CHECK(cudaMemcpy(gpu_data, data.data(), sizeof(Dtype)*gsize, cudaMemcpyHostToDevice));
+
+  for (unsigned ts=0; ts<n_timesteps; ++ts) {
+    for (unsigned batch_idx=0; batch_idx < batch_size; ++batch_idx) {
+      for (unsigned type=0; type<ntypes; ++type) {
+        //update cpu subcube
+        handler.GetData(data.data(), cpu_subcube, batch_size, ntypes, subgrid_dim_pts, 
+            dim, ts, cube_stride, example_size);
+        //update gpu subcube
+        LSTMFlexForward<Dtype><<<CAFFE_GET_BLOCKS(cube_size),
+          CAFFE_CUDA_NUM_THREADS>>>(cube_size, gpu_data, gpu_subcube_device,
+              AccessPattern::strided_cube, batch_size, ntypes, subgrid_dim_pts,
+              dim, ts, cube_stride, example_size);
+        CUDA_POST_KERNEL_CHECK;
+        CUDA_CHECK(cudaMemcpy(gpu_subcube.data(), gpu_subcube_device, sizeof(dtype)*cube_size, 
+              cudaMemcpyDeviceToHost));
+        //use timestep and slices per dim to figure out x,y,z ranges for
+        //overall array
+        unsigned i = ts / (slices_per_dim * slices_per_dim);
+        unsigned j = ts / slices_per_dim;
+        unsigned k = ts % slices_per_dim;
+        //get view of cube
+        array_t::array_view<5>::type cube_view = data[ indices[batch_idx][type][range_t(i,i+subcube_dim_pts)][range_t(j,j+subcube_dim_pts)][range_t(k,k+subcube_dim_pts)] ];
+        for (unsigned x=0; x<subcube_dim_pts; ++x) 
+          for (unsigned y=0; y<subcube_dim_pts; ++y) 
+            for (unsigned z=0; z<subcube_dim_pts; ++z) {
+              p_args.log << "timestep: " << ts << " batch index: " << batch_idx << 
+                " atom type: " << type << 
+                " CPU full grid " << cube_view[batch_idx][type][x][y][z] << 
+                " CPU subcube " << cpu_subcube[batch_idx][type][x][y][z] << 
+                " GPU subcube " << gpu_subcube[batch_idx][type][x][y][z] << "\n";
+              BOOST_REQUIRE_SMALL(
+                  cube_view[batch_idx][type][x][y][z] - cpu_subcube[batch_idx][type][x][y][z],
+                  (float )0.01);
+              BOOST_REQUIRE_SMALL(
+                  cube_view[batch_idx][type][x][y][z] - gpu_subcube[batch_idx][type][x][y][z],
+                  (float )0.01);
+            }
+      }
+    }
+  }
+  cudaFree(gpu_subcube_device);
+  cudaFree(gpu_grids);
 }

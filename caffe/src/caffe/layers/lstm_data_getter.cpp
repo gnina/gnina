@@ -12,13 +12,14 @@ void LSTMDataGetterLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   if (cube_stride) {
     pattern = strided_cube;
   }
-  num_timesteps = bottom[0]->shape(0);
-  batch_size = bottom[0]->shape(1);
-  ntypes = bottom[0]->shape(2);
-  dim = bottom[0]->shape(3);
+  batch_size = bottom[0]->shape(0);
+  ntypes = bottom[0]->shape(1);
+  dim = bottom[0]->shape(2);
   unsigned resolution = mgrid_param.resolution();
   unsigned subgrid_dim_in_angstroms = mgrid_param.subgrid_dim();
   subgrid_dim = ::round(subgrid_dim_in_angstroms / resolution) + 1;
+  unsigned slices_per_dim = ((dim - subgrid_dim) / cube_stride) + 1;
+  num_timesteps = slices_per_dim * slices_per_dim * slices_per_dim;
   example_size = ntypes * dim * dim * dim;
   current_timestep = 0;
 }
@@ -27,26 +28,28 @@ template <typename Dtype>
 void LSTMDataGetterLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
   //bottom is data, current_x; top is current_x
-  const int num_instances = bottom[0]->shape(1);
-  const int num_channels = bottom[0]->shape(2);
+  const int num_instances = bottom[0]->shape(0);
+  const int num_channels = bottom[0]->shape(1);
   vector<int> current_x_shape;
   //if access_pattern == strided_cube, current_x 1xBxCxSdimxSdimxSdim
-  if (bottom[1]->num_axes() == 0) {
+  if (bottom.size() == 1) {
     current_x_shape.push_back(1);
     current_x_shape.push_back(batch_size);
     current_x_shape.push_back(ntypes);
     current_x_shape.push_back(subgrid_dim);
     current_x_shape.push_back(subgrid_dim);
     current_x_shape.push_back(subgrid_dim);
-    bottom[1]->Reshape(current_x_shape);
+    top[0]->Reshape(current_x_shape);
   }
-  CHECK_EQ(6, bottom[1]->num_axes());
-  CHECK_EQ(1, bottom[1]->shape(0));
-  CHECK_EQ(num_instances, bottom[1]->shape(1));
-  CHECK_EQ(num_channels, bottom[1]->shape(2));
-  CHECK_EQ(subgrid_dim, bottom[1]->shape(3));
-  CHECK_EQ(subgrid_dim, bottom[1]->shape(4));
-  CHECK_EQ(subgrid_dim, bottom[1]->shape(5));
+  else {
+    CHECK_EQ(6, bottom[1]->num_axes());
+    CHECK_EQ(1, bottom[1]->shape(0));
+    CHECK_EQ(num_instances, bottom[1]->shape(1));
+    CHECK_EQ(num_channels, bottom[1]->shape(2));
+    CHECK_EQ(subgrid_dim, bottom[1]->shape(3));
+    CHECK_EQ(subgrid_dim, bottom[1]->shape(4));
+    CHECK_EQ(subgrid_dim, bottom[1]->shape(5));
+  }
 }
 
 template <typename Dtype>
