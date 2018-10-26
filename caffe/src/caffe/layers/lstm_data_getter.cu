@@ -16,6 +16,17 @@ __global__ void LSTMFlexForward(const int nthreads, const Dtype* src, Dtype* des
 }
 
 template <typename Dtype>
+void LSTMKernelWrapper(const int cube_size, const Dtype* src, Dtype* dest,
+    AccessPattern pattern, unsigned batch_size, unsigned ntypes, unsigned
+    subgrid_dim, unsigned dim, unsigned current_timestep, unsigned cube_stride,
+    unsigned example_size) {
+  LSTMFlexForward<Dtype><<<CAFFE_GET_BLOCKS(cube_size),
+    CAFFE_CUDA_NUM_THREADS>>>(cube_size, src, dest,
+        pattern, batch_size, ntypes, subgrid_dim,
+        dim, current_timestep, cube_stride, example_size);
+}
+
+template <typename Dtype>
 __global__ void LSTMFlexBackward(const int nthreads, const Dtype* src, Dtype* dest,
     Dtype* total_diff, const Dtype* partial_diff, AccessPattern pattern, unsigned batch_size, 
     unsigned ntypes, unsigned subgrid_dim, unsigned dim, unsigned current_timestep,
@@ -69,5 +80,10 @@ void LSTMDataGetterLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
 }
 
 INSTANTIATE_LAYER_GPU_FUNCS(LSTMDataGetterLayer);
+
+template void LSTMKernelWrapper<float>(const int nthreads, const float* src, float* dest,
+    AccessPattern pattern, unsigned batch_size, unsigned ntypes, unsigned
+    subgrid_dim, unsigned dim, unsigned current_timestep, unsigned cube_stride,
+    unsigned example_size);
 
 }  // namespace caffe

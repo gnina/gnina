@@ -179,6 +179,11 @@ struct strided_cube_data_handler : public data_handler<Dtype> {
   __host__ __device__ virtual ~strided_cube_data_handler() {}
 };
 
+template <typename Dtype>
+void LSTMKernelWrapper(const int nthreads, const Dtype* src, Dtype* dest,
+    AccessPattern pattern, unsigned batch_size, unsigned ntypes, unsigned
+    subgrid_dim, unsigned dim, unsigned current_timestep, unsigned cube_stride,
+    unsigned example_size);
 
 } // namespace caffe
 
