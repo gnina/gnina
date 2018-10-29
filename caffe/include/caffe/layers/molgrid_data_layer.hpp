@@ -602,7 +602,6 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     }
 
     void setup() {
-      std::cout << "hit setup" << std::endl;
       examples.setup();
       for (auto& group : frame_groups) {
         //if we have fewer than maxgroupsize examples for this group, pad with
@@ -618,10 +617,6 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     void next(example& ex) {
       if (current_locations.size() < batch_size && !continuing) {
         examples.next(ex);
-        std::cout << "new group is " << ex.group << std::endl;
-        std::cout << "new rec is " << ex.receptor << std::endl;
-        std::cout << "new lig is " << ex.ligand << std::endl;
-        std::cout << "number of frames is " << frame_groups[ex.group].size() << std::endl;
         current_locations.push_back(location(frame_groups[ex.group].begin(), 
               frame_groups[ex.group].end()));
       }
@@ -629,9 +624,6 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
         auto progress = current_locations[0];
         current_locations.pop_front();
         ex = *progress.first;
-        std::cout << "continuing group is " << ex.group << std::endl;
-        std::cout << "continuing rec is " << ex.receptor << std::endl;
-        std::cout << "continuing lig is " << ex.ligand << std::endl;
         progress.first++;
         if (progress.first != progress.second) {
           current_locations.push_back(progress);
@@ -940,7 +932,7 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
       BaseMolGridDataLayer<Dtype, GridMaker>(param), 
       maxgroupsize(param.molgrid_data_param().maxgroupsize()), 
       batch_size(param.molgrid_data_param().batch_size()), 
-      example_idx(0), translations(maxgroupsize) {
+      example_idx(0), translations(batch_size) {
         CHECK_EQ(param.molgrid_data_param().subgrid_dim(), 0) << 
           "Subgrids and groups are mutually exclusive";
         unsigned input_chunksize = param.molgrid_data_param().maxchunksize();
