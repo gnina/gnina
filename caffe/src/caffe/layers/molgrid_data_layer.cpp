@@ -561,6 +561,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
 
   //shape must come from parameters
   int batch_size = param.batch_size();
+  last_iter_names.resize(batch_size);
 
   if(!inmem)
   {
@@ -803,17 +804,23 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data,
 {
   //set grid values for example
   //cache atom info
-  bool docache = this->layer_param_.molgrid_data_param().cache_structs();
-  bool dream = this->layer_param_.molgrid_data_param().dream();
+  const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
+  bool docache = param.cache_structs();
+  bool dream = param.dream();
 
-  if (dream && current_iter > 0) {
-    if (gpu)
-      CUDA_CHECK(cudaMemcpy(data, last_iter_grid[ex.ligand + ex.receptor], 
-            sizeof(Dtype) * example_size, cudaMemcpyHostToDevice));
-    else
-      memcpy(data, last_iter_grid[ex.ligand + ex.receptor], sizeof(Dtype) * example_size);
+  if (dream) {
+      if (last_iter_grid.find(std::string(ex.receptor) + std::string(ex.ligand)) != 
+          last_iter_grid.end()) {
+        if (gpu)
+          CUDA_CHECK(cudaMemcpy(data, last_iter_grid[std::string(ex.receptor) + 
+                std::string(ex.ligand)].data(), 
+                sizeof(Dtype) * example_size, cudaMemcpyHostToDevice));
+        else
+          memcpy(data, last_iter_grid[std::string(ex.receptor) + 
+              std::string(ex.ligand)].data(), sizeof(Dtype) * example_size);
+    }
   }
-  elseif(docache)
+  else if(docache)
   {
     if(molcache.count(ex.receptor) == 0)
     {
@@ -1120,22 +1127,27 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::dumpDiffDX(const std::string& pref
 template<typename Dtype, class GridMakerT>
 void BaseMolGridDataLayer<Dtype,GridMakerT>::dumpGridDX(const std::string& prefix, Blob<Dtype>* top, double scale) const
 {
-  Dtype* data = top->cpu_data();
+  typedef boost::multi_array_types::index_range range_t;
+  Dtype* data = top->mutable_cpu_data();
   unsigned batch_size = top_shape[0];
   boost::multi_array_ref<Dtype, 5> grids(data,
 			boost::extents[batch_size][numReceptorTypes + numLigandTypes][dim][dim][dim]);
   for (unsigned bidx = 0; bidx < batch_size; ++bidx) {
+    boost::multi_array_ref<Dtype, 4> subgrid(grids[boost::indices[bidx][range_t(0,
+          numReceptorTypes + numLigandTypes)][range_t(0,dim)]
+          [range_t(0,dim)][range_t(0,dim)]].origin(), boost::extents[numReceptorTypes+
+          numLigandTypes][dim][dim][dim]);
 	  for (unsigned a = 0, na = numReceptorTypes; a < na; a++) {
 	  	string name = getIndexName(rmap, a);
 	  	string fname = prefix + "_rec_" + name + to_string(current_iter) + ".dx";
 	  	ofstream out(fname.c_str());
-	  	outputDXGrid(out, grids[bidx], a, scale, dim);
+	  	outputDXGrid(out, subgrid, a, scale, dim);
 	  }
 	  for (unsigned a = 0, na = numLigandTypes; a < na; a++) {
 	  		string name = getIndexName(lmap, a);
 	  		string fname = prefix + "_lig_" + name + to_string(current_iter) + ".dx";
 	  		ofstream out(fname.c_str());
-	  		outputDXGrid(out, grids[bidx], numReceptorTypes+a, scale, dim);
+	  		outputDXGrid(out, subgrid, numReceptorTypes+a, scale, dim);
 	  }
   }
 }
@@ -1218,6 +1230,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
   //TODO: support for groups in cnn_scorer and elsewhere as needed
   if(inmem)
   {
+    CHECK_EQ(maxgroupsize, 1) << "Groups not currently supported with structure in memory";
     CHECK_GT(mem_rec.atoms.size(),0) << "Receptor not set in MolGridDataLayer";
     CHECK_GT(mem_lig.atoms.size(),0) << "Ligand not set in MolGridDataLayer";
     //memory is now available
@@ -1259,6 +1272,21 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
       appendLabels(ex.label, ex.affinity, ex.rmsd);
       int step = idx / batch_size;
       int offset = ((batch_size * step) + batch_idx) * example_size;
+
+      if (dream && current_iter > 0) {
+        //copy out old grid before overwriting blob
+        std::string name = last_iter_names[batch_idx];
+        last_iter_grid.emplace(name, std::vector<Dtype>(example_size));
+        if (gpu)
+          CUDA_CHECK(cudaMemcpy(last_iter_grid[last_iter_names[batch_idx]].data(), 
+                top_data+offset, sizeof(Dtype) * example_size, cudaMemcpyDeviceToHost));
+        else
+          memcpy(last_iter_grid[last_iter_names[batch_idx]].data(), 
+                top_data+offset, sizeof(Dtype) * example_size);
+
+        last_iter_names[batch_idx] = std::string(ex.receptor) + std::string(ex.ligand);
+      }
+
       //if label == -1 then this is a padding example for grouped data; just
       //memset data to 0
       if (ex.label == -1) {
@@ -1278,8 +1306,13 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
         perturbations.push_back(peturb);
         //NOTE: num_rotations not actually implemented!
       }
-      if (dream) 
-        dumpGridDX(ex.receptor + "_" + ex.ligand + "_", top[0]);
+      if (dream)  {
+        std::vector<std::string> splits;
+        std::string prelim = std::string(ex.receptor) + "_" + std::string(ex.ligand);
+        boost::split(splits, prelim, [](char c){return c == '/';});
+        std::string prefix = boost::algorithm::join(splits, "_");
+        dumpGridDX(prefix, top[0]);
+      }
     }
 
   }

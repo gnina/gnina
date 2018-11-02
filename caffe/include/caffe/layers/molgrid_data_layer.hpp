@@ -85,8 +85,8 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   public:
     explicit BaseMolGridDataLayer(const LayerParameter& param) : 
       MolGridDataLayer<Dtype>(param), data(NULL), data2(NULL), data_ratio(0),
-      num_rotations(0), current_rotation(0), current_iter(0), 
-      example_size(0), inmem(false), resolution(0.5),
+      num_rotations(0), current_rotation(0), 
+      example_size(0), current_iter(0), inmem(false), resolution(0.5),
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
       jitter(0.0), binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
@@ -828,6 +828,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
 
   //map rec/lig pair to their most recent grid for input optimization
   std::unordered_map<std::string, std::vector<Dtype>> last_iter_grid;
+  std::vector<std::string> last_iter_names;
 
   unsigned num_rotations;
   unsigned current_rotation;
