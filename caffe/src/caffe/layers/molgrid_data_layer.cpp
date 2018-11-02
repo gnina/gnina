@@ -808,8 +808,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data,
   bool docache = param.cache_structs();
   bool dream = param.dream();
 
-  if (dream) {
-      if (last_iter_grid.find(std::string(ex.receptor) + std::string(ex.ligand)) != 
+  if (dream && last_iter_grid.find(std::string(ex.receptor) + std::string(ex.ligand)) != 
           last_iter_grid.end()) {
         if (gpu)
           CUDA_CHECK(cudaMemcpy(data, last_iter_grid[std::string(ex.receptor) + 
@@ -818,7 +817,6 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data,
         else
           memcpy(data, last_iter_grid[std::string(ex.receptor) + 
               std::string(ex.ligand)].data(), sizeof(Dtype) * example_size);
-    }
   }
   else if(docache)
   {
@@ -832,6 +830,8 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data,
     }
 
     set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, peturb, gpu);
+    if (dream) 
+      grid_centers[std::string(ex.receptor) + std::string(ex.ligand)] = molcache[ex.ligand].center;
   }
   else
   {
@@ -840,6 +840,8 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data,
     set_mol_info(root_folder+ex.receptor, rmap, 0, rec);
     set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, lig);
     set_grid_minfo(data, rec, lig, transform, peturb, gpu);
+    if (dream) 
+      grid_centers[std::string(ex.receptor) + std::string(ex.ligand)] = lig.center;
   }
 }
 
@@ -1124,32 +1126,49 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::dumpDiffDX(const std::string& pref
 
 }
 
+template <typename Dtype>
+inline bool grid_empty(Dtype* data, size_t n_elements) {
+  for (unsigned i=0; i<n_elements; ++i) {
+    if (data[i] != 0.0) return false;
+  }
+  return true;
+}
+
+template bool grid_empty(float* data, size_t n_elements);
+template bool grid_empty(double* data, size_t n_elements);
+
+template <typename Dtype, class GridMakerT>
+void BaseMolGridDataLayer<Dtype, GridMakerT>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+    const vector<Blob<Dtype>*>& top)
+{
+  forward(bottom, top, false);
+}
+
 template<typename Dtype, class GridMakerT>
-void BaseMolGridDataLayer<Dtype,GridMakerT>::dumpGridDX(const std::string& prefix, Blob<Dtype>* top, double scale) const
+void BaseMolGridDataLayer<Dtype,GridMakerT>::dumpGridDX(const std::string& prefix, Dtype* data, double scale) const
 {
   typedef boost::multi_array_types::index_range range_t;
-  Dtype* data = top->mutable_cpu_data();
-  unsigned batch_size = top_shape[0];
-  boost::multi_array_ref<Dtype, 5> grids(data,
-			boost::extents[batch_size][numReceptorTypes + numLigandTypes][dim][dim][dim]);
-  for (unsigned bidx = 0; bidx < batch_size; ++bidx) {
-    boost::multi_array_ref<Dtype, 4> subgrid(grids[boost::indices[bidx][range_t(0,
-          numReceptorTypes + numLigandTypes)][range_t(0,dim)]
-          [range_t(0,dim)][range_t(0,dim)]].origin(), boost::extents[numReceptorTypes+
-          numLigandTypes][dim][dim][dim]);
-	  for (unsigned a = 0, na = numReceptorTypes; a < na; a++) {
-	  	string name = getIndexName(rmap, a);
-	  	string fname = prefix + "_rec_" + name + to_string(current_iter) + ".dx";
-	  	ofstream out(fname.c_str());
-	  	outputDXGrid(out, subgrid, a, scale, dim);
-	  }
-	  for (unsigned a = 0, na = numLigandTypes; a < na; a++) {
-	  		string name = getIndexName(lmap, a);
-	  		string fname = prefix + "_lig_" + name + to_string(current_iter) + ".dx";
-	  		ofstream out(fname.c_str());
-	  		outputDXGrid(out, subgrid, numReceptorTypes+a, scale, dim);
-	  }
-  }
+  typename Grids::index_gen indices;
+  Grids grid(data,
+			boost::extents[numReceptorTypes + numLigandTypes][dim][dim][dim]);
+	for (unsigned a = 0, na = numReceptorTypes; a < na; a++) {
+    if (!(grid_empty(grid[indices[a]
+        [range_t(0, dim)] [range_t(0, dim)][range_t(0,dim)]].origin(), dim*dim*dim))) {
+		  string name = getIndexName(rmap, a);
+		  string fname = prefix + "_rec_" + name + to_string(current_iter) + ".dx";
+		  ofstream out(fname.c_str());
+		  outputDXGrid(out, grid, a, scale, dim);
+    }
+	}
+	for (unsigned a = 0, na = numLigandTypes; a < na; a++) {
+    if (!(grid_empty(grid[indices[numReceptorTypes+a]
+        [range_t(0, dim)] [range_t(0, dim)][range_t(0,dim)]].origin(), dim*dim*dim))) {
+			string name = getIndexName(lmap, a);
+			string fname = prefix + "_lig_" + name + to_string(current_iter) + ".dx";
+			ofstream out(fname.c_str());
+			outputDXGrid(out, grid, numReceptorTypes+a, scale, dim);
+    }
+	}
 }
 
 //if doing subcubes, output a separate file for each subcube (for now) to
@@ -1188,14 +1207,6 @@ void RNNMolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
 	}
 
 }
-
-template <typename Dtype, class GridMakerT>
-void BaseMolGridDataLayer<Dtype, GridMakerT>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-    const vector<Blob<Dtype>*>& top)
-{
-  forward(bottom, top, false);
-}
-
 
 template <typename Dtype, class GridMakerT>
 void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu)
@@ -1284,17 +1295,14 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
           memcpy(last_iter_grid[last_iter_names[batch_idx]].data(), 
                 top_data+offset, sizeof(Dtype) * example_size);
 
-        last_iter_names[batch_idx] = std::string(ex.receptor) + std::string(ex.ligand);
       }
 
       //if label == -1 then this is a padding example for grouped data; just
       //memset data to 0
-      if (ex.label == -1) {
-          unsigned natoms = batch_transform[batch_idx].mol.atoms.size();
+      else if (ex.label == -1) {
           unsigned gsize = (numReceptorTypes + numLigandTypes) * dim * 
             dim * dim;
           if (gpu) {
-            allocateGPUMem(natoms);
             CUDA_CHECK(cudaMemset(top_data+offset, 0, gsize * sizeof(Dtype)));
           }
           else
@@ -1311,10 +1319,23 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
         std::string prelim = std::string(ex.receptor) + "_" + std::string(ex.ligand);
         boost::split(splits, prelim, [](char c){return c == '/';});
         std::string prefix = boost::algorithm::join(splits, "_");
-        dumpGridDX(prefix, top[0]);
+        std::string name = std::string(ex.receptor) + std::string(ex.ligand);
+        mem_lig.center = grid_centers[name];
+        if (current_iter < 1) {
+          if (gpu) {
+            std::vector<Dtype> grid(example_size);
+            CUDA_CHECK(cudaMemcpy(&grid[0], top_data+offset, sizeof(Dtype)*example_size, 
+                  cudaMemcpyDeviceToHost));
+            dumpGridDX(prefix, &grid[0]);
+          }
+          else 
+            dumpGridDX(prefix, top_data+offset);
+        }
+        else 
+          dumpGridDX(prefix, last_iter_grid[name].data());
+        last_iter_names[batch_idx] = name;
       }
     }
-
   }
   copyToBlobs(top, hasaffinity, hasrmsd, gpu);
 }

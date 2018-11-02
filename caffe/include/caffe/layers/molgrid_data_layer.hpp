@@ -77,7 +77,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     virtual void getReceptorTransformationGradient(int batch_idx, vec& force, vec& torque) = 0;
     virtual void getLigandGradient(int batch_idx, vector<float3>& gradient) = 0;
     virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const = 0;
-    virtual void dumpGridDX(const std::string& prefix, Blob<Dtype>* top, double scale) const = 0;
+    virtual void dumpGridDX(const std::string& prefix, Dtype* top, double scale) const = 0;
 };
 
 template<typename Dtype, class GridMakerT>
@@ -267,7 +267,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   double getResolution() const { return resolution; }
 
   virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
-  virtual void dumpGridDX(const std::string& prefix, Blob<Dtype>* top, double scale=1.0) const;
+  virtual void dumpGridDX(const std::string& prefix, Dtype* top, double scale=1.0) const;
   friend void ::test_set_atom_gradients();
   friend void ::test_subcube_grids();
   template <typename atomT, typename MGridT, typename GridMakerU> 
@@ -828,6 +828,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
 
   //map rec/lig pair to their most recent grid for input optimization
   std::unordered_map<std::string, std::vector<Dtype>> last_iter_grid;
+  std::unordered_map<std::string, vec> grid_centers;
   std::vector<std::string> last_iter_names;
 
   unsigned num_rotations;
