@@ -405,6 +405,7 @@ message LayerParameter {
   optional InputParameter input_param = 143;
   optional LogParameter log_param = 134;
   optional LRNParameter lrn_param = 118;
+  optional MatMulParameter matmul_param = 154;
   optional MemoryDataParameter memory_data_param = 119;
   optional MolGridDataParameter molgrid_data_param = 151;
   optional MVNParameter mvn_param = 120;
@@ -1028,6 +1029,11 @@ message LRNParameter {
     CUDNN = 2;
   }
   optional Engine engine = 6 [default = DEFAULT];
+}
+
+message MatMulParameter {
+  optional int32 axis = 1 [default = 1];
+  optional bool transpose = 2 [default = false];
 }
 
 message MemoryDataParameter {
