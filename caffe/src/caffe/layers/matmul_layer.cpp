@@ -10,7 +10,8 @@ template <typename Dtype>
 void MatMulLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   const vector<Blob<Dtype>*>& top)
 {
-  transpose_ = this->layer_param_.matmul_param().transpose();
+  transpose_A = false;
+  transpose_B = false;
   Reshape(bottom, top);
 }
 
@@ -21,24 +22,47 @@ void MatMulLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   CHECK_EQ(bottom.size(), 2);
   CHECK_EQ(top.size(), 1);
 
-  const int row_axis = bottom[0]->CanonicalAxisIndex(
-    this->layer_param_.matmul_param().axis());
-  CHECK(row_axis >= 0);
+  CHECK(bottom[0]->num_axes() > 2);
+  CHECK(bottom[1]->num_axes() > 2);
 
-  const int col_axis = row_axis + 1;
-  CHECK(bottom[0]->num_axes() > col_axis);
-  CHECK(bottom[1]->num_axes() > col_axis);
+  CHECK_EQ(bottom[0]->shape(0), bottom[1]->shape(0));
+  batch_size = bottom[0]->shape(0);
 
-  CHECK_EQ(bottom[0]->count(0, row_axis), bottom[1]->count(0, row_axis));
-  CHECK_EQ(bottom[0]->count(col_axis), bottom[1]->shape(row_axis));
+  const int A_rows = bottom[0]->shape(1);
+  const int A_cols = bottom[0]->count(2);
 
-  n_pairs = bottom[0]->count(0, row_axis);
-  M_ = bottom[0]->shape(row_axis);
-  K_ = bottom[0]->count(col_axis);
-  N_ = bottom[1]->shape(col_axis);
+  const int B_rows = bottom[1]->shape(1);
+  const int B_cols = bottom[1]->count(2);
 
-  vector<int> top_shape = bottom[1]->shape();
-  top_shape[row_axis] = M_;
+  CHECK(!transpose_A); //TODO
+  CHECK(!transpose_B); //TODO
+
+  if (transpose_A)
+  {
+    M = A_cols;
+    K = A_rows;
+  }
+  else
+  {
+    M = A_rows;
+    K = A_cols;
+  }
+
+  if (transpose_B)
+  {
+    CHECK_EQ(K, B_cols);
+    N = B_rows;
+  }
+  else
+  {
+    CHECK_EQ(K, B_rows);
+    N = B_cols;
+  }
+
+  vector<int> top_shape(3);
+  top_shape[0] = batch_size;
+  top_shape[1] = M;
+  top_shape[2] = N;
   top[0]->Reshape(top_shape);
 }
 
@@ -50,12 +74,8 @@ void MatMulLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   const Dtype* B_data = bottom[1]->cpu_data();
   Dtype* C_data = top[0]->mutable_cpu_data();
 
-  for (int i = 0; i < n_pairs; ++i) // C_data = A_data * B_data
-  {
-    caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, M_, N_, K_,
-      (Dtype) 1., A_data + i*M_*K_, B_data + i*K_*N_,
-      (Dtype) 0., C_data + i*M_*N_);
-  }
+  caffe_cpu_gemm_batch<Dtype>(CblasNoTrans, CblasNoTrans, M, N, K,
+    (Dtype) 1., A_data, B_data, (Dtype) 0., C_data, batch_size);
 }
 
 template <typename Dtype>
@@ -68,26 +88,15 @@ void MatMulLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   Dtype* A_diff = bottom[0]->mutable_cpu_diff();
   Dtype* B_diff = bottom[1]->mutable_cpu_diff();
 
-  caffe_set<Dtype>(bottom[0]->count(), (Dtype) 0., A_diff);
-  caffe_set<Dtype>(bottom[1]->count(), (Dtype) 0., B_diff);
-
   if (propagate_down[0])
   {
-    for (int i = 0; i < n_pairs; ++i) // A_diff = C_diff * B_data.T
-    {
-      caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M_, K_, N_,
-        (Dtype) 1., C_diff + i*M_*N_, B_data + i*K_*N_,
-        (Dtype) 0., A_diff + i*M_*K_);
-    }
+    caffe_cpu_gemm_batch<Dtype>(CblasNoTrans, CblasTrans, M, K, N,
+      (Dtype) 1., C_diff, B_data, (Dtype) 0., A_diff, batch_size);
   }
   if (propagate_down[1])
   {
-    for (int i = 0; i < n_pairs; ++i) // B_diff = A_data.T * C_diff
-    {
-      caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans, K_, N_, M_,
-        (Dtype) 1., A_data + i*M_*K_, C_diff + i*M_*N_,
-        (Dtype) 0., B_diff + i*K_*N_);
-    }
+    caffe_cpu_gemm_batch<Dtype>(CblasTrans, CblasNoTrans, K, N, M,
+      (Dtype) 1., A_data, C_diff, (Dtype) 0., B_diff, batch_size);
   }
 }
 

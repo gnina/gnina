@@ -40,12 +40,13 @@ class MatMulLayer : public Layer<Dtype> {
   virtual void Backward_relevance(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
-  int n_pairs; // num of matrix pairs to multiply
-  int M_; // num of rows of first matrix
-  int K_; // num of cols of first matrix/rows of second matrix
-  int N_; // num cols of second matrix
+  int batch_size; // num of matrix pairs to multiply
+  int M; // num of rows of first matrix
+  int K; // num of cols of first matrix/rows of second matrix
+  int N; // num cols of second matrix
 
-  bool transpose_;  /// whether to transpose first matrix
+  bool transpose_A; // whether to transpose first input
+  bool transpose_B; // whether to transpose second input
 };
 
 }  // namespace caffe
