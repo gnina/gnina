@@ -15,7 +15,8 @@ void caffe_gpu_gemm_batch<float>(const CBLAS_TRANSPOSE TransA,
     const CBLAS_TRANSPOSE TransB, const int M, const int N, const int K,
     const float alpha, const float* A, const float* B, const float beta,
     float* C, const int batch_size) {
-  // Note that cublas follows fortran order.
+  // Note that cublas follows fortran order (column major), and AB = (B'A')'.
+  // Passing a row major matrix is equivalent to passing its transpose.
   int lda = (TransA == CblasNoTrans) ? K : M;
   int ldb = (TransB == CblasNoTrans) ? N : K;
   cublasOperation_t cuTransA =
@@ -31,7 +32,8 @@ void caffe_gpu_gemm_batch<double>(const CBLAS_TRANSPOSE TransA,
     const CBLAS_TRANSPOSE TransB, const int M, const int N, const int K,
     const double alpha, const double* A, const double* B, const double beta,
     double* C, const int batch_size) {
-  // Note that cublas follows fortran order.
+  // Note that cublas follows fortran order (column major), and AB = (B'A')'.
+  // Passing a row major matrix is equivalent to passing its transpose.
   int lda = (TransA == CblasNoTrans) ? K : M;
   int ldb = (TransB == CblasNoTrans) ? N : K;
   cublasOperation_t cuTransA =

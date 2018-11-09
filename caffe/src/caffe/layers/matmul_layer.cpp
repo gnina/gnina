@@ -10,8 +10,8 @@ template <typename Dtype>
 void MatMulLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   const vector<Blob<Dtype>*>& top)
 {
-  transpose_A = false;
-  transpose_B = false;
+  transpose_A = this->layer_param_.matmul_param().transpose_A();
+  transpose_B = this->layer_param_.matmul_param().transpose_B();
   Reshape(bottom, top);
 }
 
@@ -33,9 +33,6 @@ void MatMulLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
 
   const int B_rows = bottom[1]->shape(1);
   const int B_cols = bottom[1]->count(2);
-
-  CHECK(!transpose_A); //TODO
-  CHECK(!transpose_B); //TODO
 
   if (transpose_A)
   {
@@ -74,29 +71,44 @@ void MatMulLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   const Dtype* B_data = bottom[1]->cpu_data();
   Dtype* C_data = top[0]->mutable_cpu_data();
 
-  caffe_cpu_gemm_batch<Dtype>(CblasNoTrans, CblasNoTrans, M, N, K,
-    (Dtype) 1., A_data, B_data, (Dtype) 0., C_data, batch_size);
+  caffe_cpu_gemm_batch<Dtype>(
+    transpose_A ? CblasTrans : CblasNoTrans,
+    transpose_B ? CblasTrans : CblasNoTrans,
+    M, N, K,
+    (Dtype) 1., A_data, B_data,
+    (Dtype) 0., C_data,
+    batch_size);
 }
 
 template <typename Dtype>
 void MatMulLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
-  const Dtype* C_diff = top[0]->cpu_diff();
   const Dtype* A_data = bottom[0]->cpu_data();
   const Dtype* B_data = bottom[1]->cpu_data();
+  const Dtype* C_diff = top[0]->cpu_diff();
   Dtype* A_diff = bottom[0]->mutable_cpu_diff();
   Dtype* B_diff = bottom[1]->mutable_cpu_diff();
 
   if (propagate_down[0])
   {
-    caffe_cpu_gemm_batch<Dtype>(CblasNoTrans, CblasTrans, M, K, N,
-      (Dtype) 1., C_diff, B_data, (Dtype) 0., A_diff, batch_size);
+    caffe_cpu_gemm_batch<Dtype>(
+      CblasNoTrans,
+      transpose_B ? CblasNoTrans : CblasTrans,
+      M, K, N,
+      (Dtype) 1., C_diff, B_data,
+      (Dtype) 0., A_diff,
+      batch_size);
   }
   if (propagate_down[1])
   {
-    caffe_cpu_gemm_batch<Dtype>(CblasTrans, CblasNoTrans, K, N, M,
-      (Dtype) 1., A_data, C_diff, (Dtype) 0., B_diff, batch_size);
+    caffe_cpu_gemm_batch<Dtype>(
+      transpose_A ? CblasNoTrans : CblasTrans,
+      CblasNoTrans,
+      K, N, M,
+      (Dtype) 1., A_data, C_diff,
+      (Dtype) 0., B_diff,
+      batch_size);
   }
 }
 
