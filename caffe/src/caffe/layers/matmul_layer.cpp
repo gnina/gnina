@@ -10,8 +10,8 @@ template <typename Dtype>
 void MatMulLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   const vector<Blob<Dtype>*>& top)
 {
-  transpose_A = this->layer_param_.matmul_param().transpose_A();
-  transpose_B = this->layer_param_.matmul_param().transpose_B();
+  transpose_A = this->layer_param_.matmul_param().transpose_a();
+  transpose_B = this->layer_param_.matmul_param().transpose_b();
   Reshape(bottom, top);
 }
 

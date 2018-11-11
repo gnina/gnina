@@ -1032,8 +1032,8 @@ message LRNParameter {
 }
 
 message MatMulParameter {
-  optional bool transpose_A = 1 [default = false];
-  optional bool transpose_B = 2 [default = false];
+  optional bool transpose_a = 1 [default = false];
+  optional bool transpose_b = 2 [default = false];
 }
 
 message MemoryDataParameter {
