@@ -12,7 +12,26 @@ namespace caffe {
 /**
  * @brief Matrix multiplication of two bottom blobs.
  *
- * TODO(dox): thorough documentation for Forward, Backward, and proto params.
+ * Computes a batch of matrix-matrix multiplications between two bottom
+ * blobs after implicitly flattening each bottom blob after axis 1 and
+ * optionally transposing them. The computation is as follows:
+ *
+ * C[...] = 0.0
+ * for b in range(B):
+ *     for m in range(M):
+ *         for n in range(N):
+ *             for k in range(K):
+ *                 C[b,m,n] += A[b,m,k] * B[b,k,n]
+ *
+ * Axis 0, the batch size, must be the same for each bottom.
+ * Axis 1 is the number of rows of the matrices.
+ * Axis 2 and beyond are the number of columns of the matrices.
+ * 
+ * After transposing, if applicable, the number of columns in the
+ * first matrix must equal the number of rows in the second.
+ * Then the top blob shape will have three axes corresponding to
+ * the batch size, the number of rows in the first (transposed) matrix,
+ * and the number of columns in the second (transposed) matrix.
  */
 template <typename Dtype>
 class MatMulLayer : public Layer<Dtype> {

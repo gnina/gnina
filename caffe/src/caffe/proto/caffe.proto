@@ -1032,6 +1032,14 @@ message LRNParameter {
 }
 
 message MatMulParameter {
+  // MatMulLayer computes a batch of matrix-matrix multipications
+  // For each of the two bottom blobs, the first axis is the batch size,
+  // the second axis is the number of rows, and the rest of the axes are
+  // implicitly flattened into a single axis which is the number of columns
+  // After this implicit reshape, either input matrix can be transposed
+  // The top blob always has three axes which are the batch size (same as
+  // input) and the number of rows and columns, which depend on the bottom
+  // blob shapes and whether they were transposed
   optional bool transpose_a = 1 [default = false];
   optional bool transpose_b = 2 [default = false];
 }
