@@ -808,17 +808,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data,
   bool docache = param.cache_structs();
   bool dream = param.dream();
 
-  if (dream && last_iter_grid.find(std::string(ex.receptor) + std::string(ex.ligand)) != 
-          last_iter_grid.end()) {
-        if (gpu)
-          CUDA_CHECK(cudaMemcpy(data, last_iter_grid[std::string(ex.receptor) + 
-                std::string(ex.ligand)].data(), 
-                sizeof(Dtype) * example_size, cudaMemcpyHostToDevice));
-        else
-          memcpy(data, last_iter_grid[std::string(ex.receptor) + 
-              std::string(ex.ligand)].data(), sizeof(Dtype) * example_size);
-  }
-  else if(docache)
+  if(docache)
   {
     if(molcache.count(ex.receptor) == 0)
     {
@@ -1284,19 +1274,27 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
       int step = idx / batch_size;
       int offset = ((batch_size * step) + batch_idx) * example_size;
 
-      if (dream && current_iter > 0) {
-        //copy out old grid before overwriting blob
-        std::string name = last_iter_names[batch_idx];
-        last_iter_grid.emplace(name, std::vector<Dtype>(example_size));
-        if (gpu)
-          CUDA_CHECK(cudaMemcpy(last_iter_grid[last_iter_names[batch_idx]].data(), 
-                top_data+offset, sizeof(Dtype) * example_size, cudaMemcpyDeviceToHost));
-        else
-          memcpy(last_iter_grid[last_iter_names[batch_idx]].data(), 
-                top_data+offset, sizeof(Dtype) * example_size);
-
+      if (dream) {
+        if (!current_iter) {
+          set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], peturb, gpu);
+          perturbations.push_back(peturb);
+        }
+        //after first iter, the data blob should be updated externally
+        std::vector<std::string> splits;
+        std::string prelim = std::string(ex.receptor) + "_" + std::string(ex.ligand);
+        boost::split(splits, prelim, [](char c){return c == '/';});
+        std::string prefix = boost::algorithm::join(splits, "_");
+        std::string name = std::string(ex.receptor) + std::string(ex.ligand);
+        mem_lig.center = grid_centers[name];
+        if (gpu) {
+          std::vector<Dtype> grid(example_size);
+          CUDA_CHECK(cudaMemcpy(&grid[0], top_data+offset, sizeof(Dtype)*example_size, 
+                cudaMemcpyDeviceToHost));
+          dumpGridDX(prefix, &grid[0]);
+        }
+        else 
+          dumpGridDX(prefix, top_data+offset);
       }
-
       //if label == -1 then this is a padding example for grouped data; just
       //memset data to 0
       else if (ex.label == -1) {

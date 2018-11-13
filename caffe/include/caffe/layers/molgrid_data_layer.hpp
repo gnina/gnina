@@ -827,9 +827,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   float data_ratio;
 
   //map rec/lig pair to their most recent grid for input optimization
-  std::unordered_map<std::string, std::vector<Dtype>> last_iter_grid;
   std::unordered_map<std::string, vec> grid_centers;
-  std::vector<std::string> last_iter_names;
 
   unsigned num_rotations;
   unsigned current_rotation;
