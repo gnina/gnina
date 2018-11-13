@@ -561,7 +561,6 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
 
   //shape must come from parameters
   int batch_size = param.batch_size();
-  last_iter_names.resize(batch_size);
 
   if(!inmem)
   {
@@ -1311,27 +1310,6 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
         set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], peturb, gpu);
         perturbations.push_back(peturb);
         //NOTE: num_rotations not actually implemented!
-      }
-      if (dream)  {
-        std::vector<std::string> splits;
-        std::string prelim = std::string(ex.receptor) + "_" + std::string(ex.ligand);
-        boost::split(splits, prelim, [](char c){return c == '/';});
-        std::string prefix = boost::algorithm::join(splits, "_");
-        std::string name = std::string(ex.receptor) + std::string(ex.ligand);
-        mem_lig.center = grid_centers[name];
-        if (current_iter < 1) {
-          if (gpu) {
-            std::vector<Dtype> grid(example_size);
-            CUDA_CHECK(cudaMemcpy(&grid[0], top_data+offset, sizeof(Dtype)*example_size, 
-                  cudaMemcpyDeviceToHost));
-            dumpGridDX(prefix, &grid[0]);
-          }
-          else 
-            dumpGridDX(prefix, top_data+offset);
-        }
-        else 
-          dumpGridDX(prefix, last_iter_grid[name].data());
-        last_iter_names[batch_idx] = name;
       }
     }
   }
