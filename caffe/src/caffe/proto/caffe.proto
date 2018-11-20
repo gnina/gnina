@@ -909,6 +909,7 @@ message MolGridDataParameter {
   optional uint32 maxgroupsize = 39 [default = 1]; //max size of group when performing a recurrence over frame groups; 0 if there are no groups
   optional uint32 maxchunksize = 40 [default = 1]; //max size of subsequence for BPTT
   optional bool dream = 41 [default = false]; //dump input grids during forward pass to support input optimization
+  optional bool fix_center_to_origin = 42 [default = false]; // center box at origin
 }
 
 message NDimDataParameter {

@@ -298,9 +298,9 @@ void test_strided_cube_handler() {
   typedef boost::multi_array<Dtype, 5> array_t;
   typedef boost::multi_array_types::index_range range_t;
   array_t::index_gen indices;
-  array_t data(boost::extents[batch_size][ntypes][dim][dim][dim]);
+  array_t in_data(boost::extents[batch_size][ntypes][dim][dim][dim]);
   std::uniform_real_distribution<Dtype> dist;
-  generate(data.data(), data.data() + gsize, bind(dist, engine));
+  generate(in_data.data(), in_data.data() + gsize, bind(dist, engine));
 
   caffe::strided_cube_data_handler<Dtype> handler;
   //cpu subcube
@@ -312,13 +312,13 @@ void test_strided_cube_handler() {
   //gpu full grid when it's on the gpu
   Dtype* gpu_data;
   CUDA_CHECK(cudaMalloc(&gpu_data, sizeof(Dtype) * gsize));
-  CUDA_CHECK(cudaMemcpy(gpu_data, data.data(), sizeof(Dtype)*gsize, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(gpu_data, in_data.data(), sizeof(Dtype)*gsize, cudaMemcpyHostToDevice));
 
   for (unsigned ts=0; ts<n_timesteps; ++ts) {
     for (unsigned batch_idx=0; batch_idx < batch_size; ++batch_idx) {
       for (unsigned type=0; type<ntypes; ++type) {
         //update cpu subcube
-        handler.GetData(data.data(), cpu_subcube.data(), batch_size, ntypes, subcube_dim_pts, 
+        handler.GetData(in_data.data(), cpu_subcube.data(), batch_size, ntypes, subcube_dim_pts, 
             dim, ts, cube_stride, example_size);
         //update gpu subcube
         caffe::LSTMKernelWrapper(cube_size, gpu_data, gpu_subcube_device,
@@ -333,7 +333,7 @@ void test_strided_cube_handler() {
         unsigned j = ts / slices_per_dim;
         unsigned k = ts % slices_per_dim;
         //get view of cube
-        array_t::array_view<3>::type cube_view = data[ indices[batch_idx][type][range_t(i,i+subcube_dim_pts)][range_t(j,j+subcube_dim_pts)][range_t(k,k+subcube_dim_pts)] ];
+        array_t::array_view<3>::type cube_view = in_data[ indices[batch_idx][type][range_t(i,i+subcube_dim_pts)][range_t(j,j+subcube_dim_pts)][range_t(k,k+subcube_dim_pts)] ];
         for (unsigned x=0; x<subcube_dim_pts; ++x) 
           for (unsigned y=0; y<subcube_dim_pts; ++y) 
             for (unsigned z=0; z<subcube_dim_pts; ++z) {

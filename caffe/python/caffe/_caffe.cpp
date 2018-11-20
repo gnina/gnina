@@ -17,6 +17,7 @@
 #include "caffe/caffe.hpp"
 #include "caffe/layers/memory_data_layer.hpp"
 #include "caffe/layers/python_layer.hpp"
+#include "caffe/layers/pooling_layer.hpp"
 #include "caffe/sgd_solvers.hpp"
 
 // Temporary solution for numpy < 1.7 versions: old macro, no promises.
@@ -43,6 +44,9 @@ namespace bp = boost::python;
 
 namespace caffe {
 
+//forward declarations
+enum PoolingParameter_PoolMethod;
+
 // For Python, for now, we'll just always use float as the type.
 typedef float Dtype;
 const int NPY_DTYPE = NPY_FLOAT32;
@@ -50,6 +54,53 @@ const int NPY_DTYPE = NPY_FLOAT32;
 // Selecting mode.
 void set_mode_cpu() { Caffe::set_mode(Caffe::CPU); }
 void set_mode_gpu() { Caffe::set_mode(Caffe::GPU); }
+
+// (hopefully) temporary function for allowing toggling input max pool to ave
+// pool for backprop during dreamlike input optimization
+bool toggle_max_to_ave(Net<Dtype>& net) {
+  const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net.layers();
+  PoolingLayer<Dtype> *pool = NULL;
+  for (unsigned i = 1, nl = layers.size(); i < nl; i++) {
+    pool = dynamic_cast<PoolingLayer<Dtype>*>(layers[i].get());
+    if (pool)
+      break; //found it
+    else
+      if (layers[i]->type() == string("Convolution"))
+        break; 
+      else if (layers[i]->type() == string("InnerProduct")) 
+        break;
+  }
+
+  if (pool) {
+    if (pool->pool() == PoolingParameter_PoolMethod_MAX) {
+      pool->set_pool(PoolingParameter_PoolMethod_AVE);
+    } else {
+      pool = NULL; //no need to reset to max
+    }
+  }
+  return pool;
+}
+
+void toggle_ave_to_max(Net<Dtype>& net) {
+  const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net.layers();
+  PoolingLayer<Dtype> *pool = NULL;
+  for (unsigned i = 1, nl = layers.size(); i < nl; i++) {
+    pool = dynamic_cast<PoolingLayer<Dtype>*>(layers[i].get());
+    if (pool)
+      break; //found it
+    else
+      if (layers[i]->type() == string("Convolution"))
+        break; 
+      else if (layers[i]->type() == string("InnerProduct")) 
+        break;
+  }
+
+  if (pool) {
+    if (pool->pool() == PoolingParameter_PoolMethod_AVE) {
+      pool->set_pool(PoolingParameter_PoolMethod_MAX);
+    } 
+  }
+}
 
 void InitLog(int level) {
   FLAGS_logtostderr = 1;
@@ -362,6 +413,8 @@ BOOST_PYTHON_MODULE(_caffe) {
   bp::def("set_multiprocess", &Caffe::set_multiprocess);
 
   bp::def("layer_type_list", &LayerRegistry<Dtype>::LayerTypeList);
+  bp::def("toggle_max_to_ave", &toggle_max_to_ave);
+  bp::def("toggle_ave_to_max", &toggle_ave_to_max);
 
   bp::class_<Net<Dtype>, shared_ptr<Net<Dtype> >, boost::noncopyable >("Net",
     bp::no_init)

@@ -793,6 +793,10 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_mol_info(const string& file, c
 
   minfo.center = center;
 
+  if(this->layer_param_.molgrid_data_param().fix_center_to_origin()) {
+    minfo.center = vec(0,0,0);
+  }
+
 }
 
 template <typename Dtype, class GridMakerT>
@@ -819,8 +823,11 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data,
     }
 
     set_grid_minfo(data, molcache[ex.receptor], molcache[ex.ligand], transform, peturb, gpu);
-    if (dream) 
+    if (dream) {
+      if (strcmp(ex.ligand, "none")==0)
+        molcache[ex.ligand].center = molcache[ex.receptor].center;
       grid_centers[std::string(ex.receptor) + std::string(ex.ligand)] = molcache[ex.ligand].center;
+    }
   }
   else
   {
@@ -829,8 +836,11 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data,
     set_mol_info(root_folder+ex.receptor, rmap, 0, rec);
     set_mol_info(root_folder+ex.ligand, lmap, numReceptorTypes, lig);
     set_grid_minfo(data, rec, lig, transform, peturb, gpu);
-    if (dream) 
+    if (dream) {
+      if (strcmp(ex.ligand, "none")==0)
+        lig.center = rec.center;
       grid_centers[std::string(ex.receptor) + std::string(ex.ligand)] = lig.center;
+    }
   }
 }
 
