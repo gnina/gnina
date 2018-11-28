@@ -450,6 +450,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   numposes = param.num_poses();
 
   if(binary) radiusmultiple = 1.0;
+  CHECK_LE(fabs(remainder(dimension,resolution)), 0.001) << "Resolution does not evenly divide dimension.";
 
   gmaker.initialize(resolution, dimension, radiusmultiple, binary, spherize);
 
