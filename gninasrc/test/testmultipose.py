@@ -10,6 +10,8 @@ import os,sys,re
 LIGCHANNELS = 19
 RECCHANNELS = 16
 
+caffe.set_mode_gpu()
+
 #create input file in subdir of current directory
 try:
     os.mkdir('multifiles')
