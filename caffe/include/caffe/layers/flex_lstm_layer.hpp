@@ -2,6 +2,7 @@
 #define CAFFE_FLEX_LSTM_LAYER_HPP_
 
 #include "caffe/layers/lstm_layer.hpp"
+#include "gninasrc/lib/gpu_math.h"
 /**
  * @brief Alternative LSTM layer implementation that supports custom data access
  *        patterns.
@@ -100,7 +101,8 @@ struct strided_cube_data_handler : public data_handler<Dtype> {
             for (unsigned k=0; k<subgrid_dim; ++k) {
               dest[(((batch_idx * ntypes + grid) * subgrid_dim + i) * subgrid_dim + j) * 
                 subgrid_dim + k] = src[batch_idx * example_size + grid * overall_size + 
-                (((x_offset + i) * dim + y_offset + j) * dim + z_offset + k) * dim];
+                x_offset * dim * dim + y_offset * dim + z_offset + 
+                ((i * dim) + j) * dim + k];
             }
           }
         }
@@ -113,19 +115,20 @@ struct strided_cube_data_handler : public data_handler<Dtype> {
     CUDA_KERNEL_LOOP(tidx, subgrid_count) {
       //where in the grid is this index?
       unsigned idx = tidx;
-      unsigned k = idx % (subgrid_dim + 1);
-      idx /= (subgrid_dim + 1);
-      unsigned j = idx % (subgrid_dim + 1);
-      idx /= (subgrid_dim + 1);
-      unsigned i = idx % (subgrid_dim + 1);
-      idx /= (subgrid_dim + 1);
-      unsigned type = idx % (ntypes + 1);
-      idx /= (ntypes + 1);
-      unsigned batch_idx = idx % (batch_size + 1);
+      unsigned k = idx % subgrid_dim;
+      idx /= subgrid_dim;
+      unsigned j = idx % subgrid_dim;
+      idx /= subgrid_dim;
+      unsigned i = idx % subgrid_dim;
+      idx /= subgrid_dim;
+      unsigned grid = idx % ntypes;
+      idx /= ntypes;
+      unsigned batch_idx = idx % batch_size;
       //what overall index does that correspond to?
-      dest[(((batch_idx * ntypes + type) * subgrid_dim + i) * subgrid_dim + j) * 
-        subgrid_dim + k] = src[batch_idx * example_size + type * overall_size + 
-        (((x_offset + i) * dim + y_offset + j) * dim + z_offset + k) * dim];
+      dest[(((batch_idx * ntypes + grid) * subgrid_dim + i) * subgrid_dim + j) * 
+        subgrid_dim + k] = src[batch_idx * example_size + grid * overall_size + 
+        x_offset * dim * dim + y_offset * dim + z_offset + 
+        ((i * dim) + j) * dim + k];
     }
 #endif
 }
@@ -145,8 +148,8 @@ struct strided_cube_data_handler : public data_handler<Dtype> {
          for (unsigned j=0; j<subgrid_dim; ++j) {
            for (unsigned k=0; k<subgrid_dim; ++k) {
              dest[batch_idx * example_size + grid * overall_size + 
-               (((x_offset + i) * dim + y_offset + j) * dim + 
-                 z_offset + k) * dim] +=
+                x_offset * dim * dim + y_offset * dim + z_offset + 
+                ((i * dim) + j) * dim + k] += 
              src[(((batch_idx * ntypes + grid) * subgrid_dim + i) * subgrid_dim + j) * 
                subgrid_dim + k];
            }
@@ -159,20 +162,20 @@ struct strided_cube_data_handler : public data_handler<Dtype> {
    unsigned subgrid_count = subgrid_size * batch_size;
    CUDA_KERNEL_LOOP(tidx, subgrid_count) {
      unsigned idx = tidx;
-     unsigned k = idx % (subgrid_dim + 1);
-     idx /= (subgrid_dim + 1);
-     unsigned j = idx % (subgrid_dim + 1);
-     idx /= (subgrid_dim + 1);
-     unsigned i = idx % (subgrid_dim + 1);
-     idx /= (subgrid_dim + 1);
-     unsigned type = idx % (ntypes + 1);
-     idx /= (ntypes + 1);
-     unsigned batch_idx = idx % (batch_size + 1);
-     dest[batch_idx * example_size + type * overall_size + 
-       (((x_offset + i) * dim + y_offset + j) * dim + 
-         z_offset + k) * dim] +=
-     src[(((batch_idx * ntypes + type) * subgrid_dim + i) * subgrid_dim + j) * 
-       subgrid_dim + k];
+     unsigned k = idx % subgrid_dim;
+     idx /= subgrid_dim;
+     unsigned j = idx % subgrid_dim;
+     idx /= subgrid_dim;
+     unsigned i = idx % subgrid_dim;
+     idx /= subgrid_dim;
+     unsigned grid = idx % ntypes;
+     idx /= ntypes;
+     unsigned batch_idx = idx % batch_size;
+     atomicAdd(&dest[batch_idx * example_size + grid * overall_size + 
+        x_offset * dim * dim + y_offset * dim + z_offset + 
+        ((i * dim) + j) * dim + k], 
+     		src[(((batch_idx * ntypes + grid) * subgrid_dim + i) * subgrid_dim + j) * 
+     		 subgrid_dim + k]);
    }
 #endif
  }

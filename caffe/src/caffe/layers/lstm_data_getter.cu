@@ -34,7 +34,7 @@ __global__ void LSTMFlexBackward(const int nthreads, const Dtype* src, Dtype* de
   if (pattern == AccessPattern::strided_cube) {
     strided_cube_data_handler<Dtype> handler;
     handler.GetData(src, dest, batch_size, ntypes, 
-        subgrid_dim, dim, current_timestep, cube_stride, example_size);
+        subgrid_dim, dim, current_timestep-1, cube_stride, example_size);
     //also accumulate gradients for the current timestep in the right location
     handler.AccumulateDiff(partial_diff, total_diff, batch_size, 
         ntypes, subgrid_dim, dim, current_timestep, cube_stride, example_size);

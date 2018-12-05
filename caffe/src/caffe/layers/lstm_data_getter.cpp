@@ -78,7 +78,7 @@ void LSTMDataGetterLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   if (pattern == AccessPattern::strided_cube) {
     strided_cube_data_handler<Dtype> handler;
     handler.GetData(bottom[0]->cpu_data(), top[0]->mutable_cpu_data(), batch_size, ntypes, 
-        subgrid_dim, dim, current_timestep, cube_stride, example_size);
+        subgrid_dim, dim, current_timestep-1, cube_stride, example_size);
     //also accumulate gradients for the current timestep in the right location
     handler.AccumulateDiff(top[0]->cpu_diff(), total_diff, batch_size, 
         ntypes, subgrid_dim, dim, current_timestep, cube_stride, example_size);

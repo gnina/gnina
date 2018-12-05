@@ -329,9 +329,10 @@ void test_strided_cube_handler() {
               cudaMemcpyDeviceToHost));
         //use timestep and slices per dim to figure out x,y,z ranges for
         //overall array
-        unsigned i = ts / (slices_per_dim * slices_per_dim);
-        unsigned j = ts / slices_per_dim;
-        unsigned k = ts % slices_per_dim;
+        unsigned factor = (((dim - subcube_dim_pts) / cube_stride) + 1);
+        unsigned i = ts / (factor * factor) * cube_stride;
+        unsigned j = (ts / factor) * cube_stride;
+        unsigned k = (ts % slices_per_dim) * cube_stride;
         //get view of cube
         array_t::array_view<3>::type cube_view = in_data[ indices[batch_idx][type][range_t(i,i+subcube_dim_pts)][range_t(j,j+subcube_dim_pts)][range_t(k,k+subcube_dim_pts)] ];
         for (unsigned x=0; x<subcube_dim_pts; ++x) 
