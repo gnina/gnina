@@ -89,8 +89,8 @@ struct strided_cube_data_handler : public data_handler<Dtype> {
        unsigned current_timestep, unsigned cube_stride, unsigned example_size) {
     unsigned overall_size = dim * dim * dim;
     unsigned factor = (((dim - subgrid_dim) / cube_stride) + 1);
-    unsigned x_offset = (current_timestep / (factor * factor)) * cube_stride;
-    unsigned y_offset = (current_timestep / factor) * cube_stride;
+    unsigned x_offset = ((current_timestep / (factor * factor)) % factor) * cube_stride;
+    unsigned y_offset = ((current_timestep / factor) % factor) * cube_stride;
     unsigned z_offset = (current_timestep % factor) * cube_stride;
     //extract a single "timestep" corresponding to the correct stride
 #ifndef __CUDA_ARCH__
@@ -138,8 +138,8 @@ struct strided_cube_data_handler : public data_handler<Dtype> {
        unsigned current_timestep, unsigned cube_stride, unsigned example_size) {
    unsigned overall_size = dim * dim * dim;
    unsigned factor = (((dim - subgrid_dim) / cube_stride) + 1);
-   unsigned x_offset = (current_timestep / (factor * factor)) * cube_stride;
-   unsigned y_offset = (current_timestep / factor) * cube_stride;
+   unsigned x_offset = ((current_timestep / (factor * factor)) % factor) * cube_stride;
+   unsigned y_offset = ((current_timestep / factor) % factor) * cube_stride;
    unsigned z_offset = (current_timestep % factor) * cube_stride;
 #ifndef __CUDA_ARCH__
    for (unsigned batch_idx=0; batch_idx < batch_size; ++batch_idx) {

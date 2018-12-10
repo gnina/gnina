@@ -315,24 +315,24 @@ void test_strided_cube_handler() {
   CUDA_CHECK(cudaMemcpy(gpu_data, in_data.data(), sizeof(Dtype)*gsize, cudaMemcpyHostToDevice));
 
   for (unsigned ts=0; ts<n_timesteps; ++ts) {
+    //update cpu subcube
+    handler.GetData(in_data.data(), cpu_subcube.data(), batch_size, ntypes, subcube_dim_pts, 
+        dim, ts, cube_stride, example_size);
+    //update gpu subcube
+    caffe::LSTMKernelWrapper(cube_size, gpu_data, gpu_subcube_device,
+          caffe::AccessPattern::strided_cube, batch_size, ntypes, subcube_dim_pts,
+          dim, ts, cube_stride, example_size);
+    CUDA_POST_KERNEL_CHECK;
+    CUDA_CHECK(cudaMemcpy(gpu_subcube.data(), gpu_subcube_device, sizeof(Dtype)*cube_size, 
+          cudaMemcpyDeviceToHost));
+    //use timestep and slices per dim to figure out x,y,z ranges for
+    //overall array
+    unsigned factor = (((dim - subcube_dim_pts) / cube_stride) + 1);
+    unsigned i = (ts / (factor * factor) % slices_per_dim) * cube_stride;
+    unsigned j = ((ts / factor) % slices_per_dim) * cube_stride;
+    unsigned k = (ts % slices_per_dim) * cube_stride;
     for (unsigned batch_idx=0; batch_idx < batch_size; ++batch_idx) {
       for (unsigned type=0; type<ntypes; ++type) {
-        //update cpu subcube
-        handler.GetData(in_data.data(), cpu_subcube.data(), batch_size, ntypes, subcube_dim_pts, 
-            dim, ts, cube_stride, example_size);
-        //update gpu subcube
-        caffe::LSTMKernelWrapper(cube_size, gpu_data, gpu_subcube_device,
-              caffe::AccessPattern::strided_cube, batch_size, ntypes, subcube_dim_pts,
-              dim, ts, cube_stride, example_size);
-        CUDA_POST_KERNEL_CHECK;
-        CUDA_CHECK(cudaMemcpy(gpu_subcube.data(), gpu_subcube_device, sizeof(Dtype)*cube_size, 
-              cudaMemcpyDeviceToHost));
-        //use timestep and slices per dim to figure out x,y,z ranges for
-        //overall array
-        unsigned factor = (((dim - subcube_dim_pts) / cube_stride) + 1);
-        unsigned i = ts / (factor * factor) * cube_stride;
-        unsigned j = (ts / factor) * cube_stride;
-        unsigned k = (ts % slices_per_dim) * cube_stride;
         //get view of cube
         array_t::array_view<3>::type cube_view = in_data[ indices[batch_idx][type][range_t(i,i+subcube_dim_pts)][range_t(j,j+subcube_dim_pts)][range_t(k,k+subcube_dim_pts)] ];
         for (unsigned x=0; x<subcube_dim_pts; ++x) 
