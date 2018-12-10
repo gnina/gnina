@@ -760,10 +760,6 @@ void MolGridDataLayer<Dtype>::load_cache(const string& file, const vector<int>& 
 
     center /= cnt;
     minfo.center = center;
-
-    if(this->layer_param_.molgrid_data_param().fix_center_to_origin()) {
-      minfo.center = vec(0,0,0);
-    }
   }
 
   LOG(INFO) << "Done loading from " << fullpath << " with cache at size " << molcache.size() << std::endl;
@@ -842,10 +838,6 @@ void MolGridDataLayer<Dtype>::set_mol_info(const string& file, const vector<int>
     center /= cnt;
   }
   minfo.center = center;
-
-  if(this->layer_param_.molgrid_data_param().fix_center_to_origin()) {
-    minfo.center = vec(0,0,0);
-  }
 
 }
 
@@ -968,9 +960,7 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
     transform.set_random_quaternion(rng);
   }
 
-  transform.center[0] = transform.mol.center[0];
-  transform.center[1] = transform.mol.center[1];
-  transform.center[2] = transform.mol.center[2];
+
   if (randtranslate)
   {
     double radius = ligatoms.radius();
@@ -984,8 +974,25 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
     transform.Q *= axial_quaternion();
   }
 
+  quaternion Q = transform.Q;
+  vec grid_center(0,0,0);
+
   //TODO move this into gridmaker.setAtoms, have it just take the mol_transform as input - separate receptor transform as well
-  gmaker.setCenter(transform.center[0], transform.center[1], transform.center[2]);
+  if(this->layer_param_.molgrid_data_param().fix_center_to_origin()) {
+    transform.mol.apply_transform(transform); //mogrify the coordinates
+    //Q is already applied
+    Q = qt(1,0,0,0);
+    //grid center already zero
+  } else {
+    //center on ligand
+    grid_center[0] = transform.center[0] + transform.mol.center[0];
+    grid_center[1] = transform.center[1] + transform.mol.center[1];
+    grid_center[2] = transform.center[2] + transform.mol.center[2];
+  }
+
+  //with fix_center, this should be zero
+  gmaker.setCenter(grid_center[0],grid_center[1],grid_center[2]);
+
 
   if(transform.mol.atoms.size() == 0) {
      std::cerr << "ERROR: No atoms in molecule.  I can't deal with this.\n";
@@ -1012,12 +1019,12 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
     CUDA_CHECK(cudaMemcpy(gpu_gridatoms, &transform.mol.atoms[0], natoms*sizeof(float4), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(gpu_gridwhich, &transform.mol.whichGrid[0], natoms*sizeof(short), cudaMemcpyHostToDevice));
 
-    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, transform.Q, numchannels, data);
+    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, Q, numchannels, data);
   }
   else
   {
     Grids grids(data, boost::extents[numchannels][dim][dim][dim]);
-    gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(), grids);
+    gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, Q.boost(), grids);
   }
 }
 

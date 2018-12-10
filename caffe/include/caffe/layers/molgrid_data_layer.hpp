@@ -91,6 +91,9 @@ public:
   void getLigandGradient(int batch_idx, vector<float3>& gradient);
   void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient);
 
+  struct mol_transform;
+  mol_transform getMolTransform(int batch_idx) const { return batch_transform[batch_idx]; }
+
   //set in memory buffer
   //will apply translate and rotate iff rotate is valid
   template<typename Atom>
@@ -199,9 +202,9 @@ public:
   void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
   friend void ::test_set_atom_gradients();
 
- protected:
+ public:
 
-  ///////////////////////////   PROTECTED DATA TYPES   //////////////////////////////
+  ///////////////////////////   PUBLIC DATA TYPES   //////////////////////////////
   typedef qt quaternion;
   typedef typename boost::multi_array_ref<Dtype, 4>  Grids;
 
@@ -471,9 +474,9 @@ public:
           tmp.push_back(examples[i]);
           tmp.back().setup();
         }
-	else {
-	  LOG(INFO) << "Empty bucket " << i;
-	}
+        else {
+          LOG(INFO) << "Empty bucket " << i;
+        }
       }
       swap(examples,tmp);
       CHECK_GT(examples.size(), 0) << "No examples in affinity stratification!";
@@ -497,12 +500,11 @@ public:
     }
   };
 
-  struct mol_transform;
   struct mol_info {
     vector<float4> atoms;
     vector<short> whichGrid; //separate for better memory layout on gpu
     vector<float3> gradient;
-    vec center; //precalculate centroid, includes any random translation
+    vec center; //precalculate centroid
 
     mol_info() { center[0] = center[1] = center[2] = NAN;}
 
@@ -521,21 +523,38 @@ public:
     {
       //copy atoms from a into this, transforming the coordinates according to transform
      // LOG(INFO) << "About to transform " << a.atoms.size() << " atoms";
+      gfloat3 center(a.center[0],a.center[1],a.center[2]);
+      gfloat3 translate(transform.center[0],transform.center[1], transform.center[2]);
       for(unsigned i = 0, n = a.atoms.size(); i < n; i++) {
         //non-coordinate stuff
         whichGrid.push_back(a.whichGrid[i]);
         gradient.push_back(a.gradient[i]); //NOT rotating, but that shouldn't matter, right?
 
         float4 atom = a.atoms[i];
-        gfloat3 center(a.center[0],a.center[1],a.center[2]);
-        gfloat3 translate(transform.center[0],transform.center[1], transform.center[2]);
         float3 pt = transform.Q.transform(atom.x, atom.y, atom.z, center, translate);
         atom.x = pt.x;
         atom.y = pt.y;
         atom.z = pt.z;
         atoms.push_back(atom);
 
-        //LOG(INFO) << "Transforming " << a.atoms[i].x<<","<<a.atoms[i].y<<","<<a.atoms[i].z<<" to "<<atom.x<<","<<atom.y<<","<<atom.z;
+        LOG(INFO) << "Transforming " << a.atoms[i].x<<","<<a.atoms[i].y<<","<<a.atoms[i].z<<" to "<<atom.x<<","<<atom.y<<","<<atom.z;
+        LOG(INFO) << "Transform Q: " << transform.Q.a << "," << transform.Q.b << "," << transform.Q.c << "," << transform.Q.d;
+      }
+    }
+
+    //apply transformation in-place, modifying the coordinates of the mol
+    //the center of the molecule is used for the rotation origin
+    void apply_transform(const mol_transform& transform)
+    {
+      gfloat3 center(center[0],center[1],center[2]);
+      gfloat3 translate(transform.center[0],transform.center[1], transform.center[2]);
+      for(unsigned i = 0, n = atoms.size(); i < n; i++) {
+        float4 atom = atoms[i];
+        float3 pt = transform.Q.transform(atom.x, atom.y, atom.z, center, translate);
+        atom.x = pt.x;
+        atom.y = pt.y;
+        atom.z = pt.z;
+        atoms[i] = atom;
       }
     }
 
@@ -569,45 +588,50 @@ public:
     Dtype x;
     Dtype y;
     Dtype z;
-    Dtype sinr;
-    Dtype cosr;
-    Dtype sinp;
-    Dtype siny;
-    Dtype cosy;
 
-    output_transform(): x(0), y(0), z(0), sinr(0), cosr(0), sinp(0), siny(0), cosy(0) {}
+    //three different representations of rotation, for experiments sake
+    Dtype a;
+    Dtype b;
+    Dtype c;
+    Dtype d;
+
+    Dtype roll;
+    Dtype pitch;
+    Dtype yaw;
+
+    output_transform(): x(0), y(0), z(0), a(0), b(0), c(0), d(0), roll(0), pitch(0), yaw(0) {}
 
     output_transform(Dtype X, Dtype Y, Dtype, Dtype Z, const qt& Q): x(X), y(Y), z(Z) {
       set_from_quaternion(Q);
     }
 
-    static unsigned size() { return 8; }
+    static unsigned size() { return sizeof(output_transform)/sizeof(Dtype); }
     void set_from_quaternion(const qt& Q) {
       //convert to euler angles
       //https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
       // roll (x-axis rotation)
-      double w = Q.R_component_1();
-      double x = Q.R_component_2();
-      double y = Q.R_component_3();
-      double z = Q.R_component_4();
+      a = Q.R_component_1();
+      b = Q.R_component_2();
+      c = Q.R_component_3();
+      d = Q.R_component_4();
 
-      sinr = 2.0 * (w*x + y*z);
-      cosr = 1.0 - 2.0 * (x*x + y*y);
-      //Dtype roll = atan2(sinr, cosr);
+      double sinr = 2.0 * (a*b + c*d);
+      double cosr = 1.0 - 2.0 * (b*b + c*c);
+      roll = atan2(sinr, cosr);
 
       // pitch (y-axis rotation)
-      sinp = 2.0 * (w*y - z*x);
-      /*
-      Dtype pitch = 0.0;
+      double sinp = 2.0 * (a*c - d*b);
+
+      pitch = 0.0;
       if (fabs(sinp) >= 1)
         pitch = copysign(M_PI / 2, sinp);// use 90 degrees if out of range
       else
         pitch = asin(sinp);
-*/
+
       // yaw (z-axis rotation)
-      siny = 2.0 * (w*z + x*y);
-      cosy = 1.0 - 2.0 * (y*y + z*z);
-      //Dtype yaw = atan2(siny, cosy);
+      double siny = 2.0 * (a*d + b*c);
+      double cosy = 1.0 - 2.0 * (c*c + d*d);
+      yaw = atan2(siny, cosy);
     }
   };
   struct mol_transform {
@@ -618,6 +642,13 @@ public:
     mol_transform() {
       mol = mol_info();
       Q = qt(0,0,0,0);
+      center[0] = center[1] = center[2] = 0;
+    }
+
+    //zero translate, no rotate
+    void reset()
+    {
+      Q = qt(1,0,0,0);
       center[0] = center[1] = center[2] = 0;
     }
 
@@ -652,8 +683,9 @@ public:
 
   };
 
-  ///////////////////   PROTECTED DATA   ////////////////
 
+  ///////////////////   PROTECTED DATA   ////////////////
+ protected:
   string_cache scache;
 
   //we are manually stratifying by file, this could be made more general-purpose and flexible
