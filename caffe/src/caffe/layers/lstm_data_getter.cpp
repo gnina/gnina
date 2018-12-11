@@ -15,19 +15,20 @@ void LSTMDataGetterLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   batch_size = bottom[0]->shape(0);
   ntypes = bottom[0]->shape(1);
   dim = bottom[0]->shape(2);
-  unsigned resolution = mgrid_param.resolution();
-  unsigned subgrid_dim_in_angstroms = mgrid_param.subgrid_dim();
+  Dtype resolution = mgrid_param.resolution();
+  Dtype subgrid_dim_in_angstroms = mgrid_param.subgrid_dim();
   subgrid_dim = ::round(subgrid_dim_in_angstroms / resolution) + 1;
   unsigned slices_per_dim = ((dim - subgrid_dim) / cube_stride) + 1;
   num_timesteps = slices_per_dim * slices_per_dim * slices_per_dim;
   example_size = ntypes * dim * dim * dim;
   current_timestep = 0;
+  Reshape(bottom, top);
 }
 
 template <typename Dtype>
 void LSTMDataGetterLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
-  //bottom is data, current_x; top is current_x
+  //bottom is data, top is current_x
   const int num_instances = bottom[0]->shape(0);
   const int num_channels = bottom[0]->shape(1);
   vector<int> current_x_shape;

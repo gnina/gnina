@@ -40,8 +40,8 @@ class LSTMDataGetterLayer : public Layer<Dtype> {
         const vector<Blob<Dtype>*>& top);
 
     virtual inline const char* type() const { return "LSTMDataGetter"; }
-    virtual inline int ExactNumBottomBlobs() const { return 2; } //data, x
-    virtual inline int ExactNumTopBlobs() const { return 1; } //x
+    virtual inline int ExactNumBottomBlobs() const { return 1; } //x
+    virtual inline int ExactNumTopBlobs() const { return 1; } //current_x
 
   protected:
     virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,

@@ -57,6 +57,10 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   scale_param.set_type("Scale");
   scale_param.mutable_scale_param()->set_axis(0);
 
+  LayerParameter slice_param;
+  slice_param.set_type("Slice");
+  slice_param.mutable_slice_param()->set_axis(0);
+
   LayerParameter split_param;
   split_param.set_type("Split");
 
@@ -73,6 +77,12 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
 
   input_layer_param->add_top("h_0");
   input_param->add_shape()->CopyFrom(input_shapes[1]);
+
+  LayerParameter* cont_slice_param = net_param->add_layer();
+  cont_slice_param->CopyFrom(slice_param);
+  cont_slice_param->set_name("cont_slice");
+  cont_slice_param->add_bottom("cont");
+  cont_slice_param->mutable_slice_param()->set_axis(0);
 
   if (this->static_input_) {
     // Add layer to transform x_static to the gate dimension.
@@ -110,13 +120,13 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
     string tm1s = format_int(t - 1);
     string ts = format_int(t);
 
+    cont_slice_param->add_top("cont_" + ts);
+
     //Add layer to choose the data for this timestep
     LayerParameter* datagetter_param = net_param->add_layer();
     datagetter_param->set_type("LSTMDataGetter");
     datagetter_param->set_name("datagetter_" + ts);
-    datagetter_param->add_bottom("data");
-    if (t > 1) 
-      datagetter_param->add_bottom("current_x"); //everybody reuses this buffer
+    datagetter_param->add_bottom("x");
     datagetter_param->add_top("current_x");
 
     // Add layers to flush the hidden state when beginning a new
@@ -164,7 +174,7 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
       input_sum_layer->CopyFrom(sum_param);
       input_sum_layer->set_name("gate_input_" + ts);
       input_sum_layer->add_bottom("W_hc_h_" + tm1s);
-      input_sum_layer->add_bottom("W_xc_x_" + ts);
+      input_sum_layer->add_bottom("W_xc_x");
       if (this->static_input_) {
         input_sum_layer->add_bottom("W_xc_x_static");
       }
