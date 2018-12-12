@@ -102,26 +102,30 @@ model = '''layer {{
     peturb_ligand_rotate: {protate}
     peturb_ligand_translate: {ptranslate}
     cache_structs: false
-    fix_center_to_origin: true 
+    fix_center_to_origin: {fix} 
 
   }}
 }}'''
 
 
 modelf = open('plain.model','w')
-modelf.write(model.format(rotate="false",translate=0.0,peturb='false',protate='false',ptranslate=0.0,topline=''))
+modelf.write(model.format(rotate="false",translate=0.0,peturb='false',protate='false',ptranslate=0.0,topline='',fix='true'))
 modelf.close()
   
 modelf = open('plainpeturb.model','w')
-modelf.write(model.format(rotate="false",translate=0.0,peturb='true',protate='true',ptranslate=4.0,topline='top: "peturb"'))
+modelf.write(model.format(rotate="false",translate=0.0,peturb='true',protate='true',ptranslate=4.0,topline='top: "peturb"',fix='true'))
 modelf.close()
     
 modelf = open('rand.model','w')
-modelf.write(model.format(rotate="true",translate=5.0,peturb='false',protate='false',ptranslate=4.0,topline=''))
+modelf.write(model.format(rotate="true",translate=5.0,peturb='false',protate='false',ptranslate=4.0,topline='',fix='true'))
 modelf.close()    
 
 modelf = open('randpeturb.model','w')
-modelf.write(model.format(rotate="true",translate=5.0,peturb='true',protate='true',ptranslate=4.0,topline='top: "peturb"'))
+modelf.write(model.format(rotate="true",translate=5.0,peturb='true',protate='true',ptranslate=4.0,topline='top: "peturb"',fix='true'))
+modelf.close()   
+
+modelf = open('fullrandpeturb.model','w')
+modelf.write(model.format(rotate="true",translate=5.0,peturb='true',protate='true',ptranslate=4.0,topline='top: "peturb"',fix='false'))
 modelf.close()   
 
 caffe.set_mode_gpu()
@@ -227,3 +231,41 @@ diff = np.square(plaindata - data).sum()
 if not isclose(diff,0):
     print("Rotated and peturbed ligand not as expected %f"%diff)
     sys.exit(1)
+
+#don't fix to the origin - result will be centered around ligand, and then translated
+#rotation center is grid center, not molecule center
+setmol(coords)
+setmol(coords,'rec.xyz')
+net = caffe.Net('fullrandpeturb.model',caffe.TEST)
+res = net.forward()
+data = res['data'][0].copy()
+peturb = res['peturb'][0].copy() 
+trans = peturb[:3]
+q = qt(peturb[3:7])  
+
+l =net.layers[0]
+mt = l.get_moltransform(0)
+Rtrans = mt.center.x(),mt.center.y(),mt.center.z()
+Rq = qt(mt.Q.a,mt.Q.b,mt.Q.c,mt.Q.d)
+
+center = np.mean(coords,axis=0)
+
+#first peturb
+newligcoords = np.array(map(q.inverse.rotate,coords-center))+center-trans
+center = np.mean(newligcoords,axis=0)
+#random rotation is relative to the grid center, which is the
+#peturbed random translation of the ligand center
+newligcoords = np.array(map(Rq.rotate,newligcoords-center-Rtrans))
+
+newreccoords = np.array(map(Rq.rotate,coords-center-Rtrans))
+setmol(newligcoords)
+setmol(newreccoords,'rec.xyz')
+plainnet = caffe.Net('plain.model',caffe.TEST)
+plainres = plainnet.forward()
+plaindata = plainres['data'][0].copy()
+
+diff = np.square(plaindata - data).sum()
+if not isclose(diff,0):
+    print("Fully Rotated and peturbed ligand not as expected %f"%diff)
+    sys.exit(1)
+
