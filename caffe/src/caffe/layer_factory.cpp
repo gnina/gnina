@@ -8,6 +8,7 @@
 #include "caffe/layer.hpp"
 #include "caffe/layer_factory.hpp"
 #include "caffe/layers/conv_layer.hpp"
+#include "caffe/layers/deconv_layer.hpp"
 #include "caffe/layers/lrn_layer.hpp"
 #include "caffe/layers/pooling_layer.hpp"
 #include "caffe/layers/relu_layer.hpp"
@@ -18,6 +19,7 @@
 
 #ifdef USE_CUDNN
 #include "caffe/layers/cudnn_conv_layer.hpp"
+#include "caffe/layers/cudnn_deconv_layer.hpp"
 #include "caffe/layers/cudnn_lcn_layer.hpp"
 #include "caffe/layers/cudnn_lrn_layer.hpp"
 #include "caffe/layers/cudnn_pooling_layer.hpp"
@@ -50,7 +52,7 @@ shared_ptr<Layer<Dtype> > GetConvolutionLayer(
   if (engine == ConvolutionParameter_Engine_DEFAULT) {
     engine = ConvolutionParameter_Engine_CAFFE;
 #ifdef USE_CUDNN
-    if (!use_dilation) {
+    if (!use_dilation && Caffe::cudnn_enabled()) {
       engine = ConvolutionParameter_Engine_CUDNN;
     }
 #endif
@@ -73,6 +75,45 @@ shared_ptr<Layer<Dtype> > GetConvolutionLayer(
 
 REGISTER_LAYER_CREATOR(Convolution, GetConvolutionLayer);
 
+// Get deconvolution layer according to engine.
+template <typename Dtype>
+shared_ptr<Layer<Dtype> > GetDeconvolutionLayer(const LayerParameter& param) {
+  ConvolutionParameter conv_param = param.convolution_param();
+  ConvolutionParameter_Engine engine = conv_param.engine();
+#ifdef USE_CUDNN
+  bool use_dilation = false;
+  for (int i = 0; i < conv_param.dilation_size(); ++i) {
+    if (conv_param.dilation(i) > 1) {
+      use_dilation = true;
+    }
+  }
+#endif
+  if (engine == ConvolutionParameter_Engine_DEFAULT) {
+    engine = ConvolutionParameter_Engine_CAFFE;
+#ifdef USE_CUDNN
+    if (!use_dilation && Caffe::cudnn_enabled()) {
+      engine = ConvolutionParameter_Engine_CUDNN;
+    }
+#endif
+  }
+  if (engine == ConvolutionParameter_Engine_CAFFE) {
+    return shared_ptr<Layer<Dtype> >(new DeconvolutionLayer<Dtype>(param));
+#ifdef USE_CUDNN
+  } else if (engine == ConvolutionParameter_Engine_CUDNN) {
+    if (use_dilation) {
+      LOG(FATAL) << "CuDNN doesn't support the dilated deconvolution at Layer "
+                 << param.name();
+    }
+    return shared_ptr<Layer<Dtype> >(new CuDNNDeconvolutionLayer<Dtype>(param));
+#endif
+  } else {
+    LOG(FATAL) << "Layer " << param.name() << " has unknown engine.";
+    throw;  // Avoids missing return warning
+  }
+}
+
+REGISTER_LAYER_CREATOR(Deconvolution, GetDeconvolutionLayer);
+
 // Get pooling layer according to engine.
 template <typename Dtype>
 shared_ptr<Layer<Dtype> > GetPoolingLayer(const LayerParameter& param) {
@@ -80,7 +121,8 @@ shared_ptr<Layer<Dtype> > GetPoolingLayer(const LayerParameter& param) {
   if (engine == PoolingParameter_Engine_DEFAULT) {
     engine = PoolingParameter_Engine_CAFFE;
 #ifdef USE_CUDNN
-    engine = PoolingParameter_Engine_CUDNN;
+    if(Caffe::cudnn_enabled())
+      engine = PoolingParameter_Engine_CUDNN;
 #endif
   }
   if (engine == PoolingParameter_Engine_CAFFE) {
@@ -98,10 +140,10 @@ shared_ptr<Layer<Dtype> > GetPoolingLayer(const LayerParameter& param) {
     // cuDNN, use Caffe layer to max pooling, or don't use in place
     // layers after max pooling layers
     if (param.pooling_param().pool() == PoolingParameter_PoolMethod_MAX) {
-        return shared_ptr<Layer<Dtype> >(new PoolingLayer<Dtype>(param));
-    } else {
-        return shared_ptr<Layer<Dtype> >(new CuDNNPoolingLayer<Dtype>(param));
+      LOG(WARNING) << "Using cuDNN for MAX pool.  DO NOT MODIFY RESULT IN-PLACE!";
     }
+    return shared_ptr<Layer<Dtype> >(new CuDNNPoolingLayer<Dtype>(param));
+
 #endif
   } else {
     LOG(FATAL) << "Layer " << param.name() << " has unknown engine.";
@@ -118,7 +160,8 @@ shared_ptr<Layer<Dtype> > GetLRNLayer(const LayerParameter& param) {
 
   if (engine == LRNParameter_Engine_DEFAULT) {
 #ifdef USE_CUDNN
-    engine = LRNParameter_Engine_CUDNN;
+    if(Caffe::cudnn_enabled())
+      engine = LRNParameter_Engine_CUDNN;
 #else
     engine = LRNParameter_Engine_CAFFE;
 #endif
@@ -156,6 +199,7 @@ shared_ptr<Layer<Dtype> > GetReLULayer(const LayerParameter& param) {
   if (engine == ReLUParameter_Engine_DEFAULT) {
     engine = ReLUParameter_Engine_CAFFE;
 #ifdef USE_CUDNN
+  if(Caffe::cudnn_enabled())
     engine = ReLUParameter_Engine_CUDNN;
 #endif
   }
@@ -180,6 +224,7 @@ shared_ptr<Layer<Dtype> > GetSigmoidLayer(const LayerParameter& param) {
   if (engine == SigmoidParameter_Engine_DEFAULT) {
     engine = SigmoidParameter_Engine_CAFFE;
 #ifdef USE_CUDNN
+  if(Caffe::cudnn_enabled())
     engine = SigmoidParameter_Engine_CUDNN;
 #endif
   }
@@ -204,6 +249,7 @@ shared_ptr<Layer<Dtype> > GetSoftmaxLayer(const LayerParameter& param) {
   if (engine == SoftmaxParameter_Engine_DEFAULT) {
     engine = SoftmaxParameter_Engine_CAFFE;
 #ifdef USE_CUDNN
+  if(Caffe::cudnn_enabled())
     engine = SoftmaxParameter_Engine_CUDNN;
 #endif
   }
@@ -228,6 +274,7 @@ shared_ptr<Layer<Dtype> > GetTanHLayer(const LayerParameter& param) {
   if (engine == TanHParameter_Engine_DEFAULT) {
     engine = TanHParameter_Engine_CAFFE;
 #ifdef USE_CUDNN
+  if(Caffe::cudnn_enabled())
     engine = TanHParameter_Engine_CUDNN;
 #endif
   }

@@ -32,7 +32,7 @@ void test_set_atom_gradients() {
   cnn_options cnnopts;
   cnnopts.cnn_scoring = true;
   model m;
-  CNNScorer cnn_scorer(cnnopts, m);
+  CNNScorer cnn_scorer(cnnopts);
   typedef CNNScorer::Dtype Dtype;
   unsigned ntypes = smt::NumTypes;
   caffe::GenericMolGridDataLayer<Dtype>* mgrid = 
@@ -128,7 +128,7 @@ void test_subcube_grids() {
   cnn_options cnnopts;
   cnnopts.cnn_scoring = true;
   model m;
-  CNNScorer cnn_scorer(cnnopts, m);
+  CNNScorer cnn_scorer(cnnopts);
   caffe::GenericMolGridDataLayer<Dtype>* mgrid = 
     dynamic_cast<caffe::GenericMolGridDataLayer<Dtype>*>(cnn_scorer.mgrid);
   assert(mgrid);

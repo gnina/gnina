@@ -8,6 +8,7 @@ struct cnn_options {
     std::string cnn_weights; //weights for model
     std::string cnn_recmap; //optional file specifying receptor atom typing to channel map
     std::string cnn_ligmap; //optional file specifying ligand atom typing to channel map
+    std::string cnn_model_name; // name of builtin model
     vec cnn_center;
     fl resolution; //this isn't specified in model file, so be careful about straying from default
     unsigned cnn_rotations; //do we want to score multiple orientations?
@@ -24,11 +25,10 @@ struct cnn_options {
     unsigned seed; //random seed
 
     cnn_options()
-        : cnn_center(NAN, NAN, NAN), resolution(0.5), cnn_rotations(0), 
-            subgrid_dim(0.0), cnn_scoring(false), cnn_refinement(false), 
-            outputdx(false), outputxyz(false), gradient_check(false), 
-            move_minimize_frame(false), fix_receptor(true), verbose(false), 
-            seed(0) {
+        : cnn_model_name("default2017"), cnn_center(NAN, NAN, NAN), resolution(0.5), cnn_rotations(0),
+            subgrid_dim(0.0), cnn_scoring(false), cnn_refinement(false), outputdx(false),
+            outputxyz(false), gradient_check(false), move_minimize_frame(false),
+            fix_receptor(true), verbose(false), seed(0) {
     }
 };
 

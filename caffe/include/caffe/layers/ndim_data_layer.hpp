@@ -52,7 +52,7 @@ class NDimDataLayer : public BasePrefetchingDataLayer<Dtype> {
   virtual void rotate_data(Dtype *data, unsigned rot);
   vector<vector<std::string> > actives_;
   vector<vector<std::string> > decoys_;
-  vector<std::pair< vector<std::string>, int> > all_;
+  vector<std::pair< vector<std::string>, float> > all_;
   int actives_pos_, decoys_pos_, all_pos_;
   unsigned example_size;
   unsigned num_rotations;

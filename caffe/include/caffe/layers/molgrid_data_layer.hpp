@@ -88,7 +88,9 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
       num_rotations(0), current_rotation(0), 
       example_size(0), current_iter(0), inmem(false), resolution(0.5),
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
-      jitter(0.0), binary(false), randrotate(false), ligpeturb(false), dim(0), numgridpoints(0),
+      jitter(0.0), numposes(1), ligpeturb_rotate(false),
+      binary(false), randrotate(false), ligpeturb(false), ignore_ligand(false),
+      use_covalent_radius(false), dim(0), numgridpoints(0), numchannels(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
       gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
   virtual ~BaseMolGridDataLayer();
@@ -101,6 +103,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
        (this->layer_param_.molgrid_data_param().maxgroupsize() != 1)) +
       this->layer_param_.molgrid_data_param().has_affinity()+
       this->layer_param_.molgrid_data_param().has_rmsd()+
+      (this->layer_param_.molgrid_data_param().affinity_reweight_stdcut() > 0) +
       this->layer_param_.molgrid_data_param().peturb_ligand();
   }
   virtual inline void resetRotation() { current_rotation = 0; }
@@ -120,12 +123,16 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     labels.clear();
     affinities.clear();
     rmsds.clear();
+    weights.clear();
   }
 
-  virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd =0) {
-    labels.push_back(pose);
-    affinities.push_back(affinity);
-    rmsds.push_back(rmsd);
+  virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0, Dtype weight=0) {
+    for(unsigned p = 0; p < numposes; p++) {
+      labels.push_back(pose);
+      affinities.push_back(affinity);
+      rmsds.push_back(rmsd);
+      weights.push_back(weight);
+    }
   }
 
   virtual void updateTranslations(vec&& translation) {}
@@ -140,18 +147,19 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   }
 
   virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, 
-      bool gpu) {
+      bool hasweights, bool gpu) {
+    unsigned weighti = top.size()-1-ligpeturb;
+    unsigned rmsdi = 2+hasaffinity;
     copyToBlob(&labels[0], labels.size(), top[1], gpu);
-    if(hasaffinity) {
+    if(hasaffinity) 
       copyToBlob(&affinities[0], affinities.size(), top[2], gpu);
-      if(hasrmsd)
-        copyToBlob(&rmsds[0], rmsds.size(), top[3], gpu);
-    }
-    else if(hasrmsd)
-      copyToBlob(&rmsds[0], rmsds.size(), top[2], gpu);
+    if(hasrmsd)
+      copyToBlob(&rmsds[0], rmsds.size(), top[rmsdi], gpu);
+    if(hasweights)
+      copyToBlob(&weights[0], weights.size(), top[weighti], gpu);
   
     if(ligpeturb)
-      copyToBlob((Dtype*)&perturbations[0], perturbations.size()*6, top.back(), gpu);
+      copyToBlob((Dtype*)&perturbations[0], perturbations.size()*perturbations[0].size(), top.back(), gpu);
   }
 
   void getReceptorAtoms(int batch_idx, vector<float4>& atoms);
@@ -254,7 +262,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     }
     center /= acnt; //not ligand.size() because of hydrogens
 
-    if(calcCenter || isnan(mem_lig.center[0])) {
+    if(calcCenter || !isfinite(mem_lig.center[0])) {
       mem_lig.center = center;
     }
   }
@@ -295,16 +303,17 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   struct example
   {
     const char* receptor;
-    const char* ligand;
+    vector<const char*> ligands;
     Dtype label;
     Dtype affinity;
     Dtype rmsd;
+    Dtype affinity_weight;
     int group;
 
-    example(): receptor(NULL), ligand(NULL), label(0), affinity(0), rmsd(0), group(-1) {}
-    example(Dtype l, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(0), rmsd(0), group(-1) {}
-    example(Dtype l, Dtype a, Dtype rms, int gr, const char* r, const char* lig): receptor(r), ligand(lig), label(l), affinity(a), rmsd(rms), group(gr) {}
-    example(string_cache& cache, string line, bool hasaffinity, bool hasrmsd, bool hasgroup);
+    example(): receptor(NULL), label(0), affinity(0), rmsd(0), affinity_weight(1.0), group(-1) {}
+    example(Dtype l, const char* r, const vector<const char*>& ligs): receptor(r), ligands(ligs), label(l), affinity(0), rmsd(0), group(-1)  {}
+    example(Dtype l, Dtype a, Dtype rms, int gr, const char* r, const vector<const char*>& ligs, Dtype weight=1.0): receptor(r), ligands(ligs), label(l), affinity(a), rmsd(rms), group(gr), affinity_weight(weight) {}
+    example(string_cache& cache, string line, const MolGridDataParameter& param);
   };
 
   //abstract class for storing training examples
@@ -609,7 +618,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
         //if we have fewer than maxgroupsize examples for this group, pad with
         //ignore_labels
         for (unsigned idx=group.second.size(); idx<(maxgroupsize-1); ++idx) {
-          group.second.push_back(example(-1, -1, -1, -1, NULL, NULL));
+          group.second.push_back(example(-1, -1, -1, -1, NULL, {NULL}));
         }
       }
       CHECK_EQ(current_locations.size(), 0) << "All timesteps were not traversed prior to new provider setup";
@@ -653,10 +662,14 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
 
     mol_info() { center[0] = center[1] = center[2] = NAN;}
 
-    void append(const mol_info& a)
+    //add contents of a to this, incrementing whichGrid by offset
+    void append(const mol_info& a, unsigned offset=0)
     {
       atoms.insert(atoms.end(), a.atoms.begin(), a.atoms.end());
-      whichGrid.insert(whichGrid.end(), a.whichGrid.begin(), a.whichGrid.end());
+      whichGrid.reserve(whichGrid.size()+a.whichGrid.size());
+      for(auto g : a.whichGrid) {
+          whichGrid.push_back(g+offset);
+      }
       gradient.insert(gradient.end(), a.gradient.begin(), a.gradient.end());
     }
 
@@ -706,21 +719,25 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     }
   };
 
-  //6 numbers representing a transformation
+  //N numbers representing a transformation
   struct output_transform {
+    //contains only the N numbers representing the transformation, N is returned by size
     Dtype x;
     Dtype y;
     Dtype z;
-    Dtype pitch;
-    Dtype yaw;
-    Dtype roll;
+    Dtype sinr;
+    Dtype cosr;
+    Dtype sinp;
+    Dtype siny;
+    Dtype cosy;
 
-    output_transform(): x(0), y(0), z(0), pitch(0), yaw(0), roll(0) {}
+    output_transform(): x(0), y(0), z(0), sinr(0), cosr(0), sinp(0), siny(0), cosy(0) {}
 
     output_transform(Dtype X, Dtype Y, Dtype, Dtype Z, const qt& Q): x(X), y(Y), z(Z) {
       set_from_quaternion(Q);
     }
 
+    static unsigned size() { return 8; }
     void set_from_quaternion(const qt& Q) {
       //convert to euler angles
       //https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
@@ -730,25 +747,34 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
       double y = Q.R_component_3();
       double z = Q.R_component_4();
 
-      double sinr = 2.0 * (w*x + y*z);
-      double cosr = 1.0 - 2.0 * (x*x + y*y);
-      roll = atan2(sinr, cosr);
+      sinr = 2.0 * (w*x + y*z);
+      cosr = 1.0 - 2.0 * (x*x + y*y);
+      //Dtype roll = atan2(sinr, cosr);
 
       // pitch (y-axis rotation)
-      double sinp = 2.0 * (w*y - z*x);
+      sinp = 2.0 * (w*y - z*x);
+      /*
+      Dtype pitch = 0.0;
       if (fabs(sinp) >= 1)
         pitch = copysign(M_PI / 2, sinp);// use 90 degrees if out of range
       else
         pitch = asin(sinp);
-
+*/
       // yaw (z-axis rotation)
-      double siny = 2.0 * (w*z + x*y);
-      double cosy = 1.0 - 2.0 * (y*y + z*z);
-      yaw = atan2(siny, cosy);
+      siny = 2.0 * (w*z + x*y);
+      cosy = 1.0 - 2.0 * (y*y + z*z);
+      //Dtype yaw = atan2(siny, cosy);
     }
 
     qt get_quaternion()
     {
+      Dtype pitch = 0.0;
+      if (fabs(sinp) >= 1)
+        pitch = copysign(M_PI / 2, sinp);// use 90 degrees if out of range
+      else
+        pitch = asin(sinp);
+      Dtype yaw = atan2(siny, cosy);
+      Dtype roll = atan2(sinr, cosr);
     	qt q;
     	Dtype cy = cos(yaw * 0.5);
     	Dtype sy = sin(yaw * 0.5);
@@ -841,6 +867,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   vector<Dtype> labels;
   vector<Dtype> affinities;
   vector<Dtype> rmsds;
+  vector<Dtype> weights;
   vector<output_transform> perturbations;
 
   //grid stuff
@@ -852,17 +879,21 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   double randtranslate;
   double ligpeturb_translate;
   double jitter;
+  unsigned numposes;
   bool ligpeturb_rotate;
   bool binary; //produce binary occupancies
   bool randrotate;
   bool ligpeturb; //for spatial transformer
   bool ignore_ligand; //for debugging
+  bool use_covalent_radius;
 
   unsigned dim; //grid points on one side
   unsigned numgridpoints; //dim*dim*dim
+  unsigned numchannels;
 
   vector<int> rmap; //map atom types to position in grid vectors
   vector<int> lmap;
+  
   unsigned numReceptorTypes;
   unsigned numLigandTypes;
 
@@ -875,7 +906,10 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   //need to remember how mols were transformed for backward pass
   vector<mol_transform> batch_transform;
 
-  boost::unordered_map<string, mol_info> molcache;
+  typedef boost::unordered_map<string, mol_info> MolCache;
+  static MolCache recmolcache; //the cache is shared GLOBALLY
+  static MolCache ligmolcache; //the cache is shared GLOBALLY
+
   mol_info mem_rec; //molecular data set programmatically with setReceptor
   mol_info mem_lig; //molecular data set programmatically with setLigand
 
@@ -887,9 +921,12 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   void populate_data(const string& root_folder, const string& source, example_provider* data, bool hasaffinity, bool hasrmsd, bool hasgroup);
 
   quaternion axial_quaternion();
+
+  bool add_to_minfo(const string& file, const vector<int>& atommap, unsigned mapoffset, smt t, float x, float y, float z,  mol_info& minfo);
+  void load_cache(const string& file, const vector<int>& atommap, unsigned atomoffset, MolCache& molcache);
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
   void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
-                    mol_transform& transform, output_transform& pertub, bool gpu);
+                    mol_transform& transform, int pose, output_transform& pertub, bool gpu);
   virtual void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms,
                     mol_transform& transform, output_transform& peturb, bool gpu);
   void setAtomGradientsGPU(GridMakerT& gmaker, Dtype *diff, unsigned batch_size);
@@ -967,10 +1004,11 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
       BaseMolGridDataLayer<Dtype, GridMaker>::clearLabels();
     }
 
-    virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) {
+    virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0, Dtype weight=0) {
       this->labels.push_back(pose);
       this->affinities.push_back(affinity);
       this->rmsds.push_back(rmsd);
+      this->weights.push_back(weight);
       this->seqcont.push_back(example_idx < batch_size ? 0 : 1);
     }
 
@@ -992,10 +1030,10 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
     virtual void setBlobShape(const vector<Blob<Dtype>*>& top, bool hasrmsd, bool hasaffinity);
 
     virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, 
-        bool gpu) {
-      int idx = this->ExactNumTopBlobs() - this->ligpeturb - 1;
+        bool hasweights, bool gpu) {
+      int idx = this->ExactNumTopBlobs() - this->ligpeturb - hasweights - 1;
       this->copyToBlob(&seqcont[0], seqcont.size(), top[idx], gpu);
-      BaseMolGridDataLayer<Dtype, GridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, gpu);
+      BaseMolGridDataLayer<Dtype, GridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, hasweights, gpu);
     }
 
     virtual void set_grid_minfo(Dtype *data, 
@@ -1021,7 +1059,7 @@ class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
       BaseMolGridDataLayer<Dtype, RNNGridMaker>::clearLabels();
     }
 
-    virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) {
+    virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0, Dtype weight=0) {
       unsigned grids_per_dim = this->gmaker.grids_per_dim;
       unsigned ncubes = grids_per_dim * grids_per_dim * grids_per_dim;
       unsigned batch_size = this->gmaker.batch_size;
@@ -1035,6 +1073,8 @@ class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
         this->affinities.resize(nexamples);
       if (this->rmsds.size() < nexamples)
         this->rmsds.resize(nexamples);
+      if (this->weights.size() < nexamples)
+        this->weights.resize(nexamples);
 
       //this need to be TxN, so we end up having to write a column at a time, 
       //sadly
@@ -1048,6 +1088,7 @@ class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
         this->labels[idx] = pose;
         this->affinities[idx] = affinity;
         this->rmsds[idx] = rmsd;
+        this->weights[idx] = weight;
       }
     }
     
@@ -1066,10 +1107,10 @@ class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
   virtual void setBlobShape(const vector<Blob<Dtype>*>& top, bool hasrmsd, bool hasaffinity);
 
   virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, 
-      bool gpu) {
-    int idx = this->ExactNumTopBlobs() - this->ligpeturb - 1;
+      bool hasweights, bool gpu) {
+    int idx = this->ExactNumTopBlobs() - this->ligpeturb - hasweights - 1;
     this->copyToBlob(&seqcont[0], seqcont.size(), top[idx], gpu);
-    BaseMolGridDataLayer<Dtype, RNNGridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, gpu);
+    BaseMolGridDataLayer<Dtype, RNNGridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, hasweights, gpu);
   }
 
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,

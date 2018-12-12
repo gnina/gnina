@@ -277,7 +277,30 @@ class GridMaker {
         agrad[i].z = 0.0;
       }
     }
-  
+
+    __host__ __device__
+    void accumulateAtomRelevance(const float3& coords, double ar, float x,
+        float y, float z, float gridval, float denseval, float3& agrad) {
+      //simple sum of values that the atom overlaps
+      float dist_x = x - coords.x;
+      float dist_y = y - coords.y;
+      float dist_z = z - coords.z;
+      float dist2 = dist_x * dist_x + dist_y * dist_y + dist_z * dist_z;
+      double dist = sqrt(dist2);
+      if (dist >= ar * radiusmultiple) {
+        return;
+      } else {
+        if(denseval > 0) {
+          //weight by contribution to density grid
+          float val = calcPoint(coords, ar, x, y, z);
+          agrad.x += gridval*val/denseval;
+        } else {
+          agrad.x += gridval;
+        }
+      }
+    }
+
+    //accumulate gradient from grid point x,y,z for provided atom
     __host__ __device__
     void accumulateAtomGradient(const float3& coords, double ar, float x,
               float y, float z, float gridval, float3& agrad, int whichgrid) {
@@ -319,7 +342,7 @@ class GridMaker {
     template<typename Grids>
     void setAtomGradientCPU(const float4& ainfo, int whichgrid,
         const quaternion& Q, const Grids& grids,
-        float3& agrad, bool isrelevance = false) {
+        float3& agrad, bool isrelevance = false, const Grids& densegrids = Grids(NULL, boost::extents[0][0][0][0])) {
       float3 coords;
       if (Q.real() != 0) {//apply rotation
         quaternion p(0, ainfo.x - center.x, ainfo.y - center.y,
@@ -358,7 +381,7 @@ class GridMaker {
   
             if (isrelevance) 
               accumulateAtomRelevance(coords, radius, x, y, z,
-                  grids[whichgrid][i][j][k], agrad);
+                  grids[whichgrid][i][j][k], densegrids[whichgrid][i][j][k], agrad);
             else //true gradient, distance matters
               accumulateAtomGradient(coords, radius, x, y, z,
                   grids[whichgrid][i][j][k], agrad, whichgrid);
@@ -389,22 +412,6 @@ class GridMaker {
       }
     }
  
-    __host__ __device__
-    void accumulateAtomRelevance(const float3& coords, double ar, float x,
-        float y, float z, float gridval, float3& agrad) {
-      //simple sum of values that the atom overlaps
-      float dist_x = x - coords.x;
-      float dist_y = y - coords.y;
-      float dist_z = z - coords.z;
-      float dist2 = dist_x * dist_x + dist_y * dist_y + dist_z * dist_z;
-      double dist = sqrt(dist2);
-      if (dist >= ar * radiusmultiple) {
-        return;
-      } else {
-        agrad.x += gridval;
-      }
-    }
-
     template<typename Dtype>
     __device__
     void setAtomGradientsGPU(const float4* ainfo, short* gridindices, 
@@ -448,7 +455,7 @@ class GridMaker {
 
             if (isrelevance) {
               accumulateAtomRelevance(coords, radius, x, y, z,
-                  grids[(((whichgrid * dim) + i) * dim + j) * dim + k],
+                  grids[(((whichgrid * dim) + i) * dim + j) * dim + k], 0, /* TODO TODO: gpu-ize relevance */
                   agrads[idx]);
             } else {
             accumulateAtomGradient(coords, radius, x, y, z, 
@@ -463,14 +470,14 @@ class GridMaker {
 
     //summ up gradient values overlapping atoms
     template<typename Grids>
-    void setAtomRelevanceCPU(const vector<float4>& ainfo, 
-        const vector<short>& gridindex, const quaternion& Q, const Grids& grids, 
-        vector<float3>& agrad, unsigned batch_idx) {
+    void setAtomRelevanceCPU(const vector<float4>& ainfo,
+        const vector<short>& gridindex, const quaternion& Q, const Grids& densegrids,
+        const Grids& diffgrids, vector<float3>& agrad) {
       zeroAtomGradientsCPU(agrad);
       for (unsigned i = 0, n = ainfo.size(); i < n; ++i) {
         int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
         if (whichgrid >= 0) {
-          setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i], true);
+          setAtomGradientCPU(ainfo[i], whichgrid, Q, diffgrids, agrad[i], true, densegrids);
         }
       }
     }
@@ -502,6 +509,36 @@ class GridMaker {
           cnt++;
 
         nameptr++;
+      }
+      return cnt;
+    }
+
+    //create atom mapping from whitespace/newline delimited string
+    static unsigned createMapFromString(const std::string& rmap, vector<int>& map) {
+      map.assign(smina_atom_type::NumTypes, -1);
+
+      //split string into lines
+      vector<string> lines;
+      boost::algorithm::split(lines, rmap, boost::is_any_of("\n"),boost::algorithm::token_compress_on);
+      unsigned cnt = 0;
+      for (auto line : lines) {
+        vector<string> names;
+
+        //split line into distinct types
+        boost::algorithm::split(names, line, boost::is_space(),
+            boost::algorithm::token_compress_on);
+        for (unsigned i = 0, n = names.size(); i < n; i++) {
+          string name = names[i];
+          smt t = string_to_smina_type(name);
+          if (t < smina_atom_type::NumTypes) { //valid
+            map[t] = cnt;
+          } else {//should never happen
+            cerr << "Invalid atom type " << name << "\n";
+            exit(-1);
+          }
+        }
+
+        if(names.size()) cnt++;
       }
       return cnt;
     }
@@ -720,6 +757,13 @@ class RNNGridMaker : public GridMaker {
       return &grids[grid_idx * ntypes + whichgrid][x][y][z];
     }
 
+    template<typename Dtype>
+    Dtype* getGridElement(boost::multi_array_ref<Dtype, 4>& grids, 
+        unsigned grid_idx, unsigned whichgrid, unsigned x, 
+        unsigned y, unsigned z) {
+      return &grids[grid_idx * ntypes + whichgrid][x][y][z];
+    }
+
     //TODO: possible to merge this with base version?
     template<typename Grids>
     void setAtomCPU(float4 ainfo, int whichgrid, const quaternion& Q, 
@@ -836,7 +880,7 @@ class RNNGridMaker : public GridMaker {
     template<typename Grids>
     void setAtomGradientCPU(const float4& ainfo, int whichgrid, 
         const quaternion& Q, const Grids& grids, float3& agrad, 
-        bool isrelevance = false) {
+        bool isrelevance = false, const Grids& densegrids = Grids(NULL, boost::extents[0][0][0][0][0][0])  ) {
       float3 coords;
       if (Q.real() != 0) {//apply rotation
         quaternion p(0, ainfo.x - center.x, ainfo.y - center.y,
@@ -887,6 +931,7 @@ class RNNGridMaker : public GridMaker {
             if (isrelevance) 
               accumulateAtomRelevance(coords, radius, x, y, z,
                   grids[grid_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z], 
+                  densegrids[grid_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z],
                   agrad);
             else //true gradient, distance matters
               accumulateAtomGradient(coords, radius, x, y, z,

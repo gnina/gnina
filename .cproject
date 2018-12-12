@@ -21,7 +21,7 @@
 					<folderInfo id="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.1093790188" name="/" resourcePath="">
 						<toolChain id="com.nvidia.cuda.ide.toolchain.nine_zero.745422456" name="CUDA Toolkit 9.1" superClass="com.nvidia.cuda.ide.toolchain.nine_zero">
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.1937693194" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
-							<builder buildPath="${workspace_loc:/gnina/build}" id="com.nvidia.cuda.ide.builder.659318531" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="CUDA Toolkit 9.1 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
+							<builder buildPath="${workspace_loc:/gnina/build}" id="com.nvidia.cuda.ide.builder.659318531" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="CUDA Toolkit 9.2 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
 							<tool id="nvcc.compiler.base.817114087" name="NVCC Compiler" superClass="nvcc.compiler.base">
 								<option id="nvcc.compiler.include.paths.741795024" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina/caffe/include/}&quot;"/>
@@ -30,9 +30,10 @@
 									<listOptionValue builtIn="false" value="/usr/local/include/rdkit"/>
 								</option>
 								<option id="nvcc.compiler.pic.302953471" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic"/>
-								<option id="nvcc.compiler.def.symbols.1369620722" superClass="nvcc.compiler.def.symbols" valueType="definedSymbols">
+								<option id="nvcc.compiler.def.symbols.1369620722" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="__align__"/>
 									<listOptionValue builtIn="false" value="__host__"/>
+									<listOptionValue builtIn="false" value="USE_CUDNN=1"/>
 								</option>
 								<inputType id="nvcc.compiler.input.cu.1224464687" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.2105647650" superClass="nvcc.compiler.input.cpp"/>
@@ -81,7 +82,7 @@
 					<folderInfo id="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.224611667." name="/" resourcePath="">
 						<toolChain id="com.nvidia.cuda.ide.toolchain.nine_zero.1398709349" name="CUDA Toolkit 9.1" superClass="com.nvidia.cuda.ide.toolchain.nine_zero">
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.194701867" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
-							<builder buildPath="${workspace_loc:/gnina/build-debug}" id="com.nvidia.cuda.ide.builder.390069247" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="CUDA Toolkit 9.1 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
+							<builder buildPath="${workspace_loc:/gnina/build-debug}" id="com.nvidia.cuda.ide.builder.390069247" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="CUDA Toolkit 9.2 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
 							<tool id="nvcc.compiler.base.788817000" name="NVCC Compiler" superClass="nvcc.compiler.base">
 								<option id="nvcc.compiler.include.paths.1639509984" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="/usr/local/include/rdkit"/>
@@ -93,6 +94,7 @@
 									<listOptionValue builtIn="false" value="__CUDACC_RTC__=1"/>
 									<listOptionValue builtIn="false" value="__align__"/>
 									<listOptionValue builtIn="false" value="__host__"/>
+									<listOptionValue builtIn="false" value="USE_CUDNN=1"/>
 								</option>
 								<option id="nvcc.compiler.pic.1215377011" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic"/>
 								<inputType id="nvcc.compiler.input.cu.1842059124" superClass="nvcc.compiler.input.cu"/>
@@ -142,7 +144,7 @@
 					<folderInfo id="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.407239." name="/" resourcePath="">
 						<toolChain id="com.nvidia.cuda.ide.toolchain.nine_zero.1001606979" name="CUDA Toolkit 9.1" superClass="com.nvidia.cuda.ide.toolchain.nine_zero">
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.601178512" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
-							<builder buildPath="${workspace_loc:/gnina/build}" id="com.nvidia.cuda.ide.builder.254458676" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="CUDA Toolkit 9.1 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
+							<builder buildPath="${workspace_loc:/gnina/build}" id="com.nvidia.cuda.ide.builder.254458676" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="CUDA Toolkit 9.2 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
 							<tool id="nvcc.compiler.base.1634562902" name="NVCC Compiler" superClass="nvcc.compiler.base">
 								<option id="nvcc.compiler.include.paths.1484858518" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina/caffe/include/}&quot;"/>
@@ -151,7 +153,9 @@
 									<listOptionValue builtIn="false" value="/usr/local/include/rdkit"/>
 								</option>
 								<option id="nvcc.compiler.pic.644922378" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic"/>
-								<option id="nvcc.compiler.def.symbols.825899810" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols" valueType="definedSymbols"/>
+								<option id="nvcc.compiler.def.symbols.825899810" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="USE_CUDNN=1"/>
+								</option>
 								<inputType id="nvcc.compiler.input.cu.1626688629" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.101118491" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.517245029" superClass="nvcc.compiler.input.c"/>

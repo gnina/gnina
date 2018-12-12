@@ -31,13 +31,14 @@ struct gridoptions {
     bool spherize;
     bool gpu;
     bool separate;
+    bool use_covalent_radius;
     gridoptions()
         :
             //a default dimension of 23.5 yields 48x48x48 gridpoints
             dim(23.5), res(0.5), subgrid_dim(0.0), verbosity(1), seed((int) time(NULL)),
             randrotate(false), randtranslate(0.0), help(false), version(false),
             timeit(false), outmap(false), binary(false), spherize(false),
-            gpu(false), separate(false) {
+            gpu(false), separate(false), use_covalent_radius(false) {
     }
 };
 

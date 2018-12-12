@@ -927,7 +927,7 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec) {
     for (unsigned i = 0, n = atoms.size(); i < n; i++) {
       const atom& a = atoms[i];
       if (rmap[a.sm] >= 0) {
-        float4 ai = { a.coords[0], a.coords[1], a.coords[2], xs_radius(a.sm) };
+        float4 ai = { a.coords[0], a.coords[1], a.coords[2], radius(a.sm) };
         recWhichGrid.push_back(rmap[a.sm]);
         recAInfo.push_back(ai);
       }
@@ -946,7 +946,7 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec) {
     for (unsigned i = 0, n = atoms.size(); i < n; i++) {
       atom a = atoms[i];
       ligWhichGrid[i] = lmap[a.sm];
-      ligRadii[i] = xs_radius(a.sm);
+      ligRadii[i] = radius(a.sm);
     }
 
     if (gpu) setLigGPU();

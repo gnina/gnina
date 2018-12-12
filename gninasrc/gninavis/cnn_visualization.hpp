@@ -25,11 +25,12 @@ struct vis_options {
 
     bool outputdx;
     float box_size;
+    double score_scale;
 
     vis_options()
         : frags_only(false), atoms_only(false), verbose(false),
             output_files(false), skip_bound_check(false), outputdx(false),
-            gpu(0), box_size(23.5) {
+            gpu(0), box_size(23.5), score_scale(10) {
     }
 };
 
@@ -54,6 +55,7 @@ class cnn_visualization {
     model unmodified_receptor;
     model unmodified_ligand;
     bool frags_only, atoms_only, verbose;
+    double score_scale;
 
     std::unordered_map<std::string, int> rec_map;
     std::unordered_map<std::string, int> lig_map;

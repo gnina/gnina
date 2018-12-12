@@ -13,9 +13,11 @@
 #include "caffe/layer.hpp"
 #include "caffe/layers/molgrid_data_layer.hpp"
 #include "boost/thread/mutex.hpp"
+#include <boost/thread/recursive_mutex.hpp>
 
 #include "nngridder.h"
 #include "model.h"
+#include "cnn_data.h"
 
 /* This class evaluates protein-ligand poses according to a provided
  * Caffe convolutional neural net (CNN) model.
@@ -28,21 +30,22 @@ class CNNScorer {
     caffe::MolGridDataParameter *mgridparam;
     cnn_options cnnopts;
 
-    caffe::shared_ptr<boost::mutex> mtx; //todo, enable parallel scoring
+    caffe::shared_ptr<boost::recursive_mutex> mtx; //todo, enable parallel scoring
 
     //scratch vectors to avoid memory reallocation
     vector<float3> gradient;
     vector<float4> atoms;
     vector<short> channels;
+    vec current_center; //center last time set_center was called, if min frame is moving, the mgrid center will be changing
 
   public:
     CNNScorer()
-        : mgrid(NULL), mtx(new boost::mutex) {
+        : mgrid(NULL), mtx(new boost::recursive_mutex), current_center(NAN,NAN,NAN) {
     }
     virtual ~CNNScorer() {
     }
 
-    CNNScorer(const cnn_options& opts, const model& m);
+    CNNScorer(const cnn_options& opts);
 
     bool initialized() const {
       return net.get();
@@ -66,14 +69,14 @@ class CNNScorer {
         const string& ligname, const string& layer_to_ignore = "");
 
     //readjust center
-    bool set_center_from_model(model &m);
+    void set_center_from_model(model &m);
 
     const cnn_options& options() const {
       return cnnopts;
     }
 
     vec get_center() const {
-      return mgrid->getCenter();
+      return current_center;
     }
     fl get_grid_dim() const {
       return mgrid->getDimension();

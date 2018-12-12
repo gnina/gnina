@@ -25,10 +25,12 @@ using namespace OpenBabel;
 
 cnn_visualization::cnn_visualization(const vis_options &viso,
     const cnn_options &copts, const vec &c)
-    : visopts(viso), cnnopts(copts), center(c) {
+    : visopts(viso), cnnopts(copts), center(c),score_scale(viso.score_scale) {
   if (visopts.gpu > -1) {
     caffe::Caffe::SetDevice(visopts.gpu);
     caffe::Caffe::set_mode(caffe::Caffe::GPU);
+    //backwards relevance not supported in cudnn layers yet
+    caffe::Caffe::set_cudnn(false);
   }
 
   OBConversion conv;
@@ -64,7 +66,7 @@ void cnn_visualization::lrp() {
 
   std::stringstream rec_stream(rec_string);
   model receptor = parse_receptor_pdbqt("", rec_stream);
-  CNNScorer scorer(cnnopts, receptor);
+  CNNScorer scorer(cnnopts);
 
   std::stringstream lig_stream(lig_string);
   model ligand = parse_ligand_stream_pdbqt("", lig_stream);
@@ -103,7 +105,7 @@ void cnn_visualization::gradient_vis() {
 
   std::stringstream rec_stream(rec_string);
   model receptor = parse_receptor_pdbqt("", rec_stream);
-  CNNScorer scorer(cnnopts, receptor);
+  CNNScorer scorer(cnnopts);
 
   std::stringstream lig_stream(lig_string);
   model ligand = parse_ligand_stream_pdbqt("", lig_stream);
@@ -149,7 +151,7 @@ void cnn_visualization::setup() {
 
   std::stringstream rec_stream(rec_string);
   unmodified_receptor = parse_receptor_pdbqt("", rec_stream);
-  CNNScorer base_scorer(cnnopts, unmodified_receptor);
+  CNNScorer base_scorer(cnnopts);
 
   std::stringstream lig_stream(lig_string);
   unmodified_ligand = parse_ligand_stream_pdbqt("", lig_stream);
@@ -244,6 +246,9 @@ void cnn_visualization::process_molecules() {
   conv.AddOption("r", OBConversion::OUTOPTIONS); //treat as rigid
   conv.AddOption("c", OBConversion::OUTOPTIONS); //combine rotatable portions of molecule
   conv.AddOption("p", OBConversion::OUTOPTIONS);
+
+  conv.AddOption("h", OBConversion::OUTOPTIONS);
+
   conv.SetOutFormat("PDBQT"); //use pdbqt to make passing to parse_pdbqt possible
 
   //generate base ligand pdbqt string
@@ -287,7 +292,7 @@ float cnn_visualization::score_modified_receptor(
 
   model m = parse_receptor_pdbqt("", rec_stream);
 
-  CNNScorer cnn_scorer(cnnopts, m);
+  CNNScorer cnn_scorer(cnnopts);
 
   model l = parse_ligand_stream_pdbqt("", lig_stream);
   m.append(l);
@@ -324,7 +329,7 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string) {
 
   static bool first = true;
   if (first) {
-    cnn_scorer = CNNScorer(cnnopts, temp);
+    cnn_scorer = CNNScorer(cnnopts);
     first = false;
   }
 
@@ -422,7 +427,7 @@ void cnn_visualization::write_scores(
         }
 
         else {
-          score = scores[xyz];
+          score = scores[xyz]*score_scale;
           found_count++;
           found_scores[xyz] = true;
         }

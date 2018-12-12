@@ -35,6 +35,14 @@ class NNGridder {
         typedef const float& const_reference;
         typedef std::size_t size_type;
         typedef std::ptrdiff_t difference_type;
+        bool std_alloc;
+
+        float_pinned_allocator() : std_alloc(true) {
+          int count = 0;
+          cudaGetDeviceCount(&count);
+          if (count) 
+            std_alloc = false;
+        }
 
         pointer address(reference r) {
           return &r;
@@ -50,19 +58,30 @@ class NNGridder {
           }
 
           pointer result(0);
-          cudaError_t error = cudaMallocHost(reinterpret_cast<void**>(&result),
-              cnt * sizeof(value_type));
-
-          if (error) {
-            throw std::bad_alloc();
+          if (std_alloc) {
+            std::allocator<value_type> host_allocator;
+            result = host_allocator.allocate(cnt);
+          }
+          else {
+            cudaError_t error = cudaMallocHost(reinterpret_cast<void**>(&result),
+                cnt * sizeof(value_type));
+            if (error) {
+              cout << "CUDA error " << cudaGetErrorName(error) << "\n";
+              throw std::bad_alloc();
+            }
           }
 
           return result;
         }
 
         void deallocate(pointer p, size_type cnt) {
-          cudaFreeHost(p);
-
+          if (std_alloc) {
+            std::allocator<value_type> host_allocator;
+            host_allocator.deallocate(p, cnt);
+          }
+          else {
+            cudaFreeHost(p);
+          }
         }
 
         size_type max_size() const {
@@ -89,6 +108,7 @@ class NNGridder {
     bool binary; //produce binary occupancies
     bool randrotate;
     bool gpu; //use gpu
+    bool use_covalent_radius; //instead of xs_radius
 
     GridMaker* gmaker;
     vector<Grid> receptorGrids;
@@ -142,11 +162,13 @@ class NNGridder {
     //for debugging
     static bool compareGrids(Grid& g1, Grid& g2, const char *name, int index);
 
+    float radius(smt sm) { return use_covalent_radius ? covalent_radius(sm) : xs_radius(sm); }
+
   public:
 
     NNGridder()
         : resolution(0.5), dimension(24), radiusmultiple(1.5), randtranslate(0),
-            binary(false), randrotate(false), gpu(false),
+            binary(false), randrotate(false), gpu(false), use_covalent_radius(false),
             gpu_receptorGrids(NULL), gpu_ligandGrids(NULL),
             gpu_receptorAInfo(NULL), gpu_recWhichGrid(NULL),
             gpu_ligandAInfo(NULL), gpu_ligWhichGrid(NULL) {

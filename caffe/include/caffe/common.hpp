@@ -146,6 +146,10 @@ class Caffe {
   // freed in a non-pinned way, which may cause problems - I haven't verified
   // it personally but better to note it here in the header file.
   inline static void set_mode(Brew mode) { Get().mode_ = mode; }
+  //return if cudnn is enabled
+  inline static bool cudnn_enabled() { return Get().cudnn_enabled_; }
+  inline static void set_cudnn(bool enable) { Get().cudnn_enabled_ = enable; }
+
   // Sets the random seed of both boost and curand
   static void set_random_seed(const unsigned int seed);
   // Sets the device. Since we have cublas and curand stuff, set device also
@@ -166,6 +170,7 @@ class Caffe {
   inline static bool multiprocess() { return Get().multiprocess_; }
   inline static void set_multiprocess(bool val) { Get().multiprocess_ = val; }
   inline static bool root_solver() { return Get().solver_rank_ == 0; }
+  inline static void device_synchronize() { CUDA_CHECK(cudaDeviceSynchronize()); }
 
  protected:
 #ifndef CPU_ONLY
@@ -175,6 +180,7 @@ class Caffe {
   shared_ptr<RNG> random_generator_;
 
   Brew mode_;
+  bool cudnn_enabled_; //global switch for cudnn
 
   // Parallel training
   int solver_count_;

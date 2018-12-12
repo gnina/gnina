@@ -909,8 +909,27 @@ if(NOT CUDA_VERSION VERSION_LESS "3.2")
   endif()
 endif()
 if(CUDA_VERSION VERSION_GREATER "5.0" AND CUDA_VERSION VERSION_LESS "9.2")
+  # In CUDA 9.2 cublas_device was deprecated
   find_cuda_helper_libs(cublas_device)
-  # In CUDA 5.5 NPP was splitted onto 3 separate libraries.
+endif()
+
+if(NOT CUDA_VERSION VERSION_LESS "9.0")
+  # In CUDA 9.0 NPP was nppi was removed
+  find_cuda_helper_libs(nppc)
+  find_cuda_helper_libs(nppial)
+  find_cuda_helper_libs(nppicc)
+  find_cuda_helper_libs(nppicom)
+  find_cuda_helper_libs(nppidei)
+  find_cuda_helper_libs(nppif)
+  find_cuda_helper_libs(nppig)
+  find_cuda_helper_libs(nppim)
+  find_cuda_helper_libs(nppist)
+  find_cuda_helper_libs(nppisu)
+  find_cuda_helper_libs(nppitc)
+  find_cuda_helper_libs(npps)
+  set(CUDA_npp_LIBRARY "${CUDA_nppc_LIBRARY};${CUDA_nppial_LIBRARY};${CUDA_nppicc_LIBRARY};${CUDA_nppicom_LIBRARY};${CUDA_nppidei_LIBRARY};${CUDA_nppif_LIBRARY};${CUDA_nppig_LIBRARY};${CUDA_nppim_LIBRARY};${CUDA_nppist_LIBRARY};${CUDA_nppisu_LIBRARY};${CUDA_nppitc_LIBRARY};${CUDA_npps_LIBRARY}")
+elseif(CUDA_VERSION VERSION_GREATER "5.0")
+  # In CUDA 5.5 NPP was split into 3 separate libraries.
   find_cuda_helper_libs(nppc)
   find_cuda_helper_libs(nppi)
   find_cuda_helper_libs(npps)
@@ -930,6 +949,7 @@ else()
   set(CUDA_CUFFT_LIBRARIES ${CUDA_cufft_LIBRARY})
   set(CUDA_CUBLAS_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_cublas_device_LIBRARY})
 endif()
+
 
 ########################
 # Look for the SDK stuff.  As of CUDA 3.0 NVSDKCUDA_ROOT has been replaced with
