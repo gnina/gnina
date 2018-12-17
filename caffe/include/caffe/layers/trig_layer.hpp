@@ -1,5 +1,5 @@
-#ifndef CAFFE_COS_LAYER_HPP_
-#define CAFFE_COS_LAYER_HPP_
+#ifndef CAFFE_TRIG_LAYER_HPP_
+#define CAFFE_TRIG_LAYER_HPP_
 
 #include <vector>
 
@@ -12,16 +12,18 @@
 namespace caffe {
 
 /**
- * @brief Cos cosine non-linearity @f$
+ * @brief Trig (cosine or sine) non-linearity @f$
  *
  */
 template <typename Dtype>
-class CosLayer : public NeuronLayer<Dtype> {
+class TrigLayer : public NeuronLayer<Dtype> {
  public:
-  explicit CosLayer(const LayerParameter& param)
-      : NeuronLayer<Dtype>(param) {}
+  explicit TrigLayer(const LayerParameter& param)
+      : NeuronLayer<Dtype>(param), func(TrigParameter_Function_COS) {}
 
-  virtual inline const char* type() const { return "Cos"; }
+  virtual inline const char* type() const { return "Trig"; }
+  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
 
  protected:
   /**
@@ -31,7 +33,7 @@ class CosLayer : public NeuronLayer<Dtype> {
    * @param top output Blob vector (length 1)
    *   -# @f$ (N \times C \times H \times W) @f$
    *      the computed outputs @f$
-   *        y = cos(x)
+   *        y = cos(x) or sin(x)
    *      @f$
    */
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
@@ -57,8 +59,11 @@ class CosLayer : public NeuronLayer<Dtype> {
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
+protected:
+  TrigParameter_Function func;
 };
 
 }  // namespace caffe
 
-#endif  // CAFFE_COS_LAYER_HPP_
+#endif  // CAFFE_TRIG_LAYER_HPP_

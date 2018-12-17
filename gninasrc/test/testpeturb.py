@@ -185,7 +185,7 @@ res = net.forward()
 data = res['data'][0].copy()
 l =net.layers[0]
 mt = l.get_moltransform(0)
-trans = mt.center.x(),mt.center.y(),mt.center.z()
+trans = -mt.center.x(),-mt.center.y(),-mt.center.z()
 q = qt(mt.Q.a,mt.Q.b,mt.Q.c,mt.Q.d)
 #rotating
 newcoords = np.array(map(q.rotate,coords-center))+center+trans
@@ -213,14 +213,16 @@ q = qt(peturb[3:7])
 
 l =net.layers[0]
 mt = l.get_moltransform(0)
-Rtrans = mt.center.x(),mt.center.y(),mt.center.z()
+Rtrans = -mt.center.x(),-mt.center.y(),-mt.center.z()
 Rq = qt(mt.Q.a,mt.Q.b,mt.Q.c,mt.Q.d)
 
-#first peturb, then randomize
-newligcoords = np.array(map(q.inverse.rotate,coords-center))+center-trans
-newligcoords = np.array(map(Rq.rotate,newligcoords-center))+center+Rtrans
-
+#first randomize, then peturb
+center = np.mean(coords,axis=0)
 newreccoords = np.array(map(Rq.rotate,coords-center))+center+Rtrans
+newligcoords = np.array(map(Rq.rotate,coords-center))+center+Rtrans
+center = np.mean(newligcoords,axis=0)
+newligcoords = np.array(map(q.inverse.rotate,newligcoords-center))+center-trans
+
 setmol(newligcoords)
 setmol(newreccoords,'rec.xyz')
 plainnet = caffe.Net('plain.model',caffe.TEST)
@@ -245,19 +247,18 @@ q = qt(peturb[3:7])
 
 l =net.layers[0]
 mt = l.get_moltransform(0)
-Rtrans = mt.center.x(),mt.center.y(),mt.center.z()
+Rtrans = -mt.center.x(),-mt.center.y(),-mt.center.z()
 Rq = qt(mt.Q.a,mt.Q.b,mt.Q.c,mt.Q.d)
 
 center = np.mean(coords,axis=0)
 
-#first peturb
-newligcoords = np.array(map(q.inverse.rotate,coords-center))+center-trans
+#first rotate
+newligcoords = np.array(map(Rq.rotate,coords-center))+center+Rtrans
+newreccoords = np.array(map(Rq.rotate,coords-center))+center+Rtrans
 center = np.mean(newligcoords,axis=0)
-#random rotation is relative to the grid center, which is the
-#peturbed random translation of the ligand center
-newligcoords = np.array(map(Rq.rotate,newligcoords-center-Rtrans))
+#then peturb, using updated ligand center
+newligcoords = np.array(map(q.inverse.rotate,newligcoords-center))+center-trans
 
-newreccoords = np.array(map(Rq.rotate,coords-center-Rtrans))
 setmol(newligcoords)
 setmol(newreccoords,'rec.xyz')
 plainnet = caffe.Net('plain.model',caffe.TEST)

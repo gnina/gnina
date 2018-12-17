@@ -907,124 +907,145 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer<Dtype>::mol_info& recatoms,
-  const MolGridDataLayer<Dtype>::mol_info& ligatoms, MolGridDataLayer<Dtype>::mol_transform& transform,
-  output_transform& peturb, bool gpu)
-{
+    const MolGridDataLayer<Dtype>::mol_info& ligatoms,
+    MolGridDataLayer<Dtype>::mol_transform& transform,
+    output_transform& peturb, bool gpu)
+    {
+  bool fixcenter = this->layer_param_.molgrid_data_param().fix_center_to_origin();
   //set grid values from mol info
   //first clear transform from the previous batch
   rng_t* rng = caffe_rng();
   transform = mol_transform();
   mol_transform ligtrans;
 
-  //include receptor and ligand atoms
-  transform.mol.append(recatoms);
-  //set center to ligand center
-  transform.mol.center = ligatoms.center;
-
-  if(ligpeturb) {
-    if(ligpeturb_rotate)
-    {
-      ligtrans.set_random_quaternion(rng);
-    }
-    else
-    {
-      ligtrans.Q = quaternion(1,0,0,0); //identity
-    }
-    ligtrans.add_random_displacement(rng, ligpeturb_translate);
-    transform.mol.transform_and_append(ligatoms, ligtrans);
-
-    //store the inverse transformation
-    peturb.x = -ligtrans.center[0];
-    peturb.y = -ligtrans.center[1];
-    peturb.z = -ligtrans.center[2];
-
-    qt qinv = conj(ligtrans.Q)/norm(ligtrans.Q); //not Cayley, not euclidean norm - already squared
-    peturb.set_from_quaternion(qinv);
-
-    //set the center to the translated value
-    transform.mol.center = ligatoms.center + ligtrans.center;
-  } else if(ignore_ligand) {
-    //do nothing - ligand is only used to set center
-  } else {
-    transform.mol.append(ligatoms);
-  }
-
   //figure out transformation
-  transform.Q = quaternion(1,0,0,0);
+  //note there are currently two code paths - one where setAtoms performs the transformation
+  //and one where the transformation is applied here; the first is faster, as it can be done
+  //on the GPU, but the second let's us support "weird" transformation like peturbations
+  //in the first case, the coordinates of the mol don't change; in the other they are mogrified
+  //TODO: unify this - I think transformation should be treated separately from gridding
+  //I don't think random rotation and backwards gradients are currently working
+  transform.Q = quaternion(1, 0, 0, 0);
 
-  if(current_rotation == 0 && !randrotate)
-    transform.Q = quaternion(1,0,0,0); //check real part to avoid mult
+  if (current_rotation == 0 && !randrotate)
+    transform.Q = quaternion(1, 0, 0, 0); //check real part to avoid mult
 
   if (randrotate)
   {
     transform.set_random_quaternion(rng);
   }
 
-
   if (randtranslate)
   {
     double radius = ligatoms.radius();
     //don't let ligand atoms translate out of sphere inscribed in box
-    if(ignore_ligand) radius = 0;
-    double maxtrans = max(dimension/2.0 - radius,0.0);
-    transform.add_random_displacement(rng, min(randtranslate,maxtrans));
+    if (ignore_ligand) radius = 0;
+    double maxtrans = max(dimension / 2.0 - radius, 0.0);
+    transform.add_random_displacement(rng, min(randtranslate, maxtrans));
   }
 
-  if(current_rotation > 0) {
+  if (current_rotation > 0) {
     transform.Q *= axial_quaternion();
   }
 
-  quaternion Q = transform.Q;
-  vec grid_center(0,0,0);
+  //include receptor and ligand atoms
+  transform.mol.append(recatoms);
+  //set rotation center to ligand center
+  transform.mol.center = ligatoms.center;
 
-  //TODO move this into gridmaker.setAtoms, have it just take the mol_transform as input - separate receptor transform as well
-  if(this->layer_param_.molgrid_data_param().fix_center_to_origin()) {
-    transform.mol.apply_transform(transform); //mogrify the coordinates
-    //Q is already applied
-    Q = qt(1,0,0,0);
-    //grid center already zero
-  } else {
-    //center on ligand
-    grid_center[0] = transform.center[0] + transform.mol.center[0];
-    grid_center[1] = transform.center[1] + transform.mol.center[1];
-    grid_center[2] = transform.center[2] + transform.mol.center[2];
+  //GPU transformation will use Q and grid_center to apply transformation
+  quaternion Q = transform.Q;
+  vec grid_center(0, 0, 0);
+
+  if(!fixcenter) {
+  //center on ligand, offset by random translate
+    transform.center += ligatoms.center;
+    grid_center = transform.center;
   }
 
+  //both ligand_peturbation and zero center need to apply mol transform here,
+  //since they don't fit the current framework for GPU transformation
+  //TODO move this into gridmaker.setAtoms, have it take separate receptor and ligand transformations (or have addAtoms)
+  mol_info ligmol = ligatoms;
+  if (fixcenter || ligpeturb) {
+    transform.mol.apply_transform(transform); //mogrify the coordinates -- these are recatoms only, rotate around ligand center
+    ligmol.apply_transform(transform); //modify ligand coordinates
+    //Q is already applied
+    Q = qt(1, 0, 0, 0);
+    grid_center = vec(0,0,0);
+  }
+
+  //add ligatoms to transform.mol
+  if (ligpeturb) {
+    if (ligpeturb_rotate)
+    {
+      ligtrans.set_random_quaternion(rng);
+    }
+    else
+    {
+      ligtrans.Q = quaternion(1, 0, 0, 0); //identity
+    }
+    ligtrans.add_random_displacement(rng, ligpeturb_translate);
+    ligmol.apply_transform(ligtrans); //peturb
+    transform.mol.append(ligmol); //append
+
+    //store the inverse transformation
+    peturb.x = ligtrans.center[0];
+    peturb.y = ligtrans.center[1];
+    peturb.z = ligtrans.center[2];
+
+    qt qinv = conj(ligtrans.Q) / norm(ligtrans.Q); //not Cayley, not euclidean norm - already squared
+    peturb.set_from_quaternion(qinv);
+
+    //set the center to the translated value
+    transform.mol.center = ligmol.center + ligtrans.center;
+  } else if (ignore_ligand) {
+    //do nothing - ligand is only used to set center
+  } else {
+    transform.mol.append(ligmol);
+  }
+
+
   //with fix_center, this should be zero
-  gmaker.setCenter(grid_center[0],grid_center[1],grid_center[2]);
+  gmaker.setCenter(grid_center[0], grid_center[1], grid_center[2]);
 
-
-  if(transform.mol.atoms.size() == 0) {
-     std::cerr << "ERROR: No atoms in molecule.  I can't deal with this.\n";
-     exit(-1); //presumably you never actually want this and it results in a cuda error
-  } 
-  if(jitter > 0) {
+  if (transform.mol.atoms.size() == 0) {
+    std::cerr << "ERROR: No atoms in molecule.  I can't deal with this.\n";
+    exit(-1); //presumably you never actually want this and it results in a cuda error
+  }
+  if (jitter > 0) {
     //add small random displacement (in-place) to atoms
-    for(unsigned i = 0, n = transform.mol.atoms.size(); i < n; i++) {
+    for (unsigned i = 0, n = transform.mol.atoms.size(); i < n; i++) {
       float4& atom = transform.mol.atoms[i];
-      float xdiff = jitter*(unit_sample(rng)*2.0-1.0);
+      float xdiff = jitter * (unit_sample(rng) * 2.0 - 1.0);
       atom.x += xdiff;
-      float ydiff = jitter*(unit_sample(rng)*2.0-1.0);
+      float ydiff = jitter * (unit_sample(rng) * 2.0 - 1.0);
       atom.y += ydiff;
-      float zdiff = jitter*(unit_sample(rng)*2.0-1.0);
+      float zdiff = jitter * (unit_sample(rng) * 2.0 - 1.0);
       atom.z += zdiff;
     }
   }
 
   //compute grid from atom info arrays
-  if(gpu)
+  if (gpu)
   {
     unsigned natoms = transform.mol.atoms.size();
     allocateGPUMem(natoms);
-    CUDA_CHECK(cudaMemcpy(gpu_gridatoms, &transform.mol.atoms[0], natoms*sizeof(float4), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(gpu_gridwhich, &transform.mol.whichGrid[0], natoms*sizeof(short), cudaMemcpyHostToDevice));
+    CUDA_CHECK(
+        cudaMemcpy(gpu_gridatoms, &transform.mol.atoms[0],
+            natoms * sizeof(float4), cudaMemcpyHostToDevice));
+    CUDA_CHECK(
+        cudaMemcpy(gpu_gridwhich, &transform.mol.whichGrid[0],
+            natoms * sizeof(short), cudaMemcpyHostToDevice));
 
-    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, Q, numchannels, data);
+    gmaker.setAtomsGPU<Dtype>(natoms, gpu_gridatoms, gpu_gridwhich, Q,
+        numchannels, data);
   }
   else
   {
     Grids grids(data, boost::extents[numchannels][dim][dim][dim]);
-    gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, Q.boost(), grids);
+    gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, Q.boost(),
+        grids);
   }
 }
 
@@ -1131,6 +1152,8 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
   bool hasrmsd = this->layer_param_.molgrid_data_param().has_rmsd();
   bool hasweights = (this->layer_param_.molgrid_data_param().affinity_reweight_stdcut() > 0);
   bool duplicate = this->layer_param_.molgrid_data_param().duplicate_poses();
+  int peturb_bins = this->layer_param_.molgrid_data_param().peturb_bins();
+  double peturb_translate = this->layer_param_.molgrid_data_param().peturb_ligand_translate();
 
   Dtype *top_data = NULL;
   if(gpu)
@@ -1253,6 +1276,14 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       //trusting struct layout is normal
       caffe_copy(perturbations.size()*perturbations[0].size(), (Dtype*)&perturbations[0], top.back()->mutable_cpu_data());
     }
+  }
+
+  if(peturb_bins > 0) {
+    //discretize
+    for(unsigned i = 0, n = perturbations.size(); i < n; i++) {
+      perturbations[i].discretize(peturb_translate, peturb_bins);
+    }
+
   }
 
 }

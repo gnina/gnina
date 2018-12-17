@@ -519,43 +519,27 @@ public:
       gradient.insert(gradient.end(), a.gradient.begin(), a.gradient.end());
     }
 
-    void transform_and_append(const mol_info& a, const mol_transform& transform)
-    {
-      //copy atoms from a into this, transforming the coordinates according to transform
-     // LOG(INFO) << "About to transform " << a.atoms.size() << " atoms";
-      gfloat3 center(a.center[0],a.center[1],a.center[2]);
-      gfloat3 translate(transform.center[0],transform.center[1], transform.center[2]);
-      for(unsigned i = 0, n = a.atoms.size(); i < n; i++) {
-        //non-coordinate stuff
-        whichGrid.push_back(a.whichGrid[i]);
-        gradient.push_back(a.gradient[i]); //NOT rotating, but that shouldn't matter, right?
-
-        float4 atom = a.atoms[i];
-        float3 pt = transform.Q.transform(atom.x, atom.y, atom.z, center, translate);
-        atom.x = pt.x;
-        atom.y = pt.y;
-        atom.z = pt.z;
-        atoms.push_back(atom);
-
-        LOG(INFO) << "Transforming " << a.atoms[i].x<<","<<a.atoms[i].y<<","<<a.atoms[i].z<<" to "<<atom.x<<","<<atom.y<<","<<atom.z;
-        LOG(INFO) << "Transform Q: " << transform.Q.a << "," << transform.Q.b << "," << transform.Q.c << "," << transform.Q.d;
-      }
-    }
-
     //apply transformation in-place, modifying the coordinates of the mol
     //the center of the molecule is used for the rotation origin
     void apply_transform(const mol_transform& transform)
     {
-      gfloat3 center(center[0],center[1],center[2]);
-      gfloat3 translate(transform.center[0],transform.center[1], transform.center[2]);
+      gfloat3 rcenter(center[0],center[1],center[2]);
+      gfloat3 translate(-transform.center[0],-transform.center[1], -transform.center[2]);
+     // LOG(INFO) << "Center: " << rcenter[0] << "," << rcenter[1] << "," << rcenter[2] << "\n";
+     // LOG(INFO) << "Translate: " << translate[0] << "," << translate[1] << "," << translate[2] << "\n";
       for(unsigned i = 0, n = atoms.size(); i < n; i++) {
         float4 atom = atoms[i];
-        float3 pt = transform.Q.transform(atom.x, atom.y, atom.z, center, translate);
+        float3 pt = transform.Q.transform(atom.x, atom.y, atom.z, rcenter, translate);
+        //LOG(INFO) << "Transforming " << atom.x << "," << atom.y << "," << atom.z << " to " << pt.x << "," << pt.y << "," << pt.z << "\n";
+
         atom.x = pt.x;
         atom.y = pt.y;
         atom.z = pt.z;
         atoms[i] = atom;
       }
+
+      //update center
+      center += vec(translate.x,translate.y,translate.z);
     }
 
     //return max distance from centroid to any atom
@@ -605,6 +589,22 @@ public:
       set_from_quaternion(Q);
     }
 
+
+    //modify in-place to values are class labels instead of actual values
+    void discretize(double maxtrans, int bins) {
+      x = convert_to_label(x,-maxtrans,maxtrans,bins);
+      y = convert_to_label(y,-maxtrans,maxtrans,bins);
+      z = convert_to_label(z,-maxtrans,maxtrans,bins);
+
+      a = convert_to_label(a,-1.0,1.0,bins);
+      b = convert_to_label(b,-1.0,1.0,bins);
+      c = convert_to_label(c,-1.0,1.0,bins);
+      d = convert_to_label(d,-1.0,1.0,bins);
+
+      roll = convert_to_label(roll,-M_PI,M_PI,bins);
+      pitch = convert_to_label(pitch,-M_PI_2,M_PI_2,bins);
+      yaw = convert_to_label(yaw,-M_PI,M_PI,bins);
+    }
     static unsigned size() { return sizeof(output_transform)/sizeof(Dtype); }
     void set_from_quaternion(const qt& Q) {
       //convert to euler angles
@@ -633,11 +633,21 @@ public:
       double cosy = 1.0 - 2.0 * (c*c + d*d);
       yaw = atan2(siny, cosy);
     }
+
+    private:
+      //discretize single value
+      Dtype convert_to_label(Dtype value, double min, double max, int bins)
+      {
+        int bin = bins*(value-min)/(max-min);
+        if(bin < 0) bin = 0;
+        if(bin >= bins) bin = bins-1;
+        return bin;
+      }
   };
   struct mol_transform {
     mol_info mol;
     qt Q;  // rotation
-    vec center; // translation
+    vec center; // translation is negative of this
 
     mol_transform() {
       mol = mol_info();

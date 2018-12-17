@@ -326,7 +326,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 155 (last added: matmul_param)
+// LayerParameter next available layer-specific ID: 156 (last added: trig_param)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -430,6 +430,7 @@ message LayerParameter {
   optional TanHParameter tanh_param = 127;
   optional ThresholdParameter threshold_param = 128;
   optional TileParameter tile_param = 138;
+  optional TrigParameter trig_param = 155;
   optional WindowDataParameter window_data_param = 129;
 }
 
@@ -940,6 +941,7 @@ message MolGridDataParameter {
   optional string mem_recmap = 46 [default = ""]; //contents of a recmap
   optional string mem_ligmap = 47 [default = ""]; //contents of a ligmap
   optional bool duplicate_poses = 48 [default = false]; //if num_poses > 1, create separate examples (with receptor) for each ligand pose
+  optional uint32 peturb_bins = 49 [default = 0]; // if > 0, output categorical labels for discretized bins instead of actual values for peturb
 }
 
 message NDimDataParameter {
@@ -1356,6 +1358,15 @@ message TileParameter {
 
   // The number of copies (tiles) of the blob to output.
   optional int32 tiles = 2;
+}
+
+//trig fuctions
+message TrigParameter {
+  enum Function {
+    COS = 0;
+    SIN = 1;
+  }
+  optional Function function = 1 [default = COS];
 }
 
 // Message that stores parameters used by ThresholdLayer
