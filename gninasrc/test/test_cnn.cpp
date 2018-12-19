@@ -261,7 +261,7 @@ void test_subcube_grids() {
   delete[] rnndata_gpu;
 }
 
-void test_strided_cube_handler() {
+void test_strided_cube_datagetter() {
   typedef float Dtype;
   //check whether we're getting the correct subcube of the parent grid
   p_args.log << "CNN Strided Cube Handler Test \n";
@@ -294,37 +294,58 @@ void test_strided_cube_handler() {
   unsigned slices_per_dim = ((dim - subcube_dim_pts) / cube_stride) + 1;
   unsigned n_timesteps = slices_per_dim * slices_per_dim * slices_per_dim;
 
-  //randomly populate full grid
+  //set up flex layer
+  caffe::LSTMDataGetterLayer<float> datagetter;
+  datagetter.num_timesteps = n_timesteps;
+  datagetter.batch_size = batch_size;
+  datagetter.ntypes = ntypes;
+  datagetter.dim = dim;
+  datagetter.subgrid_dim = subcube_dim_pts;
+  datagetter.cube_stride = cube_stride;
+  datagetter.example_size = example_size;
+  datagetter.current_timestep = 0;
+
+  //blob shapes: subcube is TxBxCxSub_dimxSub_dimxSub_dim
+  //             full grid is TxBxCxDimxDimxDim
+  std::vector<int> subcube_shape = {(int)n_timesteps, (int)batch_size, (int)ntypes, 
+    (int)subcube_dim_pts, (int)subcube_dim_pts, (int)subcube_dim_pts};
+  std::vector<int> full_shape = {(int)n_timesteps, (int)batch_size, (int)ntypes, (int)dim, 
+    (int)dim, (int)dim};
+
+  //blobs
+  std::vector<caffe::Blob<float>*> bottom_blobs(1);
+  std::vector<caffe::Blob<float>*> top_blobs(1);
+  bottom_blobs[0]->Reshape(subcube_shape);
+  top_blobs[0]->Reshape(full_shape);
+
+  //stuff to make boost multi_array usage a little less verbose
   typedef boost::multi_array<Dtype, 5> array_t;
   typedef boost::multi_array_types::index_range range_t;
   array_t::index_gen indices;
-  array_t in_data(boost::extents[batch_size][ntypes][dim][dim][dim]);
-  std::uniform_real_distribution<Dtype> dist;
-  generate(in_data.data(), in_data.data() + gsize, bind(dist, engine));
 
-  caffe::strided_cube_data_handler<Dtype> handler;
-  //cpu subcube
-  array_t cpu_subcube(boost::extents[batch_size][ntypes][subcube_dim_pts][subcube_dim_pts][subcube_dim_pts]);
-  //gpu subcube, host and device
-  array_t gpu_subcube(boost::extents[batch_size][ntypes][subcube_dim_pts][subcube_dim_pts][subcube_dim_pts]);
-  Dtype* gpu_subcube_device;
-  CUDA_CHECK(cudaMalloc(&gpu_subcube_device, sizeof(Dtype) * cube_size));
-  //gpu full grid when it's on the gpu
-  Dtype* gpu_data;
-  CUDA_CHECK(cudaMalloc(&gpu_data, sizeof(Dtype) * gsize));
-  CUDA_CHECK(cudaMemcpy(gpu_data, in_data.data(), sizeof(Dtype)*gsize, cudaMemcpyHostToDevice));
+  //randomly populate full grid
+  float* in_data = bottom_blobs[0]->mutable_cpu_data();
+  std::uniform_real_distribution<Dtype> dist;
+  generate(in_data, in_data + gsize, bind(dist, engine));
+  boost::multi_array_ref<Dtype, 5> in_data_ref(in_data, boost::extents[batch_size][ntypes] 
+      [dim][dim][dim]);
+
+  //storage for the CPU forward pass at each timestep, since we'll overwrite the
+  //top blob when we do a second pass for the GPU
+  caffe::Blob<float> cpu_subcube_buffer;
 
   for (unsigned ts=0; ts<n_timesteps; ++ts) {
-    //update cpu subcube
-    handler.GetData(in_data.data(), cpu_subcube.data(), batch_size, ntypes, subcube_dim_pts, 
-        dim, ts, cube_stride, example_size);
-    //update gpu subcube
-    caffe::LSTMKernelWrapper(cube_size, gpu_data, gpu_subcube_device,
-          caffe::AccessPattern::strided_cube, batch_size, ntypes, subcube_dim_pts,
-          dim, ts, cube_stride, example_size);
-    CUDA_POST_KERNEL_CHECK;
-    CUDA_CHECK(cudaMemcpy(gpu_subcube.data(), gpu_subcube_device, sizeof(Dtype)*cube_size, 
-          cudaMemcpyDeviceToHost));
+    //update cpu subcube, copy out the result and make a multi_array ref for indexing
+    datagetter.Forward_cpu(bottom_blobs, top_blobs);
+    cpu_subcube_buffer.CopyFrom(*top_blobs[0]);
+    boost::multi_array_ref<Dtype, 5> cpu_subcube(cpu_subcube_buffer.mutable_cpu_data(), 
+        boost::extents[batch_size][ntypes] 
+        [subcube_dim_pts][subcube_dim_pts][subcube_dim_pts]);
+    //update gpu subcube, make ref to result
+    datagetter.Forward_gpu(bottom_blobs, top_blobs);
+    boost::multi_array_ref<Dtype, 5> gpu_subcube(top_blobs[0]->mutable_cpu_data(), 
+        boost::extents[batch_size][ntypes] 
+        [subcube_dim_pts][subcube_dim_pts][subcube_dim_pts]);
     //use timestep and slices per dim to figure out x,y,z ranges for
     //overall array
     unsigned factor = (((dim - subcube_dim_pts) / cube_stride) + 1);
@@ -333,8 +354,8 @@ void test_strided_cube_handler() {
     unsigned k = (ts % slices_per_dim) * cube_stride;
     for (unsigned batch_idx=0; batch_idx < batch_size; ++batch_idx) {
       for (unsigned type=0; type<ntypes; ++type) {
-        //get view of cube
-        array_t::array_view<3>::type cube_view = in_data[ indices[batch_idx][type][range_t(i,i+subcube_dim_pts)][range_t(j,j+subcube_dim_pts)][range_t(k,k+subcube_dim_pts)] ];
+        //get view of cube using boost and use this as the ground truth
+        array_t::array_view<3>::type cube_view = in_data_ref[ indices[batch_idx][type][range_t(i,i+subcube_dim_pts)][range_t(j,j+subcube_dim_pts)][range_t(k,k+subcube_dim_pts)] ];
         for (unsigned x=0; x<subcube_dim_pts; ++x) 
           for (unsigned y=0; y<subcube_dim_pts; ++y) 
             for (unsigned z=0; z<subcube_dim_pts; ++z) {
@@ -353,6 +374,4 @@ void test_strided_cube_handler() {
       }
     }
   }
-  cudaFree(gpu_subcube_device);
-  cudaFree(gpu_data);
 }

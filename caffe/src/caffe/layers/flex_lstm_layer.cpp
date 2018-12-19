@@ -128,6 +128,7 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
     datagetter_param->set_name("datagetter_" + ts);
     datagetter_param->add_bottom("x");
     datagetter_param->add_top("current_x");
+    datagetter_param->mutable_lstm_datagetter_param()->set_timestep(t-1);
 
     // Add layers to flush the hidden state when beginning a new
     // sequence, as indicated by cont_t.

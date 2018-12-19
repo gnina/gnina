@@ -10,18 +10,22 @@ void LSTMDataGetterLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   const MolGridDataParameter& mgrid_param = this->layer_param_.molgrid_data_param();
   cube_stride = param.stride();
   if (cube_stride) {
-    pattern = strided_cube;
+    pattern = AccessPatterns::strided_cube;
+    Dtype subgrid_dim_in_angstroms = mgrid_param.subgrid_dim();
+    Dtype resolution = mgrid_param.resolution();
+    subgrid_dim = ::round(subgrid_dim_in_angstroms / resolution) + 1;
+    dim = bottom[0]->shape(2);
+    unsigned slices_per_dim = ((dim - subgrid_dim) / cube_stride) + 1;
+    num_timesteps = slices_per_dim * slices_per_dim * slices_per_dim;
+    example_size = ntypes * dim * dim * dim;
+  }
+  else {
+    std::cerr << "Flex LSTM layer currently only supports a strided cube access pattern";
+    exit(-1);
   }
   batch_size = bottom[0]->shape(0);
   ntypes = bottom[0]->shape(1);
-  dim = bottom[0]->shape(2);
-  Dtype resolution = mgrid_param.resolution();
-  Dtype subgrid_dim_in_angstroms = mgrid_param.subgrid_dim();
-  subgrid_dim = ::round(subgrid_dim_in_angstroms / resolution) + 1;
-  unsigned slices_per_dim = ((dim - subgrid_dim) / cube_stride) + 1;
-  num_timesteps = slices_per_dim * slices_per_dim * slices_per_dim;
-  example_size = ntypes * dim * dim * dim;
-  current_timestep = 0;
+  current_timestep = this->layer_param_.lstm_datagetter_param().timestep();
   Reshape(bottom, top);
 }
 
@@ -33,38 +37,107 @@ void LSTMDataGetterLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   const int num_channels = bottom[0]->shape(1);
   vector<int> current_x_shape;
   //if access_pattern == strided_cube, current_x 1xBxCxSdimxSdimxSdim
-  if (bottom.size() == 1) {
-    current_x_shape.push_back(1);
-    current_x_shape.push_back(batch_size);
-    current_x_shape.push_back(ntypes);
-    current_x_shape.push_back(subgrid_dim);
-    current_x_shape.push_back(subgrid_dim);
-    current_x_shape.push_back(subgrid_dim);
-    top[0]->Reshape(current_x_shape);
+  switch(pattern) {
+    case AccessPatterns::strided_cube:
+      {
+        if (current_timestep == 0) {
+          current_x_shape.push_back(1);
+          current_x_shape.push_back(batch_size);
+          current_x_shape.push_back(ntypes);
+          current_x_shape.push_back(subgrid_dim);
+          current_x_shape.push_back(subgrid_dim);
+          current_x_shape.push_back(subgrid_dim);
+          top[0]->Reshape(current_x_shape);
+        }
+        else {
+          CHECK_EQ(6, top[0]->num_axes());
+          CHECK_EQ(1, top[0]->shape(0));
+          CHECK_EQ(num_instances, top[0]->shape(1));
+          CHECK_EQ(num_channels, top[0]->shape(2));
+          CHECK_EQ(subgrid_dim, top[0]->shape(3));
+          CHECK_EQ(subgrid_dim, top[0]->shape(4));
+          CHECK_EQ(subgrid_dim, top[0]->shape(5));
+        }
+        break;
+      }
+    default:
+      {
+        CHECK_LT(pattern, AccessPatterns::num_patterns) << "Invalid access pattern " << pattern;
+      }
   }
-  else {
-    CHECK_EQ(6, bottom[1]->num_axes());
-    CHECK_EQ(1, bottom[1]->shape(0));
-    CHECK_EQ(num_instances, bottom[1]->shape(1));
-    CHECK_EQ(num_channels, bottom[1]->shape(2));
-    CHECK_EQ(subgrid_dim, bottom[1]->shape(3));
-    CHECK_EQ(subgrid_dim, bottom[1]->shape(4));
-    CHECK_EQ(subgrid_dim, bottom[1]->shape(5));
+}
+
+template <typename Dtype>
+void GetData(const Dtype* src, Dtype* dest, unsigned dim, unsigned subgrid_dim, 
+    unsigned x_offset, unsigned y_offset, unsigned z_offset, unsigned batch_size, 
+    unsigned ntypes) {
+  unsigned overall_size = dim * dim * dim;
+  unsigned example_size = ntypes * dim * dim * dim;
+  //extract a single subcube corresponding to the correct stride,
+  //starting at our properly offset (x,y,z) indices
+  for (unsigned batch_idx=0; batch_idx < batch_size; ++batch_idx) {
+    for (unsigned grid=0; grid < ntypes; ++grid) {
+      for (unsigned i=0; i<subgrid_dim; ++i) {
+        for (unsigned j=0; j<subgrid_dim; ++j) {
+          for (unsigned k=0; k<subgrid_dim; ++k) {
+            dest[(((batch_idx * ntypes + grid) * subgrid_dim + i) * subgrid_dim + j) * 
+              subgrid_dim + k] = src[batch_idx * example_size + grid * overall_size + 
+              x_offset * dim * dim + y_offset * dim + z_offset + 
+              ((i * dim) + j) * dim + k];
+          }
+        }
+      }
+    }
+  }
+}
+
+template <typename Dtype>
+void AccumulateDiff(const Dtype* src, Dtype* dest, unsigned dim, unsigned subgrid_dim, 
+    unsigned x_offset, unsigned y_offset, unsigned z_offset, unsigned batch_size, 
+    unsigned ntypes) {
+  unsigned overall_size = dim * dim * dim;
+  unsigned example_size = ntypes * dim * dim * dim;
+  for (unsigned batch_idx=0; batch_idx < batch_size; ++batch_idx) {
+    for (unsigned grid=0; grid < ntypes; ++grid) {
+      for (unsigned i=0; i<subgrid_dim; ++i) {
+        for (unsigned j=0; j<subgrid_dim; ++j) {
+          for (unsigned k=0; k<subgrid_dim; ++k) {
+            dest[batch_idx * example_size + grid * overall_size + 
+               x_offset * dim * dim + y_offset * dim + z_offset + 
+               ((i * dim) + j) * dim + k] += 
+            src[(((batch_idx * ntypes + grid) * subgrid_dim + i) * subgrid_dim + j) * 
+              subgrid_dim + k];
+          }
+        }
+      }
+    }
   }
 }
 
 template <typename Dtype>
 void LSTMDataGetterLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
-  //set up current_x = GetData<apat>
-  if (pattern == AccessPattern::strided_cube) {
-    strided_cube_data_handler<Dtype> handler;
-    handler.GetData(bottom[0]->cpu_data(), top[0]->mutable_cpu_data(), batch_size, ntypes, 
-        subgrid_dim, dim, current_timestep, cube_stride, example_size);
+  const Dtype* src = bottom[0]->cpu_data();
+  Dtype* dest = top[0]->mutable_cpu_data();
+  switch(pattern) {
+    case AccessPatterns::strided_cube:
+      {
+        //use the current_timestep to find the location of the first value in
+        //the subcube we're going to use at this timestep; this is our starting
+        //offset
+        unsigned factor = (((dim - subgrid_dim) / cube_stride) + 1);
+        unsigned x_offset = ((current_timestep / (factor * factor)) % factor) * cube_stride;
+        unsigned y_offset = ((current_timestep / factor) % factor) * cube_stride;
+        unsigned z_offset = (current_timestep % factor) * cube_stride;
+        GetData(src, dest, dim, subgrid_dim, x_offset, y_offset, z_offset, batch_size, ntypes);
+        break;
+      }
+    default:
+      {
+        CHECK_LT(pattern, AccessPatterns::num_patterns) << "Invalid access pattern " << pattern;
+      }
   }
 
-  if (current_timestep != num_timesteps - 1)
-    ++current_timestep;
 }
 
 template <typename Dtype>
@@ -75,17 +148,38 @@ void LSTMDataGetterLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   if (current_timestep == num_timesteps-1) {
     memset(total_diff, 0, num_timesteps * batch_size * ntypes * dim * dim * dim);
   }
-  //update the data blob contents to be correct for the previous timestep
-  if (pattern == AccessPattern::strided_cube) {
-    strided_cube_data_handler<Dtype> handler;
-    handler.GetData(bottom[0]->cpu_data(), top[0]->mutable_cpu_data(), batch_size, ntypes, 
-        subgrid_dim, dim, current_timestep-1, cube_stride, example_size);
-    //also accumulate gradients for the current timestep in the right location
-    handler.AccumulateDiff(top[0]->cpu_diff(), total_diff, batch_size, 
-        ntypes, subgrid_dim, dim, current_timestep, cube_stride, example_size);
+  //- accumulate diff computed for the subset blob into the diff we're building
+  //up for the full input
+  //
+  //- also update the data blob contents to be correct for the *previous* timestep - 
+  //by the time the DataGetter layer is hit during backward, the blobs that need
+  //current_x to be set to the correct contents for its timestep have already
+  //computed their diffs with it, so now we set up the contents to work for the
+  //layers before it
+  switch(pattern) {
+    case AccessPatterns::strided_cube:
+      {
+        unsigned factor = (((dim - subgrid_dim) / cube_stride) + 1);
+        unsigned x_offset = ((current_timestep / (factor * factor)) % factor) * cube_stride;
+        unsigned y_offset = ((current_timestep/ factor) % factor) * cube_stride;
+        unsigned z_offset = (current_timestep % factor) * cube_stride;
+        //accumulate gradients for the current timestep in the right location
+        AccumulateDiff(top[0]->cpu_diff(), total_diff, dim, subgrid_dim, 
+            x_offset, y_offset, z_offset, batch_size, ntypes);
+        if (current_timestep > 0) {
+          x_offset -= cube_stride;
+          y_offset -= cube_stride;
+          z_offset -= cube_stride;
+          GetData(bottom[0]->cpu_data(), top[0]->mutable_cpu_data(), dim, subgrid_dim, 
+              x_offset, y_offset, z_offset, batch_size, ntypes);
+        }
+        break;
+      }
+  default:
+      {
+        CHECK_LT(pattern, AccessPatterns::num_patterns) << "Invalid access pattern " << pattern;
+      }
   }
-  if (current_timestep != 0)
-    --current_timestep;
 }
 
 #ifdef CPU_ONLY

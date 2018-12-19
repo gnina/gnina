@@ -326,7 +326,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 156 (last added: FlexLSTMParameter)
+// LayerParameter next available layer-specific ID: 157 (last added: LSTMDataGetterParameter)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -406,6 +406,7 @@ message LayerParameter {
   optional InputParameter input_param = 143;
   optional LogParameter log_param = 134;
   optional LRNParameter lrn_param = 118;
+  optional LSTMDataGetterParameter lstm_datagetter_param = 156;
   optional MatMulParameter matmul_param = 154;
   optional MemoryDataParameter memory_data_param = 119;
   optional MolGridDataParameter molgrid_data_param = 151;
@@ -1040,6 +1041,15 @@ message LRNParameter {
     CUDNN = 2;
   }
   optional Engine engine = 6 [default = DEFAULT];
+}
+
+// Message that stores parameters used by LSTM DataGetter Layer; in general the
+// user does not set these parameters, but instead uses a Flex LSTM Layer that
+// explicitly unrolls the LSTM graph, inserting DataGetter layers and setting
+// their timesteps
+message LSTMDataGetterParameter {
+  // Timestep to be computed by the layer
+  optional int32 timestep = 1 [default = 0];
 }
 
 message MatMulParameter {

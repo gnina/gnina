@@ -66,8 +66,8 @@ BOOST_AUTO_TEST_CASE(subcube_grids) {
   boost_loop_test(&test_subcube_grids);
 }
 
-BOOST_AUTO_TEST_CASE(strided_cube_handler) {
-  boost_loop_test(&test_strided_cube_handler);
+BOOST_AUTO_TEST_CASE(strided_cube_datagetter) {
+  boost_loop_test(&test_strided_cube_datagetter);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
