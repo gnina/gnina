@@ -450,6 +450,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   numposes = param.num_poses();
 
   if(binary) radiusmultiple = 1.0;
+  CHECK_LE(fabs(remainder(dimension,resolution)), 0.001) << "Resolution does not evenly divide dimension.";
 
   gmaker.initialize(resolution, dimension, radiusmultiple, binary, spherize);
 
@@ -544,11 +545,11 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   string ligcache = param.ligmolcache();
 
   if(reccache.size() > 0) {
-    load_cache(reccache, rmap, 0);
+    load_cache(reccache, rmap, 0, recmolcache);
   }
 
   if(ligcache.size() > 0) {
-    load_cache(ligcache, rmap, numReceptorTypes);
+    load_cache(ligcache, rmap, numReceptorTypes, ligmolcache);
   }
 
   //setup shape of layer
@@ -596,7 +597,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   if(ligpeturb) {
     vector<int> peturbshape(2);
     peturbshape[0] = batch_size;
-    peturbshape[1] = 6; //trans+orient
+    peturbshape[1] = output_transform::size(); //trans+orient
     top.back()->Reshape(peturbshape);
   }
 }
@@ -680,17 +681,20 @@ bool MolGridDataLayer<Dtype>::add_to_minfo(const string& file, const vector<int>
   return 1;
 }
 
-//a single shared cache for the whole program
+//two shared caches for the whole program
 template<>
-MolGridDataLayer<float>::MolCache MolGridDataLayer<float>::molcache = MolGridDataLayer<float>::MolCache();
+MolGridDataLayer<float>::MolCache MolGridDataLayer<float>::recmolcache = MolGridDataLayer<float>::MolCache();
 template<>
-MolGridDataLayer<double>::MolCache MolGridDataLayer<double>::molcache =  MolGridDataLayer<double>::MolCache();
+MolGridDataLayer<double>::MolCache MolGridDataLayer<double>::recmolcache =  MolGridDataLayer<double>::MolCache();
 
+template<>
+MolGridDataLayer<float>::MolCache MolGridDataLayer<float>::ligmolcache = MolGridDataLayer<float>::MolCache();
+template<>
+MolGridDataLayer<double>::MolCache MolGridDataLayer<double>::ligmolcache =  MolGridDataLayer<double>::MolCache();
 
-
-//load custom formatted cache file of all gninatypes into molcache using specified mapping and offset
+//load custom formatted cache file of all gninatypes into specified molcache using specified mapping and offset
 template <typename Dtype>
-void MolGridDataLayer<Dtype>::load_cache(const string& file, const vector<int>& atommap, unsigned mapoffset)
+void MolGridDataLayer<Dtype>::load_cache(const string& file, const vector<int>& atommap, unsigned mapoffset, MolGridDataLayer<Dtype>::MolCache& molcache)
 {
   //file shoudl be organized
   //name size (1byte)
@@ -852,7 +856,8 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
   //set grid values for example
   //cache atom info
   //pose specifies which ligand pose to use (relevant if num_poses > 1)
-  //if it is negative, use them all!
+  //if it is negative, use them all (but with distinct channels
+  //data should be positioned at the start of the example
   bool docache = this->layer_param_.molgrid_data_param().cache_structs();
   bool doall = false;
   if(pose < 0) {
@@ -865,29 +870,29 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
 
   if(docache)
   {
-    if(molcache.count(ex.receptor) == 0)
+    if(recmolcache.count(ex.receptor) == 0)
     {
-      set_mol_info(root_folder+ex.receptor, rmap, 0, molcache[ex.receptor]);
+      set_mol_info(root_folder+ex.receptor, rmap, 0, recmolcache[ex.receptor]);
     }
-    if(molcache.count(ligand) == 0)
+    if(ligmolcache.count(ligand) == 0)
     {
-      set_mol_info(root_folder+ligand, lmap, numReceptorTypes, molcache[ligand]);
+      set_mol_info(root_folder+ligand, lmap, numReceptorTypes, ligmolcache[ligand]);
     }
 
     if(doall) {
       //make sure every ligand is in the cache, then aggregate
-      mol_info lig(molcache[ligand]);
+      mol_info lig(ligmolcache[ligand]);
       for(unsigned p = 1, np = ex.ligands.size(); p < np; p++) {
         ligand = ex.ligands[p];
-        if(molcache.count(ligand) == 0)
+        if(ligmolcache.count(ligand) == 0)
         {
-          set_mol_info(root_folder+ligand, lmap, numReceptorTypes, molcache[ligand]);
+          set_mol_info(root_folder+ligand, lmap, numReceptorTypes, ligmolcache[ligand]);
         }
-        lig.append(molcache[ligand],numLigandTypes*p);
+        lig.append(ligmolcache[ligand],numLigandTypes*p);
       }
-      set_grid_minfo(data, molcache[ex.receptor], lig, transform, peturb, gpu);
+      set_grid_minfo(data, recmolcache[ex.receptor], lig, transform, peturb, gpu);
     } else {
-        set_grid_minfo(data, molcache[ex.receptor], molcache[ligand], transform, peturb, gpu);
+        set_grid_minfo(data, recmolcache[ex.receptor], ligmolcache[ligand], transform, peturb, gpu);
     }
   }
   else
@@ -1182,9 +1187,10 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         affinities.push_back(ex.affinity);
         rmsds.push_back(ex.rmsd);
         weights.push_back(ex.affinity_weight);
-        perturbations.push_back(peturb);
         int offset = batch_idx*example_size;
         set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], numposes > 1 ? -1 : 0, peturb, gpu);        
+        perturbations.push_back(peturb); //peturb is set by grid_ex
+
       } else {
       	for(unsigned p = 0; p < numposes; p++) {
           labels.push_back(ex.label);
@@ -1192,7 +1198,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
           rmsds.push_back(ex.rmsd);
           weights.push_back(ex.affinity_weight);
 
-          int offset = batch_idx*example_size;
+          int offset = batch_idx*(example_size*numposes)+example_size*p;
           set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], p, peturb, gpu);
           perturbations.push_back(peturb);
         //NOTE: num_rotations not actually implemented!
@@ -1220,7 +1226,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     }
     if(ligpeturb) {
       //trusting struct layout is normal
-      caffe_copy(perturbations.size()*6, (Dtype*)&perturbations[0], top.back()->mutable_gpu_data());
+      caffe_copy(perturbations.size()*perturbations[0].size(), (Dtype*)&perturbations[0], top.back()->mutable_gpu_data());
     }
 
   }
@@ -1238,7 +1244,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
 
     if(ligpeturb) {
       //trusting struct layout is normal
-      caffe_copy(perturbations.size()*6, (Dtype*)&perturbations[0], top.back()->mutable_cpu_data());
+      caffe_copy(perturbations.size()*perturbations[0].size(), (Dtype*)&perturbations[0], top.back()->mutable_cpu_data());
     }
   }
 

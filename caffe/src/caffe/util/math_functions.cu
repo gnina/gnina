@@ -10,6 +10,40 @@
 
 namespace caffe {
 
+template<>
+void caffe_gpu_gemm_batch<float>(const CBLAS_TRANSPOSE TransA,
+    const CBLAS_TRANSPOSE TransB, const int M, const int N, const int K,
+    const float alpha, const float* A, const float* B, const float beta,
+    float* C, const int batch_size) {
+  // Note that cublas follows fortran order (column major), and AB = (B'A')'.
+  // Passing a row major matrix is equivalent to passing its transpose.
+  int lda = (TransA == CblasNoTrans) ? K : M;
+  int ldb = (TransB == CblasNoTrans) ? N : K;
+  cublasOperation_t cuTransA =
+      (TransA == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
+  cublasOperation_t cuTransB =
+      (TransB == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
+  CUBLAS_CHECK(cublasSgemmStridedBatched(Caffe::cublas_handle(), cuTransB, cuTransA,
+      N, M, K, &alpha, B, ldb, K*N, A, lda, M*K, &beta, C, N, M*N, batch_size));
+}
+
+template<>
+void caffe_gpu_gemm_batch<double>(const CBLAS_TRANSPOSE TransA,
+    const CBLAS_TRANSPOSE TransB, const int M, const int N, const int K,
+    const double alpha, const double* A, const double* B, const double beta,
+    double* C, const int batch_size) {
+  // Note that cublas follows fortran order (column major), and AB = (B'A')'.
+  // Passing a row major matrix is equivalent to passing its transpose.
+  int lda = (TransA == CblasNoTrans) ? K : M;
+  int ldb = (TransB == CblasNoTrans) ? N : K;
+  cublasOperation_t cuTransA =
+      (TransA == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
+  cublasOperation_t cuTransB =
+      (TransB == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
+  CUBLAS_CHECK(cublasDgemmStridedBatched(Caffe::cublas_handle(), cuTransB, cuTransA,
+      N, M, K, &alpha, B, ldb, K*N, A, lda, M*K, &beta, C, N, M*N, batch_size));
+}
+
 template <>
 void caffe_gpu_gemm<float>(const CBLAS_TRANSPOSE TransA,
     const CBLAS_TRANSPOSE TransB, const int M, const int N, const int K,

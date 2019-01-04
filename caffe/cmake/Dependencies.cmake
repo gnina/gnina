@@ -4,6 +4,10 @@ set(Caffe_INCLUDE_DIRS "")
 set(Caffe_DEFINITIONS "")
 set(Caffe_COMPILE_OPTIONS "")
 
+# high priority to our protobuf generated header
+include_directories(${PROJECT_BINARY_DIR}/include)
+list(APPEND Caffe_INCLUDE_DIRS PRIVATE ${PROJECT_BINARY_DIR}/include)
+
 # ---[ Boost
 find_package(Boost 1.54 REQUIRED COMPONENTS system thread filesystem iostreams timer)
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})

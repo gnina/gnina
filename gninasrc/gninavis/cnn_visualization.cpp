@@ -29,6 +29,8 @@ cnn_visualization::cnn_visualization(const vis_options &viso,
   if (visopts.gpu > -1) {
     caffe::Caffe::SetDevice(visopts.gpu);
     caffe::Caffe::set_mode(caffe::Caffe::GPU);
+    //backwards relevance not supported in cudnn layers yet
+    caffe::Caffe::set_cudnn(false);
   }
 
   OBConversion conv;

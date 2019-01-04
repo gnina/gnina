@@ -35,9 +35,8 @@ struct igrid { // grids interface (that cache, etc. conform to)
     virtual bool skip_interacting_pairs() const {
       return false;
     } //if true, evaluates the entire model, not just PL interactions
-    virtual bool adjust_center(model& m) {
-      return false;
-    } //for cnn, not actually const, probably a hack, return true if does something
+    virtual void adjust_center(model& m) {
+    } //for cnn
     virtual vec get_center() const {
       return vec(0, 0, 0);
     } //current center

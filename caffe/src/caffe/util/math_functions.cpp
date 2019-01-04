@@ -10,6 +10,32 @@
 namespace caffe {
 
 template<>
+void caffe_cpu_gemm_batch<float>(const CBLAS_TRANSPOSE TransA,
+    const CBLAS_TRANSPOSE TransB, const int M, const int N, const int K,
+    const float alpha, const float* A, const float* B, const float beta,
+    float* C, const int batch_size) {
+  int lda = (TransA == CblasNoTrans) ? K : M;
+  int ldb = (TransB == CblasNoTrans) ? N : K;
+  for (int i = 0; i < batch_size; ++i) {
+    cblas_sgemm(CblasRowMajor, TransA, TransB, M, N, K, alpha,
+      A + i*M*K, lda, B + i*K*N, ldb, beta, C + i*M*N, N);
+  }
+}
+
+template<>
+void caffe_cpu_gemm_batch<double>(const CBLAS_TRANSPOSE TransA,
+    const CBLAS_TRANSPOSE TransB, const int M, const int N, const int K,
+    const double alpha, const double* A, const double* B, const double beta,
+    double* C, const int batch_size) {
+  int lda = (TransA == CblasNoTrans) ? K : M;
+  int ldb = (TransB == CblasNoTrans) ? N : K;
+  for (int i = 0; i < batch_size; ++i) {
+    cblas_dgemm(CblasRowMajor, TransA, TransB, M, N, K, alpha,
+      A + i*M*K, lda, B + i*K*N, ldb, beta, C + i*M*N, N);
+  }
+}
+
+template<>
 void caffe_cpu_gemm<float>(const CBLAS_TRANSPOSE TransA,
     const CBLAS_TRANSPOSE TransB, const int M, const int N, const int K,
     const float alpha, const float* A, const float* B, const float beta,

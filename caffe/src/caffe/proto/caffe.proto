@@ -326,7 +326,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 154 (last added: softmax_noisy_label_loss_param)
+// LayerParameter next available layer-specific ID: 155 (last added: matmul_param)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -405,6 +405,7 @@ message LayerParameter {
   optional InputParameter input_param = 143;
   optional LogParameter log_param = 134;
   optional LRNParameter lrn_param = 118;
+  optional MatMulParameter matmul_param = 154;
   optional MemoryDataParameter memory_data_param = 119;
   optional MolGridDataParameter molgrid_data_param = 151;
   optional MVNParameter mvn_param = 120;
@@ -1028,6 +1029,19 @@ message LRNParameter {
     CUDNN = 2;
   }
   optional Engine engine = 6 [default = DEFAULT];
+}
+
+message MatMulParameter {
+  // MatMulLayer computes a batch of matrix-matrix multipications
+  // For each of the two bottom blobs, the first axis is the batch size,
+  // the second axis is the number of rows, and the rest of the axes are
+  // implicitly flattened into a single axis which is the number of columns
+  // After this implicit reshape, either input matrix can be transposed
+  // The top blob always has three axes which are the batch size (same as
+  // input) and the number of rows and columns, which depend on the bottom
+  // blob shapes and whether they were transposed
+  optional bool transpose_a = 1 [default = false];
+  optional bool transpose_b = 2 [default = false];
 }
 
 message MemoryDataParameter {

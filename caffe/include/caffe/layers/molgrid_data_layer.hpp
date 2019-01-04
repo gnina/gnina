@@ -563,21 +563,25 @@ public:
     }
   };
 
-  //6 numbers representing a transformation
+  //N numbers representing a transformation
   struct output_transform {
+    //contains only the N numbers representing the transformation, N is returned by size
     Dtype x;
     Dtype y;
     Dtype z;
-    Dtype pitch;
-    Dtype yaw;
-    Dtype roll;
+    Dtype sinr;
+    Dtype cosr;
+    Dtype sinp;
+    Dtype siny;
+    Dtype cosy;
 
-    output_transform(): x(0), y(0), z(0), pitch(0), yaw(0), roll(0) {}
+    output_transform(): x(0), y(0), z(0), sinr(0), cosr(0), sinp(0), siny(0), cosy(0) {}
 
     output_transform(Dtype X, Dtype Y, Dtype, Dtype Z, const qt& Q): x(X), y(Y), z(Z) {
       set_from_quaternion(Q);
     }
 
+    static unsigned size() { return 8; }
     void set_from_quaternion(const qt& Q) {
       //convert to euler angles
       //https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
@@ -587,21 +591,23 @@ public:
       double y = Q.R_component_3();
       double z = Q.R_component_4();
 
-      double sinr = 2.0 * (w*x + y*z);
-      double cosr = 1.0 - 2.0 * (x*x + y*y);
-      roll = atan2(sinr, cosr);
+      sinr = 2.0 * (w*x + y*z);
+      cosr = 1.0 - 2.0 * (x*x + y*y);
+      //Dtype roll = atan2(sinr, cosr);
 
       // pitch (y-axis rotation)
-      double sinp = 2.0 * (w*y - z*x);
+      sinp = 2.0 * (w*y - z*x);
+      /*
+      Dtype pitch = 0.0;
       if (fabs(sinp) >= 1)
         pitch = copysign(M_PI / 2, sinp);// use 90 degrees if out of range
       else
         pitch = asin(sinp);
-
+*/
       // yaw (z-axis rotation)
-      double siny = 2.0 * (w*z + x*y);
-      double cosy = 1.0 - 2.0 * (y*y + z*z);
-      yaw = atan2(siny, cosy);
+      siny = 2.0 * (w*z + x*y);
+      cosy = 1.0 - 2.0 * (y*y + z*z);
+      //Dtype yaw = atan2(siny, cosy);
     }
   };
   struct mol_transform {
@@ -711,7 +717,8 @@ public:
   vector<mol_transform> batch_transform;
 
   typedef boost::unordered_map<string, mol_info> MolCache;
-  static MolCache molcache; //the cache is shared GLOBALLY
+  static MolCache recmolcache; //the cache is shared GLOBALLY
+  static MolCache ligmolcache; //the cache is shared GLOBALLY
 
   mol_info mem_rec; //molecular data set programmatically with setReceptor
   mol_info mem_lig; //molecular data set programmatically with setLigand
@@ -726,7 +733,7 @@ public:
   quaternion axial_quaternion();
 
   bool add_to_minfo(const string& file, const vector<int>& atommap, unsigned mapoffset, smt t, float x, float y, float z,  mol_info& minfo);
-  void load_cache(const string& file, const vector<int>& atommap, unsigned atomoffset);
+  void load_cache(const string& file, const vector<int>& atommap, unsigned atomoffset, MolCache& molcache);
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
   void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
                     mol_transform& transform, int pose, output_transform& pertub, bool gpu);
