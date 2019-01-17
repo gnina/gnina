@@ -320,7 +320,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
 
     example(): receptor(NULL), label(0), affinity(0), rmsd(0), affinity_weight(1.0), group(-1) {}
     example(Dtype l, const char* r, const vector<const char*>& ligs): receptor(r), ligands(ligs), label(l), affinity(0), rmsd(0), group(-1)  {}
-    example(Dtype l, Dtype a, Dtype rms, int gr, const char* r, const vector<const char*>& ligs, Dtype weight=1.0): receptor(r), ligands(ligs), label(l), affinity(a), rmsd(rms), group(gr), affinity_weight(weight) {}
+    example(Dtype l, Dtype a, Dtype rms, int gr, const char* r, const vector<const char*>& ligs, Dtype weight=1.0): receptor(r), ligands(ligs), label(l), affinity(a), rmsd(rms), affinity_weight(weight), group(gr)  {}
     example(string_cache& cache, string line, const MolGridDataParameter& param);
   };
 

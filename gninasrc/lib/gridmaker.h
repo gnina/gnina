@@ -613,6 +613,21 @@ class SubcubeGridMaker : public GridMaker {
 
     virtual ~SubcubeGridMaker() {}
 
+    virtual void initialize(float res, float d, float rm = 1.5, bool b = false, bool s =
+        false) {
+      std::cout << "WARNING: Using subcube GridMaker but subgrid dimension not provided\n";
+      subgrid_dim = 0;
+      batch_size = 1;
+      batch_idx = 0;
+      ntypes = 0;
+      nrec_types = 0;
+      nlig_types = 0;
+      subgrid_dim_in_points = 0;
+      subgrid_dim = 0;
+      grids_per_dim = 0;
+      GridMaker::initialize(res, d, rm, b, s);
+    }
+
     virtual void initialize(float res, float d, float rm=1.5, bool b = false, 
         bool s = false, float sd=0.0, unsigned bs=1, unsigned bi=0, 
         unsigned nt=0, unsigned nrt=0, unsigned nlt=0, unsigned sdip=0, 
