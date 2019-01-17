@@ -297,6 +297,7 @@ void test_strided_cube_datagetter() {
   //set up flex layer
   caffe::LayerParameter param;
   caffe::LSTMDataGetterLayer<float> datagetter(param);
+  datagetter.pattern = caffe::AccessPatterns::strided_cube;
   datagetter.num_timesteps = n_timesteps;
   datagetter.batch_size = batch_size;
   datagetter.ntypes = ntypes;
@@ -306,18 +307,20 @@ void test_strided_cube_datagetter() {
   datagetter.example_size = example_size;
   datagetter.current_timestep = 0;
 
-  //blob shapes: subcube is TxBxCxSub_dimxSub_dimxSub_dim
-  //             full grid is TxBxCxDimxDimxDim
-  std::vector<int> subcube_shape = {(int)n_timesteps, (int)batch_size, (int)ntypes, 
+  //blob shapes: subcube is BxCxSub_dimxSub_dimxSub_dim
+  //             full grid is BxCxDimxDimxDim
+  std::vector<int> subcube_shape = {(int)batch_size, (int)ntypes, 
     (int)subcube_dim_pts, (int)subcube_dim_pts, (int)subcube_dim_pts};
-  std::vector<int> full_shape = {(int)n_timesteps, (int)batch_size, (int)ntypes, (int)dim, 
+  std::vector<int> full_shape = {(int)batch_size, (int)ntypes, (int)dim, 
     (int)dim, (int)dim};
 
   //blobs
-  std::vector<caffe::Blob<float>*> bottom_blobs(1);
-  std::vector<caffe::Blob<float>*> top_blobs(1);
-  bottom_blobs[0]->Reshape(subcube_shape);
-  top_blobs[0]->Reshape(full_shape);
+  caffe::Blob<float> b_blob;
+  caffe::Blob<float> t_blob;
+  std::vector<caffe::Blob<float>*> bottom_blobs = {&b_blob};
+  std::vector<caffe::Blob<float>*> top_blobs = {&t_blob};
+  bottom_blobs[0]->Reshape(full_shape);
+  top_blobs[0]->Reshape(subcube_shape);
 
   //stuff to make boost multi_array usage a little less verbose
   typedef boost::multi_array<Dtype, 5> array_t;
@@ -334,8 +337,10 @@ void test_strided_cube_datagetter() {
   //storage for the CPU forward pass at each timestep, since we'll overwrite the
   //top blob when we do a second pass for the GPU
   caffe::Blob<float> cpu_subcube_buffer;
+  cpu_subcube_buffer.Reshape(subcube_shape);
 
   for (unsigned ts=0; ts<n_timesteps; ++ts) {
+    datagetter.current_timestep = ts;
     //update cpu subcube, copy out the result and make a multi_array ref for indexing
     datagetter.Forward_cpu(bottom_blobs, top_blobs);
     cpu_subcube_buffer.CopyFrom(*top_blobs[0]);
