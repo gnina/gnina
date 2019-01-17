@@ -112,7 +112,7 @@ template<typename Dtype, class GridMakerT>
 void BaseMolGridDataLayer<Dtype, GridMakerT>::setLabels(Dtype pose, Dtype affinity, Dtype rmsd)
 {
   clearLabels();
-  appendLabels(pose, affinity, rmsd);
+  updateLabels(pose, affinity, rmsd);
 }
 
 
@@ -315,7 +315,7 @@ void BaseMolGridDataLayer<double, GridMaker>::receptor_stratified_example_provid
 
 template <>
 template <>
-void BaseMolGridDataLayer<float, RNNGridMaker>::receptor_stratified_example_provider<typename BaseMolGridDataLayer<float, RNNGridMaker>::balanced_example_provider, 2>::setup()
+void BaseMolGridDataLayer<float, SubcubeGridMaker>::receptor_stratified_example_provider<typename BaseMolGridDataLayer<float, SubcubeGridMaker>::balanced_example_provider, 2>::setup()
 {
   currenti = 0; currentk = 0;
   remove_missing_and_setup(examples);
@@ -325,7 +325,7 @@ void BaseMolGridDataLayer<float, RNNGridMaker>::receptor_stratified_example_prov
 
 template<>
 template<>
-void BaseMolGridDataLayer<double, RNNGridMaker>::receptor_stratified_example_provider<typename BaseMolGridDataLayer<double, RNNGridMaker>::balanced_example_provider, 2>::setup()
+void BaseMolGridDataLayer<double, SubcubeGridMaker>::receptor_stratified_example_provider<typename BaseMolGridDataLayer<double, SubcubeGridMaker>::balanced_example_provider, 2>::setup()
 {
   currenti = 0; currentk = 0;
   remove_missing_and_setup(examples);
@@ -503,7 +503,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::setBlobShape(const vector<Blob<Dty
 }
 
 template <typename Dtype>
-void RNNMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& top, 
+void SubcubeMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& top, 
     bool hasrmsd, bool hasaffinity) {
   //layer shape is TxNx... for RNN
   int batch_size = this->batch_transform.size();
@@ -827,18 +827,18 @@ BaseMolGridDataLayer<float, GridMaker>::MolCache BaseMolGridDataLayer<float, Gri
 template<>
 BaseMolGridDataLayer<double, GridMaker>::MolCache BaseMolGridDataLayer<double, GridMaker>::recmolcache =  BaseMolGridDataLayer<double, GridMaker>::MolCache();
 template<>
-BaseMolGridDataLayer<float, RNNGridMaker>::MolCache BaseMolGridDataLayer<float, RNNGridMaker>::recmolcache = BaseMolGridDataLayer<float, RNNGridMaker>::MolCache();
+BaseMolGridDataLayer<float, SubcubeGridMaker>::MolCache BaseMolGridDataLayer<float, SubcubeGridMaker>::recmolcache = BaseMolGridDataLayer<float, SubcubeGridMaker>::MolCache();
 template<>
-BaseMolGridDataLayer<double, RNNGridMaker>::MolCache BaseMolGridDataLayer<double, RNNGridMaker>::recmolcache =  BaseMolGridDataLayer<double, RNNGridMaker>::MolCache();
+BaseMolGridDataLayer<double, SubcubeGridMaker>::MolCache BaseMolGridDataLayer<double, SubcubeGridMaker>::recmolcache =  BaseMolGridDataLayer<double, SubcubeGridMaker>::MolCache();
 
 template<>
 BaseMolGridDataLayer<float, GridMaker>::MolCache BaseMolGridDataLayer<float, GridMaker>::ligmolcache = BaseMolGridDataLayer<float, GridMaker>::MolCache();
 template<>
 BaseMolGridDataLayer<double, GridMaker>::MolCache BaseMolGridDataLayer<double, GridMaker>::ligmolcache =  BaseMolGridDataLayer<double, GridMaker>::MolCache();
 template<>
-BaseMolGridDataLayer<float, RNNGridMaker>::MolCache BaseMolGridDataLayer<float, RNNGridMaker>::ligmolcache = BaseMolGridDataLayer<float, RNNGridMaker>::MolCache();
+BaseMolGridDataLayer<float, SubcubeGridMaker>::MolCache BaseMolGridDataLayer<float, SubcubeGridMaker>::ligmolcache = BaseMolGridDataLayer<float, SubcubeGridMaker>::MolCache();
 template<>
-BaseMolGridDataLayer<double, RNNGridMaker>::MolCache BaseMolGridDataLayer<double, RNNGridMaker>::ligmolcache =  BaseMolGridDataLayer<double, RNNGridMaker>::MolCache();
+BaseMolGridDataLayer<double, SubcubeGridMaker>::MolCache BaseMolGridDataLayer<double, SubcubeGridMaker>::ligmolcache =  BaseMolGridDataLayer<double, SubcubeGridMaker>::MolCache();
 
 //load custom formatted cache file of all gninatypes into specified molcache using specified mapping and offset
 template <typename Dtype, class GridMakerT>
@@ -1010,7 +1010,6 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data,
   //data should be positioned at the start of the example
   const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
   bool docache = param.cache_structs();
-  bool dream = param.dream();
   bool doall = false;
   if(pose < 0) {
       doall = true;
@@ -1046,11 +1045,6 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data,
     } else {
         set_grid_minfo(data, recmolcache[ex.receptor], ligmolcache[ligand], transform, peturb, gpu);
     }
-    if (dream) {
-      if (strcmp(ex.ligands[0], "none")==0)
-        ligmolcache[ex.ligands[0]].center = recmolcache[ex.receptor].center;
-      grid_centers[std::string(ex.receptor) + std::string(ex.ligands[0])] = ligmolcache[ex.ligands[0]].center;
-    }
   }
   else
   {
@@ -1066,11 +1060,6 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data,
         }
     }    
     set_grid_minfo(data, rec, lig, transform, peturb, gpu);
-    if (dream) {
-      if (strcmp(ex.ligands[0], "none")==0)
-        lig.center = rec.center;
-      grid_centers[std::string(ex.receptor) + std::string(ex.ligands[0])] = lig.center;
-    }
   }
 }
 
@@ -1404,7 +1393,7 @@ void BaseMolGridDataLayer<Dtype,GridMakerT>::dumpGridDX(const std::string& prefi
 //if doing subcubes, output a separate file for each subcube (for now) to
 //confirm that they look reasonable
 template<typename Dtype>
-void RNNMolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
+void SubcubeMolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
 		Blob<Dtype>* top, double scale) const
 {
   Dtype* diff = top->mutable_cpu_diff();
@@ -1420,7 +1409,7 @@ void RNNMolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
 		  string fname = prefix + "_cube" + std::to_string(i) + "_rec_" + name + ".dx";
 		  ofstream out(fname.c_str());
       unsigned offset = i * instance_size; 
-      typename BaseMolGridDataLayer<Dtype, RNNGridMaker>::Grids subgrids(diff+offset, boost::extents[this->numReceptorTypes+this->numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
+      typename BaseMolGridDataLayer<Dtype, SubcubeGridMaker>::Grids subgrids(diff+offset, boost::extents[this->numReceptorTypes+this->numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
 		  this->outputDXGrid(out, subgrids, a, scale, subgrid_dim_in_points);
       }
 	}
@@ -1430,7 +1419,7 @@ void RNNMolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,
 		      string fname = prefix + "_cube" + std::to_string(i) + "_lig_" + name + ".dx";
 		      ofstream out(fname.c_str());
           unsigned offset = i * instance_size; 
-          typename BaseMolGridDataLayer<Dtype, RNNGridMaker>::Grids subgrids(diff+offset, boost::extents[this->numReceptorTypes+this->numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
+          typename BaseMolGridDataLayer<Dtype, SubcubeGridMaker>::Grids subgrids(diff+offset, boost::extents[this->numReceptorTypes+this->numLigandTypes][subgrid_dim_in_points][subgrid_dim_in_points][subgrid_dim_in_points]);
 		      this->outputDXGrid(out, subgrids, this->numReceptorTypes+a, scale, 
               subgrid_dim_in_points);
         }
@@ -1446,7 +1435,6 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
   float subgrid_dim = this->layer_param_.molgrid_data_param().subgrid_dim();
   unsigned maxgroupsize = this->layer_param_.molgrid_data_param().maxgroupsize();
   unsigned maxchunksize = this->layer_param_.molgrid_data_param().maxchunksize();
-  bool dream = this->layer_param_.molgrid_data_param().dream();
 
   if ((maxgroupsize-1) && !maxchunksize)
     maxchunksize = maxgroupsize;
@@ -1519,35 +1507,13 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
         root = &root_folder2;
       }
 
-      appendLabels(ex.label, ex.affinity, ex.rmsd, ex.affinity_weight);
+      updateLabels(ex.label, ex.affinity, ex.rmsd, ex.affinity_weight);
       int step = idx / batch_size;
       int offset = ((batch_size * step) + batch_idx) * example_size;
 
-      if (dream) {
-        CHECK_EQ(numposes, 1) << "can't dream with multiple poses";
-        if (!current_iter) {
-          set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], 0, peturb, gpu);
-          perturbations.push_back(peturb);
-        }
-        //after first iter, the data blob should be updated externally
-        std::vector<std::string> splits;
-        std::string prelim = std::string(ex.receptor) + "_" + std::string(ex.ligands[0]);
-        boost::split(splits, prelim, [](char c){return c == '/';});
-        std::string prefix = boost::algorithm::join(splits, "_");
-        std::string name = std::string(ex.receptor) + std::string(ex.ligands[0]);
-        mem_lig.center = grid_centers[name];
-        if (gpu) {
-          std::vector<Dtype> grid(example_size);
-          CUDA_CHECK(cudaMemcpy(&grid[0], top_data+offset, sizeof(Dtype)*example_size, 
-                cudaMemcpyDeviceToHost));
-          dumpGridDX(prefix, &grid[0]);
-        }
-        else 
-          dumpGridDX(prefix, top_data+offset);
-      }
       //if label == -1 then this is a padding example for grouped data; just
       //memset data to 0
-      else if (ex.label == -1) {
+      if (ex.label == -1) {
           unsigned gsize = (numReceptorTypes + numLigandTypes) * dim * 
             dim * dim;
           if (gpu) {
@@ -1700,7 +1666,7 @@ template <typename Dtype>
 shared_ptr<Layer<Dtype> > GetMolGridDataLayer(const LayerParameter& param) {
   const MolGridDataParameter& mgrid_param = param.molgrid_data_param();
   if (mgrid_param.subgrid_dim()) {
-    return shared_ptr<Layer<Dtype> >(new RNNMolGridDataLayer<Dtype>(param));
+    return shared_ptr<Layer<Dtype> >(new SubcubeMolGridDataLayer<Dtype>(param));
   }
   else if(mgrid_param.maxgroupsize() > 1) {
     return shared_ptr<Layer<Dtype> >(new GroupedMolGridDataLayer<Dtype>(param));
@@ -1710,7 +1676,7 @@ shared_ptr<Layer<Dtype> > GetMolGridDataLayer(const LayerParameter& param) {
 }
 
 INSTANTIATE_CLASS(GroupedMolGridDataLayer);
-INSTANTIATE_CLASS(RNNMolGridDataLayer);
+INSTANTIATE_CLASS(SubcubeMolGridDataLayer);
 INSTANTIATE_CLASS(GenericMolGridDataLayer);
 REGISTER_LAYER_CREATOR(MolGridData, GetMolGridDataLayer);
 

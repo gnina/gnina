@@ -6,6 +6,8 @@ namespace caffe {
 template <typename Dtype>
 void LSTMDataGetterLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
+  //Infer the data access pattern from the parameters and update relevant
+  //data members. 
   const FlexLSTMParameter& param = this->layer_param_.flex_lstm_param();
   const MolGridDataParameter& mgrid_param = this->layer_param_.molgrid_data_param();
   cube_stride = param.stride();
@@ -40,6 +42,11 @@ void LSTMDataGetterLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   switch(pattern) {
     case AccessPatterns::strided_cube:
       {
+        //for the strided cube pattern, the top and bottom dims are the same
+        //for each timestep; the top is a shared buffer whose contents change
+        //but the shape stays the same. so the first datagetter sets the shape
+        //and the subsequent layers just check that the shape doesn't deviate
+        //from what they expect
         if (current_timestep == 0) {
           current_x_shape.push_back(1);
           current_x_shape.push_back(batch_size);
@@ -71,10 +78,11 @@ template <typename Dtype>
 void GetData(const Dtype* src, Dtype* dest, unsigned dim, unsigned subgrid_dim, 
     unsigned x_offset, unsigned y_offset, unsigned z_offset, unsigned batch_size, 
     unsigned ntypes) {
-  unsigned overall_size = dim * dim * dim;
-  unsigned example_size = ntypes * dim * dim * dim;
+  //strided cube version:
   //extract a single subcube corresponding to the correct stride,
   //starting at our properly offset (x,y,z) indices
+  unsigned overall_size = dim * dim * dim;
+  unsigned example_size = ntypes * dim * dim * dim;
   for (unsigned batch_idx=0; batch_idx < batch_size; ++batch_idx) {
     for (unsigned grid=0; grid < ntypes; ++grid) {
       for (unsigned i=0; i<subgrid_dim; ++i) {
@@ -95,6 +103,8 @@ template <typename Dtype>
 void AccumulateDiff(const Dtype* src, Dtype* dest, unsigned dim, unsigned subgrid_dim, 
     unsigned x_offset, unsigned y_offset, unsigned z_offset, unsigned batch_size, 
     unsigned ntypes) {
+  //strided cube version:
+  //accumulate diff for subcube into the correct location in the full grid
   unsigned overall_size = dim * dim * dim;
   unsigned example_size = ntypes * dim * dim * dim;
   for (unsigned batch_idx=0; batch_idx < batch_size; ++batch_idx) {
@@ -117,6 +127,8 @@ void AccumulateDiff(const Dtype* src, Dtype* dest, unsigned dim, unsigned subgri
 template <typename Dtype>
 void LSTMDataGetterLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
+  //Update blob that will be used as input to the RNN at this timestep
+  //according to the chosen access pattern
   const Dtype* src = bottom[0]->cpu_data();
   Dtype* dest = top[0]->mutable_cpu_data();
   switch(pattern) {
@@ -143,19 +155,19 @@ void LSTMDataGetterLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void LSTMDataGetterLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-  Dtype* total_diff = bottom[0]->mutable_cpu_diff();
-  //if we're just starting backward, zero grid diff...is this necessary?
-  if (current_timestep == num_timesteps-1) {
-    memset(total_diff, 0, num_timesteps * batch_size * ntypes * dim * dim * dim);
-  }
-  //- accumulate diff computed for the subset blob into the diff we're building
-  //up for the full input
+  //- use diff computed for the per-timestep blob to compute the relevant part
+  //of the diff we're building up for the full input
   //
   //- also update the data blob contents to be correct for the *previous* timestep - 
   //by the time the DataGetter layer is hit during backward, the blobs that need
   //current_x to be set to the correct contents for its timestep have already
   //computed their diffs with it, so now we set up the contents to work for the
   //layers before it
+  Dtype* total_diff = bottom[0]->mutable_cpu_diff();
+  //if we're just starting backward, zero grid diff...is this necessary?
+  if (current_timestep == num_timesteps-1) {
+    memset(total_diff, 0, num_timesteps * batch_size * ntypes * dim * dim * dim);
+  }
   switch(pattern) {
     case AccessPatterns::strided_cube:
       {

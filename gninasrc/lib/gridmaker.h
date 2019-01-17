@@ -140,6 +140,7 @@ class GridMaker {
     }
 
     //return the occupancy for atom a at point x,y,z
+    __host__ __device__
     float calcPoint(const float3& coords, double ar, float x, float y,
         float z) {
       float dx = x - coords.x;
@@ -416,57 +417,7 @@ class GridMaker {
     __device__
     void setAtomGradientsGPU(const float4* ainfo, short* gridindices, 
     float3* agrads, const qt Q, const Dtype* grids, unsigned remainder_offset, 
-    bool isrelevance = false) {
-#ifdef __CUDA_ARCH__
-      //TODO: implement
-      assert(isrelevance == false);
-
-      int idx = blockDim.x * blockIdx.x + threadIdx.x + remainder_offset;
-      int whichgrid = gridindices[idx];
-      float4 atom = ainfo[idx];
-      float3 coords; 
-
-      if (Q.real() != 0) //apply rotation
-          {
-        float3 p = Q.rotate(atom.x - center.x, atom.y - center.y,
-            atom.z - center.z);
-        coords = p + center;
-      } else {
-        coords.x = atom.x;
-        coords.y = atom.y;
-        coords.z = atom.z;
-      }
-
-      //get grid index ranges that could possibly be overlapped by atom
-      float radius = atom.w;
-      float r = radius * radiusmultiple;
-      uint2 ranges[3];
-      ranges[0] = getrange_gpu(dims[0], coords.x, r);
-      ranges[1] = getrange_gpu(dims[1], coords.y, r);
-      ranges[2] = getrange_gpu(dims[2], coords.z, r);
-
-      for (unsigned i = ranges[0].x, iend = ranges[0].y; i < iend; ++i) {
-        for (unsigned j = ranges[1].x, jend = ranges[1].y; j < jend; ++j) {
-          for (unsigned k = ranges[2].x, kend = ranges[2].y; k < kend; ++k) {
-            //convert grid point coordinates to angstroms
-            float x = dims[0].x + i * resolution;
-            float y = dims[1].x + j * resolution;
-            float z = dims[2].x + k * resolution;
-
-            if (isrelevance) {
-              accumulateAtomRelevance(coords, radius, x, y, z,
-                  grids[(((whichgrid * dim) + i) * dim + j) * dim + k], 0, /* TODO TODO: gpu-ize relevance */
-                  agrads[idx]);
-            } else {
-            accumulateAtomGradient(coords, radius, x, y, z, 
-                      grids[(((whichgrid * dim) + i) * dim + j) * dim + k], 
-                          agrads[idx], whichgrid);
-            }
-          }
-        }
-      }
-#endif
-    }
+    bool isrelevance = false);
 
     //summ up gradient values overlapping atoms
     template<typename Grids>
@@ -640,7 +591,7 @@ class GridMaker {
 
 };  
 
-class RNNGridMaker : public GridMaker {
+class SubcubeGridMaker : public GridMaker {
   public:
     float subgrid_dim;
     unsigned batch_size;
@@ -650,7 +601,7 @@ class RNNGridMaker : public GridMaker {
     unsigned nlig_types;
     unsigned subgrid_dim_in_points;
     unsigned grids_per_dim;
-    RNNGridMaker(float res=0, float d=0, float rm=1.5, bool b=false, 
+    SubcubeGridMaker(float res=0, float d=0, float rm=1.5, bool b=false, 
         bool s=false, float sd=0.0, unsigned bs=1, unsigned bi=0, 
         unsigned nt=0, unsigned nrt=0, unsigned nlt=0, unsigned sdip=0, 
         unsigned gpd=0) : 
@@ -660,7 +611,7 @@ class RNNGridMaker : public GridMaker {
       initialize(res, d, rm, b, s, sd, bs, bi, nt, nrt, nlt, sdip, gpd);
     }
 
-    virtual ~RNNGridMaker() {}
+    virtual ~SubcubeGridMaker() {}
 
     virtual void initialize(float res, float d, float rm=1.5, bool b = false, 
         bool s = false, float sd=0.0, unsigned bs=1, unsigned bi=0, 
@@ -946,66 +897,7 @@ class RNNGridMaker : public GridMaker {
     __device__
     void setAtomGradientsGPU(const float4* ainfo, short* gridindices, 
         float3* agrads, const qt Q, const Dtype* grids, 
-        unsigned remainder_offset, bool isrelevance = false) {
-#ifdef __CUDA_ARCH__
-      //TODO: implement
-      assert(isrelevance == false);
-
-      int idx = blockDim.x * blockIdx.x + threadIdx.x + remainder_offset;
-      int whichgrid = gridindices[idx];
-      float4 atom = ainfo[idx];
-      float3 coords; 
-
-    if (Q.real() != 0) {//apply rotation
-      qt p(atom.x - center.x, atom.y - center.y,
-          atom.z - center.z, 0);
-      p = Q * p * (Q.conj() / Q.norm());
-
-      coords.x = p.R_component_1() + center.x;
-      coords.y = p.R_component_2() + center.y;
-      coords.z = p.R_component_3() + center.z;
-    } else {
-      coords.x = atom.x;
-      coords.y = atom.y;
-      coords.z = atom.z;
-    }
-
-    //get grid index ranges that could possibly be overlapped by atom
-    float radius = atom.w;
-    float r = radius * radiusmultiple;
-    uint2 ranges[3];
-    ranges[0] = getrange_gpu(dims[0], coords.x, r);
-    ranges[1] = getrange_gpu(dims[1], coords.y, r);
-    ranges[2] = getrange_gpu(dims[2], coords.z, r);
-
-    for (unsigned i = ranges[0].x, iend = ranges[0].y; i < iend;
-        ++i) {
-      for (unsigned j = ranges[1].x, jend = ranges[1].y;
-          j < jend; ++j) {
-        for (unsigned k = ranges[2].x, kend = ranges[2].y;
-            k < kend; ++k) {
-          //convert grid point coordinates to angstroms
-          float x = dims[0].x + i * resolution;
-          float y = dims[1].x + j * resolution;
-          float z = dims[2].x + k * resolution;
-          unsigned subgrid_idx_x = i / (dim / grids_per_dim); 
-          unsigned subgrid_idx_y = j / (dim / grids_per_dim); 
-          unsigned subgrid_idx_z = k / (dim / grids_per_dim); 
-          unsigned rel_x = i % (dim / grids_per_dim); 
-          unsigned rel_y = j % (dim / grids_per_dim); 
-          unsigned rel_z = k % (dim / grids_per_dim); 
-          unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + 
-                subgrid_idx_y) * grids_per_dim + subgrid_idx_z);
-
-          accumulateAtomGradient(coords, radius, x, y, z, 
-                    grids[((((grid_idx * batch_size + batch_idx) * ntypes + 
-                          whichgrid) * subgrid_dim_in_points + rel_x) * subgrid_dim_in_points + 
-                      rel_y) * subgrid_dim_in_points + rel_z], agrads[idx], whichgrid);
-        }
-      }
-    }
-#endif
-  }
+        unsigned remainder_offset, bool isrelevance=false);
 };
 
   template <typename Dtype, class GridMakerT>
@@ -1017,25 +909,5 @@ class RNNGridMaker : public GridMaker {
       gmaker.setAtomGradientsGPU(ainfo, gridindices, agrads, Q, diff + offset, 
           remainder_offset);
   }
-
-template __device__
-void GridMaker::setAtomGradientsGPU<double>(const float4* ainfo,
-    short* gridindices,
-    float3* agrads, const qt Q, const double* grids, unsigned remainder_offset,
-    bool isrelevance);
-template __device__
-void GridMaker::setAtomGradientsGPU<float>(const float4* ainfo,
-    short* gridindices,
-    float3* agrads, const qt Q, const float* grids, unsigned remainder_offset,
-    bool isrelevance);
-
-template __device__
-void RNNGridMaker::setAtomGradientsGPU<double>(const float4* ainfo, 
-    short* gridindices, float3* agrads, const qt Q, const double* grids, 
-    unsigned remainder_offset, bool isrelevance);
-template __device__
-void RNNGridMaker::setAtomGradientsGPU<float>(const float4* ainfo, 
-    short* gridindices, float3* agrads, const qt Q, const float* grids, 
-    unsigned remainder_offset, bool isrelevance);
 
 #endif /* _GRIDMAKER_H_ */

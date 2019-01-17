@@ -148,14 +148,14 @@ void test_subcube_grids() {
   gmaker.initialize(*param);
   //cpu subgrids
   Dtype* rnndata = new Dtype[gsize];
-  RNNGridMaker rnngmaker;
+  SubcubeGridMaker rnngmaker;
   rnngmaker.initialize(*param);
   rnngmaker.ntypes = ntypes;
   //gpu subgrids (don't share gridmaker because it's batch-aware)
   Dtype* rnndata_gpu = new Dtype[gsize];
   Dtype* gpu_grids;
   CUDA_CHECK(cudaMalloc(&gpu_grids, sizeof(Dtype) * gsize));
-  RNNGridMaker rnngmaker_gpu;
+  SubcubeGridMaker rnngmaker_gpu;
   rnngmaker_gpu.initialize(*param);
   rnngmaker_gpu.ntypes = ntypes;
 
@@ -295,7 +295,8 @@ void test_strided_cube_datagetter() {
   unsigned n_timesteps = slices_per_dim * slices_per_dim * slices_per_dim;
 
   //set up flex layer
-  caffe::LSTMDataGetterLayer<float> datagetter;
+  caffe::LayerParameter param;
+  caffe::LSTMDataGetterLayer<float> datagetter(param);
   datagetter.num_timesteps = n_timesteps;
   datagetter.batch_size = batch_size;
   datagetter.ntypes = ntypes;

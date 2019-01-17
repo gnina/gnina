@@ -101,11 +101,11 @@ void BaseMolGridDataLayer<float, GridMaker>::setAtomGradientsGPU(GridMaker& gmak
          float *diff, unsigned batch_size);
 
 template 
-void BaseMolGridDataLayer<double, RNNGridMaker>::setAtomGradientsGPU(RNNGridMaker& gmaker, 
+void BaseMolGridDataLayer<double, SubcubeGridMaker>::setAtomGradientsGPU(SubcubeGridMaker& gmaker, 
     double *diff, unsigned batch_size);
 
 template 
-void BaseMolGridDataLayer<float, RNNGridMaker>::setAtomGradientsGPU(RNNGridMaker& gmaker, 
+void BaseMolGridDataLayer<float, SubcubeGridMaker>::setAtomGradientsGPU(SubcubeGridMaker& gmaker, 
          float *diff, unsigned batch_size);
 
 //eurhghgueurugh
@@ -118,11 +118,11 @@ void BaseMolGridDataLayer<float, GridMaker>::Forward_gpu(const std::vector<Blob<
       const std::vector<Blob<float>*>& top);
 
 template 
-void BaseMolGridDataLayer<double, RNNGridMaker>::Forward_gpu(const std::vector<Blob<double>*>& bottom,
+void BaseMolGridDataLayer<double, SubcubeGridMaker>::Forward_gpu(const std::vector<Blob<double>*>& bottom,
       const std::vector<Blob<double>*>& top);
 
 template 
-void BaseMolGridDataLayer<float, RNNGridMaker>::Forward_gpu(const std::vector<Blob<float>*>& bottom,
+void BaseMolGridDataLayer<float, SubcubeGridMaker>::Forward_gpu(const std::vector<Blob<float>*>& bottom,
       const std::vector<Blob<float>*>& top);
 
 template 
@@ -134,16 +134,16 @@ void BaseMolGridDataLayer<float, GridMaker>::Backward_gpu(const std::vector<Blob
       const vector<bool>& propagate_down, const std::vector<Blob<float>*>& bottom);
 
 template 
-void BaseMolGridDataLayer<double, RNNGridMaker>::Backward_gpu(const std::vector<Blob<double>*>& top,
+void BaseMolGridDataLayer<double, SubcubeGridMaker>::Backward_gpu(const std::vector<Blob<double>*>& top,
       const vector<bool>& propagate_down, const std::vector<Blob<double>*>& bottom);
 
 template 
-void BaseMolGridDataLayer<float, RNNGridMaker>::Backward_gpu(const std::vector<Blob<float>*>& top,
+void BaseMolGridDataLayer<float, SubcubeGridMaker>::Backward_gpu(const std::vector<Blob<float>*>& top,
       const vector<bool>& propagate_down, const std::vector<Blob<float>*>& bottom);
 
 INSTANTIATE_LAYER_GPU_FORWARD(GenericMolGridDataLayer);
 INSTANTIATE_LAYER_GPU_BACKWARD(GenericMolGridDataLayer);
-INSTANTIATE_LAYER_GPU_FORWARD(RNNMolGridDataLayer);
-INSTANTIATE_LAYER_GPU_BACKWARD(RNNMolGridDataLayer);
+INSTANTIATE_LAYER_GPU_FORWARD(SubcubeMolGridDataLayer);
+INSTANTIATE_LAYER_GPU_BACKWARD(SubcubeMolGridDataLayer);
 
 }  // namespace caffe

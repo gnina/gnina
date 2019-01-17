@@ -20,10 +20,18 @@ namespace caffe {
  * @brief Alternative LSTM layer implementation that supports custom data access
  *        patterns. Like the standard Caffe LSTMLayer implementation, it is
  *        implemented by unrolling the LSTM graph through time, but it also
- *        provides support for flexible data access patterns with a lightweight
- *        memory footprint. This is possible due to reuse of a shared buffer
- *        that is updated at each timestep by the helper LSTMDataGetter layer,
- *        which it inserts as needed when it unrolls the computation. 
+ *        provides support for flexible data access patterns that are
+ *        impossible or resource-intensive to implement using the standard LSTM
+ *        layer. An example use case is when timesteps may overlap each other,
+ *        as in the "strided cube" access pattern. Rather than perform the data
+ *        duplication necessary to use the standard LSTM layer, using this Flex
+ *        LSTM layer has a lightweight memory footprint due to reuse of a
+ *        shared buffer that is updated at each timestep by the helper
+ *        LSTMDataGetter layer. Another example use case is when the data
+ *        dimension changes at each timestep; again the LSTMDataGetter is
+ *        responsible for managing the blob dimensions and performing
+ *        interpolation as necessary. The Flex LSTM layer inserts
+ *        LSTMDataGetter layers as needed when it unrolls the computation. 
  */
 template <typename Dtype>
   class FlexLSTMLayer : public LSTMLayer<Dtype> {
@@ -44,8 +52,9 @@ template <typename Dtype>
 template <typename Dtype>
 class LSTMDataGetterLayer : public Layer<Dtype> {
   public:
-    explicit LSTMDataGetterLayer(const LayerParameter& param) : Layer<Dtype>(param) {}
-    LSTMDataGetterLayer() = default;
+    explicit LSTMDataGetterLayer(const LayerParameter& param) : Layer<Dtype>(param), 
+    num_timesteps(0), dim(0), subgrid_dim(0), cube_stride(0), example_size(0), 
+    current_timestep(0) {}
     virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
         const vector<Blob<Dtype>*>& top);
     virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
@@ -73,17 +82,10 @@ class LSTMDataGetterLayer : public Layer<Dtype> {
     unsigned subgrid_dim;
     unsigned cube_stride;
     unsigned example_size;
-    unsigned hidden_dim;
     unsigned current_timestep;
 
     friend void ::test_strided_cube_datagetter();
 };
-
-template <typename Dtype>
-void LSTMKernelWrapper(const int nthreads, const Dtype* src, Dtype* dest,
-    AccessPattern pattern, unsigned batch_size, unsigned ntypes, unsigned
-    subgrid_dim, unsigned dim, unsigned current_timestep, unsigned cube_stride,
-    unsigned example_size);
 
 } // namespace caffe
 

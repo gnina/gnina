@@ -951,7 +951,6 @@ message MolGridDataParameter {
   optional float subgrid_dim = 49 [default = 0.0]; //perform recurrence over subgrids with this dim
   optional uint32 maxgroupsize = 50 [default = 1]; //max size of group when performing a recurrence over frame groups; 0 if there are no groups
   optional uint32 maxchunksize = 51 [default = 1]; //max size of subsequence for BPTT
-  optional bool dream = 52 [default = false]; //dump input grids during forward pass to support input optimization
 }
 
 message NDimDataParameter {

@@ -42,9 +42,10 @@ inline double unit_sample(rng_t *rng)
 
 /*
  * @brief Provides data to the Net from n-dimension  files of raw floating point data.
- * MolGridDataLayer is templated on the GridMaker type, and provides default
- * implementations that work for the original GridMaker class and possibly
- * others. 
+ * MolGridDataLayer is an abstract base class that allows us to interface with
+ * other code without requiring it to know anything about the underlying
+ * templating on the GridMaker type. That templating facilitates generating 
+ * different kinds of grids that can be used on either the host or the device. 
  *
  * TODO(dox): thorough documentation for Forward and proto params.
  */
@@ -80,6 +81,13 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     virtual void dumpGridDX(const std::string& prefix, Dtype* top, double scale) const = 0;
 };
 
+/*
+ * @brief Provides data to the Net from n-dimension files of raw floating point
+ * data. BaseMolGridDataLayer is derived from MolGridDataLayer but can be
+ * instantiated; all other MolGridData classes derive from it and specialize
+ * based on the GridMaker type. 
+ *
+ */
 template<typename Dtype, class GridMakerT>
 class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   public:
@@ -126,7 +134,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     weights.clear();
   }
 
-  virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0, Dtype weight=0) {
+  virtual void updateLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0, Dtype weight=0) {
     for(unsigned p = 0; p < numposes; p++) {
       labels.push_back(pose);
       affinities.push_back(affinity);
@@ -580,6 +588,9 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     }
   };
 
+  //group multiple grids into a single example, e.g. multiple frames of an MD
+  //simulation that will be processed by an RNN. next() returns the next frame
+  //for the next example in the batch; traversal is row-major with layout TxN
   template<class Provider> 
   class grouped_example_provider : public example_provider {
 
@@ -852,9 +863,6 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   string root_folder2;
   float data_ratio;
 
-  //map rec/lig pair to their most recent grid for input optimization
-  std::unordered_map<std::string, vec> grid_centers;
-
   unsigned num_rotations;
   unsigned current_rotation;
   unsigned example_size; //channels*numgridpoints
@@ -941,6 +949,14 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
 
 };
 
+/*
+ * @brief Provides data to the Net from n-dimension files of raw floating point
+ * data. GenericMolGridData is used for the vanilla case of single inputs
+ * processed as a single cubic grid and producing a single output (though there
+ * is support for multiple poses, but not for processing them with an RNN -
+ * they are treated as static alternate poses rather than dynamic snapshots)
+ *
+ */
 template <typename Dtype>
 class GenericMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
   public:
@@ -968,6 +984,12 @@ class GenericMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
 
 };
 
+/*
+ * @brief Provides data to the Net from n-dimension files of raw floating point
+ * data. GroupedMolGridData is used to process multiple frames, each as a
+ * separate grid (to be processed e.g. by an LSTM). 
+ *
+ */
 template <typename Dtype>
 class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
   public:
@@ -1004,7 +1026,7 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
       BaseMolGridDataLayer<Dtype, GridMaker>::clearLabels();
     }
 
-    virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0, Dtype weight=0) {
+    virtual void updateLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0, Dtype weight=0) {
       this->labels.push_back(pose);
       this->affinities.push_back(affinity);
       this->rmsds.push_back(rmsd);
@@ -1043,23 +1065,31 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
         typename BaseMolGridDataLayer<Dtype, GridMaker>::output_transform& peturb, bool gpu);
 };
 
+/*
+ * @brief Provides data to the Net from n-dimension files of raw floating point
+ * data. SubcubeMolGridData is intended for use with the main branch LSTM layer
+ * implementation. It decomposes the static inputs (such as those you would
+ * process with GenericMolGridData) into disjoint subcubes and traverses them
+ * as separate timesteps. 
+ *
+ */
 template <typename Dtype>
-class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
+class SubcubeMolGridDataLayer : public BaseMolGridDataLayer<Dtype, SubcubeGridMaker> {
   public:
-    explicit RNNMolGridDataLayer(const LayerParameter& param) : 
-      BaseMolGridDataLayer<Dtype, RNNGridMaker>(param) {
+    explicit SubcubeMolGridDataLayer(const LayerParameter& param) : 
+      BaseMolGridDataLayer<Dtype, SubcubeGridMaker>(param) {
         CHECK_EQ(param.molgrid_data_param().maxgroupsize(), 1) << 
           "Subgrids and groups are mutually exclusive";
       }
 
-    virtual ~RNNMolGridDataLayer() {};
+    virtual ~SubcubeMolGridDataLayer() {};
       
     virtual void clearLabels() {
       seqcont.clear();
-      BaseMolGridDataLayer<Dtype, RNNGridMaker>::clearLabels();
+      BaseMolGridDataLayer<Dtype, SubcubeGridMaker>::clearLabels();
     }
 
-    virtual void appendLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0, Dtype weight=0) {
+    virtual void updateLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0, Dtype weight=0) {
       unsigned grids_per_dim = this->gmaker.grids_per_dim;
       unsigned ncubes = grids_per_dim * grids_per_dim * grids_per_dim;
       unsigned batch_size = this->gmaker.batch_size;
@@ -1110,7 +1140,7 @@ class RNNMolGridDataLayer : public BaseMolGridDataLayer<Dtype, RNNGridMaker> {
       bool hasweights, bool gpu) {
     int idx = this->ExactNumTopBlobs() - this->ligpeturb - hasweights - 1;
     this->copyToBlob(&seqcont[0], seqcont.size(), top[idx], gpu);
-    BaseMolGridDataLayer<Dtype, RNNGridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, hasweights, gpu);
+    BaseMolGridDataLayer<Dtype, SubcubeGridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, hasweights, gpu);
   }
 
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,

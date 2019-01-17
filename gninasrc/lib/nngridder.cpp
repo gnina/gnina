@@ -51,7 +51,7 @@ void RNNMolsGridder::outputMAPGrid(ostream& out, Grid& grid)
 {
   unsigned dim = dims[0].n + 1;
 	unsigned max = (dim) / (dimension / subgrid_dim);
-  RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
+  SubcubeGridMaker* rnn = dynamic_cast<SubcubeGridMaker*>(gmaker);
   assert(rnn);
   unsigned& grids_per_dim = rnn->grids_per_dim;
   unsigned slice = grids_per_dim * grids_per_dim;
@@ -125,7 +125,7 @@ void NNGridder::outputDXGrid(ostream& out, Grid& grid) {
 void RNNMolsGridder::outputDXGrid(ostream& out, Grid& grid)
 {
   unsigned dim = dims[0].n + 1;
-  RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
+  SubcubeGridMaker* rnn = dynamic_cast<SubcubeGridMaker*>(gmaker);
   assert(rnn);
   unsigned& grids_per_dim = rnn->grids_per_dim;
   unsigned n = rnn->subgrid_dim_in_points;
@@ -292,7 +292,7 @@ void NNGridder::outputMAP(const string& base) {
 //output an AD4 map for each grid
 void RNNMolsGridder::outputMAP(const string& base)
 {
-  RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
+  SubcubeGridMaker* rnn = dynamic_cast<SubcubeGridMaker*>(gmaker);
   assert(rnn);
   unsigned& grids_per_dim = rnn->grids_per_dim;
   unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
@@ -355,7 +355,7 @@ void NNGridder::outputDX(const string& base) {
 //output an AD4 map for each grid
 void RNNMolsGridder::outputDX(const string& base)
 {
-  RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
+  SubcubeGridMaker* rnn = dynamic_cast<SubcubeGridMaker*>(gmaker);
   assert(rnn);
   unsigned& grids_per_dim = rnn->grids_per_dim;
   unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
@@ -629,7 +629,7 @@ void NNGridder::setMapsAndGrids(const gridoptions& opt)
 	unsigned n = numpts + 1; //fencepost
   unsigned ngrids = 1;
 
-  RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
+  SubcubeGridMaker* rnn = dynamic_cast<SubcubeGridMaker*>(gmaker);
   if (opt.subgrid_dim) {
     assert(rnn);
     unsigned grids_per_dim = rnn->grids_per_dim;
@@ -789,7 +789,7 @@ NNMolsGridder::NNMolsGridder(const gridoptions& opt) {
 
 RNNMolsGridder::RNNMolsGridder(const gridoptions& opt) : NNMolsGridder(opt)
 {
-  RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
+  SubcubeGridMaker* rnn = dynamic_cast<SubcubeGridMaker*>(gmaker);
   assert(rnn);
   subgrid_dim = rnn->subgrid_dim;
   unsigned& grids_per_dim = rnn->grids_per_dim;
@@ -807,7 +807,7 @@ void NNGridder::initialize(const gridoptions& opt) {
   Q = quaternion(0, 0, 0, 0);
 
   if (opt.subgrid_dim)
-    gmaker = new RNNGridMaker();
+    gmaker = new SubcubeGridMaker();
   else
     gmaker = new GridMaker();
 
@@ -960,7 +960,7 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec) {
     ainfo.push_back(ai);
   }
 
-  RNNGridMaker* rnn = dynamic_cast<RNNGridMaker*>(gmaker);
+  SubcubeGridMaker* rnn = dynamic_cast<SubcubeGridMaker*>(gmaker);
   if (gpu) {
     unsigned nlatoms = m.coordinates().size();
     CUDA_CHECK(
