@@ -466,21 +466,28 @@ template <typename Dtype, class GridMakerT>
 void BaseMolGridDataLayer<Dtype, GridMakerT>::setBlobShape(const vector<Blob<Dtype>*>& top, 
     bool hasrmsd, bool hasaffinity) {
   int batch_size = batch_transform.size();
+  const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
   //setup shape of layer
   top_shape.clear();
-  top_shape.push_back(batch_size);
-  top_shape.push_back(numReceptorTypes+numLigandTypes);
+  unsigned number_examples = batch_size;
+  bool duplicate = this->layer_param_.molgrid_data_param().duplicate_poses();
+  if(duplicate) number_examples = batch_size*numposes;
+  top_shape.push_back(number_examples);
+  
+  numchannels = numReceptorTypes+numLigandTypes;
+  if(!duplicate && numposes > 1) numchannels = numReceptorTypes+numposes*numLigandTypes;
+  top_shape.push_back(numchannels);
   top_shape.push_back(dim);
   top_shape.push_back(dim);
   top_shape.push_back(dim);
 
-  example_size = (numReceptorTypes+numLigandTypes)*numgridpoints;
+  example_size = (numchannels)*numgridpoints;
 
   // Reshape prefetch_data and top[0] according to the batch_size.
   top[0]->Reshape(top_shape);
 
   // Reshape label, affinity, rmsds
-  vector<int> label_shape(1, batch_size); // [batch_size]
+  vector<int> label_shape(1, number_examples); // [batch_size]
 
   top[1]->Reshape(label_shape);
 
@@ -488,18 +495,27 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::setBlobShape(const vector<Blob<Dty
   {
     top[2]->Reshape(label_shape);
     if (hasrmsd)
+    {
       top[3]->Reshape(label_shape);
+    }
+  }
   else if(hasrmsd)
+  {
     top[2]->Reshape(label_shape);
+  }
+
+  if(param.affinity_reweight_stdcut() > 0) {
+    unsigned indx = top.size()-1;
+    if(ligpeturb) indx--; //this is getting cumbersome
+    top[indx]->Reshape(label_shape);
   }
 
   if(ligpeturb) {
     vector<int> peturbshape(2);
     peturbshape[0] = batch_size;
-    peturbshape[1] = 6; //trans+orient
+    peturbshape[1] = output_transform::size(); //trans+orient
     top.back()->Reshape(peturbshape);
   }
-
 }
 
 template <typename Dtype>
@@ -507,6 +523,7 @@ void SubcubeMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& to
     bool hasrmsd, bool hasaffinity) {
   //layer shape is TxNx... for RNN
   int batch_size = this->batch_transform.size();
+  this->numchannels = this->numReceptorTypes + this->numLigandTypes;
   unsigned grids_per_dim = this->gmaker.grids_per_dim;
   unsigned n_timesteps = grids_per_dim * grids_per_dim * grids_per_dim;
 
@@ -563,7 +580,6 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
       const vector<Blob<Dtype>*>& top) {
 
   const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
-  bool duplicate = param.duplicate_poses();
 
   root_folder = param.root_folder();
   num_rotations = param.rotate();
@@ -690,55 +706,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
   if(ligcache.size() > 0) {
     load_cache(ligcache, rmap, numReceptorTypes, ligmolcache);
   }
-
-  //setup shape of layer
-  top_shape.clear();
-  unsigned number_examples = batch_size;
-  if(duplicate) number_examples = batch_size*numposes;
-  top_shape.push_back(number_examples);
-  
-  numchannels = numReceptorTypes+numLigandTypes;
-  if(!duplicate && numposes > 1) numchannels = numReceptorTypes+numposes*numLigandTypes;
-  top_shape.push_back(numchannels);
-  top_shape.push_back(dim);
-  top_shape.push_back(dim);
-  top_shape.push_back(dim);
-
-  example_size = (numchannels)*numgridpoints;
-
-  // Reshape prefetch_data and top[0] according to the batch_size.
-  top[0]->Reshape(top_shape);
-
-  // Reshape label, affinity, rmsds
-  vector<int> label_shape(1, number_examples); // [batch_size]
-
-  top[1]->Reshape(label_shape);
-
-  if (hasaffinity)
-  {
-    top[2]->Reshape(label_shape);
-    if (hasrmsd)
-    {
-      top[3]->Reshape(label_shape);
-    }
-  }
-  else if(hasrmsd)
-  {
-    top[2]->Reshape(label_shape);
-  }
-
-  if(param.affinity_reweight_stdcut() > 0) {
-    unsigned indx = top.size()-1;
-    if(ligpeturb) indx--; //this is getting cumbersome
-    top[indx]->Reshape(label_shape);
-  }
-
-  if(ligpeturb) {
-    vector<int> peturbshape(2);
-    peturbshape[0] = batch_size;
-    peturbshape[1] = output_transform::size(); //trans+orient
-    top.back()->Reshape(peturbshape);
-  }
+  setBlobShape(top, hasrmsd, hasaffinity);
 }
 
 //return quaternion representing one of 24 distinct axial rotations
@@ -1620,6 +1588,7 @@ template <typename Dtype>
 void GroupedMolGridDataLayer<Dtype>::setBlobShape(const vector<Blob<Dtype>*>& top, 
     bool hasrmsd, bool hasaffinity) {
   int batch_size = this->batch_transform.size() / maxgroupsize;
+  this->numchannels = this->numReceptorTypes + this->numLigandTypes;
   this->top_shape.clear();
   this->top_shape.push_back(maxchunksize);
   this->top_shape.push_back(batch_size);

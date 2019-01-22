@@ -272,7 +272,7 @@ void test_strided_cube_datagetter() {
   //how big is subcube
   std::uniform_int_distribution<unsigned> subcubedim_dist(1, 15); 
   std::uniform_int_distribution<unsigned> res_dist(1, 20);
-  float resolution = res_dist(engine) * 0.05;
+  float resolution = res_dist(engine) * 0.25;
   unsigned subcube_dim_pts = subcubedim_dist(engine);
 
   //full grid at least as big as subcube
@@ -293,6 +293,7 @@ void test_strided_cube_datagetter() {
     subcube_dim_pts * subcube_dim_pts;
   unsigned slices_per_dim = ((dim - subcube_dim_pts) / cube_stride) + 1;
   unsigned n_timesteps = slices_per_dim * slices_per_dim * slices_per_dim;
+  p_args.log << "Num Timesteps " << n_timesteps << '\n';
 
   //set up flex layer
   caffe::LayerParameter param;
@@ -365,11 +366,6 @@ void test_strided_cube_datagetter() {
         for (unsigned x=0; x<subcube_dim_pts; ++x) 
           for (unsigned y=0; y<subcube_dim_pts; ++y) 
             for (unsigned z=0; z<subcube_dim_pts; ++z) {
-              p_args.log << "timestep: " << ts << " batch index: " << batch_idx << 
-                " atom type: " << type << 
-                " CPU full grid " << cube_view[x][y][z] << 
-                " CPU subcube " << cpu_subcube[batch_idx][type][x][y][z] << 
-                " GPU subcube " << gpu_subcube[batch_idx][type][x][y][z] << "\n";
               BOOST_REQUIRE_SMALL(
                   cube_view[x][y][z] - cpu_subcube[batch_idx][type][x][y][z],
                   (float )0.01);
