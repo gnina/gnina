@@ -141,9 +141,6 @@ template
 void BaseMolGridDataLayer<float, SubcubeGridMaker>::Backward_gpu(const std::vector<Blob<float>*>& top,
       const vector<bool>& propagate_down, const std::vector<Blob<float>*>& bottom);
 
-INSTANTIATE_LAYER_GPU_FORWARD(GenericMolGridDataLayer);
-INSTANTIATE_LAYER_GPU_BACKWARD(GenericMolGridDataLayer);
-INSTANTIATE_LAYER_GPU_FORWARD(SubcubeMolGridDataLayer);
 INSTANTIATE_LAYER_GPU_BACKWARD(SubcubeMolGridDataLayer);
 
 }  // namespace caffe

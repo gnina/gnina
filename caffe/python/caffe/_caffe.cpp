@@ -55,7 +55,7 @@ const int NPY_DTYPE = NPY_FLOAT32;
 void set_mode_cpu() { Caffe::set_mode(Caffe::CPU); }
 void set_mode_gpu() { Caffe::set_mode(Caffe::GPU); }
 
-// (hopefully) temporary function for allowing toggling input max pool to ave
+// function for allowing toggling input max pool to ave
 // pool for backprop during dreamlike input optimization
 bool toggle_max_to_ave(Net<Dtype>& net) {
   const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net.layers();

@@ -124,7 +124,8 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
   virtual void setLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0);
-  virtual void setBlobShape(const vector<Blob<Dtype>*>& top, bool hasrmsd, bool hasaffinity);
+  virtual void setLayerSpecificDims(int number_examples, 
+    vector<int>& label_shape, const vector<Blob<Dtype>*>& top);
   virtual void enableAtomGradients() { compute_atom_gradients = true; } //enable atom gradient computation
 
   virtual void clearLabels() {
@@ -151,7 +152,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
       dst = blob->mutable_gpu_data();
     else
       dst = blob->mutable_cpu_data();
-    caffe_copy(size, &src[0], dst);
+    caffe_copy(size, src, dst);
   }
 
   virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, 
@@ -962,19 +963,6 @@ class GenericMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
   public:
     explicit GenericMolGridDataLayer(const LayerParameter& param) : 
       BaseMolGridDataLayer<Dtype, GridMaker>(param) {}
-    virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-        const vector<Blob<Dtype>*>& top) { this->forward(bottom, top, false); }
-    virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
-        const vector<Blob<Dtype>*>& top) { this->forward(bottom, top, true); }
-    virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
-        const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) { 
-      this->backward(top, bottom, false);
-    }
-    virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
-        const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-      this->backward(top, bottom, true);
-    }
-
     virtual ~GenericMolGridDataLayer() {};
     friend void ::test_set_atom_gradients();
     friend void ::test_subcube_grids();
@@ -1027,11 +1015,10 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
     }
 
     virtual void updateLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0, Dtype weight=0) {
-      this->labels.push_back(pose);
-      this->affinities.push_back(affinity);
-      this->rmsds.push_back(rmsd);
-      this->weights.push_back(weight);
-      this->seqcont.push_back(example_idx < batch_size ? 0 : 1);
+      for(unsigned p = 0; p < this->numposes; p++) {
+        this->seqcont.push_back(example_idx < batch_size ? 0 : 1);
+      }
+      BaseMolGridDataLayer<Dtype, GridMaker>::updateLabels(pose, affinity, rmsd, weight);
     }
 
     virtual void updateTranslations(vec&& translation) {
@@ -1049,7 +1036,8 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
     vector<Dtype> seqcont; //necessary for LSTM layer; indicates if a batch instance 
                            //is a continuation of a previous example sequence or 
                            //the beginning of a new one
-    virtual void setBlobShape(const vector<Blob<Dtype>*>& top, bool hasrmsd, bool hasaffinity);
+    virtual void setLayerSpecificDims(int number_examples, 
+      vector<int>& label_shape, const vector<Blob<Dtype>*>& top);
 
     virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, 
         bool hasweights, bool gpu) {
@@ -1094,7 +1082,9 @@ class SubcubeMolGridDataLayer : public BaseMolGridDataLayer<Dtype, SubcubeGridMa
       unsigned ncubes = grids_per_dim * grids_per_dim * grids_per_dim;
       unsigned batch_size = this->gmaker.batch_size;
       unsigned batch_idx = this->gmaker.batch_idx;
-      unsigned nexamples = ncubes * batch_size;
+      int nexamples = ncubes * batch_size;
+      bool duplicate = this->layer_param_.molgrid_data_param().duplicate_poses();
+      if(duplicate) nexamples = batch_size*this->numposes;
       if (seqcont.size() < nexamples)
         seqcont.resize(nexamples);
       if (this->labels.size() < nexamples) 
@@ -1110,15 +1100,16 @@ class SubcubeMolGridDataLayer : public BaseMolGridDataLayer<Dtype, SubcubeGridMa
       //sadly
       for (size_t cube_id = 0; cube_id < ncubes; ++cube_id) {
         unsigned idx = cube_id * batch_size + batch_idx;
-        //TODO: generalize
-        if (cube_id == 0)
-          seqcont[idx] = 0;
-        else
-          seqcont[idx] = 1;
-        this->labels[idx] = pose;
-        this->affinities[idx] = affinity;
-        this->rmsds[idx] = rmsd;
-        this->weights[idx] = weight;
+        for(unsigned p = 0; p < this->numposes; p++) {
+          unsigned pose_idx = idx + p;
+          if (cube_id == 0)
+            seqcont[pose_idx] = 0;
+          else
+            seqcont[pose_idx] = 1;
+          this->labels[pose_idx] = pose;
+          this->affinities[pose_idx] = affinity;
+          this->rmsds[pose_idx] = rmsd;
+        }
       }
     }
     
@@ -1134,7 +1125,8 @@ class SubcubeMolGridDataLayer : public BaseMolGridDataLayer<Dtype, SubcubeGridMa
   vector<Dtype> seqcont; //necessary for LSTM layer; indicates if a batch instance 
                          //is a continuation of a previous example sequence or 
                          //the beginning of a new one
-  virtual void setBlobShape(const vector<Blob<Dtype>*>& top, bool hasrmsd, bool hasaffinity);
+  virtual void setLayerSpecificDims(int number_examples, 
+    vector<int>& label_shape, const vector<Blob<Dtype>*>& top);
 
   virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, 
       bool hasweights, bool gpu) {
@@ -1143,10 +1135,6 @@ class SubcubeMolGridDataLayer : public BaseMolGridDataLayer<Dtype, SubcubeGridMa
     BaseMolGridDataLayer<Dtype, SubcubeGridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, hasweights, gpu);
   }
 
-  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top) { this->forward(bottom, top, false); }
-  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top) { this->forward(bottom, top, true); }
   virtual void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, 
       bool gpu) {
     NOT_IMPLEMENTED;
