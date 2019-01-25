@@ -263,6 +263,9 @@ class GridMaker {
       }
     }
   
+    template<bool Binary, typename Dtype> __device__ 
+    void set_atoms(float3 origin, unsigned n, float4 *ainfos, short *gridindex, 
+        Dtype *grids);
   
     //GPU accelerated version, defined in cu file
     //pointers must point to GPU memory
@@ -270,6 +273,8 @@ class GridMaker {
     void setAtomsGPU(unsigned natoms, float4 *coords, short *gridindex, qt Q, 
         unsigned ngrids, Dtype *grids);
   
+    virtual void zeroGridsStartBatchGPU(float* grids, unsigned ngrids);
+    virtual void zeroGridsStartBatchGPU(double* grids, unsigned ngrids);
   
     void zeroAtomGradientsCPU(vector<float3>& agrad) {
       for (unsigned i = 0, n = agrad.size(); i < n; ++i) { 
@@ -811,6 +816,9 @@ class SubcubeGridMaker : public GridMaker {
     template<typename Dtype>
     void setAtomsGPU(unsigned natoms, float4 *ainfos, short *gridindex, 
         qt Q, unsigned ngrids, Dtype *grids);
+
+    virtual void zeroGridsStartBatchGPU(float* grids, unsigned ngrids);
+    virtual void zeroGridsStartBatchGPU(double* grids, unsigned ngrids);
 
     template <typename Dtype>
     void setAtomGradientsCPU(const vector<float4>& ainfo, 
