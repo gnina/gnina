@@ -32,6 +32,12 @@
 
 using namespace std;
 
+template<typename Dtype, typename GridMakerT>
+__global__
+void set_atom_gradients(GridMakerT gmaker, const float4* ainfo, short* gridindices, 
+    float3* agrads, float3 centroid, const qt Q, float3 translation, const Dtype* grids, 
+    unsigned remainder_offset, bool isrelevance=false);
+
 class GridMaker {
   protected:
     float2 dims[3];
@@ -46,7 +52,10 @@ class GridMaker {
   
   public:
     typedef boost::math::quaternion<float> quaternion;
-  
+    template<typename Dtype, typename GridMakerT> __global__ friend void 
+      set_atom_gradients(GridMakerT gmaker, const float4* ainfo, short* gridindices,
+      float3* agrads, float3 centroid, const qt Q, float3 translation, const Dtype* grids, 
+      unsigned remainder_offset, bool isrelevance);
   
     GridMaker(float res = 0, float d = 0, float rm = 1.5, bool b = false,
         bool s = false)
@@ -418,11 +427,8 @@ class GridMaker {
       }
     }
  
-    template<typename Dtype>
     __device__
-    void setAtomGradientsGPU(const float4* ainfo, short* gridindices, 
-    float3* agrads, const qt Q, const Dtype* grids, unsigned remainder_offset, 
-    bool isrelevance = false);
+    int getIndexFromPoint(unsigned i, unsigned j, unsigned k, int whichgrid);
 
     //summ up gradient values overlapping atoms
     template<typename Grids>
@@ -916,21 +922,8 @@ class SubcubeGridMaker : public GridMaker {
       }
     }
 
-    template<typename Dtype>
     __device__
-    void setAtomGradientsGPU(const float4* ainfo, short* gridindices, 
-        float3* agrads, const qt Q, const Dtype* grids, 
-        unsigned remainder_offset, bool isrelevance=false);
+    int getIndexFromPoint(unsigned i, unsigned j, unsigned k, int whichgrid);
 };
-
-  template <typename Dtype, class GridMakerT>
-  __global__ 
-  void setAtomGradientGPU(GridMakerT gmaker, 
-          float4* ainfo, short* gridindices, float3* agrads, float3 centroid, 
-          qt Q, float3 translation, Dtype *diff, int offset, 
-          unsigned remainder_offset) {
-      gmaker.setAtomGradientsGPU(ainfo, gridindices, agrads, Q, diff + offset, 
-          remainder_offset);
-  }
 
 #endif /* _GRIDMAKER_H_ */
