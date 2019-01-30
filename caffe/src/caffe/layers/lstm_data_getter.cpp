@@ -8,9 +8,8 @@ void LSTMDataGetterLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
   //Infer the data access pattern from the parameters and update relevant
   //data members. 
-  const FlexLSTMParameter& param = this->layer_param_.flex_lstm_param();
   const MolGridDataParameter& mgrid_param = this->layer_param_.molgrid_data_param();
-  cube_stride = param.stride();
+  cube_stride = mgrid_param.stride();
   if (cube_stride) {
     pattern = AccessPatterns::strided_cube;
     Dtype subgrid_dim_in_angstroms = mgrid_param.subgrid_dim();

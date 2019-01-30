@@ -640,9 +640,8 @@ class SubcubeGridMaker : public GridMaker {
     }
 
     virtual void initialize(float res, float d, float rm=1.5, bool b = false, 
-        bool s = false, float sd=0.0, unsigned bs=1, unsigned bi=0, 
-        unsigned nt=0, unsigned nrt=0, unsigned nlt=0, unsigned sdip=0, 
-        unsigned gpd=0) {
+        bool s = false, float sd=0.0, unsigned bs=1, unsigned stride=0, unsigned bi=0, 
+        unsigned nt=0, unsigned nrt=0, unsigned nlt=0, unsigned sdip=0, unsigned gpd=0) {
       subgrid_dim = sd;
       batch_size = bs;
       batch_idx = bi;
@@ -650,16 +649,23 @@ class SubcubeGridMaker : public GridMaker {
       nrec_types = nrt;
       nlig_types = nlt;
       subgrid_dim_in_points = ::round(subgrid_dim / res) + 1;
+      if (!stride)
+        stride = subgrid_dim_in_points;
       subgrid_dim = res * (subgrid_dim_in_points - 1);
+      //if the subgrid decomposition doesn't cover at least dim, increase dim
+      //so that it does
       grids_per_dim = ::round((d - subgrid_dim) / (subgrid_dim + res)) + 1;
       d = (subgrid_dim + res) * (grids_per_dim - 1) + subgrid_dim;
+      unsigned dim_pts = ::round(d / res) + 1;
+      if (stride)
+        grids_per_dim = ((dim_pts - subgrid_dim_in_points) / stride) + 1;
       GridMaker::initialize(res, d, rm, b, s);
     }
 
     virtual void initialize(const caffe::MolGridDataParameter& param) {
       initialize(param.resolution(), param.dimension(), param.radius_multiple(), 
           param.binary_occupancy(), param.spherical_mask(), param.subgrid_dim(), 
-          param.batch_size());
+          param.batch_size(), param.stride());
     }
 
     virtual void initialize(const gridoptions& opt, float rm) {

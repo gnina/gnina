@@ -807,8 +807,6 @@ message FlattenParameter {
 
 // Message that stores parameters used by FlexLSTMLayer
 message FlexLSTMParameter {
-  // Stride when selecting subsets of input for recurrence.
-  optional int32 stride = 1 [default = 1];
 }
 
 // Message that stores parameters used by HDF5DataLayer
@@ -951,6 +949,7 @@ message MolGridDataParameter {
   optional float subgrid_dim = 49 [default = 0.0]; //perform recurrence over subgrids with this dim
   optional uint32 maxgroupsize = 50 [default = 1]; //max size of group when performing a recurrence over frame groups; 0 if there are no groups
   optional uint32 maxchunksize = 51 [default = 1]; //max size of subsequence for BPTT
+  optional int32 stride = 52 [default = 0]; // Stride when selecting subsets of input for recurrence, default is same size as filter width
 }
 
 message NDimDataParameter {
