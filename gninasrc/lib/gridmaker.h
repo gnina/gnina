@@ -38,6 +38,16 @@ void set_atom_gradients(GridMakerT gmaker, const float4* ainfo, short* gridindic
     float3* agrads, float3 centroid, const qt Q, float3 translation, const Dtype* grids, 
     unsigned remainder_offset, bool isrelevance=false);
 
+template<typename Grids, typename GridMakerT, typename quaternion>
+void set_atom_cpu(float4 ainfo, int whichgrid, const quaternion& Q, 
+    Grids& grids, GridMakerT& gmaker);
+
+template<typename Grids, typename GridMakerT, typename quaternion>
+void set_atom_gradient_cpu(const float4& ainfo, int whichgrid,
+    const quaternion& Q, const Grids& grids,
+    float3& agrad, GridMakerT& gmaker, bool isrelevance = false, 
+    const Grids& densegrids = Grids(NULL, boost::extents[0][0][0][0]));
+
 class GridMaker {
   protected:
     float2 dims[3];
@@ -51,12 +61,23 @@ class GridMaker {
     bool spherize; //mask out atoms not within sphere of center
   
   public:
-    typedef boost::math::quaternion<float> quaternion;
+    template<typename Grids, typename GridMakerT, typename quaternion> friend 
+      void set_atom_cpu(float4 ainfo, int whichgrid, const quaternion& Q, 
+      Grids& grids, GridMakerT& gmaker);
+
+    template<typename Grids, typename GridMakerT, typename quaternion> friend 
+      void set_atom_gradient_cpu(const float4& ainfo, int whichgrid,
+      const quaternion& Q, const Grids& grids,
+      float3& agrad, GridMakerT& gmaker, bool isrelevance, 
+      const Grids& densegrids);
+
     template<typename Dtype, typename GridMakerT> __global__ friend void 
       set_atom_gradients(GridMakerT gmaker, const float4* ainfo, short* gridindices,
       float3* agrads, float3 centroid, const qt Q, float3 translation, const Dtype* grids, 
       unsigned remainder_offset, bool isrelevance);
   
+    typedef boost::math::quaternion<float> quaternion;
+
     GridMaker(float res = 0, float d = 0, float rm = 1.5, bool b = false,
         bool s = false)
         : radiusmultiple(rm), resolution(res), dimension(d), binary(b),
@@ -208,67 +229,7 @@ class GridMaker {
       for (unsigned i = 0, n = ainfo.size(); i < n; i++) {
         int pos = gridindex[i];
         if (pos >= 0)
-          setAtomCPU(ainfo[i], pos, Q, grids);
-      }
-    }
-  
-    //set the relevant grid points for provided atom
-    template<typename Grids>
-    void setAtomCPU(float4 ainfo, int whichgrid, const quaternion& Q, 
-        Grids& grids) {
-      float radius = ainfo.w;
-      float r = radius * radiusmultiple;
-      float3 coords;
-  
-      if(spherize) {
-        float xdiff = ainfo.x - center.x;
-        float ydiff = ainfo.y - center.y;
-        float zdiff = ainfo.z - center.z;
-        float distsq = xdiff * xdiff + ydiff * ydiff + zdiff * zdiff;
-        if(distsq > rsq) {
-          return; //ignore
-        }
-      }
-  
-      if (Q.real() != 0) { //apply rotation
-        quaternion p(0, ainfo.x - center.x, ainfo.y - center.y, ainfo.z - center.z);
-        p = Q * p * (conj(Q) / norm(Q));
-        coords.x = p.R_component_2() + center.x;
-        coords.y = p.R_component_3() + center.y;
-        coords.z = p.R_component_4() + center.z;
-      }
-      else {
-        coords.x = ainfo.x;
-        coords.y = ainfo.y;
-        coords.z = ainfo.z;
-      }
-  
-      vector<pair<unsigned, unsigned> > ranges(3);
-      ranges[0] = getrange(dims[0], coords.x, r);
-      ranges[1] = getrange(dims[1], coords.y, r);
-      ranges[2] = getrange(dims[2], coords.z, r);
-  
-      //for every grid point possibly overlapped by this atom
-      for (unsigned i = ranges[0].first, iend = ranges[0].second; i < iend; i++) {
-        for (unsigned j = ranges[1].first, jend = ranges[1].second; j < jend;
-            j++) {
-          for (unsigned k = ranges[2].first, kend = ranges[2].second;
-              k < kend; k++) {
-            float x = dims[0].x + i * resolution;
-            float y = dims[1].x + j * resolution;
-            float z = dims[2].x + k * resolution;
-            float val = calcPoint(coords, radius, x, y, z);
-  
-            if (binary) {
-              if (val != 0) 
-                grids[whichgrid][i][j][k] = 1.0;
-            }
-            else {
-              grids[whichgrid][i][j][k] += val;
-            }
-  
-          }
-        }
+          set_atom_cpu(ainfo[i], pos, Q, grids, *this);
       }
     }
   
@@ -352,59 +313,6 @@ class GridMaker {
       agrad.z += gz;
     }
   
-    //get the atom position gradient from relevant grid points for provided atom
-    //if isrelevance is true, simply sum overlapping values
-    template<typename Grids>
-    void setAtomGradientCPU(const float4& ainfo, int whichgrid,
-        const quaternion& Q, const Grids& grids,
-        float3& agrad, bool isrelevance = false, const Grids& densegrids = Grids(NULL, boost::extents[0][0][0][0])) {
-      float3 coords;
-      if (Q.real() != 0) {//apply rotation
-        quaternion p(0, ainfo.x - center.x, ainfo.y - center.y,
-            ainfo.z - center.z);
-        p = Q * p * (conj(Q) / norm(Q));
-  
-        coords.x = p.R_component_2() + center.x;
-        coords.y = p.R_component_3() + center.y;
-        coords.z = p.R_component_4() + center.z;
-      } 
-      else {
-        coords.x = ainfo.x;
-        coords.y = ainfo.y;
-        coords.z = ainfo.z;
-      }
-  
-      //get grid index ranges that could possibly be overlapped by atom
-      float radius = ainfo.w;
-      float r = radius * radiusmultiple;
-      vector<pair<unsigned, unsigned> > ranges(3);
-      ranges[0] = getrange(dims[0], coords.x, r);
-      ranges[1] = getrange(dims[1], coords.y, r);
-      ranges[2] = getrange(dims[2], coords.z, r);
-  
-      //for every grid point possibly overlapped by this atom
-      for (unsigned i = ranges[0].first, iend = ranges[0].second; i < iend;
-          ++i) {
-        for (unsigned j = ranges[1].first, jend = ranges[1].second;
-            j < jend; ++j) {
-          for (unsigned k = ranges[2].first, kend = ranges[2].second;
-              k < kend; ++k) {
-            //convert grid point coordinates to angstroms
-            float x = dims[0].x + i * resolution;
-            float y = dims[1].x + j * resolution;
-            float z = dims[2].x + k * resolution;
-  
-            if (isrelevance) 
-              accumulateAtomRelevance(coords, radius, x, y, z,
-                  grids[whichgrid][i][j][k], densegrids[whichgrid][i][j][k], agrad);
-            else //true gradient, distance matters
-              accumulateAtomGradient(coords, radius, x, y, z,
-                  grids[whichgrid][i][j][k], agrad, whichgrid);
-          }
-        }
-      }
-    }
-  
     template <typename Dtype>
     void setAtomGradientsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
                              quaternion Q, Dtype* data, vector<float3>& agrad, 
@@ -422,13 +330,30 @@ class GridMaker {
       for (unsigned i = 0, n = ainfo.size(); i < n; ++i) {
         int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
         if (whichgrid >= 0) {
-          setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
+          set_atom_gradient_cpu(ainfo[i], whichgrid, Q, grids, agrad[i], *this);
         }
       }
     }
- 
-    __device__
+
+    template <typename Grids>
+    void setVal(unsigned i, unsigned j, unsigned k, int whichgrid, float val, Grids& grids) {
+      grids[whichgrid][i][j][k] = val;
+    }
+
+    template <typename Grids>
+    void addVal(unsigned i, unsigned j, unsigned k, int whichgrid, float val, Grids& grids) {
+      grids[whichgrid][i][j][k] += val;
+    }
+
+    __host__ __device__
     int getIndexFromPoint(unsigned i, unsigned j, unsigned k, int whichgrid);
+
+    template <typename Grids>
+    auto getGridElement(const Grids& grids, unsigned i, unsigned j, unsigned k, int whichgrid) ->
+      decltype(&grids[0][0][0][0])
+    {
+      return &grids[whichgrid][i][j][k];
+    }
 
     //summ up gradient values overlapping atoms
     template<typename Grids>
@@ -439,7 +364,8 @@ class GridMaker {
       for (unsigned i = 0, n = ainfo.size(); i < n; ++i) {
         int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
         if (whichgrid >= 0) {
-          setAtomGradientCPU(ainfo[i], whichgrid, Q, diffgrids, agrad[i], true, densegrids);
+          set_atom_gradient_cpu(ainfo[i], whichgrid, Q, diffgrids, agrad[i], *this, 
+              true, densegrids);
         }
       }
     }
@@ -622,6 +548,15 @@ class SubcubeGridMaker : public GridMaker {
       initialize(res, d, rm, b, s, sd, bs, bi, nt, nrt, nlt, sdip, gpd);
     }
 
+    template<typename Grids, typename GridMakerT, typename quaternion> friend 
+      void set_atom_cpu(float4 ainfo, int whichgrid, const quaternion& Q, 
+      Grids& grids, GridMakerT& gmaker);
+
+    template<typename Grids, typename GridMakerT, typename quaternion> friend 
+      void set_atom_gradient_cpu(const float4& ainfo, int whichgrid,
+      const quaternion& Q, const Grids& grids,
+      float3& agrad, GridMakerT& gmaker, bool isrelevance, const Grids& densegrids);
+
     virtual ~SubcubeGridMaker() {}
 
     virtual void initialize(float res, float d, float rm = 1.5, bool b = false, bool s =
@@ -694,6 +629,19 @@ class SubcubeGridMaker : public GridMaker {
       return _ntypes;
     }
 
+    __host__ __device__
+    void getRelativeIndices(unsigned i, unsigned j, unsigned k, 
+        unsigned& rel_x, unsigned& rel_y, unsigned& rel_z, unsigned& grid_idx) {
+      unsigned subgrid_idx_x = i / subgrid_dim_in_points; 
+      unsigned subgrid_idx_y = j / subgrid_dim_in_points; 
+      unsigned subgrid_idx_z = k / subgrid_dim_in_points; 
+      rel_x = i % subgrid_dim_in_points; 
+      rel_y = j % subgrid_dim_in_points; 
+      rel_z = k % subgrid_dim_in_points; 
+      grid_idx = (((subgrid_idx_x * grids_per_dim) + 
+            subgrid_idx_y) * grids_per_dim + subgrid_idx_z);
+    }
+
     template <typename Dtype>
     void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
         const quaternion& Q, Dtype* data, unsigned ntypes) {
@@ -708,7 +656,7 @@ class SubcubeGridMaker : public GridMaker {
       for (unsigned i = 0, n = ainfo.size(); i < n; i++) {
         int pos = gridindex[i];
         if (pos >= 0)
-          setAtomCPU(ainfo[i], pos, Q, grids);
+          set_atom_cpu(ainfo[i], pos, Q, grids, *this);
       }
       batch_idx = (batch_idx + 1) % batch_size;
     }
@@ -721,102 +669,44 @@ class SubcubeGridMaker : public GridMaker {
       for (unsigned i = 0, n = ainfo.size(); i < n; i++) {
         int pos = gridindex[i];
         if (pos >= 0)
-          setAtomCPU(ainfo[i], pos, Q, grids);
+          set_atom_cpu(ainfo[i], pos, Q, grids, *this);
       }
       batch_idx = (batch_idx + 1) % batch_size;
     }
 
     template<typename Grids>
-    auto getGridElement(Grids& grids, unsigned grid_idx, unsigned whichgrid, 
-        unsigned x, unsigned y, unsigned z) -> 
+    auto getGridElement(Grids& grids, unsigned whichgrid, unsigned x, unsigned y, unsigned z) -> 
         decltype(&grids[0][0][0][0][0][0]){
-      return &grids[grid_idx][batch_idx][whichgrid][x][y][z];
+      unsigned rel_x; 
+      unsigned rel_y; 
+      unsigned rel_z; 
+      unsigned grid_idx;
+      getRelativeIndices(x, y, z, rel_x, rel_y, rel_z, grid_idx);
+      return &grids[grid_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z];
     }
 
     template<typename Allocator, typename Dtype>
     Dtype* getGridElement(std::vector<boost::multi_array<Dtype, 3, 
-        Allocator>>& grids, unsigned grid_idx, unsigned whichgrid, unsigned x, 
+        Allocator>>& grids, unsigned whichgrid, unsigned x, 
         unsigned y, unsigned z) {
-      return &grids[grid_idx * ntypes + whichgrid][x][y][z];
+      unsigned rel_x; 
+      unsigned rel_y; 
+      unsigned rel_z; 
+      unsigned grid_idx;
+      getRelativeIndices(x, y, z, rel_x, rel_y, rel_z, grid_idx);
+      return &grids[grid_idx * ntypes + whichgrid][rel_x][rel_y][rel_z];
     }
 
     template<typename Dtype>
     Dtype* getGridElement(boost::multi_array_ref<Dtype, 4>& grids, 
-        unsigned grid_idx, unsigned whichgrid, unsigned x, 
+        unsigned whichgrid, unsigned x, 
         unsigned y, unsigned z) {
-      return &grids[grid_idx * ntypes + whichgrid][x][y][z];
-    }
-
-    //TODO: possible to merge this with base version?
-    template<typename Grids>
-    void setAtomCPU(float4 ainfo, int whichgrid, const quaternion& Q, 
-        Grids& grids) {
-      float radius = ainfo.w;
-      float r = radius * radiusmultiple;
-      float3 coords;
-
-      if(spherize) {
-        float xdiff = ainfo.x - center.x;
-        float ydiff = ainfo.y - center.y;
-        float zdiff = ainfo.z - center.z;
-        float distsq = xdiff * xdiff + ydiff * ydiff + zdiff * zdiff;
-        if(distsq > rsq) {
-          return; //ignore
-        }
-      }
-
-      if (Q.real() != 0) { //apply rotation
-        quaternion p(0, ainfo.x - center.x, ainfo.y - center.y, ainfo.z - 
-            center.z);
-        p = Q * p * (conj(Q) / norm(Q));
-        coords.x = p.R_component_2() + center.x;
-        coords.y = p.R_component_3() + center.y;
-        coords.z = p.R_component_4() + center.z;
-      }
-      else {
-        coords.x = ainfo.x;
-        coords.y = ainfo.y;
-        coords.z = ainfo.z;
-      }
-
-      vector<pair<unsigned, unsigned> > ranges(3);
-      ranges[0] = getrange(dims[0], coords.x, r);
-      ranges[1] = getrange(dims[1], coords.y, r);
-      ranges[2] = getrange(dims[2], coords.z, r);
-
-      //for every grid point possibly overlapped by this atom
-      for (unsigned i = ranges[0].first, iend = ranges[0].second; 
-          i < iend; i++) {
-        for (unsigned j = ranges[1].first, jend = ranges[1].second; 
-            j < jend; j++) {
-          for (unsigned k = ranges[2].first, kend = ranges[2].second;
-              k < kend; k++) {
-            float x = dims[0].x + i * resolution;
-            float y = dims[1].x + j * resolution;
-            float z = dims[2].x + k * resolution;
-            float val = calcPoint(coords, radius, x, y, z);
-            unsigned subgrid_idx_x = i / subgrid_dim_in_points; 
-            unsigned subgrid_idx_y = j / subgrid_dim_in_points; 
-            unsigned subgrid_idx_z = k / subgrid_dim_in_points; 
-            unsigned rel_x = i % subgrid_dim_in_points; 
-            unsigned rel_y = j % subgrid_dim_in_points; 
-            unsigned rel_z = k % subgrid_dim_in_points; 
-            unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + 
-                  subgrid_idx_y) * grids_per_dim + subgrid_idx_z);
-
-            if (binary) {
-              if (val != 0)
-                *getGridElement(grids, grid_idx, whichgrid, rel_x, rel_y, 
-                    rel_z) = 1.0;
-            }
-            else {
-              *getGridElement(grids, grid_idx, whichgrid, rel_x, rel_y, 
-                  rel_z) += val;
-            }
-
-          }
-        }
-      }
+      unsigned rel_x; 
+      unsigned rel_y; 
+      unsigned rel_z; 
+      unsigned grid_idx;
+      getRelativeIndices(x, y, z, rel_x, rel_y, rel_z, grid_idx);
+      return &grids[grid_idx * ntypes + whichgrid][rel_x][rel_y][rel_z];
     }
 
     template<bool Binary, typename Dtype> __device__ 
@@ -844,7 +734,7 @@ class SubcubeGridMaker : public GridMaker {
       for (unsigned i = 0, n = ainfo.size(); i < n; ++i) {
         int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
         if (whichgrid >= 0) {
-          setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
+          set_atom_gradient_cpu(ainfo[i], whichgrid, Q, grids, agrad[i], *this);
         }
       }
     }
@@ -857,79 +747,137 @@ class SubcubeGridMaker : public GridMaker {
       for (unsigned i = 0, n = ainfo.size(); i < n; ++i) {
         int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
         if (whichgrid >= 0) {
-          setAtomGradientCPU(ainfo[i], whichgrid, Q, grids, agrad[i]);
+          set_atom_gradient_cpu(ainfo[i], whichgrid, Q, grids, agrad[i], *this);
         }
       }
     }
 
-    //TODO: possible to merge this with base version?
-    template<typename Grids>
-    void setAtomGradientCPU(const float4& ainfo, int whichgrid, 
-        const quaternion& Q, const Grids& grids, float3& agrad, 
-        bool isrelevance = false, const Grids& densegrids = Grids(NULL, boost::extents[0][0][0][0][0][0])  ) {
-      float3 coords;
-      if (Q.real() != 0) {//apply rotation
-        quaternion p(0, ainfo.x - center.x, ainfo.y - center.y,
-            ainfo.z - center.z);
-        p = Q * p * (conj(Q) / norm(Q));
-
-        coords.x = p.R_component_2() + center.x;
-        coords.y = p.R_component_3() + center.y;
-        coords.z = p.R_component_4() + center.z;
-      } else {
-        coords.x = ainfo.x;
-        coords.y = ainfo.y;
-        coords.z = ainfo.z;
-      }
-
-      //get grid index ranges that could possibly be overlapped by atom
-      float radius = ainfo.w;
-      float r = radius * radiusmultiple;
-      vector<pair<unsigned, unsigned> > ranges(3);
-      ranges[0] = getrange(dims[0], coords.x, r);
-      ranges[1] = getrange(dims[1], coords.y, r);
-      ranges[2] = getrange(dims[2], coords.z, r);
-
-      //for every grid point possibly overlapped by this atom
-      for (unsigned i = ranges[0].first, iend = ranges[0].second; i < iend;
-          ++i) {
-        for (unsigned j = ranges[1].first, jend = ranges[1].second;
-            j < jend; ++j) {
-          for (unsigned k = ranges[2].first, kend = ranges[2].second;
-              k < kend; ++k) {
-            //convert grid point coordinates to angstroms
-            float x = dims[0].x + i * resolution;
-            float y = dims[1].x + j * resolution;
-            float z = dims[2].x + k * resolution;
-            //if we're iterating over subgrids, the LSTM layer requires that the
-            //subgrids from different examples in the same batch be interleaved.
-            //we need to convert the absolute grid index to the index in this
-            //subgrid grid, which is T x B x ntypes x subgrid_dim x subgrid_dim x subgrid_dim
-            unsigned subgrid_idx_x = i / (dim / grids_per_dim); 
-            unsigned subgrid_idx_y = j / (dim / grids_per_dim); 
-            unsigned subgrid_idx_z = k / (dim / grids_per_dim); 
-            unsigned rel_x = i % (dim / grids_per_dim); 
-            unsigned rel_y = j % (dim / grids_per_dim); 
-            unsigned rel_z = k % (dim / grids_per_dim); 
-            unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + subgrid_idx_y) * 
-                grids_per_dim + subgrid_idx_z);
-
-            if (isrelevance) 
-              accumulateAtomRelevance(coords, radius, x, y, z,
-                  grids[grid_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z], 
-                  densegrids[grid_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z],
-                  agrad);
-            else //true gradient, distance matters
-              accumulateAtomGradient(coords, radius, x, y, z,
-                  grids[grid_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z], 
-                  agrad, whichgrid);
-          }
-        }
-      }
-    }
-
-    __device__
+    __host__ __device__
     int getIndexFromPoint(unsigned i, unsigned j, unsigned k, int whichgrid);
+
+    template <typename Grids>
+    void setVal(unsigned i, unsigned j, unsigned k, int whichgrid, float val, Grids& grids) {
+      *(getGridElement(grids, whichgrid, i, j, k)) = val;
+    }
+
+    template <typename Grids>
+    void addVal(unsigned i, unsigned j, unsigned k, int whichgrid, float val, Grids& grids) {
+      *(getGridElement(grids, whichgrid, i, j, k)) += val;
+    }
 };
 
+//set the relevant grid points for provided atom
+template<typename Grids, typename GridMakerT, typename quaternion>
+void set_atom_cpu(float4 ainfo, int whichgrid, const quaternion& Q, 
+    Grids& grids, GridMakerT& gmaker) {
+  float radius = ainfo.w;
+  float r = radius * gmaker.radiusmultiple;
+  float3 coords;
+
+  if(gmaker.spherize) {
+    float xdiff = ainfo.x - gmaker.center.x;
+    float ydiff = ainfo.y - gmaker.center.y;
+    float zdiff = ainfo.z - gmaker.center.z;
+    float distsq = xdiff * xdiff + ydiff * ydiff + zdiff * zdiff;
+    if(distsq > gmaker.rsq) {
+      return; //ignore
+    }
+  }
+
+  if (Q.real() != 0) { //apply rotation
+    quaternion p(0, ainfo.x - gmaker.center.x, ainfo.y - gmaker.center.y, ainfo.z - gmaker.center.z);
+    p = Q * p * (conj(Q) / norm(Q));
+    coords.x = p.R_component_2() + gmaker.center.x;
+    coords.y = p.R_component_3() + gmaker.center.y;
+    coords.z = p.R_component_4() + gmaker.center.z;
+  }
+  else {
+    coords.x = ainfo.x;
+    coords.y = ainfo.y;
+    coords.z = ainfo.z;
+  }
+
+  vector<pair<unsigned, unsigned> > ranges(3);
+  ranges[0] = gmaker.getrange(gmaker.dims[0], coords.x, r);
+  ranges[1] = gmaker.getrange(gmaker.dims[1], coords.y, r);
+  ranges[2] = gmaker.getrange(gmaker.dims[2], coords.z, r);
+
+  //for every grid point possibly overlapped by this atom
+  for (unsigned i = ranges[0].first, iend = ranges[0].second; i < iend; i++) {
+    for (unsigned j = ranges[1].first, jend = ranges[1].second; j < jend;
+        j++) {
+      for (unsigned k = ranges[2].first, kend = ranges[2].second;
+          k < kend; k++) {
+        float x = gmaker.dims[0].x + i * gmaker.resolution;
+        float y = gmaker.dims[1].x + j * gmaker.resolution;
+        float z = gmaker.dims[2].x + k * gmaker.resolution;
+        float val = gmaker.calcPoint(coords, radius, x, y, z);
+
+        if (gmaker.binary) {
+          if (val != 0) 
+            gmaker.setVal(i, j, k, whichgrid, 1.0, grids);
+        }
+        else {
+          gmaker.addVal(i, j, k, whichgrid, val, grids);
+        }
+
+      }
+    }
+  }
+}
+  
+//get the atom position gradient from relevant grid points for provided atom
+//if isrelevance is true, simply sum overlapping values
+template<typename Grids, typename GridMakerT, typename quaternion>
+void set_atom_gradient_cpu(const float4& ainfo, int whichgrid,
+    const quaternion& Q, const Grids& grids,
+    float3& agrad, GridMakerT& gmaker, bool isrelevance, const Grids& densegrids) {
+  float3 coords;
+  if (Q.real() != 0) {//apply rotation
+    quaternion p(0, ainfo.x - gmaker.center.x, ainfo.y - gmaker.center.y,
+        ainfo.z - gmaker.center.z);
+    p = Q * p * (conj(Q) / norm(Q));
+
+    coords.x = p.R_component_2() + gmaker.center.x;
+    coords.y = p.R_component_3() + gmaker.center.y;
+    coords.z = p.R_component_4() + gmaker.center.z;
+  } 
+  else {
+    coords.x = ainfo.x;
+    coords.y = ainfo.y;
+    coords.z = ainfo.z;
+  }
+
+  //get grid index ranges that could possibly be overlapped by atom
+  float radius = ainfo.w;
+  float r = radius * gmaker.radiusmultiple;
+  vector<pair<unsigned, unsigned> > ranges(3);
+  ranges[0] = gmaker.getrange(gmaker.dims[0], coords.x, r);
+  ranges[1] = gmaker.getrange(gmaker.dims[1], coords.y, r);
+  ranges[2] = gmaker.getrange(gmaker.dims[2], coords.z, r);
+
+  //for every grid point possibly overlapped by this atom
+  for (unsigned i = ranges[0].first, iend = ranges[0].second; i < iend;
+      ++i) {
+    for (unsigned j = ranges[1].first, jend = ranges[1].second;
+        j < jend; ++j) {
+      for (unsigned k = ranges[2].first, kend = ranges[2].second;
+          k < kend; ++k) {
+        //convert grid point coordinates to angstroms
+        float x = gmaker.dims[0].x + i * gmaker.resolution;
+        float y = gmaker.dims[1].x + j * gmaker.resolution;
+        float z = gmaker.dims[2].x + k * gmaker.resolution;
+
+        if (isrelevance) 
+          gmaker.accumulateAtomRelevance(coords, radius, x, y, z,
+              *(gmaker.getGridElement(grids, i, j, k, whichgrid)), 
+              *(gmaker.getGridElement(densegrids, i, j, k, whichgrid)), agrad);
+        else //true gradient, distance matters
+          gmaker.accumulateAtomGradient(coords, radius, x, y, z,
+              *(gmaker.getGridElement(grids, i, j, k, whichgrid)), agrad, whichgrid);
+      }
+    }
+  }
+}
+  
 #endif /* _GRIDMAKER_H_ */

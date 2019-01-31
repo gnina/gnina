@@ -201,14 +201,11 @@ template<bool Binary, typename Dtype> __device__ void SubcubeGridMaker::set_atom
   float z = zi * resolution+origin.z;
 
   //some facts about our position
-  unsigned subgrid_idx_x = xi / subgrid_dim_in_points;
-  unsigned subgrid_idx_y = yi / subgrid_dim_in_points;
-  unsigned subgrid_idx_z = zi / subgrid_dim_in_points;
-  unsigned rel_x = xi % subgrid_dim_in_points;
-  unsigned rel_y = yi % subgrid_dim_in_points;
-  unsigned rel_z = zi % subgrid_dim_in_points;
-  unsigned grid_idx = (((subgrid_idx_x * grids_per_dim) + subgrid_idx_y) * 
-      grids_per_dim + subgrid_idx_z);
+  unsigned rel_x; 
+  unsigned rel_y; 
+  unsigned rel_z; 
+  unsigned grid_idx;
+  getRelativeIndices(xi, yi, zi, rel_x, rel_y, rel_z, grid_idx);
 
   //iterate over all atoms
   for(unsigned ai = 0; ai < n; ai++) {
@@ -423,7 +420,7 @@ void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
   }
 }
 
-__device__
+__host__ __device__
 int GridMaker::getIndexFromPoint(unsigned i, unsigned j, unsigned k, 
     int whichgrid) {
   return (((whichgrid * dim) + i) * dim + j) * dim + k;
@@ -454,17 +451,14 @@ void SubcubeGridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridind
   batch_idx = (batch_idx + 1) % batch_size;
 }
 
-__device__
+__host__ __device__
 int SubcubeGridMaker::getIndexFromPoint(unsigned i, unsigned j, unsigned k, 
     int whichgrid) {
-  unsigned subcube_idx_x = i / (dim / grids_per_dim); 
-  unsigned subcube_idx_y = j / (dim / grids_per_dim); 
-  unsigned subcube_idx_z = k / (dim / grids_per_dim); 
-  unsigned rel_x = i % (dim / grids_per_dim); 
-  unsigned rel_y = j % (dim / grids_per_dim); 
-  unsigned rel_z = k % (dim / grids_per_dim); 
-  unsigned cube_idx = (((subcube_idx_x * grids_per_dim) + 
-        subcube_idx_y) * grids_per_dim + subcube_idx_z);
+  unsigned rel_x; 
+  unsigned rel_y; 
+  unsigned rel_z; 
+  unsigned cube_idx;
+  getRelativeIndices(i, j, k, rel_x, rel_y, rel_z, cube_idx);
   return ((((cube_idx * batch_size + batch_idx) * ntypes + 
         whichgrid) * subgrid_dim_in_points + rel_x) * subgrid_dim_in_points +
         rel_y) * subgrid_dim_in_points + rel_z;
