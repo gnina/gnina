@@ -45,7 +45,7 @@ void set_atom_cpu(float4 ainfo, int whichgrid, const quaternion& Q,
 template<typename Grids, typename GridMakerT, typename quaternion>
 void set_atom_gradient_cpu(const float4& ainfo, int whichgrid,
     const quaternion& Q, const Grids& grids,
-    float3& agrad, GridMakerT& gmaker, const Grids& densegrids, bool isrelevance = false);
+    float3& agrad, GridMakerT& gmaker, const Grids& densegrids=Grids(NULL, vector<typename Grids::element>(Grids::dimensionality, 0)), bool isrelevance = false);
 
 class GridMaker {
   protected:
@@ -328,8 +328,7 @@ class GridMaker {
       for (unsigned i = 0, n = ainfo.size(); i < n; ++i) {
         int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
         if (whichgrid >= 0) {
-          set_atom_gradient_cpu(ainfo[i], whichgrid, Q, grids, agrad[i], *this, 
-              Grids(NULL, boost::extents[0][0][0][0]));
+          set_atom_gradient_cpu(ainfo[i], whichgrid, Q, grids, agrad[i], *this);
         }
       }
     }
@@ -740,8 +739,7 @@ class SubcubeGridMaker : public GridMaker {
       for (unsigned i = 0, n = ainfo.size(); i < n; ++i) {
         int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
         if (whichgrid >= 0) {
-          set_atom_gradient_cpu(ainfo[i], whichgrid, Q, grids, agrad[i], *this, 
-              Grids(NULL, boost::extents[0][0][0][0][0][0]));
+          set_atom_gradient_cpu(ainfo[i], whichgrid, Q, grids, agrad[i], *this);
         }
       }
     }
