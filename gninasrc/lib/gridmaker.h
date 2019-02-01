@@ -45,8 +45,7 @@ void set_atom_cpu(float4 ainfo, int whichgrid, const quaternion& Q,
 template<typename Grids, typename GridMakerT, typename quaternion>
 void set_atom_gradient_cpu(const float4& ainfo, int whichgrid,
     const quaternion& Q, const Grids& grids,
-    float3& agrad, GridMakerT& gmaker, bool isrelevance = false, 
-    const Grids& densegrids = Grids(NULL, boost::extents[0][0][0][0]));
+    float3& agrad, GridMakerT& gmaker, const Grids& densegrids, bool isrelevance = false);
 
 class GridMaker {
   protected:
@@ -68,8 +67,7 @@ class GridMaker {
     template<typename Grids, typename GridMakerT, typename quaternion> friend 
       void set_atom_gradient_cpu(const float4& ainfo, int whichgrid,
       const quaternion& Q, const Grids& grids,
-      float3& agrad, GridMakerT& gmaker, bool isrelevance, 
-      const Grids& densegrids);
+      float3& agrad, GridMakerT& gmaker, const Grids& densegrids, bool isrelevance);
 
     template<typename Dtype, typename GridMakerT> __global__ friend void 
       set_atom_gradients(GridMakerT gmaker, const float4* ainfo, short* gridindices,
@@ -330,7 +328,8 @@ class GridMaker {
       for (unsigned i = 0, n = ainfo.size(); i < n; ++i) {
         int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
         if (whichgrid >= 0) {
-          set_atom_gradient_cpu(ainfo[i], whichgrid, Q, grids, agrad[i], *this);
+          set_atom_gradient_cpu(ainfo[i], whichgrid, Q, grids, agrad[i], *this, 
+              Grids(NULL, boost::extents[0][0][0][0]));
         }
       }
     }
@@ -365,7 +364,7 @@ class GridMaker {
         int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
         if (whichgrid >= 0) {
           set_atom_gradient_cpu(ainfo[i], whichgrid, Q, diffgrids, agrad[i], *this, 
-              true, densegrids);
+              densegrids, true);
         }
       }
     }
@@ -555,7 +554,7 @@ class SubcubeGridMaker : public GridMaker {
     template<typename Grids, typename GridMakerT, typename quaternion> friend 
       void set_atom_gradient_cpu(const float4& ainfo, int whichgrid,
       const quaternion& Q, const Grids& grids,
-      float3& agrad, GridMakerT& gmaker, bool isrelevance, const Grids& densegrids);
+      float3& agrad, GridMakerT& gmaker, const Grids& densegrids, bool isrelevance);
 
     virtual ~SubcubeGridMaker() {}
 
@@ -730,13 +729,7 @@ class SubcubeGridMaker : public GridMaker {
       boost::multi_array_ref<Dtype, 6> grids(data, boost::extents[ngrids]
           [batch_size][ntypes][subgrid_dim_in_points][subgrid_dim_in_points]
           [subgrid_dim_in_points]);
-      zeroAtomGradientsCPU(agrad);
-      for (unsigned i = 0, n = ainfo.size(); i < n; ++i) {
-        int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
-        if (whichgrid >= 0) {
-          set_atom_gradient_cpu(ainfo[i], whichgrid, Q, grids, agrad[i], *this);
-        }
-      }
+      setAtomGradientsCPU(ainfo, gridindex, Q, grids, agrad);
     }
 
     template<typename Grids>
@@ -747,7 +740,8 @@ class SubcubeGridMaker : public GridMaker {
       for (unsigned i = 0, n = ainfo.size(); i < n; ++i) {
         int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
         if (whichgrid >= 0) {
-          set_atom_gradient_cpu(ainfo[i], whichgrid, Q, grids, agrad[i], *this);
+          set_atom_gradient_cpu(ainfo[i], whichgrid, Q, grids, agrad[i], *this, 
+              Grids(NULL, boost::extents[0][0][0][0][0][0]));
         }
       }
     }
@@ -831,7 +825,7 @@ void set_atom_cpu(float4 ainfo, int whichgrid, const quaternion& Q,
 template<typename Grids, typename GridMakerT, typename quaternion>
 void set_atom_gradient_cpu(const float4& ainfo, int whichgrid,
     const quaternion& Q, const Grids& grids,
-    float3& agrad, GridMakerT& gmaker, bool isrelevance, const Grids& densegrids) {
+    float3& agrad, GridMakerT& gmaker, const Grids& densegrids, bool isrelevance) {
   float3 coords;
   if (Q.real() != 0) {//apply rotation
     quaternion p(0, ainfo.x - gmaker.center.x, ainfo.y - gmaker.center.y,
