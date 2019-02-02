@@ -530,6 +530,7 @@ class SubcubeGridMaker : public GridMaker {
   public:
     float subgrid_dim;
     unsigned batch_size;
+    unsigned stride;
     unsigned batch_idx;
     unsigned ntypes;
     unsigned nrec_types;
@@ -537,13 +538,13 @@ class SubcubeGridMaker : public GridMaker {
     unsigned subgrid_dim_in_points;
     unsigned grids_per_dim;
     SubcubeGridMaker(float res=0, float d=0, float rm=1.5, bool b=false, 
-        bool s=false, float sd=0.0, unsigned bs=1, unsigned bi=0, 
+        bool s=false, float sd=0.0, unsigned bs=1, unsigned strd=0, unsigned bi=0, 
         unsigned nt=0, unsigned nrt=0, unsigned nlt=0, unsigned sdip=0, 
         unsigned gpd=0) : 
-      GridMaker(res, d, rm, b, s), subgrid_dim(sd), batch_size(bs), 
+      GridMaker(res, d, rm, b, s), subgrid_dim(sd), batch_size(bs), stride(strd), 
       batch_idx(bi), ntypes(nt), nrec_types(nrt), nlig_types(nlt), subgrid_dim_in_points(sdip),
       grids_per_dim(gpd) {
-      initialize(res, d, rm, b, s, sd, bs, bi, nt, nrt, nlt, sdip, gpd);
+      initialize(res, d, rm, b, s, sd, bs, strd, bi, nt, nrt, nlt, sdip, gpd);
     }
 
     template<typename Grids, typename GridMakerT, typename quaternion> friend 
@@ -562,28 +563,27 @@ class SubcubeGridMaker : public GridMaker {
       std::cout << "WARNING: Using subcube GridMaker but subgrid dimension not provided\n";
       subgrid_dim = 0;
       batch_size = 1;
+      stride = 0;
       batch_idx = 0;
       ntypes = 0;
       nrec_types = 0;
       nlig_types = 0;
       subgrid_dim_in_points = 0;
-      subgrid_dim = 0;
       grids_per_dim = 0;
       GridMaker::initialize(res, d, rm, b, s);
     }
 
     virtual void initialize(float res, float d, float rm=1.5, bool b = false, 
-        bool s = false, float sd=0.0, unsigned bs=1, unsigned stride=0, unsigned bi=0, 
+        bool s = false, float sd=0.0, unsigned bs=1, unsigned strd=0, unsigned bi=0, 
         unsigned nt=0, unsigned nrt=0, unsigned nlt=0, unsigned sdip=0, unsigned gpd=0) {
       subgrid_dim = sd;
       batch_size = bs;
+      stride = strd;
       batch_idx = bi;
       ntypes = nt;
       nrec_types = nrt;
       nlig_types = nlt;
       subgrid_dim_in_points = ::round(subgrid_dim / res) + 1;
-      if (!stride)
-        stride = subgrid_dim_in_points;
       subgrid_dim = res * (subgrid_dim_in_points - 1);
       //if the subgrid decomposition doesn't cover at least dim, increase dim
       //so that it does
@@ -592,6 +592,8 @@ class SubcubeGridMaker : public GridMaker {
       unsigned dim_pts = ::round(d / res) + 1;
       if (stride)
         grids_per_dim = ((dim_pts - subgrid_dim_in_points) / stride) + 1;
+      else
+        stride = subgrid_dim_in_points;
       GridMaker::initialize(res, d, rm, b, s);
     }
 
@@ -643,31 +645,32 @@ class SubcubeGridMaker : public GridMaker {
     template <typename Dtype>
     void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
         const quaternion& Q, Dtype* data, unsigned ntypes) {
-      unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
-
-      boost::multi_array_ref<Dtype, 6> grids(data, 
-          boost::extents[ngrids][batch_size][ntypes][subgrid_dim_in_points]
-          [subgrid_dim_in_points][subgrid_dim_in_points]);
-
-      if (batch_idx == 0)
-        zeroGridsCPU(grids);
-      for (unsigned i = 0, n = ainfo.size(); i < n; i++) {
-        int pos = gridindex[i];
-        if (pos >= 0)
-          set_atom_cpu(ainfo[i], pos, Q, grids, *this);
+      if (stride) {
+        setAtomsCPU(ainfo, gridindex, Q, data, ntypes);
       }
-      batch_idx = (batch_idx + 1) % batch_size;
+      else {
+        unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
+        boost::multi_array_ref<Dtype, 6> grids(data, 
+            boost::extents[ngrids][batch_size][ntypes][subgrid_dim_in_points]
+            [subgrid_dim_in_points][subgrid_dim_in_points]);
+        setAtomsCPU(ainfo, gridindex, Q, grids);
+      }
     }
 
     template<typename Grids>
     void setAtomsCPU(const vector<float4>& ainfo, 
         const vector<short>& gridindex,  const quaternion& Q, Grids& grids) {
-      if (batch_idx == 0)
-        zeroGridsCPU(grids);
-      for (unsigned i = 0, n = ainfo.size(); i < n; i++) {
-        int pos = gridindex[i];
-        if (pos >= 0)
-          set_atom_cpu(ainfo[i], pos, Q, grids, *this);
+      if (stride) {
+        GridMaker::setAtomsCPU(ainfo, gridindex, Q, data, ntypes);
+      }
+      else {
+        if (batch_idx == 0)
+          zeroGridsCPU(grids);
+        for (unsigned i = 0, n = ainfo.size(); i < n; i++) {
+          int pos = gridindex[i];
+          if (pos >= 0)
+            set_atom_cpu(ainfo[i], pos, Q, grids, *this);
+        }
       }
       batch_idx = (batch_idx + 1) % batch_size;
     }
@@ -724,11 +727,16 @@ class SubcubeGridMaker : public GridMaker {
     void setAtomGradientsCPU(const vector<float4>& ainfo, 
         const vector<short>& gridindex, quaternion Q, Dtype* data, 
         vector<float3>& agrad, unsigned offset, unsigned ntypes) {
-      unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
-      boost::multi_array_ref<Dtype, 6> grids(data, boost::extents[ngrids]
-          [batch_size][ntypes][subgrid_dim_in_points][subgrid_dim_in_points]
-          [subgrid_dim_in_points]);
-      setAtomGradientsCPU(ainfo, gridindex, Q, grids, agrad);
+      if (stride) {
+        GridMaker::setAtomGradientsCPU(ainfo, gridindex, Q, data, agrad, offset, ntypes);
+      }
+      else {
+        unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
+        boost::multi_array_ref<Dtype, 6> grids(data, boost::extents[ngrids]
+            [batch_size][ntypes][subgrid_dim_in_points][subgrid_dim_in_points]
+            [subgrid_dim_in_points]);
+        setAtomGradientsCPU(ainfo, gridindex, Q, grids, agrad);
+      }
     }
 
     template<typename Grids>
@@ -752,9 +760,21 @@ class SubcubeGridMaker : public GridMaker {
       *(getGridElement(grids, whichgrid, i, j, k)) = val;
     }
 
+    template <typename Dtype>
+    void setVal(unsigned i, unsigned j, unsigned k, int whichgrid, float val, 
+        boost::multi_array_ref<Dtype, 4>& grids) {
+      grids[whichgrid][i][j][k] = val;
+    }
+
     template <typename Grids>
     void addVal(unsigned i, unsigned j, unsigned k, int whichgrid, float val, Grids& grids) {
       *(getGridElement(grids, whichgrid, i, j, k)) += val;
+    }
+
+    template <typename Dtype>
+    void addVal(unsigned i, unsigned j, unsigned k, int whichgrid, float val, 
+        boost::multi_array_ref<Dtype, 4>& grids) {
+      grids[whichgrid][i][j][k] += val;
     }
 };
 
