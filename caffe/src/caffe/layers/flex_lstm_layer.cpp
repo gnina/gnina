@@ -11,6 +11,174 @@
 namespace caffe {
 
 template <typename Dtype>
+void FlexLSTMLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top) {
+  // this differs from the base class because the data blob doesn't need to be
+  // TxBx..., since the data getter will actually set up the data used at each
+  // timestep; we don't assume anything about it and instead use the shape of
+  // the labels to determine T_ and N_
+  CHECK_EQ(bottom[1]->num_axes(), 2)
+      << "bottom[1] must have exactly 2 axes -- (#timesteps, #streams)";
+  this->T_ = bottom[1]->shape(0);
+  this->N_ = bottom[1]->shape(1);
+  LOG(INFO) << "Initializing recurrent layer: assuming input batch contains "
+            << this->T_ << " timesteps of " << this->N_ << " independent streams.";
+
+  // If expose_hidden is set, we take as input and produce as output
+  // the hidden state blobs at the first and last timesteps.
+  this->expose_hidden_ = this->layer_param_.recurrent_param().expose_hidden();
+
+  // Get (recurrent) input/output names.
+  vector<string> output_names;
+  this->OutputBlobNames(&output_names);
+  vector<string> recur_input_names;
+  this->RecurrentInputBlobNames(&recur_input_names);
+  vector<string> recur_output_names;
+  this->RecurrentOutputBlobNames(&recur_output_names);
+  const int num_recur_blobs = recur_input_names.size();
+  CHECK_EQ(num_recur_blobs, recur_output_names.size());
+
+  // If provided, bottom[2] is a static input to the recurrent net.
+  const int num_hidden_exposed = this->expose_hidden_ * num_recur_blobs;
+  this->static_input_ = (bottom.size() > 2 + num_hidden_exposed);
+  if (this->static_input_) {
+    CHECK_GE(bottom[2]->num_axes(), 1);
+    CHECK_EQ(this->N_, bottom[2]->shape(0));
+  }
+
+  // Create a NetParameter; setup the inputs that aren't unique to particular
+  // recurrent architectures.
+  NetParameter net_param;
+
+  LayerParameter* input_layer_param = net_param.add_layer();
+  input_layer_param->set_type("Input");
+  InputParameter* input_param = input_layer_param->mutable_input_param();
+  input_layer_param->add_top("x");
+  BlobShape input_shape;
+  for (int i = 0; i < bottom[0]->num_axes(); ++i) {
+    input_shape.add_dim(bottom[0]->shape(i));
+  }
+  input_param->add_shape()->CopyFrom(input_shape);
+
+  input_shape.Clear();
+  for (int i = 0; i < bottom[1]->num_axes(); ++i) {
+    input_shape.add_dim(bottom[1]->shape(i));
+  }
+  input_layer_param->add_top("cont");
+  input_param->add_shape()->CopyFrom(input_shape);
+
+  if (this->static_input_) {
+    input_shape.Clear();
+    for (int i = 0; i < bottom[2]->num_axes(); ++i) {
+      input_shape.add_dim(bottom[2]->shape(i));
+    }
+    input_layer_param->add_top("x_static");
+    input_param->add_shape()->CopyFrom(input_shape);
+  }
+
+  // Call the child's FillUnrolledNet implementation to specify the unrolled
+  // recurrent architecture.
+  this->FillUnrolledNet(&net_param);
+
+  // Prepend this layer's name to the names of each layer in the unrolled net.
+  const string& layer_name = this->layer_param_.name();
+  if (layer_name.size()) {
+    for (int i = 0; i < net_param.layer_size(); ++i) {
+      LayerParameter* layer = net_param.mutable_layer(i);
+      layer->set_name(layer_name + "_" + layer->name());
+    }
+  }
+
+  // Add "pseudo-losses" to all outputs to force backpropagation.
+  // (Setting force_backward is too aggressive as we may not need to backprop to
+  // all inputs, e.g., the sequence continuation indicators.)
+  vector<string> pseudo_losses(output_names.size());
+  for (int i = 0; i < output_names.size(); ++i) {
+    LayerParameter* layer = net_param.add_layer();
+    pseudo_losses[i] = output_names[i] + "_pseudoloss";
+    layer->set_name(pseudo_losses[i]);
+    layer->set_type("Reduction");
+    layer->add_bottom(output_names[i]);
+    layer->add_top(pseudo_losses[i]);
+    layer->add_loss_weight(1);
+  }
+
+  // Create the unrolled net.
+  this->unrolled_net_.reset(new Net<Dtype>(net_param));
+  this->unrolled_net_->set_debug_info(
+      this->layer_param_.recurrent_param().debug_info());
+
+  // Setup pointers to the inputs.
+  this->x_input_blob_ = CHECK_NOTNULL(this->unrolled_net_->blob_by_name("x").get());
+  this->cont_input_blob_ = CHECK_NOTNULL(this->unrolled_net_->blob_by_name("cont").get());
+  if (this->static_input_) {
+    this->x_static_input_blob_ =
+        CHECK_NOTNULL(this->unrolled_net_->blob_by_name("x_static").get());
+  }
+
+  // Setup pointers to paired recurrent inputs/outputs.
+  this->recur_input_blobs_.resize(num_recur_blobs);
+  this->recur_output_blobs_.resize(num_recur_blobs);
+  for (int i = 0; i < recur_input_names.size(); ++i) {
+    this->recur_input_blobs_[i] =
+        CHECK_NOTNULL(this->unrolled_net_->blob_by_name(recur_input_names[i]).get());
+    this->recur_output_blobs_[i] =
+        CHECK_NOTNULL(this->unrolled_net_->blob_by_name(recur_output_names[i]).get());
+  }
+
+  // Setup pointers to outputs.
+  CHECK_EQ(top.size() - num_hidden_exposed, output_names.size())
+      << "OutputBlobNames must provide an output blob name for each top.";
+  this->output_blobs_.resize(output_names.size());
+  for (int i = 0; i < output_names.size(); ++i) {
+    this->output_blobs_[i] =
+        CHECK_NOTNULL(this->unrolled_net_->blob_by_name(output_names[i]).get());
+  }
+
+  // We should have 2 inputs (x and cont), plus a number of recurrent inputs,
+  // plus maybe a static input.
+  CHECK_EQ(2 + num_recur_blobs + this->static_input_,
+           this->unrolled_net_->input_blobs().size());
+
+  // This layer's parameters are any parameters in the layers of the unrolled
+  // net. We only want one copy of each parameter, so check that the parameter
+  // is "owned" by the layer, rather than shared with another.
+  this->blobs_.clear();
+  for (int i = 0; i < this->unrolled_net_->params().size(); ++i) {
+    if (this->unrolled_net_->param_owners()[i] == -1) {
+      LOG(INFO) << "Adding parameter " << i << ": "
+                << this->unrolled_net_->param_display_names()[i];
+      this->blobs_.push_back(this->unrolled_net_->params()[i]);
+    }
+  }
+  // Check that param_propagate_down is set for all of the parameters in the
+  // unrolled net; set param_propagate_down to true in this layer.
+  for (int i = 0; i < this->unrolled_net_->layers().size(); ++i) {
+    for (int j = 0; j < this->unrolled_net_->layers()[i]->blobs().size(); ++j) {
+      CHECK(this->unrolled_net_->layers()[i]->param_propagate_down(j))
+          << "param_propagate_down not set for layer " << i << ", param " << j;
+    }
+  }
+  this->param_propagate_down_.clear();
+  this->param_propagate_down_.resize(this->blobs_.size(), true);
+
+  // Set the diffs of recurrent outputs to 0 -- we can't backpropagate across
+  // batches.
+  for (int i = 0; i < this->recur_output_blobs_.size(); ++i) {
+    caffe_set(this->recur_output_blobs_[i]->count(), Dtype(0),
+              this->recur_output_blobs_[i]->mutable_cpu_diff());
+  }
+
+  // Check that the last output_names.size() layers are the pseudo-losses;
+  // set last_layer_index so that we don't actually run these layers.
+  const vector<string>& layer_names = this->unrolled_net_->layer_names();
+  this->last_layer_index_ = layer_names.size() - 1 - pseudo_losses.size();
+  for (int i = this->last_layer_index_ + 1, j = 0; i < layer_names.size(); ++i, ++j) {
+    CHECK_EQ(layer_names[i], pseudo_losses[j]);
+  }
+}
+
+template <typename Dtype>
 void FlexLSTMLayer<Dtype>::RecurrentInputShapes(vector<BlobShape>* shapes) const {
   const int num_output = this->layer_param_.recurrent_param().num_output();
   const int num_blobs = 2;
@@ -27,6 +195,9 @@ void FlexLSTMLayer<Dtype>::RecurrentInputShapes(vector<BlobShape>* shapes) const
 template <typename Dtype>
 void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   const int num_output = this->layer_param_.recurrent_param().num_output();
+  const int stride = this->layer_param_.flex_lstm_param().stride();
+  const float subgrid_dim = this->layer_param_.flex_lstm_param().subgrid_dim();
+  const float resolution = this->layer_param_.flex_lstm_param().resolution();
   CHECK_GT(num_output, 0) << "num_output must be positive";
   const FillerParameter& weight_filler =
       this->layer_param_.recurrent_param().weight_filler();
@@ -129,6 +300,9 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
     datagetter_param->add_bottom("x");
     datagetter_param->add_top("current_x");
     datagetter_param->mutable_lstm_datagetter_param()->set_timestep(t-1);
+    datagetter_param->mutable_lstm_datagetter_param()->set_stride(stride);
+    datagetter_param->mutable_lstm_datagetter_param()->set_subgrid_dim(subgrid_dim);
+    datagetter_param->mutable_lstm_datagetter_param()->set_resolution(resolution);
 
     // Add layers to flush the hidden state when beginning a new
     // sequence, as indicated by cont_t.

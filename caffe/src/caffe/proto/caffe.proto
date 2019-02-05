@@ -807,6 +807,9 @@ message FlattenParameter {
 
 // Message that stores parameters used by FlexLSTMLayer
 message FlexLSTMParameter {
+  optional int32 stride = 1 [default = 0]; // Stride when selecting subsets of input for recurrence, default is same size as filter width
+  optional float subgrid_dim = 2 [default = 0.0]; //perform recurrence over subgrids with this dim
+  optional float resolution = 3; //grid resolution
 }
 
 // Message that stores parameters used by HDF5DataLayer
@@ -1048,6 +1051,9 @@ message LRNParameter {
 message LSTMDataGetterParameter {
   // Timestep to be computed by the layer
   optional int32 timestep = 1 [default = 0];
+  optional int32 stride = 2 [default = 0]; // Stride when selecting subsets of input for recurrence, default is same size as filter width
+  optional float subgrid_dim = 3 [default = 0.0]; //perform recurrence over subgrids with this dim
+  optional float resolution = 4; //grid resolution
 }
 
 message MatMulParameter {

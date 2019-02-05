@@ -8,12 +8,12 @@ void LSTMDataGetterLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
   //Infer the data access pattern from the parameters and update relevant
   //data members. 
-  const MolGridDataParameter& mgrid_param = this->layer_param_.molgrid_data_param();
-  cube_stride = mgrid_param.stride();
+  const LSTMDataGetterParameter& param = this->layer_param_.lstm_datagetter_param();
+  cube_stride = param.stride();
   if (cube_stride) {
     pattern = AccessPatterns::strided_cube;
-    Dtype subgrid_dim_in_angstroms = mgrid_param.subgrid_dim();
-    Dtype resolution = mgrid_param.resolution();
+    Dtype subgrid_dim_in_angstroms = param.subgrid_dim();
+    Dtype resolution = param.resolution();
     subgrid_dim = ::round(subgrid_dim_in_angstroms / resolution) + 1;
     dim = bottom[0]->shape(2);
     unsigned slices_per_dim = ((dim - subgrid_dim) / cube_stride) + 1;
@@ -34,8 +34,8 @@ template <typename Dtype>
 void LSTMDataGetterLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
   //bottom is data, top is current_x
-  const int num_instances = bottom[0]->shape(0);
-  const int num_channels = bottom[0]->shape(1);
+  const int num_instances = bottom[0]->shape(1);
+  const int num_channels = bottom[0]->shape(2);
   vector<int> current_x_shape;
   //if access_pattern == strided_cube, current_x 1xBxCxSdimxSdimxSdim
   switch(pattern) {

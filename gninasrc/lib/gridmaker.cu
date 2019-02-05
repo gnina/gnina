@@ -187,37 +187,41 @@ template<bool Binary, typename Dtype> __device__ void GridMaker::set_atoms(float
 
 template<bool Binary, typename Dtype> __device__ void SubcubeGridMaker::set_atoms(float3 origin,
     unsigned n, float4 *ainfos, short *gridindex, Dtype *grids) {
-  //figure out what grid point we are 
-  unsigned xi = threadIdx.x + blockIdx.x * blockDim.x;
-  unsigned yi = threadIdx.y + blockIdx.y * blockDim.y;
-  unsigned zi = threadIdx.z + blockIdx.z * blockDim.z;
+  if (stride)
+    GridMaker::set_atoms<Binary, Dtype>(origin, n, ainfos, gridindex, grids);
+  else {
+    //figure out what grid point we are 
+    unsigned xi = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned yi = threadIdx.y + blockIdx.y * blockDim.y;
+    unsigned zi = threadIdx.z + blockIdx.z * blockDim.z;
 
-  if(xi >= dim || yi >= dim || zi >= dim)
-    return;//bail if we're off-grid, this should not be common
+    if(xi >= dim || yi >= dim || zi >= dim)
+      return;//bail if we're off-grid, this should not be common
 
-  //compute x,y,z coordinate of grid point
-  float x = xi * resolution+origin.x;
-  float y = yi * resolution+origin.y;
-  float z = zi * resolution+origin.z;
+    //compute x,y,z coordinate of grid point
+    float x = xi * resolution+origin.x;
+    float y = yi * resolution+origin.y;
+    float z = zi * resolution+origin.z;
 
-  //some facts about our position
-  unsigned rel_x; 
-  unsigned rel_y; 
-  unsigned rel_z; 
-  unsigned grid_idx;
-  getRelativeIndices(xi, yi, zi, rel_x, rel_y, rel_z, grid_idx);
+    //some facts about our position
+    unsigned rel_x; 
+    unsigned rel_y; 
+    unsigned rel_z; 
+    unsigned grid_idx;
+    getRelativeIndices(xi, yi, zi, rel_x, rel_y, rel_z, grid_idx);
 
-  //iterate over all atoms
-  for(unsigned ai = 0; ai < n; ai++) {
-    unsigned i = atomIndices[ai];
-    float4 coord = ainfos[i];
-    float d = sqDistance(coord, x, y, z);
-    float r = ainfos[i].w;
-    short which = gridindex[i];
-    unsigned gpos = ((((grid_idx * batch_size + batch_idx) * ntypes + 
-            which) * subgrid_dim_in_points + rel_x) * subgrid_dim_in_points + rel_y) * 
-            subgrid_dim_in_points + rel_z;
-    set_atom<Binary, Dtype>(ainfos, &grids[gpos], which, d, r, radiusmultiple);
+    //iterate over all atoms
+    for(unsigned ai = 0; ai < n; ai++) {
+      unsigned i = atomIndices[ai];
+      float4 coord = ainfos[i];
+      float d = sqDistance(coord, x, y, z);
+      float r = ainfos[i].w;
+      short which = gridindex[i];
+      unsigned gpos = ((((grid_idx * batch_size + batch_idx) * ntypes + 
+              which) * subgrid_dim_in_points + rel_x) * subgrid_dim_in_points + rel_y) * 
+              subgrid_dim_in_points + rel_z;
+      set_atom<Binary, Dtype>(ainfos, &grids[gpos], which, d, r, radiusmultiple);
+    }
   }
 }
 

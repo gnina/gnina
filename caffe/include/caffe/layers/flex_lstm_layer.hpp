@@ -38,6 +38,7 @@ template <typename Dtype>
   public:
     explicit FlexLSTMLayer(const LayerParameter& param) : LSTMLayer<Dtype>(param) {}
     virtual inline const char* type() const { return "FlexLSTM"; }
+    virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
 
   protected:
     virtual void FillUnrolledNet(NetParameter* net_param) const;

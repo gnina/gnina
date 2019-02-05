@@ -347,7 +347,7 @@ class GridMaker {
     int getIndexFromPoint(unsigned i, unsigned j, unsigned k, int whichgrid);
 
     template <typename Grids>
-    auto getGridElement(const Grids& grids, unsigned i, unsigned j, unsigned k, int whichgrid) ->
+    auto getGridElement(Grids& grids, int whichgrid, unsigned i, unsigned j, unsigned k) ->
       decltype(&grids[0][0][0][0])
     {
       return &grids[whichgrid][i][j][k];
@@ -592,8 +592,6 @@ class SubcubeGridMaker : public GridMaker {
       unsigned dim_pts = ::round(d / res) + 1;
       if (stride)
         grids_per_dim = ((dim_pts - subgrid_dim_in_points) / stride) + 1;
-      else
-        stride = subgrid_dim_in_points;
       GridMaker::initialize(res, d, rm, b, s);
     }
 
@@ -646,7 +644,7 @@ class SubcubeGridMaker : public GridMaker {
     void setAtomsCPU(const vector<float4>& ainfo, const vector<short>& gridindex, 
         const quaternion& Q, Dtype* data, unsigned ntypes) {
       if (stride) {
-        setAtomsCPU(ainfo, gridindex, Q, data, ntypes);
+        GridMaker::setAtomsCPU(ainfo, gridindex, Q, data, ntypes);
       }
       else {
         unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
@@ -659,55 +657,60 @@ class SubcubeGridMaker : public GridMaker {
 
     template<typename Grids>
     void setAtomsCPU(const vector<float4>& ainfo, 
-        const vector<short>& gridindex,  const quaternion& Q, Grids& grids) {
-      if (stride) {
-        GridMaker::setAtomsCPU(ainfo, gridindex, Q, data, ntypes);
-      }
-      else {
-        if (batch_idx == 0)
-          zeroGridsCPU(grids);
-        for (unsigned i = 0, n = ainfo.size(); i < n; i++) {
-          int pos = gridindex[i];
-          if (pos >= 0)
-            set_atom_cpu(ainfo[i], pos, Q, grids, *this);
-        }
+      const vector<short>& gridindex,  const quaternion& Q, Grids& grids) {
+      if (batch_idx == 0)
+        zeroGridsCPU(grids);
+      for (unsigned i = 0, n = ainfo.size(); i < n; i++) {
+        int pos = gridindex[i];
+        if (pos >= 0)
+          set_atom_cpu(ainfo[i], pos, Q, grids, *this);
       }
       batch_idx = (batch_idx + 1) % batch_size;
     }
 
     template<typename Grids>
-    auto getGridElement(Grids& grids, unsigned whichgrid, unsigned x, unsigned y, unsigned z) -> 
+    auto getGridElement(Grids& grids, unsigned whichgrid, unsigned i, unsigned j, unsigned k) -> 
         decltype(&grids[0][0][0][0][0][0]){
       unsigned rel_x; 
       unsigned rel_y; 
       unsigned rel_z; 
       unsigned grid_idx;
-      getRelativeIndices(x, y, z, rel_x, rel_y, rel_z, grid_idx);
+      getRelativeIndices(i, j, k, rel_x, rel_y, rel_z, grid_idx);
       return &grids[grid_idx][batch_idx][whichgrid][rel_x][rel_y][rel_z];
     }
 
     template<typename Allocator, typename Dtype>
     Dtype* getGridElement(std::vector<boost::multi_array<Dtype, 3, 
-        Allocator>>& grids, unsigned whichgrid, unsigned x, 
-        unsigned y, unsigned z) {
-      unsigned rel_x; 
-      unsigned rel_y; 
-      unsigned rel_z; 
-      unsigned grid_idx;
-      getRelativeIndices(x, y, z, rel_x, rel_y, rel_z, grid_idx);
-      return &grids[grid_idx * ntypes + whichgrid][rel_x][rel_y][rel_z];
+        Allocator>>& grids, unsigned whichgrid, unsigned i, unsigned j, unsigned k) {
+      if (stride) {
+        Dtype* ret = GridMaker::getGridElement(grids, i, j, k, whichgrid);
+        return ret;
+      }
+      else {
+        unsigned rel_x; 
+        unsigned rel_y; 
+        unsigned rel_z; 
+        unsigned grid_idx;
+        getRelativeIndices(i, j, k, rel_x, rel_y, rel_z, grid_idx);
+        return &grids[grid_idx * ntypes + whichgrid][rel_x][rel_y][rel_z];
+      }
     }
 
     template<typename Dtype>
     Dtype* getGridElement(boost::multi_array_ref<Dtype, 4>& grids, 
-        unsigned whichgrid, unsigned x, 
-        unsigned y, unsigned z) {
-      unsigned rel_x; 
-      unsigned rel_y; 
-      unsigned rel_z; 
-      unsigned grid_idx;
-      getRelativeIndices(x, y, z, rel_x, rel_y, rel_z, grid_idx);
-      return &grids[grid_idx * ntypes + whichgrid][rel_x][rel_y][rel_z];
+        unsigned whichgrid, unsigned i, unsigned j, unsigned k) {
+      if (stride) {
+        Dtype* ret = GridMaker::getGridElement(grids, i, j, k, whichgrid);
+        return ret;
+      }
+      else {
+        unsigned rel_x; 
+        unsigned rel_y; 
+        unsigned rel_z; 
+        unsigned grid_idx;
+        getRelativeIndices(i, j, k, rel_x, rel_y, rel_z, grid_idx);
+        return &grids[grid_idx * ntypes + whichgrid][rel_x][rel_y][rel_z];
+      }
     }
 
     template<bool Binary, typename Dtype> __device__ 
@@ -760,21 +763,9 @@ class SubcubeGridMaker : public GridMaker {
       *(getGridElement(grids, whichgrid, i, j, k)) = val;
     }
 
-    template <typename Dtype>
-    void setVal(unsigned i, unsigned j, unsigned k, int whichgrid, float val, 
-        boost::multi_array_ref<Dtype, 4>& grids) {
-      grids[whichgrid][i][j][k] = val;
-    }
-
     template <typename Grids>
     void addVal(unsigned i, unsigned j, unsigned k, int whichgrid, float val, Grids& grids) {
       *(getGridElement(grids, whichgrid, i, j, k)) += val;
-    }
-
-    template <typename Dtype>
-    void addVal(unsigned i, unsigned j, unsigned k, int whichgrid, float val, 
-        boost::multi_array_ref<Dtype, 4>& grids) {
-      grids[whichgrid][i][j][k] += val;
     }
 };
 
@@ -882,11 +873,11 @@ void set_atom_gradient_cpu(const float4& ainfo, int whichgrid,
 
         if (isrelevance) 
           gmaker.accumulateAtomRelevance(coords, radius, x, y, z,
-              *(gmaker.getGridElement(grids, i, j, k, whichgrid)), 
-              *(gmaker.getGridElement(densegrids, i, j, k, whichgrid)), agrad);
+              *(gmaker.getGridElement(grids, whichgrid, i, j, k)), 
+              *(gmaker.getGridElement(densegrids, whichgrid, i, j, k)), agrad);
         else //true gradient, distance matters
           gmaker.accumulateAtomGradient(coords, radius, x, y, z,
-              *(gmaker.getGridElement(grids, i, j, k, whichgrid)), agrad, whichgrid);
+              *(gmaker.getGridElement(grids, whichgrid, i, j, k)), agrad, whichgrid);
       }
     }
   }

@@ -487,15 +487,26 @@ void SubcubeMolGridDataLayer<Dtype>::setLayerSpecificDims(int number_examples,
 
   //setup shape of layer
   this->top_shape.clear();
-  this->top_shape.push_back(n_timesteps);
-  this->top_shape.push_back(number_examples);
-  this->top_shape.push_back(this->numchannels);
-  unsigned subgrid_dim_pts = this->gmaker.subgrid_dim_in_points;
-  this->top_shape.push_back(subgrid_dim_pts);
-  this->top_shape.push_back(subgrid_dim_pts);
-  this->top_shape.push_back(subgrid_dim_pts);
+  if (this->gmaker.stride) {
+    this->top_shape.push_back(number_examples);
+    this->top_shape.push_back(this->numchannels);
+    this->top_shape.push_back(this->dim);
+    this->top_shape.push_back(this->dim);
+    this->top_shape.push_back(this->dim);
 
-  this->example_size = 0;
+    this->example_size = this->numchannels * this->numgridpoints;
+  }
+  else {
+    this->top_shape.push_back(n_timesteps);
+    this->top_shape.push_back(number_examples);
+    this->top_shape.push_back(this->numchannels);
+    unsigned subgrid_dim_pts = this->gmaker.subgrid_dim_in_points;
+    this->top_shape.push_back(subgrid_dim_pts);
+    this->top_shape.push_back(subgrid_dim_pts);
+    this->top_shape.push_back(subgrid_dim_pts);
+
+    this->example_size = 0;
+  }
 
   label_shape.push_back(n_timesteps);
   label_shape.push_back(number_examples);
