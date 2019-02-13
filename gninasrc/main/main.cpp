@@ -1069,7 +1069,6 @@ Thank you!\n";
     fl center_x = 0, center_y = 0, center_z = 0, size_x = 0, size_y = 0,
         size_z = 0;
     fl autobox_add = 4;
-    fl out_min_rmsd = 1;
     std::string autobox_ligand;
     std::string flexdist_ligand;
     std::string builtin_scoring;
@@ -1249,7 +1248,7 @@ Thank you!\n";
         "maximum number of binding modes to generate")
     ("energy_range", value<fl>(&settings.energy_range)->default_value(3.0),
         "maximum energy difference between the best binding mode and the worst one displayed (kcal/mol)")
-    ("min_rmsd_filter", value<fl>(&out_min_rmsd)->default_value(1.0),
+    ("min_rmsd_filter", value<fl>(&settings.out_min_rmsd)->default_value(1.0),
         "rmsd value used to filter final poses to remove redundancy")
     ("quiet,q", bool_switch(&quiet), "Suppress output messages")
     ("addH", value<bool>(&add_hydrogens),
@@ -1591,7 +1590,7 @@ Thank you!\n";
     ozfile outflex;
     std::string outfext;
     if (outf_name.length() > 0)
-        {
+    {
       outfext = outflex.open(outf_name);
     }
 
