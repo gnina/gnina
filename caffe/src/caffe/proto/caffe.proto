@@ -953,6 +953,7 @@ message MolGridDataParameter {
   optional uint32 maxgroupsize = 50 [default = 1]; //max size of group when performing a recurrence over frame groups; 0 if there are no groups
   optional uint32 maxchunksize = 51 [default = 1]; //max size of subsequence for BPTT
   optional int32 stride = 52 [default = 0]; // Stride when selecting subsets of input for recurrence, default is same size as filter width
+  optional bool use_rec_center = 53 [default = false]; //use rec to define grid center
 }
 
 message NDimDataParameter {

@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 #include <unordered_map>
+#include <map>
 
 #include <boost/array.hpp>
 #include <boost/thread/locks.hpp>
@@ -57,6 +58,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
       BaseDataLayer<Dtype>(param) {}
     virtual ~MolGridDataLayer() {}
     virtual vec getCenter() const = 0;
+    virtual vec getCenter(unsigned mol_idx) const = 0;
     virtual double getDimension() const = 0;
     virtual double getResolution() const = 0;
     virtual void getReceptorAtoms(int batch_idx, vector<float4>& atoms) = 0;
@@ -79,6 +81,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     virtual void getLigandGradient(int batch_idx, vector<float3>& gradient) = 0;
     virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const = 0;
     virtual void dumpGridDX(const std::string& prefix, Dtype* top, double scale) const = 0;
+    virtual std::vector<std::string> getRecTypes() = 0;
+    virtual std::vector<std::string> getLigTypes() = 0;
 };
 
 /*
@@ -278,6 +282,11 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
 
   vec getCenter() const {
     return mem_lig.center;
+  }
+
+  vec getCenter(unsigned mol_idx) const {
+    assert(mol_idx < batch_transform.size());
+    return batch_transform[mol_idx].center;
   }
 
   double getDimension() const { return dimension; }
@@ -948,6 +957,55 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   std::string getIndexName(const vector<int>& map, unsigned index) const;
   void outputDXGrid(std::ostream& out, Grids& grids, unsigned g, double scale, unsigned n) const;
 
+  virtual std::vector<std::string> getRecTypes() {
+    //map recmap idx to all the types that it corresponds to
+    std::map<int, std::string> typemap;
+    //final list of names, in recmap order with 1:1 correspondence to recmap
+    std::vector<std::string> rectypes;
+    //i is smina atom type
+    for (int i=0; i<rmap.size(); ++i) {
+      //at is recmap idx
+      int at = rmap[i];
+      if (at >= 0) {
+        //it's in the map
+        if (typemap.find(at) == typemap.end())
+          typemap[at] = smina_type_to_string(static_cast<smt>(i));
+        else {
+          std::string other_types = typemap[at];
+          other_types.push_back('_');
+          typemap[at] = other_types + smina_type_to_string(static_cast<smt>(i));
+        }
+      }
+    }
+    for (auto it=typemap.begin(); it!=typemap.end(); ++it)
+      rectypes.push_back("Rec_" + it->second);
+    return rectypes;
+  }
+
+  virtual std::vector<std::string>getLigTypes() {
+    //map ligmap idx to all the types that it corresponds to
+    std::map<int, std::string> typemap;
+    //final list of names, in ligmap order with 1:1 correspondence to ligmap
+    std::vector<std::string> ligtypes;
+    //i is smina atom type
+    for (int i=0; i<lmap.size(); ++i) {
+      //at is ligmap idx
+      int at = lmap[i];
+      if (at >= 0) {
+        //it's in the map
+        if (typemap.find(at) == typemap.end())
+          typemap[at] = smina_type_to_string(static_cast<smt>(i));
+        else {
+          std::string other_types = typemap[at];
+          other_types.push_back('_');
+          typemap[at] = other_types + smina_type_to_string(static_cast<smt>(i));
+        }
+      }
+    }
+    for (auto it=typemap.begin(); it!=typemap.end(); ++it)
+      ligtypes.push_back("Lig_" + it->second);
+    return ligtypes;
+  }
 };
 
 /*

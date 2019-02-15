@@ -475,7 +475,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::setLayerSpecificDims(int number_ex
   top_shape.push_back(dim);
 
   example_size = (numchannels)*numgridpoints;
-  label_shape = {1, number_examples}; // [batch_size]
+  label_shape.push_back(number_examples); // [batch_size]
 }
 
 template <typename Dtype>
@@ -1056,8 +1056,12 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_minfo(Dtype *data,
 
   //include receptor and ligand atoms
   transform.mol.append(recatoms);
-  //set center to ligand center
-  transform.mol.center = ligatoms.center;
+  //unless otherwise specified, set center to ligand center
+  const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
+  if (param.use_rec_center())
+    transform.mol.center = recatoms.center;
+  else
+    transform.mol.center = ligatoms.center;
 
   if(ligpeturb) {
     if(ligpeturb_rotate)

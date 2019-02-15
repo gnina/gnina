@@ -18,6 +18,7 @@
 #include "caffe/layers/memory_data_layer.hpp"
 #include "caffe/layers/python_layer.hpp"
 #include "caffe/layers/pooling_layer.hpp"
+#include "caffe/layers/molgrid_data_layer.hpp"
 #include "caffe/sgd_solvers.hpp"
 
 // Temporary solution for numpy < 1.7 versions: old macro, no promises.
@@ -101,6 +102,29 @@ void toggle_ave_to_max(Net<Dtype>& net) {
     } 
   }
 }
+
+std::vector<std::string> get_rec_types(Layer<Dtype>& layer) {
+  MolGridDataLayer<Dtype>* mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(&layer);
+  assert(mgrid);
+  return mgrid->getRecTypes();
+}
+
+std::vector<std::string> get_lig_types(Layer<Dtype>& layer) {
+  MolGridDataLayer<Dtype>* mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(&layer);
+  assert(mgrid);
+  return mgrid->getLigTypes();
+}
+
+std::vector<float> get_grid_center(Layer<Dtype>& layer, unsigned mol_idx) {
+  MolGridDataLayer<Dtype>* mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(&layer);
+  assert(mgrid);
+  vec center = mgrid->getCenter(mol_idx);
+  std::vector<float> vcenter;
+  for (int i=0; i<3; ++i) 
+    vcenter.push_back(center[i]);
+  return vcenter;
+}
+
 
 void InitLog() {
   ::google::InitGoogleLogging("");
@@ -455,6 +479,9 @@ BOOST_PYTHON_MODULE(_caffe) {
   bp::def("layer_type_list", &LayerRegistry<Dtype>::LayerTypeList);
   bp::def("toggle_max_to_ave", &toggle_max_to_ave);
   bp::def("toggle_ave_to_max", &toggle_ave_to_max);
+  bp::def("get_grid_center", &get_grid_center);
+  bp::def("get_rec_types", &get_rec_types);
+  bp::def("get_lig_types", &get_lig_types);
 
   bp::class_<Net<Dtype>, shared_ptr<Net<Dtype> >, boost::noncopyable >("Net",
     bp::no_init)
