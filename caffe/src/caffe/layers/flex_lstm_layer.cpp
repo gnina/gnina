@@ -391,6 +391,57 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
   net_param->add_layer()->CopyFrom(output_concat_layer);
 }
 
+template <typename Dtype>
+void FlexLSTMLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top) {
+  CHECK_EQ(bottom[1]->num_axes(), 2)
+      << "bottom[1] must have exactly 2 axes -- (#timesteps, #streams)";
+  CHECK_EQ(this->T_, bottom[1]->shape(0)) << "input number of timesteps changed";
+  this->N_ = bottom[1]->shape(1);
+  this->x_input_blob_->ReshapeLike(*bottom[0]);
+  vector<int> cont_shape = bottom[1]->shape();
+  this->cont_input_blob_->Reshape(cont_shape);
+  if (this->static_input_) {
+    this->x_static_input_blob_->ReshapeLike(*bottom[2]);
+  }
+  vector<BlobShape> recur_input_shapes;
+  RecurrentInputShapes(&recur_input_shapes);
+  CHECK_EQ(recur_input_shapes.size(), this->recur_input_blobs_.size());
+  for (int i = 0; i < recur_input_shapes.size(); ++i) {
+    this->recur_input_blobs_[i]->Reshape(recur_input_shapes[i]);
+  }
+  this->unrolled_net_->Reshape();
+  this->x_input_blob_->ShareData(*bottom[0]);
+  this->x_input_blob_->ShareDiff(*bottom[0]);
+  this->cont_input_blob_->ShareData(*bottom[1]);
+  if (this->static_input_) {
+    this->x_static_input_blob_->ShareData(*bottom[2]);
+    this->x_static_input_blob_->ShareDiff(*bottom[2]);
+  }
+  if (this->expose_hidden_) {
+    const int bottom_offset = 2 + this->static_input_;
+    for (int i = bottom_offset, j = 0; i < bottom.size(); ++i, ++j) {
+      CHECK(this->recur_input_blobs_[j]->shape() == bottom[i]->shape())
+          << "shape mismatch - recur_input_blobs_[" << j << "]: "
+          << this->recur_input_blobs_[j]->shape_string()
+          << " vs. bottom[" << i << "]: " << bottom[i]->shape_string();
+      this->recur_input_blobs_[j]->ShareData(*bottom[i]);
+    }
+  }
+  for (int i = 0; i < this->output_blobs_.size(); ++i) {
+    top[i]->ReshapeLike(*(this->output_blobs_[i]));
+    top[i]->ShareData(*(this->output_blobs_[i]));
+    top[i]->ShareDiff(*(this->output_blobs_[i]));
+  }
+  if (this->expose_hidden_) {
+    const int top_offset = this->output_blobs_.size();
+    for (int i = top_offset, j = 0; i < top.size(); ++i, ++j) {
+      top[i]->ReshapeLike(*(this->recur_output_blobs_[j]));
+    }
+  }
+}
+
+
 INSTANTIATE_CLASS(FlexLSTMLayer);
 REGISTER_LAYER_CLASS(FlexLSTM);
 
