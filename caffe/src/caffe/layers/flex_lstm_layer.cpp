@@ -296,7 +296,7 @@ void FlexLSTMLayer<Dtype>::FillUnrolledNet(NetParameter* net_param) const {
     //Add layer to choose the data for this timestep
     LayerParameter* datagetter_param = net_param->add_layer();
     datagetter_param->set_type("LSTMDataGetter");
-    datagetter_param->set_name("datagetter_" + ts);
+    datagetter_param->set_name("datagetter_" + tm1s);
     datagetter_param->add_bottom("x");
     datagetter_param->add_top("current_x");
     datagetter_param->mutable_lstm_datagetter_param()->set_timestep(t-1);

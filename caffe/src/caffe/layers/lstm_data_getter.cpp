@@ -34,8 +34,6 @@ template <typename Dtype>
 void LSTMDataGetterLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
   //bottom is data, top is current_x
-  const int num_instances = bottom[0]->shape(1);
-  const int num_channels = bottom[0]->shape(2);
   vector<int> current_x_shape;
   //if access_pattern == strided_cube, current_x 1xBxCxSdimxSdimxSdim
   switch(pattern) {
@@ -58,8 +56,8 @@ void LSTMDataGetterLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
         else {
           CHECK_EQ(6, top[0]->num_axes());
           CHECK_EQ(1, top[0]->shape(0));
-          CHECK_EQ(num_instances, top[0]->shape(1));
-          CHECK_EQ(num_channels, top[0]->shape(2));
+          CHECK_EQ(batch_size, top[0]->shape(1));
+          CHECK_EQ(ntypes, top[0]->shape(2));
           CHECK_EQ(subgrid_dim, top[0]->shape(3));
           CHECK_EQ(subgrid_dim, top[0]->shape(4));
           CHECK_EQ(subgrid_dim, top[0]->shape(5));

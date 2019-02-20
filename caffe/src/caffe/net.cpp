@@ -372,9 +372,13 @@ void Net<Dtype>::AppendTop(const NetParameter& param, const int layer_id,
   } else if (blob_name_to_idx &&
              blob_name_to_idx->find(blob_name) != blob_name_to_idx->end()) {
     // If we are not doing in-place computation but have duplicated blobs,
-    // raise an error.
-    LOG(FATAL) << "Top blob '" << blob_name
+    // warn the user in case this was a mistake
+    LOG(WARNING) << "Top blob '" << blob_name
                << "' produced by multiple sources.";
+    const int blob_id = (*blob_name_to_idx)[blob_name];
+    top_id_vecs_[layer_id].push_back(blob_id);
+    shared_ptr<Blob<Dtype> > blob_pointer = blobs_[blob_id];
+    top_vecs_[layer_id].push_back(blob_pointer.get());
   } else {
     // Normal output.
     if (Caffe::root_solver()) {
