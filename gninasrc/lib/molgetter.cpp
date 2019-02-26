@@ -62,7 +62,7 @@ void MolGetter::create_init_model(const std::string& rigid_name,
         std::stringstream recstream(recstr);
 
         if (flexstr.size() > 0) //have flexible component
-            {
+        {
           std::stringstream flexstream(flexstr);
           initm = parse_receptor_pdbqt(rigid_name, recstream, flex_name,
               flexstream);

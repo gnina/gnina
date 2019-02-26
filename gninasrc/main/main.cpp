@@ -1042,178 +1042,179 @@ Please report this error at https://github.com/gnina/gnina/issues\n"
 \n\
 Thank you!\n";
 
-	const std::string cite_message =
-			"              _             \n"
-					"             (_)            \n"
-					"   __ _ _ __  _ _ __   __ _ \n"
-					"  / _` | '_ \\| | '_ \\ / _` |\n"
-					" | (_| | | | | | | | | (_| |\n"
-					"  \\__, |_| |_|_|_| |_|\\__,_|\n"
-					"   __/ |                    \n"
-					"  |___/                     \n"
-					"\ngnina is based on smina and AutoDock Vina.\nPlease cite appropriately.\n\n"
-					"*** IMPORTANT: gnina is not yet intended for production use. Use smina. ***\n";
+  const std::string cite_message =
+      "              _             \n"
+          "             (_)            \n"
+          "   __ _ _ __  _ _ __   __ _ \n"
+          "  / _` | '_ \\| | '_ \\ / _` |\n"
+          " | (_| | | | | | | | | (_| |\n"
+          "  \\__, |_| |_|_|_| |_|\\__,_|\n"
+          "   __/ |                    \n"
+          "  |___/                     \n"
+          "\ngnina is based on smina and AutoDock Vina.\nPlease cite appropriately.\n\n"
+          "*** IMPORTANT: gnina is not yet intended for production use. Use smina. ***\n";
 
-	try
-	{
-		std::string rigid_name, flex_name, config_name, log_name, atom_name;
-		std::vector<std::string> ligand_names;
-		std::string out_name;
-		std::string outf_name;
-		std::string ligand_names_file;
-		std::string atomconstants_file;
-		std::string custom_file_name;
-		std::string usergrid_file_name;
-		std::string flex_res;
-		double flex_dist = -1.0;
-		fl center_x = 0, center_y = 0, center_z = 0, size_x = 0, size_y = 0,
-				size_z = 0;
-		fl autobox_add = 4;
-		fl out_min_rmsd = 1;
-		std::string autobox_ligand;
-		std::string flexdist_ligand;
-		std::string builtin_scoring;
+  try
+  {
+    std::string rigid_name, flex_name, config_name, log_name, atom_name;
+    std::vector<std::string> ligand_names;
+    std::string out_name;
+    std::string outf_name;
+    std::string ligand_names_file;
+    std::string atomconstants_file;
+    std::string custom_file_name;
+    std::string usergrid_file_name;
+    std::string flex_res;
+    double flex_dist = -1.0;
+    fl center_x = 0, center_y = 0, center_z = 0, size_x = 0, size_y = 0,
+        size_z = 0;
+    fl autobox_add = 4;
+    std::string autobox_ligand;
+    std::string flexdist_ligand;
+    std::string builtin_scoring;
 
-		// -0.035579, -0.005156, 0.840245, -0.035069, -0.587439, 0.05846
-		fl weight_gauss1 = -0.035579;
-		fl weight_gauss2 = -0.005156;
-		fl weight_repulsion = 0.840245;
-		fl weight_hydrophobic = -0.035069;
-		fl weight_hydrogen = -0.587439;
-		fl weight_rot = 0.05846;
-		fl user_grid_lambda;
-		bool help = false, help_hidden = false, version = false;
-		bool quiet = false;
-		bool accurate_line = false;
-		bool simple_ascent = false;
-		bool flex_hydrogens = false;
-		bool print_terms = false;
-		bool print_atom_types = false;
-		bool add_hydrogens = true;
-		bool strip_hydrogens = false;
-		bool no_lig = false;
+    // -0.035579, -0.005156, 0.840245, -0.035069, -0.587439, 0.05846
+    fl weight_gauss1 = -0.035579;
+    fl weight_gauss2 = -0.005156;
+    fl weight_repulsion = 0.840245;
+    fl weight_hydrophobic = -0.035069;
+    fl weight_hydrogen = -0.587439;
+    fl weight_rot = 0.05846;
+    fl user_grid_lambda;
+    bool help = false, help_hidden = false, version = false;
+    bool quiet = false;
+    bool accurate_line = false;
+    bool simple_ascent = false;
+    bool flex_hydrogens = false;
+    bool print_terms = false;
+    bool print_atom_types = false;
+    bool add_hydrogens = true;
+    bool strip_hydrogens = false;
+    bool no_lig = false;
 
-		user_settings settings;
-		cnn_options& cnnopts = settings.cnnopts;
+    user_settings settings;
+    cnn_options& cnnopts = settings.cnnopts;
 
-		minimization_params minparms;
-		ApproxType approx = LinearApprox;
-		fl approx_factor = 32;
+    minimization_params minparms;
+    ApproxType approx = LinearApprox;
+    fl approx_factor = 32;
 
-		positional_options_description positional; // remains empty
+    positional_options_description positional; // remains empty
 
+    options_description inputs("Input");
+    inputs.add_options()
+    ("receptor,r", value<std::string>(&rigid_name),
+        "rigid part of the receptor")
+    ("flex", value<std::string>(&flex_name),
+        "flexible side chains, if any (PDBQT)")
+    ("ligand,l", value<std::vector<std::string> >(&ligand_names),
+        "ligand(s)")
+    ("flexres", value<std::string>(&flex_res),
+        "flexible side chains specified by comma separated list of chain:resid")
+    ("flexdist_ligand", value<std::string>(&flexdist_ligand),
+        "Ligand to use for flexdist")
+    ("flexdist", value<double>(&flex_dist),
+        "set all side chains within specified distance to flexdist_ligand to flexible");
 
-		options_description inputs("Input");
-		inputs.add_options()
-		("receptor,r", value<std::string>(&rigid_name),
-				"rigid part of the receptor")
-		("flex", value<std::string>(&flex_name),
-				"flexible side chains, if any (PDBQT)")
-		("ligand,l", value<std::vector<std::string> >(&ligand_names),
-				"ligand(s)")
-		("flexres", value<std::string>(&flex_res),
-				"flexible side chains specified by comma separated list of chain:resid")
-		("flexdist_ligand", value<std::string>(&flexdist_ligand),
-				"Ligand to use for flexdist")
-		("flexdist", value<double>(&flex_dist),
-				"set all side chains within specified distance to flexdist_ligand to flexible");
+    //options_description search_area("Search area (required, except with --score_only)");
+    options_description search_area("Search space (required)");
+    search_area.add_options()
+    ("center_x", value<fl>(&center_x), "X coordinate of the center")
+    ("center_y", value<fl>(&center_y), "Y coordinate of the center")
+    ("center_z", value<fl>(&center_z), "Z coordinate of the center")
+    ("size_x", value<fl>(&size_x), "size in the X dimension (Angstroms)")
+    ("size_y", value<fl>(&size_y), "size in the Y dimension (Angstroms)")
+    ("size_z", value<fl>(&size_z), "size in the Z dimension (Angstroms)")
+    ("autobox_ligand", value<std::string>(&autobox_ligand),
+        "Ligand to use for autobox")
+    ("autobox_add", value<fl>(&autobox_add),
+        "Amount of buffer space to add to auto-generated box (default +4 on all six sides)")
+    ("no_lig", bool_switch(&no_lig)->default_value(false),
+        "no ligand; for sampling/minimizing flexible residues");
 
-		//options_description search_area("Search area (required, except with --score_only)");
-		options_description search_area("Search space (required)");
-		search_area.add_options()
-		("center_x", value<fl>(&center_x), "X coordinate of the center")
-		("center_y", value<fl>(&center_y), "Y coordinate of the center")
-		("center_z", value<fl>(&center_z), "Z coordinate of the center")
-		("size_x", value<fl>(&size_x), "size in the X dimension (Angstroms)")
-		("size_y", value<fl>(&size_y), "size in the Y dimension (Angstroms)")
-		("size_z", value<fl>(&size_z), "size in the Z dimension (Angstroms)")
-		("autobox_ligand", value<std::string>(&autobox_ligand),
-				"Ligand to use for autobox")
-		("autobox_add", value<fl>(&autobox_add),
-				"Amount of buffer space to add to auto-generated box (default +4 on all six sides)")
-		("no_lig", bool_switch(&no_lig)->default_value(false),
-				"no ligand; for sampling/minimizing flexible residues");
+    //options_description outputs("Output prefixes (optional - by default, input names are stripped of .pdbqt\nare used as prefixes. _001.pdbqt, _002.pdbqt, etc. are appended to the prefixes to produce the output names");
+    options_description outputs("Output (optional)");
+    outputs.add_options()
+    ("out,o", value<std::string>(&out_name),
+        "output file name, format taken from file extension")
+    ("out_flex", value<std::string>(&outf_name),
+        "output file for flexible receptor residues")
+    ("log", value<std::string>(&log_name), "optionally, write log file")
+    ("atom_terms", value<std::string>(&atom_name),
+        "optionally write per-atom interaction term values")
+    ("atom_term_data",
+        bool_switch(&settings.include_atom_info)->default_value(false),
+        "embedded per-atom interaction terms in output sd data");
 
-		//options_description outputs("Output prefixes (optional - by default, input names are stripped of .pdbqt\nare used as prefixes. _001.pdbqt, _002.pdbqt, etc. are appended to the prefixes to produce the output names");
-		options_description outputs("Output (optional)");
-		outputs.add_options()
-		("out,o", value<std::string>(&out_name),
-				"output file name, format taken from file extension")
-		("out_flex", value<std::string>(&outf_name),
-				"output file for flexible receptor residues")
-		("log", value<std::string>(&log_name), "optionally, write log file")
-		("atom_terms", value<std::string>(&atom_name),
-				"optionally write per-atom interaction term values")
-		("atom_term_data",
-				bool_switch(&settings.include_atom_info)->default_value(false),
-				"embedded per-atom interaction terms in output sd data");
+    options_description scoremin("Scoring and minimization options");
+    scoremin.add_options()
+    ("scoring", value<std::string>(&builtin_scoring),
+        "specify alternative built-in scoring function")
+    ("custom_scoring", value<std::string>(&custom_file_name),
+        "custom scoring function file")
+    ("custom_atoms", value<std::string>(&atomconstants_file),
+        "custom atom type parameters file")
+    ("score_only", bool_switch(&settings.score_only)->default_value(false),
+        "score provided ligand pose")
+    ("local_only", bool_switch(&settings.local_only)->default_value(false),
+        "local search only using autobox (you probably want to use --minimize)")
+    ("minimize", bool_switch(&settings.dominimize)->default_value(false),
+        "energy minimization")
+    ("randomize_only", bool_switch(&settings.randomize_only),
+        "generate random poses, attempting to avoid clashes")
+    ("num_mc_steps", value<int>(&settings.num_mc_steps),
+        "number of monte carlo steps to take in each chain")
+    ("minimize_iters",
+        value<unsigned>(&minparms.maxiters)->default_value(0),
+        "number iterations of steepest descent; default scales with rotors and usually isn't sufficient for convergence")
+    ("accurate_line", bool_switch(&accurate_line),
+        "use accurate line search")
+    ("simple_ascent", bool_switch(&simple_ascent), "use simple gradient ascent")
+    ("minimize_early_term", bool_switch(&minparms.early_term),
+        "Stop minimization before convergence conditions are fully met.")
+    ("minimize_single_full", bool_switch(&minparms.single_min),
+        "During docking perform a single full minimization instead of a truncated pre-evaluate followed by a full.")
+    ("approximation", value<ApproxType>(&approx),
+        "approximation (linear, spline, or exact) to use")
+    ("factor", value<fl>(&approx_factor),
+        "approximation factor: higher results in a finer-grained approximation")
+    ("force_cap", value<fl>(&settings.forcecap),
+        "max allowed force; lower values more gently minimize clashing structures")
+    ("user_grid", value<std::string>(&usergrid_file_name),
+        "Autodock map file for user grid data based calculations")
+    ("user_grid_lambda", value<fl>(&user_grid_lambda)->default_value(-1.0),
+        "Scales user_grid and functional scoring")
+    ("print_terms", bool_switch(&print_terms),
+        "Print all available terms with default parameterizations")
+    ("print_atom_types", bool_switch(&print_atom_types),
+        "Print all available atom types");
+    options_description hidden("Hidden options for internal testing");
+    hidden.add_options()
+    ("verbosity", value<int>(&settings.verbosity)->default_value(1),
+        "Adjust the verbosity of the output, default: 1")
+    ("flex_hydrogens", bool_switch(&flex_hydrogens),
+        "Enable torsions affecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
+    ("outputmin", value<int>(&minparms.outputframes),
+        "output minout.sdf of minimization with provided amount of interpolation")
+    ("cnn_gradient_check",
+        bool_switch(&cnnopts.gradient_check)->default_value(false),
+        "Perform internal checks on gradient.");
 
-		options_description scoremin("Scoring and minimization options");
-		scoremin.add_options()
-		("scoring", value<std::string>(&builtin_scoring),
-				"specify alternative built-in scoring function")
-		("custom_scoring", value<std::string>(&custom_file_name),
-				"custom scoring function file")
-		("custom_atoms", value<std::string>(&atomconstants_file),
-				"custom atom type parameters file")
-		("score_only", bool_switch(&settings.score_only)->default_value(false),
-				"score provided ligand pose")
-		("local_only", bool_switch(&settings.local_only)->default_value(false),
-				"local search only using autobox (you probably want to use --minimize)")
-		("minimize", bool_switch(&settings.dominimize)->default_value(false),
-				"energy minimization")
-		("randomize_only", bool_switch(&settings.randomize_only),
-				"generate random poses, attempting to avoid clashes")
-		("num_mc_steps", value<int>(&settings.num_mc_steps), "number of monte carlo steps to take in each chain")
-		("minimize_iters",
-				value<unsigned>(&minparms.maxiters)->default_value(0),
-				"number iterations of steepest descent; default scales with rotors and usually isn't sufficient for convergence")
-		("accurate_line", bool_switch(&accurate_line),
-				"use accurate line search")
-		("simple_ascent", bool_switch(&simple_ascent), "use simple gradient ascent")
-		("minimize_early_term", bool_switch(&minparms.early_term),
-				"Stop minimization before convergence conditions are fully met.")
-		("minimize_single_full", bool_switch(&minparms.single_min),
-		    "During docking perform a single full minimization instead of a truncated pre-evaluate followed by a full.")
-		("approximation", value<ApproxType>(&approx),
-				"approximation (linear, spline, or exact) to use")
-		("factor", value<fl>(&approx_factor),
-				"approximation factor: higher results in a finer-grained approximation")
-		("force_cap", value<fl>(&settings.forcecap),
-				"max allowed force; lower values more gently minimize clashing structures")
-		("user_grid", value<std::string>(&usergrid_file_name),
-				"Autodock map file for user grid data based calculations")
-		("user_grid_lambda", value<fl>(&user_grid_lambda)->default_value(-1.0),
-				"Scales user_grid and functional scoring")
-		("print_terms", bool_switch(&print_terms),
-				"Print all available terms with default parameterizations")
-		("print_atom_types", bool_switch(&print_atom_types),
-				"Print all available atom types");
-		options_description hidden("Hidden options for internal testing");
-		hidden.add_options()
-		("verbosity", value<int>(&settings.verbosity)->default_value(1),
-				"Adjust the verbosity of the output, default: 1")
-		("flex_hydrogens", bool_switch(&flex_hydrogens),
-				"Enable torsions affecting only hydrogens (e.g. OH groups). This is stupid but provides compatibility with Vina.")
-		("outputmin", value<int>(&minparms.outputframes), "output minout.sdf of minimization with provided amount of interpolation")
-    ("cnn_gradient_check", bool_switch(&cnnopts.gradient_check)->default_value(false),
-                  "Perform internal checks on gradient.");
-
-		options_description cnn("Convolutional neural net (CNN) scoring");
-		cnn.add_options()
-		("cnn_model", value<std::string>(&cnnopts.cnn_model),
-				"caffe cnn model file; if not specified a default model will be used")
-		("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
-				"caffe cnn weights file (*.caffemodel); if not specified default weights (trained on the default model) will be used")
-		("cnn_resolution", value<fl>(&cnnopts.resolution)->default_value(0.5),
-				"resolution of grids, don't change unless you really know what you are doing")
-		("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
-				"evaluate multiple rotations of pose (max 24)")
-    ("subgrid_dim", value<double>(&cnnopts.subgrid_dim)->default_value(0.0), 
-        "Generate RNN grids with provided subgrid dim. Currently only cubic subgrids are supported.")
-		("cnn_scoring", bool_switch(&cnnopts.cnn_scoring),
-				"Use a convolutional neural network to score final pose.")
-    ("cnn_refinement", bool_switch(&cnnopts.cnn_refinement), 
+    options_description cnn("Convolutional neural net (CNN) scoring");
+    cnn.add_options()
+    ("cnn", value<std::string>(&cnnopts.cnn_model_name),
+        ("built-in model to use: " + builtin_cnn_models()).c_str())
+    ("cnn_model", value<std::string>(&cnnopts.cnn_model),
+        "caffe cnn model file; if not specified a default model will be used")
+    ("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
+        "caffe cnn weights file (*.caffemodel); if not specified default weights (trained on the default model) will be used")
+    ("cnn_resolution", value<fl>(&cnnopts.resolution)->default_value(0.5),
+        "resolution of grids, don't change unless you really know what you are doing")
+    ("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
+        "evaluate multiple rotations of pose (max 24)")
+    ("cnn_scoring", bool_switch(&cnnopts.cnn_scoring),
+        "Use a convolutional neural network to score final pose.")
+    ("cnn_refinement", bool_switch(&cnnopts.cnn_refinement),
         "Use a convolutional neural network for final minimization of docked poses")
     ("cnn_update_min_frame", bool_switch(&cnnopts.move_minimize_frame),
         "During minimization, recenter coordinate frame as ligand moves")
@@ -1247,7 +1248,7 @@ Thank you!\n";
         "maximum number of binding modes to generate")
     ("energy_range", value<fl>(&settings.energy_range)->default_value(3.0),
         "maximum energy difference between the best binding mode and the worst one displayed (kcal/mol)")
-    ("min_rmsd_filter", value<fl>(&out_min_rmsd)->default_value(1.0),
+    ("min_rmsd_filter", value<fl>(&settings.out_min_rmsd)->default_value(1.0),
         "rmsd value used to filter final poses to remove redundancy")
     ("quiet,q", bool_switch(&quiet), "Suppress output messages")
     ("addH", value<bool>(&add_hydrogens),
@@ -1589,7 +1590,7 @@ Thank you!\n";
     ozfile outflex;
     std::string outfext;
     if (outf_name.length() > 0)
-        {
+    {
       outfext = outflex.open(outf_name);
     }
 

@@ -326,7 +326,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 157 (last added: LSTMDataGetterParameter)
+// LayerParameter next available layer-specific ID: 158 (last added: trig_param)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -432,6 +432,7 @@ message LayerParameter {
   optional TanHParameter tanh_param = 127;
   optional ThresholdParameter threshold_param = 128;
   optional TileParameter tile_param = 138;
+  optional TrigParameter trig_param = 157;
   optional WindowDataParameter window_data_param = 129;
 }
 
@@ -954,6 +955,7 @@ message MolGridDataParameter {
   optional uint32 maxchunksize = 51 [default = 1]; //max size of subsequence for BPTT
   optional int32 stride = 52 [default = 0]; // Stride when selecting subsets of input for recurrence, default is same size as filter width
   optional bool use_rec_center = 53 [default = false]; //use rec to define grid center
+  optional uint32 peturb_bins = 54 [default = 0]; // if > 0, output categorical labels for discretized bins instead of actual values for peturb
 }
 
 message NDimDataParameter {
@@ -1382,6 +1384,15 @@ message TileParameter {
 
   // The number of copies (tiles) of the blob to output.
   optional int32 tiles = 2;
+}
+
+//trig fuctions
+message TrigParameter {
+  enum Function {
+    COS = 0;
+    SIN = 1;
+  }
+  optional Function function = 1 [default = COS];
 }
 
 // Message that stores parameters used by ThresholdLayer

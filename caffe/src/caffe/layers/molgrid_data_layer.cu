@@ -38,7 +38,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::setAtomGradientsGPU(GridMakerT& gm
   for (int item_id = 0; item_id < batch_size; ++item_id) {
     int offset = item_id*example_size;
     //malloc and copy batch data
-    mol_transform& transform = batch_transform[item_id];
+    typename MolGridDataLayer<Dtype>::mol_transform& transform = batch_transform[item_id];
     int natoms = transform.mol.atoms.size();
     
     if(natoms > buffersize) {

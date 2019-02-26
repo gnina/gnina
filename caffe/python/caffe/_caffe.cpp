@@ -571,6 +571,27 @@ BOOST_PYTHON_MODULE(_caffe) {
     .add_property("type", bp::make_function(&Layer<Dtype>::type));
   BP_REGISTER_SHARED_PTR_TO_PYTHON(Layer<Dtype>);
 
+  bp::class_<MolGridDataLayer<Dtype>, bp::bases<Layer<Dtype> >,
+    shared_ptr<MolGridDataLayer<Dtype> >, boost::noncopyable>("MolGridDataLayer", bp::no_init)
+    .def("get_moltransform", &MolGridDataLayer<Dtype>::getMolTransform);
+  BP_REGISTER_SHARED_PTR_TO_PYTHON(MolGridDataLayer<Dtype>);
+
+  bp::class_<MolGridDataLayer<Dtype>::mol_transform>("mol_transform")
+      .def_readonly("center",&MolGridDataLayer<Dtype>::mol_transform::center)
+      .def_readonly("Q",&MolGridDataLayer<Dtype>::mol_transform::Q);
+
+  bp::class_<vec>("vec")
+      .def("x",&vec::x)
+      .def("y",&vec::y)
+      .def("z",&vec::z);
+
+  bp::class_<qt>("qt")
+      .def_readwrite("a",&qt::a)
+      .def_readwrite("b",&qt::b)
+      .def_readwrite("c",&qt::c)
+      .def_readwrite("d",&qt::d);
+
+
   bp::class_<SolverParameter>("SolverParameter", bp::no_init)
     .add_property("max_iter", &SolverParameter::max_iter)
     .add_property("display", &SolverParameter::display)
