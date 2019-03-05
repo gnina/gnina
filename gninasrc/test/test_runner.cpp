@@ -7,7 +7,7 @@
 #include "test_cache.h"
 #include "test_cnn.h"
 #include "test_utils.h"
-#define N_ITERS 10
+#define N_ITERS 5
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_NO_MAIN
 #include <boost/test/unit_test.hpp>

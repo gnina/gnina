@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <cmath>
 #include "test_utils.h"
 #include "test_cnn.h"
 #include "atom_constants.h"
@@ -270,7 +271,7 @@ void test_strided_cube_datagetter() {
   std::mt19937 engine(p_args.seed);
 
   //how big is subcube
-  std::uniform_int_distribution<unsigned> subcubedim_dist(1, 15); 
+  std::uniform_int_distribution<unsigned> subcubedim_dist(3, 15); 
   std::uniform_int_distribution<unsigned> res_dist(1, 20);
   float resolution = res_dist(engine) * 0.25;
   unsigned subcube_dim_pts = subcubedim_dist(engine);
@@ -281,7 +282,7 @@ void test_strided_cube_datagetter() {
   unsigned ntypes = smt::NumTypes;
 
   //get subcube stride
-  std::uniform_int_distribution<unsigned> stride_dist(1, subcube_dim_pts+2);
+  std::uniform_int_distribution<unsigned> stride_dist(3, subcube_dim_pts);
   unsigned cube_stride = stride_dist(engine);
 
   //get batch size and resolve sizes of things
@@ -359,6 +360,8 @@ void test_strided_cube_datagetter() {
     unsigned i = (ts / (factor * factor) % slices_per_dim) * cube_stride;
     unsigned j = ((ts / factor) % slices_per_dim) * cube_stride;
     unsigned k = (ts % slices_per_dim) * cube_stride;
+    bool failed = false;
+#pragma omp parallel for shared(failed)
     for (unsigned batch_idx=0; batch_idx < batch_size; ++batch_idx) {
       for (unsigned type=0; type<ntypes; ++type) {
         //get view of cube using boost and use this as the ground truth
@@ -366,14 +369,13 @@ void test_strided_cube_datagetter() {
         for (unsigned x=0; x<subcube_dim_pts; ++x) 
           for (unsigned y=0; y<subcube_dim_pts; ++y) 
             for (unsigned z=0; z<subcube_dim_pts; ++z) {
-              BOOST_REQUIRE_SMALL(
-                  cube_view[x][y][z] - cpu_subcube[batch_idx][type][x][y][z],
-                  (float )0.01);
-              BOOST_REQUIRE_SMALL(
-                  cube_view[x][y][z] - gpu_subcube[batch_idx][type][x][y][z],
-                  (float )0.01);
+              if (std::abs(cube_view[x][y][z] - cpu_subcube[batch_idx][type][x][y][z] > 0.01))
+                failed = true;
+              if (std::abs(cube_view[x][y][z] - gpu_subcube[batch_idx][type][x][y][z] > 0.01))
+                failed = true;
             }
       }
     }
+    BOOST_CHECK_EQUAL(failed, false);
   }
 }

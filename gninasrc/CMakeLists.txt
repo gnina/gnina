@@ -6,6 +6,7 @@ find_package(Boost REQUIRED COMPONENTS program_options system iostreams timer
     thread serialization filesystem date_time regex unit_test_framework)
 find_package(RDKit REQUIRED)
 find_package(OpenBabel2 REQUIRED)
+find_package(OpenMP)
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
   list(APPEND CUDA_NVCC_FLAGS -O3 --default-stream per-thread -Xptxas -dlcm=ca)
@@ -135,6 +136,9 @@ target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
 
 cuda_add_executable(check ${TEST_SRCS} ${LIB_SRCS})
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(check OpenMP::OpenMP_CXX)
+endif()
 target_link_libraries(check ${RDKIT_LIBRARIES} ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT} caffe ${CUDA})
 
