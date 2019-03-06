@@ -174,6 +174,8 @@ class NNGridder {
             gpu_ligandAInfo(NULL), gpu_ligWhichGrid(NULL) {
     }
 
+    NNGridder(const NNGridder&) = delete;
+
     virtual ~NNGridder() {if (gmaker) delete gmaker;}
 
 	  virtual void initialize(const gridoptions& opt);
