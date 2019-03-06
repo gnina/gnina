@@ -52,6 +52,7 @@ CNNScorer::CNNScorer(const cnn_options& opts)
       throw usage_error("First layer of model must be MolGridData.");
     }
     mgridparam->set_inmemory(true);
+    mgridparam->set_subgrid_dim(opts.subgrid_dim);
 
     if (cnnopts.cnn_model.size() == 0) {
       const char *recmap = cnn_models[cnnopts.cnn_model_name].recmap;
@@ -160,8 +161,8 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore,
 
   caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
-  mgrid->setReceptor<atom>(m.get_fixed_atoms());
-  mgrid->setLigand<atom, vec>(m.get_movable_atoms(), m.coordinates());
+  mgrid->setReceptor(m.get_fixed_atoms());
+  mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
   mgrid->setLabels(1); //for now pose optimization only
   mgrid->enableAtomGradients();
 
@@ -185,8 +186,8 @@ void CNNScorer::gradient_setup(const model& m, const string& recname,
 
   caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
-  mgrid->setReceptor<atom>(m.get_fixed_atoms());
-  mgrid->setLigand<atom, vec>(m.get_movable_atoms(), m.coordinates());
+  mgrid->setReceptor(m.get_fixed_atoms());
+  mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
   mgrid->setLabels(1); //for now pose optimization only
   mgrid->enableAtomGradients();
 
@@ -303,11 +304,11 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
     mgrid->setCenter(current_center);      
   }
 
-  mgrid->setLigand<atom, vec>(m.get_movable_atoms(), m.coordinates(), cnnopts.move_minimize_frame);
+  mgrid->setLigand(m.get_movable_atoms(), m.coordinates(), cnnopts.move_minimize_frame);
   if (!cnnopts.move_minimize_frame) {
-    mgrid->setReceptor<atom>(m.get_fixed_atoms(), m.rec_conf.position, m.rec_conf.orientation);
+    mgrid->setReceptor(m.get_fixed_atoms(), m.rec_conf.position, m.rec_conf.orientation);
   } else { //don't move receptor
-    mgrid->setReceptor<atom>(m.get_fixed_atoms());
+    mgrid->setReceptor(m.get_fixed_atoms());
     current_center = mgrid->getCenter(); //has been recalculated from ligand
     if(cnnopts.verbose) {
       std::cout << "current center: ";

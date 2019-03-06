@@ -12,33 +12,33 @@
 
 namespace caffe {
 
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+template <typename Dtype, class GridMakerT>
+void BaseMolGridDataLayer<Dtype, GridMakerT>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
 		const vector<Blob<Dtype>*>& top)
 {
 	forward(bottom, top, true);
 }
 
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
+template <typename Dtype, class GridMakerT>
+void BaseMolGridDataLayer<Dtype, GridMakerT>::Backward_gpu(const vector<Blob<Dtype>*>& top,
 		const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
 {
 	backward(top, bottom, true);
 }
 
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype
+template <typename Dtype, class GridMakerT>
+void BaseMolGridDataLayer<Dtype, GridMakerT>::setAtomGradientsGPU(GridMakerT& gmaker, Dtype
         *diff, unsigned batch_size)  {
 
   unsigned buffersize = 0;
   float4* atoms = NULL;
   short* whichGrid = NULL;
   float3* gradient = NULL; 
-  //launch a kernel for each batch
+  //launch a kernel for each batch element
   for (int item_id = 0; item_id < batch_size; ++item_id) {
     int offset = item_id*example_size;
     //malloc and copy batch data
-    mol_transform& transform = batch_transform[item_id];
+    typename MolGridDataLayer<Dtype>::mol_transform& transform = batch_transform[item_id];
     int natoms = transform.mol.atoms.size();
     
     if(natoms > buffersize) {
@@ -67,17 +67,17 @@ void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype
 	unsigned nfull_blocks = natoms / THREADS_PER_BLOCK;
 	unsigned nthreads_remain = natoms % THREADS_PER_BLOCK;
     //std::cout << "natoms " << natoms << std::endl;
-	boost::timer::cpu_timer time;
+	// boost::timer::cpu_timer time;
     if (nfull_blocks)
-        setAtomGradientGPU <<<nfull_blocks, THREADS_PER_BLOCK>>>(gmaker, atoms, 
+        set_atom_gradients<<<nfull_blocks, THREADS_PER_BLOCK>>>(gmaker, atoms, 
                 whichGrid, gradient, make_float3(molcenter[0], molcenter[1], molcenter[2]), 
                 gpu_q, make_float3(transform.center[0], transform.center[1],
-                transform.center[2]), diff, offset, 0);
+                transform.center[2]), diff+offset, 0);
     if (nthreads_remain)
-        setAtomGradientGPU <<<1, nthreads_remain>>>(gmaker, atoms, whichGrid, 
+        set_atom_gradients<<<1, nthreads_remain>>>(gmaker, atoms, whichGrid, 
                 gradient, make_float3(molcenter[0], molcenter[1], molcenter[2]), gpu_q, 
                 make_float3(transform.center[0], transform.center[1],
-                transform.center[2]), diff, offset, natoms - nthreads_remain);
+                transform.center[2]), diff+offset, natoms - nthreads_remain);
     cudaStreamSynchronize(cudaStreamPerThread);
 //std::cout << "GPU grid time " << time.elapsed().wall/1000000000.0 << "\n";
     cudaMemcpy(&transform.mol.gradient[0], gradient,
@@ -93,13 +93,54 @@ void MolGridDataLayer<Dtype>::setAtomGradientsGPU(GridMaker& gmaker, Dtype
 }
 
 template 
-void MolGridDataLayer<double>::setAtomGradientsGPU(GridMaker& gmaker, double
-        *diff, unsigned batch_size);
-template 
-void MolGridDataLayer<float>::setAtomGradientsGPU(GridMaker& gmaker, float
-        *diff, unsigned batch_size);
+void BaseMolGridDataLayer<double, GridMaker>::setAtomGradientsGPU(GridMaker& gmaker, 
+    double *diff, unsigned batch_size);
 
-INSTANTIATE_LAYER_GPU_FORWARD(MolGridDataLayer);
-INSTANTIATE_LAYER_GPU_BACKWARD(MolGridDataLayer);
+template 
+void BaseMolGridDataLayer<float, GridMaker>::setAtomGradientsGPU(GridMaker& gmaker, 
+         float *diff, unsigned batch_size);
+
+template 
+void BaseMolGridDataLayer<double, SubcubeGridMaker>::setAtomGradientsGPU(SubcubeGridMaker& gmaker, 
+    double *diff, unsigned batch_size);
+
+template 
+void BaseMolGridDataLayer<float, SubcubeGridMaker>::setAtomGradientsGPU(SubcubeGridMaker& gmaker, 
+         float *diff, unsigned batch_size);
+
+//eurhghgueurugh
+template 
+void BaseMolGridDataLayer<double, GridMaker>::Forward_gpu(const std::vector<Blob<double>*>& bottom,
+      const std::vector<Blob<double>*>& top);
+
+template 
+void BaseMolGridDataLayer<float, GridMaker>::Forward_gpu(const std::vector<Blob<float>*>& bottom,
+      const std::vector<Blob<float>*>& top);
+
+template 
+void BaseMolGridDataLayer<double, SubcubeGridMaker>::Forward_gpu(const std::vector<Blob<double>*>& bottom,
+      const std::vector<Blob<double>*>& top);
+
+template 
+void BaseMolGridDataLayer<float, SubcubeGridMaker>::Forward_gpu(const std::vector<Blob<float>*>& bottom,
+      const std::vector<Blob<float>*>& top);
+
+template 
+void BaseMolGridDataLayer<double, GridMaker>::Backward_gpu(const std::vector<Blob<double>*>& top,
+      const vector<bool>& propagate_down, const std::vector<Blob<double>*>& bottom);
+
+template 
+void BaseMolGridDataLayer<float, GridMaker>::Backward_gpu(const std::vector<Blob<float>*>& top,
+      const vector<bool>& propagate_down, const std::vector<Blob<float>*>& bottom);
+
+template 
+void BaseMolGridDataLayer<double, SubcubeGridMaker>::Backward_gpu(const std::vector<Blob<double>*>& top,
+      const vector<bool>& propagate_down, const std::vector<Blob<double>*>& bottom);
+
+template 
+void BaseMolGridDataLayer<float, SubcubeGridMaker>::Backward_gpu(const std::vector<Blob<float>*>& top,
+      const vector<bool>& propagate_down, const std::vector<Blob<float>*>& bottom);
+
+INSTANTIATE_LAYER_GPU_BACKWARD(SubcubeMolGridDataLayer);
 
 }  // namespace caffe
