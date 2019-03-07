@@ -3,6 +3,8 @@
 '''Given the original (full) rigid receptor and the output of --out_flex,
    which contains side chain coordinates from flexible docking with smina/gnina,
    output the full restored receptors with the flexible residues re-inserted.
+   
+   This is a bit fragile and may break if atoms do not have standard names.
    '''
    
 import prody, argparse
@@ -22,7 +24,7 @@ out = open(outfile,'w')
 
 flex = prody.parsePDB(flexname)
 flexres = set(zip(flex.getChids(),flex.getResnums()))
-backbone = {'CA','N','C','O','H','HN'}
+backbone = {'N','O','H','HN'}  #C and CA are included in the flex part, but don't move
 PDBLINE = '%s%-4s%s%8.3f%8.3f%8.3f\n'
 
 for ci in range(flex.numCoordsets()):
@@ -33,13 +35,17 @@ for ci in range(flex.numCoordsets()):
             chain = line[21]
             resnum = int(line[22:26].strip())
             aname = line[12:16].strip()
-        if line.startswith('ATOM') and (chain,resnum) in flexres and aname not in backbone and not aname.startswith('H'):
-            resatoms = flex[chain].select('resnum %d'%resnum)
-            w = which[(chain,resnum)]
-            which[(chain,resnum)] += 1 #update to next index
-            atom = resatoms[w] #this is the atom to replace this line with
-            c = atom.getCoordsets(ci)
-            out.write(PDBLINE%(line[:13],atom.getName(),line[17:30],c[0],c[1],c[2]))
-        else:
-            out.write(line)
+            if (chain,resnum) in flexres and aname not in backbone:
+                
+                if  not aname.startswith('H'):
+                    resatoms = flex[chain].select('resnum %d'%resnum)
+                    w = which[(chain,resnum)]
+                    which[(chain,resnum)] += 1 #update to next index
+                    atom = resatoms[w] #this is the atom to replace this line with
+                    c = atom.getCoordsets(ci)
+                    line = PDBLINE%(line[:13],atom.getName(),line[17:30],c[0],c[1],c[2])
+                else:
+                    line = ''
+        
+        out.write(line)
     out.write('ENDMDL\n')
