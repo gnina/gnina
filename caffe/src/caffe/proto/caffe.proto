@@ -267,6 +267,8 @@ message SolverState {
   optional string learned_net = 2; // The file that stores the learned net.
   repeated BlobProto history = 3; // The history for sgd solvers
   optional int32 current_step = 4 [default = 0]; // The current step for learning rate
+  optional BlobProto datablob = 5; // If performing input optimization, store
+                                   // current state of data blob
 }
 
 enum Phase {

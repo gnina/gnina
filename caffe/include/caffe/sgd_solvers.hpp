@@ -143,6 +143,33 @@ class AdamSolver : public SGDSolver<Dtype> {
   DISABLE_COPY_AND_ASSIGN(AdamSolver);
 };
 
+/**
+ * @brief Solver that optimizes input grids using weights from a pre-trained
+ * network, i.e. "dreaming." Compared with the base SGD solver, the InputOpt
+ * Solver stores and loads the input data blob when checkpointing, and it only
+ * updates the input data blob when updating.
+ *
+ */
+template <typename Dtype>
+class InputOptSGDSolver : public SGDSolver<Dtype> {
+ public:
+  explicit InputOptSGDSolver(const SolverParameter& param)
+      : SGDSolver<Dtype>(param) {} 
+  explicit InputOptSGDSolver(const string& param_file)
+      : SGDSolver<Dtype>(param_file) {}
+  virtual inline const char* type() const { return "InputOptSGD"; }
+
+ protected:
+  virtual void ComputeUpdateValue(int param_id, Dtype rate);
+  virtual void SnapshotSolverState(const string& model_filename);
+  virtual void SnapshotSolverStateToBinaryProto(const string& model_filename);
+  virtual void SnapshotSolverStateToHDF5(const string& model_filename);
+  virtual void RestoreSolverStateFromHDF5(const string& state_file);
+  virtual void RestoreSolverStateFromBinaryProto(const string& state_file);
+
+  DISABLE_COPY_AND_ASSIGN(InputOptSGDSolver);
+};
+
 }  // namespace caffe
 
 #endif  // CAFFE_SGD_SOLVERS_HPP_
