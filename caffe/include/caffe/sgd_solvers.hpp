@@ -154,18 +154,19 @@ template <typename Dtype>
 class InputOptSGDSolver : public SGDSolver<Dtype> {
  public:
   explicit InputOptSGDSolver(const SolverParameter& param)
-      : SGDSolver<Dtype>(param) {} 
+      : SGDSolver<Dtype>(param) { InputOptSGDPreSolve(); } 
   explicit InputOptSGDSolver(const string& param_file)
-      : SGDSolver<Dtype>(param_file) {}
+      : SGDSolver<Dtype>(param_file) { InputOptSGDPreSolve(); }
   virtual inline const char* type() const { return "InputOptSGD"; }
 
  protected:
-  virtual void ComputeUpdateValue(int param_id, Dtype rate);
-  virtual void SnapshotSolverState(const string& model_filename);
+  void InputOptSGDPreSolve();
+  virtual void ComputeUpdateValue(Dtype rate);
+  virtual void ApplyUpdate();
+  virtual void ClipGradients();
   virtual void SnapshotSolverStateToBinaryProto(const string& model_filename);
   virtual void SnapshotSolverStateToHDF5(const string& model_filename);
-  virtual void RestoreSolverStateFromHDF5(const string& state_file);
-  virtual void RestoreSolverStateFromBinaryProto(const string& state_file);
+  Blob<Dtype>* input_blob;
 
   DISABLE_COPY_AND_ASSIGN(InputOptSGDSolver);
 };
