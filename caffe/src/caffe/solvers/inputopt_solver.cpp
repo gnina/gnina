@@ -9,10 +9,10 @@
 namespace caffe {
   template <typename Dtype> 
   void InputOptSGDSolver<Dtype>::InputOptSGDPreSolve() {
-    // do this better, also check std::map docs this is probably wrong as written
-    if (this->net_->blob_names_index_.find("data") == this->net_->blob_names_index_.end())
+    auto dataloc = this->net_->blob_names_index_.find("data");
+    if (dataloc == this->net_->blob_names_index_.end())
       LOG(FATAL) << "Net doesn't have a data blob";
-    int data_idx = this->net_->blob_names_index_["data"];
+    int data_idx = dataloc->second;
     input_blob = this->net_->blobs_()[data_idx];
     SGDSolver<Dtype>::PreSolve();
   }
@@ -129,4 +129,8 @@ namespace caffe {
     H5Gclose(history_hid);
     H5Fclose(file_hid);
   }
+
+INSTANTIATE_CLASS(InputOptSGDSolver);
+REGISTER_SOLVER_CLASS(InputOptSGD);
+
 } // namespace caffe

@@ -12,6 +12,8 @@ int main(int argc, char* argv[]) {
   bool dump_all = false;
   bool exclude_receptor = false;
   bool exclude_ligand = false;
+  std::string sigint_effect = "stop";
+  std::string sighup_effect = "snapshot";
 
   options_description inputs("General Input");
   inputs.add_options()("receptor, r",
@@ -75,7 +77,7 @@ int main(int argc, char* argv[]) {
   //any/all of rec + lig + grids in at once
   //treat rec + lig + grids as mutually exclusive with types (the former are
   //"in_mem" for MolGrid)
-  //cnn_weights are used only if none of the other options are set
+  //an existing solverstate is used only if none of the other options are set
   if (vm.count("receptor") <= 0 && vm.count("ligand") <= 0 && vm.count("grid") <= 0 && 
       vm.count("types") <= 0 && vm.count("cnn_weights") <= 0) {
     std::cerr << "Missing optimization context.\n" << "\nCorrect usage:\n" << desc << '\n';
@@ -84,5 +86,23 @@ int main(int argc, char* argv[]) {
 
   google::InitGoogleLogging(argv[0]);
   google::SetStderrLogging(2);
+
+  caffe::SignalHandler signal_handler(
+        GetRequestedAction(sigint_effect),
+        GetRequestedAction(sighup_effect));
+
+  //set up solver params and then construct solver
+  caffe::SolverParameter solver_param;
+
+  shared_ptr<caffe::Solver<float> >
+      solver(caffe::SolverRegistry<float>::CreateSolver(solver_param));
+
+  solver->SetActionFunction(signal_handler.GetActionFunction());
+
+  if (!receptor.empty()) {
+    //set inmem
+  }
+  else if (solverstate.empty()) {
+  }
 
 }
