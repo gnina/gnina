@@ -20,8 +20,8 @@ typedef boost::math::quaternion<float> quaternion;
 //theoretically lead to runtime errors later
 template<typename atomT>
 inline void make_mol(std::vector<atom_params>& atoms, std::vector<atomT>& types,
-    std::mt19937 engine, size_t natoms = 0, size_t min_atoms = 1,
-    size_t max_atoms = 200, float max_x = 25, float max_y = 25,
+    std::mt19937 engine, size_t natoms = 0, size_t min_atoms = 200,
+    size_t max_atoms = 1000, float max_x = 25, float max_y = 25,
     float max_z = 25) {
 
   if (!natoms) {
