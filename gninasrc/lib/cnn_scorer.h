@@ -89,6 +89,7 @@ class CNNScorer {
     void get_net_output(Dtype& score, Dtype& aff, Dtype& loss);
     void check_gradient();
     friend void test_set_atom_gradients();
+    friend void test_vanilla_grids();
     friend void test_subcube_grids();
     template <typename atomT, typename MGridT, typename GridMakerT> 
       friend void set_cnn_grids(MGridT* mgrid, GridMakerT& gmaker, 

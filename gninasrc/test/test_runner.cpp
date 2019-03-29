@@ -62,6 +62,10 @@ BOOST_AUTO_TEST_CASE(set_atom_gradients) {
   boost_loop_test(&test_set_atom_gradients);
 }
 
+BOOST_AUTO_TEST_CASE(vanilla_grids) {
+  boost_loop_test(&test_vanilla_grids);
+}
+
 BOOST_AUTO_TEST_CASE(subcube_grids) {
   boost_loop_test(&test_subcube_grids);
 }
