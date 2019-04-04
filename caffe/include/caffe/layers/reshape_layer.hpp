@@ -1,5 +1,5 @@
-#ifndef CAFFE_XXX_LAYER_HPP_
-#define CAFFE_XXX_LAYER_HPP_
+#ifndef CAFFE_RESHAPE_LAYER_HPP_
+#define CAFFE_RESHAPE_LAYER_HPP_
 
 #include <vector>
 
@@ -52,4 +52,4 @@ class ReshapeLayer : public Layer<Dtype> {
 
 }  // namespace caffe
 
-#endif  // CAFFE_XXX_LAYER_HPP_
+#endif  // CAFFE_RESHAPE_LAYER_HPP_

@@ -24,9 +24,9 @@
 #define VINA_MODEL_H
 
 #include <boost/optional.hpp> // for context
-#include <boost/serialization/optional.hpp>
 #include <boost/serialization/utility.hpp>
 #include <string>
+#include "optional_serialization.h"
 #include "file.h"
 #include "tree.h"
 #include "tree_gpu.h"

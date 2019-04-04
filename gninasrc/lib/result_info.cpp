@@ -89,6 +89,9 @@ void result_info::writeFlex(std::ostream& out, std::string& ext, int modelnum) {
   OBMol mol;
   OBConversion outconv;
   OBFormat *format = outconv.FormatFromExt(ext);
+  if(!format) {
+    throw usage_error("Invalid formt "+ext);
+  }
   //residue are pdbqt only currently
   outconv.SetInFormat("PDBQT");
   outconv.SetOutFormat(format);
@@ -110,8 +113,10 @@ void result_info::write(std::ostream& out, std::string& ext,
 
   OBFormat *format = outconv.FormatFromExt(ext);
 
-  if (sdfvalid && strcmp(format->GetID(), "sdf") == 0) //use native sdf
-      {
+  if(!format) {
+    throw usage_error("Invalid format: "+ext);
+  }
+  if (sdfvalid && strcmp(format->GetID(), "sdf") == 0) { //use native sdf
     out << molstr;
     //now sd data
     out << "> <minimizedAffinity>\n";

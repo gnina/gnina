@@ -115,7 +115,7 @@ struct charge_independent : public distance_additive {
     charge_independent(fl cutoff_)
         : distance_additive(cutoff_) {
     }
-    fl eval(const atom_base& a, const atom_base& b, fl r) const {
+    virtual fl eval(const atom_base& a, const atom_base& b, fl r) const {
       return eval(a.get(), b.get(), r);
     }
     virtual fl eval(smt t1, smt t2, fl r) const {

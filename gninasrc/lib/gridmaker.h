@@ -282,8 +282,7 @@ class GridMaker {
       float dist2 = dist_x * dist_x + dist_y * dist_y + dist_z * dist_z;
       double dist = sqrt(dist2);
       float agrad_dist = 0.0;
-      if (dist >= ar * radiusmultiple) //no overlap
-          {
+      if (dist >= ar * radiusmultiple) { //no overlap
         return;
       } else
         if (dist <= ar) //gaussian derivative
@@ -389,7 +388,7 @@ class GridMaker {
       float3 coords;
 
       if (Q.real() != 0) //apply rotation
-          {
+      {
         float3 p = Q.rotate(atom.x - center.x, atom.y - center.y,
             atom.z - center.z);
         coords = p + center;

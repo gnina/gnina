@@ -50,7 +50,7 @@ public:
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
       jitter(0.0), numposes(1), ligpeturb_rotate(false),
       binary(false), randrotate(false), ligpeturb(false), ignore_ligand(false),
-      use_covalent_radius(false), dim(0), numgridpoints(0),
+      use_covalent_radius(false), dim(0), numgridpoints(0), numchannels(0),
       numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
       gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false),
       batch_rotate(false), batch_rotate_yaw(0.0), batch_rotate_roll(0.0), batch_rotate_pitch(0.0) {}
@@ -91,6 +91,9 @@ public:
   void getMappedReceptorGradient(int batch_idx, unordered_map<string, float3>& gradient);
   void getLigandGradient(int batch_idx, vector<float3>& gradient);
   void getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient);
+
+  struct mol_transform;
+  mol_transform getMolTransform(int batch_idx) const { return batch_transform[batch_idx]; }
 
   //set in memory buffer
   //will apply translate and rotate iff rotate is valid
@@ -200,9 +203,9 @@ public:
   void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
   friend void ::test_set_atom_gradients();
 
- protected:
+ public:
 
-  ///////////////////////////   PROTECTED DATA TYPES   //////////////////////////////
+  ///////////////////////////   PUBLIC DATA TYPES   //////////////////////////////
   typedef qt quaternion;
   typedef typename boost::multi_array_ref<Dtype, 4>  Grids;
 
@@ -472,9 +475,9 @@ public:
           tmp.push_back(examples[i]);
           tmp.back().setup();
         }
-	else {
-	  LOG(INFO) << "Empty bucket " << i;
-	}
+        else {
+          LOG(INFO) << "Empty bucket " << i;
+        }
       }
       swap(examples,tmp);
       CHECK_GT(examples.size(), 0) << "No examples in affinity stratification!";
@@ -498,42 +501,46 @@ public:
     }
   };
 
-  struct mol_transform;
   struct mol_info {
     vector<float4> atoms;
     vector<short> whichGrid; //separate for better memory layout on gpu
     vector<float3> gradient;
-    vec center; //precalculate centroid, includes any random translation
+    vec center; //precalculate centroid
 
     mol_info() { center[0] = center[1] = center[2] = NAN;}
 
-    void append(const mol_info& a)
+    //add contents of a to this, incrementing whichGrid by offset
+    void append(const mol_info& a, unsigned offset=0)
     {
       atoms.insert(atoms.end(), a.atoms.begin(), a.atoms.end());
-      whichGrid.insert(whichGrid.end(), a.whichGrid.begin(), a.whichGrid.end());
+      whichGrid.reserve(whichGrid.size()+a.whichGrid.size());
+      for(auto g : a.whichGrid) {
+          whichGrid.push_back(g+offset);
+      }
       gradient.insert(gradient.end(), a.gradient.begin(), a.gradient.end());
     }
 
-    void transform_and_append(const mol_info& a, const mol_transform& transform)
+    //apply transformation in-place, modifying the coordinates of the mol
+    //the center of the molecule is used for the rotation origin
+    void apply_transform(const mol_transform& transform)
     {
-      //copy atoms from a into this, transforming the coordinates according to transform
-     // LOG(INFO) << "About to transform " << a.atoms.size() << " atoms";
-      for(unsigned i = 0, n = a.atoms.size(); i < n; i++) {
-        //non-coordinate stuff
-        whichGrid.push_back(a.whichGrid[i]);
-        gradient.push_back(a.gradient[i]); //NOT rotating, but that shouldn't matter, right?
+      gfloat3 rcenter(center[0],center[1],center[2]);
+      gfloat3 translate(-transform.center[0],-transform.center[1], -transform.center[2]);
+     // LOG(INFO) << "Center: " << rcenter[0] << "," << rcenter[1] << "," << rcenter[2] << "\n";
+     // LOG(INFO) << "Translate: " << translate[0] << "," << translate[1] << "," << translate[2] << "\n";
+      for(unsigned i = 0, n = atoms.size(); i < n; i++) {
+        float4 atom = atoms[i];
+        float3 pt = transform.Q.transform(atom.x, atom.y, atom.z, rcenter, translate);
+        //LOG(INFO) << "Transforming " << atom.x << "," << atom.y << "," << atom.z << " to " << pt.x << "," << pt.y << "," << pt.z << "\n";
 
-        float4 atom = a.atoms[i];
-        gfloat3 center(a.center[0],a.center[1],a.center[2]);
-        gfloat3 translate(transform.center[0],transform.center[1], transform.center[2]);
-        float3 pt = transform.Q.transform(atom.x, atom.y, atom.z, center, translate);
         atom.x = pt.x;
         atom.y = pt.y;
         atom.z = pt.z;
-        atoms.push_back(atom);
-
-        //LOG(INFO) << "Transforming " << a.atoms[i].x<<","<<a.atoms[i].y<<","<<a.atoms[i].z<<" to "<<atom.x<<","<<atom.y<<","<<atom.z;
+        atoms[i] = atom;
       }
+
+      //update center
+      center += vec(translate.x,translate.y,translate.z);
     }
 
     //return max distance from centroid to any atom
@@ -560,55 +567,99 @@ public:
     }
   };
 
-  //6 numbers representing a transformation
+  //N numbers representing a transformation
   struct output_transform {
+    //contains only the N numbers representing the transformation, N is returned by size
     Dtype x;
     Dtype y;
     Dtype z;
+
+    //three different representations of rotation, for experiments sake
+    Dtype a;
+    Dtype b;
+    Dtype c;
+    Dtype d;
+
+    Dtype roll;
     Dtype pitch;
     Dtype yaw;
-    Dtype roll;
 
-    output_transform(): x(0), y(0), z(0), pitch(0), yaw(0), roll(0) {}
+    output_transform(): x(0), y(0), z(0), a(0), b(0), c(0), d(0), roll(0), pitch(0), yaw(0) {}
 
     output_transform(Dtype X, Dtype Y, Dtype, Dtype Z, const qt& Q): x(X), y(Y), z(Z) {
       set_from_quaternion(Q);
     }
 
+
+    //modify in-place to values are class labels instead of actual values
+    void discretize(double maxtrans, int bins) {
+      x = convert_to_label(x,-maxtrans,maxtrans,bins);
+      y = convert_to_label(y,-maxtrans,maxtrans,bins);
+      z = convert_to_label(z,-maxtrans,maxtrans,bins);
+
+      a = convert_to_label(a,-1.0,1.0,bins);
+      b = convert_to_label(b,-1.0,1.0,bins);
+      c = convert_to_label(c,-1.0,1.0,bins);
+      d = convert_to_label(d,-1.0,1.0,bins);
+
+      roll = convert_to_label(roll,-M_PI,M_PI,bins);
+      pitch = convert_to_label(pitch,-M_PI_2,M_PI_2,bins);
+      yaw = convert_to_label(yaw,-M_PI,M_PI,bins);
+    }
+    static unsigned size() { return sizeof(output_transform)/sizeof(Dtype); }
     void set_from_quaternion(const qt& Q) {
       //convert to euler angles
       //https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
       // roll (x-axis rotation)
-      double w = Q.R_component_1();
-      double x = Q.R_component_2();
-      double y = Q.R_component_3();
-      double z = Q.R_component_4();
+      a = Q.R_component_1();
+      b = Q.R_component_2();
+      c = Q.R_component_3();
+      d = Q.R_component_4();
 
-      double sinr = 2.0 * (w*x + y*z);
-      double cosr = 1.0 - 2.0 * (x*x + y*y);
+      double sinr = 2.0 * (a*b + c*d);
+      double cosr = 1.0 - 2.0 * (b*b + c*c);
       roll = atan2(sinr, cosr);
 
       // pitch (y-axis rotation)
-      double sinp = 2.0 * (w*y - z*x);
+      double sinp = 2.0 * (a*c - d*b);
+
+      pitch = 0.0;
       if (fabs(sinp) >= 1)
         pitch = copysign(M_PI / 2, sinp);// use 90 degrees if out of range
       else
         pitch = asin(sinp);
 
       // yaw (z-axis rotation)
-      double siny = 2.0 * (w*z + x*y);
-      double cosy = 1.0 - 2.0 * (y*y + z*z);
+      double siny = 2.0 * (a*d + b*c);
+      double cosy = 1.0 - 2.0 * (c*c + d*d);
       yaw = atan2(siny, cosy);
     }
+
+    private:
+      //discretize single value
+      Dtype convert_to_label(Dtype value, double min, double max, int bins)
+      {
+        int bin = bins*(value-min)/(max-min);
+        if(bin < 0) bin = 0;
+        if(bin >= bins) bin = bins-1;
+        return bin;
+      }
   };
   struct mol_transform {
     mol_info mol;
     qt Q;  // rotation
-    vec center; // translation
+    vec center; // translation is negative of this
 
     mol_transform() {
       mol = mol_info();
       Q = qt(0,0,0,0);
+      center[0] = center[1] = center[2] = 0;
+    }
+
+    //zero translate, no rotate
+    void reset()
+    {
+      Q = qt(1,0,0,0);
       center[0] = center[1] = center[2] = 0;
     }
 
@@ -643,8 +694,9 @@ public:
 
   };
 
-  ///////////////////   PROTECTED DATA   ////////////////
 
+  ///////////////////   PROTECTED DATA   ////////////////
+ protected:
   string_cache scache;
 
   //we are manually stratifying by file, this could be made more general-purpose and flexible
@@ -694,9 +746,11 @@ public:
 
   unsigned dim; //grid points on one side
   unsigned numgridpoints; //dim*dim*dim
+  unsigned numchannels;
 
   vector<int> rmap; //map atom types to position in grid vectors
   vector<int> lmap;
+  
   unsigned numReceptorTypes;
   unsigned numLigandTypes;
 
@@ -710,7 +764,8 @@ public:
   vector<mol_transform> batch_transform;
 
   typedef boost::unordered_map<string, mol_info> MolCache;
-  static MolCache molcache; //the cache is shared GLOBALLY
+  static MolCache recmolcache; //the cache is shared GLOBALLY
+  static MolCache ligmolcache; //the cache is shared GLOBALLY
 
   mol_info mem_rec; //molecular data set programmatically with setReceptor
   mol_info mem_lig; //molecular data set programmatically with setLigand
@@ -725,12 +780,12 @@ public:
   quaternion axial_quaternion();
 
   bool add_to_minfo(const string& file, const vector<int>& atommap, unsigned mapoffset, smt t, float x, float y, float z,  mol_info& minfo);
-  void load_cache(const string& file, const vector<int>& atommap, unsigned atomoffset);
+  void load_cache(const string& file, const vector<int>& atommap, unsigned atomoffset, MolCache& molcache);
   void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, mol_info& minfo);
   void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
-                    mol_transform& transform, unsigned pose, output_transform& pertub, const quaternion& Q, bool gpu);
+                    mol_transform& transform, unsigned pose, output_transform& pertub, bool gpu);
   void set_grid_minfo(Dtype *grid, const mol_info& recatoms, const mol_info& ligatoms,
-                    mol_transform& transform, output_transform& peturb, const quaternion& Q, bool gpu);
+                    mol_transform& transform, output_transform& peturb, bool gpu);
 
   void setAtomGradientsGPU(GridMaker& gmaker, Dtype *diff, unsigned batch_size);
   void forward(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top, bool gpu);

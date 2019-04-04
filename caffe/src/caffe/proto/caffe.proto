@@ -326,7 +326,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 154 (last added: softmax_noisy_label_loss_param)
+// LayerParameter next available layer-specific ID: 156 (last added: trig_param)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -405,6 +405,7 @@ message LayerParameter {
   optional InputParameter input_param = 143;
   optional LogParameter log_param = 134;
   optional LRNParameter lrn_param = 118;
+  optional MatMulParameter matmul_param = 154;
   optional MemoryDataParameter memory_data_param = 119;
   optional MolGridDataParameter molgrid_data_param = 151;
   optional MVNParameter mvn_param = 120;
@@ -429,6 +430,7 @@ message LayerParameter {
   optional TanHParameter tanh_param = 127;
   optional ThresholdParameter threshold_param = 128;
   optional TileParameter tile_param = 138;
+  optional TrigParameter trig_param = 155;
   optional WindowDataParameter window_data_param = 129;
 }
 
@@ -938,10 +940,12 @@ message MolGridDataParameter {
   optional string ligmolcache = 45 [default = ""]; //single binary file of combined ligand gninatypes, relative to root_folder
   optional string mem_recmap = 46 [default = ""]; //contents of a recmap
   optional string mem_ligmap = 47 [default = ""]; //contents of a ligmap
-  optional bool batch_rotate = 48 [default = false]; //rotate each structure in batch by some angle * index in batch
-  optional float batch_rotate_yaw = 49 [default = 0.0]; //yaw angle for batch rotation
-  optional float batch_rotate_roll = 50 [default = 0.0]; //roll angle for batch rotation
-  optional float batch_rotate_pitch = 51 [default = 0.0]; //pitch angle for batch rotation
+  optional bool duplicate_poses = 48 [default = false]; //if num_poses > 1, create separate examples (with receptor) for each ligand pose
+  optional uint32 peturb_bins = 49 [default = 0]; // if > 0, output categorical labels for discretized bins instead of actual values for peturb
+  optional bool batch_rotate = 50 [default = false]; //rotate each structure in batch by some angle * index in batch
+  optional float batch_rotate_yaw = 51 [default = 0.0]; //yaw angle for batch rotation
+  optional float batch_rotate_roll = 52 [default = 0.0]; //roll angle for batch rotation
+  optional float batch_rotate_pitch = 53 [default = 0.0]; //pitch angle for batch rotation
 }
 
 message NDimDataParameter {
@@ -1031,6 +1035,19 @@ message LRNParameter {
     CUDNN = 2;
   }
   optional Engine engine = 6 [default = DEFAULT];
+}
+
+message MatMulParameter {
+  // MatMulLayer computes a batch of matrix-matrix multipications
+  // For each of the two bottom blobs, the first axis is the batch size,
+  // the second axis is the number of rows, and the rest of the axes are
+  // implicitly flattened into a single axis which is the number of columns
+  // After this implicit reshape, either input matrix can be transposed
+  // The top blob always has three axes which are the batch size (same as
+  // input) and the number of rows and columns, which depend on the bottom
+  // blob shapes and whether they were transposed
+  optional bool transpose_a = 1 [default = false];
+  optional bool transpose_b = 2 [default = false];
 }
 
 message MemoryDataParameter {
@@ -1345,6 +1362,15 @@ message TileParameter {
 
   // The number of copies (tiles) of the blob to output.
   optional int32 tiles = 2;
+}
+
+//trig fuctions
+message TrigParameter {
+  enum Function {
+    COS = 0;
+    SIN = 1;
+  }
+  optional Function function = 1 [default = COS];
 }
 
 // Message that stores parameters used by ThresholdLayer
