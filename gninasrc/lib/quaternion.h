@@ -86,11 +86,7 @@ struct qt {
     }
 
     __host__  __device__ qt operator /(const fl &r) {
-      a /= r;
-      b /= r;
-      c /= r;
-      d /= r;
-      return *this;
+      return qt(a/r,b/r,c/r,d/r);
     }
 
     __host__  __device__ qt operator*(const qt& r) const;

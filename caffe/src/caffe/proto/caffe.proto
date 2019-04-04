@@ -326,7 +326,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 155 (last added: matmul_param)
+// LayerParameter next available layer-specific ID: 158 (last added: trig_param)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -396,6 +396,7 @@ message LayerParameter {
   optional EmbedParameter embed_param = 137;
   optional ExpParameter exp_param = 111;
   optional FlattenParameter flatten_param = 135;
+  optional FlexLSTMParameter flex_lstm_param = 155;
   optional HDF5DataParameter hdf5_data_param = 112;
   optional HDF5OutputParameter hdf5_output_param = 113;
   optional HingeLossParameter hinge_loss_param = 114;
@@ -405,6 +406,7 @@ message LayerParameter {
   optional InputParameter input_param = 143;
   optional LogParameter log_param = 134;
   optional LRNParameter lrn_param = 118;
+  optional LSTMDataGetterParameter lstm_datagetter_param = 156;
   optional MatMulParameter matmul_param = 154;
   optional MemoryDataParameter memory_data_param = 119;
   optional MolGridDataParameter molgrid_data_param = 151;
@@ -430,6 +432,7 @@ message LayerParameter {
   optional TanHParameter tanh_param = 127;
   optional ThresholdParameter threshold_param = 128;
   optional TileParameter tile_param = 138;
+  optional TrigParameter trig_param = 157;
   optional WindowDataParameter window_data_param = 129;
 }
 
@@ -803,6 +806,13 @@ message FlattenParameter {
   optional int32 end_axis = 2 [default = -1];
 }
 
+// Message that stores parameters used by FlexLSTMLayer
+message FlexLSTMParameter {
+  optional int32 stride = 1 [default = 0]; // Stride when selecting subsets of input for recurrence, default is same size as filter width
+  optional float subgrid_dim = 2 [default = 0.0]; //perform recurrence over subgrids with this dim
+  optional float resolution = 3; //grid resolution
+}
+
 // Message that stores parameters used by HDF5DataLayer
 message HDF5DataParameter {
   // Specify the data source.
@@ -940,6 +950,12 @@ message MolGridDataParameter {
   optional string mem_recmap = 46 [default = ""]; //contents of a recmap
   optional string mem_ligmap = 47 [default = ""]; //contents of a ligmap
   optional bool duplicate_poses = 48 [default = false]; //if num_poses > 1, create separate examples (with receptor) for each ligand pose
+  optional float subgrid_dim = 49 [default = 0.0]; //perform recurrence over subgrids with this dim
+  optional uint32 maxgroupsize = 50 [default = 1]; //max size of group when performing a recurrence over frame groups; 0 if there are no groups
+  optional uint32 maxchunksize = 51 [default = 1]; //max size of subsequence for BPTT
+  optional int32 stride = 52 [default = 0]; // Stride when selecting subsets of input for recurrence, default is same size as filter width
+  optional bool use_rec_center = 53 [default = false]; //use rec to define grid center
+  optional uint32 peturb_bins = 54 [default = 0]; // if > 0, output categorical labels for discretized bins instead of actual values for peturb
 }
 
 message NDimDataParameter {
@@ -1029,6 +1045,18 @@ message LRNParameter {
     CUDNN = 2;
   }
   optional Engine engine = 6 [default = DEFAULT];
+}
+
+// Message that stores parameters used by LSTM DataGetter Layer; in general the
+// user does not set these parameters, but instead uses a Flex LSTM Layer that
+// explicitly unrolls the LSTM graph, inserting DataGetter layers and setting
+// their timesteps
+message LSTMDataGetterParameter {
+  // Timestep to be computed by the layer
+  optional int32 timestep = 1 [default = 0];
+  optional int32 stride = 2 [default = 0]; // Stride when selecting subsets of input for recurrence, default is same size as filter width
+  optional float subgrid_dim = 3 [default = 0.0]; //perform recurrence over subgrids with this dim
+  optional float resolution = 4; //grid resolution
 }
 
 message MatMulParameter {
@@ -1356,6 +1384,15 @@ message TileParameter {
 
   // The number of copies (tiles) of the blob to output.
   optional int32 tiles = 2;
+}
+
+//trig fuctions
+message TrigParameter {
+  enum Function {
+    COS = 0;
+    SIN = 1;
+  }
+  optional Function function = 1 [default = COS];
 }
 
 // Message that stores parameters used by ThresholdLayer

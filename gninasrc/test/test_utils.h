@@ -1,8 +1,12 @@
 #ifndef TEST_UTILS_H
 #define TEST_UTILS_H
+#include "caffe/util/rng.hpp"
+#include "caffe/layers/molgrid_data_layer.hpp"
 #include <string>
 #include "tee.h"
 #include "gpucode.h"
+#include <boost/math/quaternion.hpp>
+#include "cnn_scorer.h"
 #include "parsed_args.h"
 #include "atom_constants.h"
 #include "device_buffer.h"
@@ -10,13 +14,14 @@
 extern parsed_args p_args;
 extern bool run_on_gpu;
 extern int cuda_dev_id;
+typedef boost::math::quaternion<float> quaternion;
 
 //TODO: doesn't explicitly prevent/check atoms from overlapping, which could
 //theoretically lead to runtime errors later
 template<typename atomT>
 inline void make_mol(std::vector<atom_params>& atoms, std::vector<atomT>& types,
-    std::mt19937 engine, size_t natoms = 0, size_t min_atoms = 1,
-    size_t max_atoms = 200, float max_x = 25, float max_y = 25,
+    std::mt19937 engine, size_t natoms = 0, size_t min_atoms = 200,
+    size_t max_atoms = 1000, float max_x = 25, float max_y = 25,
     float max_z = 25) {
 
   if (!natoms) {
@@ -70,6 +75,36 @@ inline void print_tree(atom_params* atoms, unsigned coords_size, tee& log) {
         << " " << atoms[i].coords[2] << "\n";
   }
   log << "\n";
+}
+
+//set up CNN grids from randomly-generated mol
+template <typename atomT, typename MGridT, typename GridMakerT>
+inline void set_cnn_grids(MGridT* mgrid, 
+  GridMakerT& gmaker, std::vector<atom_params>& mol_atoms, std::vector<atomT>& mol_types) {
+  //first set up mgrid
+  mgrid->batch_transform.resize(1);
+  mgrid->batch_transform[0] = caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>::mol_transform();
+  caffe::BaseMolGridDataLayer<CNNScorer::Dtype, GridMaker>::mol_transform& transform = mgrid->batch_transform[0];
+  vec center(0,0,0);
+  for (size_t i=0; i<mol_atoms.size(); ++i) {
+    atom_params& ainfo = mol_atoms[i];
+    transform.mol.atoms.push_back(make_float4(ainfo.coords.x,
+                ainfo.coords.y, ainfo.coords.z, ainfo.charge));
+    transform.mol.whichGrid.push_back(mol_types[i]);
+    transform.mol.gradient.push_back(make_float3(0,0,0));
+    center += vec(ainfo.coords.x, ainfo.coords.y, ainfo.coords.z);
+  }
+  center /= mol_atoms.size();
+  transform.center = center;
+  transform.Q = quaternion(1,0,0,0);
+  transform.set_random_quaternion(caffe::caffe_rng());
+
+  //then set up gridmaker
+  bool spherize = false;
+  double dim = round(mgrid->dimension/mgrid->resolution)+1;
+  gmaker.initialize(mgrid->resolution, mgrid->dimension, mgrid->radiusmultiple, 
+          mgrid->binary, spherize);
+  gmaker.setCenter(center[0], center[1], center[2]);
 }
 
 //loop boost test case for energy/force calculations

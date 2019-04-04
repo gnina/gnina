@@ -121,6 +121,11 @@ struct CUDA_ALIGN(4 * sizeof(float)) vec {
       /* TODO: oleg was using sqr */
       return sqr(data[0]) + sqr(data[1]) + sqr(data[2]);
     }
+
+    __host__ __device__ fl x() const { return data[0]; }
+    __host__ __device__ fl y() const { return data[1]; }
+    __host__ __device__ fl z() const { return data[2]; }
+
 #ifndef __CUDA_ARCH__
     fl norm() const {
       return std::sqrt(norm_sqr());

@@ -12,6 +12,7 @@ struct cnn_options {
     vec cnn_center;
     fl resolution; //this isn't specified in model file, so be careful about straying from default
     unsigned cnn_rotations; //do we want to score multiple orientations?
+    double subgrid_dim;
     bool cnn_scoring; //if true, do cnn_scoring of final pose
     bool cnn_refinement;
     bool outputdx;
@@ -25,7 +26,7 @@ struct cnn_options {
 
     cnn_options()
         : cnn_model_name("default2017"), cnn_center(NAN, NAN, NAN), resolution(0.5), cnn_rotations(0),
-            cnn_scoring(false), cnn_refinement(false), outputdx(false),
+            subgrid_dim(0.0), cnn_scoring(false), cnn_refinement(false), outputdx(false),
             outputxyz(false), gradient_check(false), move_minimize_frame(false),
             fix_receptor(true), verbose(false), seed(0) {
     }

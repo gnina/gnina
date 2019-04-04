@@ -7,7 +7,7 @@
 #include "test_cache.h"
 #include "test_cnn.h"
 #include "test_utils.h"
-#define N_ITERS 10
+#define N_ITERS 5
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_NO_MAIN
 #include <boost/test/unit_test.hpp>
@@ -36,7 +36,7 @@ BOOST_AUTO_TEST_CASE(eval_intra) {
 
 BOOST_AUTO_TEST_SUITE_END()
 
-BOOST_AUTO_TEST_SUITE(tree_gpu)
+BOOST_AUTO_TEST_SUITE(test_tree_gpu)
 
 BOOST_AUTO_TEST_CASE(set_conf) {
   boost_loop_test(&test_set_conf);
@@ -58,8 +58,20 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(test_cnn)
 
-BOOST_AUTO_TEST_CASE(set_conf) {
+BOOST_AUTO_TEST_CASE(set_atom_gradients) {
   boost_loop_test(&test_set_atom_gradients);
+}
+
+BOOST_AUTO_TEST_CASE(vanilla_grids) {
+  boost_loop_test(&test_vanilla_grids);
+}
+
+BOOST_AUTO_TEST_CASE(subcube_grids) {
+  boost_loop_test(&test_subcube_grids);
+}
+
+BOOST_AUTO_TEST_CASE(strided_cube_datagetter) {
+  boost_loop_test(&test_strided_cube_datagetter);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

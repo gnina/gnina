@@ -46,6 +46,46 @@ void NNGridder::outputMAPGrid(ostream& out, Grid& grid) {
   }
 }
 
+//output a grid the file in map format (for debug)
+void RNNMolsGridder::outputMAPGrid(ostream& out, Grid& grid)
+{
+  unsigned dim = dims[0].n + 1;
+	unsigned max = (dim) / (dimension / subgrid_dim);
+  SubcubeGridMaker* rnn = dynamic_cast<SubcubeGridMaker*>(gmaker);
+  assert(rnn);
+  unsigned& grids_per_dim = rnn->grids_per_dim;
+  unsigned slice = grids_per_dim * grids_per_dim;
+  unsigned mod_idx = grid_idx % slice;
+  std::vector<unsigned> subgrid_indices(3);
+  subgrid_indices[0] = grid_idx / slice;
+  subgrid_indices[1] = mod_idx / grids_per_dim; 
+  subgrid_indices[2] = mod_idx % grids_per_dim; 
+	out.precision(5);
+	out << "GRID_PARAMETER_FILE\nGRID_DATA_FILE\nMACROMOLECULE\n";
+	out << "SPACING " << resolution << "\n";
+	out << "NELEMENTS " << max - 1 << " " << max - 1 << " " << max - 1 << "\n";
+	out << "CENTER";
+	for (unsigned i = 0; i < 3; i++)
+	{
+		double c = (dims[i].end - (subgrid_dim+resolution)*(grids_per_dim-subgrid_indices[i]) + 
+        dims[i].begin + (subgrid_dim+resolution)*(subgrid_indices[i])) / 2.0;
+		out << " " << c;
+	}
+	out << "\n";
+
+	//now coordinates - z,y,x
+	for (unsigned k = 0; k < max; k++)
+	{
+		for (unsigned j = 0; j < max; j++)
+		{
+			for (unsigned i = 0; i < max; i++)
+			{
+				out << grid[i][j][k] << "\n";
+			}
+		}
+	}
+}
+
 //output a grid the file in dx format (for debug)
 void NNGridder::outputDXGrid(ostream& out, Grid& grid) {
   unsigned n = dims[0].n + 1;
@@ -76,6 +116,50 @@ void NNGridder::outputDXGrid(ostream& out, Grid& grid) {
           out << "\n";
         else
           out << " ";
+      }
+    }
+  }
+}
+
+//output a grid the file in dx format (for debug)
+void RNNMolsGridder::outputDXGrid(ostream& out, Grid& grid)
+{
+  unsigned dim = dims[0].n + 1;
+  SubcubeGridMaker* rnn = dynamic_cast<SubcubeGridMaker*>(gmaker);
+  assert(rnn);
+  unsigned& grids_per_dim = rnn->grids_per_dim;
+  unsigned n = rnn->subgrid_dim_in_points;
+  unsigned slice = grids_per_dim * grids_per_dim;
+  unsigned mod_idx = grid_idx % slice;
+  std::vector<unsigned> subgrid_indices(3);
+  subgrid_indices[0] = grid_idx / slice;
+  subgrid_indices[1] = mod_idx / grids_per_dim; 
+  subgrid_indices[2] = mod_idx % grids_per_dim; 
+  out.precision(5);
+  setprecision(5);
+  out << fixed;
+  out << "object 1 class gridpositions counts " << n << " " << n << " " << " " << n << "\n";
+  out << "origin";
+  for (unsigned i = 0; i < 3; i++)
+  {
+    out << " " << dims[i].begin + subgrid_indices[i] * (subgrid_dim + resolution);
+  }
+  out << "\n";
+  out << "delta " << resolution << " 0 0\ndelta 0 " << resolution << " 0\ndelta 0 0 " << resolution << "\n";
+  out << "object 2 class gridconnections counts " << n << " " << n << " " << " " << n << "\n";
+  out << "object 3 class array type double rank 0 items [ " << n*n*n << "] data follows\n";
+  //now coordinates - x,y,z
+  unsigned total = 0;
+  for (unsigned i = 0; i < n; i++)
+  {
+    for (unsigned j = 0; j < n; j++)
+    {
+      for (unsigned k = 0; k < n; k++)
+      {
+        out << grid[i][j][k];
+        total++;
+        if(total % 3 == 0) out << "\n";
+        else out << " ";
       }
     }
   }
@@ -206,6 +290,47 @@ void NNGridder::outputMAP(const string& base) {
 }
 
 //output an AD4 map for each grid
+void RNNMolsGridder::outputMAP(const string& base)
+{
+  SubcubeGridMaker* rnn = dynamic_cast<SubcubeGridMaker*>(gmaker);
+  assert(rnn);
+  unsigned& grids_per_dim = rnn->grids_per_dim;
+  unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
+  unsigned nrec_types = receptorGrids.size() / ngrids;
+  unsigned nlig_types = ligandGrids.size() / ngrids;
+  assert(receptorGrids.size() % ngrids == 0);
+  assert(ligandGrids.size() % ngrids == 0);
+	for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
+	{
+    grid_idx = a / nrec_types;
+		//this is for debugging, so avoid outputting empty grids
+		if (!gridIsEmpty(receptorGrids[a]))
+		{
+      unsigned aidx = a % nrec_types;
+			string name = getIndexName(rmap, aidx);
+      name = name + "_cube" + std::to_string(grid_idx);
+			string fname = base + "_rec_" + name + ".map";
+			ofstream out(fname.c_str());
+			outputMAPGrid(out, receptorGrids[a]);
+		}
+	}
+	for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
+	{
+    grid_idx = a / nlig_types;
+		if (!gridIsEmpty(ligandGrids[a]))
+		{
+      unsigned aidx = a % nlig_types;
+			string name = getIndexName(lmap, aidx);
+      name = name + "_cube" + std::to_string(grid_idx);
+			string fname = base + "_lig_" + name + ".map";
+			ofstream out(fname.c_str());
+			outputMAPGrid(out, ligandGrids[a]);
+		}
+	}
+
+}
+
+//output an AD4 map for each grid
 void NNGridder::outputDX(const string& base) {
   for (unsigned a = 0, na = receptorGrids.size(); a < na; a++) {
     //this is for debugging, so avoid outputting empty grids
@@ -219,6 +344,47 @@ void NNGridder::outputDX(const string& base) {
   for (unsigned a = 0, na = ligandGrids.size(); a < na; a++) {
     if (!gridIsEmpty(ligandGrids[a])) {
       string name = getIndexName(lmap, a);
+      string fname = base + "_lig_" + name + ".dx";
+      ofstream out(fname.c_str());
+      outputDXGrid(out, ligandGrids[a]);
+    }
+  }
+
+}
+
+//output an AD4 map for each grid
+void RNNMolsGridder::outputDX(const string& base)
+{
+  SubcubeGridMaker* rnn = dynamic_cast<SubcubeGridMaker*>(gmaker);
+  assert(rnn);
+  unsigned& grids_per_dim = rnn->grids_per_dim;
+  unsigned ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
+  unsigned nrec_types = receptorGrids.size() / ngrids;
+  unsigned nlig_types = ligandGrids.size() / ngrids;
+  assert(receptorGrids.size() % ngrids == 0);
+  assert(ligandGrids.size() % ngrids == 0);
+  for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
+  {
+    grid_idx = a / nrec_types;
+    //this is for debugging, so avoid outputting empty grids
+    if (!gridIsEmpty(receptorGrids[a]))
+    {
+      unsigned aidx = a % nrec_types;
+      string name = getIndexName(rmap, aidx);
+      name = name + "_cube" + std::to_string(grid_idx);
+      string fname = base + "_rec_" + name + ".dx";
+      ofstream out(fname.c_str());
+      outputDXGrid(out, receptorGrids[a]);
+    }
+  }
+  for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
+  {
+    grid_idx = a / nlig_types;
+    if (!gridIsEmpty(ligandGrids[a]))
+    {
+      unsigned aidx = a % nlig_types;
+      string name = getIndexName(lmap, aidx);
+      name = name + "_cube" + std::to_string(grid_idx);
       string fname = base + "_lig_" + name + ".dx";
       ofstream out(fname.c_str());
       outputDXGrid(out, ligandGrids[a]);
@@ -276,6 +442,73 @@ void NNGridder::outputBIN(ostream& out, bool outputrec, bool outputlig) {
 
 }
 
+//output binary form of raw data in 3D multi-channel form (types are last)
+void RNNMolsGridder::outputBIN(ostream& out, bool outputrec, bool outputlig)
+{
+	unsigned n = (dims[0].n + 1) / (dimension / subgrid_dim);
+
+	if(outputrec)
+	{
+		//receptor
+		for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
+		{
+			assert(receptorGrids[a].shape()[0] == n);
+
+			for (unsigned i = 0; i < n; i++)
+			{
+				for (unsigned j = 0; j < n; j++)
+				{
+					for (unsigned k = 0; k < n; k++)
+					{
+						//when you see this many loops you known you're going to generate a lot of data..
+
+						out.write((char*) &receptorGrids[a][i][j][k],
+								sizeof(float));
+					}
+				}
+			}
+		}
+
+		//user grids
+		for (unsigned a = 0, na = userGrids.size(); a < na; a++)
+		{
+			assert(userGrids[a].shape()[0] == n);
+			for (unsigned i = 0; i < n; i++)
+			{
+				for (unsigned j = 0; j < n; j++)
+				{
+					for (unsigned k = 0; k < n; k++)
+					{
+						out.write((char*) &userGrids[a][i][j][k],
+								sizeof(float));
+					}
+				}
+			}
+		}
+	}
+
+	if(outputlig)
+	{
+		//ligand
+		for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
+		{
+			assert(ligandGrids[a].shape()[0] == n);
+			for (unsigned i = 0; i < n; i++)
+			{
+				for (unsigned j = 0; j < n; j++)
+				{
+					for (unsigned k = 0; k < n; k++)
+					{
+						out.write((char*) &ligandGrids[a][i][j][k],
+								sizeof(float));
+					}
+				}
+			}
+		}
+	}
+
+}
+
 void NNGridder::outputMem(vector<float>& out) {
   unsigned n = dims[0].n + 1;
   unsigned gsize = n * n * n;
@@ -290,6 +523,25 @@ void NNGridder::outputMem(vector<float>& out) {
     memcpy(ptr, ligandGrids[a].origin(), gsize * sizeof(float));
     ptr += gsize;
   }
+}
+
+void RNNMolsGridder::outputMem(vector<float>& out)
+{
+	unsigned n = (dims[0].n + 1) / (dimension / subgrid_dim);
+	unsigned gsize = n * n * n;
+	out.resize(gsize * receptorGrids.size() + gsize * ligandGrids.size());
+
+	float *ptr = &out[0];
+	for (unsigned a = 0, na = receptorGrids.size(); a < na; a++)
+	{
+		memcpy(ptr, receptorGrids[a].origin(), gsize * sizeof(float));
+		ptr += gsize;
+	}
+	for (unsigned a = 0, na = ligandGrids.size(); a < na; a++)
+	{
+		memcpy(ptr, ligandGrids[a].origin(), gsize * sizeof(float));
+		ptr += gsize;
+	}
 }
 
 //copy gpu grid to passed cpu grid
@@ -339,7 +591,7 @@ void NNGridder::setCenter(double x, double y, double z) {
     cerr << "Attempting to re-set grid center with user specified grids.\n";
     exit(1);
   }
-  gmaker.setCenter(x, y, z);
+  gmaker->setCenter(x, y, z);
 
   trans = vec(x, y, z);
   int numpts = round(dimension / resolution);
@@ -357,91 +609,117 @@ void NNGridder::setCenter(double x, double y, double z) {
   dims[2].n = numpts;
 }
 
-void NNGridder::setMapsAndGrids(const gridoptions& opt) {
-  if (opt.recmap.size() == 0)
-    GridMaker::createDefaultRecMap(rmap);
-  else
-    GridMaker::createAtomTypeMap(opt.recmap, rmap);
+void NNGridder::setMapsAndGrids(const gridoptions& opt)
+{
+	if (opt.recmap.size() == 0)
+		gmaker->createDefaultRecMap(rmap);
+	else
+		gmaker->createAtomTypeMap(opt.recmap, rmap);
 
-  if (opt.ligmap.size() == 0)
-    GridMaker::createDefaultLigMap(lmap);
-  else
-    GridMaker::createAtomTypeMap(opt.ligmap, lmap);
+	if (opt.ligmap.size() == 0)
+		gmaker->createDefaultLigMap(lmap);
+	else
+		gmaker->createAtomTypeMap(opt.ligmap, lmap);
 
-  //setup grids,
-  dimension = opt.dim;
-  resolution = opt.res;
+	//setup grids,
+	dimension = opt.dim;
+	resolution = opt.res;
 
-  int numpts = round(dimension / resolution);
-  unsigned n = numpts + 1; //fencepost
+	int numpts = round(dimension / resolution);
+	unsigned n = numpts + 1; //fencepost
+  unsigned ngrids = 1;
 
-  receptorGrids.reserve(smina_atom_type::NumTypes);
-  ligandGrids.reserve(smina_atom_type::NumTypes);
-
-  for (unsigned at = 0; at < smina_atom_type::NumTypes; at++) {
-    if (rmap[at] >= 0) //valid type for receptor
-        {
-      unsigned i = rmap[at];
-      if (receptorGrids.size() <= i) receptorGrids.resize(i + 1);
-      if (receptorGrids[i].num_elements() == 0) {
-        receptorGrids[i].resize(extents[n][n][n]);
-        fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(), 0.0);
-      }
-    }
-
-    if (lmap[at] >= 0) {
-      unsigned i = lmap[at];
-      if (ligandGrids.size() <= i) ligandGrids.resize(i + 1);
-      if (ligandGrids[i].num_elements() == 0) {
-        ligandGrids[i].resize(extents[n][n][n]);
-        fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
-      }
-    }
+  SubcubeGridMaker* rnn = dynamic_cast<SubcubeGridMaker*>(gmaker);
+  if (opt.subgrid_dim) {
+    assert(rnn);
+    unsigned grids_per_dim = rnn->grids_per_dim;
+    ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
+    n = rnn->subgrid_dim_in_points;
   }
 
-  //check for empty mappings
-  for (unsigned i = 0, nr = receptorGrids.size(); i < nr; i++) {
-    if (receptorGrids[i].num_elements() == 0) {
-      cerr << "Empty slot in receptor types: " << i
-          << ", possible duplicate?\n";
-      receptorGrids[i].resize(extents[n][n][n]);
-      fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(), 0.0);
-    }
-  }
-  for (unsigned i = 0, nl = ligandGrids.size(); i < nl; i++) {
-    if (ligandGrids[i].num_elements() == 0) {
-      cerr << "Empty slot in ligand types: " << i << ", possible duplicate?\n";
-      ligandGrids[i].resize(extents[n][n][n]);
-      fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
-    }
+	receptorGrids.reserve(ngrids * smina_atom_type::NumTypes);
+	ligandGrids.reserve(ngrids * smina_atom_type::NumTypes);
+
+  for (unsigned cid = 0; cid < ngrids; ++cid) {
+	  for (unsigned at = 0; at < smina_atom_type::NumTypes; at++)
+	  {
+	  	if (rmap[at] >= 0) //valid type for receptor
+	  	{
+	  		unsigned i = rmap[at];
+        unsigned idx = rnn ? cid * rnn->nrec_types + i : i;
+	  		if (receptorGrids.size() <= i * ngrids)
+	  			receptorGrids.resize((i + 1) * ngrids);
+	  		  if (receptorGrids[idx].num_elements() == 0)
+	  		  {
+	  		  	receptorGrids[idx].resize(extents[n][n][n]);
+	  		  	fill_n(receptorGrids[idx].data(), receptorGrids[idx].num_elements(), 0.0);
+	  		  }
+	  	}
+
+	  	if (lmap[at] >= 0)
+	  	{
+	  		unsigned i = lmap[at];
+        unsigned idx = rnn ? cid * rnn->nlig_types + i : i;
+	  		if (ligandGrids.size() <= i * ngrids)
+	  			ligandGrids.resize((i + 1) * ngrids);
+	  		  if (ligandGrids[idx].num_elements() == 0)
+	  		  {
+	  		  	ligandGrids[idx].resize(extents[n][n][n]);
+	  		  	fill_n(ligandGrids[idx].data(), ligandGrids[idx].num_elements(), 0.0);
+	  		  }
+	  	}
+	  }
   }
 
-  if (opt.separate && opt.examplegrid.size() == 0
-      && opt.usergrids.size() == 0) {
-    cerr
-        << "--separate specified, but no example or additional grids specified to define coordinate system\n";
-    abort();
-  }
+	//check for empty mappings
+	for (unsigned i = 0, nr = receptorGrids.size(); i < nr; i++)
+	{
+		if (receptorGrids[i].num_elements() == 0)
+		{
+			cerr << "Empty slot in receptor types: " << i
+					<< ", possible duplicate?\n";
+			receptorGrids[i].resize(extents[n][n][n]);
+			fill_n(receptorGrids[i].data(), receptorGrids[i].num_elements(), 0.0);
+		}
+	}
+	for (unsigned i = 0, nl = ligandGrids.size(); i < nl; i++)
+	{
+		if (ligandGrids[i].num_elements() == 0)
+		{
+			cerr << "Empty slot in ligand types: " << i
+					<< ", possible duplicate?\n";
+			ligandGrids[i].resize(extents[n][n][n]);
+			fill_n(ligandGrids[i].data(), ligandGrids[i].num_elements(), 0.0);
+		}
+	}
 
-  if (opt.examplegrid.size() > 0) {
-    ifstream gridfile(opt.examplegrid.c_str());
-    if (!gridfile) {
-      cerr << "Could not open example grid file " << opt.examplegrid << "\n";
-      abort();
-    }
-    vec gridcenter;
-    double gridres = 0;
-    Grid g;
-    if (!readDXGrid(gridfile, gridcenter, gridres, g)) {
-      cerr << "I couldn't understand the provided dx file " << opt.examplegrid
-          << ". I apologize for not being more informative and possibly being too picky about my file formats.\n";
-      exit(1);
-    }
-    setCenter(gridcenter[0], gridcenter[1], gridcenter[2]);
-    resolution = gridres;
-    dimension = resolution * (g.shape()[0] - 1);
-  }
-
+	if(opt.separate && opt.examplegrid.size() == 0 && opt.usergrids.size() == 0)
+	{
+		cerr << "--separate specified, but no example or additional grids specified to define coordinate system\n";
+		abort();
+	}
+	
+	if(opt.examplegrid.size() > 0) 
+	{
+		ifstream gridfile(opt.examplegrid.c_str());
+		if(!gridfile)
+		{
+			cerr << "Could not open example grid file " << opt.examplegrid << "\n";
+			abort();
+		}
+		vec gridcenter;
+		double gridres = 0;
+		Grid g;
+		if(!readDXGrid(gridfile,gridcenter, gridres, g))
+		{
+			cerr << "I couldn't understand the provided dx file " << opt.examplegrid << ". I apologize for not being more informative and possibly being too picky about my file formats.\n";
+			exit(1);
+		}
+		setCenter(gridcenter[0],gridcenter[1],gridcenter[2]);
+		resolution = gridres;
+		dimension = resolution*(g.shape()[0]-1);
+	}
+	
   vec savedcenter;
   userGrids.resize(0);
   userGrids.reserve(opt.usergrids.size());
@@ -509,6 +787,16 @@ NNMolsGridder::NNMolsGridder(const gridoptions& opt) {
   mols.setInputFile(opt.ligandfile);
 }
 
+RNNMolsGridder::RNNMolsGridder(const gridoptions& opt) : NNMolsGridder(opt)
+{
+  SubcubeGridMaker* rnn = dynamic_cast<SubcubeGridMaker*>(gmaker);
+  assert(rnn);
+  subgrid_dim = rnn->subgrid_dim;
+  unsigned& grids_per_dim = rnn->grids_per_dim;
+  ngrids = grids_per_dim * grids_per_dim * grids_per_dim;
+  grid_idx = 0;
+}
+
 void NNGridder::initialize(const gridoptions& opt) {
   binary = opt.binary;
   resolution = opt.res;
@@ -518,7 +806,12 @@ void NNGridder::initialize(const gridoptions& opt) {
   gpu = opt.gpu;
   Q = quaternion(0, 0, 0, 0);
 
-  gmaker.initialize(resolution, opt.dim, radiusmultiple, binary, opt.spherize);
+  if (opt.subgrid_dim)
+    gmaker = new SubcubeGridMaker();
+  else
+    gmaker = new GridMaker();
+
+  gmaker->initialize(opt, radiusmultiple);
 
   if (binary) radiusmultiple = 1.0;
 
@@ -667,6 +960,7 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec) {
     ainfo.push_back(ai);
   }
 
+  SubcubeGridMaker* rnn = dynamic_cast<SubcubeGridMaker*>(gmaker);
   if (gpu) {
     unsigned nlatoms = m.coordinates().size();
     CUDA_CHECK(
@@ -680,20 +974,44 @@ void NNGridder::setModel(const model& m, bool reinitlig, bool reinitrec) {
               recAInfo.size() * sizeof(float4), cudaMemcpyHostToDevice));
     }
 
-    gmaker.setAtomsGPU<float>(recAInfo.size(), gpu_receptorAInfo,
-        gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);
+    if (rnn) {
+      unsigned ntypes = rnn->ntypes;
+      rnn->ntypes = rnn->nrec_types;
+		  rnn->setAtomsGPU<float>(recAInfo.size(),gpu_receptorAInfo, gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);
+      rnn->ntypes = ntypes;
+    }
+    else
+      gmaker->setAtomsGPU<float>(recAInfo.size(), gpu_receptorAInfo,
+          gpu_recWhichGrid, Q, receptorGrids.size(), gpu_receptorGrids);
     cudaCopyGrids(receptorGrids, gpu_receptorGrids);
 
-    gmaker.setAtomsGPU<float>(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, Q,
-        ligandGrids.size(), gpu_ligandGrids);
+    if (rnn) {
+      unsigned ntypes = rnn->ntypes;
+      rnn->ntypes = rnn->nlig_types;
+		  rnn->setAtomsGPU<float>(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, Q, ligandGrids.size(), gpu_ligandGrids);
+      rnn->ntypes = ntypes;
+    }
+    else
+      gmaker->setAtomsGPU<float>(nlatoms, gpu_ligandAInfo, gpu_ligWhichGrid, Q,
+          ligandGrids.size(), gpu_ligandGrids);
     cudaCopyGrids(ligandGrids, gpu_ligandGrids);
 
     CUDA_CHECK(cudaDeviceSynchronize());
   } else {
     //put in to gridmaker format
 
-    gmaker.setAtomsCPU(recAInfo, recWhichGrid, Q, receptorGrids);
-    gmaker.setAtomsCPU(ainfo, ligWhichGrid, Q, ligandGrids);
+    if(rnn) {
+      unsigned ntypes = rnn->ntypes;
+      rnn->ntypes = rnn->nrec_types;
+		  rnn->setAtomsCPU(recAInfo, recWhichGrid, Q, receptorGrids);
+      rnn->ntypes = rnn->nlig_types;
+		  rnn->setAtomsCPU(ainfo, ligWhichGrid,  Q, ligandGrids);
+      rnn->ntypes = ntypes;
+    }
+    else {
+      gmaker->setAtomsCPU(recAInfo, recWhichGrid, Q, receptorGrids);
+      gmaker->setAtomsCPU(ainfo, ligWhichGrid, Q, ligandGrids);
+    }
   }
 }
 

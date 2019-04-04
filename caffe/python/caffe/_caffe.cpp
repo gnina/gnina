@@ -17,6 +17,8 @@
 #include "caffe/caffe.hpp"
 #include "caffe/layers/memory_data_layer.hpp"
 #include "caffe/layers/python_layer.hpp"
+#include "caffe/layers/pooling_layer.hpp"
+#include "caffe/layers/molgrid_data_layer.hpp"
 #include "caffe/sgd_solvers.hpp"
 
 // Temporary solution for numpy < 1.7 versions: old macro, no promises.
@@ -43,6 +45,9 @@ namespace bp = boost::python;
 
 namespace caffe {
 
+//forward declarations
+enum PoolingParameter_PoolMethod;
+
 // For Python, for now, we'll just always use float as the type.
 typedef float Dtype;
 const int NPY_DTYPE = NPY_FLOAT32;
@@ -50,6 +55,76 @@ const int NPY_DTYPE = NPY_FLOAT32;
 // Selecting mode.
 void set_mode_cpu() { Caffe::set_mode(Caffe::CPU); }
 void set_mode_gpu() { Caffe::set_mode(Caffe::GPU); }
+
+// function for allowing toggling input max pool to ave
+// pool for backprop during dreamlike input optimization
+bool toggle_max_to_ave(Net<Dtype>& net) {
+  const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net.layers();
+  PoolingLayer<Dtype> *pool = NULL;
+  for (unsigned i = 1, nl = layers.size(); i < nl; i++) {
+    pool = dynamic_cast<PoolingLayer<Dtype>*>(layers[i].get());
+    if (pool)
+      break; //found it
+    else
+      if (layers[i]->type() == string("Convolution"))
+        break; 
+      else if (layers[i]->type() == string("InnerProduct")) 
+        break;
+  }
+
+  if (pool) {
+    if (pool->pool() == PoolingParameter_PoolMethod_MAX) {
+      pool->set_pool(PoolingParameter_PoolMethod_AVE);
+    } else {
+      pool = NULL; //no need to reset to max
+    }
+  }
+  return pool;
+}
+
+void toggle_ave_to_max(Net<Dtype>& net) {
+  const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = net.layers();
+  PoolingLayer<Dtype> *pool = NULL;
+  for (unsigned i = 1, nl = layers.size(); i < nl; i++) {
+    pool = dynamic_cast<PoolingLayer<Dtype>*>(layers[i].get());
+    if (pool)
+      break; //found it
+    else
+      if (layers[i]->type() == string("Convolution"))
+        break; 
+      else if (layers[i]->type() == string("InnerProduct")) 
+        break;
+  }
+
+  if (pool) {
+    if (pool->pool() == PoolingParameter_PoolMethod_AVE) {
+      pool->set_pool(PoolingParameter_PoolMethod_MAX);
+    } 
+  }
+}
+
+std::vector<std::string> get_rec_types(Layer<Dtype>& layer) {
+  MolGridDataLayer<Dtype>* mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(&layer);
+  assert(mgrid);
+  return mgrid->getRecTypes();
+}
+
+std::vector<std::string> get_lig_types(Layer<Dtype>& layer) {
+  MolGridDataLayer<Dtype>* mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(&layer);
+  assert(mgrid);
+  return mgrid->getLigTypes();
+}
+
+std::vector<float> get_grid_center(Layer<Dtype>& layer, unsigned mol_idx) {
+  MolGridDataLayer<Dtype>* mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(&layer);
+  assert(mgrid);
+  vec center = mgrid->getCenter(mol_idx);
+  std::vector<float> vcenter;
+  for (int i=0; i<3; ++i) 
+    vcenter.push_back(center[i]);
+  return vcenter;
+}
+
 
 void InitLog() {
   ::google::InitGoogleLogging("");
@@ -402,6 +477,11 @@ BOOST_PYTHON_MODULE(_caffe) {
   bp::def("device_synchronize", &Caffe::device_synchronize);
 
   bp::def("layer_type_list", &LayerRegistry<Dtype>::LayerTypeList);
+  bp::def("toggle_max_to_ave", &toggle_max_to_ave);
+  bp::def("toggle_ave_to_max", &toggle_ave_to_max);
+  bp::def("get_grid_center", &get_grid_center);
+  bp::def("get_rec_types", &get_rec_types);
+  bp::def("get_lig_types", &get_lig_types);
 
   bp::class_<Net<Dtype>, shared_ptr<Net<Dtype> >, boost::noncopyable >("Net",
     bp::no_init)
@@ -490,6 +570,27 @@ BOOST_PYTHON_MODULE(_caffe) {
     .def("clear", &Layer<Dtype>::Clear)
     .add_property("type", bp::make_function(&Layer<Dtype>::type));
   BP_REGISTER_SHARED_PTR_TO_PYTHON(Layer<Dtype>);
+
+  bp::class_<MolGridDataLayer<Dtype>, bp::bases<Layer<Dtype> >,
+    shared_ptr<MolGridDataLayer<Dtype> >, boost::noncopyable>("MolGridDataLayer", bp::no_init)
+    .def("get_moltransform", &MolGridDataLayer<Dtype>::getMolTransform);
+  BP_REGISTER_SHARED_PTR_TO_PYTHON(MolGridDataLayer<Dtype>);
+
+  bp::class_<MolGridDataLayer<Dtype>::mol_transform>("mol_transform")
+      .def_readonly("center",&MolGridDataLayer<Dtype>::mol_transform::center)
+      .def_readonly("Q",&MolGridDataLayer<Dtype>::mol_transform::Q);
+
+  bp::class_<vec>("vec")
+      .def("x",&vec::x)
+      .def("y",&vec::y)
+      .def("z",&vec::z);
+
+  bp::class_<qt>("qt")
+      .def_readwrite("a",&qt::a)
+      .def_readwrite("b",&qt::b)
+      .def_readwrite("c",&qt::c)
+      .def_readwrite("d",&qt::d);
+
 
   bp::class_<SolverParameter>("SolverParameter", bp::no_init)
     .add_property("max_iter", &SolverParameter::max_iter)

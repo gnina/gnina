@@ -110,7 +110,7 @@ class NNGridder {
     bool gpu; //use gpu
     bool use_covalent_radius; //instead of xs_radius
 
-    GridMaker gmaker;
+    GridMaker* gmaker;
     vector<Grid> receptorGrids;
     vector<Grid> ligandGrids;
     vector<int> rmap; //map atom types to position in grid vectors
@@ -137,24 +137,22 @@ class NNGridder {
     void setRecGPU();
     void setLigGPU();
 
+	  //output a grid the file in map format (for debug)
+	  virtual void outputMAPGrid(ostream& out, Grid& grid);
+
+	  //output a grid the file in dx format (for debug)
+	  virtual void outputDXGrid(ostream& out, Grid& grid);
     pair<unsigned, unsigned> getrange(const grid_dim& dim, double c, double r);
-
-    //output a grid the file in map format (for debug)
-    void outputMAPGrid(ostream& out, Grid& grid);
-
-    //output a grid the file in dx format (for debug)
-    void outputDXGrid(ostream& out, Grid& grid);
 
     //read dx file into grid
     bool readDXGrid(istream& in, vec& center, double& res, Grid& grid);
 
+	  //setup ligand/receptor maps
+	  //setup grid dimensions and zero-init
+	  virtual void setMapsAndGrids(const gridoptions& opt);
     //return a string representation of the atom type(s) represented by index
     //in map - this isn't particularly efficient, but is only for debug purposes
     string getIndexName(const vector<int>& map, unsigned index) const;
-
-    //setup ligand/receptor maps
-    //setup grid dimensions and zero-init
-    void setMapsAndGrids(const gridoptions& opt);
 
     //set the center of the grid, must reset receptor/ligand
     void setCenter(double x, double y, double z);
@@ -176,7 +174,11 @@ class NNGridder {
             gpu_ligandAInfo(NULL), gpu_ligWhichGrid(NULL) {
     }
 
-    void initialize(const gridoptions& opt);
+    NNGridder(const NNGridder&) = delete;
+
+    virtual ~NNGridder() {if (gmaker) delete gmaker;}
+
+	  virtual void initialize(const gridoptions& opt);
 
     //set grids (receptor and ligand)
     //reinits should be set to true if have different molecule than previously scene
@@ -186,17 +188,17 @@ class NNGridder {
     //return string detailing the configuration (size.channels)
     string getParamString(bool outputrec, bool outputlig) const;
 
-    //output an AD4 map for each grid
-    void outputMAP(const string& base);
+	  //output an AD4 map for each grid
+	  virtual void outputMAP(const string& base);
 
-    //output an dx map for each grid
-    void outputDX(const string& base);
+	  //output an dx map for each grid
+	  virtual void outputDX(const string& base);
 
-    //output binary form of raw data in 3D multi-channel form
-    void outputBIN(ostream& out, bool outputrec = true, bool outputlig = true);
+	  //output binary form of raw data in 3D multi-channel form
+	  virtual void outputBIN(ostream& out, bool outputrec=true, bool outputlig=true);
 
-    //set vector to full set of grids
-    void outputMem(vector<float>& out);
+	  //set vector to full set of grids
+	  virtual void outputMem(vector<float>& out);
 
     unsigned nchannels() const {
       return receptorGrids.size() + ligandGrids.size() + userGrids.size();
@@ -216,12 +218,41 @@ class NNMolsGridder : public NNGridder {
 
   public:
 
-    NNMolsGridder(const gridoptions& opt);
+	  NNMolsGridder(const gridoptions& opt);
+    virtual ~NNMolsGridder() {}
 
     //read a molecule (return false if unsuccessful)
     //set the ligand grid appropriately
     bool readMolecule(bool timeit);
 
+};
+
+class RNNMolsGridder : public NNMolsGridder 
+{
+public:
+  RNNMolsGridder(const gridoptions& opt);
+  virtual ~RNNMolsGridder() {}
+
+	//output an AD4 map for each grid
+	void outputMAP(const string& base) override;
+
+	//output an dx map for each grid
+	void outputDX(const string& base) override;
+
+	//output binary form of raw data in 3D multi-channel form
+	void outputBIN(ostream& out, bool outputrec=true, bool outputlig=true) override;
+
+	//set vector to full set of grids
+	void outputMem(vector<float>& out) override;
+protected:
+  double subgrid_dim;
+  unsigned ngrids;
+  unsigned grid_idx;
+	//output a grid the file in map format (for debug)
+	void outputMAPGrid(ostream& out, Grid& grid) override;
+
+	//output a grid the file in dx format (for debug)
+	void outputDXGrid(ostream& out, Grid& grid) override;
 };
 
 #endif
