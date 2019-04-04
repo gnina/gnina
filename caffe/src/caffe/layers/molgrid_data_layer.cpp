@@ -903,7 +903,7 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const MolGridDataLayer<Dt
           set_mol_info(root_folder+ligand, lmap, numReceptorTypes+numLigandTypes*p, tmplig);
           lig.append(tmplig);
         }
-    }    
+    }
     set_grid_minfo(data, rec, lig, transform, peturb, gpu);
   }
 }
@@ -917,9 +917,7 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
     {
   bool fixcenter = this->layer_param_.molgrid_data_param().fix_center_to_origin();
   //set grid values from mol info
-  //first clear transform from the previous batch
   rng_t* rng = caffe_rng();
-  transform = mol_transform();
   mol_transform ligtrans;
 
   //figure out transformation
@@ -929,12 +927,12 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data, const MolGridDataLayer
   //in the first case, the coordinates of the mol don't change; in the other they are mogrified
   //TODO: unify this - I think transformation should be treated separately from gridding
   //I don't think random rotation and backwards gradients are currently working
-  if (!batch_rotate)
-  {
-    transform.Q = quaternion(1, 0, 0, 0);
-  }
 
-  if (current_rotation == 0 && !randrotate)
+  // first clear transform from the previous batch
+  transform.center[0] = transform.center[1] = transform.center[2] = 0;
+
+  // if batch_rotate is true, transform.Q will already be set, otherwise need to clear it
+  if (current_rotation == 0 && !randrotate && !batch_rotate)
     transform.Q = quaternion(1, 0, 0, 0); //check real part to avoid mult
 
   if (randrotate)
@@ -1173,7 +1171,6 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
   unsigned batch_size = top_shape[0]/div;
   if(duplicate) CHECK_EQ(top_shape[0] % numposes,0) << "Batch size not multiple of numposes??";
   output_transform peturb;
-  quaternion Q;
 
   //if in memory must be set programmatically
   if(inmem)
@@ -1244,7 +1241,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
         perturbations.push_back(peturb); //peturb is set by grid_ex
 
       } else {
-      	for(unsigned p = 0; p < numposes; p++) {
+        for(unsigned p = 0; p < numposes; p++) {
           labels.push_back(ex.label);
           affinities.push_back(ex.affinity);
           rmsds.push_back(ex.rmsd);
