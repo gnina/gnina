@@ -23,7 +23,6 @@ void DiscretizeLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
   // Figure out the dimensions
   vector<int> top_shape = bottom[0]->shape();
-  top_shape.push_back(N_);
   top[0]->Reshape(top_shape);
 
 }
@@ -35,7 +34,6 @@ void DiscretizeLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   Dtype* top_data = top[0]->mutable_cpu_data();
   memset(top_data, 0, sizeof(Dtype)*top[0]->count());
   CHECK_EQ(bottom[0]->shape(0), top[0]->shape(0)) << "First dimensions of bottom and top in DiscretizeLayer do not match";
-  CHECK_EQ(top[0]->shape(1), N_) << "DiscretizeLayer top dimension does not match number of labels.";
   unsigned M_ = bottom[0]->count();
   double span = max_value-min_value;
   for (int n = 0; n < M_; ++n) {
@@ -45,7 +43,7 @@ void DiscretizeLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     value /= span;
     unsigned bin = value*N_;
     if(bin >= N_) bin = N_-1;
-    top_data[n*N_+bin] = 1.0;
+    top_data[n] = bin;
   }
 
 }

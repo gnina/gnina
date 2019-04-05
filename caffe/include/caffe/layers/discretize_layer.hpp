@@ -10,9 +10,10 @@
 namespace caffe {
 
 /**
- * @brief A layer that discretizes the numerical input into a one-hot vector.
+ * @brief A layer that discretizes the numerical input into categorical labels.
  * Bins are created by specifying the number of bins and min and max values.
  * Over or under flowing values are put in the highest or lowest bin.
+ * The output is an integer vector suitable for use with the softmaxwithloss layer.
  *
  */
 template <typename Dtype>
