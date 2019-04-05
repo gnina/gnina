@@ -326,7 +326,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 158 (last added: trig_param)
+// LayerParameter next available layer-specific ID: 159 (last added: trig_param)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -389,6 +389,7 @@ message LayerParameter {
   optional ConvolutionParameter convolution_param = 106;
   optional CropParameter crop_param = 144;
   optional DataParameter data_param = 107;
+  optional DiscretizeParameter discretize_param = 158;
   optional DropoutParameter dropout_param = 108;
   optional DummyDataParameter dummy_data_param = 109;
   optional EltwiseParameter eltwise_param = 110;
@@ -792,6 +793,14 @@ message ExpParameter {
   optional float base = 1 [default = -1.0];
   optional float scale = 2 [default = 1.0];
   optional float shift = 3 [default = 0.0];
+}
+
+// Message that stores parameters used by EmbedLayer
+message DiscretizeParameter {
+  optional uint32 bins = 1; // Number of bins, matches dimension of the output
+  optional float min_value = 2; //minimum value, anything less gets put in lowest bin
+  optional float max_value = 3; //maximum value, anything greater gets put in highest bin
+
 }
 
 /// Message that stores parameters used by FlattenLayer
