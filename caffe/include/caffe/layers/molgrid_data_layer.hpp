@@ -26,6 +26,7 @@
 #include "gninasrc/lib/gridmaker.h"
 
 void test_set_atom_gradients();
+void test_vanilla_grids();
 void test_subcube_grids();
 struct atom_params;
 template <typename atomT, typename MGridT, typename GridMakerT> 
@@ -421,6 +422,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
   virtual void dumpGridDX(const std::string& prefix, Dtype* top, double scale=1.0) const;
   friend void ::test_set_atom_gradients();
+  friend void ::test_vanilla_grids();
   friend void ::test_subcube_grids();
   template <typename atomT, typename MGridT, typename GridMakerU> 
     friend void ::set_cnn_grids(MGridT* mgrid, GridMakerU& gmaker, 
