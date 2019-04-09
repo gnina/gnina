@@ -161,6 +161,7 @@ class InputOptSGDSolver : public SGDSolver<Dtype> {
 
  protected:
   void InputOptSGDPreSolve();
+  virtual void Step(int iters);
   virtual void ComputeUpdateValue(Dtype rate);
   virtual void ApplyUpdate();
   virtual void ClipGradients();
