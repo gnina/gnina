@@ -1,10 +1,11 @@
 #include <boost/program_options.hpp>
+#include <cmath>
 #include "../lib/cnn_scorer.h"
 
 int main(int argc, char* argv[]) {
   using namespace boost::program_options;
 
-  std::string receptor_name, ligand_name, grid_prefix, vsfile, solverstate, 
+  std::string receptor_name, ligand_names, grid_prefix, vsfile, solverstate, 
     outname, out_prefix, types, box_ligand;
 
   cnn_options cnnopts;
@@ -13,16 +14,20 @@ int main(int argc, char* argv[]) {
   int gpu;
   float base_lr;
   bool dump_all = false;
+  bool dump_last = false;
   bool exclude_receptor = false;
   bool exclude_ligand = false;
+  std::vector<float> center = {NAN, NAN, NAN};
+  vec auto_center;
+  auto_center.data = {NAN, NAN, NAN};
   std::string sigint_effect = "stop";
   std::string sighup_effect = "snapshot";
 
   options_description inputs("General Input");
   inputs.add_options()("receptor, r",
       value<std::string>(&receptor_name), "receptor to provide optimization context")(
-      "ligand, l", value<std::string>(&ligand_name),
-      "ligand to provide optimization context")(
+      "ligand, l", value<std::string>(&ligand_names),
+      "one or more ligands to provide additional optimization context")(
       "types, t", value<std::string>(&types), 
       "MolGrid .types file, formatted with one example per line, <score> <affinity> <receptor_file> <ligand_file>")(
       "grid, g", value<std::string>(&grid_prefix), 
@@ -46,7 +51,9 @@ int main(int argc, char* argv[]) {
       "out_prefix, p", value<std::string>(&out_prefix),
       "prefix for storing checkpoint files for optimization in progress, default is gninadream.<PID>")(
       "dump_all, a", bool_switch(&dump_all)->default_value(false), 
-      "dump all intermediate grids from optimization");
+      "dump all intermediate grids from optimization")(
+      "dump_last, dl", bool_switch(&dump_last)->default_value(false),
+      "dump last grid from optimization");
 
   options_description options("Options");
   options.add_options()("iterations, i",
@@ -55,6 +62,8 @@ int main(int argc, char* argv[]) {
       "base learning rate for density updates")(
       "auto_center", value<std::string>(&box_ligand), 
       "provide reference ligand just to set grid center")(
+      "center", value<std::vector<float> >(&center),
+      "provide center coordinates directly")(
       "gpu, g", value<int>(&gpu)->default_value(-1), "gpu to run on")(
       "exclude_receptor, er", bool_switch(&exclude_receptor)->default_value(false), 
       "don't update the receptor grids")(
@@ -130,8 +139,25 @@ int main(int argc, char* argv[]) {
     mgridnet_param->set_mem_ligmap(ligmap);
   }
 
+  // if we have structure file(s) as input, we'll do just one example,
+  // inmem=true
+  if (receptor.size()) {
+    mgridparam->set_inmemory(true);
+    net_param.set_batch-size(1);
+  }
+  else {
+    batch_size = net_param.batch_size();
+    if (types.size())
+      mgridparam->set_source(types.c_str());
+  }
+
+  // if we have no other info for setting the grid center, default to using the
+  // rec center
+  if (isnan(center[0]) && !box_ligand.size() && ligand_names.size()) {
+    mgridparam->set_use_rec_center = true;
+  }
+
   net_param.set_force_backward(true);
-  unsigned batch_size = net_param.batch_size();
 
   //set up solver net_params and then construct solver
   if (gpu > -1) {
@@ -180,36 +206,100 @@ int main(int argc, char* argv[]) {
     net->CopyTrainedLayersFrom(cnnopts.cnn_weights);
   }
 
-
-  if (!receptor.empty()) {
-    //set inmem
-    // mgridparam->set_inmemory(true);
-    // batch_size = 1;
-    std::cerr << "Starting inmem not supported yet\n";
-    exit(-1);
+  const vector<caffe::shared_ptr<Layer<float> > >& layers = net->layers();
+  caffe::MolGridDataLayer<float> mgrid = dynamic_cast<MolGridDataLayer<float>*>(layers[0].get());
+  if (mgrid == NULL) {
+    throw usage_error("First layer of model must be MolGridDataLayer.");
   }
-  else if (!types.empty()) {
+
+  // if using a reference ligand to autocenter the grid, find the center
+  if (box_ligand.size()) {
+    OpenBabel::OBConversion conv;
+    OBMol mol;
+    bool read = conv.ReadFile(&mol, file); 
+    if (!read)
+      std::cerr << "Could not read " << file;
+
+    if(this->layer_param_.molgrid_data_param().addh()) {
+      mol.AddHydrogens();
+    }
+
+    FOR_ATOMS_OF_MOL(a, mol)
+    {
+      cnt++;
+      auto_center += vec(a->x(), a->y(), a->z());
+    }
+    if(cnt == 0)
+      std::cerr << "WARNING: No atoms in " << file <<"\n";
+    else 
+      auto_center /= cnt;
+  }
+
+  // figure out what the initial state should be and run optimization
+  if (receptor.size()) {
+    // can start from receptor and 0+ ligands
+    // if center provided directly, use that
+    // elif ref ligand provided, use that
+    // elif ligand, set center using ligand
+    // otherwise default to using rec center
+    MolGetter mols(receptor);
+    if (!ligand_names.size()) {
+      ligand_names.push_back("");
+    }
+    for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++) {
+      const std::string ligand_name = ligand_names[l];
+      mols.setInputFile(ligand_name);
+      for (;;)  {
+        model* m = new model;
+
+        if (!mols.readMoleculeIntoModel(*m)) {
+          delete m;
+          break;
+          mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
+          mgrid->setReceptor(m.get_fixed_atoms());
+          // at this point, if there's a ligand the center is that, if we had
+          // no other info the center should have been the rec center
+          if (!isnan(center[0]))
+            mgrid->setCenter(center);
+          elif (!isnan(auto_center[0]))
+            mgrid->setCenter(auto_center);
+          solver.ResetIter();
+          solver.Solve();
+        }
+      }
+    }
+  }
+  else if (types.size()) {
     //molgrid will load in batches from types
-    unsigned n_examples;
-    unsigned n_iters;
+    unsigned n_examples = 0;
+    unsigned n_passes = 1;
     std::ifstream infile(types.c_str());
     CHECK((bool)infile) << "Could not open " << source;
     while (getline(infile, line))
     {
       ++n_examples;
     }
+    if (!n_examples) throw usage_error("No examples in types file");
+    n_passes = std::ceil((float)(n_examples) / batch_size);
+    for (unsigned i=0; i<n_passes; ++i) {
+      // TODO: how to set center to arbitrary values?
+      net->ForwardFromTo(1,1);
+      solver.ResetIter();
+      solver.Solve();
+    }
   }
-  else if (!grid_prefix.empty()) {
+  else if (grid_prefix.size()) {
     std::cerr << "Importing raw grids not supported yet\n";
     exit(-1);
   }
-  else if (!solverstate.empty()) {
+  else if (solverstate.size()) {
+    char* ss_cstr = solverstate.c_str();
     //restart from optimization in progress
-    std::cerr << "Restarting from previous solverstate not supported yet\n";
-    exit(-1);
-    // solver.Solve(solverstate.c_str());
+    solver->Restore(ss_cstr);
+    solver.Solve();
   }
-  if (!vsfile.empty()) {
+
+  if (vsfile.size()) {
     //use the resulting grids to perform a virtual screen against these
     //compounds; if there were multiple inputs optimized, return a separate
     //preds file for each of them 

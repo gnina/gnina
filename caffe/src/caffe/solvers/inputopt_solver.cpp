@@ -28,8 +28,6 @@ namespace caffe {
     smoothed_loss_ = 0;
     iteration_timer_.Start();
 
-    if (iter_ == 0)
-      net->ForwardFromTo(1,1);
     while (iter_ < stop_iter) {
       // zero-init the params
       net_->ClearParamDiffs();

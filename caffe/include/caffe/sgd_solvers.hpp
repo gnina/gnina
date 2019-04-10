@@ -158,6 +158,7 @@ class InputOptSGDSolver : public SGDSolver<Dtype> {
   explicit InputOptSGDSolver(const string& param_file)
       : SGDSolver<Dtype>(param_file) { InputOptSGDPreSolve(); }
   virtual inline const char* type() const { return "InputOptSGD"; }
+  void ResetIter() { iter_ = 0; }
 
  protected:
   void InputOptSGDPreSolve();
