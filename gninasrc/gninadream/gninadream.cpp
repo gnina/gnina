@@ -2,11 +2,29 @@
 #include <cmath>
 #include "../lib/cnn_scorer.h"
 
+typedef caffe::MolGridDataLayer<float> mgridT;
+
+void do_vs(mgridT& opt_mgrid) {
+  // use net top blob to do virtual screen against input sdf
+  // produce output file for each input from which we started optimization
+  // output will look like
+  // MOLNAME / LOC_IN_INPUT | OVERLAP_SCORE
+  // and will be sorted by rank
+  // right now we assume these are pre-generated poses, although we could dock
+  // them internally if desired (but would take forever)
+  //
+  // set up another MolGrid with a vanilla provider, for each example rec is
+  // none and lig is one of the vs ligands. need to set fixed_grid_center based
+  // on the center from doing input opt
+  //
+  mgridT vs_mgrid = make_shared<mgridT>();
+}
+
 int main(int argc, char* argv[]) {
   using namespace boost::program_options;
 
   std::string receptor_name, ligand_names, grid_prefix, vsfile, solverstate, 
-    outname, out_prefix, types, box_ligand;
+    outname, out_prefix, types;
 
   cnn_options cnnopts;
   cnnopts.cnn_scoring = True;
@@ -17,9 +35,7 @@ int main(int argc, char* argv[]) {
   bool dump_last = false;
   bool exclude_receptor = false;
   bool exclude_ligand = false;
-  std::vector<float> center = {NAN, NAN, NAN};
-  vec auto_center;
-  auto_center.data = {NAN, NAN, NAN};
+  bool ignore_ligand = false;
   std::string sigint_effect = "stop";
   std::string sighup_effect = "snapshot";
 
@@ -60,15 +76,13 @@ int main(int argc, char* argv[]) {
       value<int>(&iterations), "number of iterations to run")(
       "base_lr", value<float>(&base_lr),
       "base learning rate for density updates")(
-      "auto_center", value<std::string>(&box_ligand), 
-      "provide reference ligand just to set grid center")(
-      "center", value<std::vector<float> >(&center),
-      "provide center coordinates directly")(
       "gpu, g", value<int>(&gpu)->default_value(-1), "gpu to run on")(
       "exclude_receptor, er", bool_switch(&exclude_receptor)->default_value(false), 
       "don't update the receptor grids")(
       "exclude_ligand, el",  bool_switch(&exclude_ligand)->default_value(false), 
-      "don't update the ligand grids");
+      "don't update the ligand grids")(
+      "ignore_ligand, il", bool_switch(&ignore_ligand)->default_value(false),
+      "just use ligand to set center");
 
   options_description desc;
   desc.add(inputs).add(cnn).add(output);
@@ -89,8 +103,6 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  //right now no "user grids", we assume the grids are also rec/lig and load
-  //any/all of rec + lig + grids in at once
   //treat rec + lig + grids as mutually exclusive with types (the former are
   //"in_mem" for MolGrid)
   //an existing solverstate is used only if none of the other options are set
@@ -151,15 +163,10 @@ int main(int argc, char* argv[]) {
       mgridparam->set_source(types.c_str());
   }
 
-  // if we have no other info for setting the grid center, default to using the
-  // rec center
-  if (isnan(center[0]) && !box_ligand.size() && ligand_names.size()) {
-    mgridparam->set_use_rec_center = true;
-  }
-
   net_param.set_force_backward(true);
+  net_param.set_ignore_ligand(ignore_ligand);
 
-  //set up solver net_params and then construct solver
+  //set up solver params and then construct solver
   if (gpu > -1) {
     caffe::Caffe::SetDevice(gpu);
     caffe::Caffe::set_mode(caffe::Caffe::GPU);
@@ -207,41 +214,19 @@ int main(int argc, char* argv[]) {
   }
 
   const vector<caffe::shared_ptr<Layer<float> > >& layers = net->layers();
-  caffe::MolGridDataLayer<float> mgrid = dynamic_cast<MolGridDataLayer<float>*>(layers[0].get());
+  mgridT mgrid = dynamic_cast<MolGridDataLayer<float>*>(layers[0].get());
   if (mgrid == NULL) {
     throw usage_error("First layer of model must be MolGridDataLayer.");
-  }
-
-  // if using a reference ligand to autocenter the grid, find the center
-  if (box_ligand.size()) {
-    OpenBabel::OBConversion conv;
-    OBMol mol;
-    bool read = conv.ReadFile(&mol, file); 
-    if (!read)
-      std::cerr << "Could not read " << file;
-
-    if(this->layer_param_.molgrid_data_param().addh()) {
-      mol.AddHydrogens();
-    }
-
-    FOR_ATOMS_OF_MOL(a, mol)
-    {
-      cnt++;
-      auto_center += vec(a->x(), a->y(), a->z());
-    }
-    if(cnt == 0)
-      std::cerr << "WARNING: No atoms in " << file <<"\n";
-    else 
-      auto_center /= cnt;
   }
 
   // figure out what the initial state should be and run optimization
   if (receptor.size()) {
     // can start from receptor and 0+ ligands
-    // if center provided directly, use that
-    // elif ref ligand provided, use that
-    // elif ligand, set center using ligand
-    // otherwise default to using rec center
+    // expected behavior is starting from rec with a ligand available for
+    // setting center at minimum; without ligand things _should_ work (verify
+    // there aren't errors about not having lig atoms) and expect that grid
+    // center will be set to origin in that case. possibly that should
+    // be changed
     MolGetter mols(receptor);
     if (!ligand_names.size()) {
       ligand_names.push_back("");
@@ -255,17 +240,11 @@ int main(int argc, char* argv[]) {
         if (!mols.readMoleculeIntoModel(*m)) {
           delete m;
           break;
-          mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
-          mgrid->setReceptor(m.get_fixed_atoms());
-          // at this point, if there's a ligand the center is that, if we had
-          // no other info the center should have been the rec center
-          if (!isnan(center[0]))
-            mgrid->setCenter(center);
-          elif (!isnan(auto_center[0]))
-            mgrid->setCenter(auto_center);
-          solver.ResetIter();
-          solver.Solve();
         }
+        mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
+        mgrid->setReceptor(m.get_fixed_atoms());
+        solver.ResetIter();
+        solver.Solve();
       }
     }
   }
@@ -282,7 +261,6 @@ int main(int argc, char* argv[]) {
     if (!n_examples) throw usage_error("No examples in types file");
     n_passes = std::ceil((float)(n_examples) / batch_size);
     for (unsigned i=0; i<n_passes; ++i) {
-      // TODO: how to set center to arbitrary values?
       net->ForwardFromTo(1,1);
       solver.ResetIter();
       solver.Solve();
@@ -297,6 +275,10 @@ int main(int argc, char* argv[]) {
     //restart from optimization in progress
     solver->Restore(ss_cstr);
     solver.Solve();
+  }
+  else {
+    std::cerr << "No valid initial input for optimization provided.\n";
+    exit(-1);
   }
 
   if (vsfile.size()) {
