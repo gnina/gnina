@@ -1,23 +1,67 @@
 #include <boost/program_options.hpp>
 #include <cmath>
+#include <unistd.h>
 #include "../lib/cnn_scorer.h"
 
 typedef caffe::MolGridDataLayer<float> mgridT;
 
-void do_vs(mgridT& opt_mgrid) {
+void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, std::string& outname, bool gpu) {
   // use net top blob to do virtual screen against input sdf
   // produce output file for each input from which we started optimization
-  // output will look like
-  // MOLNAME / LOC_IN_INPUT | OVERLAP_SCORE
-  // and will be sorted by rank
+  // output will just be overlap score, in order of the compounds in the
+  // original file
   // right now we assume these are pre-generated poses, although we could dock
   // them internally if desired (but would take forever)
   //
-  // set up another MolGrid with a vanilla provider, for each example rec is
-  // none and lig is one of the vs ligands. need to set fixed_grid_center based
-  // on the center from doing input opt
+  // reinit MolGrid with params for virtual screening and a vanilla provider,
+  // for each example rec is the lig used to set center end lig is one of the
+  // vs ligands; we set use_rec_center and ignore_rec.  this is annoying
+  // because done the naive way we have to regrid the same ligand many times
   //
-  mgridT vs_mgrid = make_shared<mgridT>();
+  unsigned ncompounds;
+  std::ifstream infile(vsfile.c_str());
+  CHECK((bool)infile) << "Could not open " << vsfile;
+  while (getline(infile, line))
+  {
+    ++ncompounds;
+  }
+  if (!ncompounds) throw usage_error("No compounds in virtual screen file");
+  unsigned niters = ncompounds / default_batch_size;
+  unsigned bs_lastiter = ncompounds % default_batch_size;
+
+  MolGridDataParameter* mparam = opt_mgrid.mutable_molgrid_data_param();
+  mparam->set_ignore_rec(true);
+  mparam->set_use_rec_center(true);
+  unsigned batch_size = ncompounds > default_batch_size ? default_batch_size : ncompounds;
+  mparam->set_batch_size = batch_size;
+  // set up blobs for virtual screen compound grids and set up
+  vector<Blob<Dtype>*> bottom; // will always be empty
+  vector<Blob<Dtype>*> top(2); // want to use MGrid::Forward so we'll need a dummy labels blob
+  opt_mgrid.VSLayerSetUp(bottom, top);
+
+  ofstream out(outname.c_str());
+  for (size_t i=0; i<niters; ++i) {
+    if (i==niters-1 && batch_size > bs_lastiter)  {
+      mparam->set_batch_size = bs_lastiter;
+      auto data_shape = top[0].shape();
+      data_shape[0] = bs_lastiter;
+      vector<int> label_shape;
+      label_shape.push_back(bs_lastiter);
+      top[0].Reshape(data_shape);
+      top[1].Reshape(label_shape);
+    }
+    if (gpu)
+      opt_mgrid.Forward_gpu(bottom, top);
+    else
+      opt_mgrid.Forward_cpu(bottom, top);
+    // CPU and GPU implementations of getting L2 loss
+    // write to output
+  }
+}
+
+void do_approx_vs(mgridT& opt_mgrid, mgridT& vs_mgrid) {
+  // TODO?
+  assert(0);
 }
 
 int main(int argc, char* argv[]) {
@@ -38,6 +82,7 @@ int main(int argc, char* argv[]) {
   bool ignore_ligand = false;
   std::string sigint_effect = "stop";
   std::string sighup_effect = "snapshot";
+  unsigned default_batch_size = 50;
 
   options_description inputs("General Input");
   inputs.add_options()("receptor, r",
@@ -116,6 +161,9 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  if (!out_prefix.size()) 
+    out_prefix = "gninadream." + std::to_string(getpid()) + ".out";
+
   google::InitGoogleLogging(argv[0]);
   google::SetStderrLogging(2);
 
@@ -139,32 +187,32 @@ int main(int argc, char* argv[]) {
   net_param.mutable_state()->set_phase(TRAIN);
 
   LayerParameter *first = net_param.mutable_layer(0);
-  mgridnet_param = first->mutable_molgrid_data_net_param();
-  if (mgridnet_param == NULL) {
+  MolGridDataParameter* mgridparam = first->mutable_molgrid_data_net_param();
+  if (mgridparam == NULL) {
     throw usage_error("First layer of model must be MolGridData.");
   }
 
   if (cnnopts.cnn_model.size() == 0) {
     const char *recmap = cnn_models[cnnopts.cnn_model_name].recmap;
     const char *ligmap = cnn_models[cnnopts.cnn_model_name].ligmap;
-    mgridnet_param->set_mem_recmap(recmap);
-    mgridnet_param->set_mem_ligmap(ligmap);
+    mgridparam->set_mem_recmap(recmap);
+    mgridparam->set_mem_ligmap(ligmap);
   }
 
   // if we have structure file(s) as input, we'll do just one example,
   // inmem=true
   if (receptor.size()) {
     mgridparam->set_inmemory(true);
-    net_param.set_batch-size(1);
+    mgridparam.set_batch_size(1);
   }
   else {
-    batch_size = net_param.batch_size();
+    batch_size = mgridparam.batch_size();
     if (types.size())
       mgridparam->set_source(types.c_str());
   }
 
   net_param.set_force_backward(true);
-  net_param.set_ignore_ligand(ignore_ligand);
+  mgridparam.set_ignore_ligand(ignore_ligand);
 
   //set up solver params and then construct solver
   if (gpu > -1) {
@@ -253,7 +301,7 @@ int main(int argc, char* argv[]) {
     unsigned n_examples = 0;
     unsigned n_passes = 1;
     std::ifstream infile(types.c_str());
-    CHECK((bool)infile) << "Could not open " << source;
+    CHECK((bool)infile) << "Could not open " << types;
     while (getline(infile, line))
     {
       ++n_examples;
@@ -273,6 +321,7 @@ int main(int argc, char* argv[]) {
   else if (solverstate.size()) {
     char* ss_cstr = solverstate.c_str();
     //restart from optimization in progress
+    // FIXME: do we have atom type info?
     solver->Restore(ss_cstr);
     solver.Solve();
   }

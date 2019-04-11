@@ -958,6 +958,7 @@ message MolGridDataParameter {
   optional int32 stride = 52 [default = 0]; // Stride when selecting subsets of input for recurrence, default is same size as filter width
   optional bool use_rec_center = 53 [default = false]; //use rec to define grid center
   optional uint32 peturb_bins = 54 [default = 0]; // if > 0, output categorical labels for discretized bins instead of actual values for peturb
+  optional bool ignore_rec = 55 [default = false]; 
 }
 
 message NDimDataParameter {

@@ -226,12 +226,16 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
       jitter(0.0), numposes(1), ligpeturb_rotate(false),
       binary(false), randrotate(false), ligpeturb(false), ignore_ligand(false),
-      use_covalent_radius(false), dim(0), numgridpoints(0), numchannels(0),
-      numReceptorTypes(0), numLigandTypes(0), gpu_alloc_size(0),
-      gpu_gridatoms(NULL), gpu_gridwhich(NULL), compute_atom_gradients(false) {}
+      ignore_rec(false), use_covalent_radius(false), dim(0), numgridpoints(0),
+      numchannels(0), numReceptorTypes(0), numLigandTypes(0),
+      gpu_alloc_size(0), gpu_gridatoms(NULL), gpu_gridwhich(NULL),
+      compute_atom_gradients(false) {}
   virtual ~BaseMolGridDataLayer();
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
+  virtual void VSLayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void InitParams(const MolGridDataParameter& param);
   virtual inline const char* type() const { return "MolGridData"; }
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int ExactNumTopBlobs() const { return 2+
@@ -924,6 +928,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   bool randrotate;
   bool ligpeturb; //for spatial transformer
   bool ignore_ligand; //for debugging
+  bool ignore_rec;
   bool use_covalent_radius;
 
   unsigned dim; //grid points on one side

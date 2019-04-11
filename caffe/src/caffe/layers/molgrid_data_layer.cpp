@@ -546,12 +546,8 @@ void GroupedMolGridDataLayer<Dtype>::setLayerSpecificDims(int number_examples,
   top[idx]->Reshape(seqcont_shape);
 }
 
-//read in structure input and atom type maps
 template <typename Dtype, class GridMakerT>
-void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top) {
-
-  const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
+void BaseMolGridDataLayer<dtype, GridMakerT>::InitParams(const MolGridDataParameter& param) {
 
   root_folder = param.root_folder();
   num_rotations = param.rotate();
@@ -566,12 +562,10 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
   ligpeturb_rotate = param.peturb_ligand_rotate();
   jitter = param.jitter();
   ignore_ligand = param.ignore_ligand();
+  ignore_rec = param.ignore_rec();
   radiusmultiple = param.radius_multiple();
   fixedradius = param.fixed_radius();
   use_covalent_radius = param.use_covalent_radius();
-  bool hasaffinity = param.has_affinity();
-  bool hasrmsd = param.has_rmsd();
-  bool hasgroup = param.maxgroupsize()-1;
   data_ratio = param.source_ratio();
   root_folder2 = param.root_folder2();
   numposes = param.num_poses();
@@ -586,12 +580,58 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
   if(numgridpoints % 512 != 0)
     LOG(INFO) << "Total number of grid points (" << numgridpoints << ") is not evenly divisible by 512.";
 
-  //shape must come from parameters
+  //initialize atom type maps
+  string recmapfile = param.recmap();  //these are file names
+  string ligmapfile = param.ligmap();
+
+  //these are the actual contents
+  string recmapstr = param.mem_recmap();
+  string ligmapstr = param.mem_ligmap();
+
+  //can specify maps programatically
+  if(recmapstr.size())
+    numReceptorTypes = gmaker.createMapFromString(recmapstr, rmap);
+  else if(recmapfile.size() > 0)
+    numReceptorTypes = gmaker.createAtomTypeMap(recmapfile, rmap);
+  else
+    numReceptorTypes = gmaker.createDefaultRecMap(rmap);
+
+
+  if(ligmapstr.size())
+    numLigandTypes = gmaker.createMapFromString(ligmapstr, lmap);
+  else if (ligmapfile.size() > 0)
+    numLigandTypes = gmaker.createAtomTypeMap(ligmapfile, lmap);
+  else
+    numLigandTypes = gmaker.createDefaultLigMap(lmap);
+  numchannels = numReceptorTypes+numLigandTypes;
+
+  //if specified, preload all gninatype information
+  string reccache = param.recmolcache();
+  string ligcache = param.ligmolcache();
+
+  if(reccache.size() > 0) {
+    load_cache(reccache, rmap, 0, recmolcache);
+  }
+
+  if(ligcache.size() > 0) {
+    load_cache(ligcache, rmap, numReceptorTypes, ligmolcache);
+  }
+
+}
+
+//read in structure input and atom type maps
+template <typename Dtype, class GridMakerT>
+void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top) {
+  const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
+  InitParams(param);
+  bool hasaffinity = param.has_affinity();
+  bool hasrmsd = param.has_rmsd();
+  bool hasgroup = param.maxgroupsize()-1;
   int batch_size = param.batch_size();
 
   if(!inmem)
   {
-
     const string& source = param.source();
     const string& source2 = param.source2();
     root_folder = sanitize_path(param.root_folder());
@@ -639,50 +679,13 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
     batch_size = 1;
   }
 
-  //initialize atom type maps
-  string recmapfile = param.recmap();  //these are file names
-  string ligmapfile = param.ligmap();
-
-  //these are the actual contents
-  string recmapstr = param.mem_recmap();
-  string ligmapstr = param.mem_ligmap();
-
-  //can specify maps programatically
-  if(recmapstr.size())
-    numReceptorTypes = gmaker.createMapFromString(recmapstr, rmap);
-  else if(recmapfile.size() > 0)
-    numReceptorTypes = gmaker.createAtomTypeMap(recmapfile, rmap);
-  else
-    numReceptorTypes = gmaker.createDefaultRecMap(rmap);
-
-
-  if(ligmapstr.size())
-    numLigandTypes = gmaker.createMapFromString(ligmapstr, lmap);
-  else if (ligmapfile.size() > 0)
-    numLigandTypes = gmaker.createAtomTypeMap(ligmapfile, lmap);
-  else
-    numLigandTypes = gmaker.createDefaultLigMap(lmap);
-
   CHECK_GT(batch_size, 0) << "Positive batch size required";
   //keep track of atoms and transformations for each example in batch
   batch_transform.resize(batch_size * param.maxgroupsize());
 
-  //if specified, preload all gninatype information
-  string reccache = param.recmolcache();
-  string ligcache = param.ligmolcache();
-
-  if(reccache.size() > 0) {
-    load_cache(reccache, rmap, 0, recmolcache);
-  }
-
-  if(ligcache.size() > 0) {
-    load_cache(ligcache, rmap, numReceptorTypes, ligmolcache);
-  }
-
   int number_examples = batch_size;
   bool duplicate = this->layer_param_.molgrid_data_param().duplicate_poses();
   if(duplicate) number_examples = batch_size*numposes;
-  numchannels = numReceptorTypes+numLigandTypes;
   if(!duplicate && numposes > 1) numchannels = numReceptorTypes+numposes*numLigandTypes;
   vector<int> label_shape;
   setLayerSpecificDims(number_examples, label_shape, top);
@@ -716,6 +719,18 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
     peturbshape[1] = output_transform::size(); //trans+orient
     top.back()->Reshape(peturbshape);
   }
+}
+
+template <typename Dtype, class GridMakerT>
+void BaseMolGridDataLayer<Dtype, GridMakerT>::VSLayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top) {
+  const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
+  InitParams(param);
+  data = create_example_data(param);
+  vector<int> label_shape;
+  setLayerSpecificDims(number_examples, label_shape, top);
+  top[0]->Reshape(top_shape);
+  top[1]->Reshape(label_shape);
 }
 
 //return quaternion representing one of 24 distinct axial rotations
@@ -1078,7 +1093,8 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_minfo(Dtype *data,
   }
 
   //include receptor and ligand atoms
-  transform.mol.append(recatoms);
+  if (!ignore_rec)
+    transform.mol.append(recatoms);
   //unless otherwise specified, set rotation center and grid center to ligand center
   const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
   if (param.use_rec_center())
@@ -1200,7 +1216,8 @@ void GroupedMolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
     typename MolGridDataLayer<Dtype>::mol_transform ligtrans;
 
     //include receptor and ligand atoms
-    transform.mol.append(recatoms);
+    if (!ignore_rec)
+      transform.mol.append(recatoms);
     //unless otherwise specified, set rotation center and grid center to ligand center
     const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
     if (param.use_rec_center())
