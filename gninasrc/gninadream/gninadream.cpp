@@ -2,10 +2,16 @@
 #include <cmath>
 #include <unistd.h>
 #include "../lib/cnn_scorer.h"
+#include <boost/filesystem>
+#include <boost/algorithm/string.hpp>
+
+#define BLOCKDIM (8)
+#define THREADSPERBLOCK (8*8*8)
 
 typedef caffe::MolGridDataLayer<float> mgridT;
 
-void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, std::string& outname, bool gpu) {
+void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& net, 
+    std::vector<std::ostream>& out, bool gpu) {
   // use net top blob to do virtual screen against input sdf
   // produce output file for each input from which we started optimization
   // output will just be overlap score, in order of the compounds in the
@@ -14,7 +20,7 @@ void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, std::string& outname, bool 
   // them internally if desired (but would take forever)
   //
   // reinit MolGrid with params for virtual screening and a vanilla provider,
-  // for each example rec is the lig used to set center end lig is one of the
+  // for each example rec is the lig used to set center and lig is one of the
   // vs ligands; we set use_rec_center and ignore_rec.  this is annoying
   // because done the naive way we have to regrid the same ligand many times
   //
@@ -32,14 +38,19 @@ void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, std::string& outname, bool 
   MolGridDataParameter* mparam = opt_mgrid.mutable_molgrid_data_param();
   mparam->set_ignore_rec(true);
   mparam->set_use_rec_center(true);
+  mparam->set_source(vsfile); // this is probably going to change
   unsigned batch_size = ncompounds > default_batch_size ? default_batch_size : ncompounds;
   mparam->set_batch_size = batch_size;
   // set up blobs for virtual screen compound grids and set up
   vector<Blob<Dtype>*> bottom; // will always be empty
   vector<Blob<Dtype>*> top(2); // want to use MGrid::Forward so we'll need a dummy labels blob
   opt_mgrid.VSLayerSetUp(bottom, top);
+  shared_ptr<Blob<float> > scores(new Blob<float>());
+  unsigned nopts = net->top_vecs()[0][0].shape()[0];
+  std::vector<int> score_shape = {nopts, batch_size};
+  scores->Reshape(score_shape);
+  float* scoregrid;
 
-  ofstream out(outname.c_str());
   for (size_t i=0; i<niters; ++i) {
     if (i==niters-1 && batch_size > bs_lastiter)  {
       mparam->set_batch_size = bs_lastiter;
@@ -50,12 +61,32 @@ void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, std::string& outname, bool 
       top[0].Reshape(data_shape);
       top[1].Reshape(label_shape);
     }
-    if (gpu)
+    if (gpu) {
       opt_mgrid.Forward_gpu(bottom, top);
-    else
+      float* optgrid = net->top_vecs()[0][0]->gpu_data();
+      float* screengrid = top[0]->gpu_data();
+      scoregrid = scores->mutable_gpu_data();
+      dim3 threads(BLOCKDIM, BLOCKDIM, BLOCKDIM);
+      unsigned blocksperside = ceil(dim / float(BLOCKDIM));
+      dim3 blocks(blocksperside, blocksperside, blocksperside);
+      gpu_l2<<<blocks, threads>>>(optgrid, screengrid, scoregrid);
+    }
+    else {
       opt_mgrid.Forward_cpu(bottom, top);
-    // CPU and GPU implementations of getting L2 loss
+      float* optgrid = net->top_vecs()[0][0]->cpu_data();
+      float* screengrid = top[0]->cpu_data();
+      scoregrid = scores->mutable_cpu_data();
+      cpu_l2(optgrid, screengrid, scoregrid);
+    }
+    
     // write to output
+    scoregrid = scores->mutable_cpu_data();
+    for (size_t j=0; j<nopts; ++j) {
+      float* datastart = scoregrid + j * batch_size;
+      for (size_t k=0; k<batch_size; ++k) {
+        out[j] << *(datastart + k);
+      }
+    }
   }
 }
 
@@ -83,6 +114,8 @@ int main(int argc, char* argv[]) {
   std::string sigint_effect = "stop";
   std::string sighup_effect = "snapshot";
   unsigned default_batch_size = 50;
+  unsigned nopts = 0;
+  std::vector<std::string> opt_names;
 
   options_description inputs("General Input");
   inputs.add_options()("receptor, r",
@@ -276,6 +309,7 @@ int main(int argc, char* argv[]) {
     // center will be set to origin in that case. possibly that should
     // be changed
     MolGetter mols(receptor);
+    ++nopts;
     if (!ligand_names.size()) {
       ligand_names.push_back("");
     }
@@ -293,25 +327,46 @@ int main(int argc, char* argv[]) {
         mgrid->setReceptor(m.get_fixed_atoms());
         solver.ResetIter();
         solver.Solve();
+        boost::filesystem::path rec(receptor);
+        boost::filesystem::path lig(ligand_name);
+        opt_names.push_back(rec.stem() + "_" + lig.stem());
+        ++nopts;
       }
     }
   }
   else if (types.size()) {
     //molgrid will load in batches from types
-    unsigned n_examples = 0;
     unsigned n_passes = 1;
     std::ifstream infile(types.c_str());
     CHECK((bool)infile) << "Could not open " << types;
     while (getline(infile, line))
     {
-      ++n_examples;
+      ++nopts;
+      std::vector<std::string> contents;
+      boost::split(contents, line, boost::is_any_of(" "));
+      size_t size = contents.size();
+      boost::filesystem::path rec(contents[size-1]);
+      boost::filesystem::path lig(contents[size-2]);
+      opt_names.push_back(rec.stem() + "_" + lig.stem());
     }
-    if (!n_examples) throw usage_error("No examples in types file");
-    n_passes = std::ceil((float)(n_examples) / batch_size);
+    if (!nopts) throw usage_error("No examples in types file");
+    n_passes = std::ceil((float)(nopts) / batch_size);
     for (unsigned i=0; i<n_passes; ++i) {
       net->ForwardFromTo(1,1);
       solver.ResetIter();
       solver.Solve();
+      if (vsfile.size()) {
+        std::vector<ostream> out(nopts);
+        for (size_t j=0; j<nopts; ++j) {
+          out.push_back(std::ofstream((opt_names[j] + ".vsout").c_str()));
+        }
+        //use the resulting grids to perform a virtual screen against these
+        //compounds; if there were multiple inputs optimized, return a separate
+        //preds file for each of them 
+        //right now we only support an L2 loss on the grid; generate grids for the
+        //virtual screen compounds centered on whatever the grid center for the
+        //inputopt grids was
+      }
     }
   }
   else if (grid_prefix.size()) {
@@ -324,18 +379,11 @@ int main(int argc, char* argv[]) {
     // FIXME: do we have atom type info?
     solver->Restore(ss_cstr);
     solver.Solve();
+    nopts = 1;
+    // just use out_prefix as outname for vs?
   }
   else {
     std::cerr << "No valid initial input for optimization provided.\n";
     exit(-1);
-  }
-
-  if (vsfile.size()) {
-    //use the resulting grids to perform a virtual screen against these
-    //compounds; if there were multiple inputs optimized, return a separate
-    //preds file for each of them 
-    //right now we only support an L2 loss on the grid; generate grids for the
-    //virtual screen compounds centered on whatever the grid center for the
-    //inputopt grids was
   }
 }
