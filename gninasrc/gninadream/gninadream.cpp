@@ -5,10 +5,83 @@
 #include <boost/filesystem>
 #include <boost/algorithm/string.hpp>
 
-#define BLOCKDIM (8)
-#define THREADSPERBLOCK (8*8*8)
+#define CUDA_NUM_THREADS 512
 
 typedef caffe::MolGridDataLayer<float> mgridT;
+
+//device functions for warp-based reduction using shufl operations
+template<class T>
+__device__   __forceinline__ T warp_sum(T mySum) {
+  for (int offset = warpSize >> 1; offset > 0; offset >>= 1)
+    mySum += shuffle_down(mySum, offset);
+  return mySum;
+}
+
+__device__ __forceinline__
+bool isNotDiv32(unsigned int val) {
+  return val & 31;
+}
+
+/* requires blockDim.x <= 1024, blockDim.y == 1 */
+template<class T>
+__device__   __forceinline__ T block_sum(T mySum) {
+  const unsigned int lane = threadIdx.x & 31;
+  const unsigned int wid = threadIdx.x >> 5;
+
+  __shared__ T scratch[32];
+
+  mySum = warp_sum(mySum);
+  if (lane == 0) scratch[wid] = mySum;
+  __syncthreads();
+
+  if (wid == 0) {
+    mySum = (threadIdx.x < blockDim.x >> 5) ? scratch[lane] : 0;
+    mySum = warp_sum(mySum);
+    if (threadIdx.x == 0 && isNotDiv32(blockDim.x))
+      mySum += scratch[blockDim.x >> 5];
+  }
+  return mySum;
+}
+
+
+void cpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, 
+    size_t M, size_t N, size_t gsize) {
+  // optimized grids
+  for (size_t i=0; i<M; ++i) {
+    // conformers to screen against
+    for (size_t j=0; j<N; ++j) {
+      float sum = 0.;
+#pragma omp parallel for reduction(+:sum)
+      for (size_t k=0; k<gsize; ++k) {
+        float diff = optgrid[i * gsize + k] - screengrid[j * gsize + k];
+        float sqdiff = diff * diff;
+        sum += sqdiff;
+      }
+    scoregrid[i * N + j] = std::sqrt(sum);
+    }
+  }
+}
+
+__global__
+void gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, 
+    size_t M, size_t N, size_t gsize) {
+  unsigned tidx = threadIdx.x;
+  // optimized grids
+  for (size_t i=0; i<M; ++i) {
+    // conformers to screen against
+    for (size_t j=0; j<N; ++j) {
+      float sum = 0.;
+      for (size_t k=0; k<gsize; k+=CUDA_NUM_THREADS) {
+        float diff = optgrid[i * gsize + k] - screengrid[j * gsize + k];
+        float sqdiff = diff * diff;
+        sum += sqdiff;
+      }
+    float total = block_sum<float>(sum);
+    if (tidx == 0)
+      scoregrid[i * N + j] = sqrtf(total);
+    }
+  }
+}
 
 void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& net, 
     std::vector<std::ostream>& out, bool gpu) {
@@ -47,7 +120,8 @@ void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& ne
   opt_mgrid.VSLayerSetUp(bottom, top);
   shared_ptr<Blob<float> > scores(new Blob<float>());
   unsigned nopts = net->top_vecs()[0][0].shape()[0];
-  std::vector<int> score_shape = {nopts, batch_size};
+  unsigned example_size = opt_mgrid.getExampleSize();
+  std::vector<int> score_shape = {nopts};
   scores->Reshape(score_shape);
   float* scoregrid;
 
@@ -66,17 +140,14 @@ void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& ne
       float* optgrid = net->top_vecs()[0][0]->gpu_data();
       float* screengrid = top[0]->gpu_data();
       scoregrid = scores->mutable_gpu_data();
-      dim3 threads(BLOCKDIM, BLOCKDIM, BLOCKDIM);
-      unsigned blocksperside = ceil(dim / float(BLOCKDIM));
-      dim3 blocks(blocksperside, blocksperside, blocksperside);
-      gpu_l2<<<blocks, threads>>>(optgrid, screengrid, scoregrid);
+      gpu_l2<<<1, CUDA_NUM_THREADS>>>(optgrid, screengrid, scoregrid, nopts, batch_size, example_size);
     }
     else {
       opt_mgrid.Forward_cpu(bottom, top);
       float* optgrid = net->top_vecs()[0][0]->cpu_data();
       float* screengrid = top[0]->cpu_data();
       scoregrid = scores->mutable_cpu_data();
-      cpu_l2(optgrid, screengrid, scoregrid);
+      cpu_l2(optgrid, screengrid, scoregrid, nopts, batch_size, example_size);
     }
     
     // write to output
@@ -111,6 +182,7 @@ int main(int argc, char* argv[]) {
   bool exclude_receptor = false;
   bool exclude_ligand = false;
   bool ignore_ligand = false;
+  bool allow_neg = false;
   std::string sigint_effect = "stop";
   std::string sighup_effect = "snapshot";
   unsigned default_batch_size = 50;
@@ -160,7 +232,9 @@ int main(int argc, char* argv[]) {
       "exclude_ligand, el",  bool_switch(&exclude_ligand)->default_value(false), 
       "don't update the ligand grids")(
       "ignore_ligand, il", bool_switch(&ignore_ligand)->default_value(false),
-      "just use ligand to set center");
+      "just use ligand to set center")(
+      "allow_negative, an", bool_switch(&allow_neg)->default_value(false),
+      "allow optimization to result in negative atom density");
 
   options_description desc;
   desc.add(inputs).add(cnn).add(output);
