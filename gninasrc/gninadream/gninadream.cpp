@@ -1,6 +1,8 @@
 #include <boost/program_options.hpp>
 #include <cmath>
 #include <unistd.h>
+#include <glob.h>
+#include <regex>
 #include "../lib/cnn_scorer.h"
 #include <boost/filesystem>
 #include <boost/algorithm/string.hpp>
@@ -9,7 +11,102 @@
 
 typedef caffe::MolGridDataLayer<float> mgridT;
 
-//device functions for warp-based reduction using shufl operations
+std::vector<std::string> glob(const std::string& pattern) {
+    using namespace std;
+
+    glob_t glob_result;
+    memset(&glob_result, 0, sizeof(glob_result));
+
+    // glob
+    int return_value = glob(pattern.c_str(), GLOB_TILDE, NULL, &glob_result);
+    if(return_value != 0) {
+        globfree(&glob_result);
+        stringstream ss;
+        ss << "glob() failed with return_value " << return_value << endl;
+        throw std::runtime_error(ss.str());
+    }
+
+    // collect all the filenames
+    vector<string> filenames;
+    for(size_t i = 0; i < glob_result.gl_pathc; ++i) {
+        filenames.push_back(string(glob_result.gl_pathv[i]));
+    }
+
+    // cleanup
+    globfree(&glob_result);
+
+    // done
+    return filenames;
+}
+
+bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned numgridpoints, 
+    std::string& fname) {
+  string line;
+  vector<string> tokens;
+
+  res = 0;
+  getline(in, line);
+  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  if (tokens.size() != 8) return false;
+  unsigned n = lexical_cast<unsigned>(tokens[7]);
+  if (lexical_cast<unsigned>(tokens[6]) != n) return false;
+  if (lexical_cast<unsigned>(tokens[5]) != n) return false;
+
+  //the center
+  getline(in, line);
+  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  if (tokens.size() != 4) return false;
+  double x = lexical_cast<double>(tokens[1]);
+  double y = lexical_cast<double>(tokens[2]);
+  double z = lexical_cast<double>(tokens[3]);
+
+  //the transformation matrix, which has the resolution
+  getline(in, line);
+  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  if (tokens.size() != 4) return false;
+  res = lexical_cast<float>(tokens[1]);
+
+  getline(in, line);
+  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  if (tokens.size() != 4) return false;
+  if (res != lexical_cast<float>(tokens[2])) return false;
+
+  getline(in, line);
+  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  if (tokens.size() != 4) return false;
+  if (res != lexical_cast<float>(tokens[3])) return false;
+
+  //figure out center
+  double half = res * n / 2.0;
+  center[0] = x + half;
+  center[1] = y + half;
+  center[2] = z + half;
+
+  //grid connections
+  getline(in, line);
+  //object 3
+  getline(in, line);
+
+  unsigned total = 0;
+  for (unsigned i = 0; i < n; i++) {
+    for (unsigned j = 0; j < n; j++) {
+      for (unsigned k = 0; k < n; k++) {
+        in >> grid[((i * n) + j) * n + k]; 
+        total++;
+      }
+    }
+  }
+  if (total != n * n * n) return false;
+  if (total != numgridpoints) {
+    std::cerr << "Number of grid points in file " << fname << " does not equal the number of grid points expected by trained net.\n" << std::endl;
+    exit(1);
+  }
+
+  return true;
+}
+
+// device functions for warp-based reduction using shufl operations
+// TODO: should probably just be factored out into gpu_math or gpu_util
 template<class T>
 __device__   __forceinline__ T warp_sum(T mySum) {
   for (int offset = warpSize >> 1; offset > 0; offset >>= 1)
@@ -197,7 +294,7 @@ int main(int argc, char* argv[]) {
       "types, t", value<std::string>(&types), 
       "MolGrid .types file, formatted with one example per line, <score> <affinity> <receptor_file> <ligand_file>")(
       "grid, g", value<std::string>(&grid_prefix), 
-      "prefix for grid files from which to begin optimization (instead of molecules), filenames assumed to be [prefix]_[channel].dx")(
+      "prefix for grid files from which to begin optimization (instead of molecules), filenames assumed to be [prefix]_[Rec/Lig]_[channel0]_[channel1][...].dx")(
       "virtualscreen, vs", value<std::string>(&vsfile), 
       "file of compounds to score according to overlap with optimized grid");
 
@@ -306,9 +403,9 @@ int main(int argc, char* argv[]) {
     mgridparam->set_mem_ligmap(ligmap);
   }
 
-  // if we have structure file(s) as input, we'll do just one example,
+  // if we have structure file(s) or grids as input, we'll do just one example,
   // inmem=true
-  if (receptor.size()) {
+  if (receptor.size() || grid_prefix.size()) {
     mgridparam->set_inmemory(true);
     mgridparam.set_batch_size(1);
   }
@@ -444,8 +541,148 @@ int main(int argc, char* argv[]) {
     }
   }
   else if (grid_prefix.size()) {
-    std::cerr << "Importing raw grids not supported yet\n";
-    exit(-1);
+    std::vector<std::string> filenames = glob(grid_prefix + "*.dx");
+    /* 
+     * want a vector of unordered sets for the maps
+     */
+    std::vector<std::string> rectypes = mgrid->getRecTypes();
+    std::vector<std::unordered_set<std::string> > recset;
+    for (auto& substr : rectypes) {
+      // these look like Rec_CHANNEL1_CHANNEL2_...
+      std::string chs = std::regex_replace(substr, std::regex("Rec_"), "");
+      std::vector<std::string> subchs;
+      boost::split(subchs, chs, boost::is_any_of("_"));
+      recset.push_back(std::unordered_set<std::string>(&subchs[0], &subchs[subchs.size()]));
+    }
+
+    std::vector<std::string> ligtypes = mgrid->getLigTypes();
+    std::vector<std::unordered_set<std::string> > ligset;
+    for (auto& substr : ligtypes) {
+      // these look like Lig_CHANNEL1_CHANNEL2_...
+      std::string chs = std::regex_replace(substr, std::regex("Lig_"), "");
+      std::vector<std::string> subchs;
+      boost::split(subchs, chs, boost::is_any_of("_"));
+      ligset.push_back(std::unordered_set<std::string>(&subchs[0], &subchs[subchs.size()]));
+    }
+    /* 
+     * we need to figure out which channels/groups of channels make up the 
+     * maps used to generate these grids and compare with the trained net 
+     * we're using. if they don't match, error out, otherwise load in the grids
+     * in the right order for the map
+     */ 
+    float* inputblob;
+    if (gpu)  {
+      inputblob = net->top_vecs()[0][0]->mutable_gpu_data();
+      CUDA_CHECK_GNINA(cudaMemset(inputblob, 0, numgridpoints * sizeof(float)));
+    }
+    else {
+      inputblob = net->top_vecs()[0][0]->mutable_cpu_data();
+      memset(inputblob, 0, numgridpoints * sizeof(float));
+    }
+    double resolution = mgrid->getResolution();
+    unsigned npts_allchs = mgrid->getNumGridPoints();
+    unsigned nchannels = numgridpoints / (rectypes.size() + ligtypes.size());
+    unsigned npts_onech = npts_allchs / nchannels;
+
+    for (auto& fname : filenames) {
+      boost::filesystem::path p(fname);
+      std::string stem = p.stem();
+      std::string channels = std::regex_replace(stem, std::regex(grid_prefix + "_"), "");
+      std::vector<std::string> channelvec;
+      boost::split(channelvec, channels, boost::is_any_of("_"));
+      // the first entry in channelvec is either Rec_ or Lig_
+      std::unordered_set<std::string> channelmap(&channelvec[1], &channelvec[channelvec.size()]);
+      for (auto& thisch : channelmap) {
+        // does this correspond to channels in the net's map, if so what's the index
+        // and use that to copy it
+        unsigned idx = 0;
+        if (channelvec[0] == "Rec_") {
+          for (auto& chanset : recset) {
+            if (channelmap == chanset) {
+              // cool it's a match read it in
+		          ifstream gridfile(fname.c_str());
+		          if(!gridfile)
+		          {
+                std::cerr << "Could not open example grid file " << fname << "\n";
+		          	abort();
+		          }
+		          vec gridcenter;
+		          double gridres = 0;
+              // if we're running on the CPU we can read directly into the
+              // right place, otherwise we read into a temporary host buffer
+              // and memcpy to the device
+              float* g;
+              std::vector<float> hostbuf;
+              if (gpu) {
+                hostbuf.resize(npts_onech);
+                g = &hostbuf[0];
+              }
+              else 
+                g = inputblob + idx * numgridpoints;
+		          if(!readDXGrid(gridfile, gridcenter, gridres, g, npts_onech, fname))
+		          {
+                std::cerr << "I couldn't understand the provided dx file " << fname << ". I apologize for not being more informative and possibly being too picky about my file formats.\n";
+		          	exit(1);
+		          }
+              if (gridres - resolution > 0.001) {
+                std::cerr << "grid resolution in file " << fname << " does not match grid resolution specified for trained net.\n" << std::endl;
+                exit(1);
+              }
+              if (gpu) 
+                CUDA_CHECK_GNINA(cudaMemcpy(g, inputblob + idx * npts_onech, 
+                      npts_onech * sizeof(float), cudaMemcpyHostToDevice));
+              break;
+            }
+            ++idx;
+          }
+        }
+        else if (channelvec[0] == "Lig_") {
+          idx = rectypes.size();
+          for (auto& chanset : ligset) {
+            if (channelmap == chanset) {
+              // cool it's a match read it in
+		          ifstream gridfile(fname.c_str());
+		          if(!gridfile)
+		          {
+                std::cerr << "Could not open example grid file " << fname << "\n";
+		          	abort();
+		          }
+		          vec gridcenter;
+		          double gridres = 0;
+              // if we're running on the CPU we can read directly into the
+              // right place, otherwise we read into a temporary host buffer
+              // and memcpy to the device
+              float* g;
+              std::vector<float> hostbuf;
+              if (gpu) {
+                hostbuf.resize(npts_onech);
+                g = &hostbuf[0];
+              }
+              else 
+                g = inputblob + idx * numgridpoints;
+		          if(!readDXGrid(gridfile, gridcenter, gridres, g, npts_onech, fname))
+		          {
+                std::cerr << "I couldn't understand the provided dx file " << fname << ". I apologize for not being more informative and possibly being too picky about my file formats.\n";
+		          	exit(1);
+		          }
+              if (gridres - resolution > 0.001) {
+                std::cerr << "grid resolution in file " << fname << " does not match grid resolution specified for trained net.\n" << std::endl;
+                exit(1);
+              }
+              if (gpu) 
+                CUDA_CHECK_GNINA(cudaMemcpy(g, inputblob + idx * npts_onech, 
+                      npts_onech * sizeof(float), cudaMemcpyHostToDevice));
+              break;
+            }
+            ++idx;
+          }
+        }
+        else {
+          std::cerr << "Grid files don't match pattern PREFIX_(Rec|Lig)_CHANNELS.\n";
+          exit(1);
+        }
+      }
+    }
   }
   else if (solverstate.size()) {
     char* ss_cstr = solverstate.c_str();
@@ -458,6 +695,6 @@ int main(int argc, char* argv[]) {
   }
   else {
     std::cerr << "No valid initial input for optimization provided.\n";
-    exit(-1);
+    exit(1);
   }
 }

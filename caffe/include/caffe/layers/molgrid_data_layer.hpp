@@ -422,6 +422,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
 
   double getDimension() const { return dimension; }
   double getResolution() const { return resolution; }
+  unsigned getNumGridPoints() const { return numgridpoints; }
   unsigned getExampleSize() const { return example_size; }
 
   virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
