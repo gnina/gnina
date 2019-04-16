@@ -187,7 +187,8 @@ void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& ne
   // output will just be overlap score, in order of the compounds in the
   // original file
   // right now we assume these are pre-generated poses, although we could dock
-  // them internally if desired (but would take forever)
+  // them internally if desired (but would take forever). right now only
+  // support computing L2 distance between grids
   //
   // reinit MolGrid with params for virtual screening and a vanilla provider,
   // for each example rec is the lig used to set center and lig is one of the
@@ -352,13 +353,13 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  //treat rec + lig + grids as mutually exclusive with types (the former are
-  //"in_mem" for MolGrid)
-  //an existing solverstate is used only if none of the other options are set
-  //if starting from a rec+lig or solverstate, we optimize for requested number
-  //of iterations and terminate; if we have a .types file we optimize for that
-  //number of iterations for each example in the batch (batching so that we
-  //don't run out of memory)
+  // treat rec + lig + grids as mutually exclusive with types (the former are
+  // "in_mem" for MolGrid)
+  // an existing solverstate is used only if none of the other options are set
+  // if starting from a rec+lig or solverstate, we optimize for requested number
+  // of iterations and terminate; if we have a .types file we optimize for that
+  // number of iterations for each example in the batch (batching so that we
+  // don't run out of memory)
   if (vm.count("receptor") <= 0 && vm.count("ligand") <= 0 && vm.count("grid") <= 0 && 
       vm.count("types") <= 0 && vm.count("solverstate") <= 0) {
     std::cerr << "Missing optimization context.\n" << "\nCorrect usage:\n" << desc << '\n';
@@ -531,12 +532,6 @@ int main(int argc, char* argv[]) {
         for (size_t j=0; j<nopts; ++j) {
           out.push_back(std::ofstream((opt_names[j] + ".vsout").c_str()));
         }
-        //use the resulting grids to perform a virtual screen against these
-        //compounds; if there were multiple inputs optimized, return a separate
-        //preds file for each of them 
-        //right now we only support an L2 loss on the grid; generate grids for the
-        //virtual screen compounds centered on whatever the grid center for the
-        //inputopt grids was
       }
     }
   }
@@ -615,13 +610,14 @@ int main(int argc, char* argv[]) {
               std::vector<float> hostbuf;
               if (gpu) {
                 hostbuf.resize(npts_onech);
+                memset(&hostbuf[0], 0, npts_onech * sizeof(float));
                 g = &hostbuf[0];
               }
               else 
                 g = inputblob + idx * numgridpoints;
 		          if(!readDXGrid(gridfile, gridcenter, gridres, g, npts_onech, fname))
 		          {
-                std::cerr << "I couldn't understand the provided dx file " << fname << ". I apologize for not being more informative and possibly being too picky about my file formats.\n";
+                std::cerr << "I couldn't understand the provided dx file " << fname << "\n";
 		          	exit(1);
 		          }
               if (gridres - resolution > 0.001) {
@@ -662,7 +658,7 @@ int main(int argc, char* argv[]) {
                 g = inputblob + idx * numgridpoints;
 		          if(!readDXGrid(gridfile, gridcenter, gridres, g, npts_onech, fname))
 		          {
-                std::cerr << "I couldn't understand the provided dx file " << fname << ". I apologize for not being more informative and possibly being too picky about my file formats.\n";
+                std::cerr << "I couldn't understand the provided dx file " << fname << "\n";
 		          	exit(1);
 		          }
               if (gridres - resolution > 0.001) {
