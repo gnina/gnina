@@ -4,13 +4,14 @@
 #include <glob.h>
 #include <regex>
 #include "../lib/cnn_scorer.h"
-#include <boost/filesystem>
+#include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 
 #define CUDA_NUM_THREADS 512
 
 typedef caffe::MolGridDataLayer<float> mgridT;
 
+namespace caffe {
 std::vector<std::string> glob(const std::string& pattern) {
     using namespace std;
 
@@ -39,6 +40,10 @@ std::vector<std::string> glob(const std::string& pattern) {
     return filenames;
 }
 
+__global__
+void gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, 
+    size_t M, size_t N, size_t gsize);
+
 bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned numgridpoints, 
     std::string& fname) {
   string line;
@@ -46,35 +51,35 @@ bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned num
 
   res = 0;
   getline(in, line);
-  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  boost::split(tokens, line, boost::is_any_of(" \t"), boost::token_compress_on);
   if (tokens.size() != 8) return false;
-  unsigned n = lexical_cast<unsigned>(tokens[7]);
-  if (lexical_cast<unsigned>(tokens[6]) != n) return false;
-  if (lexical_cast<unsigned>(tokens[5]) != n) return false;
+  unsigned n = boost::lexical_cast<unsigned>(tokens[7]);
+  if (boost::lexical_cast<unsigned>(tokens[6]) != n) return false;
+  if (boost::lexical_cast<unsigned>(tokens[5]) != n) return false;
 
   //the center
   getline(in, line);
-  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  boost::split(tokens, line, boost::is_any_of(" \t"), boost::token_compress_on);
   if (tokens.size() != 4) return false;
-  double x = lexical_cast<double>(tokens[1]);
-  double y = lexical_cast<double>(tokens[2]);
-  double z = lexical_cast<double>(tokens[3]);
+  double x = boost::lexical_cast<double>(tokens[1]);
+  double y = boost::lexical_cast<double>(tokens[2]);
+  double z = boost::lexical_cast<double>(tokens[3]);
 
   //the transformation matrix, which has the resolution
   getline(in, line);
-  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  boost::split(tokens, line, boost::is_any_of(" \t"), boost::token_compress_on);
   if (tokens.size() != 4) return false;
-  res = lexical_cast<float>(tokens[1]);
+  res = boost::lexical_cast<float>(tokens[1]);
 
   getline(in, line);
-  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  boost::split(tokens, line, boost::is_any_of(" \t"), boost::token_compress_on);
   if (tokens.size() != 4) return false;
-  if (res != lexical_cast<float>(tokens[2])) return false;
+  if (res != boost::lexical_cast<float>(tokens[2])) return false;
 
   getline(in, line);
-  split(tokens, line, is_any_of(" \t"), token_compress_on);
+  boost::split(tokens, line, boost::is_any_of(" \t"), boost::token_compress_on);
   if (tokens.size() != 4) return false;
-  if (res != lexical_cast<float>(tokens[3])) return false;
+  if (res != boost::lexical_cast<float>(tokens[3])) return false;
 
   //figure out center
   double half = res * n / 2.0;
@@ -105,42 +110,6 @@ bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned num
   return true;
 }
 
-// device functions for warp-based reduction using shufl operations
-// TODO: should probably just be factored out into gpu_math or gpu_util
-template<class T>
-__device__   __forceinline__ T warp_sum(T mySum) {
-  for (int offset = warpSize >> 1; offset > 0; offset >>= 1)
-    mySum += shuffle_down(mySum, offset);
-  return mySum;
-}
-
-__device__ __forceinline__
-bool isNotDiv32(unsigned int val) {
-  return val & 31;
-}
-
-/* requires blockDim.x <= 1024, blockDim.y == 1 */
-template<class T>
-__device__   __forceinline__ T block_sum(T mySum) {
-  const unsigned int lane = threadIdx.x & 31;
-  const unsigned int wid = threadIdx.x >> 5;
-
-  __shared__ T scratch[32];
-
-  mySum = warp_sum(mySum);
-  if (lane == 0) scratch[wid] = mySum;
-  __syncthreads();
-
-  if (wid == 0) {
-    mySum = (threadIdx.x < blockDim.x >> 5) ? scratch[lane] : 0;
-    mySum = warp_sum(mySum);
-    if (threadIdx.x == 0 && isNotDiv32(blockDim.x))
-      mySum += scratch[blockDim.x >> 5];
-  }
-  return mySum;
-}
-
-
 void cpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, 
     size_t M, size_t N, size_t gsize) {
   // optimized grids
@@ -155,27 +124,6 @@ void cpu_l2(const float* optgrid, const float* screengrid, float* scoregrid,
         sum += sqdiff;
       }
     scoregrid[i * N + j] = std::sqrt(sum);
-    }
-  }
-}
-
-__global__
-void gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, 
-    size_t M, size_t N, size_t gsize) {
-  unsigned tidx = threadIdx.x;
-  // optimized grids
-  for (size_t i=0; i<M; ++i) {
-    // conformers to screen against
-    for (size_t j=0; j<N; ++j) {
-      float sum = 0.;
-      for (size_t k=0; k<gsize; k+=CUDA_NUM_THREADS) {
-        float diff = optgrid[i * gsize + k] - screengrid[j * gsize + k];
-        float sqdiff = diff * diff;
-        sum += sqdiff;
-      }
-    float total = block_sum<float>(sum);
-    if (tidx == 0)
-      scoregrid[i * N + j] = sqrtf(total);
     }
   }
 }
@@ -694,3 +642,4 @@ int main(int argc, char* argv[]) {
     exit(1);
   }
 }
+} //namespace caffe

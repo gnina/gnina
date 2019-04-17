@@ -83,6 +83,8 @@ class Solver {
 
     template <typename T>
     friend class Solver;
+    template <typename T>
+    friend class InputOptSGDSolver;
   };
   const vector<Callback*>& callbacks() const { return callbacks_; }
   void add_callback(Callback* value) {

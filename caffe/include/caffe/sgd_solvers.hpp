@@ -158,7 +158,7 @@ class InputOptSGDSolver : public SGDSolver<Dtype> {
   explicit InputOptSGDSolver(const string& param_file)
       : SGDSolver<Dtype>(param_file) { InputOptSGDPreSolve(); }
   virtual inline const char* type() const { return "InputOptSGD"; }
-  void ResetIter() { iter_ = 0; }
+  void ResetIter() { this->iter_ = 0; }
 
  protected:
   void InputOptSGDPreSolve();
@@ -168,7 +168,7 @@ class InputOptSGDSolver : public SGDSolver<Dtype> {
   virtual void ClipGradients();
   virtual void SnapshotSolverStateToBinaryProto(const string& model_filename);
   virtual void SnapshotSolverStateToHDF5(const string& model_filename);
-  Blob<Dtype>* input_blob;
+  boost::shared_ptr<caffe::Blob<Dtype> > input_blob;
 
   DISABLE_COPY_AND_ASSIGN(InputOptSGDSolver);
 };

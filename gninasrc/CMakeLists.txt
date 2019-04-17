@@ -135,6 +135,10 @@ cuda_add_executable(gninavis gninavis/gninavis.cpp lib/CommandLine2/CommandLine.
 target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
 
+cuda_add_executable(gninadream gninadream/gninadream.cpp gninadream/gninadream.cu lib/CommandLine2/CommandLine.cpp)
+target_link_libraries(gninadream caffe gninalib ${Boost_LIBRARIES}
+    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
+
 cuda_add_executable(check ${TEST_SRCS} ${LIB_SRCS})
 if(OpenMP_CXX_FOUND)
     target_link_libraries(check OpenMP::OpenMP_CXX)
@@ -142,4 +146,4 @@ endif()
 target_link_libraries(check ${RDKIT_LIBRARIES} ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT} caffe ${CUDA})
 
-install(TARGETS gnina gninagrid gninatyper fromgnina tognina gninavis RUNTIME DESTINATION bin)
+install(TARGETS gnina gninagrid gninatyper fromgnina tognina gninavis gninadream RUNTIME DESTINATION bin)

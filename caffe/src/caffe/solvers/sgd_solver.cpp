@@ -326,12 +326,14 @@ void SGDSolver<Dtype>::RestoreSolverStateFromBinaryProto(
   for (int i = 0; i < history_.size(); ++i) {
     history_[i]->FromProto(state.history(i));
   }
-  if (state.datablob_size() > 0) {
+  if (state.has_datablob()) {
     LOG(INFO) << "SGDSolver: setting net input blob from solverstate";
-    if (this->net_->blob_names_index_.find("data") != this->net_->blob_names_index_.end()) {
-      int data_idx = this->net_->blob_names_index_["data"];
-      Dtype* data = this->net->blobs_()[data_idx]->mutable_cpu_data();
-      data->FromProto(state.inputblob());
+    const auto& blob_names = this->net_->blob_names();
+    for (size_t i=0; i<blob_names.size(); ++i) {
+      if (blob_names[i] == "data") {
+        auto data = this->net_->blobs()[i];
+        data->FromProto(state.datablob());
+      }
     }
   }
 }
@@ -360,10 +362,12 @@ void SGDSolver<Dtype>::RestoreSolverStateFromHDF5(const string& state_file) {
   hid_t input_hid = H5Gopen2(file_hid, "inputblob", H5P_DEFAULT);
   if (input_hid > 0) {
     ostringstream oss;
-    if (this->net_->blob_names_index_.find("data") != this->net_->blob_names_index_.end()) {
-      int data_idx = this->net_->blob_names_index_["data"];
-      Dtype* data = this->net->blobs_()[data_idx]->mutable_cpu_data();
-      hdf5_load_nd_dataset<Dtype>(input_hid, oss.str().c_str(), 0, kMaxBlobAxes, data.get());
+    const auto& blob_names = this->net_->blob_names();
+    for (size_t i=0; i<blob_names.size(); ++i) {
+      if (blob_names[i] == "data") {
+        auto data = this->net_->blobs()[i];
+        hdf5_load_nd_dataset<Dtype>(input_hid, oss.str().c_str(), 0, kMaxBlobAxes, data.get());
+      }
     }
   }
   H5Gclose(history_hid);

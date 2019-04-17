@@ -9,69 +9,81 @@
 namespace caffe {
   template <typename Dtype> 
   void InputOptSGDSolver<Dtype>::InputOptSGDPreSolve() {
-    auto dataloc = this->net_->blob_names_index_.find("data");
-    if (dataloc == this->net_->blob_names_index_.end())
+    const auto& blob_names = this->net_->blob_names();
+    int data_idx = -1;
+    for (size_t i=0; i<blob_names.size(); ++i) {
+      if (blob_names[i] == "data") {
+        data_idx = i;
+        break;
+      }
+    }
+    if (data_idx < 0)
       LOG(FATAL) << "Net doesn't have a data blob";
-    int data_idx = dataloc->second;
-    input_blob = this->net_->blobs_()[data_idx];
-    SGDSolver<Dtype>::PreSolve();
+    input_blob = this->net_->blobs()[data_idx];
+    this->history_.clear();
+    this->update_.clear();
+    this->temp_.clear();
+    const vector<int>& shape = input_blob->shape();
+    this->history_.push_back(shared_ptr<Blob<Dtype> >(new Blob<Dtype>(shape)));
+    this->update_.push_back(shared_ptr<Blob<Dtype> >(new Blob<Dtype>(shape)));
+    this->temp_.push_back(shared_ptr<Blob<Dtype> >(new Blob<Dtype>(shape)));
   }
 
   template <typename Dtype> 
-  void Step<Dtype>::Step(int iters) {
+  void InputOptSGDSolver<Dtype>::Step(int iters) {
     // after iteration 0 we want to do ForwardFromTo starting with the layer
     // _after_ the input layer
-    const int start_iter = iter_;
-    const int stop_iter = iter_ + iters;
+    const int start_iter = this->iter_;
+    const int stop_iter = this->iter_ + iters;
     int average_loss = this->param_.average_loss();
-    losses_.clear();
-    smoothed_loss_ = 0;
-    iteration_timer_.Start();
+    this->losses_.clear();
+    this->smoothed_loss_ = 0;
+    this->iteration_timer_.Start();
 
-    while (iter_ < stop_iter) {
+    while (this->iter_ < stop_iter) {
       // zero-init the params
-      net_->ClearParamDiffs();
-      if (param_.test_interval() && iter_ % param_.test_interval() == 0
-          && (iter_ > 0 || param_.test_initialization())) {
+      this->net_->ClearParamDiffs();
+      if (this->param_.test_interval() && this->iter_ % this->param_.test_interval() == 0
+          && (this->iter_ > 0 || this->param_.test_initialization())) {
         if (Caffe::root_solver()) {
-          TestAll();
+          this->TestAll();
         }
-        if (requested_early_exit_) {
+        if (this->requested_early_exit_) {
           // Break out of the while loop because stop was requested while testing.
           break;
         }
       }
 
-      for (int i = 0; i < callbacks_.size(); ++i) {
-        callbacks_[i]->on_start();
+      for (int i = 0; i < this->callbacks_.size(); ++i) {
+        this->callbacks_[i]->on_start();
       }
-      const bool display = param_.display() && iter_ % param_.display() == 0;
-      net_->set_debug_info(display && param_.debug_info());
+      const bool display = this->param_.display() && this->iter_ % this->param_.display() == 0;
+      this->net_->set_debug_info(display && this->param_.debug_info());
       // accumulate the loss and gradient
       Dtype loss = 0;
-      for (int i = 1; i < param_.iter_size(); ++i) {
-        loss += net->ForwardFrom(1);
-        net_->Backward();
+      for (int i = 1; i < this->param_.iter_size(); ++i) {
+        loss += this->net_->ForwardFrom(1);
+        this->net_->Backward();
       }
-      loss /= param_.iter_size();
+      loss /= this->param_.iter_size();
       // average the loss across iterations for smoothed reporting
-      UpdateSmoothedLoss(loss, start_iter, average_loss);
+      this->UpdateSmoothedLoss(loss, start_iter, average_loss);
       if (display) {
-        float lapse = iteration_timer_.Seconds();
-        float per_s = (iter_ - iterations_last_) / (lapse ? lapse : 1);
-        LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
+        float lapse = this->iteration_timer_.Seconds();
+        float per_s = (this->iter_ - this->iterations_last_) / (lapse ? lapse : 1);
+        LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << this->iter_
             << " (" << per_s << " iter/s, " << lapse << "s/"
-            << param_.display() << " iters), loss = " << smoothed_loss_;
-        iteration_timer_.Start();
-        iterations_last_ = iter_;
-        const vector<Blob<Dtype>*>& result = net_->output_blobs();
+            << this->param_.display() << " iters), loss = " << this->smoothed_loss_;
+        this->iteration_timer_.Start();
+        this->iterations_last_ = this->iter_;
+        const vector<Blob<Dtype>*>& result = this->net_->output_blobs();
         int score_index = 0;
         for (int j = 0; j < result.size(); ++j) {
           const Dtype* result_vec = result[j]->cpu_data();
           const string& output_name =
-              net_->blob_names()[net_->output_blob_indices()[j]];
+              this->net_->blob_names()[this->net_->output_blob_indices()[j]];
           const Dtype loss_weight =
-              net_->blob_loss_weights()[net_->output_blob_indices()[j]];
+              this->net_->blob_loss_weights()[this->net_->output_blob_indices()[j]];
           for (int k = 0; k < result[j]->count(); ++k) {
             ostringstream loss_msg_stream;
             if (loss_weight) {
@@ -84,43 +96,48 @@ namespace caffe {
           }
         }
       }
-      for (int i = 0; i < callbacks_.size(); ++i) {
-        callbacks_[i]->on_gradients_ready();
+      for (int i = 0; i < this->callbacks_.size(); ++i) {
+        this->callbacks_[i]->on_gradients_ready();
       }
       ApplyUpdate();
 
       // Increment the internal iter_ counter -- its value should always indicate
       // the number of times the weights have been updated.
-      ++iter_;
+      ++this->iter_;
 
-      SolverAction::Enum request = GetRequestedAction();
+      SolverAction::Enum request = this->GetRequestedAction();
 
       // Save a snapshot if needed.
-      if ((param_.snapshot()
-           && iter_ % param_.snapshot() == 0
+      if ((this->param_.snapshot()
+           && this->iter_ % this->param_.snapshot() == 0
            && Caffe::root_solver()) ||
            (request == SolverAction::SNAPSHOT)) {
-        Snapshot();
+        this->Snapshot();
       }
       if (SolverAction::STOP == request) {
-        requested_early_exit_ = true;
+        this->requested_early_exit_ = true;
         // Break out of training loop.
         break;
       }
     }
   }
 
+#ifndef CPU_ONLY
+template <typename Dtype>
+void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
+    Dtype local_rate);
+#endif
+
   template <typename Dtype> 
   void InputOptSGDSolver<Dtype>::ComputeUpdateValue(Dtype rate) {
-    const vector<float>& net_params_lr = this->net_->params_lr();
     Dtype momentum = this->param_.momentum();
     switch (Caffe::mode()) {
     case Caffe::CPU: {
-      caffe_cpu_axpby(input_blob->count(), local_rate,
+      caffe_cpu_axpby(input_blob->count(), rate,
                 input_blob->cpu_diff(), momentum,
-                history_[param_id]->mutable_cpu_data());
+                this->history_[0]->mutable_cpu_data());
       caffe_copy(input_blob->count(),
-          history_[param_id]->cpu_data(),
+          this->history_[0]->cpu_data(),
           input_blob->mutable_cpu_diff());
       break;
     }
@@ -128,8 +145,8 @@ namespace caffe {
   #ifndef CPU_ONLY
       sgd_update_gpu(input_blob->count(),
           input_blob->mutable_gpu_diff(),
-          history_[param_id]->mutable_gpu_data(),
-          momentum, local_rate);
+          this->history_[0]->mutable_gpu_data(),
+          momentum, rate);
   #else
       NO_GPU;
   #endif
@@ -143,7 +160,7 @@ namespace caffe {
   // Update is very simple, no reason (I think) to normalize/regularize updates
   template <typename Dtype>
   void InputOptSGDSolver<Dtype>::ApplyUpdate() {
-    Dtype rate = GetLearningRate();
+    Dtype rate = this->GetLearningRate();
     if (this->param_.display() && this->iter_ % this->param_.display() == 0) {
       LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << this->iter_
           << ", lr = " << rate;
@@ -179,13 +196,12 @@ namespace caffe {
     state.set_learned_net(model_filename);
     state.set_current_step(this->current_step_);
     state.clear_history();
-    for (int i = 0; i < history_.size(); ++i) {
+    for (int i = 0; i < this->history_.size(); ++i) {
       // Add history
       BlobProto* history_blob = state.add_history();
-      history_[i]->ToProto(history_blob);
+      this->history_[i]->ToProto(history_blob);
     }
-    BlobProto* datablob = state.add_datablob();
-    input_blob->ToProto(datablob);
+    input_blob->ToProto(state.mutable_datablob());
     string snapshot_filename = Solver<Dtype>::SnapshotFilename(".solverstate");
     LOG(INFO)
       << "Snapshotting solver state to binary proto file " << snapshot_filename;
@@ -208,13 +224,13 @@ namespace caffe {
         H5P_DEFAULT);
     CHECK_GE(history_hid, 0)
         << "Error saving solver state to " << snapshot_filename << ".";
-    for (int i = 0; i < history_.size(); ++i) {
+    for (int i = 0; i < this->history_.size(); ++i) {
       ostringstream oss;
       oss << i;
-      hdf5_save_nd_dataset<Dtype>(history_hid, oss.str(), *history_[i]);
+      hdf5_save_nd_dataset<Dtype>(history_hid, oss.str(), *this->history_[i]);
     }
     hid_t input_hid = H5Gcreate2(file_hid, "inputblob", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    CHECK_GD(input_hid, 0)
+    CHECK_GE(input_hid, 0)
         << "Error saving solver state to " << snapshot_filename << ".";
     ostringstream oss;
     hdf5_save_nd_dataset<Dtype>(input_hid, oss.str(), *input_blob);

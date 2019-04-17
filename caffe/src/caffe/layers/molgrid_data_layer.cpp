@@ -547,7 +547,7 @@ void GroupedMolGridDataLayer<Dtype>::setLayerSpecificDims(int number_examples,
 }
 
 template <typename Dtype, class GridMakerT>
-void BaseMolGridDataLayer<dtype, GridMakerT>::InitParams(const MolGridDataParameter& param) {
+void BaseMolGridDataLayer<Dtype, GridMakerT>::InitParams(const MolGridDataParameter& param) {
 
   root_folder = param.root_folder();
   num_rotations = param.rotate();
@@ -728,7 +728,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::VSLayerSetUp(const vector<Blob<Dty
   InitParams(param);
   data = create_example_data(param);
   vector<int> label_shape;
-  setLayerSpecificDims(number_examples, label_shape, top);
+  setLayerSpecificDims(param.batch_size(), label_shape, top);
   top[0]->Reshape(top_shape);
   top[1]->Reshape(label_shape);
 }
@@ -1216,7 +1216,7 @@ void GroupedMolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
     typename MolGridDataLayer<Dtype>::mol_transform ligtrans;
 
     //include receptor and ligand atoms
-    if (!ignore_rec)
+    if (!this->ignore_rec)
       transform.mol.append(recatoms);
     //unless otherwise specified, set rotation center and grid center to ligand center
     const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
