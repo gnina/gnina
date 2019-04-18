@@ -129,26 +129,29 @@ void cpu_l2(const float* optgrid, const float* screengrid, float* scoregrid,
 }
 
 void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& net, 
-    std::vector<std::ostream>& out, bool gpu) {
+    std::string vsfile, std::vector<std::ostream>& out, bool gpu) {
   // use net top blob to do virtual screen against input sdf
   // produce output file for each input from which we started optimization
   // output will just be overlap score, in order of the compounds in the
   // original file
   // right now we assume these are pre-generated poses, although we could dock
-  // them internally if desired (but would take forever). right now only
+  // them internally or generate conformers in theory. right now only
   // support computing L2 distance between grids
   //
   // reinit MolGrid with params for virtual screening and a vanilla provider,
-  // for each example rec is the lig used to set center and lig is one of the
-  // vs ligands; we set use_rec_center and ignore_rec.  this is annoying
-  // because done the naive way we have to regrid the same ligand many times
-  //
+  // for each example rec is the lig used to set center (unless there was no
+  // lig, in which case we use fix_center_to_origin) and lig is one of the
+  // vs ligands; we set use_rec_center and ignore_rec if there was a autocenter
+  // lig. this is annoying because done the naive way we have to regrid the
+  // same ligand many times
   unsigned ncompounds;
   std::ifstream infile(vsfile.c_str());
   CHECK((bool)infile) << "Could not open " << vsfile;
+  std::string line;
   while (getline(infile, line))
   {
-    ++ncompounds;
+    if (line == "$$$$\n")
+      ++ncompounds;
   }
   if (!ncompounds) throw usage_error("No compounds in virtual screen file");
   unsigned niters = ncompounds / default_batch_size;
@@ -161,8 +164,8 @@ void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& ne
   unsigned batch_size = ncompounds > default_batch_size ? default_batch_size : ncompounds;
   mparam->set_batch_size = batch_size;
   // set up blobs for virtual screen compound grids and set up
-  vector<Blob<Dtype>*> bottom; // will always be empty
-  vector<Blob<Dtype>*> top(2); // want to use MGrid::Forward so we'll need a dummy labels blob
+  vector<Blob<float>*> bottom; // will always be empty
+  vector<Blob<float>*> top(2); // want to use MGrid::Forward so we'll need a dummy labels blob
   opt_mgrid.VSLayerSetUp(bottom, top);
   shared_ptr<Blob<float> > scores(new Blob<float>());
   unsigned nopts = net->top_vecs()[0][0].shape()[0];
@@ -631,7 +634,6 @@ int main(int argc, char* argv[]) {
   else if (solverstate.size()) {
     char* ss_cstr = solverstate.c_str();
     //restart from optimization in progress
-    // FIXME: do we have atom type info?
     solver->Restore(ss_cstr);
     solver.Solve();
     nopts = 1;
