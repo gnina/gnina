@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <glob.h>
 #include <regex>
+#include "tee.h"
 #include "../lib/cnn_scorer.h"
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -104,7 +105,7 @@ bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned num
   if (total != n * n * n) return false;
   if (total != numgridpoints) {
     std::cerr << "Number of grid points in file " << fname << " does not equal the number of grid points expected by trained net.\n" << std::endl;
-    exit(1);
+    std::exit(1);
   }
 
   return true;
@@ -129,7 +130,8 @@ void cpu_l2(const float* optgrid, const float* screengrid, float* scoregrid,
 }
 
 void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& net, 
-    std::string vsfile, std::vector<std::ostream>& out, bool gpu) {
+    std::string vsfile, std::vector<std::string>& ref_ligs,std::vector<std::ostream>& out, 
+    bool gpu, unsigned ncompounds) {
   // use net top blob to do virtual screen against input sdf
   // produce output file for each input from which we started optimization
   // output will just be overlap score, in order of the compounds in the
@@ -138,74 +140,78 @@ void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& ne
   // them internally or generate conformers in theory. right now only
   // support computing L2 distance between grids
   //
-  // reinit MolGrid with params for virtual screening and a vanilla provider,
+  // reinit MolGrid with params for virtual screening
   // for each example rec is the lig used to set center (unless there was no
   // lig, in which case we use fix_center_to_origin) and lig is one of the
   // vs ligands; we set use_rec_center and ignore_rec if there was a autocenter
   // lig. this is annoying because done the naive way we have to regrid the
   // same ligand many times
-  unsigned ncompounds;
-  std::ifstream infile(vsfile.c_str());
-  CHECK((bool)infile) << "Could not open " << vsfile;
-  std::string line;
-  while (getline(infile, line))
-  {
-    if (line == "$$$$\n")
-      ++ncompounds;
-  }
-  if (!ncompounds) throw usage_error("No compounds in virtual screen file");
-  unsigned niters = ncompounds / default_batch_size;
-  unsigned bs_lastiter = ncompounds % default_batch_size;
+  unsigned nopts = net->top_vecs()[0][0].shape()[0];
+  unsigned example_size = opt_mgrid.getExampleSize();
+  unsigned batch_size = 1; // inmem for now
 
   MolGridDataParameter* mparam = opt_mgrid.mutable_molgrid_data_param();
+  tee log(quiet);
+  MolGetter mols(std::string(), std::string(), FlexInfo(log), false, false, log);
+  mols.setInputFile(vsfile);
   mparam->set_ignore_rec(true);
   mparam->set_use_rec_center(true);
-  mparam->set_source(vsfile); // this is probably going to change
-  unsigned batch_size = ncompounds > default_batch_size ? default_batch_size : ncompounds;
   mparam->set_batch_size = batch_size;
-  // set up blobs for virtual screen compound grids and set up
+  // initblobs for virtual screen compound grids and set up
   vector<Blob<float>*> bottom; // will always be empty
   vector<Blob<float>*> top(2); // want to use MGrid::Forward so we'll need a dummy labels blob
   opt_mgrid.VSLayerSetUp(bottom, top);
   shared_ptr<Blob<float> > scores(new Blob<float>());
-  unsigned nopts = net->top_vecs()[0][0].shape()[0];
-  unsigned example_size = opt_mgrid.getExampleSize();
-  std::vector<int> score_shape = {nopts};
+  std::vector<int> score_shape = {ncompounds};
   scores->Reshape(score_shape);
   float* scoregrid;
-
-  for (size_t i=0; i<niters; ++i) {
-    if (i==niters-1 && batch_size > bs_lastiter)  {
-      mparam->set_batch_size = bs_lastiter;
-      auto data_shape = top[0].shape();
-      data_shape[0] = bs_lastiter;
-      vector<int> label_shape;
-      label_shape.push_back(bs_lastiter);
-      top[0].Reshape(data_shape);
-      top[1].Reshape(label_shape);
-    }
-    if (gpu) {
-      opt_mgrid.Forward_gpu(bottom, top);
-      float* optgrid = net->top_vecs()[0][0]->gpu_data();
-      float* screengrid = top[0]->gpu_data();
-      scoregrid = scores->mutable_gpu_data();
-      gpu_l2<<<1, CUDA_NUM_THREADS>>>(optgrid, screengrid, scoregrid, nopts, batch_size, example_size);
-    }
-    else {
-      opt_mgrid.Forward_cpu(bottom, top);
-      float* optgrid = net->top_vecs()[0][0]->cpu_data();
-      float* screengrid = top[0]->cpu_data();
-      scoregrid = scores->mutable_cpu_data();
-      cpu_l2(optgrid, screengrid, scoregrid, nopts, batch_size, example_size);
-    }
-    
-    // write to output
-    scoregrid = scores->mutable_cpu_data();
-    for (size_t j=0; j<nopts; ++j) {
-      float* datastart = scoregrid + j * batch_size;
-      for (size_t k=0; k<batch_size; ++k) {
-        out[j] << *(datastart + k);
+  
+  //VS compounds are currently done one at a time
+  model m;
+  for (size_t i=0; i<out.size(); ++i) {
+    std::string& next_ref_lig = ref_ligs[i];
+    if (next_ref_lig != "none")
+      mols.create_init_model(ref_ligs[0], std::string(), FlexInfo(log), false, false, log);
+    else
+      mols.create_init_model(std::string(), std::string(), FlexInfo(log), false, false, log);
+    unsigned compound = 0;
+    for (;;) {
+      if (!mols.readMoleculeIntoModel(m)) {
+        break;
       }
+      mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
+      if (next_ref_lig != "none")
+        mgrid->setReceptor(m.get_fixed_atoms());
+      else
+        mgrid->setCenter(0, 0, 0)
+      mgrid->setLabels(1); 
+      if (gpu) {
+        opt_mgrid.Forward_gpu(bottom, top);
+        float* optgrid = net->top_vecs()[0][0]->gpu_data();
+        float* screengrid = top[0]->gpu_data();
+        scoregrid = scores->mutable_gpu_data();
+        gpu_l2<<<1, CUDA_NUM_THREADS>>>(optgrid + i * example_size, screengrid, 
+            scoregrid + compound, example_size);
+      }
+      else {
+        opt_mgrid.Forward_cpu(bottom, top);
+        float* optgrid = net->top_vecs()[0][0]->cpu_data();
+        float* screengrid = top[0]->cpu_data();
+        scoregrid = scores->mutable_cpu_data();
+        cpu_l2(optgrid + i * example_size, screengrid, scoregrid + compound, 
+            example_size);
+      }
+      ++compound;
+      if (compound > ncompounds) {
+        std::cerr << "Unexpected change in number of virtual screen compounds.\n";
+        std::exit(1);
+      }
+    }
+    // write to output
+    scoregrid = scores->cpu_data();
+    for (size_t j=0; j<ncompounds; ++j) {
+      float* datastart = scoregrid + j;
+      out[i] << *datastart;
     }
   }
 }
@@ -423,6 +429,19 @@ int main(int argc, char* argv[]) {
     throw usage_error("First layer of model must be MolGridDataLayer.");
   }
 
+  unsigned ncompounds = 0;
+  if (vsfile.size()) {
+    std::ifstream vs_stream(vsfile.c_str());
+    if (!(bool)vs_stream) {
+      std::cerr << "Could not open " << vsfile;
+      std::exit(1);
+    } 
+    std::string vsline;
+    while (getline(vsfile, vsline)) {
+      if (vsline == "$$$$")
+        ++ncompounds;
+    }
+  }
   // figure out what the initial state should be and run optimization
   if (receptor.size()) {
     // can start from receptor and 0+ ligands
@@ -431,7 +450,8 @@ int main(int argc, char* argv[]) {
     // there aren't errors about not having lig atoms) and expect that grid
     // center will be set to origin in that case. possibly that should
     // be changed
-    MolGetter mols(receptor);
+    tee log(quiet);
+    MolGetter mols(receptor, std::string(), FlexInfo(log), true, true, log);
     ++nopts;
     if (!ligand_names.size()) {
       ligand_names.push_back("");
@@ -448,6 +468,9 @@ int main(int argc, char* argv[]) {
         }
         mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
         mgrid->setReceptor(m.get_fixed_atoms());
+        // with a types file you can target arbitrary pose and affinity values,
+        // here we just assume pose 
+        mgrid->setLabels(1); 
         solver.ResetIter();
         solver.Solve();
         boost::filesystem::path rec(receptor);
@@ -461,15 +484,27 @@ int main(int argc, char* argv[]) {
     //molgrid will load in batches from types
     unsigned n_passes = 1;
     std::ifstream infile(types.c_str());
-    CHECK((bool)infile) << "Could not open " << types;
+    if (!(bool)infile) {
+      std::cerr << "Could not open " << types;
+      std::exit(1);
+    } 
+    std::string line;
     while (getline(infile, line))
     {
       ++nopts;
       std::vector<std::string> contents;
       boost::split(contents, line, boost::is_any_of(" "));
-      size_t size = contents.size();
-      boost::filesystem::path rec(contents[size-1]);
-      boost::filesystem::path lig(contents[size-2]);
+      if (mgridparam->has_group() || mgridparam->has_rmsd()) {
+        std::cerr << "Groups and RMSD not permitted for dream optimization.\n";
+        std::exit(1);
+      }
+      size_t offset = mgridparam->has_affinity() + 1;
+      if (contents.size() < offset + 2) {
+        std::cerr << ".types file input should be organized as LABEL [AFFINITY] [RMSD] RECFILE LIGFILE with one example per line.\n";
+        std::exit(1);
+      }
+      boost::filesystem::path rec(contents[offset]);
+      boost::filesystem::path lig(contents[offset+1]);
       opt_names.push_back(rec.stem() + "_" + lig.stem());
     }
     if (!nopts) throw usage_error("No examples in types file");
@@ -569,11 +604,11 @@ int main(int argc, char* argv[]) {
 		          if(!readDXGrid(gridfile, gridcenter, gridres, g, npts_onech, fname))
 		          {
                 std::cerr << "I couldn't understand the provided dx file " << fname << "\n";
-		          	exit(1);
+                std::exit(1);
 		          }
               if (gridres - resolution > 0.001) {
                 std::cerr << "grid resolution in file " << fname << " does not match grid resolution specified for trained net.\n" << std::endl;
-                exit(1);
+                std::exit(1);
               }
               if (gpu) 
                 CUDA_CHECK_GNINA(cudaMemcpy(g, inputblob + idx * npts_onech, 
@@ -610,11 +645,11 @@ int main(int argc, char* argv[]) {
 		          if(!readDXGrid(gridfile, gridcenter, gridres, g, npts_onech, fname))
 		          {
                 std::cerr << "I couldn't understand the provided dx file " << fname << "\n";
-		          	exit(1);
+                std::exit(1);
 		          }
               if (gridres - resolution > 0.001) {
                 std::cerr << "grid resolution in file " << fname << " does not match grid resolution specified for trained net.\n" << std::endl;
-                exit(1);
+                std::exit(1);
               }
               if (gpu) 
                 CUDA_CHECK_GNINA(cudaMemcpy(g, inputblob + idx * npts_onech, 
@@ -626,7 +661,7 @@ int main(int argc, char* argv[]) {
         }
         else {
           std::cerr << "Grid files don't match pattern PREFIX_(Rec|Lig)_CHANNELS.\n";
-          exit(1);
+          std::exit(1);
         }
       }
     }
@@ -641,7 +676,7 @@ int main(int argc, char* argv[]) {
   }
   else {
     std::cerr << "No valid initial input for optimization provided.\n";
-    exit(1);
+    std::exit(1);
   }
 }
 } //namespace caffe
