@@ -25,6 +25,7 @@
 #include "gninasrc/lib/atom.h"
 #include "gninasrc/lib/gridmaker.h"
 #include <libmolgrid/example_provider.h>
+#include <libmolgrid/atom_typer.h>
 
 void test_set_atom_gradients();
 void test_vanilla_grids();
@@ -222,7 +223,7 @@ template<typename Dtype, class GridMakerT>
 class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   public:
     explicit BaseMolGridDataLayer(const LayerParameter& param) : 
-      MolGridDataLayer<Dtype>(param), data(NULL), data2(NULL), data_ratio(0),
+      MolGridDataLayer<Dtype>(param), data_ratio(0),
       num_rotations(0), current_rotation(0), 
       example_size(0), current_iter(0), inmem(false), resolution(0.5),
       dimension(23.5), radiusmultiple(1.5), fixedradius(0), randtranslate(0), ligpeturb_translate(0),
@@ -241,7 +242,6 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
        (this->layer_param_.molgrid_data_param().maxgroupsize() != 1)) +
       this->layer_param_.molgrid_data_param().has_affinity()+
       this->layer_param_.molgrid_data_param().has_rmsd()+
-      (this->layer_param_.molgrid_data_param().affinity_reweight_stdcut() > 0) +
       this->layer_param_.molgrid_data_param().peturb_ligand();
   }
   virtual inline void resetRotation() { current_rotation = 0; }
@@ -262,15 +262,33 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     labels.clear();
     affinities.clear();
     rmsds.clear();
-    weights.clear();
   }
 
-  virtual void updateLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0, Dtype weight=0) {
+  void updateLabels(const std::vector<float>& l, bool hasaffinity, bool hasrmsd) {
+    float pose  = 0, affinity = 0, rmsd = 0;
+    unsigned n = l.size();
+
+    //caffe has a cannonical ordering of labels
+    if(n > 0) {
+      pose = l[0];
+      if(n > 1) {
+        if(hasaffinity) {
+          affinity = l[1];
+          if(hasrmsd && n > 2)
+            rmsd = l[2];
+        } else if(hasrmsd) {
+          rmsd = l[1];
+        }
+      }
+    }
+    updateLabels(pose, affinity, rmsd);
+  }
+
+  virtual void updateLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) {
     for(unsigned p = 0; p < numposes; p++) {
       labels.push_back(pose);
       affinities.push_back(affinity);
       rmsds.push_back(rmsd);
-      weights.push_back(weight);
     }
   }
 
@@ -285,17 +303,13 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     caffe_copy(size, src, dst);
   }
 
-  virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, 
-      bool hasweights, bool gpu) {
-    unsigned weighti = top.size()-1-ligpeturb;
+  virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, bool gpu) {
     unsigned rmsdi = 2+hasaffinity;
     copyToBlob(&labels[0], labels.size(), top[1], gpu);
     if(hasaffinity) 
       copyToBlob(&affinities[0], affinities.size(), top[2], gpu);
     if(hasrmsd)
       copyToBlob(&rmsds[0], rmsds.size(), top[rmsdi], gpu);
-    if(hasweights)
-      copyToBlob(&weights[0], weights.size(), top[weighti], gpu);
   
     if(ligpeturb)
       copyToBlob((Dtype*)&perturbations[0], perturbations.size()*perturbations[0].size(), top.back(), gpu);
@@ -448,362 +462,6 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     }
   };
 
-  struct example
-  {
-    const char* receptor;
-    vector<const char*> ligands;
-    Dtype label;
-    Dtype affinity;
-    Dtype rmsd;
-    Dtype affinity_weight;
-    int group;
-
-    example(): receptor(NULL), label(0), affinity(0), rmsd(0), affinity_weight(1.0), group(-1) {}
-    example(Dtype l, const char* r, const vector<const char*>& ligs): receptor(r), ligands(ligs), label(l), affinity(0), rmsd(0), group(-1)  {}
-    example(Dtype l, Dtype a, Dtype rms, int gr, const char* r, const vector<const char*>& ligs, Dtype weight=1.0): receptor(r), ligands(ligs), label(l), affinity(a), rmsd(rms), affinity_weight(weight), group(gr)  {}
-    example(string_cache& cache, string line, const MolGridDataParameter& param);
-  };
-
-  //abstract class for storing training examples
-  class example_provider
-  {
-  public:
-    virtual void add(const example& ex) = 0;
-    virtual void setup() = 0; //essentially shuffle if necessary
-    virtual void next(example& ex) = 0;
-    virtual unsigned size() const = 0;
-    virtual ~example_provider() {}
-  };
-
-  //single array of examples, possibly shuffled
-  class uniform_example_provider: public example_provider
-  {
-    vector<example> all;
-    size_t current;
-    bool randomize;
-
-  public:
-    uniform_example_provider(): current(0), randomize(false) {}
-    uniform_example_provider(const MolGridDataParameter& parm): current(0)
-    {
-      randomize = parm.shuffle();
-    }
-
-    void add(const example& ex)
-    {
-      all.push_back(ex);
-    }
-
-    void setup()
-    {
-      current = 0;
-      if(randomize) shuffle(all.begin(), all.end(), caffe::caffe_rng());
-      CHECK_GT(all.size(), 0) << "Not enough examples (or at least the right kinds) in training set.";
-    }
-
-    void next(example& ex)
-    {
-      CHECK_LT(current, all.size()) << "Out of bounds error";
-      ex = all[current];
-      current++;
-      if(current >= all.size())
-      {
-        setup(); //reset current and shuffle if necessary
-      }
-    }
-
-    unsigned size() const { return all.size(); }
-  };
-
-  //sample uniformly from actives and decoys
-  class balanced_example_provider: public example_provider
-  {
-    uniform_example_provider actives;
-    uniform_example_provider decoys;
-    size_t current;
-    bool randomize;
-
-  public:
-    balanced_example_provider(): current(0), randomize(false) {}
-    balanced_example_provider(const MolGridDataParameter& parm): actives(parm), decoys(parm), current(0)
-    {
-      randomize = parm.shuffle();
-    }
-
-    void add(const example& ex)
-    {
-      if (ex.label)
-        actives.add(ex);
-      else
-        decoys.add(ex);
-    }
-
-    void setup()
-    {
-      current = 0;
-      actives.setup();
-      decoys.setup();
-    }
-
-    void next(example& ex)
-    {
-      //alternate between actives and decoys
-      if(current % 2 == 0)
-        actives.next(ex);
-      else
-        decoys.next(ex);
-
-      current++;
-    }
-
-    unsigned size() const { return actives.size()+decoys.size(); }
-
-    unsigned num_actives() const { return actives.size(); }
-    unsigned num_decoys() const { return decoys.size(); }
-
-    void next_active(example& ex)
-    {
-      actives.next(ex);
-    }
-
-    void next_decoy(example& ex)
-    {
-      decoys.next(ex);
-    }
-  };
-
-
-  //partition examples by receptor and sample k times uniformly from each receptor
-  //with k=2 and a balanced_provider you get paired examples from each receptor
-  template<class Provider, int K=1>
-  class receptor_stratified_example_provider: public example_provider
-  {
-    vector<Provider> examples;
-    MolGridDataParameter p;
-    boost::unordered_map<const char*, unsigned> recmap; //map to receptor indices
-
-    size_t currenti, currentk; //position in array, and number of times sampling it
-    bool randomize;
-
-  public:
-    receptor_stratified_example_provider(): currenti(0), currentk(0), randomize(false) {}
-    receptor_stratified_example_provider(const MolGridDataParameter& parm): p(parm), currenti(0), currentk(0)
-    {
-      randomize = parm.shuffle();
-    }
-
-    void add(const example& ex)
-    {
-      if(recmap.count(ex.receptor) == 0)
-      {
-        //allocate
-        recmap[ex.receptor] = examples.size();
-        examples.push_back(Provider(p));
-      }
-      unsigned pos = recmap[ex.receptor];
-      examples[pos].add(ex);
-    }
-
-    //NOTE: this has specializations for balanced/2 in the cpp file
-    void setup()
-    {
-      CHECK_GT(K,0) << "Invalid sampling k for receptor_stratified_example_provider";
-      currenti = 0; currentk = 0;
-      for(unsigned i = 0, n = examples.size(); i < n; i++)
-      {
-        examples[i].setup();
-      }
-      //also shuffle receptors
-      if(randomize) shuffle(examples.begin(), examples.end(), caffe::caffe_rng());
-    }
-
-    void next(example& ex)
-    {
-      CHECK_GT(examples.size(), 0) << "No valid stratified examples.";
-      if(currentk >= K)
-      {
-        currentk = 0; //on to next receptor
-        currenti++;
-      }
-      if(currenti >= examples.size())
-      {
-        currenti = 0;
-        CHECK_EQ(currentk, 0) << "Invalid indices";
-        if(randomize) shuffle(examples.begin(), examples.end(), caffe::caffe_rng());
-      }
-
-      CHECK_GT(examples[currenti].size(), 0) << "No valid sub-stratified examples.";
-      examples[currenti].next(ex);
-      currentk++;
-    }
-
-    unsigned size() const
-    {
-      //no one said this had to be particularly efficient..
-      unsigned ret = 0;
-      for(unsigned i = 0, n = examples.size(); i < n; i++)
-      {
-        ret += examples[i].size();
-      }
-      return ret;
-    }
-  };
-
-  //partition examples by affinity and sample uniformly from each affinity bin
-  //affinities are binned by absolute value according to molgriddataparameters
-  template<class Provider>
-  class affinity_stratified_example_provider: public example_provider
-  {
-    vector<Provider> examples;
-    size_t currenti;//position in array
-    double min, max, step;
-
-    //return bin for given affinity
-    unsigned bin(double affinity) const
-    {
-      affinity = fabs(affinity);
-      if(affinity < min) affinity = min;
-      if(affinity >= max) affinity = max-FLT_EPSILON;
-      affinity -= min;
-      unsigned pos = affinity/step;
-      return pos;
-    }
-  public:
-    affinity_stratified_example_provider(): currenti(0), min(0), max(0), step(0) {}
-    affinity_stratified_example_provider(const MolGridDataParameter& parm): currenti(0)
-    {
-      max = parm.stratify_affinity_max();
-      min = parm.stratify_affinity_min();
-      step = parm.stratify_affinity_step();
-      CHECK_NE(min,max) << "Empty range for affinity stratification";
-      unsigned maxbin = bin(max);
-      CHECK_GT(maxbin, 0) << "Not enough bins";
-      for(unsigned i = 0; i <= maxbin; i++)
-      {
-        examples.push_back(Provider(parm));
-      }
-    }
-
-    void add(const example& ex)
-    {
-      unsigned i = bin(ex.affinity);
-      CHECK_LT(i, examples.size()) << "Error with affinity stratification binning";
-      examples[i].add(ex);
-    }
-
-    void setup()
-    {
-      currenti = 0;
-      vector<Provider> tmp;
-      for(unsigned i = 0, n = examples.size(); i < n; i++)
-      {
-        if(examples[i].size() > 0) {
-          //eliminate empty buckets
-          tmp.push_back(examples[i]);
-          tmp.back().setup();
-        }
-        else {
-          LOG(INFO) << "Empty bucket " << i;
-        }
-      }
-      swap(examples,tmp);
-      CHECK_GT(examples.size(), 0) << "No examples in affinity stratification!";
-    }
-
-    void next(example& ex)
-    {
-      examples[currenti].next(ex);
-      currenti = (currenti+1)%examples.size();
-    }
-
-    unsigned size() const
-    {
-      //no one said this had to be particularly efficient..
-      unsigned ret = 0;
-      for(unsigned i = 0, n = examples.size(); i < n; i++)
-      {
-        ret += examples[i].size();
-      }
-      return ret;
-    }
-  };
-
-  //group multiple grids into a single example, e.g. multiple frames of an MD
-  //simulation that will be processed by an RNN. next() returns the next frame
-  //for the next example in the batch; traversal is row-major with layout TxN
-  template<class Provider> 
-  class grouped_example_provider : public example_provider {
-
-    typedef std::pair<typename std::vector<example>::iterator, typename std::vector<example>::iterator> location;
-
-    Provider examples;
-    unsigned batch_size;
-    unsigned maxgroupsize;
-    bool continuing;
-    boost::unordered_map<int, vector<example>> frame_groups;
-    std::deque<location> current_locations;
-
-  public:
-    grouped_example_provider(): examples(), batch_size(1), maxgroupsize(1), continuing(false) {}
-    grouped_example_provider(const MolGridDataParameter& parm): examples(parm), 
-                                                batch_size(parm.batch_size()), 
-                                                maxgroupsize(parm.maxgroupsize()),
-                                                continuing(false) {}
-    //only add the first example for each group to examples; after that just
-    //the filenames to the frame_groups map
-    void add(const example& ex) {
-      auto& group = ex.group;
-      //TODO: when using c++17 switch to try_emplace
-      auto ret = frame_groups.emplace(group, vector<example>());
-      if (ret.second) 
-        examples.add(ex);
-      else {
-        CHECK(frame_groups[group].size() <= (maxgroupsize - 1)) << "Frame group " << group << " size " << frame_groups[group].size()+1 << " exceeds max group size " << maxgroupsize << "."; //this could be handled, but it'd be messy the way things are now and it's proven to be a useful sanity check
-        frame_groups[group].push_back(ex);
-      }
-    }
-
-    void setup() {
-      examples.setup();
-      for (auto& group : frame_groups) {
-        //if we have fewer than maxgroupsize examples for this group, pad with
-        //ignore_labels
-        for (unsigned idx=group.second.size(); idx<(maxgroupsize-1); ++idx) {
-          group.second.push_back(example(-1, -1, -1, -1, NULL, {NULL}));
-        }
-      }
-      CHECK_EQ(current_locations.size(), 0) << "All timesteps were not traversed prior to new provider setup";
-      continuing = false;
-    }
-
-    void next(example& ex) {
-      if (current_locations.size() < batch_size && !continuing) {
-        examples.next(ex);
-        current_locations.push_back(location(frame_groups[ex.group].begin(), 
-              frame_groups[ex.group].end()));
-      }
-      else {
-        auto progress = current_locations[0];
-        current_locations.pop_front();
-        ex = *progress.first;
-        progress.first++;
-        if (progress.first != progress.second) {
-          current_locations.push_back(progress);
-        }
-
-        if (current_locations.size())
-          continuing = true;
-        else
-          continuing = false;
-      }
-    }
-
-    unsigned size() const
-    {
-      return examples.size();
-    }
-  };
-
   //N numbers representing a transformation
   struct output_transform {
     //contains only the N numbers representing the transformation, N is returned by size
@@ -889,8 +547,9 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
 
   //we are manually stratifying by file, this could be made more general-purpose and flexible
   //as an example_provider subclass, but this is all we need for now
-  example_provider *data;
-  example_provider *data2;
+  libmolgrid::ExampleProvider data;
+  libmolgrid::ExampleProvider data2;
+
   //store exampels without the root folder prefix to save memory
   //(which means they must be unique even without the prefix!)
   string root_folder;
@@ -909,7 +568,6 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   vector<Dtype> labels;
   vector<Dtype> affinities;
   vector<Dtype> rmsds;
-  vector<Dtype> weights;
   vector<output_transform> perturbations;
 
   //grid stuff
@@ -938,7 +596,8 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   
   unsigned numReceptorTypes;
   unsigned numLigandTypes;
-
+  std::shared_ptr<libmolgrid::AtomTyper> recTypes;
+  std::shared_ptr<libmolgrid::AtomTyper> ligTypes;
 
   unsigned gpu_alloc_size;
   float4 *gpu_gridatoms;
@@ -948,26 +607,16 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   //need to remember how mols were transformed for backward pass
   vector<typename MolGridDataLayer<Dtype>::mol_transform> batch_transform;
 
-  typedef boost::unordered_map<string, typename MolGridDataLayer<Dtype>::mol_info> MolCache;
-  static MolCache recmolcache; //the cache is shared GLOBALLY
-  static MolCache ligmolcache; //the cache is shared GLOBALLY
-
   typename MolGridDataLayer<Dtype>::mol_info mem_rec; //molecular data set programmatically with setReceptor
   typename MolGridDataLayer<Dtype>::mol_info mem_lig; //molecular data set programmatically with setLigand
 
   ////////////////////   PROTECTED METHODS   //////////////////////
-  static void remove_missing_and_setup(vector<balanced_example_provider>& examples);
   void allocateGPUMem(unsigned sz);
-
-  example_provider* create_example_data(const MolGridDataParameter& parm);
-  void populate_data(const string& root_folder, const string& source, example_provider* data, bool hasaffinity, bool hasrmsd, bool hasgroup);
 
   typename MolGridDataLayer<Dtype>::quaternion axial_quaternion();
 
-  bool add_to_minfo(const string& file, const vector<int>& atommap, unsigned mapoffset, smt t, float x, float y, float z,  typename MolGridDataLayer<Dtype>::mol_info& minfo);
-  void load_cache(const string& file, const vector<int>& atommap, unsigned atomoffset, MolCache& molcache);
-  void set_mol_info(const string& file, const vector<int>& atommap, unsigned atomoffset, typename MolGridDataLayer<Dtype>::mol_info& minfo);
-  void set_grid_ex(Dtype *grid, const example& ex, const string& root_folder,
+  void set_mol_info(const libmolgrid::CoordinateSet& c, unsigned mapoffset, typename MolGridDataLayer<Dtype>::mol_info& minfo);
+  void set_grid_ex(Dtype *grid, const libmolgrid::Example& ex,
                     typename MolGridDataLayer<Dtype>::mol_transform& transform, 
                     int pose, output_transform& pertub, bool gpu);
   virtual void set_grid_minfo(Dtype *grid, 
@@ -1100,11 +749,11 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
       BaseMolGridDataLayer<Dtype, GridMaker>::clearLabels();
     }
 
-    virtual void updateLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0, Dtype weight=0) {
+    virtual void updateLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) {
       for(unsigned p = 0; p < this->numposes; p++) {
         this->seqcont.push_back(example_idx < batch_size ? 0 : 1);
       }
-      BaseMolGridDataLayer<Dtype, GridMaker>::updateLabels(pose, affinity, rmsd, weight);
+      BaseMolGridDataLayer<Dtype, GridMaker>::updateLabels(pose, affinity, rmsd);
     }
 
     virtual void updateTranslations(vec&& translation) {
@@ -1125,11 +774,10 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
     virtual void setLayerSpecificDims(int number_examples, 
       vector<int>& label_shape, const vector<Blob<Dtype>*>& top);
 
-    virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, 
-        bool hasweights, bool gpu) {
-      int idx = this->ExactNumTopBlobs() - this->ligpeturb - hasweights - 1;
+    virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, bool gpu) {
+      int idx = this->ExactNumTopBlobs() - this->ligpeturb - 1;
       this->copyToBlob(&seqcont[0], seqcont.size(), top[idx], gpu);
-      BaseMolGridDataLayer<Dtype, GridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, hasweights, gpu);
+      BaseMolGridDataLayer<Dtype, GridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, gpu);
     }
 
     virtual void set_grid_minfo(Dtype *data, 
@@ -1163,7 +811,7 @@ class SubcubeMolGridDataLayer : public BaseMolGridDataLayer<Dtype, SubcubeGridMa
       BaseMolGridDataLayer<Dtype, SubcubeGridMaker>::clearLabels();
     }
 
-    virtual void updateLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0, Dtype weight=0) {
+    virtual void updateLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) {
       unsigned grids_per_dim = this->gmaker.grids_per_dim;
       unsigned ncubes = grids_per_dim * grids_per_dim * grids_per_dim;
       unsigned batch_size = this->gmaker.batch_size;
@@ -1179,8 +827,6 @@ class SubcubeMolGridDataLayer : public BaseMolGridDataLayer<Dtype, SubcubeGridMa
         this->affinities.resize(nexamples);
       if (this->rmsds.size() < nexamples)
         this->rmsds.resize(nexamples);
-      if (this->weights.size() < nexamples)
-        this->weights.resize(nexamples);
 
       //this need to be TxN, so we end up having to write a column at a time, 
       //sadly
@@ -1214,11 +860,10 @@ class SubcubeMolGridDataLayer : public BaseMolGridDataLayer<Dtype, SubcubeGridMa
   virtual void setLayerSpecificDims(int number_examples, 
     vector<int>& label_shape, const vector<Blob<Dtype>*>& top);
 
-  virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, 
-      bool hasweights, bool gpu) {
-    int idx = this->ExactNumTopBlobs() - this->ligpeturb - hasweights - 1;
+  virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, bool gpu) {
+    int idx = this->ExactNumTopBlobs() - this->ligpeturb - 1;
     this->copyToBlob(&seqcont[0], seqcont.size(), top[idx], gpu);
-    BaseMolGridDataLayer<Dtype, SubcubeGridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, hasweights, gpu);
+    BaseMolGridDataLayer<Dtype, SubcubeGridMaker>::copyToBlobs(top, hasaffinity, hasrmsd, gpu);
   }
 
   virtual void backward(const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom, 

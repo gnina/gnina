@@ -111,7 +111,7 @@ include_directories(gninavis)
 # compile in libgnina - there are enough dependencies to deal with
 cuda_add_executable(gnina main/main.cpp ${LIB_SRCS})
 target_link_libraries(gnina caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES}
-    ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
+    ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA} ${LIBMOLGRID_LIBRARY})
 
 add_subdirectory(gninaserver)
 
@@ -140,6 +140,6 @@ if(OpenMP_CXX_FOUND)
     target_link_libraries(check OpenMP::OpenMP_CXX)
 endif()
 target_link_libraries(check ${RDKIT_LIBRARIES} ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT} caffe ${CUDA})
+    ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT} caffe ${CUDA} ${LIBMOLGRID_LIBRARY})
 
 install(TARGETS gnina gninagrid gninatyper fromgnina tognina gninavis RUNTIME DESTINATION bin)

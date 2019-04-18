@@ -950,9 +950,6 @@ message MolGridDataParameter {
   optional float jitter = 37 [default = 0]; //random perturbations of atom cartesian coordinates by +/- jitter amount
   optional uint32 num_poses = 38 [default = 1]; //number of ligands specified on line, all will be generated as examples with receptor resulting in batch_size*num_poses examples
   optional bool use_covalent_radius = 39 [default = false]; //use covalent instead of xs_radius
-  optional float affinity_reweight_mean = 40 [default = 0.0]; //mean of normal distribution to use to reweight affinities, 0 for no reweighting
-  optional float affinity_reweight_std = 41 [default = 0.0]; //std of normal distribution to use to reweight affinities
-  optional float affinity_reweight_stdcut = 42 [default = 0.0]; // cutoff for outlier treatment (limit at most this much out)
   optional bool fix_center_to_origin = 43 [default = false]; // center box at origin
   optional string recmolcache = 44 [default = ""]; //single binary file of combined receptor gninatypes, relative to root_folder
   optional string ligmolcache = 45 [default = ""]; //single binary file of combined ligand gninatypes, relative to root_folder
@@ -960,7 +957,7 @@ message MolGridDataParameter {
   optional string mem_ligmap = 47 [default = ""]; //contents of a ligmap
   optional bool duplicate_poses = 48 [default = false]; //if num_poses > 1, create separate examples (with receptor) for each ligand pose
   optional float subgrid_dim = 49 [default = 0.0]; //perform recurrence over subgrids with this dim
-  optional uint32 maxgroupsize = 50 [default = 1]; //max size of group when performing a recurrence over frame groups; 0 if there are no groups
+  optional uint32 maxgroupsize = 50 [default = 1]; //max size of group when performing a recurrence over frame groups; 1 if there are no groups
   optional uint32 maxchunksize = 51 [default = 1]; //max size of subsequence for BPTT
   optional int32 stride = 52 [default = 0]; // Stride when selecting subsets of input for recurrence, default is same size as filter width
   optional bool use_rec_center = 53 [default = false]; //use rec to define grid center

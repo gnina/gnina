@@ -23,6 +23,7 @@
 #include <openbabel/obiter.h>
 #include <boost/timer/timer.hpp>
 
+using namespace libmolgrid;
 
 //allocate and initialize atom type data
 namespace smina_atom_type
@@ -53,56 +54,6 @@ BaseMolGridDataLayer<Dtype, GridMakerT>::~BaseMolGridDataLayer<Dtype, GridMakerT
     cudaFree(gpu_gridwhich);
     gpu_gridwhich = NULL;
   }
-
-  if(data) delete data;
-  if(data2) delete data2;
-}
-
-template <typename Dtype, class GridMakerT>
-BaseMolGridDataLayer<Dtype, GridMakerT>::example::example(BaseMolGridDataLayer<Dtype, GridMakerT>::string_cache& cache, string line, const MolGridDataParameter& param)
-  : label(0), affinity(0.0), rmsd(0.0), affinity_weight(1.0), group(-1)
-{
-  stringstream stream(line);
-  string tmp;
-
-  bool hasaffinity = param.has_affinity();
-  bool hasrmsd = param.has_rmsd();
-  bool hasgroup = param.maxgroupsize() - 1;
-  unsigned numposes = param.num_poses();
-  double affinity_reweight_mean = param.affinity_reweight_mean();
-  double affinity_reweight_std = param.affinity_reweight_std();
-  double affinity_reweight_stdcut = param.affinity_reweight_stdcut();
-
-  //first the label
-  stream >> label;
-  if(hasaffinity)
-   stream >> affinity;
-  if(hasrmsd)
-   stream >> rmsd;
-  if(hasgroup) {
-    stream >> group;
-  }
-  //receptor
-  stream >> tmp;
-  CHECK(tmp.length() > 0) << "Empty receptor, missing affinity/rmsd? Line:\n" << line;
-  receptor = cache.get(tmp);
-  //ligand(s)
-
-  for(unsigned i = 0; i < numposes; i++) {
-    tmp.clear();
-    stream >> tmp;
-    CHECK(tmp.length() > 0) << "Empty ligand, missing affinity/rmsd? Line:\n" << line;
-    ligands.push_back(cache.get(tmp));
-  }
-
-  if(affinity_reweight_stdcut > 0 && affinity != 0) {
-    //weight the affinities inversely to a normal distribution
-    double x = fabs(fabs(affinity)-affinity_reweight_mean);
-    x = min(x,affinity_reweight_stdcut*affinity_reweight_std);
-    x = x*x; //square, but no negative since we want the inverse
-    affinity_weight = exp(x/(2.0*affinity_reweight_std*affinity_reweight_std));
-  }
-
 }
 
 
@@ -112,7 +63,9 @@ template<typename Dtype, class GridMakerT>
 void BaseMolGridDataLayer<Dtype, GridMakerT>::setLabels(Dtype pose, Dtype affinity, Dtype rmsd)
 {
   clearLabels();
-  updateLabels(pose, affinity, rmsd);
+  labels.push_back(pose);
+  affinities.push_back(affinity);
+  rmsds.push_back(rmsd);
 }
 
 
@@ -261,78 +214,6 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::getMappedLigandGradient(int batch_
 }
 
 
-//modify examples to remove any without both actives an inactives
-//factored this into its own function due to the need to fully specialize setup below
-template<typename Dtype, class GridMakerT>
-void BaseMolGridDataLayer<Dtype, GridMakerT>::remove_missing_and_setup(vector<typename BaseMolGridDataLayer<Dtype, GridMakerT>::balanced_example_provider>& examples)
-{
-  vector<balanced_example_provider> tmp;
-  for(unsigned i = 0, n = examples.size(); i < n; i++)
-  {
-    if(examples[i].num_actives() > 0 && examples[i].num_decoys() > 0) {
-      //eliminate empty buckets
-      tmp.push_back(examples[i]);
-      tmp.back().setup();
-    }
-    else if(examples[i].num_actives() > 0)
-    {
-      example tmp;
-      examples[i].next_active(tmp);
-      LOG(INFO) << "Dropping receptor " << tmp.receptor << " with no decoys.";
-    }
-    else if(examples[i].num_decoys() > 0)
-    {
-      example tmp;
-      examples[i].next_decoy(tmp);
-      LOG(INFO) << "Dropping receptor " << tmp.receptor << " with no actives.";
-    }
-  }
-
-  swap(examples,tmp);
-}
-
-//specialized version for balanced data that remove receptors without any actives or decoys
-//annoyingly, have to specialize Dtype and GridMakerT - TODO: replace with a macro
-template <>
-template <>
-void BaseMolGridDataLayer<float, GridMaker>::receptor_stratified_example_provider<typename BaseMolGridDataLayer<float, GridMaker>::balanced_example_provider, 2>::setup()
-{
-  currenti = 0; currentk = 0;
-  remove_missing_and_setup(examples);
-  //also shuffle receptors
-  if(randomize) shuffle(examples.begin(), examples.end(), caffe::caffe_rng());
-}
-
-template<>
-template<>
-void BaseMolGridDataLayer<double, GridMaker>::receptor_stratified_example_provider<typename BaseMolGridDataLayer<double, GridMaker>::balanced_example_provider, 2>::setup()
-{
-  currenti = 0; currentk = 0;
-  remove_missing_and_setup(examples);
-  //also shuffle receptors
-  if(randomize) shuffle(examples.begin(), examples.end(), caffe::caffe_rng());
-}
-
-template <>
-template <>
-void BaseMolGridDataLayer<float, SubcubeGridMaker>::receptor_stratified_example_provider<typename BaseMolGridDataLayer<float, SubcubeGridMaker>::balanced_example_provider, 2>::setup()
-{
-  currenti = 0; currentk = 0;
-  remove_missing_and_setup(examples);
-  //also shuffle receptors
-  if(randomize) shuffle(examples.begin(), examples.end(), caffe::caffe_rng());
-}
-
-template<>
-template<>
-void BaseMolGridDataLayer<double, SubcubeGridMaker>::receptor_stratified_example_provider<typename BaseMolGridDataLayer<double, SubcubeGridMaker>::balanced_example_provider, 2>::setup()
-{
-  currenti = 0; currentk = 0;
-  remove_missing_and_setup(examples);
-  //also shuffle receptors
-  if(randomize) shuffle(examples.begin(), examples.end(), caffe::caffe_rng());
-}
-
 
 //ensure gpu memory is of sufficient size
 template <typename Dtype, class GridMakerT>
@@ -352,86 +233,6 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::allocateGPUMem(unsigned sz)
   }
 }
 
-//allocate and return an example provider to the specifications of the parm object
-template <typename Dtype, class GridMakerT>
-typename BaseMolGridDataLayer<Dtype, GridMakerT>::example_provider* BaseMolGridDataLayer<Dtype, GridMakerT>::create_example_data(const MolGridDataParameter& parm)
-{
-  bool balanced  = parm.balanced();
-  bool strat_receptor  = parm.stratify_receptor();
-  bool strat_aff = parm.stratify_affinity_max() != parm.stratify_affinity_min();
-  bool grouped = parm.maxgroupsize()-1;
-
-  //strat_aff > strat_receptor > balanced
-  if(strat_aff)
-  {
-    if(strat_receptor)
-    {
-      if(balanced) // sample 2 from each receptor
-      {
-        if(grouped)
-          return new grouped_example_provider<affinity_stratified_example_provider<receptor_stratified_example_provider<balanced_example_provider, 2> > >(parm);
-        else
-          return new affinity_stratified_example_provider<receptor_stratified_example_provider<balanced_example_provider, 2> >(parm);
-      }
-      else //sample 1 from each receptor
-      {
-        if(grouped)
-          return new grouped_example_provider<affinity_stratified_example_provider<receptor_stratified_example_provider<uniform_example_provider, 1> > >(parm);
-        else
-          return new affinity_stratified_example_provider<receptor_stratified_example_provider<uniform_example_provider, 1> >(parm);
-      }
-    }
-    else
-    {
-      if(balanced)
-      {
-        if(grouped)
-          return new grouped_example_provider<affinity_stratified_example_provider<balanced_example_provider> >(parm);
-        else
-          return new affinity_stratified_example_provider<balanced_example_provider>(parm);
-      }
-      else //sample 1 from each receptor
-      {
-        if(grouped)
-          return new grouped_example_provider<affinity_stratified_example_provider<uniform_example_provider> >(parm);
-        else
-          return new affinity_stratified_example_provider<uniform_example_provider>(parm);
-      }
-    }
-  }
-  else if(strat_receptor)
-  {
-    if(balanced) // sample 2 from each receptor
-    {
-      if(grouped)
-        return new grouped_example_provider<receptor_stratified_example_provider<balanced_example_provider, 2> >(parm);
-      else
-        return new receptor_stratified_example_provider<balanced_example_provider, 2>(parm);
-    }
-    else //sample 1 from each receptor
-    {
-      if(balanced)
-        return new grouped_example_provider<receptor_stratified_example_provider<uniform_example_provider, 1> >(parm);
-      else
-        return new receptor_stratified_example_provider<uniform_example_provider, 1>(parm);
-    }
-  }
-  else if(balanced)
-  {
-    if(grouped)
-      return new grouped_example_provider<balanced_example_provider>(parm);
-    else
-      return new balanced_example_provider(parm);
-  }
-  else
-  {
-    if(grouped)
-      return new grouped_example_provider<uniform_example_provider>(parm);
-    else
-      return new uniform_example_provider(parm);
-  }
-}
-
 //make sure can append to root_folder path
 static string sanitize_path(const string& p)
 {
@@ -442,25 +243,6 @@ static string sanitize_path(const string& p)
     return p;
 }
 
-//fill in training examples
-template <typename Dtype, class GridMakerT>
-void BaseMolGridDataLayer<Dtype, GridMakerT>::populate_data(const string& root_folder, const string& source,
-    BaseMolGridDataLayer<Dtype, GridMakerT>::example_provider* data, bool hasaffinity, bool hasrmsd, bool hasgroup)
-{
-  LOG(INFO) << "Opening file " << source;
-  std::ifstream infile(source.c_str());
-  CHECK((bool)infile) << "Could not open " << source;
-  string line;
-  while (getline(infile, line))
-  {
-    example ex(scache, line, this->layer_param_.molgrid_data_param());
-    data->add(ex);
-  }
-  CHECK_GT(data->size(),0) << "No examples provided in source: " << source;
-
-  data->setup(); //done adding
-
-}
 
 //reshape any layer-specific blobs, and set layer-specific dims for any
 //universal blobs
@@ -515,8 +297,7 @@ void SubcubeMolGridDataLayer<Dtype>::setLayerSpecificDims(int number_examples,
   seqcont_shape.clear();
   seqcont_shape.push_back(n_timesteps);
   seqcont_shape.push_back(number_examples);
-  const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
-  int idx = this->ExactNumTopBlobs() - this->ligpeturb - param.affinity_reweight_stdcut() - 1;
+  int idx = this->ExactNumTopBlobs() - this->ligpeturb - 1;
   top[idx]->Reshape(seqcont_shape);
 }
 
@@ -541,10 +322,83 @@ void GroupedMolGridDataLayer<Dtype>::setLayerSpecificDims(int number_examples,
   seqcont_shape.clear();
   seqcont_shape.push_back(maxchunksize);
   seqcont_shape.push_back(batch_size);
-  const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
-  int idx = this->ExactNumTopBlobs() - this->ligpeturb - param.affinity_reweight_stdcut() - 1;
+  int idx = this->ExactNumTopBlobs() - this->ligpeturb - 1;
   top[idx]->Reshape(seqcont_shape);
 }
+
+//convert proto parameters to ExampleProviderSettings struct
+//these are very similar because the same person wrote both
+static ExampleProviderSettings settings_from_param(const MolGridDataParameter& param) {
+  ExampleProviderSettings ret;
+  ret.shuffle = param.shuffle();
+  ret.balanced = param.balanced();
+  ret.stratify_receptor = param.stratify_receptor();
+  ret.labelpos = 0;
+  ret.stratify_pos = 1;
+  ret.stratify_abs = true;
+  ret.stratify_min = param.stratify_affinity_min();
+  ret.stratify_max = param.stratify_affinity_max();
+  ret.stratify_step = param.stratify_affinity_step();
+  ret.max_group_size = param.maxgroupsize();
+  ret.group_batch_size = param.maxchunksize();
+  ret.cache_structs = param.cache_structs();
+  ret.add_hydrogens = param.addh();
+  ret.duplicate_first = false;  // at least for now we do any duplication ourselves
+  ret.data_root = param.root_folder(); //will have to overwrite if using root_folder2
+  ret.recmolcache = param.recmolcache();
+  ret.ligmolcache = param.ligmolcache();
+
+  return ret;
+}
+
+//create the appropriate atom typer given the specified strings
+static std::shared_ptr<AtomTyper> create_atom_typer(const string& mapstr, const string& mapfile, const string& defaultmap, bool use_covalent_radius) {
+
+  if(mapstr.size()) {
+    //specify map programatically
+    stringstream map(mapstr);
+    return make_shared<FileMappedGninaTyper>(map, use_covalent_radius);
+  }
+  else if(mapfile.size()) {
+    return make_shared<FileMappedGninaTyper>(mapfile, use_covalent_radius);
+  }
+  else {
+    stringstream map(defaultmap.c_str());
+    return make_shared<FileMappedGninaTyper>(map, use_covalent_radius);
+  }
+}
+
+const string default_recmap(R"(AliphaticCarbonXSHydrophobe 
+AliphaticCarbonXSNonHydrophobe 
+AromaticCarbonXSHydrophobe 
+AromaticCarbonXSNonHydrophobe
+Bromine Iodine Chlorine Fluorine
+Nitrogen NitrogenXSAcceptor 
+NitrogenXSDonor NitrogenXSDonorAcceptor
+Oxygen OxygenXSAcceptor 
+OxygenXSDonorAcceptor OxygenXSDonor
+Sulfur SulfurAcceptor
+Phosphorus 
+Calcium
+Zinc
+GenericMetal Boron Manganese Magnesium Iron
+)");
+
+const string default_ligmap(R"(AliphaticCarbonXSHydrophobe 
+AliphaticCarbonXSNonHydrophobe 
+AromaticCarbonXSHydrophobe 
+AromaticCarbonXSNonHydrophobe
+Bromine Iodine
+Chlorine
+Fluorine
+Nitrogen NitrogenXSAcceptor 
+NitrogenXSDonor NitrogenXSDonorAcceptor
+Oxygen OxygenXSAcceptor 
+OxygenXSDonorAcceptor OxygenXSDonor
+Sulfur SulfurAcceptor
+Phosphorus
+GenericMetal Boron Manganese Magnesium Zinc Calcium Iron
+)");
 
 //read in structure input and atom type maps
 template <typename Dtype, class GridMakerT>
@@ -589,9 +443,23 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
   //shape must come from parameters
   int batch_size = param.batch_size();
 
+  //initialize atom type maps
+  string recmapfile = param.recmap();  //these are file names
+  string ligmapfile = param.ligmap();
+
+  //these are the actual contents
+  string recmapstr = param.mem_recmap();
+  string ligmapstr = param.mem_ligmap();
+
+  recTypes = create_atom_typer(recmapstr, recmapfile, default_recmap, use_covalent_radius);
+  ligTypes = create_atom_typer(ligmapstr, ligmapfile, default_ligmap, use_covalent_radius);
+
+  numReceptorTypes = recTypes->num_types();
+  numLigandTypes = ligTypes->num_types();
+
+
   if(!inmem)
   {
-
     const string& source = param.source();
     const string& source2 = param.source2();
     root_folder = sanitize_path(param.root_folder());
@@ -601,19 +469,22 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
 
     CHECK_GT(source.length(), 0) << "No data source file provided";
 
+    ExampleProviderSettings settings = settings_from_param(param);
+
     // Read source file(s) with labels and structures,
-    // each line is label [group] [affinity] [rmsd] receptor_file ligand_file
-    data = create_example_data(param);
-    populate_data(root_folder, source, data, hasaffinity, hasrmsd, hasgroup);
+    // each line is label [group] [affinity] [rmsd] receptor_file ligand_file  (labels not optional)
+    data = ExampleProvider(settings, recTypes, ligTypes);
+    data.populate(source, 1+hasaffinity+hasrmsd, hasgroup);
 
     if(source2.length() > 0)
     {
       CHECK_GE(data_ratio, 0) << "Must provide non-negative ratio for two data sources";
-      data2 = create_example_data(param);
-      populate_data(root_folder2, source2, data2, hasaffinity, hasrmsd, hasgroup);
+      settings.data_root = root_folder2;
+      data2 = ExampleProvider(settings, recTypes, ligTypes);
+      data2.populate(source2, 1+hasaffinity+hasrmsd, hasgroup);
     }
 
-    LOG(INFO) << "Total examples: " << data->size() + (data2 ? data2->size() : 0);
+    LOG(INFO) << "Total examples: " << data.size() + data2.size();
 
     // Check if we would need to randomly skip a few data points
     if (param.rand_skip())
@@ -622,16 +493,8 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
 
       LOG(INFO) << "Skipping first " << skip << " data points from each source.";
 
-      example dummy;
-      for(unsigned i = 0; i < skip; i++) {
-        data->next(dummy);
-      }
-      if(data2)
-      {
-        for(unsigned i = 0; i < skip; i++) {
-          data2->next(dummy);
-        }
-      }
+      data.skip(skip);
+      if(data2.size()) data2.skip(skip);
     }
   }
   else //in memory always batch size of 1
@@ -639,45 +502,10 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
     batch_size = 1;
   }
 
-  //initialize atom type maps
-  string recmapfile = param.recmap();  //these are file names
-  string ligmapfile = param.ligmap();
-
-  //these are the actual contents
-  string recmapstr = param.mem_recmap();
-  string ligmapstr = param.mem_ligmap();
-
-  //can specify maps programatically
-  if(recmapstr.size())
-    numReceptorTypes = gmaker.createMapFromString(recmapstr, rmap);
-  else if(recmapfile.size() > 0)
-    numReceptorTypes = gmaker.createAtomTypeMap(recmapfile, rmap);
-  else
-    numReceptorTypes = gmaker.createDefaultRecMap(rmap);
-
-
-  if(ligmapstr.size())
-    numLigandTypes = gmaker.createMapFromString(ligmapstr, lmap);
-  else if (ligmapfile.size() > 0)
-    numLigandTypes = gmaker.createAtomTypeMap(ligmapfile, lmap);
-  else
-    numLigandTypes = gmaker.createDefaultLigMap(lmap);
 
   CHECK_GT(batch_size, 0) << "Positive batch size required";
   //keep track of atoms and transformations for each example in batch
   batch_transform.resize(batch_size * param.maxgroupsize());
-
-  //if specified, preload all gninatype information
-  string reccache = param.recmolcache();
-  string ligcache = param.ligmolcache();
-
-  if(reccache.size() > 0) {
-    load_cache(reccache, rmap, 0, recmolcache);
-  }
-
-  if(ligcache.size() > 0) {
-    load_cache(ligcache, rmap, numReceptorTypes, ligmolcache);
-  }
 
   int number_examples = batch_size;
   bool duplicate = this->layer_param_.molgrid_data_param().duplicate_poses();
@@ -702,12 +530,6 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::DataLayerSetUp(const vector<Blob<D
   else if(hasrmsd)
   {
     top[2]->Reshape(label_shape);
-  }
-
-  if(param.affinity_reweight_stdcut() > 0) {
-    unsigned indx = top.size()-1;
-    if(ligpeturb) indx--; //this is getting cumbersome
-    top[indx]->Reshape(label_shape);
   }
 
   if(ligpeturb) {
@@ -764,200 +586,41 @@ typename MolGridDataLayer<Dtype>::quaternion BaseMolGridDataLayer<Dtype, GridMak
   return ret;
 }
 
-//add atom information to minfo, return true if atom actually added
-template <typename Dtype, class GridMakerT>
-bool BaseMolGridDataLayer<Dtype, GridMakerT>::add_to_minfo(const string& file, const vector<int>& atommap, unsigned mapoffset, smt t, float x, float y, float z,  typename MolGridDataLayer<Dtype>::mol_info& minfo)
-{
-  int index = atommap[t];
-  if(index >= 0)
-  {
-    float4 ainfo;
-    ainfo.x = x;
-    ainfo.y = y;
-    ainfo.z  = z;
-    if(fixedradius <= 0)
-      ainfo.w = use_covalent_radius ? covalent_radius(t) : xs_radius(t);
-    else
-      ainfo.w = fixedradius;
-
-    float3 gradient(0,0,0);
-    minfo.atoms.push_back(ainfo);
-    minfo.whichGrid.push_back(index+mapoffset);
-    minfo.gradient.push_back(gradient);
-  }
-  else
-  {
-    static bool madewarning = false;
-    if(!madewarning) {
-      LOG(WARNING) << "WARNING: Unknown atom type " << t << " in " << file << ".  This atom will be discarded.  Future warnings will be suppressed\n";
-      madewarning = true;
-    }
-    return 0;
-  }
-  return 1;
-}
-
-//two shared caches for the whole program
-//so ugly, plz replace with macro
-template<>
-BaseMolGridDataLayer<float, GridMaker>::MolCache BaseMolGridDataLayer<float, GridMaker>::recmolcache = BaseMolGridDataLayer<float, GridMaker>::MolCache();
-template<>
-BaseMolGridDataLayer<double, GridMaker>::MolCache BaseMolGridDataLayer<double, GridMaker>::recmolcache =  BaseMolGridDataLayer<double, GridMaker>::MolCache();
-template<>
-BaseMolGridDataLayer<float, SubcubeGridMaker>::MolCache BaseMolGridDataLayer<float, SubcubeGridMaker>::recmolcache = BaseMolGridDataLayer<float, SubcubeGridMaker>::MolCache();
-template<>
-BaseMolGridDataLayer<double, SubcubeGridMaker>::MolCache BaseMolGridDataLayer<double, SubcubeGridMaker>::recmolcache =  BaseMolGridDataLayer<double, SubcubeGridMaker>::MolCache();
-
-template<>
-BaseMolGridDataLayer<float, GridMaker>::MolCache BaseMolGridDataLayer<float, GridMaker>::ligmolcache = BaseMolGridDataLayer<float, GridMaker>::MolCache();
-template<>
-BaseMolGridDataLayer<double, GridMaker>::MolCache BaseMolGridDataLayer<double, GridMaker>::ligmolcache =  BaseMolGridDataLayer<double, GridMaker>::MolCache();
-template<>
-BaseMolGridDataLayer<float, SubcubeGridMaker>::MolCache BaseMolGridDataLayer<float, SubcubeGridMaker>::ligmolcache = BaseMolGridDataLayer<float, SubcubeGridMaker>::MolCache();
-template<>
-BaseMolGridDataLayer<double, SubcubeGridMaker>::MolCache BaseMolGridDataLayer<double, SubcubeGridMaker>::ligmolcache =  BaseMolGridDataLayer<double, SubcubeGridMaker>::MolCache();
-
-//load custom formatted cache file of all gninatypes into specified molcache using specified mapping and offset
-template <typename Dtype, class GridMakerT>
-void BaseMolGridDataLayer<Dtype, GridMakerT>::load_cache(const string& file, const vector<int>& atommap, unsigned mapoffset, BaseMolGridDataLayer<Dtype, GridMakerT>::MolCache& molcache)
-{
-  //file shoudl be organized
-  //name size (1byte)
-  //name (string)
-  //number of atoms (4bytes)
-  //atoms (3 floats and an int of the type)
-
-  char buffer[257] = {0,};
-  struct info {
-    float x,y,z;
-    int type;
-  } atom;
-
-  string fullpath = file;
-  if(file.size() > 0 && file[0] != '/')
-    fullpath = root_folder + file; //prepend dataroot if not absolute
-  ifstream in(fullpath.c_str());
-  CHECK(in) << "Could not read " << fullpath;
-
-  LOG(INFO) << "Loading from " << fullpath << " with cache at size " << molcache.size() << "\n";
-  while(in && in.peek() != EOF)
-  {
-    char sz = 0;
-    int natoms = 0;
-    in.read(&sz, sizeof(char));
-    in.read(buffer,sizeof(char)*sz);
-    buffer[(int)sz] = 0; //null terminate
-    string fname(buffer);
-
-    in.read((char*)&natoms, sizeof(int));
-
-    if(molcache.count(fname)) {
-      static int warncnt = 0;
-
-      if(warncnt == 0) {
-        LOG(WARNING) << "File " << fname << " duplicated in provided cache " << file << ".  Future warnings are supressed.";
-        warncnt++;
-      }
-    }
-
-    typename MolGridDataLayer<Dtype>::mol_info& minfo = molcache[fname];
-    minfo.atoms.clear();
-    minfo.whichGrid.clear();
-    minfo.gradient.clear();
-    int cnt = 0;
-    vec center(0,0,0);
-
-    for(unsigned i = 0; i < natoms; i++)
-    {
-      in.read((char*)&atom, sizeof(atom));
-      smt t = (smt)atom.type;
-
-      if(add_to_minfo(fname, atommap, mapoffset, t, atom.x, atom.y, atom.z, minfo)) {
-        cnt++;
-        center += vec(atom.x,atom.y,atom.z);
-      }
-    }
-
-    if(cnt == 0) {
-      LOG(WARNING) << "WARNING: No atoms in " << file <<"\n";
-      continue;
-    }
-
-    center /= cnt;
-    minfo.center = center;
-  }
-
-  LOG(INFO) << "Done loading from " << fullpath << " with cache at size " << molcache.size() << std::endl;
-
-}
 
 template <typename Dtype, class GridMakerT>
-void BaseMolGridDataLayer<Dtype, GridMakerT>::set_mol_info(const string& file, const vector<int>& atommap,
+void BaseMolGridDataLayer<Dtype, GridMakerT>::set_mol_info(const CoordinateSet& c,
     unsigned mapoffset, typename MolGridDataLayer<Dtype>::mol_info& minfo)
 {
-  //read mol info from file
-  //OpenBabel is SLOW, especially for the receptor, so we cache the result
-  //if this gets too annoying, can add support for spawning a thread for openbabel
-  //but since this gets amortized across many hits to the same example, not a high priority
-  //if clear is true, set, otherwise add
-  using namespace OpenBabel;
-
   minfo.atoms.clear();
   minfo.whichGrid.clear();
   minfo.gradient.clear();
-  
-  int cnt = 0;
+
+  unsigned N = c.size();
+  minfo.atoms.reserve(N);
+  minfo.whichGrid.reserve(N);
+  minfo.gradient.reserve(N);
+  unsigned cnt = 0;
   vec center(0,0,0);
 
-  //also, implemented a custom gninatypes files to precalc this info
-  if(boost::algorithm::ends_with(file,".gninatypes"))
-  {
-    struct info {
-      float x,y,z;
-      int type;
-    } atom;
+  for(unsigned i = 0; i < N; i++) {
+    float4 atom;
+    atom.x = c.coord[i][0];
+    atom.y = c.coord[i][1];
+    atom.z = c.coord[i][2];
+    atom.w = c.radius[i];
 
-    ifstream in(file.c_str());
-    CHECK(in) << "Could not read " << file;
-
-    while(in.read((char*)&atom, sizeof(atom)))
-    {
-      smt t = (smt)atom.type;
-
-      if(add_to_minfo(file, atommap, mapoffset, t, atom.x, atom.y, atom.z, minfo)) {
-        cnt++;
-        center += vec(atom.x,atom.y,atom.z);
-      }
-    }
-  }
-  else if(!boost::algorithm::ends_with(file,"none")) //reserved word
-  {
-    //read mol from file and set mol info (atom coords and grid positions)
-    //types are mapped using atommap values plus offset
-    OpenBabel::OBConversion conv;
-    OBMol mol;
-    CHECK(conv.ReadFile(&mol, file)) << "Could not read " << file;
-
-    if(this->layer_param_.molgrid_data_param().addh()) {
-      mol.AddHydrogens();
-    }
-
-    minfo.atoms.reserve(mol.NumHvyAtoms());
-    minfo.whichGrid.reserve(mol.NumHvyAtoms());
-    minfo.gradient.reserve(mol.NumHvyAtoms());
-
-    FOR_ATOMS_OF_MOL(a, mol)
-    {
-      smt t = obatom_to_smina_type(*a);
-      if(add_to_minfo(file, atommap, mapoffset, t, a->x(), a->y(), a->z(), minfo)) {
-        cnt++;
-        center += vec(a->x(), a->y(), a->z());
-      }
+    int t = c.type_index[i];
+    if(t >= 0) {
+      cnt++;
+      minfo.atoms.push_back(atom);
+      minfo.whichGrid.push_back(t);
+      minfo.gradient.push_back(make_float3(0,0,0));
+      center += vec(atom.x,atom.y,atom.z);
     }
   }
 
   if(cnt == 0) {
-    std::cerr << "WARNING: No atoms in " << file <<"\n";
+    if(c.src && c.src != string("none")) std::cerr << "WARNING: No atoms in " << c.src <<"\n";
   }
   else {
     center /= cnt;
@@ -967,9 +630,8 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_mol_info(const string& file, c
 }
 
 template <typename Dtype, class GridMakerT>
-void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data, 
-    const BaseMolGridDataLayer<Dtype, GridMakerT>::example& ex,
-    const string& root_folder, typename MolGridDataLayer<Dtype>::mol_transform& transform, 
+void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data, const Example& ex,
+    typename MolGridDataLayer<Dtype>::mol_transform& transform,
     int pose, output_transform& peturb, bool gpu)
 {
   //set grid values for example
@@ -977,59 +639,30 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data,
   //pose specifies which ligand pose to use (relevant if num_poses > 1)
   //if it is negative, use them all (but with distinct channels
   //data should be positioned at the start of the example
-  const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
-  bool docache = param.cache_structs();
   bool doall = false;
   if(pose < 0) {
       doall = true;
       pose = 0;
   }
 
-  CHECK_LT(pose, ex.ligands.size()) << "Incorrect pose index";
-  const char* ligand = ex.ligands[pose];
+  typename MolGridDataLayer<Dtype>::mol_info rec;
+  typename MolGridDataLayer<Dtype>::mol_info lig;
 
-  if(docache)
-  {
-    if(recmolcache.count(ex.receptor) == 0)
-    {
-      set_mol_info(root_folder+ex.receptor, rmap, 0, recmolcache[ex.receptor]);
-    }
-    if(ligmolcache.count(ligand) == 0)
-    {
-      set_mol_info(root_folder+ligand, lmap, numReceptorTypes, ligmolcache[ligand]);
-    }
+  CHECK_LT(pose, ex.sets.size()-1) << "Incorrect pose index";  //pose index doesn't include rec
 
-    if(doall) {
-      //make sure every ligand is in the cache, then aggregate
-      typename MolGridDataLayer<Dtype>::mol_info lig(ligmolcache[ligand]);
-      for(unsigned p = 1, np = ex.ligands.size(); p < np; p++) {
-        ligand = ex.ligands[p];
-        if(ligmolcache.count(ligand) == 0)
-        {
-          set_mol_info(root_folder+ligand, lmap, numReceptorTypes, ligmolcache[ligand]);
-        }
-        lig.append(ligmolcache[ligand],numLigandTypes*p);
+  set_mol_info(ex.sets[0], 0, rec);  //could be "none"
+  set_mol_info(ex.sets[pose+1], numReceptorTypes, lig);
+
+  if(doall) { //first ligand pose already set, add others as discrete channels
+      for(unsigned p = 1, np = ex.sets.size()-1; p < np; p++) {
+        typename MolGridDataLayer<Dtype>::mol_info tmplig;
+        set_mol_info(ex.sets[p+1], numReceptorTypes+numLigandTypes*p, tmplig);
+        lig.append(tmplig);
       }
-      set_grid_minfo(data, recmolcache[ex.receptor], lig, transform, peturb, gpu);
-    } else {
-        set_grid_minfo(data, recmolcache[ex.receptor], ligmolcache[ligand], transform, peturb, gpu);
-    }
   }
-  else
-  {
-    typename MolGridDataLayer<Dtype>::mol_info rec;
-    typename MolGridDataLayer<Dtype>::mol_info lig;
-    set_mol_info(root_folder+ex.receptor, rmap, 0, rec);
-    set_mol_info(root_folder+ligand, lmap, numReceptorTypes, lig);
-    if(doall) {
-        for(unsigned p = 1, np = ex.ligands.size(); p < np; p++) {
-          typename MolGridDataLayer<Dtype>::mol_info tmplig;
-          set_mol_info(root_folder+ligand, lmap, numReceptorTypes+numLigandTypes*p, tmplig);
-          lig.append(tmplig);
-        }
-    }    
-    set_grid_minfo(data, rec, lig, transform, peturb, gpu);
-  }
+
+  set_grid_minfo(data, rec, lig, transform, peturb, gpu);
+
 }
 
 
@@ -1469,10 +1102,9 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
   unsigned maxgroupsize = this->layer_param_.molgrid_data_param().maxgroupsize();
   unsigned maxchunksize = this->layer_param_.molgrid_data_param().maxchunksize();
 
-  if ((maxgroupsize-1) && !maxchunksize)
+  if ((maxgroupsize >1) && !maxchunksize)
     maxchunksize = maxgroupsize;
 
-  bool hasweights = (this->layer_param_.molgrid_data_param().affinity_reweight_stdcut() > 0);
   bool duplicate = this->layer_param_.molgrid_data_param().duplicate_poses();
   int peturb_bins = this->layer_param_.molgrid_data_param().peturb_bins();
   double peturb_translate = this->layer_param_.molgrid_data_param().peturb_ligand_translate();
@@ -1522,32 +1154,29 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
 
     //percent of batch from first data source
     unsigned dataswitch = batch_size;
-    if (data2)
+    if (data2.size())
       dataswitch = batch_size*data_ratio/(data_ratio+1);
 
     for (int idx = 0; idx < batch_size + (maxchunksize-1)*batch_size; ++idx)
     {
       int batch_idx = idx % batch_size;
-      example ex;
-      string *root;
+      Example ex;
       if (batch_idx < dataswitch)
       {
-        data->next(ex);
-        root = &root_folder;
+        data.next(ex);
       }
       else
       {
-        data2->next(ex);
-        root = &root_folder2;
+        data2.next(ex);
       }
 
-      updateLabels(ex.label, ex.affinity, ex.rmsd, ex.affinity_weight);
+      updateLabels(ex.labels, hasaffinity, hasrmsd);
       int step = idx / batch_size;
       int offset = ((batch_size * step) + batch_idx) * example_size;
 
       //if label == -1 then this is a padding example for grouped data; just
       //memset data to 0
-      if (ex.label == -1) {
+      if (ex.labels[0] == -1) {
           unsigned gsize = (numReceptorTypes + numLigandTypes) * dim * 
             dim * dim;
           if (gpu) {
@@ -1559,13 +1188,13 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
 
       else {
         if(!duplicate) {
-          set_grid_ex(top_data+offset, ex, *root, batch_transform[batch_idx], numposes > 1 ? -1 : 0, peturb, gpu);
+          set_grid_ex(top_data+offset, ex, batch_transform[batch_idx], numposes > 1 ? -1 : 0, peturb, gpu);
           perturbations.push_back(peturb);
         }
         else {
       	  for(unsigned p = 0; p < numposes; p++) {
             int p_offset = batch_idx*(example_size*numposes)+example_size*p;
-            set_grid_ex(top_data+p_offset, ex, *root, batch_transform[batch_idx], p, peturb, gpu);
+            set_grid_ex(top_data+p_offset, ex, batch_transform[batch_idx], p, peturb, gpu);
             perturbations.push_back(peturb);
             //NOTE: num_rotations not actually implemented!
           }
@@ -1577,7 +1206,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
 
   }
 
-  copyToBlobs(top, hasaffinity, hasrmsd, hasweights, gpu);
+  copyToBlobs(top, hasaffinity, hasrmsd, gpu);
 
   if(peturb_bins > 0) {
     //discretize

@@ -19,6 +19,10 @@ find_package(OpenBabel2 REQUIRED)
 include_directories(${OPENBABEL2_INCLUDE_DIR})
 list(APPEND Caffe_LINKER_LIBS  ${OPENBABEL2_LIBRARIES} )
 
+# libmolgrid
+find_package(libmolgrid REQUIRED)
+include_directories($LIBMOLGRID_INCLUDE_DIR)
+list(APPEND Caffe_LINKER_LIBS ${LIBMOLGRID_LIBRARY} )
 
 # ---[ Threads
 find_package(Threads REQUIRED)
