@@ -1,0 +1,16 @@
+layer {
+  name: "data"
+  type: "MolGridData"
+  top: "data"
+  top: "label"
+  molgrid_data_param {
+    source: "typesfiles/small.types"
+    batch_size: 10
+    dimension: 23.5
+    resolution: 0.5
+    shuffle: false
+    balanced: false
+    stratify_receptor: true
+    root_folder: "typesfiles"
+  }
+}

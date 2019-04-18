@@ -24,6 +24,7 @@
 
 #include "gninasrc/lib/atom.h"
 #include "gninasrc/lib/gridmaker.h"
+#include <libmolgrid/example_provider.h>
 
 void test_set_atom_gradients();
 void test_vanilla_grids();
