@@ -580,6 +580,11 @@ BOOST_PYTHON_MODULE(_caffe) {
       .def_readonly("center",&MolGridDataLayer<Dtype>::mol_transform::center)
       .def_readonly("Q",&MolGridDataLayer<Dtype>::mol_transform::Q);
 
+  bp::class_<GenericMolGridDataLayer<Dtype>, bp::bases<MolGridDataLayer<Dtype> >,
+    shared_ptr<GenericMolGridDataLayer<Dtype> >, boost::noncopyable>("GenericMolGridDataLayer", bp::no_init);
+  BP_REGISTER_SHARED_PTR_TO_PYTHON(GenericMolGridDataLayer<Dtype>);
+
+
   bp::class_<vec>("vec")
       .def("x",&vec::x)
       .def("y",&vec::y)
