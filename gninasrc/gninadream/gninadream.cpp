@@ -180,8 +180,10 @@ void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& ne
         break;
       }
       mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
-      if (next_ref_lig != "none")
+      if (next_ref_lig != "none") {
         mgrid->setReceptor(m.get_fixed_atoms());
+        mgrid->setCenter(mgrid->getCenter());
+      }
       else
         mgrid->setCenter(0, 0, 0)
       mgrid->setLabels(1); 

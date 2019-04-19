@@ -321,13 +321,23 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   //will apply translate and rotate iff rotate is valid
   void setReceptor(const vector<atom>& receptor, const vec& translate = {}, const qt& rotate = {})
   {
+    bool use_rec_center = this->layer_param_.molgrid_data_param().use_rec_center();
     mem_rec.atoms.clear();
     mem_rec.whichGrid.clear();
     mem_rec.gradient.clear();
 
-    float3 c = make_float3(mem_lig.center[0], mem_lig.center[1], mem_lig.center[2]);
+    float3 c;
+    if (use_rec_center) {
+      //since use_rec_center is for dream opt, this constraint will probably
+      //bother no one
+      CHECK_EQ(rotate.real(), 0) << "Can't use_rec_center with random rotate on.";
+      c = make_float3(0,0,0);
+    }
+    else
+      c = make_float3(mem_lig.center[0], mem_lig.center[1], mem_lig.center[2]);
     float3 trans = make_float3(translate[0],translate[1],translate[2]);
 
+    unsigned acnt = 0;
     //receptor atoms
     for(unsigned i = 0, n = receptor.size(); i < n; i++)
     {
@@ -355,11 +365,18 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
           ainfo.w = fixedradius;
         float3 gradient(0,0,0);
 
-        mem_rec.atoms.push_back(ainfo);
-        mem_rec.whichGrid.push_back(rmap[t]);
-        mem_rec.gradient.push_back(gradient);
+        if (!ignore_rec) {
+          mem_rec.atoms.push_back(ainfo);
+          mem_rec.whichGrid.push_back(rmap[t]);
+          mem_rec.gradient.push_back(gradient);
+        }
+        center += a.coords;
+        acnt++;
       }
     }
+    c /= acnt;
+    if (use_rec_center)
+      mem_rec.center = c;
   }
 
   //set center to use for memory ligand
@@ -412,7 +429,11 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   }
 
   vec getCenter() const {
-    return mem_lig.center;
+    bool use_rec_center = this->layer_param_.molgrid_data_param().use_rec_center();
+    if (use_rec_center)
+      return mem_rec.center;
+    else
+      return mem_lig.center;
   }
 
   vec getCenter(unsigned mol_idx) const {
