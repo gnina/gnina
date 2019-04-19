@@ -284,12 +284,11 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     updateLabels(pose, affinity, rmsd);
   }
 
+  // add labels for a _single_ example (call multiple times with duplicated multiple poses)
   virtual void updateLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) {
-    for(unsigned p = 0; p < numposes; p++) {
       labels.push_back(pose);
       affinities.push_back(affinity);
       rmsds.push_back(rmsd);
-    }
   }
 
   virtual void updateTranslations(vec&& translation) {}
@@ -750,9 +749,7 @@ class GroupedMolGridDataLayer : public BaseMolGridDataLayer<Dtype, GridMaker> {
     }
 
     virtual void updateLabels(Dtype pose, Dtype affinity=0, Dtype rmsd=0) {
-      for(unsigned p = 0; p < this->numposes; p++) {
-        this->seqcont.push_back(example_idx < batch_size ? 0 : 1);
-      }
+      this->seqcont.push_back(example_idx < batch_size ? 0 : 1);
       BaseMolGridDataLayer<Dtype, GridMaker>::updateLabels(pose, affinity, rmsd);
     }
 
@@ -817,8 +814,9 @@ class SubcubeMolGridDataLayer : public BaseMolGridDataLayer<Dtype, SubcubeGridMa
       unsigned batch_size = this->gmaker.batch_size;
       unsigned batch_idx = this->gmaker.batch_idx;
       int nexamples = ncubes * batch_size;
-      bool duplicate = this->layer_param_.molgrid_data_param().duplicate_poses();
-      if(duplicate) nexamples = batch_size*this->numposes;
+
+      CHECK_LE(this->numposes, 1) << "Multipose not supported in subgrid";
+
       if (seqcont.size() < nexamples)
         seqcont.resize(nexamples);
       if (this->labels.size() < nexamples) 
@@ -832,16 +830,14 @@ class SubcubeMolGridDataLayer : public BaseMolGridDataLayer<Dtype, SubcubeGridMa
       //sadly
       for (size_t cube_id = 0; cube_id < ncubes; ++cube_id) {
         unsigned idx = cube_id * batch_size + batch_idx;
-        for(unsigned p = 0; p < this->numposes; p++) {
-          unsigned pose_idx = idx + p;
           if (cube_id == 0)
-            seqcont[pose_idx] = 0;
+            seqcont[idx] = 0;
           else
-            seqcont[pose_idx] = 1;
-          this->labels[pose_idx] = pose;
-          this->affinities[pose_idx] = affinity;
-          this->rmsds[pose_idx] = rmsd;
-        }
+            seqcont[idx] = 1;
+          this->labels[idx] = pose;
+          this->affinities[idx] = affinity;
+          this->rmsds[idx] = rmsd;
+
       }
     }
     

@@ -613,7 +613,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_mol_info(const CoordinateSet& 
     if(t >= 0) {
       cnt++;
       minfo.atoms.push_back(atom);
-      minfo.whichGrid.push_back(t);
+      minfo.whichGrid.push_back(t+mapoffset);
       minfo.gradient.push_back(make_float3(0,0,0));
       center += vec(atom.x,atom.y,atom.z);
     }
@@ -653,12 +653,13 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::set_grid_ex(Dtype *data, const Exa
   set_mol_info(ex.sets[0], 0, rec);  //could be "none"
   set_mol_info(ex.sets[pose+1], numReceptorTypes, lig);
 
-  if(doall) { //first ligand pose already set, add others as discrete channels
-      for(unsigned p = 1, np = ex.sets.size()-1; p < np; p++) {
-        typename MolGridDataLayer<Dtype>::mol_info tmplig;
-        set_mol_info(ex.sets[p+1], numReceptorTypes+numLigandTypes*p, tmplig);
-        lig.append(tmplig);
-      }
+  if (doall) { //first ligand pose already set, add others as discrete channels
+    CHECK_EQ(pose,0)<< "Invalid pose specifier (internal error)";
+    for(unsigned p = 1, np = ex.sets.size()-1; p < np; p++) {
+      typename MolGridDataLayer<Dtype>::mol_info tmplig;
+      set_mol_info(ex.sets[p+1], numReceptorTypes+numLigandTypes*p, tmplig);
+      lig.append(tmplig);
+    }
   }
 
   set_grid_minfo(data, rec, lig, transform, peturb, gpu);
@@ -987,27 +988,28 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::outputDXGrid(std::ostream& out, Gr
 //dump dx files for every atom type, with files names starting with prefix
 //only does the very first grid for now
 template<typename Dtype, class GridMakerT>
-void BaseMolGridDataLayer<Dtype, GridMakerT>::dumpDiffDX(const std::string& prefix,
-		Blob<Dtype>* top, double scale) const
-{
+void BaseMolGridDataLayer<Dtype, GridMakerT>::dumpDiffDX(
+    const std::string& prefix,
+    Blob<Dtype>* top, double scale) const
+    {
   Dtype* diff = top->mutable_cpu_diff();
-	Grids grids(diff,
-			boost::extents[numReceptorTypes + numLigandTypes][dim][dim][dim]);
-    CHECK_GT(mem_lig.atoms.size(),0) << "DX dump only works with in-memory ligand";
-    CHECK_EQ(randrotate, false) << "DX dump requires no rotation";
-    CHECK_LE(numposes, 1) << "DX dump requires numposes == 1";
-	for (unsigned a = 0, na = numReceptorTypes; a < na; a++) {
-		string name = getIndexName(rmap, a);
-		string fname = prefix + "_rec_" + name + ".dx";
-		ofstream out(fname.c_str());
-		outputDXGrid(out, grids, a, scale, dim);
-	}
-	for (unsigned a = 0, na = numLigandTypes; a < na; a++) {
-			string name = getIndexName(lmap, a);
-			string fname = prefix + "_lig_" + name + ".dx";
-			ofstream out(fname.c_str());
-			outputDXGrid(out, grids, numReceptorTypes+a, scale, dim);
-	}
+  Grids grids(diff,
+      boost::extents[numReceptorTypes + numLigandTypes][dim][dim][dim]);
+  CHECK_GT(mem_lig.atoms.size(),0)<< "DX dump only works with in-memory ligand";
+  CHECK_EQ(randrotate, false)<< "DX dump requires no rotation";
+  CHECK_LE(numposes, 1)<< "DX dump requires numposes == 1";
+  for (unsigned a = 0, na = numReceptorTypes; a < na; a++) {
+    string name = getIndexName(rmap, a);
+    string fname = prefix + "_rec_" + name + ".dx";
+    ofstream out(fname.c_str());
+    outputDXGrid(out, grids, a, scale, dim);
+  }
+  for (unsigned a = 0, na = numLigandTypes; a < na; a++) {
+    string name = getIndexName(lmap, a);
+    string fname = prefix + "_lig_" + name + ".dx";
+    ofstream out(fname.c_str());
+    outputDXGrid(out, grids, numReceptorTypes + a, scale, dim);
+  }
 
 }
 
@@ -1170,7 +1172,6 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
         data2.next(ex);
       }
 
-      updateLabels(ex.labels, hasaffinity, hasrmsd);
       int step = idx / batch_size;
       int offset = ((batch_size * step) + batch_idx) * example_size;
 
@@ -1188,11 +1189,13 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::forward(const vector<Blob<Dtype>*>
 
       else {
         if(!duplicate) {
+          updateLabels(ex.labels, hasaffinity, hasrmsd);
           set_grid_ex(top_data+offset, ex, batch_transform[batch_idx], numposes > 1 ? -1 : 0, peturb, gpu);
           perturbations.push_back(peturb);
         }
         else {
       	  for(unsigned p = 0; p < numposes; p++) {
+      	    updateLabels(ex.labels, hasaffinity, hasrmsd);
             int p_offset = batch_idx*(example_size*numposes)+example_size*p;
             set_grid_ex(top_data+p_offset, ex, batch_transform[batch_idx], p, peturb, gpu);
             perturbations.push_back(peturb);

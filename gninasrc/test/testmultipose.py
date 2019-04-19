@@ -7,8 +7,8 @@ import numpy as np
 import os,sys,re
 
 #these might change
-LIGCHANNELS = 19
-RECCHANNELS = 16
+LIGCHANNELS = 14
+RECCHANNELS = 14
 
 #create input file in subdir of current directory
 try:
