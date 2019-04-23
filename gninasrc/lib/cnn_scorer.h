@@ -15,7 +15,6 @@
 #include "boost/thread/mutex.hpp"
 #include <boost/thread/recursive_mutex.hpp>
 
-#include "nngridder.h"
 #include "model.h"
 #include "cnn_data.h"
 

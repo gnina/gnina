@@ -59,7 +59,6 @@ lib/monte_carlo.cpp
 lib/mutate.cpp
 lib/my_pid.cpp
 lib/naive_non_cache.cpp
-lib/nngridder.cpp
 lib/non_cache.cpp
 lib/non_cache_cnn.cpp
 lib/obmolopener.cpp
