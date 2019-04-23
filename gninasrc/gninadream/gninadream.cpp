@@ -8,7 +8,8 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 
-#define CUDA_NUM_THREADS 512
+#define CUDA_NUM_THREADS 256
+#define CUDA_NUM_BLOCKS 48
 
 typedef caffe::MolGridDataLayer<float> mgridT;
 
@@ -42,8 +43,8 @@ std::vector<std::string> glob(const std::string& pattern) {
 }
 
 __global__
-void gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, 
-    size_t M, size_t N, size_t gsize);
+void gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize, 
+    unsigned compound_idx);
 
 bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned numgridpoints, 
     std::string& fname) {
@@ -111,22 +112,16 @@ bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned num
   return true;
 }
 
-void cpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, 
-    size_t M, size_t N, size_t gsize) {
-  // optimized grids
-  for (size_t i=0; i<M; ++i) {
-    // conformers to screen against
-    for (size_t j=0; j<N; ++j) {
-      float sum = 0.;
+void cpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize, 
+    unsigned compound_idx) {
+  float sum = 0.;
 #pragma omp parallel for reduction(+:sum)
-      for (size_t k=0; k<gsize; ++k) {
-        float diff = optgrid[i * gsize + k] - screengrid[j * gsize + k];
-        float sqdiff = diff * diff;
-        sum += sqdiff;
-      }
-    scoregrid[i * N + j] = std::sqrt(sum);
-    }
+  for (size_t k=0; k<gsize; ++k) {
+    float diff = optgrid[k] - screengrid[k];
+    float sqdiff = diff * diff;
+    sum += sqdiff;
   }
+  scoregrid[compound_idx] = std::sqrt(sum);
 }
 
 void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& net, 
@@ -192,7 +187,7 @@ void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& ne
         float* optgrid = net->top_vecs()[0][0]->gpu_data();
         float* screengrid = top[0]->gpu_data();
         scoregrid = scores->mutable_gpu_data();
-        gpu_l2<<<1, CUDA_NUM_THREADS>>>(optgrid + i * example_size, screengrid, 
+        gpu_l2<<<CUDA_NUM_BLOCKS, CUDA_NUM_THREADS>>>(optgrid + i * example_size, screengrid, 
             scoregrid + compound, example_size);
       }
       else {

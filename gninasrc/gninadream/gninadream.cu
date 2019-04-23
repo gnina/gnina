@@ -1,5 +1,5 @@
 #include "../lib/gpu_math.h"
-#define CUDA_NUM_THREADS 512
+#define CUDA_NUM_THREADS 256
 #define warpSize 32
 
 // device functions for warp-based reduction using shufl operations
@@ -38,22 +38,18 @@ __device__   __forceinline__ T block_sum(T mySum) {
 }
 
 __global__
-void gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, 
-    size_t M, size_t N, size_t gsize) {
-  unsigned tidx = threadIdx.x;
+void gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid,
+    size_t gsize) {
+  unsigned tidx = blockDim.x * blockIdx.x + threadIdx.x;
+  unsigned nthreads = blockDim.x * gridDim.x;
   // optimized grids
-  for (size_t i=0; i<M; ++i) {
-    // conformers to screen against
-    for (size_t j=0; j<N; ++j) {
-      float sum = 0.;
-      for (size_t k=0; k<gsize; k+=CUDA_NUM_THREADS) {
-        float diff = optgrid[i * gsize + k] - screengrid[j * gsize + k];
-        float sqdiff = diff * diff;
-        sum += sqdiff;
-      }
-    float total = block_sum<float>(sum);
-    if (tidx == 0)
-      scoregrid[i * N + j] = sqrtf(total);
-    }
+  float sum = 0.;
+  for (size_t k=0; k<gsize; k+=nthreads) {
+    float diff = optgrid[k + tidx] - screengrid[k + tidx];
+    float sqdiff = diff * diff;
+    sum += sqdiff;
   }
+  float total = block_sum<float>(sum);
+  if (tidx == 0)
+    *scoregrid = sqrtf(total);
 }
