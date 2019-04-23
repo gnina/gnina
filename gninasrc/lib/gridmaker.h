@@ -611,16 +611,6 @@ class SubcubeGridMaker : public GridMaker {
       return _ntypes;
     }
 
-    virtual unsigned createDefaultRecMap(vector<int>& map) {
-      nrec_types = GridMaker::createDefaultRecMap(map);
-      return nrec_types;
-    }
-
-    virtual unsigned createDefaultLigMap(vector<int>& map) {
-      nlig_types = GridMaker::createDefaultLigMap(map);
-      return nlig_types;
-    }
-
     virtual unsigned createAtomTypeMap(const string& fname, vector<int>& map) {
       unsigned _ntypes = GridMaker::createAtomTypeMap(fname, map);
       ntypes += _ntypes;

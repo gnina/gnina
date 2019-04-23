@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <string>
+#include <utility>
 #include <algorithm>
 #include <fstream>
 #include <boost/program_options.hpp>
@@ -17,16 +18,20 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
 #include <openbabel/oberror.h>
+#include <libmolgrid/grid_maker.h>
+#include <libmolgrid/grid_io.h>
+#include <libmolgrid/atom_typer.h>
+#include <libmolgrid/cartesian_grid.h>
 
-#include "atom_type.h"
-#include "box.h"
+#include "molgridder.h"
 #include "molgetter.h"
 
 #include "gridoptions.h"
-#include "nngridder.h"
+
 
 using namespace std;
 using namespace boost;
+using namespace libmolgrid;
 
 //parse commandline options using boost::program_options and put the values in opts
 //return true if successfull and ready to compute
@@ -37,44 +42,44 @@ static bool parse_options(int argc, char *argv[], gridoptions& o) {
 
   options_description inputs("Input");
   inputs.add_options()("receptor,r",
-      value<std::string>(&o.receptorfile)->required(), "receptor file")(
-      "ligand,l", value<std::string>(&o.ligandfile)->required(), "ligand(s)")(
-      "grid,g", value<std::vector<std::string> >(&o.usergrids)->multitoken(),
-      "grid(s) dx format")("example_grid", value<string>(&o.examplegrid),
+      value<std::string>(&o.receptorfile)->required(), "receptor file")
+  ("ligand,l", value<std::string>(&o.ligandfile)->required(), "ligand(s)")
+  ("grid,g", value<std::vector<std::string> >(&o.usergrids)->multitoken(),
+      "grid(s) dx format")
+  ("example_grid", value<string>(&o.examplegrid),
       "example grid for positioning with --separate");
+
   options_description outputs("Output");
   outputs.add_options()("out,o", value<std::string>(&o.outname)->required(),
-      "output file name base, combined map of both lig and receptor")("map",
-      bool_switch(&o.outmap),
-      "output AD4 map files (for debugging, out is base name)")("dx",
-      bool_switch(&o.outdx),
+      "output file name base, combined map of both lig and receptor")
+  ("map", bool_switch(&o.outmap),
+      "output AD4 map files (for debugging, out is base name)")
+  ("dx", bool_switch(&o.outdx),
       "output DX map files (for debugging, out is base name)");
 
   options_description options("Options");
-  options.add_options()("dimension", value<double>(&o.dim),
-      "Cubic grid dimension (Angstroms)")("resolution", value<double>(&o.res),
-      "Cubic grid resolution (Angstroms)")("binary_occupancy",
-      bool_switch(&o.binary), "Output binary occupancies (still as floats)")(
-      "spherical_mask", bool_switch(&o.spherize), "Mask out a sphere")(
-      "random_rotation", bool_switch(&o.randrotate),
-      "Apply random rotation to input")("random_translation",
-      value<fl>(&o.randtranslate),
-      "Apply random translation to input up to specified distance")(
-      "random_seed", value<int>(&o.seed), "Random seed to use")("recmap",
-      value<string>(&o.recmap), "Atom type mapping for receptor atoms")(
-      "ligmap", value<string>(&o.ligmap), "Atom type mapping for ligand atoms")(
-      "separate", bool_switch(&o.separate),
-      "Output separate rec and lig files.")("gpu", bool_switch(&o.gpu),
-      "Use GPU to compute grids")
-      ("subgrid_dim", value<double>(&o.subgrid_dim), 
-      "Generate RNN grids, with  separate file for each timestep. Currently only cubic is supported.");
-    
+  options.add_options()
+  ("dimension", value<double>(&o.dim), "Cubic grid dimension (Angstroms)")
+  ("resolution", value<double>(&o.res), "Cubic grid resolution (Angstroms)")
+  ("binary_occupancy", bool_switch(&o.binary),
+      "Output binary occupancies (still as floats)")
+  ("random_rotation", bool_switch(&o.randrotate),
+      "Apply random rotation to input")
+  ("random_translation", value<fl>(&o.randtranslate),
+      "Apply random translation to input up to specified distance")
+  ("random_seed", value<int>(&o.seed), "Random seed to use")
+  ("recmap", value<string>(&o.recmap), "Atom type mapping for receptor atoms")
+  ("ligmap", value<string>(&o.ligmap), "Atom type mapping for ligand atoms")
+  ("separate", bool_switch(&o.separate), "Output separate rec and lig files.")
+  ("gpu", bool_switch(&o.gpu), "Use GPU to compute grids");
+
   options_description info("Information (optional)");
-  info.add_options()("help", bool_switch(&o.help), "display usage summary")(
-      "version", bool_switch(&o.version), "display program version")("time",
-      bool_switch(&o.timeit), "display time to grid")("verbosity",
-      value<int>(&o.verbosity)->default_value(1),
+  info.add_options()("help", bool_switch(&o.help), "display usage summary")
+  ("version", bool_switch(&o.version), "display program version")
+  ("time", bool_switch(&o.timeit), "display time to grid")
+  ("verbosity", value<int>(&o.verbosity)->default_value(1),
       "Adjust the verbosity of the output, default: 1");
+
   options_description desc;
   desc.add(inputs).add(options).add(outputs).add(info);
   variables_map vm;
@@ -91,7 +96,7 @@ static bool parse_options(int argc, char *argv[], gridoptions& o) {
       return false;
     }
     if (o.version) {
-      cout << "gnina " __DATE__ << '\n';
+      cout << "gninagrid " __DATE__ << '\n';
       return false;
     }
 
@@ -105,6 +110,7 @@ static bool parse_options(int argc, char *argv[], gridoptions& o) {
   return true;
 }
 
+
 int main(int argc, char *argv[]) {
   OpenBabel::obErrorLog.StopLogging();
   try {
@@ -113,56 +119,32 @@ int main(int argc, char *argv[]) {
     if (!parse_options(argc, argv, opt)) exit(0);
 
     srand(opt.seed);
+    MolGridder mgrid(opt); //initialize gridder
 
-    //setup receptor grid
-    NNMolsGridder* gridder = nullptr;
-    if (opt.subgrid_dim)
-      gridder = new RNNMolsGridder(opt);
-    else
-      gridder = new NNMolsGridder(opt);
-
-    if (opt.separate) {
-      string outname = opt.outname + "." + gridder->getParamString(true, false)
-          + ".binmap";
-      ofstream binout(outname.c_str());
-      if (!binout) {
-        cerr << "Could not open " << outname << "\n";
-        exit(-1);
+    //if separate, output receptor
+    if(opt.separate) {
+      if(mgrid.has_set_center()) {
+        cerr << "--separate specified, but no example or additional grids specified to define coordinate system\n";
+        abort();
       }
-      gridder->outputBIN(binout, true, false);
+      mgrid.outputBIN(opt.outname, true, false);
     }
 
-    //for each ligand..
+    //for each ligand
     unsigned ligcnt = 0;
-    while (gridder->readMolecule(opt.timeit)) { //computes ligand grid
-                                               //and output
+    while (mgrid.readMolecule(opt.timeit)) {
       string base = opt.outname + "_" + lexical_cast<string>(ligcnt);
-
       if (opt.outmap) {
-        gridder->outputMAP(base);
+        mgrid.outputMAP(base);
       } else
-        if (opt.outdx) {
-          gridder->outputDX(base);
-        } else
-          if (opt.separate) {
-            string outname = base + "." + gridder->getParamString(false, true)
-                + ".binmap";
-            ofstream binout(outname.c_str());
-            if (!binout) {
-              cerr << "Could not open " << outname << "\n";
-              exit(-1);
-            }
-            gridder->outputBIN(binout, false, true);
-          } else {
-            string outname = base + "." + gridder->getParamString(true, true)
-                + ".binmap";
-            ofstream binout(outname.c_str());
-            if (!binout) {
-              cerr << "Could not open " << outname << "\n";
-              exit(-1);
-            }
-            gridder->outputBIN(binout);
-          }
+      if (opt.outdx) {
+        mgrid.outputDX(base);
+      } else
+      if (opt.separate) {
+        mgrid.outputBIN(base, false, true);
+      } else {
+        mgrid.outputBIN(base, true, true);
+      }
       ligcnt++;
     }
 

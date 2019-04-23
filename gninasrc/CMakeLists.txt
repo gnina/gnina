@@ -107,6 +107,7 @@ install(TARGETS gninalib DESTINATION lib)
 
 include_directories(lib)
 include_directories(gninavis)
+include_directories(${LIBMOLGRID_INCLUDE})
 
 # compile in libgnina - there are enough dependencies to deal with
 cuda_add_executable(gnina main/main.cpp ${LIB_SRCS})
@@ -119,13 +120,13 @@ cuda_add_executable(fromgnina fromgnina/fromgnina.cpp lib/CommandLine2/CommandLi
 target_link_libraries(fromgnina  caffe gninalib ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
 
-cuda_add_executable(gninagrid gninagrid/gninagrid.cpp lib/CommandLine2/CommandLine.cpp)
+cuda_add_executable(gninagrid gninagrid/gninagrid.cpp gninagrid/molgridder.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(gninagrid  caffe gninalib ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
 
 cuda_add_executable(gninatyper gninatyper/gninatyper.cpp lib/CommandLine2/CommandLine.cpp ${LIB_SRCS})
 target_link_libraries(gninatyper  caffe ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
+    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA} ${LIBMOLGRID_LIBRARY})
 
 cuda_add_executable(tognina tognina/tognina.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES}
