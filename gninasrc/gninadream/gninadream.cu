@@ -1,5 +1,6 @@
 #include "../lib/gpu_math.h"
 #define CUDA_NUM_THREADS 256
+#define CUDA_NUM_BLOCKS 48
 #define warpSize 32
 
 // device functions for warp-based reduction using shufl operations
@@ -52,4 +53,10 @@ void gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid,
   float total = block_sum<float>(sum);
   if (tidx == 0)
     *scoregrid = sqrtf(total);
+}
+
+void do_gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid,
+    size_t gsize, size_t i, unsigned compound) {
+  gpu_l2<<<CUDA_NUM_BLOCKS, CUDA_NUM_THREADS>>>(optgrid + i * gsize, screengrid, 
+      scoregrid + compound, gsize);
 }

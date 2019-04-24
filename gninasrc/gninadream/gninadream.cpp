@@ -3,17 +3,23 @@
 #include <unistd.h>
 #include <glob.h>
 #include <regex>
+#include <unordered_set>
 #include "tee.h"
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/text_format.h>
 #include "../lib/cnn_scorer.h"
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
+#include "caffe/util/signal_handler.h"
 
-#define CUDA_NUM_THREADS 256
-#define CUDA_NUM_BLOCKS 48
+using namespace caffe;
 
-typedef caffe::MolGridDataLayer<float> mgridT;
+typedef BaseMolGridDataLayer<float, GridMaker> mgridT;
 
-namespace caffe {
+void do_gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid,
+    size_t gsize, size_t i, unsigned compound);
+
 std::vector<std::string> glob(const std::string& pattern) {
     using namespace std;
 
@@ -42,9 +48,21 @@ std::vector<std::string> glob(const std::string& pattern) {
     return filenames;
 }
 
-__global__
-void gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize, 
-    unsigned compound_idx);
+// Translate the signal effect the user specified on the command-line to the
+// corresponding enumeration.
+caffe::SolverAction::Enum GetRequestedAction(
+    const std::string& flag_value) {
+  if (flag_value == "stop") {
+    return caffe::SolverAction::STOP;
+  }
+  if (flag_value == "snapshot") {
+    return caffe::SolverAction::SNAPSHOT;
+  }
+  if (flag_value == "none") {
+    return caffe::SolverAction::NONE;
+  }
+  LOG(FATAL) << "Invalid signal effect \""<< flag_value << "\" was specified";
+}
 
 bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned numgridpoints, 
     std::string& fname) {
@@ -112,8 +130,7 @@ bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned num
   return true;
 }
 
-void cpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize, 
-    unsigned compound_idx) {
+void cpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize) {
   float sum = 0.;
 #pragma omp parallel for reduction(+:sum)
   for (size_t k=0; k<gsize; ++k) {
@@ -121,12 +138,13 @@ void cpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, siz
     float sqdiff = diff * diff;
     sum += sqdiff;
   }
-  scoregrid[compound_idx] = std::sqrt(sum);
+  *scoregrid = std::sqrt(sum);
 }
 
-void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& net, 
-    std::string vsfile, std::vector<std::string>& ref_ligs,std::vector<std::ostream>& out, 
-    bool gpu, unsigned ncompounds) {
+void do_exact_vs(boost::shared_ptr<mgridT>& opt_mgrid, boost::shared_ptr<Net<float> >& net, 
+    std::string vsfile, std::vector<std::string>& ref_ligs,
+    std::vector<boost::shared_ptr<std::ostream> >& out, 
+    bool gpu, int ncompounds) {
   // use net top blob to do virtual screen against input sdf
   // produce output file for each input from which we started optimization
   // output will just be overlap score, in order of the compounds in the
@@ -137,26 +155,27 @@ void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& ne
   //
   // reinit MolGrid with params for virtual screening
   // for each example rec is the lig used to set center (unless there was no
-  // lig, in which case we use fix_center_to_origin) and lig is one of the
-  // vs ligands; we set use_rec_center and ignore_rec if there was a autocenter
+  // lig, in which case we effectively fix center to origin) and lig is one of the
+  // vs ligands; we set use_rec_center and ignore_rec if there was an autocenter
   // lig. this is annoying because done the naive way we have to regrid the
   // same ligand many times
-  unsigned nopts = net->top_vecs()[0][0].shape()[0];
-  unsigned example_size = opt_mgrid.getExampleSize();
+  unsigned nopts = net->top_vecs()[0][0]->shape()[0];
+  unsigned example_size = opt_mgrid->getExampleSize();
   unsigned batch_size = 1; // inmem for now
 
-  MolGridDataParameter* mparam = opt_mgrid.mutable_molgrid_data_param();
-  tee log(quiet);
-  MolGetter mols(std::string(), std::string(), FlexInfo(log), false, false, log);
+  MolGridDataParameter* mparam = opt_mgrid->getMolGridDataParam();
+  tee log(true);
+  FlexInfo finfo(log);
+  MolGetter mols(std::string(), std::string(), finfo, false, false, log);
   mols.setInputFile(vsfile);
   mparam->set_ignore_rec(true);
   mparam->set_use_rec_center(true);
-  mparam->set_batch_size = batch_size;
+  mparam->set_batch_size(batch_size);
   // initblobs for virtual screen compound grids and set up
   vector<Blob<float>*> bottom; // will always be empty
   vector<Blob<float>*> top(2); // want to use MGrid::Forward so we'll need a dummy labels blob
-  opt_mgrid.VSLayerSetUp(bottom, top);
-  shared_ptr<Blob<float> > scores(new Blob<float>());
+  opt_mgrid->VSLayerSetUp(bottom, top);
+  boost::shared_ptr<Blob<float> > scores(new Blob<float>());
   std::vector<int> score_shape = {ncompounds};
   scores->Reshape(score_shape);
   float* scoregrid;
@@ -166,34 +185,33 @@ void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& ne
   for (size_t i=0; i<out.size(); ++i) {
     std::string& next_ref_lig = ref_ligs[i];
     if (next_ref_lig != "none")
-      mols.create_init_model(ref_ligs[0], std::string(), FlexInfo(log), false, false, log);
+      mols.create_init_model(ref_ligs[0], std::string(), finfo, log);
     else
-      mols.create_init_model(std::string(), std::string(), FlexInfo(log), false, false, log);
+      mols.create_init_model(std::string(), std::string(), finfo, log);
     unsigned compound = 0;
     for (;;) {
       if (!mols.readMoleculeIntoModel(m)) {
         break;
       }
-      mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
+      opt_mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
       if (next_ref_lig != "none") {
-        mgrid->setReceptor(m.get_fixed_atoms());
-        mgrid->setCenter(mgrid->getCenter());
+        opt_mgrid->setReceptor(m.get_fixed_atoms());
+        opt_mgrid->setCenter(opt_mgrid->getCenter());
       }
       else
-        mgrid->setCenter(0, 0, 0)
-      mgrid->setLabels(1); 
+        opt_mgrid->setCenter(vec(0, 0, 0));
+      opt_mgrid->setLabels(1); 
       if (gpu) {
-        opt_mgrid.Forward_gpu(bottom, top);
-        float* optgrid = net->top_vecs()[0][0]->gpu_data();
-        float* screengrid = top[0]->gpu_data();
+        opt_mgrid->Forward_gpu(bottom, top);
+        const float* optgrid = net->top_vecs()[0][0]->gpu_data();
+        const float* screengrid = top[0]->gpu_data();
         scoregrid = scores->mutable_gpu_data();
-        gpu_l2<<<CUDA_NUM_BLOCKS, CUDA_NUM_THREADS>>>(optgrid + i * example_size, screengrid, 
-            scoregrid + compound, example_size);
+        do_gpu_l2(optgrid, screengrid, scoregrid, example_size, i, compound);
       }
       else {
-        opt_mgrid.Forward_cpu(bottom, top);
-        float* optgrid = net->top_vecs()[0][0]->cpu_data();
-        float* screengrid = top[0]->cpu_data();
+        opt_mgrid->Forward_cpu(bottom, top);
+        const float* optgrid = net->top_vecs()[0][0]->cpu_data();
+        const float* screengrid = top[0]->cpu_data();
         scoregrid = scores->mutable_cpu_data();
         cpu_l2(optgrid + i * example_size, screengrid, scoregrid + compound, 
             example_size);
@@ -205,15 +223,17 @@ void do_exact_vs(std::shared_ptr<mgridT>& opt_mgrid, shared_ptr<Net<float> >& ne
       }
     }
     // write to output
-    scoregrid = scores->cpu_data();
+    const float* final_scores = scores->cpu_data();
     for (size_t j=0; j<ncompounds; ++j) {
-      float* datastart = scoregrid + j;
-      out[i] << *datastart;
+      const float* datastart = final_scores + j;
+      *out[i] << *datastart;
     }
   }
 }
 
-void do_approx_vs(mgridT& opt_mgrid, mgridT& vs_mgrid) {
+void do_approx_vs(boost::shared_ptr<mgridT>& opt_mgrid, boost::shared_ptr<Net<float> >& net, 
+    std::string vsfile, std::vector<std::string>& ref_ligs,std::vector<std::ostream>& out, 
+    bool gpu, int ncompounds) {
   // TODO?
   assert(0);
 }
@@ -221,11 +241,12 @@ void do_approx_vs(mgridT& opt_mgrid, mgridT& vs_mgrid) {
 int main(int argc, char* argv[]) {
   using namespace boost::program_options;
 
-  std::string receptor_name, ligand_names, grid_prefix, vsfile, solverstate, 
+  std::string receptor_name, grid_prefix, vsfile, solverstate, 
     outname, out_prefix, types;
+  std::vector<std::string> ligand_names;
 
   cnn_options cnnopts;
-  cnnopts.cnn_scoring = True;
+  cnnopts.cnn_scoring = true;
   int iterations;
   int gpu;
   float base_lr;
@@ -238,13 +259,14 @@ int main(int argc, char* argv[]) {
   std::string sigint_effect = "stop";
   std::string sighup_effect = "snapshot";
   unsigned default_batch_size = 50;
+  unsigned batch_size;
   unsigned nopts = 0;
   std::vector<std::string> opt_names;
 
   options_description inputs("General Input");
   inputs.add_options()("receptor, r",
       value<std::string>(&receptor_name), "receptor to provide optimization context")(
-      "ligand, l", value<std::string>(&ligand_names),
+      "ligand, l", value<std::vector<std::string> >(&ligand_names),
       "one or more ligands to provide additional optimization context")(
       "types, t", value<std::string>(&types), 
       "MolGrid .types file, formatted with one example per line, <score> <affinity> <receptor_file> <ligand_file>")(
@@ -345,8 +367,8 @@ int main(int argc, char* argv[]) {
 
   net_param.mutable_state()->set_phase(TRAIN);
 
-  LayerParameter *first = net_param.mutable_layer(0);
-  MolGridDataParameter* mgridparam = first->mutable_molgrid_data_net_param();
+  LayerParameter* first = net_param.mutable_layer(0);
+  MolGridDataParameter* mgridparam = first->mutable_molgrid_data_param();
   if (mgridparam == NULL) {
     throw usage_error("First layer of model must be MolGridData.");
   }
@@ -360,18 +382,18 @@ int main(int argc, char* argv[]) {
 
   // if we have structure file(s) or grids as input, we'll do just one example,
   // inmem=true
-  if (receptor.size() || grid_prefix.size()) {
+  if (receptor_name.size() || grid_prefix.size()) {
     mgridparam->set_inmemory(true);
-    mgridparam.set_batch_size(1);
+    mgridparam->set_batch_size(1);
   }
   else {
-    batch_size = mgridparam.batch_size();
+    batch_size = mgridparam->batch_size();
     if (types.size())
       mgridparam->set_source(types.c_str());
   }
 
   net_param.set_force_backward(true);
-  mgridparam.set_ignore_ligand(ignore_ligand);
+  mgridparam->set_ignore_ligand(ignore_ligand);
 
   //set up solver params and then construct solver
   if (gpu > -1) {
@@ -387,20 +409,20 @@ int main(int argc, char* argv[]) {
         GetRequestedAction(sighup_effect));
 
   caffe::SolverParameter solver_param;
-  solver_param.net_param = net_param;
-  solver_param.base_lr = base_lr;
-  solver_param.max_iter = iterations;
-  solver_param.lr_policy = fixed;
-  solver_param.snapshot_prefix = "inputopt_";
-  solver_param.type = "InputOptSGD";
+  solver_param.mutable_net_param()->caffe::NetParameter::MergeFrom(net_param);
+  solver_param.set_base_lr(base_lr);
+  solver_param.set_max_iter(iterations);
+  solver_param.set_lr_policy("fixed");
+  solver_param.set_snapshot_prefix("inputopt_");
+  solver_param.set_type("InputOptSGD");
   if (cnnopts.cnn_weights.size())
-    solver_param.weights = cnnopts.cnn_weights;
+    solver_param.set_weights(0, cnnopts.cnn_weights);
 
-  shared_ptr<caffe::Solver<float> >
+  boost::shared_ptr<caffe::Solver<float> >
       solver(caffe::SolverRegistry<float>::CreateSolver(solver_param));
 
   solver->SetActionFunction(signal_handler.GetActionFunction());
-  shared_ptr<Net<float> > net = solver->net();
+  boost::shared_ptr<Net<float> > net = solver->net();
   //if there wasn't a weights file, check that we're using one of the provided
   //cnn models and attempt to load the appropriate stored weights
   if (cnnopts.cnn_weights.size() == 0) {
@@ -420,13 +442,13 @@ int main(int argc, char* argv[]) {
     net->CopyTrainedLayersFrom(cnnopts.cnn_weights);
   }
 
-  const vector<caffe::shared_ptr<Layer<float> > >& layers = net->layers();
-  mgridT mgrid = dynamic_cast<MolGridDataLayer<float>*>(layers[0].get());
+  const vector<boost::shared_ptr<Layer<float> > >& layers = net->layers();
+  mgridT* mgrid = dynamic_cast<BaseMolGridDataLayer<float, GridMaker>*>(layers[0].get());
   if (mgrid == NULL) {
     throw usage_error("First layer of model must be MolGridDataLayer.");
   }
 
-  unsigned ncompounds = 0;
+  int ncompounds = 0;
   if (vsfile.size()) {
     std::ifstream vs_stream(vsfile.c_str());
     if (!(bool)vs_stream) {
@@ -434,21 +456,22 @@ int main(int argc, char* argv[]) {
       std::exit(1);
     } 
     std::string vsline;
-    while (getline(vsfile, vsline)) {
+    while (getline(vs_stream, vsline)) {
       if (vsline == "$$$$")
         ++ncompounds;
     }
   }
   // figure out what the initial state should be and run optimization
-  if (receptor.size()) {
+  if (receptor_name.size()) {
     // can start from receptor and 0+ ligands
     // expected behavior is starting from rec with a ligand available for
     // setting center at minimum; without ligand things _should_ work (verify
     // there aren't errors about not having lig atoms) and expect that grid
     // center will be set to origin in that case. possibly that should
     // be changed
-    tee log(quiet);
-    MolGetter mols(receptor, std::string(), FlexInfo(log), true, true, log);
+    tee log(true);
+    FlexInfo finfo(log);
+    MolGetter mols(receptor_name, std::string(), finfo, true, true, log);
     ++nopts;
     if (!ligand_names.size()) {
       ligand_names.push_back("");
@@ -457,10 +480,9 @@ int main(int argc, char* argv[]) {
       const std::string ligand_name = ligand_names[l];
       mols.setInputFile(ligand_name);
       for (;;)  {
-        model* m = new model;
+        model m;
 
-        if (!mols.readMoleculeIntoModel(*m)) {
-          delete m;
+        if (!mols.readMoleculeIntoModel(m)) {
           break;
         }
         mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
@@ -468,11 +490,11 @@ int main(int argc, char* argv[]) {
         // with a types file you can target arbitrary pose and affinity values,
         // here we just assume pose 
         mgrid->setLabels(1); 
-        solver.ResetIter();
-        solver.Solve();
-        boost::filesystem::path rec(receptor);
+        solver->ResetIter();
+        solver->Solve();
+        boost::filesystem::path rec(receptor_name);
         boost::filesystem::path lig(ligand_name);
-        opt_names.push_back(rec.stem() + "_" + lig.stem());
+        opt_names.push_back(rec.stem().string() + "_" + lig.stem().string());
         ++nopts;
       }
     }
@@ -491,7 +513,7 @@ int main(int argc, char* argv[]) {
       ++nopts;
       std::vector<std::string> contents;
       boost::split(contents, line, boost::is_any_of(" "));
-      if (mgridparam->has_group() || mgridparam->has_rmsd()) {
+      if (mgridparam->maxgroupsize()-1 || mgridparam->has_rmsd()) {
         std::cerr << "Groups and RMSD not permitted for dream optimization.\n";
         std::exit(1);
       }
@@ -502,18 +524,18 @@ int main(int argc, char* argv[]) {
       }
       boost::filesystem::path rec(contents[offset]);
       boost::filesystem::path lig(contents[offset+1]);
-      opt_names.push_back(rec.stem() + "_" + lig.stem());
+      opt_names.push_back(rec.stem().string() + "_" + lig.stem().string());
     }
     if (!nopts) throw usage_error("No examples in types file");
     n_passes = std::ceil((float)(nopts) / batch_size);
     for (unsigned i=0; i<n_passes; ++i) {
       net->ForwardFromTo(1,1);
-      solver.ResetIter();
-      solver.Solve();
+      solver->ResetIter();
+      solver->Solve();
       if (vsfile.size()) {
-        std::vector<ostream> out(nopts);
+        std::vector<boost::shared_ptr<ostream> > out;
         for (size_t j=0; j<nopts; ++j) {
-          out.push_back(std::ofstream((opt_names[j] + ".vsout").c_str()));
+          out.push_back(boost::make_shared<std::ofstream>((opt_names[j] + ".vsout").c_str()));
         }
       }
     }
@@ -549,22 +571,22 @@ int main(int argc, char* argv[]) {
      * in the right order for the map
      */ 
     float* inputblob;
+    double resolution = mgrid->getResolution();
+    unsigned npts_allchs = mgrid->getNumGridPoints();
+    unsigned nchannels = npts_allchs / (rectypes.size() + ligtypes.size());
+    unsigned npts_onech = npts_allchs / nchannels;
     if (gpu)  {
       inputblob = net->top_vecs()[0][0]->mutable_gpu_data();
-      CUDA_CHECK_GNINA(cudaMemset(inputblob, 0, numgridpoints * sizeof(float)));
+      CUDA_CHECK_GNINA(cudaMemset(inputblob, 0, npts_allchs* sizeof(float)));
     }
     else {
       inputblob = net->top_vecs()[0][0]->mutable_cpu_data();
-      memset(inputblob, 0, numgridpoints * sizeof(float));
+      memset(inputblob, 0, npts_allchs * sizeof(float));
     }
-    double resolution = mgrid->getResolution();
-    unsigned npts_allchs = mgrid->getNumGridPoints();
-    unsigned nchannels = numgridpoints / (rectypes.size() + ligtypes.size());
-    unsigned npts_onech = npts_allchs / nchannels;
 
     for (auto& fname : filenames) {
       boost::filesystem::path p(fname);
-      std::string stem = p.stem();
+      std::string stem = p.stem().string();
       std::string channels = std::regex_replace(stem, std::regex(grid_prefix + "_"), "");
       std::vector<std::string> channelvec;
       boost::split(channelvec, channels, boost::is_any_of("_"));
@@ -597,7 +619,7 @@ int main(int argc, char* argv[]) {
                 g = &hostbuf[0];
               }
               else 
-                g = inputblob + idx * numgridpoints;
+                g = inputblob + idx * npts_allchs;
 		          if(!readDXGrid(gridfile, gridcenter, gridres, g, npts_onech, fname))
 		          {
                 std::cerr << "I couldn't understand the provided dx file " << fname << "\n";
@@ -638,7 +660,7 @@ int main(int argc, char* argv[]) {
                 g = &hostbuf[0];
               }
               else 
-                g = inputblob + idx * numgridpoints;
+                g = inputblob + idx * npts_allchs;
 		          if(!readDXGrid(gridfile, gridcenter, gridres, g, npts_onech, fname))
 		          {
                 std::cerr << "I couldn't understand the provided dx file " << fname << "\n";
@@ -664,10 +686,10 @@ int main(int argc, char* argv[]) {
     }
   }
   else if (solverstate.size()) {
-    char* ss_cstr = solverstate.c_str();
+    const char* ss_cstr = solverstate.c_str();
     //restart from optimization in progress
     solver->Restore(ss_cstr);
-    solver.Solve();
+    solver->Solve();
     nopts = 1;
     // just use out_prefix as outname for vs?
   }
@@ -676,4 +698,3 @@ int main(int argc, char* argv[]) {
     std::exit(1);
   }
 }
-} //namespace caffe
