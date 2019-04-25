@@ -89,6 +89,8 @@ gninavis/cnn_visualization.cpp
 
 #test
 file(GLOB TEST_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/*.c*)
+file(GLOB DREAM_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} gninadream/*.c*)
+file(GLOB DREAMTEST_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} gninadream/test/*.c*)
 
 set(rdkit_lib_line "-lFileParsers -lSmilesParse -lDepictor -lGraphMol -lRDGeometryLib -lRDGeneral -lSubstructMatch -lSubgraphs -lDataStructs")
 
@@ -135,9 +137,13 @@ cuda_add_executable(gninavis gninavis/gninavis.cpp lib/CommandLine2/CommandLine.
 target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
 
-cuda_add_executable(gninadream gninadream/gninadream.cpp gninadream/gninadream.cu lib/CommandLine2/CommandLine.cpp)
+cuda_add_executable(gninadream ${DREAM_SRCS})
 target_link_libraries(gninadream caffe gninalib ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
+    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA} OpenMP::OpenMP_CXX)
+
+cuda_add_executable(dreamcheck ${DREAMTEST_SRCS})
+target_link_libraries(dreamcheck caffe gninalib ${Boost_LIBRARIES}
+    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA} OpenMP::OpenMP_CXX)
 
 cuda_add_executable(check ${TEST_SRCS} ${LIB_SRCS})
 if(OpenMP_CXX_FOUND)

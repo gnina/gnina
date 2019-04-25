@@ -4,7 +4,7 @@
 #include <glob.h>
 #include <regex>
 #include <unordered_set>
-#include "tee.h"
+#include "../lib/tee.h"
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
@@ -12,6 +12,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 #include "caffe/util/signal_handler.h"
+#include "loss.h"
 
 using namespace caffe;
 
@@ -128,17 +129,6 @@ bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned num
   }
 
   return true;
-}
-
-void cpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize) {
-  float sum = 0.;
-#pragma omp parallel for reduction(+:sum)
-  for (size_t k=0; k<gsize; ++k) {
-    float diff = optgrid[k] - screengrid[k];
-    float sqdiff = diff * diff;
-    sum += sqdiff;
-  }
-  *scoregrid = std::sqrt(sum);
 }
 
 void do_exact_vs(boost::shared_ptr<mgridT>& opt_mgrid, boost::shared_ptr<Net<float> >& net, 

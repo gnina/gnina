@@ -18,11 +18,11 @@ void boost_loop_test(void (*func)());
 
 BOOST_AUTO_TEST_SUITE(loss)
 
-BOOST_AUTO_TEST_CASE(cpu_l2) {
+BOOST_AUTO_TEST_CASE(cpu_loss) {
   test_cpu_l2();
 }
 
-BOOST_AUTO_TEST_CASE(gpu_l2) {
+BOOST_AUTO_TEST_CASE(gpu_loss) {
   test_gpu_l2;
 }
 
