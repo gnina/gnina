@@ -15,8 +15,13 @@ set( TEST_SRCS
  test_utils.h
 )
 
+find_package(OpenMP)
+
 #todo - factor into individual tests?
 add_executable(gninacheck ${TEST_SRCS})
 target_link_libraries(gninacheck gninalib_static caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES})
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(gninacheck OpenMP::OpenMP_CXX)
+endif()
 
 add_test(NAME gninacheck COMMAND gninacheck)

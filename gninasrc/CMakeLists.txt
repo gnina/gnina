@@ -128,11 +128,4 @@ add_executable(gninavis gninavis/gninavis.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES})
 
-add_executable(check ${TEST_SRCS})
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(check OpenMP::OpenMP_CXX)
-endif()
-target_link_libraries(check gninalib_static ${RDKIT_LIBRARIES} ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} caffe ${LIBMOLGRID_LIBRARY} ${CUDA_LIBRARIES})
-
 install(TARGETS gnina gninagrid gninatyper fromgnina tognina gninavis RUNTIME DESTINATION bin)
