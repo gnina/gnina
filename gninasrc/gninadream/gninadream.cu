@@ -45,8 +45,8 @@ void gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid,
   unsigned nthreads = blockDim.x * gridDim.x;
   // optimized grids
   float sum = 0.;
-  for (size_t k=0; k<gsize; k+=nthreads) {
-    float diff = optgrid[k + tidx] - screengrid[k + tidx];
+  for (size_t k=tidx; k<gsize; k+=nthreads) {
+    float diff = optgrid[k] - screengrid[k];
     float sqdiff = diff * diff;
     sum += sqdiff;
   }
@@ -56,7 +56,8 @@ void gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid,
 }
 
 void do_gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid,
-    size_t gsize, size_t i, unsigned compound) {
-  gpu_l2<<<CUDA_NUM_BLOCKS, CUDA_NUM_THREADS>>>(optgrid + i * gsize, screengrid, 
-      scoregrid + compound, gsize);
+    size_t gsize) {
+  unsigned block_multiple = gsize / CUDA_NUM_THREADS;
+  unsigned nblocks = block_multiple < CUDA_NUM_BLOCKS ? block_multiple : CUDA_NUM_BLOCKS;
+  gpu_l2<<<nblocks, CUDA_NUM_THREADS>>>(optgrid, screengrid, scoregrid, gsize);
 }

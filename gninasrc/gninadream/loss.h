@@ -14,3 +14,5 @@ inline void cpu_l2(const float* optgrid, const float* screengrid, float* scoregr
   *scoregrid = std::sqrt(sum);
 }
 
+void do_gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize);
+

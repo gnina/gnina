@@ -18,9 +18,6 @@ using namespace caffe;
 
 typedef BaseMolGridDataLayer<float, GridMaker> mgridT;
 
-void do_gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid,
-    size_t gsize, size_t i, unsigned compound);
-
 std::vector<std::string> glob(const std::string& pattern) {
     using namespace std;
 
@@ -196,7 +193,7 @@ void do_exact_vs(boost::shared_ptr<mgridT>& opt_mgrid, boost::shared_ptr<Net<flo
         const float* optgrid = net->top_vecs()[0][0]->gpu_data();
         const float* screengrid = top[0]->gpu_data();
         scoregrid = scores->mutable_gpu_data();
-        do_gpu_l2(optgrid, screengrid, scoregrid, example_size, i, compound);
+        do_gpu_l2(optgrid+i*example_size, screengrid, scoregrid+compound, example_size);
       }
       else {
         opt_mgrid->Forward_cpu(bottom, top);

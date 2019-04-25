@@ -23,7 +23,7 @@ BOOST_AUTO_TEST_CASE(cpu_loss) {
 }
 
 BOOST_AUTO_TEST_CASE(gpu_loss) {
-  test_gpu_l2;
+  test_gpu_l2();
 }
 
 BOOST_AUTO_TEST_SUITE_END()
