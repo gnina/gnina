@@ -93,11 +93,11 @@ set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
 target_link_libraries(gninalib caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES})
 # MESSAGE(STATUS "variable is: " ${NVCC_FLAGS_EXTRA})
 
-install(TARGETS gninalib DESTINATION lib)
-
 add_library(gninalib_static STATIC ${LIB_SRCS})
 set_target_properties(gninalib_static PROPERTIES OUTPUT_NAME gnina)
 target_link_libraries(gninalib_static caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES})
+
+install(TARGETS gninalib gninalib_static DESTINATION lib)
 
 include_directories(lib)
 include_directories(gninavis)

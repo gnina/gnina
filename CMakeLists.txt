@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.10)
 project (gnina C CXX CUDA)
 
 #disable parts of caffe we don't need
