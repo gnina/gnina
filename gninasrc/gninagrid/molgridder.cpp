@@ -95,6 +95,13 @@ void MolGridder::setGrid(bool use_gpu) {
     center = ex.sets[1].center();
   }
 
+  if(random_translate > 0 || random_rotate) {
+    //update transform
+    current_transform = Transform(center, random_translate, random_rotate);
+  } else {
+    current_transform.set_rotation_center(center);
+  }
+
   if(usergrids.size() > 0) { //not particularly optimized
     //copy into first so many channels
     unsigned n = usergrids.size();
@@ -107,17 +114,45 @@ void MolGridder::setGrid(bool use_gpu) {
     unsigned channels = rectyper->num_types()+ligtyper->num_types();
     if(use_gpu) {
       Grid4fCUDA g(grid.data()+offset, channels, N, N, N);
-      gmaker.forward(ex, g, random_translate, random_rotate, center);
+      gmaker.forward(ex, current_transform, g);
     } else {
       Grid4f g(grid.data()+offset, channels, N, N, N);
-      gmaker.forward(ex, g, random_translate, random_rotate, center);
+      gmaker.forward(ex, current_transform, g);
     }
   }
   else { //no user grids
     if(use_gpu) {
-      gmaker.forward(ex, grid.gpu(), random_translate, random_rotate, center);
+      gmaker.forward(ex, current_transform, grid.gpu());
     } else {
-      gmaker.forward(ex, grid.cpu(), random_translate, random_rotate, center);
+      gmaker.forward(ex, current_transform, grid.cpu());
+    }
+  }
+}
+
+void MolGridder::cpuSetGridCheck() {
+  //assume current grid is right
+  MGrid4f saved = grid.clone();
+
+  //for recompute, apply same transformation
+  bool saverot = random_rotate;
+  float savetrans = random_translate;
+  setGrid(false);
+
+  random_rotate = saverot;
+  random_translate = savetrans;
+
+  //now compare
+  if(saved.size() != grid.size()) {
+    cerr << "Different sized grids in compare\n";
+    exit(-1);
+  }
+  float* a = saved.data();
+  float* b = grid.data();
+  for(unsigned i = 0, n = grid.size(); i < n; i++) {
+    float diff = a[i]-b[i];
+    if(fabs(diff) > 0.0001) {
+      cerr << "Values differ " << a[i] << " != " << b[i] << " at index " << i << "\n";
+      exit(1);
     }
   }
 }
@@ -196,6 +231,7 @@ bool MolGridder::readMolecule(bool timeit) {
 
   if (timeit) {
     cout << "Grid Time: " << t.elapsed().wall << "\n";
+    cpuSetGridCheck();
   }
   return true;
 }

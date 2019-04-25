@@ -34,6 +34,7 @@ class MolGridder {
     MolGetter mols; //use gnina routines for reading molecule
     libmolgrid::MGrid4f grid;
     libmolgrid::GridMaker gmaker;
+    libmolgrid::Transform current_transform;
 
     float3 center { 0, 0, 0 };
     bool center_set = false;
@@ -46,6 +47,9 @@ class MolGridder {
     void setLigand(const model& m);
     //set grid from example
     void setGrid(bool use_gpu);
+
+    //sets grid on cpu and compares to current
+    void cpuSetGridCheck();
 
   public:
     MolGridder(const gridoptions& opt);
