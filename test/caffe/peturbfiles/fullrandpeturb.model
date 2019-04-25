@@ -1,0 +1,24 @@
+layer {
+  name: "data"
+  type: "MolGridData"
+  top: "data"
+  top: "label"
+  top: "peturb"
+  molgrid_data_param {
+    source: "input.types"
+    batch_size: 1
+    dimension: 23.5
+    resolution: 0.5
+    shuffle: false
+    balanced: false
+    root_folder: "."
+    random_rotation: true
+    random_translate: 5.0
+    peturb_ligand: true
+    peturb_ligand_rotate: true
+    peturb_ligand_translate: 4.0
+    cache_structs: false
+    fix_center_to_origin: false 
+
+  }
+}

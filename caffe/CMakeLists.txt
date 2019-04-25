@@ -97,10 +97,6 @@ endif()
 
 include_directories(${OPENBABEL2_INCLUDE_DIR})
 
-if(NOT CXX11_SET)
-    add_compile_options(-std=c++11)
-    list(APPEND CUDA_NVCC_FLAGS -std=c++11)
-endif()
 
 # ---[ Subdirectories
 add_subdirectory(src/gtest)
