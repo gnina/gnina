@@ -19,6 +19,8 @@ MolGridder::MolGridder(const gridoptions& opt) :
     random_rotate(opt.randrotate), random_translate(opt.randtranslate),
     gmaker(opt.res, opt.dim), gpu(opt.gpu) {
 
+  ex.sets.resize(2); //ligand and receptor
+
   //setup typers
   rectyper = std::make_shared<FileMappedGninaTyper>(defaultGninaReceptorTyper);
   ligtyper = std::make_shared<FileMappedGninaTyper>(defaultGninaLigandTyper);
@@ -44,7 +46,6 @@ MolGridder::MolGridder(const gridoptions& opt) :
   setReceptor(mols.getInitModel());
   if(opt.separate) setGrid(gpu);
 
-  ex.sets.resize(2);
 }
 
 //set receptor coordinate set from model
