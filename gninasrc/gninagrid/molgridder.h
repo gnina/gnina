@@ -38,7 +38,7 @@ class MolGridder {
 
     float3 center { 0, 0, 0 };
     bool center_set = false;
-    bool gpu = true; //use gpu
+    bool gpu = false; //use gpu
 
     libmolgrid::Example ex; //coordinate/type data
     //set receptor from model into example

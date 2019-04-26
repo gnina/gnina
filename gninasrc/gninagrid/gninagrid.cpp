@@ -45,7 +45,7 @@ static bool parse_options(int argc, char *argv[], gridoptions& o) {
       value<std::string>(&o.receptorfile)->required(), "receptor file")
   ("ligand,l", value<std::string>(&o.ligandfile)->required(), "ligand(s)")
   ("grid,g", value<std::vector<std::string> >(&o.usergrids)->multitoken(),
-      "grid(s) dx format")
+      "additional grid(s) in dx format; prepended to receptor grids")
   ("example_grid", value<string>(&o.examplegrid),
       "example grid for positioning with --separate");
 
@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
 
     //if separate, output receptor
     if(opt.separate) {
-      if(mgrid.has_set_center()) {
+      if(!mgrid.has_set_center()) {
         cerr << "--separate specified, but no example or additional grids specified to define coordinate system\n";
         abort();
       }

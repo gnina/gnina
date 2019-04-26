@@ -32,18 +32,25 @@ MolGridder::MolGridder(const gridoptions& opt) :
     ligtyper = std::make_shared<FileMappedGninaTyper>(opt.ligmap);
   }
 
+  if (opt.examplegrid.size() > 0) set_from_example(opt.examplegrid);
+  if (opt.usergrids.size()) set_usergrids(opt.usergrids);
+
+  gmaker.set_resolution(resolution);
+  gmaker.set_dimension(dimension);
+  gmaker.set_binary(opt.binary);
+
   float3 dims = gmaker.get_grid_dims();
-  grid = MGrid4f(rectyper->num_types()+ligtyper->num_types(), dims[0], dims[1], dims[2]);
+  grid = MGrid4f(rectyper->num_types()+ligtyper->num_types()+usergrids.size(), dims[0], dims[1], dims[2]);
   tee log(true);
   FlexInfo finfo(log); //dummy
   mols.create_init_model(opt.receptorfile, "", finfo, log);
   mols.setInputFile(opt.ligandfile);
   N = 1 + round(dimension / resolution);
 
-  if (opt.examplegrid.size() > 0) set_from_example(opt.examplegrid);
-  if (opt.usergrids.size()) set_usergrids(opt.usergrids);
-
+  ex.sets[0].set_num_types(rectyper->num_types());
+  ex.sets[1].set_num_types(ligtyper->num_types());
   setReceptor(mols.getInitModel());
+
   if(opt.separate) setGrid(gpu);
 
 }
@@ -80,7 +87,7 @@ void MolGridder::setLigand(const model& m) {
     const atom& a = atoms[i];
     auto t_r = ligtyper->get_int_type(a.sm);
     if (t_r.first >= 0) {
-      coords.push_back(gfloat3(a.coords));
+      coords.push_back(gfloat3(m.coordinates()[i]));
       t.push_back(t_r.first);
       r.push_back(t_r.second);
     }
@@ -114,10 +121,10 @@ void MolGridder::setGrid(bool use_gpu) {
     size_t offset = grid[0].size()*n;
     unsigned channels = rectyper->num_types()+ligtyper->num_types();
     if(use_gpu) {
-      Grid4fCUDA g(grid.data()+offset, channels, N, N, N);
+      Grid4fCUDA g(grid.gpu().data()+offset, channels, N, N, N);
       gmaker.forward(ex, current_transform, g);
     } else {
-      Grid4f g(grid.data()+offset, channels, N, N, N);
+      Grid4f g(grid.cpu().data()+offset, channels, N, N, N);
       gmaker.forward(ex, current_transform, g);
     }
   }
@@ -248,18 +255,26 @@ static bool gridIsEmpty(const Grid3f& grid) {
 
 //output map for each grid
 void MolGridder::outputMAP(const std::string& base) {
+
+  for(unsigned a = 0, na = usergrids.size(); a < na; a++) {
+    string fname = base + "_usergrid_" + boost::lexical_cast<string>(a) + ".dx";
+    ofstream out(fname.c_str());
+    libmolgrid::write_dx<float>(out,grid[a], center, resolution);
+  }
+
+  unsigned roff = usergrids.size();
   std::vector<std::string> recnames = rectyper->get_type_names();
   for (unsigned a = 0, na = recnames.size(); a < na; a++) {
     //this is for debugging, so avoid outputting empty grids
-    if (!gridIsEmpty(grid[a])) {
+    if (!gridIsEmpty(grid[roff+a])) {
       string name = recnames[a];
       string fname = base + "_rec_" + name + ".map";
       ofstream out(fname.c_str());
-      libmolgrid::write_map<float>(out, grid[a], center, resolution);
+      libmolgrid::write_map<float>(out, grid[roff+a], center, resolution);
     }
   }
   std::vector<std::string> lignames = ligtyper->get_type_names();
-  unsigned roff = recnames.size();
+  roff += recnames.size();
   for (unsigned a = 0, na = lignames.size(); a < na; a++) {
     if (!gridIsEmpty(grid[roff+a])) {
       string name = lignames[a];
@@ -272,22 +287,31 @@ void MolGridder::outputMAP(const std::string& base) {
 
 //output an dx map for each grid
 void MolGridder::outputDX(const std::string& base) {
+
+  for(unsigned a = 0, na = usergrids.size(); a < na; a++) {
+    string fname = base + "_lig_" + boost::lexical_cast<string>(a) + ".dx";
+    ofstream out(fname.c_str());
+    libmolgrid::write_dx<float>(out,grid[a], center, resolution);
+  }
+
   std::vector<std::string> recnames = rectyper->get_type_names();
+  unsigned roff = usergrids.size();
   for (unsigned a = 0, na = recnames.size(); a < na; a++) {
     //this is for debugging, so avoid outputting empty grids
-    if (!gridIsEmpty(grid[a])) {
+    if (!gridIsEmpty(grid[roff+a])) {
       string name = recnames[a];
-      string fname = base + "_rec_" + name + ".map";
+      string fname = base + "_rec_" + name + ".dx";
       ofstream out(fname.c_str());
-      libmolgrid::write_dx<float>(out, grid[a], center, resolution);
+      libmolgrid::write_dx<float>(out, grid[roff+a], center, resolution);
     }
   }
+
   std::vector<std::string> lignames = ligtyper->get_type_names();
-  unsigned roff = recnames.size();
+  roff += recnames.size();
   for (unsigned a = 0, na = lignames.size(); a < na; a++) {
     if (!gridIsEmpty(grid[roff+a])) {
       string name = lignames[a];
-      string fname = base + "_lig_" + name + ".map";
+      string fname = base + "_lig_" + name + ".dx";
       ofstream out(fname.c_str());
       libmolgrid::write_dx<float>(out,grid[roff+a], center, resolution);
     }
@@ -299,21 +323,23 @@ void MolGridder::outputBIN(const std::string& base, bool outputrec, bool outputl
   unsigned chan = 0;
   if (outputrec) chan += rectyper->num_types() + usergrids.size();
   if (outputlig) chan += ligtyper->num_types();
-  string outname = base + "." + boost::lexical_cast<string>(N) + "." + boost::lexical_cast<string>(chan);
+  string outname = base + "." + boost::lexical_cast<string>(N) + "." + boost::lexical_cast<string>(chan)+".binmap";
 
   ofstream binout(outname.c_str());
   if(!binout) {
     throw file_error(outname, false);
   }
+  unsigned roff = 0;
   if(outputrec) {
     for(unsigned i = 0, n = usergrids.size(); i < n; i++) {
-      write_bin(binout, usergrids[i]);
+      write_bin(binout, grid[i]);
     }
+    roff += usergrids.size();
     for (unsigned a = 0, na = rectyper->num_types(); a < na; a++) {
-      write_bin(binout, grid[a]);
+      write_bin(binout, grid[roff+a]);
     }
   }
-  unsigned roff = rectyper->num_types();
+  roff += rectyper->num_types();
   if(outputlig) {
     for (unsigned a = 0, na = ligtyper->num_types(); a < na; a++) {
       write_bin(binout, grid[roff+a]);
