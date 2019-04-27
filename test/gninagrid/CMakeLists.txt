@@ -33,5 +33,8 @@ add_test(NAME gridbinarycmpl COMMAND ./compare_dx.py ccbin_0_lig_AliphaticCarbon
 add_test(NAME griduser COMMAND gninagrid  -r files/C.xyz -l files/C.xyz -o ccgrid -g files/usergrid.dx  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME gridusercmp COMMAND ./compare_bin.py ccgrid_0.25.29.binmap files/ccgrid_0.25.29.binmap  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+add_test(NAME gridsep COMMAND gninagrid -r files/A.xyz -l files/A.xyz -o ccsep --example_grid files/usergrid.dx  --separate WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME gridsepcmp COMMAND  ./compare_bin.py ccsep.25.14.binmap ccsep_0.25.14.binmap WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME gridsepnotcenter COMMAND bash -c "[ `od -f -w4 ccsep.25.14.binmap -v -Ad | grep 0031248 | awk '$2 < 0.5 {print \"done\"}'` == \"done\" ]"  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_test(NAME gridcleanup COMMAND sh -c "rm *.binmap *.dx *.map" WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
