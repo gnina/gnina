@@ -1,5 +1,5 @@
 #include "test_loss.h"
-#define VECLEN 500
+#define VECLEN 5000000
 
 extern parsed_args p_args;
 
@@ -13,7 +13,8 @@ void test_cpu_l2() {
   std::vector<float> vec1(VECLEN);
   std::generate(vec1.begin(), vec1.end(), gen);
   float l2;
-  cpu_l2(&vec1[0], &vec1[0], &l2, vec1.size());
+  cpu_l2sq(&vec1[0], &vec1[0], &l2, vec1.size());
+  l2 = std::sqrt(l2);
   p_args.log << "true loss 0 calculated loss " << l2 << "\n";
   BOOST_CHECK_EQUAL(l2, 0);
 
@@ -22,7 +23,8 @@ void test_cpu_l2() {
   for (size_t i=0; i<VECLEN; ++i)
     vec2[i] = vec1[i] + 2;
   float dist = std::sqrt(4 * VECLEN);
-  cpu_l2(&vec1[0], &vec2[0], &l2, vec1.size());
+  cpu_l2sq(&vec1[0], &vec2[0], &l2, vec1.size());
+  l2 = std::sqrt(l2);
   p_args.log << "true loss " << dist << " calculated loss " << l2 << "\n";
   BOOST_REQUIRE_SMALL(l2 - dist, (float)0.001);
 }
@@ -42,9 +44,10 @@ void test_gpu_l2() {
       cudaMemcpyHostToDevice);
   float* gpu_l2;
   cudaMalloc(&gpu_l2, sizeof(float));
-  do_gpu_l2(gpu_v1, gpu_v1, gpu_l2, vec1.size());
+  do_gpu_l2sq(gpu_v1, gpu_v1, gpu_l2, vec1.size());
   float l2;
   cudaMemcpy(&l2, gpu_l2, sizeof(float), cudaMemcpyDeviceToHost);
+  l2 = std::sqrt(l2);
   p_args.log << "true loss 0 calculated loss " << l2 << "\n";
   BOOST_CHECK_EQUAL(l2, 0);
 
@@ -57,8 +60,9 @@ void test_gpu_l2() {
   cudaMemcpy(gpu_v2, &vec2[0], sizeof(float)*vec2.size(),
       cudaMemcpyHostToDevice);
   float dist = std::sqrt(4 * VECLEN);
-  do_gpu_l2(gpu_v1, gpu_v2, gpu_l2, vec1.size());
+  do_gpu_l2sq(gpu_v1, gpu_v2, gpu_l2, vec1.size());
   cudaMemcpy(&l2, gpu_l2, sizeof(float), cudaMemcpyDeviceToHost);
+  l2 = std::sqrt(l2);
   p_args.log << "true loss " << dist << " calculated loss " << l2 << "\n";
   BOOST_REQUIRE_SMALL(l2 - dist, (float)0.001);
 }

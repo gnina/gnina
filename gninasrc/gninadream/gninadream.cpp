@@ -193,15 +193,17 @@ void do_exact_vs(boost::shared_ptr<mgridT>& opt_mgrid, boost::shared_ptr<Net<flo
         const float* optgrid = net->top_vecs()[0][0]->gpu_data();
         const float* screengrid = top[0]->gpu_data();
         scoregrid = scores->mutable_gpu_data();
-        do_gpu_l2(optgrid+i*example_size, screengrid, scoregrid+compound, example_size);
+        do_gpu_l2sq(optgrid+i*example_size, screengrid, scoregrid+compound, example_size);
+        *(scoregrid+compound) = std::sqrt(*(scoregrid+compound));
       }
       else {
         opt_mgrid->Forward_cpu(bottom, top);
         const float* optgrid = net->top_vecs()[0][0]->cpu_data();
         const float* screengrid = top[0]->cpu_data();
         scoregrid = scores->mutable_cpu_data();
-        cpu_l2(optgrid + i * example_size, screengrid, scoregrid + compound, 
+        cpu_l2sq(optgrid + i * example_size, screengrid, scoregrid + compound, 
             example_size);
+        *(scoregrid+compound) = std::sqrt(*(scoregrid+compound));
       }
       ++compound;
       if (compound > ncompounds) {

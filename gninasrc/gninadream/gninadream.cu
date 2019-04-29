@@ -39,7 +39,7 @@ __device__   __forceinline__ T block_sum(T mySum) {
 }
 
 __global__
-void gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid,
+void gpu_l2sq(const float* optgrid, const float* screengrid, float* scoregrid,
     size_t gsize) {
   unsigned tidx = blockDim.x * blockIdx.x + threadIdx.x;
   unsigned nthreads = blockDim.x * gridDim.x;
@@ -51,13 +51,13 @@ void gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid,
     sum += sqdiff;
   }
   float total = block_sum<float>(sum);
-  if (tidx == 0)
-    *scoregrid = sqrtf(total);
+  if (threadIdx.x == 0)
+    atomicAdd(scoregrid, total);
 }
 
-void do_gpu_l2(const float* optgrid, const float* screengrid, float* scoregrid,
+void do_gpu_l2sq(const float* optgrid, const float* screengrid, float* scoregrid,
     size_t gsize) {
   unsigned block_multiple = gsize / CUDA_NUM_THREADS;
   unsigned nblocks = block_multiple < CUDA_NUM_BLOCKS ? block_multiple : CUDA_NUM_BLOCKS;
-  gpu_l2<<<nblocks, CUDA_NUM_THREADS>>>(optgrid, screengrid, scoregrid, gsize);
+  gpu_l2sq<<<nblocks, CUDA_NUM_THREADS>>>(optgrid, screengrid, scoregrid, gsize);
 }
