@@ -508,7 +508,7 @@ int main(int argc, char* argv[]) {
       }
       size_t offset = mgridparam->has_affinity() + 1;
       if (contents.size() < offset + 2) {
-        std::cerr << ".types file input should be organized as LABEL [AFFINITY] [RMSD] RECFILE LIGFILE with one example per line.\n";
+        std::cerr << ".types file input should be organized as LABEL [AFFINITY] RECFILE LIGFILE with one example per line.\n";
         std::exit(1);
       }
       boost::filesystem::path rec(contents[offset]);

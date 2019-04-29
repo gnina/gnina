@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "caffe/solver.hpp"
+#include "caffe/layers/pooling_layer.hpp"
 
 namespace caffe {
 
@@ -168,6 +169,7 @@ class InputOptSGDSolver : public SGDSolver<Dtype> {
   virtual void ClipGradients();
   virtual void SnapshotSolverStateToBinaryProto(const string& model_filename);
   virtual void SnapshotSolverStateToHDF5(const string& model_filename);
+  PoolingLayer<Dtype>* toggle_max_to_ave();
   boost::shared_ptr<caffe::Blob<Dtype> > input_blob;
 
   DISABLE_COPY_AND_ASSIGN(InputOptSGDSolver);

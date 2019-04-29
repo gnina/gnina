@@ -29,6 +29,32 @@ namespace caffe {
     this->temp_.push_back(shared_ptr<Blob<Dtype> >(new Blob<Dtype>(shape)));
   }
 
+  template <typename Dtype>
+  PoolingLayer<Dtype>* InputOptSGDSolver<Dtype>::toggle_max_to_ave() {
+    const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = this->net_->layers();
+    PoolingLayer<Dtype> *pool = NULL;
+    for (unsigned i = 1, nl = layers.size(); i < nl; i++) {
+      pool = dynamic_cast<PoolingLayer<Dtype>*>(layers[i].get());
+      if (pool)
+        break; 
+      else
+        if (layers[i]->type() == string("Convolution"))
+          break; 
+        else
+          if (layers[i]->type() == string("InnerProduct")) break;
+    }
+  
+    if (pool) {
+      if (pool->pool() == PoolingParameter_PoolMethod_MAX) {
+        pool->set_pool(PoolingParameter_PoolMethod_AVE);
+      } else {
+        pool = NULL; //no need to reset to max
+      }
+    }
+    return pool;
+  }
+
+
   template <typename Dtype> 
   void InputOptSGDSolver<Dtype>::Step(int iters) {
     // after iteration 0 we want to do ForwardFromTo starting with the layer
@@ -63,7 +89,10 @@ namespace caffe {
       Dtype loss = 0;
       for (int i = 1; i < this->param_.iter_size(); ++i) {
         loss += this->net_->ForwardFrom(1);
+        PoolingLayer<Dtype>* pool = toggle_max_to_ave();
         this->net_->Backward();
+        if (pool) 
+          pool->set_pool(PoolingParameter_PoolMethod_MAX);
       }
       loss /= this->param_.iter_size();
       // average the loss across iterations for smoothed reporting
