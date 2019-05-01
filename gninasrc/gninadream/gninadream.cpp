@@ -128,9 +128,9 @@ bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned num
   return true;
 }
 
-void do_exact_vs(boost::shared_ptr<mgridT>& opt_mgrid, boost::shared_ptr<Net<float> >& net, 
+void do_exact_vs(caffe::shared_ptr<mgridT>& opt_mgrid, caffe::shared_ptr<Net<float> >& net, 
     std::string vsfile, std::vector<std::string>& ref_ligs,
-    std::vector<boost::shared_ptr<std::ostream> >& out, 
+    std::vector<caffe::shared_ptr<std::ostream> >& out, 
     bool gpu, int ncompounds) {
   // use net top blob to do virtual screen against input sdf
   // produce output file for each input from which we started optimization
@@ -162,7 +162,7 @@ void do_exact_vs(boost::shared_ptr<mgridT>& opt_mgrid, boost::shared_ptr<Net<flo
   vector<Blob<float>*> bottom; // will always be empty
   vector<Blob<float>*> top(2); // want to use MGrid::Forward so we'll need a dummy labels blob
   opt_mgrid->VSLayerSetUp(bottom, top);
-  boost::shared_ptr<Blob<float> > scores(new Blob<float>());
+  caffe::shared_ptr<Blob<float> > scores(new Blob<float>());
   std::vector<int> score_shape = {ncompounds};
   scores->Reshape(score_shape);
   float* scoregrid;
@@ -220,7 +220,7 @@ void do_exact_vs(boost::shared_ptr<mgridT>& opt_mgrid, boost::shared_ptr<Net<flo
   }
 }
 
-void do_approx_vs(boost::shared_ptr<mgridT>& opt_mgrid, boost::shared_ptr<Net<float> >& net, 
+void do_approx_vs(caffe::shared_ptr<mgridT>& opt_mgrid, caffe::shared_ptr<Net<float> >& net, 
     std::string vsfile, std::vector<std::string>& ref_ligs,std::vector<std::ostream>& out, 
     bool gpu, int ncompounds) {
   // TODO?
@@ -407,11 +407,11 @@ int main(int argc, char* argv[]) {
   if (cnnopts.cnn_weights.size())
     solver_param.set_weights(0, cnnopts.cnn_weights);
 
-  boost::shared_ptr<caffe::Solver<float> >
+  caffe::shared_ptr<caffe::Solver<float> >
       solver(caffe::SolverRegistry<float>::CreateSolver(solver_param));
 
   solver->SetActionFunction(signal_handler.GetActionFunction());
-  boost::shared_ptr<Net<float> > net = solver->net();
+  caffe::shared_ptr<Net<float> > net = solver->net();
   //if there wasn't a weights file, check that we're using one of the provided
   //cnn models and attempt to load the appropriate stored weights
   if (cnnopts.cnn_weights.size() == 0) {
@@ -431,7 +431,7 @@ int main(int argc, char* argv[]) {
     net->CopyTrainedLayersFrom(cnnopts.cnn_weights);
   }
 
-  const vector<boost::shared_ptr<Layer<float> > >& layers = net->layers();
+  const vector<caffe::shared_ptr<Layer<float> > >& layers = net->layers();
   mgridT* mgrid = dynamic_cast<BaseMolGridDataLayer<float, GridMaker>*>(layers[0].get());
   if (mgrid == NULL) {
     throw usage_error("First layer of model must be MolGridDataLayer.");
@@ -522,7 +522,7 @@ int main(int argc, char* argv[]) {
       solver->ResetIter();
       solver->Solve();
       if (vsfile.size()) {
-        std::vector<boost::shared_ptr<ostream> > out;
+        std::vector<caffe::shared_ptr<ostream> > out;
         for (size_t j=0; j<nopts; ++j) {
           out.push_back(boost::make_shared<std::ofstream>((opt_names[j] + ".vsout").c_str()));
         }

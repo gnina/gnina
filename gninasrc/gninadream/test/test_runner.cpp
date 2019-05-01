@@ -2,7 +2,13 @@
 #include <iostream>
 #include <cuda_runtime.h>
 #include "parsed_args.h"
+#include "cnn_scorer.h"
+#include "test_utils.h"
 #include "test_loss.h"
+#include "test_solver.h"
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/text_format.h>
 #include <iostream>
 #define N_ITERS 5
 #define BOOST_TEST_DYN_LINK
@@ -11,10 +17,90 @@
 
 namespace ut = boost::unit_test;
 namespace po = boost::program_options;
+using namespace caffe;
+typedef BaseMolGridDataLayer<float, GridMaker> mgridT;
 
 parsed_args p_args;
 
 void boost_loop_test(void (*func)());
+
+struct f_iopt_solver {
+  f_iopt_solver() {
+    // set up basic inputopt solver with gnina default net
+    std::mt19937 engine(p_args.seed);
+    NetParameter net_param;
+    std::string cnn_model_name = "default2017";
+    const char *model = cnn_models[cnn_model_name].model;
+    google::protobuf::io::ArrayInputStream modeldata(model, strlen(model));
+    bool success = google::protobuf::TextFormat::Parse(&modeldata, &net_param);
+    if (!success) throw usage_error("Error with built-in cnn model "+cnn_model_name);
+    UpgradeNetAsNeeded("default", &net_param);
+    net_param.mutable_state()->set_phase(TRAIN);
+
+    LayerParameter* first = net_param.mutable_layer(1);
+    MolGridDataParameter* mgridparam = first->mutable_molgrid_data_param();
+    if (mgridparam == NULL) {
+      throw usage_error("First layer of model must be MolGridData.");
+    }
+    const char *recmap = cnn_models[cnn_model_name].recmap;
+    const char *ligmap = cnn_models[cnn_model_name].ligmap;
+    mgridparam->set_mem_recmap(recmap);
+    mgridparam->set_mem_ligmap(ligmap);
+    mgridparam->set_inmemory(true);
+    mgridparam->set_batch_size(1);
+
+    SolverParameter solver_param;
+    solver_param.mutable_net_param()->CopyFrom(net_param);
+    solver_param.set_base_lr(1);
+    solver_param.set_max_iter(10);
+    solver_param.set_lr_policy("fixed");
+    solver_param.set_snapshot_after_train(false);
+    solver_param.set_snapshot_prefix("inputopt");
+    solver_param.set_type("InputOptSGD");
+
+    solver = SolverRegistry<float>::CreateSolver(solver_param);
+    
+    boost::shared_ptr<Net<float> > net = solver->net();
+    NetParameter wparam;
+
+    const unsigned char *weights = cnn_models[cnn_model_name].weights;
+    unsigned int nweights = cnn_models[cnn_model_name].num_weights;
+
+    google::protobuf::io::ArrayInputStream weightdata(weights,nweights);
+    google::protobuf::io::CodedInputStream strm(&weightdata);
+    strm.SetTotalBytesLimit(INT_MAX, 536870912);
+    success = wparam.ParseFromCodedStream(&strm);
+    if (!success) throw usage_error("Error with default weights.");
+
+    net->CopyTrainedLayersFrom(wparam);
+    const vector<caffe::shared_ptr<Layer<float> > >& layers = net->layers();
+    mgridT* mgrid = dynamic_cast<BaseMolGridDataLayer<float, GridMaker>*>(layers[0].get());
+    if (mgrid == NULL) {
+      throw usage_error("First layer of model must be MolGridDataLayer.");
+    }
+
+    // populate an atomv for rec and lig, set inmem
+    std::vector<int> rectypes = mgrid->getRecInts();
+    make_mol(rec, engine, rectypes, 200);
+    std::vector<int> ligtypes = mgrid->getLigInts();
+    make_mol(lig, engine, ligtypes, 50);
+    std::vector<vec> coords;
+    for (auto atom : lig) {
+      vec coord;
+      for (int i=0; i<3; ++i) 
+        coord[i] = atom.coords[i];
+      coords.push_back(coord);
+    }
+    mgrid->setLigand(lig, coords);
+    mgrid->setReceptor(rec);
+    mgrid->setLabels(1);
+  }
+  ~f_iopt_solver() {}
+
+  Solver<float>* solver;
+  atomv rec;
+  atomv lig;
+};
 
 BOOST_AUTO_TEST_SUITE(loss)
 
@@ -24,6 +110,18 @@ BOOST_AUTO_TEST_CASE(cpu_loss) {
 
 BOOST_AUTO_TEST_CASE(gpu_loss) {
   test_gpu_l2();
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_FIXTURE_TEST_SUITE(solver, f_iopt_solver)
+
+BOOST_AUTO_TEST_CASE(solver_update) {
+  test_iopt_update(this->solver);
+}
+
+BOOST_AUTO_TEST_CASE(solver_improvement) {
+  test_iopt_improvement(this->solver);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

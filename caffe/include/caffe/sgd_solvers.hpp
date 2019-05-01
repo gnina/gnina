@@ -160,6 +160,7 @@ class InputOptSGDSolver : public SGDSolver<Dtype> {
       : SGDSolver<Dtype>(param_file) { InputOptSGDPreSolve(); }
   virtual inline const char* type() const { return "InputOptSGD"; }
   void ResetIter() { this->iter_ = 0; }
+  caffe::shared_ptr<caffe::Blob<Dtype> > input_blob() const { return input_blob_; }
 
  protected:
   void InputOptSGDPreSolve();
@@ -170,7 +171,7 @@ class InputOptSGDSolver : public SGDSolver<Dtype> {
   virtual void SnapshotSolverStateToBinaryProto(const string& model_filename);
   virtual void SnapshotSolverStateToHDF5(const string& model_filename);
   PoolingLayer<Dtype>* toggle_max_to_ave();
-  boost::shared_ptr<caffe::Blob<Dtype> > input_blob;
+  caffe::shared_ptr<caffe::Blob<Dtype> > input_blob_;
 
   DISABLE_COPY_AND_ASSIGN(InputOptSGDSolver);
 };

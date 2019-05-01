@@ -348,6 +348,20 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     return rectypes;
   }
 
+  std::vector<int> getRecInts() {
+    // return smt indices that are in the map
+    std::vector<int> rec_ints;
+    //i is smina atom type
+    for (int i=0; i<rmap.size(); ++i) {
+      //at is recmap idx
+      int at = rmap[i];
+      if (at >= 0) {
+        rec_ints.push_back(i);
+      }
+    }
+    return rec_ints;
+  }
+
   std::vector<std::string>getLigTypes() {
     //map ligmap idx to all the types that it corresponds to
     std::map<int, std::string> typemap;
@@ -371,6 +385,20 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
     for (auto it=typemap.begin(); it!=typemap.end(); ++it)
       ligtypes.push_back("Lig_" + it->second);
     return ligtypes;
+  }
+
+  std::vector<int> getLigInts() {
+    // return smt indices that are in the map
+    std::vector<int> lig_ints;
+    //i is smina atom type
+    for (int i=0; i<lmap.size(); ++i) {
+      //at is recmap idx
+      int at = lmap[i];
+      if (at >= 0) {
+        lig_ints.push_back(i);
+      }
+    }
+    return lig_ints;
   }
 
   typename MolGridDataLayer<Dtype>::mol_transform getMolTransform(int batch_idx) const { return batch_transform[batch_idx]; }

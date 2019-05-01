@@ -9,6 +9,7 @@
 #include "cnn_scorer.h"
 #include "parsed_args.h"
 #include "atom_constants.h"
+#include "atom.h"
 #include "device_buffer.h"
 
 extern parsed_args p_args;
@@ -51,6 +52,34 @@ inline void make_mol(std::vector<atom_params>& atoms, std::vector<atomT>& types,
     atoms.push_back(atom);
     atoms[i].charge = charge_dist(engine);
     types.push_back(static_cast<atomT>(type_dist(engine)));
+  }
+}
+
+inline void make_mol(atomv& atoms, std::mt19937 engine, std::vector<int>& types, size_t natoms = 0,
+    size_t min_atoms = 1, size_t max_atoms = 200, float max_x = 25, float max_y = 25, 
+    float max_z = 25) {
+  if (!natoms) {
+    //if not provided, randomly generate the number of atoms
+    std::uniform_int_distribution<int> natoms_dist(min_atoms, max_atoms + 1);
+    natoms = natoms_dist(engine);
+  }
+
+  //randomly seed reasonable-ish coordinates and types
+  std::uniform_real_distribution<float> coords_dists[3];
+  coords_dists[0] = std::uniform_real_distribution<float>(-max_x,
+      std::nextafter(max_x, FLT_MAX));
+  coords_dists[1] = std::uniform_real_distribution<float>(-max_y,
+      std::nextafter(max_y, FLT_MAX));
+  coords_dists[2] = std::uniform_real_distribution<float>(-max_z,
+      std::nextafter(max_z, FLT_MAX));
+  std::uniform_int_distribution<int> type_dist(0, types.size()-1);
+
+  //set up vector of atoms as well as types
+  for (size_t i = 0; i < natoms; ++i) {
+    atoms.push_back(atom());
+    for (size_t j = 0; j < 3; ++j)
+      atoms[i].coords[j] = coords_dists[j](engine);
+    atoms[i].sm = static_cast<smt>(types[type_dist(engine)]);
   }
 }
 

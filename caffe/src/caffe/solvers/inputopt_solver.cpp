@@ -19,11 +19,11 @@ namespace caffe {
     }
     if (data_idx < 0)
       LOG(FATAL) << "Net doesn't have a data blob";
-    input_blob = this->net_->blobs()[data_idx];
+    input_blob_ = this->net_->blobs()[data_idx];
     this->history_.clear();
     this->update_.clear();
     this->temp_.clear();
-    const vector<int>& shape = input_blob->shape();
+    const vector<int>& shape = input_blob_->shape();
     this->history_.push_back(shared_ptr<Blob<Dtype> >(new Blob<Dtype>(shape)));
     this->update_.push_back(shared_ptr<Blob<Dtype> >(new Blob<Dtype>(shape)));
     this->temp_.push_back(shared_ptr<Blob<Dtype> >(new Blob<Dtype>(shape)));
@@ -57,7 +57,7 @@ namespace caffe {
 
   template <typename Dtype> 
   void InputOptSGDSolver<Dtype>::Step(int iters) {
-    // after iteration 0 we want to do ForwardFromTo starting with the layer
+    // after iteration 0 we want to do ForwardFrom starting with the layer
     // _after_ the input layer
     const int start_iter = this->iter_;
     const int stop_iter = this->iter_ + iters;
@@ -66,6 +66,8 @@ namespace caffe {
     this->smoothed_loss_ = 0;
     this->iteration_timer_.Start();
 
+    if (this->iter_ == 0)
+      this->net_->ForwardFromTo(0,0);
     while (this->iter_ < stop_iter) {
       // zero-init the params
       this->net_->ClearParamDiffs();
@@ -87,7 +89,7 @@ namespace caffe {
       this->net_->set_debug_info(display && this->param_.debug_info());
       // accumulate the loss and gradient
       Dtype loss = 0;
-      for (int i = 1; i < this->param_.iter_size(); ++i) {
+      for (int i = 0; i < this->param_.iter_size(); ++i) {
         loss += this->net_->ForwardFrom(1);
         PoolingLayer<Dtype>* pool = toggle_max_to_ave();
         this->net_->Backward();
@@ -162,18 +164,18 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
     Dtype momentum = this->param_.momentum();
     switch (Caffe::mode()) {
     case Caffe::CPU: {
-      caffe_cpu_axpby(input_blob->count(), rate,
-                input_blob->cpu_diff(), momentum,
+      caffe_cpu_axpby(input_blob_->count(), rate,
+                input_blob_->cpu_diff(), momentum,
                 this->history_[0]->mutable_cpu_data());
-      caffe_copy(input_blob->count(),
+      caffe_copy(input_blob_->count(),
           this->history_[0]->cpu_data(),
-          input_blob->mutable_cpu_diff());
+          input_blob_->mutable_cpu_diff());
       break;
     }
     case Caffe::GPU: {
   #ifndef CPU_ONLY
-      sgd_update_gpu(input_blob->count(),
-          input_blob->mutable_gpu_diff(),
+      sgd_update_gpu(input_blob_->count(),
+          input_blob_->mutable_gpu_diff(),
           this->history_[0]->mutable_gpu_data(),
           momentum, rate);
   #else
@@ -198,21 +200,21 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
     // param.clip_gradients() is always 0
     ClipGradients();
     ComputeUpdateValue(rate);
-    this->net_->Update();
+    input_blob_->Update();
   }
 
   template <typename Dtype>
   void InputOptSGDSolver<Dtype>::ClipGradients() {
     const Dtype clip_gradients = this->param_.clip_gradients();
     if (clip_gradients < 0) { return; }
-    Dtype sumsq_diff = input_blob->sumsq_diff();
+    Dtype sumsq_diff = input_blob_->sumsq_diff();
     const Dtype l2norm_diff = std::sqrt(sumsq_diff);
     if (l2norm_diff > clip_gradients) {
       Dtype scale_factor = clip_gradients / l2norm_diff;
       LOG(INFO) << "Gradient clipping: scaling down gradients (L2 norm "
           << l2norm_diff << " > " << clip_gradients << ") "
           << "by scale factor " << scale_factor;
-      input_blob->scale_diff(scale_factor);
+      input_blob_->scale_diff(scale_factor);
     }
   }
 
@@ -230,7 +232,7 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
       BlobProto* history_blob = state.add_history();
       this->history_[i]->ToProto(history_blob);
     }
-    input_blob->ToProto(state.mutable_datablob());
+    input_blob_->ToProto(state.mutable_datablob());
     string snapshot_filename = Solver<Dtype>::SnapshotFilename(".solverstate");
     LOG(INFO)
       << "Snapshotting solver state to binary proto file " << snapshot_filename;
@@ -262,7 +264,7 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
     CHECK_GE(input_hid, 0)
         << "Error saving solver state to " << snapshot_filename << ".";
     ostringstream oss;
-    hdf5_save_nd_dataset<Dtype>(input_hid, oss.str(), *input_blob);
+    hdf5_save_nd_dataset<Dtype>(input_hid, oss.str(), *input_blob_);
 
     H5Gclose(history_hid);
     H5Fclose(file_hid);

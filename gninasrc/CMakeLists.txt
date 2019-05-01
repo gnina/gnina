@@ -109,6 +109,7 @@ install(TARGETS gninalib DESTINATION lib)
 
 include_directories(lib)
 include_directories(gninavis)
+include_directories(test)
 
 # compile in libgnina - there are enough dependencies to deal with
 cuda_add_executable(gnina main/main.cpp ${LIB_SRCS})
