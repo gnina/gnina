@@ -48,12 +48,14 @@ struct f_iopt_solver {
     mgridparam->set_mem_ligmap(ligmap);
     mgridparam->set_inmemory(true);
     mgridparam->set_batch_size(1);
+    mgridparam->set_use_rec_center(true);
+    mgridparam->set_ignore_ligand(true);
 
     SolverParameter solver_param;
     solver_param.mutable_net_param()->CopyFrom(net_param);
     solver_param.set_base_lr(1);
-    solver_param.set_max_iter(10);
-    solver_param.set_lr_policy("fixed");
+    solver_param.set_max_iter(100);
+    solver_param.set_lr_policy("inv");
     solver_param.set_snapshot_after_train(false);
     solver_param.set_snapshot_prefix("inputopt");
     solver_param.set_type("InputOptSGD");
@@ -80,19 +82,14 @@ struct f_iopt_solver {
     }
 
     // populate an atomv for rec and lig, set inmem
-    std::vector<int> rectypes = mgrid->getRecInts();
-    make_mol(rec, engine, rectypes, 200);
-    std::vector<int> ligtypes = mgrid->getLigInts();
-    make_mol(lig, engine, ligtypes, 50);
-    std::vector<vec> coords;
-    for (auto atom : lig) {
-      vec coord;
-      for (int i=0; i<3; ++i) 
-        coord[i] = atom.coords[i];
-      coords.push_back(coord);
-    }
-    mgrid->setLigand(lig, coords);
-    mgrid->setReceptor(rec);
+    tee log(true);
+    ::FlexInfo finfo(log);
+    ::MolGetter mols(p_args.rec, std::string(), finfo, true, true, log);
+    mols.setInputFile("");
+    ::model m;
+    mols.readMoleculeIntoModel(m);
+    mgrid->setReceptor(m.get_fixed_atoms());
+    mgrid->setLigand(m.get_movable_atoms(), std::vector<vec>());
     mgrid->setLabels(1);
   }
   ~f_iopt_solver() {}
@@ -163,7 +160,7 @@ bool init_unit_test() {
   // TODO: multithread running tests
   std::string logname;
   unsigned seed;
-  int gpu;
+  int gpu = 0;
   po::positional_options_description positional;
   po::options_description inputs("Input");
   inputs.add_options()("seed", po::value<unsigned>(&p_args.seed),
@@ -171,7 +168,9 @@ bool init_unit_test() {
       po::value<unsigned>(&p_args.n_iters),
       "number of iterations to repeat relevant tests")("log",
       po::value<std::string>(&logname), "specify logfile, default is test.log")("gpu", 
-      po::value<int>(&gpu));
+      po::value<int>(&gpu), "gpu to use")
+      ("rec", po::value<std::string>(&p_args.rec), 
+      "specify receptor filename for input optimization solver test, default is 10gs_pocket.pdb");
   po::options_description desc, desc_simple;
   desc.add(inputs);
   desc_simple.add(inputs);
@@ -212,7 +211,7 @@ int main(int argc, char* argv[]) {
   //parsing the args twice, because UTF chomps args it thinks it owns
   unsigned _dumvar1;
   unsigned _dumvar2;
-  std::string _dumvar3;
+  std::string _dumvar3, _dumvar5;
   int _dumvar4;
   bool help = false;
   po::positional_options_description positional;
@@ -223,7 +222,9 @@ int main(int argc, char* argv[]) {
       "number of iterations to repeat relevant tests")("log",
       po::value<std::string>(&_dumvar3),
       "specify logfile, default is test.log")("gpu", 
-        po::value<int>(&_dumvar4));
+        po::value<int>(&_dumvar4), "gpu to use")(
+      "rec", po::value<std::string>(&_dumvar5), 
+      "specify receptor filename for input optimization solver test, default is 10gs_pocket.pdb");
   po::options_description info("Information");
   info.add_options()("help", po::bool_switch(&help), "print usage information");
   po::options_description desc, desc_simple;

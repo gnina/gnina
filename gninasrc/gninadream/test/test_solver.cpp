@@ -53,6 +53,16 @@ void test_iopt_improvement(caffe::Solver<float>* solver) {
   if (!iopt_solver) {
     throw usage_error("InputOptSolver test passed non-InputOptSolver ");
   }
-  // check that after several iterations the loss has improved
+  caffe::shared_ptr<caffe::Net<float> > net = iopt_solver->net();
+  // do a forward pass to get initial loss
+  float start_loss;
+  net->Forward(&start_loss);
+  std::cout << "start loss is " << start_loss << "\n";
+  // do a full solve
   iopt_solver->Solve();
+  // do final forward pass to get loss after several training updates
+  float end_loss;
+  net->Forward(&end_loss);
+  std::cout << "end loss is " << end_loss << "\n";
+  BOOST_CHECK_LT(end_loss, start_loss);
 }
