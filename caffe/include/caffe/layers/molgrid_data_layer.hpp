@@ -89,7 +89,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     virtual void getLigandGradient(int batch_idx, vector<float3>& gradient) = 0;
     MolGridDataParameter* getMolGridDataParam() { return this->layer_param_.mutable_molgrid_data_param(); }
     virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const = 0;
-    virtual void dumpGridDX(const std::string& prefix, Dtype* top, double scale) const = 0;
+    virtual void dumpGridDX(const std::string& prefix, Dtype* top, double scale, size_t mol_index) const = 0;
     virtual std::vector<std::string> getRecTypes() = 0;
     virtual std::vector<std::string> getLigTypes() = 0;
 
@@ -534,7 +534,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   unsigned getExampleSize() const { return example_size; }
 
   virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
-  virtual void dumpGridDX(const std::string& prefix, Dtype* top, double scale=1.0) const;
+  virtual void dumpGridDX(const std::string& prefix, Dtype* top, double scale=1.0, size_t mol_index=0) const;
   friend void ::test_set_atom_gradients();
   friend void ::test_subcube_grids();
   template <typename atomT, typename MGridT, typename GridMakerU> 
@@ -1096,7 +1096,7 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
 
   //stuff for outputing dx grids
   std::string getIndexName(const vector<int>& map, unsigned index) const;
-  void outputDXGrid(std::ostream& out, Grids& grids, unsigned g, double scale, unsigned n) const;
+  void outputDXGrid(std::ostream& out, Grids& grids, unsigned g, double scale, unsigned n, size_t mol_index=0) const;
 
 };
 

@@ -1334,7 +1334,7 @@ string BaseMolGridDataLayer<Dtype, GridMakerT>::getIndexName(const vector<int>& 
 
 //output a grid the file in dx format (for debug)
 template<typename Dtype, class GridMakerT>
-void BaseMolGridDataLayer<Dtype, GridMakerT>::outputDXGrid(std::ostream& out, Grids& grid, unsigned g, double scale, unsigned n) const
+void BaseMolGridDataLayer<Dtype, GridMakerT>::outputDXGrid(std::ostream& out, Grids& grid, unsigned g, double scale, unsigned n, size_t mol_index) const
 {
   out.precision(5);
   setprecision(5);
@@ -1343,7 +1343,7 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::outputDXGrid(std::ostream& out, Gr
   out << "origin";
   for (unsigned i = 0; i < 3; i++)
   {
-    out << " " << mem_lig.center[i]-dimension/2.0;
+    out << " " << batch_transform[mol_index].center[i]-dimension/2.0;
   }
   out << "\n";
   out << "delta " << resolution << " 0 0\ndelta 0 " << resolution << " 0\ndelta 0 0 " << resolution << "\n";
@@ -1414,11 +1414,11 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::Forward_cpu(const vector<Blob<Dtyp
 }
 
 template<typename Dtype, class GridMakerT>
-void BaseMolGridDataLayer<Dtype,GridMakerT>::dumpGridDX(const std::string& prefix, Dtype* data, double scale) const
+void BaseMolGridDataLayer<Dtype,GridMakerT>::dumpGridDX(const std::string& prefix, Dtype* data, double scale, size_t mol_index) const
 {
   typedef boost::multi_array_types::index_range range_t;
   typename Grids::index_gen indices;
-  Grids grid(data,
+  Grids grid(data + mol_index * example_size,
 			boost::extents[numReceptorTypes + numLigandTypes][dim][dim][dim]);
 	for (unsigned a = 0, na = numReceptorTypes; a < na; a++) {
     if (!(grid_empty(grid[indices[a]
@@ -1426,7 +1426,7 @@ void BaseMolGridDataLayer<Dtype,GridMakerT>::dumpGridDX(const std::string& prefi
 		  string name = getIndexName(rmap, a);
 		  string fname = prefix + "_rec_" + name + to_string(current_iter) + ".dx";
 		  ofstream out(fname.c_str());
-		  outputDXGrid(out, grid, a, scale, dim);
+		  outputDXGrid(out, grid, a, scale, dim, mol_index);
     }
 	}
 	for (unsigned a = 0, na = numLigandTypes; a < na; a++) {
@@ -1435,7 +1435,7 @@ void BaseMolGridDataLayer<Dtype,GridMakerT>::dumpGridDX(const std::string& prefi
 			string name = getIndexName(lmap, a);
 			string fname = prefix + "_lig_" + name + to_string(current_iter) + ".dx";
 			ofstream out(fname.c_str());
-			outputDXGrid(out, grid, numReceptorTypes+a, scale, dim);
+			outputDXGrid(out, grid, numReceptorTypes+a, scale, dim, mol_index);
     }
 	}
 }

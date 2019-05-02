@@ -39,10 +39,7 @@ std::vector<std::string> glob(const std::string& pattern) {
         filenames.push_back(string(glob_result.gl_pathv[i]));
     }
 
-    // cleanup
     globfree(&glob_result);
-
-    // done
     return filenames;
 }
 
@@ -215,7 +212,7 @@ void do_exact_vs(caffe::shared_ptr<mgridT>& opt_mgrid, caffe::shared_ptr<Net<flo
     const float* final_scores = scores->cpu_data();
     for (size_t j=0; j<ncompounds; ++j) {
       const float* datastart = final_scores + j;
-      *out[i] << *datastart;
+      *out[i] << *datastart << "\n";
     }
   }
 }
@@ -236,9 +233,9 @@ int main(int argc, char* argv[]) {
 
   cnn_options cnnopts;
   cnnopts.cnn_scoring = true;
-  int iterations;
+  int iterations = 1000;
   int gpu;
-  float base_lr;
+  float base_lr = 0.1;
   bool dump_all = false;
   bool dump_last = false;
   bool exclude_receptor = false;
@@ -252,16 +249,17 @@ int main(int argc, char* argv[]) {
   unsigned nopts = 0;
   std::vector<std::string> opt_names;
 
+  positional_options_description positional; 
   options_description inputs("General Input");
-  inputs.add_options()("receptor, r",
+  inputs.add_options()("receptor,r",
       value<std::string>(&receptor_name), "receptor to provide optimization context")(
-      "ligand, l", value<std::vector<std::string> >(&ligand_names),
+      "ligand,l", value<std::vector<std::string> >(&ligand_names),
       "one or more ligands to provide additional optimization context")(
-      "types, t", value<std::string>(&types), 
+      "types,t", value<std::string>(&types), 
       "MolGrid .types file, formatted with one example per line, <score> <affinity> <receptor_file> <ligand_file>")(
-      "grid, g", value<std::string>(&grid_prefix), 
+      "grid,g", value<std::string>(&grid_prefix), 
       "prefix for grid files from which to begin optimization (instead of molecules), filenames assumed to be [prefix]_[Rec/Lig]_[channel0]_[channel1][...].dx")(
-      "virtualscreen, vs", value<std::string>(&vsfile), 
+      "virtualscreen,vs", value<std::string>(&vsfile), 
       "file of compounds to score according to overlap with optimized grid");
 
   options_description cnn("CNN Input");
@@ -275,34 +273,33 @@ int main(int argc, char* argv[]) {
       "CNN solverstate for restarting optimization in-progress");
 
   options_description output("Output");
-  output.add_options()("vs_output, o",
+  output.add_options()("vs_output,o",
       value<std::string>(&outname), "output virtual screen compounds with grid overlap score")(
-      "out_prefix, p", value<std::string>(&out_prefix),
+      "out_prefix,p", value<std::string>(&out_prefix),
       "prefix for storing checkpoint files for optimization in progress, default is gninadream.<PID>")(
-      "dump_all, a", bool_switch(&dump_all)->default_value(false), 
+      "dump_all,a", bool_switch(&dump_all)->default_value(false), 
       "dump all intermediate grids from optimization")(
-      "dump_last, dl", bool_switch(&dump_last)->default_value(false),
+      "dump_last,dl", bool_switch(&dump_last)->default_value(false),
       "dump last grid from optimization");
 
   options_description options("Options");
-  options.add_options()("iterations, i",
-      value<int>(&iterations), "number of iterations to run")(
+  options.add_options()("iterations,i",
+      value<int>(&iterations), "number of iterations to run, default is 1000")(
       "base_lr", value<float>(&base_lr),
-      "base learning rate for density updates")(
-      "gpu, g", value<int>(&gpu)->default_value(-1), "gpu to run on")(
-      "exclude_receptor, er", bool_switch(&exclude_receptor)->default_value(false), 
+      "base learning rate for density updates, default is 0.1")(
+      "gpu,g", value<int>(&gpu)->default_value(-1), "gpu to run on")(
+      "exclude_receptor,er", bool_switch(&exclude_receptor)->default_value(false), 
       "don't update the receptor grids")(
-      "exclude_ligand, el",  bool_switch(&exclude_ligand)->default_value(false), 
+      "exclude_ligand,el",  bool_switch(&exclude_ligand)->default_value(false), 
       "don't update the ligand grids")(
-      "ignore_ligand, il", bool_switch(&ignore_ligand)->default_value(false),
+      "ignore_ligand,il", bool_switch(&ignore_ligand)->default_value(false),
       "just use ligand to set center")(
-      "allow_negative, an", bool_switch(&allow_neg)->default_value(false),
+      "allow_negative,an", bool_switch(&allow_neg)->default_value(false),
       "allow optimization to result in negative atom density");
 
   options_description desc;
   desc.add(inputs).add(cnn).add(output);
 
-  positional_options_description positional; 
   variables_map vm;
   try {
     store(
@@ -356,7 +353,10 @@ int main(int argc, char* argv[]) {
 
   net_param.mutable_state()->set_phase(TRAIN);
 
-  LayerParameter* first = net_param.mutable_layer(0);
+  // TODO: the builtin default model has separate TEST/TRAIN phase molgrid layers,
+  // but in general how to deal with this? find all molgrid layers and set
+  // params for all of them?
+  LayerParameter* first = net_param.mutable_layer(1);
   MolGridDataParameter* mgridparam = first->mutable_molgrid_data_param();
   if (mgridparam == NULL) {
     throw usage_error("First layer of model must be MolGridData.");
@@ -461,12 +461,15 @@ int main(int argc, char* argv[]) {
     tee log(true);
     FlexInfo finfo(log);
     MolGetter mols(receptor_name, std::string(), finfo, true, true, log);
-    ++nopts;
     if (!ligand_names.size()) {
       ligand_names.push_back("");
     }
+    boost::filesystem::path rec(receptor_name);
+    std::vector<caffe::shared_ptr<ostream> > out;
+    out.push_back(boost::make_shared<std::ofstream>((rec.stem().string() + ".vsout").c_str()));
     for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++) {
       const std::string ligand_name = ligand_names[l];
+      boost::filesystem::path lig(ligand_name);
       mols.setInputFile(ligand_name);
       for (;;)  {
         model m;
@@ -480,11 +483,16 @@ int main(int argc, char* argv[]) {
         // here we just assume pose 
         mgrid->setLabels(1); 
         solver->ResetIter();
-        solver->Solve();
-        boost::filesystem::path rec(receptor_name);
-        boost::filesystem::path lig(ligand_name);
-        opt_names.push_back(rec.stem().string() + "_" + lig.stem().string());
-        ++nopts;
+        std::string prefix = rec.stem().string() + "_" + lig.stem().string();
+        for (size_t i=0; i<iterations; ++i) {
+          solver->Step();
+          if (dump_all || (i==iterations-1 && dump_last))
+            mgrid->dumpGridDX(prefix + "iter" + std::to_string(i), 
+                net->top_vecs()[0][0]->gpu_data());
+        }
+        if (ligand_names[0] == "")
+          ligand_names[0] = "none";
+        do_exact_vs(*mgrid, *net, vsfile, ligand_names, out, gpu, ncompounds);
       }
     }
   }
@@ -499,7 +507,6 @@ int main(int argc, char* argv[]) {
     std::string line;
     while (getline(infile, line))
     {
-      ++nopts;
       std::vector<std::string> contents;
       boost::split(contents, line, boost::is_any_of(" "));
       if (mgridparam->maxgroupsize()-1 || mgridparam->has_rmsd()) {
