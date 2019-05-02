@@ -69,6 +69,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     virtual double getDimension() const = 0;
     virtual double getResolution() const = 0;
     virtual unsigned getExampleSize() const = 0;
+    virtual unsigned getNumRecTypes() const = 0;
+    virtual unsigned getNumLigTypes() const = 0;
     virtual void getReceptorAtoms(int batch_idx, vector<float4>& atoms) = 0;
     virtual void getLigandAtoms(int batch_idx, vector<float4>& atoms) = 0;
     virtual void getMappedReceptorGradient(int batch_idx, unordered_map<string,
@@ -532,6 +534,8 @@ class BaseMolGridDataLayer : public MolGridDataLayer<Dtype> {
   double getResolution() const { return resolution; }
   unsigned getNumGridPoints() const { return numgridpoints; }
   unsigned getExampleSize() const { return example_size; }
+  unsigned getNumRecTypes() const { return numReceptorTypes; }
+  unsigned getNumLigTypes() const { return numLigandTypes; }
 
   virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top, double scale) const;
   virtual void dumpGridDX(const std::string& prefix, Dtype* top, double scale=1.0, size_t mol_index=0) const;

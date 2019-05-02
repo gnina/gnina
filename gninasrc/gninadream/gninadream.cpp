@@ -125,7 +125,7 @@ bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned num
   return true;
 }
 
-void do_exact_vs(caffe::shared_ptr<mgridT>& opt_mgrid, caffe::shared_ptr<Net<float> >& net, 
+void do_exact_vs(mgridT* opt_mgrid, caffe::Net<float>& net, 
     std::string vsfile, std::vector<std::string>& ref_ligs,
     std::vector<caffe::shared_ptr<std::ostream> >& out, 
     bool gpu, int ncompounds) {
@@ -143,8 +143,11 @@ void do_exact_vs(caffe::shared_ptr<mgridT>& opt_mgrid, caffe::shared_ptr<Net<flo
   // vs ligands; we set use_rec_center and ignore_rec if there was an autocenter
   // lig. this is annoying because done the naive way we have to regrid the
   // same ligand many times
-  unsigned nopts = net->top_vecs()[0][0]->shape()[0];
+  unsigned nopts = net.top_vecs()[0][0]->shape()[0];
+  // actually want size for lig channels only
   unsigned example_size = opt_mgrid->getExampleSize();
+  unsigned ligGridSize = opt_mgrid->getNumGridPoints() * opt_mgrid->getNumLigTypes();
+  unsigned recGridSize = opt_mgrid->getNumGridPoints()* opt_mgrid->getNumRecTypes();
   unsigned batch_size = 1; // inmem for now
 
   MolGridDataParameter* mparam = opt_mgrid->getMolGridDataParam();
@@ -187,19 +190,20 @@ void do_exact_vs(caffe::shared_ptr<mgridT>& opt_mgrid, caffe::shared_ptr<Net<flo
       opt_mgrid->setLabels(1); 
       if (gpu) {
         opt_mgrid->Forward_gpu(bottom, top);
-        const float* optgrid = net->top_vecs()[0][0]->gpu_data();
+        const float* optgrid = net.top_vecs()[0][0]->gpu_data();
         const float* screengrid = top[0]->gpu_data();
         scoregrid = scores->mutable_gpu_data();
-        do_gpu_l2sq(optgrid+i*example_size, screengrid, scoregrid+compound, example_size);
+        do_gpu_l2sq(optgrid+i*example_size + recGridSize, screengrid, scoregrid+compound, 
+            ligGridSize);
         *(scoregrid+compound) = std::sqrt(*(scoregrid+compound));
       }
       else {
         opt_mgrid->Forward_cpu(bottom, top);
-        const float* optgrid = net->top_vecs()[0][0]->cpu_data();
+        const float* optgrid = net.top_vecs()[0][0]->cpu_data();
         const float* screengrid = top[0]->cpu_data();
         scoregrid = scores->mutable_cpu_data();
-        cpu_l2sq(optgrid + i * example_size, screengrid, scoregrid + compound, 
-            example_size);
+        cpu_l2sq(optgrid + i * example_size + recGridSize, screengrid, scoregrid + compound, 
+            ligGridSize);
         *(scoregrid+compound) = std::sqrt(*(scoregrid+compound));
       }
       ++compound;
@@ -217,7 +221,7 @@ void do_exact_vs(caffe::shared_ptr<mgridT>& opt_mgrid, caffe::shared_ptr<Net<flo
   }
 }
 
-void do_approx_vs(caffe::shared_ptr<mgridT>& opt_mgrid, caffe::shared_ptr<Net<float> >& net, 
+void do_approx_vs(mgridT* opt_mgrid, caffe::Net<float>& net, 
     std::string vsfile, std::vector<std::string>& ref_ligs,std::vector<std::ostream>& out, 
     bool gpu, int ncompounds) {
   // TODO?
@@ -485,14 +489,15 @@ int main(int argc, char* argv[]) {
         solver->ResetIter();
         std::string prefix = rec.stem().string() + "_" + lig.stem().string();
         for (size_t i=0; i<iterations; ++i) {
-          solver->Step();
+          solver->Step(1);
           if (dump_all || (i==iterations-1 && dump_last))
             mgrid->dumpGridDX(prefix + "iter" + std::to_string(i), 
-                net->top_vecs()[0][0]->gpu_data());
+                net->top_vecs()[0][0]->mutable_gpu_data());
         }
         if (ligand_names[0] == "")
           ligand_names[0] = "none";
-        do_exact_vs(*mgrid, *net, vsfile, ligand_names, out, gpu, ncompounds);
+        if (vsfile.size())
+          do_exact_vs(mgrid, *net, vsfile, ligand_names, out, gpu, ncompounds);
       }
     }
   }
