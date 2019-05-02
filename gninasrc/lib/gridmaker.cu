@@ -155,7 +155,7 @@ template<bool Binary, typename Dtype> __device__ void set_atom(float4 *ainfos,
 }
 
 //go through the n atoms referenced in atomIndices and set a grid point
-template<bool Binary, typename Dtype> __device__ void GridMaker::set_atoms(float3 origin,
+template<bool Binary, typename Dtype> __device__ void GridMaker::set_atoms(gfloat3 origin,
     unsigned n, float4 *ainfos, short *gridindex, Dtype *grids) {
   //figure out what grid point we are 
   unsigned xi = threadIdx.x + blockIdx.x * blockDim.x;
@@ -185,7 +185,7 @@ template<bool Binary, typename Dtype> __device__ void GridMaker::set_atoms(float
   }
 }
 
-template<bool Binary, typename Dtype> __device__ void SubcubeGridMaker::set_atoms(float3 origin,
+template<bool Binary, typename Dtype> __device__ void SubcubeGridMaker::set_atoms(gfloat3 origin,
     unsigned n, float4 *ainfos, short *gridindex, Dtype *grids) {
   if (stride)
     GridMaker::set_atoms<Binary, Dtype>(origin, n, ainfos, gridindex, grids);
@@ -228,7 +228,7 @@ template<bool Binary, typename Dtype> __device__ void SubcubeGridMaker::set_atom
 
 //return 1 if atom potentially overlaps block, 0 otherwise
 __device__
-unsigned atomOverlapsBlock(unsigned aindex, float3 origin, float resolution,
+unsigned atomOverlapsBlock(unsigned aindex, gfloat3 origin, float resolution,
     float4 *ainfos, short *gridindex, float rmult) {
 
   if (gridindex[aindex] < 0) return 0; //hydrogen
@@ -277,7 +277,7 @@ bool scanValid(unsigned idx, uint *scanresult) {
 //grids are the output and are assumed to be zeroed
 template<bool Binary, typename Dtype, typename GridMakerT> __global__
 //__launch_bounds__(THREADSPERBLOCK, 64)
-void gpu_grid_set(float3 origin, int n, float4 *ainfos, short *gridindex, Dtype *grids, 
+void gpu_grid_set(gfloat3 origin, int n, float4 *ainfos, short *gridindex, Dtype *grids,
     bool *mask, GridMakerT gmaker) {
   unsigned tIndex = ((threadIdx.z * BLOCKDIM) + threadIdx.y) * BLOCKDIM 
     + threadIdx.x;
@@ -322,9 +322,9 @@ void gpu_grid_set(float3 origin, int n, float4 *ainfos, short *gridindex, Dtype 
 //return c rotated by Q, leave w (radius) of coord alone
 //this uses the formulat q*v*q^-1, which is simple, but not as computationally
 //efficient as precomputing the rotation matrix and using that
-__inline__  __device__ float4 applyQ(float4 coord, float3 center, qt Q) {
+__inline__  __device__ float4 applyQ(float4 coord, gfloat3 center, qt Q) {
   //apply rotation
-  float3 p = Q.rotate(coord.x - center.x, coord.y - center.y,
+  gfloat3 p = Q.rotate(coord.x - center.x, coord.y - center.y,
       coord.z - center.z);
   p += center;
   return make_float4(p.x, p.y, p.z, coord.w);
@@ -332,7 +332,7 @@ __inline__  __device__ float4 applyQ(float4 coord, float3 center, qt Q) {
 
 //apply quaternion Q to coordinates in ainfos
 __global__
-void gpu_coord_rotate(float3 center, qt Q, int n, float4 *ainfos) {
+void gpu_coord_rotate(gfloat3 center, qt Q, int n, float4 *ainfos) {
   unsigned aindex = blockIdx.x * blockDim.x + threadIdx.x;
   if (aindex < n) {
     float4 ai = ainfos[aindex];
@@ -343,7 +343,7 @@ void gpu_coord_rotate(float3 center, qt Q, int n, float4 *ainfos) {
 
 //set mask bits to one if atom should be ignored
 __global__
-void gpu_mask_atoms(float3 gridcenter, float rsq, int n, float4 *ainfos,
+void gpu_mask_atoms(gfloat3 gridcenter, float rsq, int n, float4 *ainfos,
     bool *mask) {
   unsigned aindex = blockIdx.x * blockDim.x + threadIdx.x;
   if (aindex < n) {
@@ -376,7 +376,7 @@ void GridMaker::setAtomsGPU(unsigned natoms,float4 *ainfos,short *gridindex,
     qt Q, unsigned ngrids,Dtype *grids) {
   //each thread is responsible for a grid point location and will handle all atom types
   //each block is 8x8x8=512 threads
-  float3 origin(dims[0].x, dims[1].x, dims[2].x); //actually a gfloat3
+  gfloat3 origin(dims[0].x, dims[1].x, dims[2].x); //actually a gfloat3
   dim3 threads(BLOCKDIM, BLOCKDIM, BLOCKDIM);
   unsigned blocksperside = ceil(dim / float(BLOCKDIM));
   dim3 blocks(blocksperside, blocksperside, blocksperside);
@@ -471,7 +471,7 @@ int SubcubeGridMaker::getIndexFromPoint(unsigned i, unsigned j, unsigned k,
 template<typename Dtype, typename GridMakerT>
 __global__
 void set_atom_gradients(GridMakerT gmaker, const float4* ainfo, short* gridindices, 
-    float3* agrads, float3 centroid, const qt Q, float3 translation, const Dtype* grids, 
+    gfloat3* agrads, gfloat3 centroid, const qt Q, gfloat3 translation, const Dtype* grids,
     unsigned remainder_offset, bool isrelevance) {
   //TODO: implement
   assert(isrelevance == false);
@@ -479,11 +479,11 @@ void set_atom_gradients(GridMakerT gmaker, const float4* ainfo, short* gridindic
   int idx = blockDim.x * blockIdx.x + threadIdx.x + remainder_offset;
   int whichgrid = gridindices[idx];
   float4 atom = ainfo[idx];
-  float3 coords; 
+  gfloat3 coords;
 
   if (Q.real() != 0) //apply rotation
       {
-    float3 p = Q.rotate(atom.x - gmaker.center.x, atom.y - gmaker.center.y,
+    gfloat3 p = Q.rotate(atom.x - gmaker.center.x, atom.y - gmaker.center.y,
         atom.z - gmaker.center.z);
     coords = p + gmaker.center;
   } else {

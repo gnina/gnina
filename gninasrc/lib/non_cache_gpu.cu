@@ -30,8 +30,8 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache, const grid_dims& gd_,
   definitelyPinnedMemcpy(info.types, &htypes[0],
       sizeof(unsigned[num_movable_atoms]), cudaMemcpyHostToDevice);
 
-  info.gridbegins = float3(gd[0].begin, gd[1].begin, gd[2].begin);
-  info.gridends = float3(gd[0].end, gd[1].end, gd[2].end);
+  info.gridbegins = gfloat3(gd[0].begin, gd[1].begin, gd[2].begin);
+  info.gridends = gfloat3(gd[0].end, gd[1].end, gd[2].end);
 
   //figure out all possibly relevant receptor atoms
   szv recatomids;

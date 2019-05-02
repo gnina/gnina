@@ -103,28 +103,6 @@ void toggle_ave_to_max(Net<Dtype>& net) {
   }
 }
 
-std::vector<std::string> get_rec_types(Layer<Dtype>& layer) {
-  MolGridDataLayer<Dtype>* mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(&layer);
-  assert(mgrid);
-  return mgrid->getRecTypes();
-}
-
-std::vector<std::string> get_lig_types(Layer<Dtype>& layer) {
-  MolGridDataLayer<Dtype>* mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(&layer);
-  assert(mgrid);
-  return mgrid->getLigTypes();
-}
-
-std::vector<float> get_grid_center(Layer<Dtype>& layer, unsigned mol_idx) {
-  MolGridDataLayer<Dtype>* mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(&layer);
-  assert(mgrid);
-  vec center = mgrid->getCenter(mol_idx);
-  std::vector<float> vcenter;
-  for (int i=0; i<3; ++i) 
-    vcenter.push_back(center[i]);
-  return vcenter;
-}
-
 
 void InitLog() {
   ::google::InitGoogleLogging("");
@@ -479,9 +457,6 @@ BOOST_PYTHON_MODULE(_caffe) {
   bp::def("layer_type_list", &LayerRegistry<Dtype>::LayerTypeList);
   bp::def("toggle_max_to_ave", &toggle_max_to_ave);
   bp::def("toggle_ave_to_max", &toggle_ave_to_max);
-  bp::def("get_grid_center", &get_grid_center);
-  bp::def("get_rec_types", &get_rec_types);
-  bp::def("get_lig_types", &get_lig_types);
 
   bp::class_<Net<Dtype>, shared_ptr<Net<Dtype> >, boost::noncopyable >("Net",
     bp::no_init)
@@ -573,16 +548,19 @@ BOOST_PYTHON_MODULE(_caffe) {
 
   bp::class_<MolGridDataLayer<Dtype>, bp::bases<Layer<Dtype> >,
     shared_ptr<MolGridDataLayer<Dtype> >, boost::noncopyable>("MolGridDataLayer", bp::no_init)
-    .def("get_moltransform", &MolGridDataLayer<Dtype>::getMolTransform);
+    .def("get_moltransform", &MolGridDataLayer<Dtype>::getMolInfo)
+    .def("get_grid_center", +[](MolGridDataLayer<Dtype>& self) { vec c = self.getCenter(); return std::vector<float>{c[0],c[1],c[2]};})
+    .def("get_rec_types", &MolGridDataLayer<Dtype>::getRecTypes)
+    .def("get_lig_types", &MolGridDataLayer<Dtype>::getLigTypes);
+
   BP_REGISTER_SHARED_PTR_TO_PYTHON(MolGridDataLayer<Dtype>);
 
-  bp::class_<MolGridDataLayer<Dtype>::mol_transform>("mol_transform")
-      .def_readonly("center",&MolGridDataLayer<Dtype>::mol_transform::center)
-      .def_readonly("Q",&MolGridDataLayer<Dtype>::mol_transform::Q);
+  bp::class_<MolGridDataLayer<Dtype>::mol_info>("mol_info")
+      .def_readonly("transform",&MolGridDataLayer<Dtype>::mol_info::transform);
 
-  bp::class_<GenericMolGridDataLayer<Dtype>, bp::bases<MolGridDataLayer<Dtype> >,
-    shared_ptr<GenericMolGridDataLayer<Dtype> >, boost::noncopyable>("GenericMolGridDataLayer", bp::no_init);
-  BP_REGISTER_SHARED_PTR_TO_PYTHON(GenericMolGridDataLayer<Dtype>);
+  bp::class_<MolGridDataLayer<Dtype>, bp::bases<Layer<Dtype> >,
+    shared_ptr<MolGridDataLayer<Dtype> >, boost::noncopyable>("MolGridDataLayer", bp::no_init);
+  BP_REGISTER_SHARED_PTR_TO_PYTHON(MolGridDataLayer<Dtype>);
 
 
   bp::class_<vec>("vec")

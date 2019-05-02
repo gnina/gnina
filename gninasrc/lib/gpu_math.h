@@ -60,8 +60,6 @@ struct gfloat3 : float3 {
 
 };
 
-#define float3 gfloat3
-
 //Both the shuffle and atomicAdd provided below are not strictly what they say
 //they are. They are convenience functions that allow, for example, templated
 //code to work correctly even if the types are unsupported by CUDA, but they
@@ -79,13 +77,13 @@ __device__ __inline__ float shuffle_down(float val, int offset) {
 #endif
 }
 
-__device__  __inline__  static float3 shuffle_down(const float3 &a, int delta) {
+__device__  __inline__  static gfloat3 shuffle_down(const gfloat3 &a, int delta) {
 #if __CUDACC_VER_MAJOR__ >= 9
-  return float3(__shfl_down_sync(0xffffffff, a.x, delta),
+  return gfloat3(__shfl_down_sync(0xffffffff, a.x, delta),
       __shfl_down_sync(0xffffffff, a.y, delta),
       __shfl_down_sync(0xffffffff, a.z, delta));
 #else
-  return float3(__shfl_down(a.x, delta),
+  return gfloat3(__shfl_down(a.x, delta),
       __shfl_down(a.y, delta),
       __shfl_down(a.z, delta));
 #endif
@@ -132,52 +130,52 @@ inline bool almostEqual(float a, float b) {
 }
 
 __host__ __device__ inline static
-float dot(float3 a, float3 b) {
+float dot(gfloat3 a, gfloat3 b) {
   return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
 __host__ __device__ inline static
-float &get(float3 &a, int b) {
+float &get(gfloat3 &a, int b) {
   return b == 0 ? a.x : b == 1 ? a.y : a.z;
 }
 
 __host__ __device__ inline static
-const float &get(const float3 &a, int b) {
+const float &get(const gfloat3 &a, int b) {
   return b == 0 ? a.x : b == 1 ? a.y : a.z;
 }
 
-__host__  __device__  inline static float3 operator-(const float3 &a) {
-  return float3(-a.x, -a.y, -a.z);
+__host__  __device__  inline static gfloat3 operator-(const gfloat3 &a) {
+  return gfloat3(-a.x, -a.y, -a.z);
 }
 
-__host__  __device__  inline static float3 operator+(const float3 &a,
-    const float3 &b) {
-  return float3(a.x + b.x, a.y + b.y, a.z + b.z);
+__host__  __device__  inline static gfloat3 operator+(const gfloat3 &a,
+    const gfloat3 &b) {
+  return gfloat3(a.x + b.x, a.y + b.y, a.z + b.z);
 }
 
-__host__  __device__  inline static float3 operator-(const float3 &a,
-    const float3 &b) {
-  return float3(a.x - b.x, a.y - b.y, a.z - b.z);
+__host__  __device__  inline static gfloat3 operator-(const gfloat3 &a,
+    const gfloat3 &b) {
+  return gfloat3(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
-__host__  __device__  inline static float3 operator+=(float3 &a,
-    const float3 &b) {
+__host__  __device__  inline static gfloat3 operator+=(gfloat3 &a,
+    const gfloat3 &b) {
   return a = a + b;
 }
 
-__host__  __device__  inline static float3 operator*(const float3 &a,
-    const float3 &b) {
-  return make_float3(a[0] * b[0], a[1] * b[1], a[2] * b[2]);
+__host__  __device__  inline static gfloat3 operator*(const gfloat3 &a,
+    const gfloat3 &b) {
+  return gfloat3(a[0] * b[0], a[1] * b[1], a[2] * b[2]);
 }
 
 template<typename T>
-__host__  __device__   inline static float3 operator*(float3 a, T b) {
-  return float3(a.x * b, a.y * b, a.z * b);
+__host__  __device__   inline static gfloat3 operator*(gfloat3 a, T b) {
+  return gfloat3(a.x * b, a.y * b, a.z * b);
 }
 
 template<typename T>
 __host__  __device__  inline static float3 operator*(T b, float3 a) {
-  return float3(a.x * b, a.y * b, a.z * b);
+  return gfloat3(a.x * b, a.y * b, a.z * b);
 }
 
 template<typename T, typename U>

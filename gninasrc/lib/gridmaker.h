@@ -35,7 +35,7 @@ using namespace std;
 template<typename Dtype, typename GridMakerT>
 __global__
 void set_atom_gradients(GridMakerT gmaker, const float4* ainfo, short* gridindices, 
-    float3* agrads, float3 centroid, const qt Q, float3 translation, const Dtype* grids, 
+    gfloat3* agrads, gfloat3 centroid, const qt Q, gfloat3 translation, const Dtype* grids,
     unsigned remainder_offset, bool isrelevance=false);
 
 template<typename Grids, typename GridMakerT, typename quaternion>
@@ -45,12 +45,12 @@ void set_atom_cpu(float4 ainfo, int whichgrid, const quaternion& Q,
 template<typename Grids, typename GridMakerT, typename quaternion>
 void set_atom_gradient_cpu(const float4& ainfo, int whichgrid,
     const quaternion& Q, const Grids& grids,
-    float3& agrad, GridMakerT& gmaker, const Grids& densegrids=Grids(NULL, vector<typename Grids::element>(Grids::dimensionality, 0)), bool isrelevance = false);
+    gfloat3& agrad, GridMakerT& gmaker, const Grids& densegrids=Grids(NULL, vector<typename Grids::element>(Grids::dimensionality, 0)), bool isrelevance = false);
 
 class GridMaker {
   protected:
     float2 dims[3];
-    float3 center;
+    gfloat3 center;
     float radiusmultiple;
     float resolution;
     float dimension;
@@ -67,11 +67,11 @@ class GridMaker {
     template<typename Grids, typename GridMakerT, typename quaternion> friend 
       void set_atom_gradient_cpu(const float4& ainfo, int whichgrid,
       const quaternion& Q, const Grids& grids,
-      float3& agrad, GridMakerT& gmaker, const Grids& densegrids, bool isrelevance);
+      gfloat3& agrad, GridMakerT& gmaker, const Grids& densegrids, bool isrelevance);
 
     template<typename Dtype, typename GridMakerT> __global__ friend void 
       set_atom_gradients(GridMakerT gmaker, const float4* ainfo, short* gridindices,
-      float3* agrads, float3 centroid, const qt Q, float3 translation, const Dtype* grids, 
+      gfloat3* agrads, gfloat3 centroid, const qt Q, gfloat3 translation, const Dtype* grids,
       unsigned remainder_offset, bool isrelevance);
   
     typedef boost::math::quaternion<float> quaternion;
@@ -169,7 +169,7 @@ class GridMaker {
 
     //return the occupancy for atom a at point x,y,z
     __host__ __device__
-    float calcPoint(const float3& coords, double ar, float x, float y,
+    float calcPoint(const gfloat3& coords, double ar, float x, float y,
         float z) {
       float dx = x - coords.x;
       float dy = y - coords.y;
@@ -232,7 +232,7 @@ class GridMaker {
     }
   
     template<bool Binary, typename Dtype> __device__ 
-    void set_atoms(float3 origin, unsigned n, float4 *ainfos, short *gridindex, 
+    void set_atoms(gfloat3 origin, unsigned n, float4 *ainfos, short *gridindex,
         Dtype *grids);
   
     //GPU accelerated version, defined in cu file
@@ -244,7 +244,7 @@ class GridMaker {
     virtual void zeroGridsStartBatchGPU(float* grids, unsigned ngrids);
     virtual void zeroGridsStartBatchGPU(double* grids, unsigned ngrids);
   
-    void zeroAtomGradientsCPU(vector<float3>& agrad) {
+    void zeroAtomGradientsCPU(vector<gfloat3>& agrad) {
       for (unsigned i = 0, n = agrad.size(); i < n; ++i) { 
         agrad[i].x = 0.0;
         agrad[i].y = 0.0;
@@ -253,8 +253,8 @@ class GridMaker {
     }
 
     __host__ __device__
-    void accumulateAtomRelevance(const float3& coords, double ar, float x,
-        float y, float z, float gridval, float denseval, float3& agrad) {
+    void accumulateAtomRelevance(const gfloat3& coords, double ar, float x,
+        float y, float z, float gridval, float denseval, gfloat3& agrad) {
       //simple sum of values that the atom overlaps
       float dist_x = x - coords.x;
       float dist_y = y - coords.y;
@@ -276,8 +276,8 @@ class GridMaker {
 
     //accumulate gradient from grid point x,y,z for provided atom
     __host__ __device__
-    void accumulateAtomGradient(const float3& coords, double ar, float x,
-              float y, float z, float gridval, float3& agrad, int whichgrid) {
+    void accumulateAtomGradient(const gfloat3& coords, double ar, float x,
+              float y, float z, float gridval, gfloat3& agrad, int whichgrid) {
       //sum gradient grid values overlapped by the atom times the
       //derivative of the atom density at each grid point
       float dist_x = x - coords.x;
@@ -323,7 +323,7 @@ class GridMaker {
     template<typename Grids>
     void setAtomGradientsCPU(const vector<float4>& ainfo, 
         const vector<short>& gridindex, const quaternion& Q, const Grids& grids, 
-        vector<float3>& agrad) { 
+        vector<gfloat3>& agrad) {
       zeroAtomGradientsCPU(agrad);
       for (unsigned i = 0, n = ainfo.size(); i < n; ++i) {
         int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
@@ -357,7 +357,7 @@ class GridMaker {
     template<typename Grids>
     void setAtomRelevanceCPU(const vector<float4>& ainfo,
         const vector<short>& gridindex, const quaternion& Q, const Grids& densegrids,
-        const Grids& diffgrids, vector<float3>& agrad) {
+        const Grids& diffgrids, vector<gfloat3>& agrad) {
       zeroAtomGradientsCPU(agrad);
       for (unsigned i = 0, n = ainfo.size(); i < n; ++i) {
         int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
@@ -704,7 +704,7 @@ class SubcubeGridMaker : public GridMaker {
     }
 
     template<bool Binary, typename Dtype> __device__ 
-    void set_atoms(float3 origin, unsigned n, float4 *ainfos, short *gridindex, 
+    void set_atoms(gfloat3 origin, unsigned n, float4 *ainfos, short *gridindex,
         Dtype *grids);
 
     //defined in cu. N.B. this _cannot_ be virtual because we are passing the
@@ -719,7 +719,7 @@ class SubcubeGridMaker : public GridMaker {
     template <typename Dtype>
     void setAtomGradientsCPU(const vector<float4>& ainfo, 
         const vector<short>& gridindex, quaternion Q, Dtype* data, 
-        vector<float3>& agrad, unsigned offset, unsigned ntypes) {
+        vector<gfloat3>& agrad, unsigned offset, unsigned ntypes) {
       if (stride) {
         GridMaker::setAtomGradientsCPU(ainfo, gridindex, Q, data, agrad, offset, ntypes);
       }
@@ -735,7 +735,7 @@ class SubcubeGridMaker : public GridMaker {
     template<typename Grids>
     void setAtomGradientsCPU(const vector<float4>& ainfo, 
         const vector<short>& gridindex, const quaternion& Q, 
-        const Grids& grids, vector<float3>& agrad) {
+        const Grids& grids, vector<gfloat3>& agrad) {
       zeroAtomGradientsCPU(agrad);
       for (unsigned i = 0, n = ainfo.size(); i < n; ++i) {
         int whichgrid = gridindex[i]; // this is which atom-type channel of the grid to look at
@@ -765,7 +765,7 @@ void set_atom_cpu(float4 ainfo, int whichgrid, const quaternion& Q,
     Grids& grids, GridMakerT& gmaker) {
   float radius = ainfo.w;
   float r = radius * gmaker.radiusmultiple;
-  float3 coords;
+  gfloat3 coords;
 
   if(gmaker.spherize) {
     float xdiff = ainfo.x - gmaker.center.x;
@@ -824,8 +824,8 @@ void set_atom_cpu(float4 ainfo, int whichgrid, const quaternion& Q,
 template<typename Grids, typename GridMakerT, typename quaternion>
 void set_atom_gradient_cpu(const float4& ainfo, int whichgrid,
     const quaternion& Q, const Grids& grids,
-    float3& agrad, GridMakerT& gmaker, const Grids& densegrids, bool isrelevance) {
-  float3 coords;
+    gfloat3& agrad, GridMakerT& gmaker, const Grids& densegrids, bool isrelevance) {
+  gfloat3 coords;
   if (Q.real() != 0) {//apply rotation
     quaternion p(0, ainfo.x - gmaker.center.x, ainfo.y - gmaker.center.y,
         ainfo.z - gmaker.center.z);

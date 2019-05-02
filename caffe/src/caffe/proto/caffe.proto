@@ -905,11 +905,6 @@ message MolGridDataParameter {
   optional bool check = 10 [default = false];
   //path to prepend to receptor/ligand files
   optional string root_folder = 12 [default = ""];
-  //if > 0, then apply this many distinct axial rotations (max 24)
-  //to the data to expand the input set; note that with balanced the rotation
-  //will be cycled with every pass through the actives, even if not all decoys have
-  //been sampled
-  optional uint32 rotate = 13 [default = 0];
   //randomly rotate each input file; a new rotation is applied each epoch
   optional bool random_rotation = 14 [default = false];
   //randomly translate each input by up this amount; new translation applied each epoch

@@ -23,6 +23,7 @@
 
 using namespace OpenBabel;
 
+
 cnn_visualization::cnn_visualization(const vis_options &viso,
     const cnn_options &copts, const vec &c)
     : visopts(viso), cnnopts(copts), center(c),score_scale(viso.score_scale) {

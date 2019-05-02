@@ -36,7 +36,7 @@ class MolGridder {
     libmolgrid::GridMaker gmaker;
     libmolgrid::Transform current_transform;
 
-    float3 center { 0, 0, 0 };
+    gfloat3 center { 0, 0, 0 };
     bool center_set = false;
     bool gpu = false; //use gpu
 
@@ -55,7 +55,7 @@ class MolGridder {
     MolGridder(const gridoptions& opt);
 
     //fix a center (instead of using ligand)
-    void set_center(float3 c);
+    void set_center(gfloat3 c);
 
     //return true if using fixed center
     bool has_set_center() const { return center_set; }

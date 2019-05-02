@@ -7,6 +7,7 @@
 #include "caffe/common.hpp"
 #include "caffe/util/rng.hpp"
 
+#include <libmolgrid/libmolgrid.h>
 namespace caffe {
 
 // Make sure each thread can have different values.
@@ -149,6 +150,8 @@ void Caffe::set_random_seed(const unsigned int seed) {
   }
   // RNG seed
   Get().random_generator_.reset(new RNG(seed));
+
+  libmolgrid::random_engine.seed(seed);
 }
 
 void Caffe::SetDevice(const int device_id) {
