@@ -125,7 +125,7 @@ CNNScorer::CNNScorer(const cnn_options& opts)
 //assumes necessary pass (backward or backward_relevance) has already been done
 std::unordered_map<string, float> CNNScorer::get_scores_per_atom(bool receptor,
     bool relevance) {
-  std::unordered_map<string, float3> gradient;
+  std::unordered_map<string, gfloat3> gradient;
 
   if (receptor) {
     mgrid->getReceptorAtoms(0, atoms);
@@ -544,7 +544,7 @@ void CNNScorer::outputDX(const string& prefix, double scale, bool lrp,
 }
 
 void CNNScorer::outputXYZ(const string& base, const vector<float4>& atoms,
-    const vector<short>& whichGrid, const vector<float3>& gradient) {
+    const vector<short>& whichGrid, const vector<gfloat3>& gradient) {
   const char* sym[] = { "C", "C", "C", "C", "Ca", "Fe", "Mg", "N", "N", "N",
       "N", "O", "O", "P", "S", "Zn", "C", "C", "C", "C", "Br", "Cl", "F", "N",
       "N", "N", "N", "O", "O", "O", "P", "S", "S", "I" };

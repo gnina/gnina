@@ -167,13 +167,13 @@ void MolGridDataLayer<Dtype>::getLigandChannels(int batch_idx, vector<short>& wh
 }
 
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<float3>& gradient)
+void MolGridDataLayer<Dtype>::getReceptorGradient(int batch_idx, vector<gfloat3>& gradient)
 {
   gradient.resize(0);
   CHECK_LT(batch_idx,batch_info.size()) << "Incorrect batch size in getReceptorGradient";
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
   CoordinateSet& ratoms = batch_info[batch_idx].rec_atoms;
-  vector<float3>& grads = batch_info[batch_idx].rec_gradient;
+  vector<gfloat3>& grads = batch_info[batch_idx].rec_gradient;
   CHECK_EQ(ratoms.size(), grads.size());
 
   for (unsigned i = 0, n = ratoms.size(); i < n; ++i) {
@@ -196,17 +196,17 @@ void MolGridDataLayer<Dtype>::getReceptorTransformationGradient(int batch_idx, v
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
   CHECK_LT(batch_idx,batch_info.size()) << "Incorrect batch size in getReceptorTransformationGradient";
   CoordinateSet& ratoms = batch_info[batch_idx].rec_atoms;
-  vector<float3>& grads = batch_info[batch_idx].rec_gradient;
+  vector<gfloat3>& grads = batch_info[batch_idx].rec_gradient;
   CHECK_EQ(ratoms.size(), grads.size());
 
-  float3 tc = batch_info[batch_idx].transform.get_rotation_center();
+  gfloat3 tc = batch_info[batch_idx].transform.get_rotation_center();
   vec c(tc.x,tc.y,tc.z);
 
   for (unsigned i = 0, n = ratoms.size(); i < n; ++i)
   {
     if(ratoms.type_index[i] >= 0) {
-      float3 g = grads[i];
-      float3 a {ratoms.coord[i][0], ratoms.coord[i][1], ratoms.coord[i][2]};
+      gfloat3 g = grads[i];
+      gfloat3 a {ratoms.coord[i][0], ratoms.coord[i][1], ratoms.coord[i][2]};
       vec v(g.x,g.y,g.z);
       vec pos(a.x,a.y,a.z);
 
@@ -218,13 +218,13 @@ void MolGridDataLayer<Dtype>::getReceptorTransformationGradient(int batch_idx, v
 
 
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered_map<string, float3>& gradient)
+void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered_map<string, gfloat3>& gradient)
 {
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
   CHECK_LT(batch_idx,batch_info.size()) << "Incorrect batch size in getMappedReceptorGradient";
 
   CoordinateSet& ratoms = batch_info[batch_idx].rec_atoms;
-  vector<float3>& grads = batch_info[batch_idx].rec_gradient;
+  vector<gfloat3>& grads = batch_info[batch_idx].rec_gradient;
   CHECK_EQ(ratoms.size(), grads.size());
 
   for (unsigned i = 0, n = ratoms.size(); i < n; ++i) {
@@ -237,14 +237,14 @@ void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered
 
 
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& gradient)
+void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<gfloat3>& gradient)
 {
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
   CHECK_LT(batch_idx,batch_info.size()) << "Incorrect batch size in getLigandGradient";
 
   gradient.resize(0);
   CoordinateSet& latoms = batch_info[batch_idx].lig_atoms;
-  vector<float3>& grads = batch_info[batch_idx].lig_gradient;
+  vector<gfloat3>& grads = batch_info[batch_idx].lig_gradient;
   CHECK_EQ(latoms.size(), grads.size());
 
   for (unsigned i = 0, n = latoms.size(); i < n; ++i) {
@@ -255,13 +255,13 @@ void MolGridDataLayer<Dtype>::getLigandGradient(int batch_idx, vector<float3>& g
 }
 
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::getMappedLigandGradient(int batch_idx, unordered_map<string, float3>& gradient)
+void MolGridDataLayer<Dtype>::getMappedLigandGradient(int batch_idx, unordered_map<string, gfloat3>& gradient)
 {
   CHECK(compute_atom_gradients) << "Gradients requested but not computed";
   CHECK_LT(batch_idx,batch_info.size()) << "Incorrect batch size in getMappedLigandGradient";
 
   CoordinateSet& latoms = batch_info[batch_idx].lig_atoms;
-  vector<float3>& grads = batch_info[batch_idx].lig_gradient;
+  vector<gfloat3>& grads = batch_info[batch_idx].lig_gradient;
   CHECK_EQ(latoms.size(), grads.size());
 
   for (unsigned i = 0, n = latoms.size(); i < n; ++i) {
@@ -604,7 +604,7 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
   //figure out transformation
 
   //what is the rotational center?
-  float3 rot_center{0,0,0};
+  gfloat3 rot_center{0,0,0};
   if (param.use_rec_center())
     rot_center = minfo.rec_atoms.center();
   else
@@ -657,9 +657,9 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
   apply_jitter(atoms, jitter);
 
   //set the grid center
-  float3 grid_center = rot_center;
+  gfloat3 grid_center = rot_center;
   if(fixcenter) {
-    grid_center = make_float3(0,0,0);
+    grid_center = gfloat3(0,0,0);
   }
 
   if (atoms.size() == 0) {
@@ -983,7 +983,7 @@ void MolGridDataLayer<Dtype>::setReceptor(const vector<atom>& receptor, const ve
     auto t_r = recTypes->get_int_type(t);
     if (t_r.first >= 0) {
       const vec& coord = a.coords;
-      cs.push_back(make_float3(coord[0],coord[1],coord[2]));
+      cs.push_back(gfloat3(coord[0],coord[1],coord[2]));
       types.push_back(t_r.first);
       radii.push_back(t_r.second);
     }
@@ -1022,7 +1022,7 @@ void MolGridDataLayer<Dtype>::setLigand(const vector<atom>& ligand, const vector
     auto t_r = ligTypes->get_int_type(t);
     if (t_r.first >= 0) {
       const vec& coord = coords[i];
-      cs.push_back(make_float3(coord[0],coord[1],coord[2]));
+      cs.push_back(gfloat3(coord[0],coord[1],coord[2]));
       types.push_back(t_r.first);
       radii.push_back(t_r.second);
     }
@@ -1035,7 +1035,7 @@ void MolGridDataLayer<Dtype>::setLigand(const vector<atom>& ligand, const vector
   batch_info[0].setLigand(ligatoms);
 
   if (calcCenter || !center_set) {
-    float3 c = batch_info[0].lig_atoms.center();
+    gfloat3 c = batch_info[0].lig_atoms.center();
     setCenter(vec(c.x,c.y,c.z));
   }
 }

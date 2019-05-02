@@ -89,14 +89,14 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
     void getReceptorChannels(int batch_idx, vector<short>& whichGrid);
     void getLigandChannels(int batch_idx, vector<short>& whichGrid);
-    void getReceptorGradient(int batch_idx, vector<float3>& gradient);
+    void getReceptorGradient(int batch_idx, vector<gfloat3>& gradient);
     void getReceptorTransformationGradient(int batch_idx, vec& force,
         vec& torque);
     void getMappedReceptorGradient(int batch_idx,
-        std::unordered_map<string, float3>& gradient);
-    void getLigandGradient(int batch_idx, vector<float3>& gradient);
+        std::unordered_map<string, gfloat3>& gradient);
+    void getLigandGradient(int batch_idx, vector<gfloat3>& gradient);
     void getMappedLigandGradient(int batch_idx,
-        std::unordered_map<string, float3>& gradient);
+        std::unordered_map<string, gfloat3>& gradient);
 
     virtual void setReceptor(const vector<atom>& receptor, const vec& translate =
         {}, const qt& rotate = {});
@@ -106,19 +106,19 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     //set center to use for memory ligand
     void setCenter(const vec& center) {
       CHECK_GT(batch_info.size(), 0) << "Empty batch info";
-      batch_info[0].transform.set_rotation_center(float3{center[0],center[1],center[2]});
+      batch_info[0].transform.set_rotation_center(gfloat3{center[0],center[1],center[2]});
       center_set = true;
     }
 
     vec getCenter() const {
-      float3 c= batch_info[0].transform.get_rotation_center();
+      gfloat3 c= batch_info[0].transform.get_rotation_center();
       return vec(c.x,c.y,c.z);
     }
 
     vec getCenter(unsigned mol_idx) const {
       CHECK_GT(batch_info.size(), 0) << "Empty batch info";
       assert(mol_idx < batch_transform.size());
-      float3 c = batch_info[mol_idx].transform.get_rotation_center();
+      gfloat3 c = batch_info[mol_idx].transform.get_rotation_center();
       return vec(c.x,c.y,c.z);
     }
 
@@ -127,6 +127,14 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     }
     double getResolution() const {
       return gmaker.get_resolution();
+    }
+
+    gfloat3 getGridDims() const {
+      return gmaker.get_grid_dims();
+    }
+
+    unsigned getNumChannels() const {
+      return numchannels;
     }
 
     virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top,
@@ -149,24 +157,24 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
       libmolgrid::CoordinateSet lig_atoms;
       libmolgrid::Transform transform;
       libmolgrid::Transform ligand_perturbation;
-      vector<float3> rec_gradient; //todo: change to mgrid
-      vector<float3> lig_gradient;
+      vector<gfloat3> rec_gradient; //todo: change to mgrid
+      vector<gfloat3> lig_gradient;
 
       void setReceptor(const libmolgrid::CoordinateSet& c) {
         rec_atoms = c;
-        rec_gradient.resize(c.size());
+        rec_gradient.assign(c.size(), gfloat3(0,0,0));
       }
 
       void setLigand(const libmolgrid::CoordinateSet& c) {
         lig_atoms = c;
-        lig_gradient.resize(c.size());
+        lig_gradient.assign(c.size(), gfloat3(0,0,0));
       }
 
       //return max distance from centroid to any ligand atom
       double ligandRadius() const
       {
         //always return relative to centroid of this molecule, not any set center
-        float3 c3 = transform.get_rotation_center();
+        gfloat3 c3 = transform.get_rotation_center();
         vec c(c3.x,c3.y,c3.z);
 
         double maxdsq = 0.0;
@@ -222,9 +230,16 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     };
 
 
-    mol_info getMolInfo(int batch_idx) const {
+    mol_info& getMolInfo(int batch_idx) {
       return batch_info[batch_idx];
     }
+
+    virtual void forward(const vector<Blob<Dtype>*>& bottom,
+        const vector<Blob<Dtype>*>& top, bool gpu);
+    virtual void backward(const vector<Blob<Dtype>*>& top,
+        const vector<Blob<Dtype>*>& bottom, bool gpu);
+    virtual void Backward_relevance(const vector<Blob<Dtype>*>& top,
+        const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
     ///////////////////   PROTECTED DATA   ////////////////
   protected:
@@ -281,13 +296,6 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
         output_transform& peturb, bool gpu);
     void setAtomGradientsGPU(libmolgrid::GridMaker& gmaker, Dtype *diff,
         unsigned batch_size);
-
-    virtual void forward(const vector<Blob<Dtype>*>& bottom,
-        const vector<Blob<Dtype>*>& top, bool gpu);
-    virtual void backward(const vector<Blob<Dtype>*>& top,
-        const vector<Blob<Dtype>*>& bottom, bool gpu);
-    virtual void Backward_relevance(const vector<Blob<Dtype>*>& top,
-        const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
     //stuff for outputing dx grids
     std::string getIndexName(const vector<int>& map, unsigned index) const;
