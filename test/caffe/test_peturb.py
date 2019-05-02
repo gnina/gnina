@@ -17,6 +17,7 @@ import caffe
 import numpy as np
 import os,sys,re
 from pyquaternion import Quaternion as qt
+import molgrid
 
 #these might change - are also assuming the first channel is aliphatic carbon
 LIGCHANNELS = 19
@@ -155,8 +156,7 @@ def test_perturb():
     if not isclose(np.square(euler-peturb[-3:]).sum(),0):
         print("Euler angles don't match quaternion")
         sys.exit(1)
-        
-        
+                
     #first make sure different peturbations genreate different grids
     if np.square(data-data2).sum() < 0.25:
         print("Not generating distinct grids with peturbation")

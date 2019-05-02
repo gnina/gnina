@@ -234,6 +234,10 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
       return batch_info[batch_idx];
     }
 
+    const mol_info& getMolInfo(int batch_idx) const {
+      return batch_info[batch_idx];
+    }
+
     virtual void forward(const vector<Blob<Dtype>*>& bottom,
         const vector<Blob<Dtype>*>& top, bool gpu);
     virtual void backward(const vector<Blob<Dtype>*>& top,

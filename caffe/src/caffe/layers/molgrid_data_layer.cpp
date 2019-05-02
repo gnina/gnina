@@ -636,9 +636,10 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
     P.forward(lig_atoms, lig_atoms); //peturb
 
     //store the inverse transformation
-    peturb.x = P.get_rotation_center().x;
-    peturb.y = P.get_rotation_center().y;
-    peturb.z = P.get_rotation_center().z;
+    gfloat3 trans = P.get_translation();
+    peturb.x = -trans.x;
+    peturb.y = -trans.y;
+    peturb.z = -trans.z;
     Quaternion mgQ = P.get_quaternion();
     qt Q(mgQ.R_component_1(),mgQ.R_component_2(),mgQ.R_component_3(),mgQ.R_component_4());
 
@@ -648,9 +649,9 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
 
   Example ex;
   if(ignore_ligand) {
-    ex.sets = {minfo.rec_atoms};
+    ex.sets = {rec_atoms};
   } else {
-    ex.sets = {minfo.rec_atoms, minfo.lig_atoms};
+    ex.sets = {rec_atoms, lig_atoms};
   }
   CoordinateSet atoms = ex.merge_coordinates(); //properly offsets types
   //apply jitter
