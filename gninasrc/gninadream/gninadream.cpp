@@ -156,6 +156,7 @@ void do_exact_vs(mgridT* opt_mgrid, caffe::Net<float>& net,
   MolGetter mols(std::string(), std::string(), finfo, false, false, log);
   mols.setInputFile(vsfile);
   mparam->set_ignore_rec(true);
+  mparam->set_inmemory(true);
   mparam->set_use_rec_center(true);
   mparam->set_batch_size(batch_size);
   // initblobs for virtual screen compound grids and set up
@@ -167,7 +168,9 @@ void do_exact_vs(mgridT* opt_mgrid, caffe::Net<float>& net,
   scores->Reshape(score_shape);
   float* scoregrid;
   
-  //VS compounds are currently done one at a time
+  //VS compounds are currently done one at a time, inmem
+  //out is the vector of output filestreams, one per optimized input to be
+  //screened against 
   model m;
   for (size_t i=0; i<out.size(); ++i) {
     std::string& next_ref_lig = ref_ligs[i];
@@ -441,6 +444,9 @@ int main(int argc, char* argv[]) {
     throw usage_error("First layer of model must be MolGridDataLayer.");
   }
 
+  // FIXME: change this, unnecessarily restricts file format (in particular
+  // assumes file isn't compressed). exists because of wanting to use a blob
+  // for scores and laziness
   int ncompounds = 0;
   if (vsfile.size()) {
     std::ifstream vs_stream(vsfile.c_str());
