@@ -201,6 +201,7 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
     ClipGradients();
     ComputeUpdateValue(rate);
     input_blob_->Update();
+    // TODO: add thresholding here
   }
 
   template <typename Dtype>

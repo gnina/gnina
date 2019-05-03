@@ -128,7 +128,7 @@ bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned num
 void do_exact_vs(mgridT* opt_mgrid, caffe::Net<float>& net, 
     std::string vsfile, std::vector<std::string>& ref_ligs,
     std::vector<caffe::shared_ptr<std::ostream> >& out, 
-    bool gpu, int ncompounds) {
+    bool gpu) {
   // use net top blob to do virtual screen against input sdf
   // produce output file for each input from which we started optimization
   // output will just be overlap score, in order of the compounds in the
@@ -163,22 +163,21 @@ void do_exact_vs(mgridT* opt_mgrid, caffe::Net<float>& net,
   vector<Blob<float>*> bottom; // will always be empty
   vector<Blob<float>*> top(2); // want to use MGrid::Forward so we'll need a dummy labels blob
   opt_mgrid->VSLayerSetUp(bottom, top);
-  caffe::shared_ptr<Blob<float> > scores(new Blob<float>());
-  std::vector<int> score_shape = {ncompounds};
-  scores->Reshape(score_shape);
-  float* scoregrid;
+  float* gpu_score = nullptr;
+  if (gpu)
+    CUDA_CHECK_GNINA(cudaMalloc(&gpu_score, sizeof(float)));
   
   //VS compounds are currently done one at a time, inmem
   //out is the vector of output filestreams, one per optimized input to be
   //screened against 
   model m;
   for (size_t i=0; i<out.size(); ++i) {
+    std::vector<float> scores;
     std::string& next_ref_lig = ref_ligs[i];
     if (next_ref_lig != "none")
       mols.create_init_model(ref_ligs[0], std::string(), finfo, log);
     else
       mols.create_init_model(std::string(), std::string(), finfo, log);
-    unsigned compound = 0;
     for (;;) {
       if (!mols.readMoleculeIntoModel(m)) {
         break;
@@ -195,38 +194,31 @@ void do_exact_vs(mgridT* opt_mgrid, caffe::Net<float>& net,
         opt_mgrid->Forward_gpu(bottom, top);
         const float* optgrid = net.top_vecs()[0][0]->gpu_data();
         const float* screengrid = top[0]->gpu_data();
-        scoregrid = scores->mutable_gpu_data();
-        do_gpu_l2sq(optgrid+i*example_size + recGridSize, screengrid, scoregrid+compound, 
-            ligGridSize);
-        *(scoregrid+compound) = std::sqrt(*(scoregrid+compound));
+        do_gpu_l2sq(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize);
+        float scoresq;
+        CUDA_CHECK_GNINA(cudaMemcpy(&scoresq, gpu_score, sizeof(float), cudaMemcpyDeviceToHost));
+        scores.push_back(std::sqrt(scoresq));
       }
       else {
         opt_mgrid->Forward_cpu(bottom, top);
         const float* optgrid = net.top_vecs()[0][0]->cpu_data();
         const float* screengrid = top[0]->cpu_data();
-        scoregrid = scores->mutable_cpu_data();
-        cpu_l2sq(optgrid + i * example_size + recGridSize, screengrid, scoregrid + compound, 
+        scores.push_back(float());
+        cpu_l2sq(optgrid + i * example_size + recGridSize, screengrid, &scores.back(), 
             ligGridSize);
-        *(scoregrid+compound) = std::sqrt(*(scoregrid+compound));
-      }
-      ++compound;
-      if (compound > ncompounds) {
-        std::cerr << "Unexpected change in number of virtual screen compounds.\n";
-        std::exit(1);
+        scores.back() = std::sqrt(scores.back());
       }
     }
     // write to output
-    const float* final_scores = scores->cpu_data();
-    for (size_t j=0; j<ncompounds; ++j) {
-      const float* datastart = final_scores + j;
-      *out[i] << *datastart << "\n";
+    for (auto& score : scores) {
+      *out[i] << score << "\n";
     }
   }
 }
 
 void do_approx_vs(mgridT* opt_mgrid, caffe::Net<float>& net, 
     std::string vsfile, std::vector<std::string>& ref_ligs,std::vector<std::ostream>& out, 
-    bool gpu, int ncompounds) {
+    bool gpu) {
   // TODO?
   assert(0);
 }
@@ -256,6 +248,7 @@ int main(int argc, char* argv[]) {
   unsigned nopts = 0;
   std::vector<std::string> opt_names;
 
+  // TODO: add choice between multiplicative overlap score and Euclidean
   positional_options_description positional; 
   options_description inputs("General Input");
   inputs.add_options()("receptor,r",
@@ -444,22 +437,6 @@ int main(int argc, char* argv[]) {
     throw usage_error("First layer of model must be MolGridDataLayer.");
   }
 
-  // FIXME: change this, unnecessarily restricts file format (in particular
-  // assumes file isn't compressed). exists because of wanting to use a blob
-  // for scores and laziness
-  int ncompounds = 0;
-  if (vsfile.size()) {
-    std::ifstream vs_stream(vsfile.c_str());
-    if (!(bool)vs_stream) {
-      std::cerr << "Could not open " << vsfile;
-      std::exit(1);
-    } 
-    std::string vsline;
-    while (getline(vs_stream, vsline)) {
-      if (vsline == "$$$$")
-        ++ncompounds;
-    }
-  }
   // figure out what the initial state should be and run optimization
   if (receptor_name.size()) {
     // can start from receptor and 0+ ligands
@@ -503,7 +480,7 @@ int main(int argc, char* argv[]) {
         if (ligand_names[0] == "")
           ligand_names[0] = "none";
         if (vsfile.size())
-          do_exact_vs(mgrid, *net, vsfile, ligand_names, out, gpu, ncompounds);
+          do_exact_vs(mgrid, *net, vsfile, ligand_names, out, gpu);
       }
     }
   }
