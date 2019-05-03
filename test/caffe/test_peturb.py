@@ -185,8 +185,9 @@ def test_perturb():
     data = res['data'][0].copy()
     l =net.layers[0]
     mt = l.get_moltransform(0)
-    trans = -mt.center.x(),-mt.center.y(),-mt.center.z()
-    q = qt(mt.Q.a,mt.Q.b,mt.Q.c,mt.Q.d)
+    trans = np.array(tuple(mt.get_translation())) 
+    Q = mt.get_quaternion()
+    q = qt(Q.R_component_1(),Q.R_component_2(),Q.R_component_3(),Q.R_component_4())
     #rotating
     newcoords = np.array(list(map(q.rotate,coords-center)))+center+trans
     
@@ -213,8 +214,9 @@ def test_perturb():
     
     l =net.layers[0]
     mt = l.get_moltransform(0)
-    Rtrans = -mt.center.x(),-mt.center.y(),-mt.center.z()
-    Rq = qt(mt.Q.a,mt.Q.b,mt.Q.c,mt.Q.d)
+    Rtrans = np.array(tuple(mt.get_translation())) 
+    Q = mt.get_quaternion()
+    Rq = qt(Q.R_component_1(),Q.R_component_2(),Q.R_component_3(),Q.R_component_4())    
     
     #first randomize, then peturb
     center = np.mean(coords,axis=0)
@@ -245,10 +247,11 @@ def test_perturb():
     trans = peturb[:3]
     q = qt(peturb[3:7])  
     
-    l =net.layers[0]
+    l = net.layers[0]
     mt = l.get_moltransform(0)
-    Rtrans = -mt.center.x(),-mt.center.y(),-mt.center.z()
-    Rq = qt(mt.Q.a,mt.Q.b,mt.Q.c,mt.Q.d)
+    Rtrans = np.array(tuple(mt.get_translation())) 
+    Q = mt.get_quaternion()
+    Rq = qt(Q.R_component_1(),Q.R_component_2(),Q.R_component_3(),Q.R_component_4())    
     
     center = np.mean(coords,axis=0)
     

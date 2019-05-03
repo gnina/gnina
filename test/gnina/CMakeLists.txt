@@ -24,4 +24,4 @@ if(OpenMP_CXX_FOUND)
     target_link_libraries(gninacheck OpenMP::OpenMP_CXX)
 endif()
 
-add_test(NAME gninacheck COMMAND gninacheck)
+add_test(NAME gninacheck COMMAND gninacheck --n_iters=1)

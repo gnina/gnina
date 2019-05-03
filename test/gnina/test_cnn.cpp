@@ -23,6 +23,7 @@ using namespace caffe;
 using namespace std;
 
 void test_set_atom_gradients() {
+  Caffe::set_mode(Caffe::GPU);
   // randomly generate gridpoint gradients, accumulate for atoms, and then compare
   p_args.log << "CNN Set Atom Gradients Test \n";
   p_args.log << "Using random seed: " << p_args.seed << '\n';
@@ -82,6 +83,7 @@ void test_vanilla_grids() {
   p_args.log << "Using random seed: " << p_args.seed << '\n';
   p_args.log << "Iteration " << p_args.iter_count << '\n';
   std::mt19937 engine(p_args.seed);
+  Caffe::set_mode(Caffe::GPU);
 
   //honestly just trying to replicate libmolgrid test to check whether it fails
   //here too, so being less stringent than I was for the other tests in terms
@@ -117,17 +119,15 @@ void test_vanilla_grids() {
 
   //get CPU grid
   mgrid->forward(bottom, top, false);
-
   //store cpu result
   vector<Dtype> cpuout(topblobs[0].count(), 0);
   copy(topblobs[0].cpu_data(),topblobs[0].cpu_data()+topblobs[0].count(), cpuout.begin());
-
   topblobs[0].Clear();
   //get gpu grid
   mgrid->forward(bottom, top, true);
+
   vector<Dtype> gpuout(topblobs[0].count(), 0);
   copy(topblobs[0].cpu_data(),topblobs[0].cpu_data()+topblobs[0].count(), gpuout.begin());
-
 
   BOOST_REQUIRE_EQUAL(cpuout.size(),gpuout.size());
   BOOST_REQUIRE_EQUAL(gpuout.size(), dim*dim*dim*ntypes);

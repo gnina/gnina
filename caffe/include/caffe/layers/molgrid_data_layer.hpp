@@ -153,6 +153,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     ///////////////////////////   PUBLIC DATA TYPES   //////////////////////////////
 
     struct mol_info {
+      //if a transformation has been applied, these store the transformed coordinates
       libmolgrid::CoordinateSet rec_atoms;
       libmolgrid::CoordinateSet lig_atoms;
       libmolgrid::Transform transform;
@@ -161,12 +162,12 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
       vector<gfloat3> lig_gradient;
 
       void setReceptor(const libmolgrid::CoordinateSet& c) {
-        rec_atoms = c;
+        rec_atoms = c.clone();
         rec_gradient.assign(c.size(), gfloat3(0,0,0));
       }
 
       void setLigand(const libmolgrid::CoordinateSet& c) {
-        lig_atoms = c;
+        lig_atoms = c.clone();
         lig_gradient.assign(c.size(), gfloat3(0,0,0));
       }
 

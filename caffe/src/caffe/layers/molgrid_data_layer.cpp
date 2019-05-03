@@ -624,11 +624,13 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
   minfo.transform = Transform(rot_center, rtranslate, randrotate);
 
   //copy atoms to void modifying in place
-  CoordinateSet rec_atoms = minfo.rec_atoms.clone();
-  CoordinateSet lig_atoms = minfo.lig_atoms.clone();
+  CoordinateSet& rec_atoms = minfo.rec_atoms;
+  CoordinateSet& lig_atoms = minfo.lig_atoms;
 
-  minfo.transform.forward(rec_atoms, rec_atoms);
-  minfo.transform.forward(lig_atoms, lig_atoms);
+  if(!minfo.transform.is_identity()) {
+    minfo.transform.forward(rec_atoms, rec_atoms);
+    minfo.transform.forward(lig_atoms, lig_atoms);
+  }
 
   if (ligpeturb) { //apply ligand specific peturbation
     Transform P(lig_atoms.center(), ligpeturb_translate, ligpeturb_rotate);
@@ -1019,16 +1021,22 @@ void MolGridDataLayer<Dtype>::setLigand(const vector<atom>& ligand, const vector
   //ligand atoms, grid positions offset and coordinates are specified separately
   vec center(0, 0, 0);
   for (unsigned i = 0, n = ligand.size(); i < n; i++) {
-    smt t = ligand[i].sm;
+    int t = ligand[i].sm;
     auto t_r = ligTypes->get_int_type(t);
-    if (t_r.first >= 0) {
+    t = t_r.first;
+    float r = t_r.second;
+    if (t >= 0) {
       const vec& coord = coords[i];
       cs.push_back(gfloat3(coord[0],coord[1],coord[2]));
-      types.push_back(t_r.first);
-      radii.push_back(t_r.second);
+      types.push_back(t);
+      radii.push_back(r);
     }
     else if (t > 1) { //don't warn about hydrogens
-      std::cerr << "Unsupported atom type " << ligTypes->get_type_names()[t];
+      if(t >= ligTypes->num_types()) {
+        std::cerr << "Unsupported atom type " << t << " >= " << ligTypes->num_types() << "\n";
+      } else {
+        std::cerr << "Unsupported atom type " << ligTypes->get_type_names()[t] << "\n";
+      }
     }
   }
 

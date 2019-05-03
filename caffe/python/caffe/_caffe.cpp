@@ -429,6 +429,19 @@ bp::object NCCL_New_Uid() {
 }
 #endif
 
+//register a vector of the specified type using name, but only if it isn't already registered
+template <typename T>
+void register_vector_type(const char *name) {
+  bp::type_info info = bp::type_id< std::vector<T> >();
+  const bp::converter::registration* reg = bp::converter::registry::query(info);
+  if (reg == NULL || (*reg).m_to_python == NULL) {
+    //register the type
+    bp::class_<std::vector<T> >(name)
+        .def(bp::vector_indexing_suite<std::vector<T> >());
+  }
+}
+
+
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(SolveOverloads, Solve, 0, 1);
 
 BOOST_PYTHON_MODULE(_caffe) {
@@ -630,16 +643,15 @@ BOOST_PYTHON_MODULE(_caffe) {
     .def(bp::vector_indexing_suite<vector<Blob<Dtype>*>, true>());
   bp::class_<vector<shared_ptr<Layer<Dtype> > > >("LayerVec")
     .def(bp::vector_indexing_suite<vector<shared_ptr<Layer<Dtype> > >, true>());
-  bp::class_<vector<string> >("StringVec")
-    .def(bp::vector_indexing_suite<vector<string> >());
-  bp::class_<vector<int> >("IntVec")
-    .def(bp::vector_indexing_suite<vector<int> >());
-  bp::class_<vector<Dtype> >("DtypeVec")
-    .def(bp::vector_indexing_suite<vector<Dtype> >());
+
+  register_vector_type<string>("StringVec");
+  register_vector_type<int>("IntVec");
+  register_vector_type<float>("FloatVec");
+  register_vector_type<double>("DoubleVec");
+  register_vector_type<bool>("BoolVec");
+
   bp::class_<vector<shared_ptr<Net<Dtype> > > >("NetVec")
     .def(bp::vector_indexing_suite<vector<shared_ptr<Net<Dtype> > >, true>());
-  bp::class_<vector<bool> >("BoolVec")
-    .def(bp::vector_indexing_suite<vector<bool> >());
 
   bp::class_<NCCL<Dtype>, shared_ptr<NCCL<Dtype> >,
     boost::noncopyable>("NCCL",

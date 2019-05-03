@@ -94,6 +94,7 @@ inline void set_cnn_grids(caffe::MolGridDataLayer<Dtype>* mgrid, std::vector<ato
     coords.push_back(coord);
   }
   mgrid->setLigand(ligand, coords);
+  mgrid->setLabels(1.0,0);
 }
 
 //loop boost test case for energy/force calculations

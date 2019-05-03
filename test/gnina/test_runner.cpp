@@ -183,7 +183,7 @@ int main(int argc, char* argv[]) {
     po::store(
         po::command_line_parser(argc, argv).options(desc).style(
             po::command_line_style::default_style
-                ^ po::command_line_style::allow_guessing).positional(positional).run(),
+                ^ po::command_line_style::allow_guessing).positional(positional).allow_unregistered().run(),
         vm);
     notify(vm);
   } catch (po::error& e) {
