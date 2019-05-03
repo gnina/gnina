@@ -94,33 +94,33 @@ def test_multipose():
     res = net.forward()
     
     if not res['label'][:3].all() or not np.all(res['label'][3:] == 0):
-        print "Label not correct:",res['label']
+        print("Label not correct:",res['label'])
         sys.exit(1)
         
     data = res['data']
     if data.shape[0] != 6 or data.shape[1] != (LIGCHANNELS+RECCHANNELS):
-        print "Data incorrect shape:",data.shape
+        print("Data incorrect shape:",data.shape)
         sys.exit(1)
     
     #every batch, ligand and receptor, should be nonzero
-    for i in xrange(6):
+    for i in range(6):
         if np.sum(data[i]) == 0:
-            print "Zero batch",i
+            print("Zero batch",i)
             sys.exit(1)
         if np.sum(data[i][:RECCHANNELS]) == 0:
-            print "Zero receptor",i
+            print("Zero receptor",i)
             sys.exit(1)
         if np.sum(data[i][RECCHANNELS:]) == 0:
-            print "Zero ligand",i
+            print("Zero ligand",i)
             sys.exit(1)
             
     #in the first example, each ligand should populate a different atom channel
     seenligch = set()
-    for i in xrange(3):
+    for i in range(3):
         ch = np.apply_over_axes(np.sum,data[i][RECCHANNELS:],[1,2,3]).flatten().argmax()
         seenligch.add(ch)
     if len(seenligch) != 3:
-        print "Incorrect lig channels"
+        print("Incorrect lig channels")
         sys.exit(1)
         
     #the receptor total density should be roughly the same
@@ -128,14 +128,14 @@ def test_multipose():
     averec = np.mean(recdensity)
     recdiff = np.abs(recdensity-averec)
     if recdiff.max() > 2.0:
-        print "receptor density too different",recdiff.max()
+        print("receptor density too different",recdiff.max())
         sys.exit(1)
     
     #the second example, the receptor and ligand should be rotated the same
-    for i in xrange(3,6):
+    for i in range(3,6):
         diff = np.sum((data[i][:4] - data[i][RECCHANNELS:RECCHANNELS+4])**2) #4 is carbon offset
         if diff > 0.01:
-            print "ligand/receptor transformation mismatch",i
+            print("ligand/receptor transformation mismatch",i)
             sys.exit(1)
     
     
@@ -146,35 +146,35 @@ def test_multipose():
     labels = res['label']
     
     if len(labels) != 2 or labels[0] != 1.0 or labels[1] != 0:
-        print "Incorrect labels",labels
+        print("Incorrect labels",labels)
         sys.exit(1)
         
     #check size
     if data.shape[0] != 2:
-        print "Incorrect batchsize",data.shape
+        print("Incorrect batchsize",data.shape)
         sys.exit(1)
         
     if data.shape[1] != RECCHANNELS+LIGCHANNELS*3:
-        print "Incorrect channel number",data.shape
+        print("Incorrect channel number",data.shape)
         sys.exit(1)
     
     #check receptor
-    for i in xrange(2):
+    for i in range(2):
         rd = data[i][:RECCHANNELS].sum()
         if np.abs(rd-averec) > 2:
-            print "Incorrect receptor density",rd,averec,i
+            print("Incorrect receptor density",rd,averec,i)
             sys.exit(1)
             
     #check channels
-    for i in xrange(3):
+    for i in range(3):
         start = RECCHANNELS+LIGCHANNELS*i
         end = start+LIGCHANNELS
         if data[0][start:end].sum() == 0:
-            print "Zero dup ligand density",i
+            print("Zero dup ligand density",i)
             sys.exit(1)
         #second example should be identical - same rotation applied
         diff = np.abs(data[1][start:end]-data[1][RECCHANNELS:RECCHANNELS+LIGCHANNELS]).sum()
         if diff != 0:
-            print "Dup not identical",diff,i
+            print("Dup not identical",diff,i)
             sys.exit(1)
             

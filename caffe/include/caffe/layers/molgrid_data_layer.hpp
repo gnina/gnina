@@ -117,7 +117,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
     vec getCenter(unsigned mol_idx) const {
       CHECK_GT(batch_info.size(), 0) << "Empty batch info";
-      assert(mol_idx < batch_transform.size());
+      assert(mol_idx < batch_info.size());
       gfloat3 c = batch_info[mol_idx].transform.get_rotation_center();
       return vec(c.x,c.y,c.z);
     }

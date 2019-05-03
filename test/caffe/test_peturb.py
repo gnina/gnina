@@ -163,7 +163,7 @@ def test_perturb():
         sys.exit(1)
         
     
-    newcoords = np.array(map(q.inverse.rotate,coords-center))+center-trans
+    newcoords = np.array(list(map(q.inverse.rotate,coords-center)))+center-trans
     
     setmol(newcoords)
     plainnet = caffe.Net('peturbfiles/plain.model',caffe.TEST)
@@ -172,7 +172,7 @@ def test_perturb():
     
     diff = np.square(plaindata - data).sum()
     if not isclose(diff,0):
-        print("Peturbed ligand not as expected %f"%diff)
+        print(("Peturbed ligand not as expected %f"%diff))
         sys.exit(1)
     
     
@@ -188,7 +188,7 @@ def test_perturb():
     trans = -mt.center.x(),-mt.center.y(),-mt.center.z()
     q = qt(mt.Q.a,mt.Q.b,mt.Q.c,mt.Q.d)
     #rotating
-    newcoords = np.array(map(q.rotate,coords-center))+center+trans
+    newcoords = np.array(list(map(q.rotate,coords-center)))+center+trans
     
     setmol(newcoords)
     setmol(newcoords,'rec.xyz')
@@ -198,7 +198,7 @@ def test_perturb():
     
     diff = np.square(plaindata - data).sum()
     if not isclose(diff,0):
-        print("Rotated ligand not as expected %f"%diff)
+        print(("Rotated ligand not as expected %f"%diff))
         sys.exit(1)
         
     #check peturbed ligand with rotation
@@ -218,10 +218,10 @@ def test_perturb():
     
     #first randomize, then peturb
     center = np.mean(coords,axis=0)
-    newreccoords = np.array(map(Rq.rotate,coords-center))+center+Rtrans
-    newligcoords = np.array(map(Rq.rotate,coords-center))+center+Rtrans
+    newreccoords = np.array(list(map(Rq.rotate,coords-center)))+center+Rtrans
+    newligcoords = np.array(list(map(Rq.rotate,coords-center)))+center+Rtrans
     center = np.mean(newligcoords,axis=0)
-    newligcoords = np.array(map(q.inverse.rotate,newligcoords-center))+center-trans
+    newligcoords = np.array(list(map(q.inverse.rotate,newligcoords-center)))+center-trans
     
     setmol(newligcoords)
     setmol(newreccoords,'rec.xyz')
@@ -231,7 +231,7 @@ def test_perturb():
     
     diff = np.square(plaindata - data).sum()
     if not isclose(diff,0):
-        print("Rotated and peturbed ligand not as expected %f"%diff)
+        print(("Rotated and peturbed ligand not as expected %f"%diff))
         sys.exit(1)
     
     #don't fix to the origin - result will be centered around ligand, and then translated
@@ -253,11 +253,11 @@ def test_perturb():
     center = np.mean(coords,axis=0)
     
     #first rotate
-    newligcoords = np.array(map(Rq.rotate,coords-center))+center+Rtrans
-    newreccoords = np.array(map(Rq.rotate,coords-center))+center+Rtrans
+    newligcoords = np.array(list(map(Rq.rotate,coords-center)))+center+Rtrans
+    newreccoords = np.array(list(map(Rq.rotate,coords-center)))+center+Rtrans
     center = np.mean(newligcoords,axis=0)
     #then peturb, using updated ligand center
-    newligcoords = np.array(map(q.inverse.rotate,newligcoords-center))+center-trans
+    newligcoords = np.array(list(map(q.inverse.rotate,newligcoords-center)))+center-trans
     
     setmol(newligcoords)
     setmol(newreccoords,'rec.xyz')
@@ -267,6 +267,6 @@ def test_perturb():
     
     diff = np.square(plaindata - data).sum()
     if not isclose(diff,0):
-        print("Fully Rotated and peturbed ligand not as expected %f"%diff)
+        print(("Fully Rotated and peturbed ligand not as expected %f"%diff))
         sys.exit(1)
 
