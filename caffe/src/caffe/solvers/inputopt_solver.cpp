@@ -228,7 +228,8 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
     ClipGradients();
     ComputeUpdateValue(rate);
     input_blob_->Update();
-    ThresholdBlob(input_blob_);
+    if (threshold_update_)
+      ThresholdBlob(input_blob_);
   }
 
   template <typename Dtype>

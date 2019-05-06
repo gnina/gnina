@@ -298,7 +298,7 @@ int main(int argc, char* argv[]) {
       "allow optimization to result in negative atom density");
 
   options_description desc;
-  desc.add(inputs).add(cnn).add(output);
+  desc.add(inputs).add(cnn).add(output).add(options);
 
   variables_map vm;
   try {

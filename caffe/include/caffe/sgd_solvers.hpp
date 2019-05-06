@@ -185,7 +185,7 @@ class InputOptSGDSolver : public SGDSolver<Dtype> {
   bool threshold_update_;
   bool exclude_ligand_;
   bool exclude_receptor_;
-  float threshold_value_;
+  float threshold_value_; // thought this might be useful but for now not using it, just using 0
   unsigned nrec_types;
   unsigned nlig_types;
   unsigned example_size_;
