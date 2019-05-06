@@ -259,7 +259,7 @@ int main(int argc, char* argv[]) {
       "MolGrid .types file, formatted with one example per line, <score> <affinity> <receptor_file> <ligand_file>")(
       "grid,g", value<std::string>(&grid_prefix), 
       "prefix for grid files from which to begin optimization (instead of molecules), filenames assumed to be [prefix]_[Rec/Lig]_[channel0]_[channel1][...].dx")(
-      "virtualscreen,vs", value<std::string>(&vsfile), 
+      "virtualscreen,v", value<std::string>(&vsfile), 
       "file of compounds to score according to overlap with optimized grid");
 
   options_description cnn("CNN Input");
@@ -277,9 +277,9 @@ int main(int argc, char* argv[]) {
       value<std::string>(&outname), "output virtual screen compounds with grid overlap score")(
       "out_prefix,p", value<std::string>(&out_prefix),
       "prefix for storing checkpoint files for optimization in progress, default is gninadream.<PID>")(
-      "dump_all,a", bool_switch(&dump_all)->default_value(false), 
+      "dump_all", bool_switch(&dump_all)->default_value(false), 
       "dump all intermediate grids from optimization")(
-      "dump_last,dl", bool_switch(&dump_last)->default_value(false),
+      "dump_last", bool_switch(&dump_last)->default_value(false),
       "dump last grid from optimization");
 
   options_description options("Options");
@@ -287,14 +287,14 @@ int main(int argc, char* argv[]) {
       value<int>(&iterations), "number of iterations to run, default is 1000")(
       "base_lr", value<float>(&base_lr),
       "base learning rate for density updates, default is 0.1")(
-      "gpu,g", value<int>(&gpu)->default_value(-1), "gpu to run on")(
-      "exclude_receptor,er", bool_switch(&exclude_receptor)->default_value(false), 
-      "don't update the receptor grids")(
-      "exclude_ligand,el",  bool_switch(&exclude_ligand)->default_value(false), 
-      "don't update the ligand grids")(
-      "ignore_ligand,il", bool_switch(&ignore_ligand)->default_value(false),
-      "just use ligand to set center")(
-      "allow_negative,an", bool_switch(&allow_neg)->default_value(false),
+      "gpu", value<int>(&gpu)->default_value(-1), "gpu to run on")(
+      "exclude_receptor", bool_switch(&exclude_receptor)->default_value(false), 
+      "don't update the receptor grids during optimization")(
+      "exclude_ligand",  bool_switch(&exclude_ligand)->default_value(false), 
+      "don't update the ligand grids during optimization")(
+      "ignore_ligand", bool_switch(&ignore_ligand)->default_value(false),
+      "just use ligand to set center, don't use it to initialize grids")(
+      "allow_negative", bool_switch(&allow_neg)->default_value(false),
       "allow optimization to result in negative atom density");
 
   options_description desc;
