@@ -155,23 +155,40 @@ template <typename Dtype>
 class InputOptSGDSolver : public SGDSolver<Dtype> {
  public:
   explicit InputOptSGDSolver(const SolverParameter& param)
-      : SGDSolver<Dtype>(param) { InputOptSGDPreSolve(); } 
+      : SGDSolver<Dtype>(param), threshold_update_(true), threshold_value_(0.0f), 
+        nrec_types(0), nlig_types(0) { InputOptSGDPreSolve(); } 
   explicit InputOptSGDSolver(const string& param_file)
-      : SGDSolver<Dtype>(param_file) { InputOptSGDPreSolve(); }
+      : SGDSolver<Dtype>(param_file), threshold_update_(true), threshold_value_(0.0f), 
+        nrec_types(0), nlig_types(0) { InputOptSGDPreSolve(); }
   virtual inline const char* type() const { return "InputOptSGD"; }
   void ResetIter() { this->iter_ = 0; }
-  caffe::shared_ptr<caffe::Blob<Dtype> > input_blob() const { return input_blob_; }
+  shared_ptr<Blob<Dtype> > input_blob() const { return input_blob_; }
+  void DoThreshold(bool threshold_update) { threshold_update_ = threshold_update; }
+  void SetThresholdValue(float threshold_value) { threshold_value_ = threshold_value; }
+  void SetNrecTypes(unsigned ntypes) { nrec_types = ntypes; }
+  void SetNligTypes(unsigned ntypes) { nlig_types = ntypes; }
+  void SetExampleSize(unsigned example_size) { example_size_ = example_size; }
 
  protected:
   void InputOptSGDPreSolve();
   virtual void Step(int iters);
   virtual void ComputeUpdateValue(Dtype rate);
+  virtual void ComputeUpdateValue(int param_id, Dtype rate) { NOT_IMPLEMENTED; }
   virtual void ApplyUpdate();
   virtual void ClipGradients();
   virtual void SnapshotSolverStateToBinaryProto(const string& model_filename);
   virtual void SnapshotSolverStateToHDF5(const string& model_filename);
-  PoolingLayer<Dtype>* toggle_max_to_ave();
-  caffe::shared_ptr<caffe::Blob<Dtype> > input_blob_;
+  PoolingLayer<Dtype>* ToggleMaxToAve();
+  void ThresholdBlob(shared_ptr<Blob<Dtype> >& tblob);
+  void DoThresholdGPU(Dtype* offset_tblob, size_t blobsize);
+  shared_ptr<Blob<Dtype> > input_blob_;
+  bool threshold_update_;
+  bool exclude_ligand_;
+  bool exclude_receptor_;
+  float threshold_value_;
+  unsigned nrec_types;
+  unsigned nlig_types;
+  unsigned example_size_;
 
   DISABLE_COPY_AND_ASSIGN(InputOptSGDSolver);
 };

@@ -30,8 +30,8 @@ namespace caffe {
   }
 
   template <typename Dtype>
-  PoolingLayer<Dtype>* InputOptSGDSolver<Dtype>::toggle_max_to_ave() {
-    const vector<caffe::shared_ptr<Layer<Dtype> > >& layers = this->net_->layers();
+  PoolingLayer<Dtype>* InputOptSGDSolver<Dtype>::ToggleMaxToAve() {
+    const vector<shared_ptr<Layer<Dtype> > >& layers = this->net_->layers();
     PoolingLayer<Dtype> *pool = NULL;
     for (unsigned i = 1, nl = layers.size(); i < nl; i++) {
       pool = dynamic_cast<PoolingLayer<Dtype>*>(layers[i].get());
@@ -54,6 +54,34 @@ namespace caffe {
     return pool;
   }
 
+  template <typename Dtype>
+  void InputOptSGDSolver<Dtype>::ThresholdBlob(shared_ptr<Blob<Dtype> >& tblob) {
+    size_t blobsize = tblob->count() - nrec_types * example_size_ - nlig_types * example_size_;
+    switch (Caffe::mode()) {
+    case Caffe::CPU: {
+      Dtype* tptr = tblob->mutable_cpu_data();
+      Dtype* offset_tptr = tptr + nrec_types * example_size_;
+    #pragma omp parallel for
+      for (size_t i=0; i<blobsize; ++i) {
+        if (*(offset_tptr + i) < 0)
+          *(offset_tptr + i) = 0;
+      }
+      break;
+    }
+    case Caffe::GPU: {
+  #ifndef CPU_ONLY
+      Dtype* tptr = tblob->mutable_gpu_data();
+      Dtype* offset_tptr = tptr + nrec_types * example_size_;
+      DoThresholdGPU(offset_tptr, blobsize);
+  #else
+      NO_GPU;
+  #endif
+      break;
+    }
+    default:
+      LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
+    }
+  }
 
   template <typename Dtype> 
   void InputOptSGDSolver<Dtype>::Step(int iters) {
@@ -91,7 +119,7 @@ namespace caffe {
       Dtype loss = 0;
       for (int i = 0; i < this->param_.iter_size(); ++i) {
         loss += this->net_->ForwardFrom(1);
-        PoolingLayer<Dtype>* pool = toggle_max_to_ave();
+        PoolingLayer<Dtype>* pool = ToggleMaxToAve();
         this->net_->Backward();
         if (pool) 
           pool->set_pool(PoolingParameter_PoolMethod_MAX);
@@ -162,22 +190,21 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
   template <typename Dtype> 
   void InputOptSGDSolver<Dtype>::ComputeUpdateValue(Dtype rate) {
     Dtype momentum = this->param_.momentum();
+    size_t blobsize = input_blob_->count() - nrec_types * example_size_ - 
+      nlig_types * example_size_;
+    size_t ptr_offset = nrec_types * example_size_;
     switch (Caffe::mode()) {
     case Caffe::CPU: {
-      caffe_cpu_axpby(input_blob_->count(), rate,
-                input_blob_->cpu_diff(), momentum,
-                this->history_[0]->mutable_cpu_data());
-      caffe_copy(input_blob_->count(),
-          this->history_[0]->cpu_data(),
-          input_blob_->mutable_cpu_diff());
+      caffe_cpu_axpby(blobsize, rate, input_blob_->cpu_diff() + ptr_offset,
+          momentum, this->history_[0]->mutable_cpu_data() + ptr_offset);
+      caffe_copy(blobsize, this->history_[0]->cpu_data() + ptr_offset,
+          input_blob_->mutable_cpu_diff() + ptr_offset);
       break;
     }
     case Caffe::GPU: {
   #ifndef CPU_ONLY
-      sgd_update_gpu(input_blob_->count(),
-          input_blob_->mutable_gpu_diff(),
-          this->history_[0]->mutable_gpu_data(),
-          momentum, rate);
+      sgd_update_gpu(blobsize, input_blob_->mutable_gpu_diff() + ptr_offset,
+          this->history_[0]->mutable_gpu_data() + ptr_offset, momentum, rate);
   #else
       NO_GPU;
   #endif
@@ -201,7 +228,7 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
     ClipGradients();
     ComputeUpdateValue(rate);
     input_blob_->Update();
-    // TODO: add thresholding here
+    ThresholdBlob(input_blob_);
   }
 
   template <typename Dtype>

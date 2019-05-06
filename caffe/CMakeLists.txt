@@ -51,6 +51,8 @@ include(cmake/Dependencies.cmake)
 
 find_package(OpenBabel2 REQUIRED)
 
+find_package(OpenMP)
+
 
 # ---[ Flags
 if(UNIX OR APPLE)

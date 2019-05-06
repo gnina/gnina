@@ -328,6 +328,11 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  if (exclude_receptor && exclude_ligand) {
+    std::cerr << "Need to optimize at least one of ligand or receptor channels\n";
+    return 1;
+  }
+
   if (!out_prefix.size()) 
     out_prefix = "gninadream." + std::to_string(getpid()) + ".out";
 
@@ -411,6 +416,7 @@ int main(int argc, char* argv[]) {
       solver(caffe::SolverRegistry<float>::CreateSolver(solver_param));
 
   solver->SetActionFunction(signal_handler.GetActionFunction());
+  solver->DoThreshold(!allow_neg);
   caffe::shared_ptr<Net<float> > net = solver->net();
   //if there wasn't a weights file, check that we're using one of the provided
   //cnn models and attempt to load the appropriate stored weights
@@ -435,6 +441,15 @@ int main(int argc, char* argv[]) {
   mgridT* mgrid = dynamic_cast<BaseMolGridDataLayer<float, GridMaker>*>(layers[0].get());
   if (mgrid == NULL) {
     throw usage_error("First layer of model must be MolGridDataLayer.");
+  }
+  
+  if (exclude_ligand) {
+    solver->SetNligTypes(mgrid->getNumLigTypes());
+    solver->SetExampleSize(mgrid->getExampleSize());
+  }
+  if (exclude_receptor) {
+    solver->SetNrecTypes(mgrid->getNumRecTypes());
+    solver->SetExampleSize(mgrid->getExampleSize());
   }
 
   // figure out what the initial state should be and run optimization

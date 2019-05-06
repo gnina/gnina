@@ -22,7 +22,7 @@ endif()
 
 add_library(caffe ${srcs})
 caffe_default_properties(caffe)
-target_link_libraries(caffe ${Caffe_LINKER_LIBS})
+target_link_libraries(caffe ${Caffe_LINKER_LIBS} OpenMP::OpenMP_CXX)
 target_include_directories(caffe ${Caffe_INCLUDE_DIRS}
                                  PUBLIC
                                  $<BUILD_INTERFACE:${Caffe_INCLUDE_DIR}>
