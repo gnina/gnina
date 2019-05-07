@@ -726,7 +726,11 @@ void BaseMolGridDataLayer<Dtype, GridMakerT>::VSLayerSetUp(const vector<Blob<Dty
       const vector<Blob<Dtype>*>& top) {
   const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
   InitParams(param);
-  data = create_example_data(param);
+  int batch_size = param.batch_size();
+  batch_transform.resize(batch_size * param.maxgroupsize());
+  if (!inmem) {
+    data = create_example_data(param);
+  }
   vector<int> label_shape;
   setLayerSpecificDims(param.batch_size(), label_shape, top);
   top[0]->Reshape(top_shape);

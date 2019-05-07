@@ -51,7 +51,7 @@ class Solver {
   virtual void SetThresholdValue(float threshold_value) {}
   virtual void SetNrecTypes(unsigned ntypes) {}
   virtual void SetNligTypes(unsigned ntypes) {}
-  virtual void SetExampleSize(unsigned example_size) {}
+  virtual void SetNpoints(unsigned npoints) {}
 
   // Client of the Solver optionally may call this in order to set the function
   // that the solver uses to see what action it should take (e.g. snapshot or

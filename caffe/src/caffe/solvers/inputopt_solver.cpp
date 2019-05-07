@@ -56,11 +56,11 @@ namespace caffe {
 
   template <typename Dtype>
   void InputOptSGDSolver<Dtype>::ThresholdBlob(shared_ptr<Blob<Dtype> >& tblob) {
-    size_t blobsize = tblob->count() - nrec_types * example_size_ - nlig_types * example_size_;
+    size_t blobsize = tblob->count() - nrec_types * npoints_ - nlig_types * npoints_;
     switch (Caffe::mode()) {
     case Caffe::CPU: {
       Dtype* tptr = tblob->mutable_cpu_data();
-      Dtype* offset_tptr = tptr + nrec_types * example_size_;
+      Dtype* offset_tptr = tptr + nrec_types * npoints_;
     #pragma omp parallel for
       for (size_t i=0; i<blobsize; ++i) {
         if (*(offset_tptr + i) < 0)
@@ -71,7 +71,7 @@ namespace caffe {
     case Caffe::GPU: {
   #ifndef CPU_ONLY
       Dtype* tptr = tblob->mutable_gpu_data();
-      Dtype* offset_tptr = tptr + nrec_types * example_size_;
+      Dtype* offset_tptr = tptr + nrec_types * npoints_;
       DoThresholdGPU(offset_tptr, blobsize);
   #else
       NO_GPU;
@@ -190,9 +190,9 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
   template <typename Dtype> 
   void InputOptSGDSolver<Dtype>::ComputeUpdateValue(Dtype rate) {
     Dtype momentum = this->param_.momentum();
-    size_t blobsize = input_blob_->count() - nrec_types * example_size_ - 
-      nlig_types * example_size_;
-    size_t ptr_offset = nrec_types * example_size_;
+    size_t blobsize = input_blob_->count() - nrec_types * npoints_ - 
+      nlig_types * npoints_;
+    size_t ptr_offset = nrec_types * npoints_;
     switch (Caffe::mode()) {
     case Caffe::CPU: {
       caffe_cpu_axpby(blobsize, rate, input_blob_->cpu_diff() + ptr_offset,

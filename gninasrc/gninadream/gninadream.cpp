@@ -125,7 +125,7 @@ bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned num
   return true;
 }
 
-void do_exact_vs(mgridT* opt_mgrid, caffe::Net<float>& net, 
+void do_exact_vs(LayerParameter param, caffe::Net<float>& net, 
     std::string vsfile, std::vector<std::string>& ref_ligs,
     std::vector<caffe::shared_ptr<std::ostream> >& out, 
     bool gpu) {
@@ -144,25 +144,38 @@ void do_exact_vs(mgridT* opt_mgrid, caffe::Net<float>& net,
   // lig. this is annoying because done the naive way we have to regrid the
   // same ligand many times
   unsigned nopts = net.top_vecs()[0][0]->shape()[0];
-  // actually want size for lig channels only
-  unsigned example_size = opt_mgrid->getExampleSize();
-  unsigned ligGridSize = opt_mgrid->getNumGridPoints() * opt_mgrid->getNumLigTypes();
-  unsigned recGridSize = opt_mgrid->getNumGridPoints()* opt_mgrid->getNumRecTypes();
   unsigned batch_size = 1; // inmem for now
 
-  MolGridDataParameter* mparam = opt_mgrid->getMolGridDataParam();
   tee log(true);
   FlexInfo finfo(log);
   MolGetter mols(std::string(), std::string(), finfo, false, false, log);
   mols.setInputFile(vsfile);
+
+  MolGridDataParameter* mparam = param.mutable_molgrid_data_param();
+  if (!mparam) {
+    std::cerr << "Virtual screen passed non-molgrid layer parameter.\n";
+    std::exit(1);
+  }
   mparam->set_ignore_rec(true);
+  mparam->set_ignore_ligand(false);
+  mparam->set_has_affinity(false);
   mparam->set_inmemory(true);
   mparam->set_use_rec_center(true);
   mparam->set_batch_size(batch_size);
   // initblobs for virtual screen compound grids and set up
   vector<Blob<float>*> bottom; // will always be empty
   vector<Blob<float>*> top(2); // want to use MGrid::Forward so we'll need a dummy labels blob
-  opt_mgrid->VSLayerSetUp(bottom, top);
+  Blob<float> datablob;
+  Blob<float> labelsblob;
+  top[0] = &datablob;
+  top[1] = &labelsblob;
+
+  mgridT opt_mgrid(param);
+  opt_mgrid.VSLayerSetUp(bottom, top);
+  // actually want size for lig channels only
+  unsigned example_size = opt_mgrid.getExampleSize();
+  unsigned ligGridSize = opt_mgrid.getNumGridPoints() * opt_mgrid.getNumLigTypes();
+  unsigned recGridSize = opt_mgrid.getNumGridPoints()* opt_mgrid.getNumRecTypes();
   float* gpu_score = nullptr;
   if (gpu)
     CUDA_CHECK_GNINA(cudaMalloc(&gpu_score, sizeof(float)));
@@ -182,25 +195,26 @@ void do_exact_vs(mgridT* opt_mgrid, caffe::Net<float>& net,
       if (!mols.readMoleculeIntoModel(m)) {
         break;
       }
-      opt_mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
+      opt_mgrid.setLigand(m.get_movable_atoms(), m.coordinates());
       if (next_ref_lig != "none") {
-        opt_mgrid->setReceptor(m.get_fixed_atoms());
-        opt_mgrid->setCenter(opt_mgrid->getCenter());
+        opt_mgrid.setReceptor(m.get_fixed_atoms());
+        opt_mgrid.setCenter(opt_mgrid.getCenter());
       }
       else
-        opt_mgrid->setCenter(vec(0, 0, 0));
-      opt_mgrid->setLabels(1); 
+        opt_mgrid.setCenter(vec(0, 0, 0));
+      opt_mgrid.setLabels(1); 
       if (gpu) {
-        opt_mgrid->Forward_gpu(bottom, top);
+        opt_mgrid.Forward_gpu(bottom, top);
         const float* optgrid = net.top_vecs()[0][0]->gpu_data();
         const float* screengrid = top[0]->gpu_data();
+        CUDA_CHECK_GNINA(cudaMemset(gpu_score, 0, sizeof(float)));
         do_gpu_l2sq(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize);
         float scoresq;
         CUDA_CHECK_GNINA(cudaMemcpy(&scoresq, gpu_score, sizeof(float), cudaMemcpyDeviceToHost));
         scores.push_back(std::sqrt(scoresq));
       }
       else {
-        opt_mgrid->Forward_cpu(bottom, top);
+        opt_mgrid.Forward_cpu(bottom, top);
         const float* optgrid = net.top_vecs()[0][0]->cpu_data();
         const float* screengrid = top[0]->cpu_data();
         scores.push_back(float());
@@ -445,11 +459,11 @@ int main(int argc, char* argv[]) {
   
   if (exclude_ligand) {
     solver->SetNligTypes(mgrid->getNumLigTypes());
-    solver->SetExampleSize(mgrid->getExampleSize());
+    solver->SetNpoints(mgrid->getNumGridPoints());
   }
   if (exclude_receptor) {
     solver->SetNrecTypes(mgrid->getNumRecTypes());
-    solver->SetExampleSize(mgrid->getExampleSize());
+    solver->SetNpoints(mgrid->getNumGridPoints());
   }
 
   // figure out what the initial state should be and run optimization
@@ -489,13 +503,13 @@ int main(int argc, char* argv[]) {
         for (size_t i=0; i<iterations; ++i) {
           solver->Step(1);
           if (dump_all || (i==iterations-1 && dump_last))
-            mgrid->dumpGridDX(prefix + "iter" + std::to_string(i), 
-                net->top_vecs()[0][0]->mutable_gpu_data());
+            mgrid->dumpGridDX(prefix + "_iter" + std::to_string(i), 
+                net->top_vecs()[0][0]->mutable_cpu_data());
         }
         if (ligand_names[0] == "")
           ligand_names[0] = "none";
         if (vsfile.size())
-          do_exact_vs(mgrid, *net, vsfile, ligand_names, out, gpu);
+          do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1);
       }
     }
   }

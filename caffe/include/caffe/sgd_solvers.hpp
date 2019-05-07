@@ -167,7 +167,7 @@ class InputOptSGDSolver : public SGDSolver<Dtype> {
   void SetThresholdValue(float threshold_value) { threshold_value_ = threshold_value; }
   void SetNrecTypes(unsigned ntypes) { nrec_types = ntypes; }
   void SetNligTypes(unsigned ntypes) { nlig_types = ntypes; }
-  void SetExampleSize(unsigned example_size) { example_size_ = example_size; }
+  void SetNpoints(unsigned npoints) { npoints_ = npoints; }
 
  protected:
   void InputOptSGDPreSolve();
@@ -188,7 +188,7 @@ class InputOptSGDSolver : public SGDSolver<Dtype> {
   float threshold_value_; // thought this might be useful but for now not using it, just using 0
   unsigned nrec_types;
   unsigned nlig_types;
-  unsigned example_size_;
+  unsigned npoints_;
 
   DISABLE_COPY_AND_ASSIGN(InputOptSGDSolver);
 };
