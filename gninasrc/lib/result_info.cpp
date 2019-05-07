@@ -8,6 +8,7 @@
 #include "result_info.h"
 #include <openbabel/mol.h>
 #include <openbabel/obconversion.h>
+#include <openbabel/generic.h>
 #include <cstring>
 #include <boost/lexical_cast.hpp>
 

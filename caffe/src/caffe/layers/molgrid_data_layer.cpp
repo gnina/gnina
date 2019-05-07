@@ -417,7 +417,6 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   ligpeturb_rotate = param.peturb_ligand_rotate();
   jitter = param.jitter();
   ignore_ligand = param.ignore_ligand();
-  double radiusmultiple = param.radius_multiple();
   double fixedradius = param.fixed_radius();
   bool use_covalent_radius = param.use_covalent_radius();
   bool hasaffinity = param.has_affinity();
@@ -426,10 +425,9 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   data_ratio = param.source_ratio();
   numposes = param.num_poses();
 
-  if(binary) radiusmultiple = 1.0;
   CHECK_LE(fabs(remainder(dimension,resolution)), 0.001) << "Resolution does not evenly divide dimension.";
 
-  gmaker.initialize(resolution, dimension, radiusmultiple, binary);
+  gmaker.initialize(resolution, dimension, binary, param.radius_scaling(), param.gaussian_radius_multiple());
 
   dim = gmaker.get_grid_dims().x; //number of grid points on a side
   numgridpoints = dim*dim*dim;

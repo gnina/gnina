@@ -1,4 +1,6 @@
 #include <openbabel/mol.h>
+#include <openbabel/obiter.h>
+#include <openbabel/atom.h>
 #include <cmath> // for ceila
 #include "common.h"
 

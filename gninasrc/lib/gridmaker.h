@@ -98,7 +98,7 @@ class GridMaker {
     }
   
     virtual void initialize(const caffe::MolGridDataParameter& param) {
-      initialize(param.resolution(), param.dimension(), param.radius_multiple(), 
+      initialize(param.resolution(), param.dimension(), 1.5,
           param.binary_occupancy(), param.spherical_mask());
     }
   
@@ -596,7 +596,7 @@ class SubcubeGridMaker : public GridMaker {
     }
 
     virtual void initialize(const caffe::MolGridDataParameter& param) {
-      initialize(param.resolution(), param.dimension(), param.radius_multiple(), 
+      initialize(param.resolution(), param.dimension(), 1.5,
           param.binary_occupancy(), param.spherical_mask(), param.subgrid_dim(), 
           param.batch_size(), param.stride());
     }
