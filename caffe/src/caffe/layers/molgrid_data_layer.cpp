@@ -24,6 +24,8 @@
 #include <openbabel/obiter.h>
 #include <boost/timer/timer.hpp>
 
+#include <libmolgrid/grid_io.h>
+
 using namespace libmolgrid;
 using namespace std;
 
@@ -491,20 +493,17 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   numReceptorTypes = recTypes->num_types();
   numLigandTypes = ligTypes->num_types();
-
+  ExampleProviderSettings settings = settings_from_param(param);
+  data = ExampleProvider(settings, recTypes, ligTypes); //initialize types in data
 
   if(!inmem)
   {
     const string& source = param.source();
     const string& source2 = param.source2();
-
     CHECK_GT(source.length(), 0) << "No data source file provided";
-
-    ExampleProviderSettings settings = settings_from_param(param);
 
     // Read source file(s) with labels and structures,
     // each line is label [group] [affinity] [rmsd] receptor_file ligand_file  (labels not optional)
-    data = ExampleProvider(settings, recTypes, ligTypes);
     data.populate(source, 1+hasaffinity+hasrmsd, hasgroup);
 
     if(source2.length() > 0)
@@ -726,14 +725,14 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
 
 
 //dump dx files for every atom type, with files names starting with prefix
-//only does the very first grid for now
+//only does first example
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::dumpDiffDX(
-    const std::string& prefix,
-    Blob<Dtype>* top, double scale) const
-    {
- abort(); //todo: implement
+void MolGridDataLayer<Dtype>::dumpDiffDX(const std::string& prefix,  Blob<Dtype>* top, double scale) const {
+  Dtype* diff = top->mutable_cpu_diff();
+  Grid<Dtype, 4, false> grid(diff, numchannels, dim, dim, dim); //ignore rest of batch
+  write_dx_grids(prefix, data.get_type_names(), grid, batch_info[0].grid_center, gmaker.get_resolution(), scale);
 }
+
 
 template <typename Dtype>
 inline bool grid_empty(Dtype* data, size_t n_elements) {
@@ -754,9 +753,10 @@ void MolGridDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 }
 
 template<typename Dtype>
-void MolGridDataLayer<Dtype>::dumpGridDX(const std::string& prefix, Dtype* data, double scale) const
+void MolGridDataLayer<Dtype>::dumpGridDX(const std::string& prefix, Dtype* d, double scale) const
 {
-  abort(); //TODO: implement with grid_io -> molgridder?
+  Grid<Dtype, 4, false> grid(d, numchannels, dim, dim, dim);
+  write_dx_grids(prefix, data.get_type_names(), grid, batch_info[0].grid_center, gmaker.get_resolution(), scale);
 }
 
 

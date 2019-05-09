@@ -139,10 +139,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
       return numchannels;
     }
 
-    virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top,
-        double scale) const;
-    virtual void dumpGridDX(const std::string& prefix, Dtype* top,
-        double scale = 1.0) const;
+    virtual void dumpDiffDX(const std::string& prefix, Blob<Dtype>* top,  double scale) const;
+    virtual void dumpGridDX(const std::string& prefix, Dtype* top, double scale = 1.0) const;
 
     virtual std::vector<std::string> getRecTypes() {
       return recTypes->get_type_names();
