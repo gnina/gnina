@@ -81,9 +81,9 @@ void cnn_visualization::lrp() {
   }
   scorer.lrp(receptor, visopts.layer_to_ignore, visopts.zero_values);
   std::unordered_map<std::string, float> lig_scores =
-      scorer.get_scores_per_atom(false, true);
+      scorer.get_relevance_per_atom(false);
   std::unordered_map<std::string, float> rec_scores =
-      scorer.get_scores_per_atom(true, true);
+      scorer.get_relevance_per_atom(true);
 
   //don't write pdbqt output if zeroing values, will be just zeroes
   if (!visopts.zero_values) {
@@ -129,9 +129,9 @@ void cnn_visualization::gradient_vis() {
     scorer.gradient_setup(receptor, rec_output_name, lig_output_name);
   }
   std::unordered_map<std::string, float> lig_scores =
-      scorer.get_scores_per_atom(false, false);
+      scorer.get_gradient_norm_per_atom(false);
   std::unordered_map<std::string, float> rec_scores =
-      scorer.get_scores_per_atom(true, false);
+      scorer.get_gradient_norm_per_atom(true);
 
   write_scores(lig_scores, false, "gradient");
   write_scores(rec_scores, true, "gradient");

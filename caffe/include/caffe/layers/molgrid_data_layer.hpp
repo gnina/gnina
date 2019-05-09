@@ -73,9 +73,12 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     virtual void setLabels(Dtype pose, Dtype affinity = 0, Dtype rmsd = 0);
     virtual void setLayerSpecificDims(int number_examples,
         vector<int>& label_shape, const vector<Blob<Dtype>*>& top);
-    virtual void enableAtomGradients() {
-      compute_atom_gradients = true;
-    } //enable atom gradient computation
+    virtual void enableLigandGradients() { //this is sticky
+      compute_ligand_gradients = true;
+    }
+    virtual void enableReceptorGradients() { //this is sticky
+      compute_receptor_gradients = true;
+    }
 
     virtual void clearLabels();
     void updateLabels(const std::vector<float>& l, bool hasaffinity, bool hasrmsd);
@@ -84,19 +87,18 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     virtual void copyToBlob(Dtype* src, size_t size, Blob<Dtype>* blob, bool gpu);
     virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, bool gpu);
 
-    void getReceptorAtoms(int batch_idx, vector<float4>& atoms);
-    void getLigandAtoms(int batch_idx, vector<float4>& atoms);
+    void getReceptorAtoms(int batch_idx, vector<gfloat3>& atoms);
+    void getLigandAtoms(int batch_idx, vector<gfloat3>& atoms);
 
     void getReceptorChannels(int batch_idx, vector<short>& whichGrid);
     void getLigandChannels(int batch_idx, vector<short>& whichGrid);
     void getReceptorGradient(int batch_idx, vector<gfloat3>& gradient);
-    void getReceptorTransformationGradient(int batch_idx, vec& force,
-        vec& torque);
-    void getMappedReceptorGradient(int batch_idx,
-        std::unordered_map<string, gfloat3>& gradient);
+    void getReceptorTransformationGradient(int batch_idx, vec& force, vec& torque);
+    void getMappedReceptorGradient(int batch_idx, std::unordered_map<string, gfloat3>& gradient);
+    void getMappedReceptorRelevance(int batch_idx, std::unordered_map<string, float>& relevance);
     void getLigandGradient(int batch_idx, vector<gfloat3>& gradient);
-    void getMappedLigandGradient(int batch_idx,
-        std::unordered_map<string, gfloat3>& gradient);
+    void getMappedLigandGradient(int batch_idx, std::unordered_map<string, gfloat3>& gradient);
+    void getMappedLigandRelevance(int batch_idx, std::unordered_map<string, float>& relevance);
 
     virtual void setReceptor(const vector<atom>& receptor, const vec& translate =
         {}, const qt& rotate = {});
@@ -154,40 +156,37 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
     struct mol_info {
       //if a transformation has been applied, these store the transformed coordinates
-      libmolgrid::CoordinateSet rec_atoms;
-      libmolgrid::CoordinateSet lig_atoms;
+      libmolgrid::CoordinateSet orig_rec_atoms; //original
+      libmolgrid::CoordinateSet transformed_rec_atoms; //after transformation
+      libmolgrid::CoordinateSet orig_lig_atoms;
+      libmolgrid::CoordinateSet transformed_lig_atoms;
+
       libmolgrid::Transform transform;
       libmolgrid::Transform ligand_perturbation;
-      vector<gfloat3> rec_gradient; //todo: change to mgrid
-      vector<gfloat3> lig_gradient;
+      libmolgrid::ManagedGrid<Dtype, 2> rec_gradient; //todo: change to mgrid
+      libmolgrid::ManagedGrid<Dtype, 2> lig_gradient;
+      gfloat3 grid_center = gfloat3(0,0,0);
+
+      //relevance is only used for visualization, so these are not initialized by default
+      libmolgrid::ManagedGrid<Dtype, 1> rec_relevance;
+      libmolgrid::ManagedGrid<Dtype, 1> lig_relevance;
 
       void setReceptor(const libmolgrid::CoordinateSet& c) {
-        rec_atoms = c.clone();
-        rec_gradient.assign(c.size(), gfloat3(0,0,0));
+        orig_rec_atoms.copyInto(c); //copy is probably unnecessary...
+        transformed_rec_atoms.copyInto(c);
+        rec_gradient = rec_gradient.resized(c.size(), 3);
+        rec_gradient.fill_zero();
       }
 
       void setLigand(const libmolgrid::CoordinateSet& c) {
-        lig_atoms = c.clone();
-        lig_gradient.assign(c.size(), gfloat3(0,0,0));
+        orig_lig_atoms.copyInto(c);
+        transformed_lig_atoms.copyInto(c);
+        lig_gradient = lig_gradient.resized(c.size(), 3);
+        lig_gradient.fill_zero();
       }
 
       //return max distance from centroid to any ligand atom
-      double ligandRadius() const
-      {
-        //always return relative to centroid of this molecule, not any set center
-        gfloat3 c3 = transform.get_rotation_center();
-        vec c(c3.x,c3.y,c3.z);
-
-        double maxdsq = 0.0;
-        for (unsigned i = 0, n = lig_atoms.size(); i < n; i++) {
-          vec pos(lig_atoms.coord[i][0],lig_atoms.coord[i][1],lig_atoms.coord[i][2]);
-          pos -= c;
-          double dsq = pos.norm_sqr();
-          if (dsq > maxdsq)
-            maxdsq = dsq;
-        }
-        return sqrt(maxdsq);
-      }
+      double ligandRadius() const;
     };
 
     //N numbers representing a transformation
@@ -287,7 +286,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     std::shared_ptr<libmolgrid::AtomTyper> recTypes;
     std::shared_ptr<libmolgrid::AtomTyper> ligTypes;
 
-    bool compute_atom_gradients = false;
+    bool compute_ligand_gradients = false;
+    bool compute_receptor_gradients = false;
 
     //need to remember how mols were transformed for backward pass; store gradient as well
     vector<typename MolGridDataLayer<Dtype>::mol_info> batch_info;
@@ -299,8 +299,6 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     virtual void set_grid_minfo(Dtype *grid,
         typename MolGridDataLayer<Dtype>::mol_info& minfo,
         output_transform& peturb, bool gpu);
-    void setAtomGradientsGPU(libmolgrid::GridMaker& gmaker, Dtype *diff,
-        unsigned batch_size);
 
     //stuff for outputing dx grids
     std::string getIndexName(const vector<int>& map, unsigned index) const;

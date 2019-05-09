@@ -3,7 +3,6 @@
 #include "test_utils.h"
 #include "test_cnn.h"
 #include "atom_constants.h"
-#include "gridmaker.h"
 #include "cnn_scorer.h"
 #include <cuda_runtime.h>
 #include "quaternion.h"
@@ -44,6 +43,7 @@ void test_set_atom_gradients() {
   assert(mgrid);
   int ntypes = mgrid->getNumChannels();
   int dim = mgrid->getGridDims().x;
+  mgrid->enableLigandGradients();
 
   set_cnn_grids(mgrid, mol_atoms, mol_types);
 
@@ -63,12 +63,14 @@ void test_set_atom_gradients() {
 
   //calculate GPU atom gradients
   mgrid->backward(top, bottom, true);
+  mgrid->getLigandGradient(0, gpugrad);
 
+  p_args.log << "NUMATOMS " << mol_atoms.size() << "\n";
   //compare results
   double sum = 0;
   for (size_t i = 0; i < mol_atoms.size(); ++i) {
     for (size_t j = 0; j < 3; ++j) {
-      p_args.log << "CPU " << cpugrad[i][j] << " GPU " << gpugrad[i][j] << "\n";
+      p_args.log << i <<"," << j << "  CPU " << cpugrad[i][j] << " GPU " << gpugrad[i][j] << "  " << mol_types[i] << " " << mol_atoms[i].coords << "\n";
       BOOST_REQUIRE_SMALL(cpugrad[i][j] - gpugrad[i][j], (float )0.01);
       sum += cpugrad[i].x+cpugrad[i].y+cpugrad[i].z;
     }

@@ -75,7 +75,6 @@ lib/weighted_terms.cpp
 lib/conf.cpp
 lib/conf_gpu.cu
 lib/gpucode.cu
-lib/gridmaker.cu
 lib/model.cu
 lib/non_cache_gpu.cu
 lib/precalculate_gpu.cu

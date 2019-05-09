@@ -35,7 +35,7 @@ class CNNScorer {
 
     //scratch vectors to avoid memory reallocation
     std::vector<gfloat3> gradient;
-    std::vector<float4> atoms;
+    std::vector<gfloat3> atoms;
     std::vector<short> channels;
     vec current_center; //center last time set_center was called, if min frame is moving, the mgrid center will be changing
 
@@ -59,10 +59,10 @@ class CNNScorer {
 
     void outputDX(const std::string& prefix, double scale = 1.0, bool relevance =
         false, std::string layer_to_ignore = "", bool zero_values = false);
-    void outputXYZ(const std::string& base, const std::vector<float4>& atoms,
+    void outputXYZ(const std::string& base, const std::vector<gfloat3>& atoms,
         const std::vector<short>& whichGrid, const std::vector<gfloat3>& gradient);
-    std::unordered_map<std::string, float> get_scores_per_atom(bool receptor,
-        bool relevance = false);
+    std::unordered_map<std::string, float> get_gradient_norm_per_atom(bool receptor);
+    std::unordered_map<std::string, float> get_relevance_per_atom(bool receptor);
 
     void lrp(const model& m, const std::string& layer_to_ignore = "",
         bool zero_values = false);

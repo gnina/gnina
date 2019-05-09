@@ -50,7 +50,6 @@ __device__ void grid_gpu::evaluate_aux(const array3d_gpu<fl, fl>& data,
       }
     assert(s[i] >= 0);
     assert(s[i] <= 1);
-    assert(a[i] >= 0);
     assert(
         a[i] + 1 < data.dim(i)
             || (printf("a[i]+1 is %d and data.dim(i) is %d\n", a[i] + 1,

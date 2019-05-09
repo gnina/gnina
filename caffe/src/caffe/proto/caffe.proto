@@ -918,7 +918,7 @@ message MolGridDataParameter {
   //ignore files, input will be provided programmatically, e.g. through gnina
   optional bool inmemory = 19 [default = false];
   //deprecated option - not used
-  optional float radius_multiple = 20 [default = 1.5];
+  optional float radius_multiple = 20 [default = 0];
   //if nonzero, set all atomic radii to this value
   optional float fixed_radius = 21 [default = 0.0]; 
   //if true, has affinity in addition to label - order is label affinity rmd
@@ -957,9 +957,8 @@ message MolGridDataParameter {
   optional int32 stride = 52 [default = 0]; // Stride when selecting subsets of input for recurrence, default is same size as filter width
   optional bool use_rec_center = 53 [default = false]; //use rec to define grid center
   optional uint32 peturb_bins = 54 [default = 0]; // if > 0, output categorical labels for discretized bins instead of actual values for peturb
-  optional float gaussian_radius_multiple = 55 [default = 1.0]; //radius multiple where gaussian switches to quadratic
-  //specify radius scaling factor
-  optional float radius_scaling = 56 [default = 1.0];
+  optional float gaussian_radius_multiple = 55 [default = 1.0]; //radius multiple where gaussian switches to quadratic  
+  optional float radius_scaling = 56 [default = 1.0]; //specify radius scaling factor
 }
 
 message NDimDataParameter {

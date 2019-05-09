@@ -60,6 +60,11 @@ struct gfloat3 : float3 {
 
 };
 
+inline std::ostream& operator<<(std::ostream& os, const gfloat3& f) {
+  os << f.x <<","<<f.y<<","<<f.z;
+  return os;
+}
+
 //Both the shuffle and atomicAdd provided below are not strictly what they say
 //they are. They are convenience functions that allow, for example, templated
 //code to work correctly even if the types are unsupported by CUDA, but they
