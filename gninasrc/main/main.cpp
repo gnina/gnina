@@ -1052,7 +1052,8 @@ Thank you!\n";
           "   __/ |                    \n"
           "  |___/                     \n"
           "\ngnina is based on smina and AutoDock Vina.\nPlease cite appropriately.\n\n"
-          "*** IMPORTANT: gnina is not yet intended for production use. Use smina. ***\n";
+          "*** IMPORTANT: Use of CNN scoring while docking is not recommended. ***\n"
+          "***     CNN scoring is best used with --minimize or --score_only    ***\n";
 
   try
   {
