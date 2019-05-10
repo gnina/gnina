@@ -194,8 +194,7 @@ output_container remove_redundant(const output_container& in, fl min_rmsd)
 
 //print info to log about cnn scoring
 static void get_cnn_info(model& m, CNNScorer& cnn, tee& log, float& cnnscore,
-    float& cnnaffinity, float& cnnforces)
-    {
+    float& cnnaffinity, float& cnnforces) {
   float loss = 0;
   cnnscore = 0;
   cnnforces = 0;
@@ -309,10 +308,12 @@ void do_search(model& m, const boost::optional<model>& ref,
     e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, out.c,
         intramolecular_energy, user_grid);
 
+    //reset the center after last call to set
+    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
+
     vecv newcoords = m.get_heavy_atom_movable_coords();
     assert(newcoords.size() == origcoords.size());
-    for (unsigned i = 0, n = newcoords.size(); i < n; i++)
-        {
+    for (unsigned i = 0, n = newcoords.size(); i < n; i++) {
       rmsd += (newcoords[i] - origcoords[i]).norm_sqr();
     }
     rmsd /= newcoords.size();
@@ -321,9 +322,6 @@ void do_search(model& m, const boost::optional<model>& ref,
         << intramolecular_energy
         << " (kcal/mol)\nRMSD: " << rmsd;
     log.endl();
-
-    //reset the center after last call to set
-    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 
     if (!nc.within(m))
       log << "WARNING: not all movable atoms are within the search space\n";

@@ -106,15 +106,12 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
         bool calcCenter=true);
 
     //set center to use for memory ligand
-    void setCenter(const vec& center) {
-      CHECK_GT(batch_info.size(), 0) << "Empty batch info";
-      batch_info[0].transform.set_rotation_center(gfloat3{center[0],center[1],center[2]});
-      center_set = true;
+    void setGridCenter(const vec& center) {
+      grid_center = center;
     }
 
-    vec getCenter() const {
-      gfloat3 c= batch_info[0].transform.get_rotation_center();
-      return vec(c.x,c.y,c.z);
+    vec getGridCenter() const {
+      return vec(grid_center.x,grid_center.y,grid_center.z);
     }
 
     vec getCenter(unsigned mol_idx) const {
@@ -255,8 +252,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     unsigned example_size = 0; //channels*numgridpoints
 
     vector<int> top_shape;
+    gfloat3 grid_center = gfloat3(NAN,NAN,NAN);
     bool inmem = false;
-    bool center_set = false;
 
     //batch labels split into individual vectors
     vector<Dtype> labels;

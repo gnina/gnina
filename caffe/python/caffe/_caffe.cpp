@@ -563,7 +563,7 @@ BOOST_PYTHON_MODULE(_caffe) {
     shared_ptr<MolGridDataLayer<Dtype> >, boost::noncopyable>("MolGridDataLayer", bp::no_init)
     .def("get_mol_info", +[](const MolGridDataLayer<Dtype>& self, int i) { return self.getMolInfo(i);})
     .def("get_moltransform", +[](const MolGridDataLayer<Dtype>& self, int i) { return self.getMolInfo(i).transform;})
-    .def("get_grid_center", +[](MolGridDataLayer<Dtype>& self) { vec c = self.getCenter(); return std::vector<float>{c[0],c[1],c[2]};})
+    .def("get_grid_center", +[](MolGridDataLayer<Dtype>& self) { vec c = self.getGridCenter(); return std::vector<float>{c[0],c[1],c[2]};})
     .def("get_rec_types", &MolGridDataLayer<Dtype>::getRecTypes)
     .def("get_lig_types", &MolGridDataLayer<Dtype>::getLigTypes);
 

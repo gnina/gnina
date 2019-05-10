@@ -699,8 +699,9 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
   //set the grid center
   if(fixcenter) {
     minfo.grid_center = gfloat3(0,0,0);
-  }
-  else {
+  } else if(std::isfinite(grid_center.x)) {
+    minfo.grid_center = grid_center;
+  } else {
     minfo.grid_center = rot_center;
   }
 
@@ -903,24 +904,30 @@ void MolGridDataLayer<Dtype>::backward(const vector<Blob<Dtype>*>& top,
     CHECK(batch_info.size() == batch_size) << "Inconsistent batch sizes in backward";
     for (unsigned i = 0; i < batch_size; i++) {
       if (gpu) {
-        Grid<Dtype, 4, true> diff(top[0]->mutable_gpu_diff()+example_size*i, numchannels, dim, dim, dim);
+        Dtype *ptr = top[0]->mutable_gpu_diff()+example_size*i;
         mol_info& minfo = batch_info[i];
+        //make sure grid is properly offset into types - do ligand and receptor separately
+        //for more efficient computation if receptor isn't needed
         if(compute_ligand_gradients) {
+          Grid<Dtype, 4, true> diff(ptr+numgridpoints*numReceptorTypes, numLigandTypes, dim, dim, dim); //offset by receptor types
           gmaker.backward(minfo.grid_center, minfo.transformed_lig_atoms, diff, minfo.lig_gradient.gpu());
           minfo.transform.backward(minfo.lig_gradient.gpu(), minfo.lig_gradient.gpu(), false);
         }
         if(compute_receptor_gradients) {
+          Grid<Dtype, 4, true> diff(ptr, numReceptorTypes, dim, dim, dim);
           gmaker.backward(minfo.grid_center, minfo.transformed_rec_atoms, diff, minfo.rec_gradient.gpu());
           minfo.transform.backward(minfo.rec_gradient.gpu(), minfo.rec_gradient.gpu(), false);
         }
       } else {
-        Grid<Dtype, 4, false> diff(top[0]->mutable_cpu_diff()+example_size*i, numchannels, dim, dim, dim);
+        Dtype *ptr = top[0]->mutable_cpu_diff()+example_size*i;
         mol_info& minfo = batch_info[i];
         if(compute_ligand_gradients) {
+          Grid<Dtype, 4, false> diff(ptr+numgridpoints*numReceptorTypes, numLigandTypes, dim, dim, dim);
           gmaker.backward(minfo.grid_center, minfo.transformed_lig_atoms, diff, minfo.lig_gradient.cpu());
           minfo.transform.backward(minfo.lig_gradient.cpu(), minfo.lig_gradient.cpu(), false);
         }
         if(compute_receptor_gradients) {
+          Grid<Dtype, 4, false> diff(ptr, numReceptorTypes, dim, dim, dim);
           gmaker.backward(minfo.grid_center, minfo.transformed_rec_atoms, diff, minfo.rec_gradient.cpu());
           minfo.transform.backward(minfo.rec_gradient.cpu(), minfo.rec_gradient.cpu(), false);
         }
@@ -1066,7 +1073,7 @@ void MolGridDataLayer<Dtype>::setReceptor(const vector<atom>& receptor, const ve
   CoordinateSet rec(cs, types, radii, recTypes->num_types());
   if(rotate.real() != 0) {
     //apply transformation
-    vec c  = getCenter();
+    vec c  = getGridCenter();
     float3 center{c[0],c[1],c[2]};
     float3 trans = {translate[0], translate[1], translate[2]};
     Quaternion Q(rotate.a, rotate.b, rotate.c, rotate.d);
@@ -1078,7 +1085,7 @@ void MolGridDataLayer<Dtype>::setReceptor(const vector<atom>& receptor, const ve
   batch_info[0].setReceptor(rec);
 }
 
-//set in memory buffer
+//set in memory buffer, will set grid_Center if it isn't set, but will only overwrite set grid_center if calcCenter
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::setLigand(const vector<atom>& ligand, const vector<vec>& coords, bool calcCenter)  {
 
@@ -1110,9 +1117,9 @@ void MolGridDataLayer<Dtype>::setLigand(const vector<atom>& ligand, const vector
   CoordinateSet ligatoms(cs, types, radii, ligTypes->num_types());
   batch_info[0].setLigand(ligatoms);
 
-  if (calcCenter || !center_set) {
+  if (calcCenter || !isfinite(grid_center[0])) {
     gfloat3 c = batch_info[0].orig_lig_atoms.center();
-    setCenter(vec(c.x,c.y,c.z));
+    setGridCenter(vec(c.x,c.y,c.z));
   }
 }
 

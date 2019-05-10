@@ -250,8 +250,9 @@ void CNNScorer::set_center_from_model(model& m) {
     qt rot = m.rec_conf.orientation.inverse();
 
     VINA_FOR_IN(i, coords) {
-      gfloat3 pt = rot.transform(coords[i][0], coords[i][1], coords[i][2], c,
-          trans);
+      gfloat3 coord = gfloat3(coords[i][0], coords[i][1], coords[i][2]) + trans-c; //inverse transformation
+      gfloat3 pt = rot.rotate(coord.x,coord.y,coord.z);
+      pt += c;
       coords[i][0] = pt.x;
       coords[i][1] = pt.y;
       coords[i][2] = pt.z;
@@ -307,10 +308,10 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
   if (!isnan(cnnopts.cnn_center[0])) {
-    mgrid->setCenter(cnnopts.cnn_center);
-    current_center = mgrid->getCenter();
-  } else {
-    mgrid->setCenter(current_center);      
+    mgrid->setGridCenter(cnnopts.cnn_center);
+    current_center = mgrid->getGridCenter();
+  } else if(!isnan(current_center[0])){
+    mgrid->setGridCenter(current_center);
   }
 
   mgrid->setLigand(m.get_movable_atoms(), m.coordinates(), cnnopts.move_minimize_frame);
@@ -318,7 +319,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
     mgrid->setReceptor(m.get_fixed_atoms(), m.rec_conf.position, m.rec_conf.orientation);
   } else { //don't move receptor
     mgrid->setReceptor(m.get_fixed_atoms());
-    current_center = mgrid->getCenter(); //has been recalculated from ligand
+    current_center = mgrid->getGridCenter(); //has been recalculated from ligand
     if(cnnopts.verbose) {
       std::cout << "current center: ";
       current_center.print(std::cout);
@@ -326,7 +327,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
     }
   }
 
-  if(compute_gradient) {
+  if(compute_gradient || cnnopts.outputxyz) {
     //todo: be smarter about what is calculated
     mgrid->enableLigandGradients();
     mgrid->enableReceptorGradients();
