@@ -62,3 +62,29 @@ subprocess.check_call('%s  -r data/CC.xyz -l data/CC2.xyz --cnn_scoring --cnn_mo
     --cnn_weights data/overlay.caffemodel --minimize -o %s --gpu'%(gnina,outfile),shell=True)
 assert are_similar('data/CC.xyz',outfile)
     
+    
+#fully flexible - need smaller radius to avoid local minima
+rmout()
+subprocess.check_call('%s  -r data/C8flat.sdf -l data/C8bent.sdf --cnn_scoring \
+  --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
+  --minimize -o %s'%(gnina,outfile),shell=True)
+assert are_similar('data/C8flat.xyz',outfile)
+
+rmout()
+subprocess.check_call('%s  -r data/C8flat.sdf -l data/C8bent.sdf --cnn_scoring \
+  --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
+  --cnn_update_min_frame --minimize -o %s'%(gnina,outfile),shell=True)
+assert are_similar('data/C8flat.xyz',outfile)
+
+#gpu
+rmout()
+subprocess.check_call('%s  -r data/C8flat.sdf -l data/C8bent.sdf --cnn_scoring \
+  --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
+  --minimize -o %s --gpu'%(gnina,outfile),shell=True)
+assert are_similar('data/C8flat.xyz',outfile)
+
+rmout()
+subprocess.check_call('%s  -r data/C8flat.sdf -l data/C8bent.sdf --cnn_scoring \
+  --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
+  --cnn_update_min_frame --minimize -o %s --gpu'%(gnina,outfile),shell=True)
+assert are_similar('data/C8flat.xyz',outfile)
