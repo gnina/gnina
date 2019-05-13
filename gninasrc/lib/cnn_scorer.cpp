@@ -232,7 +232,7 @@ bool CNNScorer::has_affinity() const {
 //call this before minimizing a ligand
 void CNNScorer::set_center_from_model(model& m) {
 
-  if (isfinite(current_center[0]) && !cnnopts.move_minimize_frame && !cnnopts.fix_receptor) {
+  if (isfinite(current_center[0]) && cnnopts.moving_receptor()) {
     //when we recenter, we need to apply any receptor transformations to the ligand (inversed)
     //unless, of course, the center hasn't been set yet
     vec center = get_center();
@@ -315,7 +315,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   }
 
   mgrid->setLigand(m.get_movable_atoms(), m.coordinates(), cnnopts.move_minimize_frame);
-  if (!cnnopts.move_minimize_frame) {
+  if (!cnnopts.move_minimize_frame) { //if fixed_receptor, rec_conf will be identify
     mgrid->setReceptor(m.get_fixed_atoms(), m.rec_conf.position, m.rec_conf.orientation);
   } else { //don't move receptor
     mgrid->setReceptor(m.get_fixed_atoms());
@@ -329,7 +329,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
 
   if(compute_gradient || cnnopts.outputxyz) {
     mgrid->enableLigandGradients();
-    if(!cnnopts.move_minimize_frame) //if frame is following
+    if(cnnopts.moving_receptor() || cnnopts.outputxyz)
       mgrid->enableReceptorGradients();
   }
 
@@ -359,8 +359,9 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
 
       net->Backward();
       mgrid->getLigandGradient(0, gradient);
-      mgrid->getReceptorTransformationGradient(0, m.rec_change.position, m.rec_change.orientation);
       m.add_minus_forces(gradient);
+      if(cnnopts.moving_receptor())
+        mgrid->getReceptorTransformationGradient(0, m.rec_change.position, m.rec_change.orientation);
     }
     cnt++;
   }
