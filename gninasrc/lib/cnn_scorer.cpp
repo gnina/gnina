@@ -328,9 +328,9 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   }
 
   if(compute_gradient || cnnopts.outputxyz) {
-    //todo: be smarter about what is calculated
     mgrid->enableLigandGradients();
-    mgrid->enableReceptorGradients();
+    if(!cnnopts.move_minimize_frame) //if frame is following
+      mgrid->enableReceptorGradients();
   }
 
   m.clear_minus_forces();
@@ -359,9 +359,8 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
 
       net->Backward();
       mgrid->getLigandGradient(0, gradient);
-      mgrid->getReceptorTransformationGradient(0, m.rec_change.position,
-          m.rec_change.orientation);
-      m.add_minus_forces(gradient); //TODO divide by cnt?
+      mgrid->getReceptorTransformationGradient(0, m.rec_change.position, m.rec_change.orientation);
+      m.add_minus_forces(gradient);
     }
     cnt++;
   }
