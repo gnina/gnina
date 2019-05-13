@@ -328,6 +328,8 @@ int main(int argc, char* argv[]) {
         << "\nCorrect usage:\n" << desc << '\n';
     return 1;
   }
+  // FLAGS_alsologtostderr = 1; // for debug unless you wanna get spammed from
+  // molgrid about the receptor not being set during virtual screen
 
   // treat rec + lig + grids as mutually exclusive with types (the former are
   // "in_mem" for MolGrid)
@@ -427,6 +429,7 @@ int main(int argc, char* argv[]) {
   solver_param.set_base_lr(base_lr);
   solver_param.set_max_iter(iterations);
   solver_param.set_lr_policy("fixed");
+  solver_param.set_display(1);
   solver_param.set_snapshot_prefix("inputopt_");
   solver_param.set_type("InputOptSGD");
   if (cnnopts.cnn_weights.size())
