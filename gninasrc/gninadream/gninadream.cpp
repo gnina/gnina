@@ -549,12 +549,19 @@ int main(int argc, char* argv[]) {
     for (unsigned i=0; i<n_passes; ++i) {
       net->ForwardFromTo(1,1);
       solver->ResetIter();
-      solver->Solve();
+      for (size_t j=0; j<iterations; ++j) {
+        solver->Step(1);
+        if (dump_all || (i==iterations-1 && dump_last)) {
+          for (size_t k=0; k<opt_names.size(); ++k)
+            mgrid->dumpGridDX(opt_names[k], net->top_vecs()[0][0]->mutable_cpu_data(), 1, k);
+        }
+      }
       if (vsfile.size()) {
         std::vector<caffe::shared_ptr<ostream> > out;
-        for (size_t j=0; j<nopts; ++j) {
-          out.push_back(boost::make_shared<std::ofstream>((opt_names[j] + ".vsout").c_str()));
+        for (auto& name : opt_names) {
+          out.push_back(boost::make_shared<std::ofstream>((name + ".vsout").c_str()));
         }
+        do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1);
       }
     }
   }
@@ -702,14 +709,32 @@ int main(int argc, char* argv[]) {
         }
       }
     }
+    for (size_t i=0; i<iterations; ++i) {
+      solver->Step(1);
+      if (dump_all || (i==iterations-1 && dump_last))
+        mgrid->dumpGridDX(out_prefix, net->top_vecs()[0][0]->mutable_cpu_data());
+    }
+    if (vsfile.size()) {
+      std::vector<caffe::shared_ptr<ostream> > out;
+      out.push_back(boost::make_shared<std::ofstream>((out_prefix + ".vsout").c_str()));
+      do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1);
+    }
   }
   else if (solverstate.size()) {
     const char* ss_cstr = solverstate.c_str();
     //restart from optimization in progress
     solver->Restore(ss_cstr);
-    solver->Solve();
-    nopts = 1;
-    // just use out_prefix as outname for vs?
+    int remaining_iters = iterations - solver->iter();
+    for (size_t i=0; i<remaining_iters; ++i) {
+      solver->Step(1);
+      if (dump_all || (i==iterations-1 && dump_last))
+        mgrid->dumpGridDX(out_prefix, net->top_vecs()[0][0]->mutable_cpu_data());
+    }
+    if (vsfile.size()) {
+      std::vector<caffe::shared_ptr<ostream> > out;
+      out.push_back(boost::make_shared<std::ofstream>((out_prefix + ".vsout").c_str()));
+      do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1);
+    }
   }
   else {
     std::cerr << "No valid initial input for optimization provided.\n";
