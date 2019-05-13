@@ -25,3 +25,4 @@ if(OpenMP_CXX_FOUND)
 endif()
 
 add_test(NAME gninacheck COMMAND gninacheck --n_iters=1)
+add_test(NAME gninamin COMMAND ./test_min.py $<TARGET_FILE_NAME:gnina> WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})

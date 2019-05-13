@@ -11,9 +11,8 @@ layer {
     resolution: 0.5
     balanced: false
     shuffle: false
-#    fix_center_to_origin: true
-    ligmap: "singletype.map"
-    recmap: "singletype.map"
+    ligmap: "data/singletype.map"
+    recmap: "data/singletype.map"
   }
 }
 
