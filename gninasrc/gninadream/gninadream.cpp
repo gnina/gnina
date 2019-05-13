@@ -377,6 +377,12 @@ int main(int argc, char* argv[]) {
   // params for all of them?
   LayerParameter* first = net_param.mutable_layer(1);
   MolGridDataParameter* mgridparam = first->mutable_molgrid_data_param();
+  mgridparam->set_random_rotation(false);
+  mgridparam->set_random_translate(false);
+  mgridparam->set_shuffle(false);
+  mgridparam->set_balanced(false);
+  mgridparam->set_stratify_receptor(false);
+
   if (mgridparam == NULL) {
     throw usage_error("First layer of model must be MolGridData.");
   }
@@ -503,8 +509,7 @@ int main(int argc, char* argv[]) {
         for (size_t i=0; i<iterations; ++i) {
           solver->Step(1);
           if (dump_all || (i==iterations-1 && dump_last))
-            mgrid->dumpGridDX(prefix + "_iter" + std::to_string(i), 
-                net->top_vecs()[0][0]->mutable_cpu_data());
+            mgrid->dumpGridDX(prefix, net->top_vecs()[0][0]->mutable_cpu_data());
         }
         if (ligand_names[0] == "")
           ligand_names[0] = "none";
