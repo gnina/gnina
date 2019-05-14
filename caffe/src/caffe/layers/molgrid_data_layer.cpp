@@ -713,11 +713,6 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
     minfo.grid_center = rot_center;
   }
 
-  if (atoms.size() == 0) {
-    std::cerr << "ERROR: No atoms in molecule.  I can't deal with this.\n";
-    exit(-1); //presumably you never actually want this and it results in a cuda error
-  }
-
   //compute grid from atoms
   unsigned dim = gmaker.get_grid_dims().x;
   if (gpu)
@@ -777,7 +772,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
   bool duplicate = this->layer_param_.molgrid_data_param().duplicate_poses();
   int peturb_bins = this->layer_param_.molgrid_data_param().peturb_bins();
   double peturb_translate = this->layer_param_.molgrid_data_param().peturb_ligand_translate();
-  static int example_idx = 0; //keep track of when we have moved on to the next group
+
   Dtype *top_data = NULL;
   if(gpu)
     top_data = top[0]->mutable_gpu_data();
@@ -822,43 +817,35 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     if (data2.size())
       dataswitch = batch_size*data_ratio/(data_ratio+1);
 
-    CHECK_EQ(example_idx%batch_size, 0) << "Internal error with example_idx"; //sanity check
     for (int idx = 0, n = chunk_size*batch_size; idx < n; ++idx)
     {
       int batch_idx = idx % batch_size;
       Example ex;
-      if (batch_idx < dataswitch)
-      {
+      if (batch_idx < dataswitch) {
         data.next(ex);
-      }
-      else
-      {
+      } else {
         data2.next(ex);
       }
 
       int step = idx / batch_size;
       int offset = ((batch_size * step) + batch_idx) * example_size;
-      bool seq_continued = example_idx >= batch_size; //additional frames for group
 
       if(!duplicate) {
-        updateLabels(ex.labels, hasaffinity, hasrmsd, seq_continued);
-        set_grid_ex(top_data+offset, ex, batch_info[batch_idx], numposes > 1 ? -1 : 0, peturb, gpu, seq_continued);
+        updateLabels(ex.labels, hasaffinity, hasrmsd, ex.seqcont);
+        set_grid_ex(top_data+offset, ex, batch_info[batch_idx], numposes > 1 ? -1 : 0, peturb, gpu, ex.seqcont);
         perturbations.push_back(peturb);
       }
       else {
         for(unsigned p = 0; p < numposes; p++) {
-          updateLabels(ex.labels, hasaffinity, hasrmsd, seq_continued);
+          updateLabels(ex.labels, hasaffinity, hasrmsd, ex.seqcont);
           int p_offset = batch_idx*(example_size*numposes)+example_size*p;
-          set_grid_ex(top_data+p_offset, ex, batch_info[batch_idx], p, peturb, gpu, seq_continued);
+          set_grid_ex(top_data+p_offset, ex, batch_info[batch_idx], p, peturb, gpu, ex.seqcont);
           perturbations.push_back(peturb);
         }
       }
-      example_idx++;
     }
 
   }
-
-  example_idx = example_idx %(group_size*batch_size); //wrap if done with group
 
   copyToBlobs(top, hasaffinity, hasrmsd, gpu);
 
@@ -1035,8 +1022,7 @@ void MolGridDataLayer<Dtype>::copyToBlobs(const vector<Blob<Dtype>*>& top, bool 
     idx++;
   }
   if (ligpeturb)
-    copyToBlob((Dtype*) &perturbations[0],
-        perturbations.size() * perturbations[0].size(), top.back(), gpu);
+    copyToBlob((Dtype*) &perturbations[0], perturbations.size() * perturbations[0].size(), top.back(), gpu);
 }
 
 //set in memory buffer
