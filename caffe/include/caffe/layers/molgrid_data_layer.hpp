@@ -55,8 +55,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     }
     virtual inline int ExactNumTopBlobs() const {
       return 2 +
-          ((this->layer_param_.molgrid_data_param().subgrid_dim() != 0) ||
-              (this->layer_param_.molgrid_data_param().maxgroupsize() != 1)) +
+          (this->layer_param_.molgrid_data_param().max_group_size() > 1) +
           this->layer_param_.molgrid_data_param().has_affinity() +
           this->layer_param_.molgrid_data_param().has_rmsd() +
           this->layer_param_.molgrid_data_param().peturb_ligand();
@@ -71,8 +70,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
         const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
     virtual void setLabels(Dtype pose, Dtype affinity = 0, Dtype rmsd = 0);
-    virtual void setLayerSpecificDims(int number_examples,
-        vector<int>& label_shape, const vector<Blob<Dtype>*>& top);
+
     virtual void enableLigandGradients() { //this is sticky
       compute_ligand_gradients = true;
     }
@@ -81,8 +79,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     }
 
     virtual void clearLabels();
-    void updateLabels(const std::vector<float>& l, bool hasaffinity, bool hasrmsd);
-    virtual void updateLabels(Dtype pose, Dtype affinity = 0, Dtype rmsd = 0);
+    void updateLabels(const std::vector<float>& l, bool hasaffinity, bool hasrmsd, bool seq_continued);
 
     virtual void copyToBlob(Dtype* src, size_t size, Blob<Dtype>* blob, bool gpu);
     virtual void copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity, bool hasrmsd, bool gpu);
@@ -259,6 +256,7 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     vector<Dtype> labels;
     vector<Dtype> affinities;
     vector<Dtype> rmsds;
+    vector<Dtype> seqcont;
     vector<output_transform> perturbations;
 
     //grid stuff
@@ -267,6 +265,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     double ligpeturb_translate = 0;
     double jitter = 0;
     unsigned numposes = 1;
+    int group_size = 1;
+    int chunk_size = 1;
     bool ligpeturb_rotate = false;
     bool randrotate = false;
     bool ligpeturb = false; //for spatial transformer
@@ -290,10 +290,10 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     ////////////////////   PROTECTED METHODS   //////////////////////
     void set_grid_ex(Dtype *grid, const libmolgrid::Example& ex,
         typename MolGridDataLayer<Dtype>::mol_info& minfo,
-        int pose, output_transform& pertub, bool gpu);
+        int pose, output_transform& pertub, bool gpu, bool keeptransform);
     virtual void set_grid_minfo(Dtype *grid,
         typename MolGridDataLayer<Dtype>::mol_info& minfo,
-        output_transform& peturb, bool gpu);
+        output_transform& peturb, bool gpu, bool keeptransform);
 
     //stuff for outputing dx grids
     std::string getIndexName(const vector<int>& map, unsigned index) const;

@@ -322,22 +322,6 @@ static string sanitize_path(const string& p)
 }
 
 
-//reshape any layer-specific blobs, and set layer-specific dims for any
-//universal blobs
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::setLayerSpecificDims(int number_examples,
-    vector<int>& label_shape, const vector<Blob<Dtype>*>& top) {
-  top_shape.clear();
-  top_shape.push_back(number_examples);
-  top_shape.push_back(numchannels);
-  top_shape.push_back(dim);
-  top_shape.push_back(dim);
-  top_shape.push_back(dim);
-
-  example_size = (numchannels)*numgridpoints;
-  label_shape.push_back(number_examples); // [batch_size]
-}
-
 //convert proto parameters to ExampleProviderSettings struct
 //these are very similar because the same person wrote both
 static ExampleProviderSettings settings_from_param(const MolGridDataParameter& param) {
@@ -351,7 +335,7 @@ static ExampleProviderSettings settings_from_param(const MolGridDataParameter& p
   ret.stratify_min = param.stratify_affinity_min();
   ret.stratify_max = param.stratify_affinity_max();
   ret.stratify_step = param.stratify_affinity_step();
-  ret.max_group_size = param.maxgroupsize();
+  ret.max_group_size = param.max_group_size();
   ret.group_batch_size = param.batch_size();
   ret.cache_structs = param.cache_structs();
   ret.add_hydrogens = param.addh();
@@ -460,10 +444,13 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   bool use_covalent_radius = param.use_covalent_radius();
   bool hasaffinity = param.has_affinity();
   bool hasrmsd = param.has_rmsd();
-  bool hasgroup = param.maxgroupsize()-1;
   data_ratio = param.source_ratio();
   numposes = param.num_poses();
+  group_size = param.max_group_size();
+  chunk_size = param.max_group_chunk_size();
+  if(chunk_size == 0) chunk_size = group_size;
 
+  CHECK_EQ(group_size % chunk_size, 0) << "Chunk size must evenly divide group size.";
   CHECK_LE(fabs(remainder(dimension,resolution)), 0.001) << "Resolution does not evenly divide dimension.";
 
   gmaker.initialize(resolution, dimension, binary, param.radius_scaling(), param.gaussian_radius_multiple());
@@ -504,7 +491,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
     // Read source file(s) with labels and structures,
     // each line is label [group] [affinity] [rmsd] receptor_file ligand_file  (labels not optional)
-    data.populate(source, 1+hasaffinity+hasrmsd, hasgroup);
+    data.populate(source, 1+hasaffinity+hasrmsd);
 
     if(source2.length() > 0)
     {
@@ -516,7 +503,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       CHECK_GE(data_ratio, 0) << "Must provide non-negative ratio for two data sources";
       settings.data_root = root_folder2;
       data2 = ExampleProvider(settings, recTypes, ligTypes);
-      data2.populate(source2, 1+hasaffinity+hasrmsd, hasgroup);
+      data2.populate(source2, 1+hasaffinity+hasrmsd);
     }
 
     LOG(INFO) << "Total examples: " << data.size() + data2.size();
@@ -540,46 +527,66 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   CHECK_GT(batch_size, 0) << "Positive batch size required";
   //keep track of atoms and transformations for each example in batch
-  batch_info.resize(batch_size * param.maxgroupsize());
+  //note that for grouped inputs, all the frames of the group share an info,
+  //the molecular data of which gets overwritten
+  batch_info.resize(batch_size);
 
   int number_examples = batch_size;
   bool duplicate = this->layer_param_.molgrid_data_param().duplicate_poses();
   if(duplicate) number_examples = batch_size*numposes;
   numchannels = numReceptorTypes+numLigandTypes;
   if(!duplicate && numposes > 1) numchannels = numReceptorTypes+numposes*numLigandTypes;
-  vector<int> label_shape;
-  setLayerSpecificDims(number_examples, label_shape, top);
-  top[0]->Reshape(top_shape);
 
-  // Reshape label, affinity, rmsds
+  //setup shape
+  top_shape.clear();
+  if(group_size > 1) top_shape.push_back(chunk_size); //output is T x B x C x W x H x D
+  top_shape.push_back(number_examples);
+  top_shape.push_back(numchannels);
+  top_shape.push_back(dim);
+  top_shape.push_back(dim);
+  top_shape.push_back(dim);
+
+  example_size = (numchannels)*numgridpoints;
+
+  vector<int> label_shape;
+  if(group_size > 1) label_shape.push_back(chunk_size);
+  label_shape.push_back(number_examples); // [batch_size]
+
+  top[0]->Reshape(top_shape);
+  // Reshape label, affinity, rmsds, seqcont, libpeturb
   top[1]->Reshape(label_shape);
 
-  if (hasaffinity)
-  {
-    top[2]->Reshape(label_shape);
-    if (hasrmsd)
-    {
-      top[3]->Reshape(label_shape);
-    }
+  unsigned idx = 2;
+  if (hasaffinity) {
+    top[idx]->Reshape(label_shape);
+    idx++;
   }
-  else if(hasrmsd)
-  {
-    top[2]->Reshape(label_shape);
+  if (hasrmsd) {
+      top[idx]->Reshape(label_shape);
+      idx++;
+  }
+
+  if(group_size > 1) {
+    vector<int> seqcont_shape{chunk_size, batch_size};
+    top[idx]->Reshape(seqcont_shape);
+    idx++;
   }
 
   if(ligpeturb) {
     vector<int> peturbshape(2);
     peturbshape[0] = batch_size;
     peturbshape[1] = output_transform::size(); //trans+orient
-    top.back()->Reshape(peturbshape);
+    top[idx]->Reshape(peturbshape);
+    idx++;
   }
+  CHECK_EQ(idx,top.size()) << "Inconsistent top size!";
 }
 
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const Example& ex,
     typename MolGridDataLayer<Dtype>::mol_info& minfo,
-    int pose, output_transform& peturb, bool gpu)
+    int pose, output_transform& peturb, bool gpu, bool keeptransform)
 {
   //set grid values for example
   //cache atom info
@@ -604,7 +611,7 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const Example& ex,
     minfo.setLigand(ex.sets[pose+1]);
   }
 
-  set_grid_minfo(data, minfo, peturb, gpu);
+  set_grid_minfo(data, minfo, peturb, gpu, keeptransform);
 
 }
 
@@ -634,7 +641,7 @@ static void apply_jitter(CoordinateSet& c, float jitter) {
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
     typename MolGridDataLayer<Dtype>::mol_info& minfo,
-    output_transform& peturb, bool gpu)
+    output_transform& peturb, bool gpu, bool keeptransform)
 {
   const MolGridDataParameter& param = this->layer_param_.molgrid_data_param();
   bool fixcenter = param.fix_center_to_origin();
@@ -659,7 +666,8 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
     rtranslate = min(randtranslate, maxtrans);
   }
 
-  minfo.transform = Transform(rot_center, rtranslate, randrotate);
+  if(!keeptransform) //for groups, only the first frame should set the transform
+    minfo.transform = Transform(rot_center, rtranslate, randrotate);
 
   CoordinateSet& rec_atoms = minfo.transformed_rec_atoms;
   CoordinateSet& lig_atoms = minfo.transformed_lig_atoms;
@@ -766,17 +774,10 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
 {
   bool hasaffinity = this->layer_param_.molgrid_data_param().has_affinity();
   bool hasrmsd = this->layer_param_.molgrid_data_param().has_rmsd();
-  float subgrid_dim = this->layer_param_.molgrid_data_param().subgrid_dim();
-  unsigned maxgroupsize = this->layer_param_.molgrid_data_param().maxgroupsize();
-  unsigned maxchunksize = this->layer_param_.molgrid_data_param().maxchunksize();
-
-  if ((maxgroupsize >1) && !maxchunksize)
-    maxchunksize = maxgroupsize;
-
   bool duplicate = this->layer_param_.molgrid_data_param().duplicate_poses();
   int peturb_bins = this->layer_param_.molgrid_data_param().peturb_bins();
   double peturb_translate = this->layer_param_.molgrid_data_param().peturb_ligand_translate();
-
+  static int example_idx = 0; //keep track of when we have moved on to the next group
   Dtype *top_data = NULL;
   if(gpu)
     top_data = top[0]->mutable_gpu_data();
@@ -786,7 +787,7 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
   perturbations.clear();
 
   unsigned batch_size;
-  if (subgrid_dim || (maxgroupsize-1)) {
+  if (group_size>1) {
     batch_size = top_shape[1];
   }
   else
@@ -803,11 +804,11 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
   if(inmem)
   {
     CHECK_GT(batch_info.size(), 0) << "Empty batch info";
-    CHECK_EQ(maxgroupsize, 1) << "Groups not currently supported with structure in memory";
+    CHECK_EQ(group_size, 1) << "Groups not currently supported with structure in memory";
     if(batch_info[0].orig_rec_atoms.size() == 0) LOG(WARNING) << "Receptor not set in MolGridDataLayer";
     CHECK_GT(batch_info[0].orig_lig_atoms.size(),0) << "Ligand not set in MolGridDataLayer";
     //memory is now available
-    set_grid_minfo(top_data, batch_info[0], peturb, gpu); //TODO how do we know what batch position?
+    set_grid_minfo(top_data, batch_info[0], peturb, gpu, false);
     perturbations.push_back(peturb);
 
     CHECK_GT(labels.size(),0) << "Did not set labels in memory based molgrid";
@@ -821,7 +822,8 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
     if (data2.size())
       dataswitch = batch_size*data_ratio/(data_ratio+1);
 
-    for (int idx = 0; idx < batch_size + (maxchunksize-1)*batch_size; ++idx)
+    CHECK_EQ(example_idx%batch_size, 0) << "Internal error with example_idx"; //sanity check
+    for (int idx = 0, n = chunk_size*batch_size; idx < n; ++idx)
     {
       int batch_idx = idx % batch_size;
       Example ex;
@@ -836,24 +838,27 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
 
       int step = idx / batch_size;
       int offset = ((batch_size * step) + batch_idx) * example_size;
+      bool seq_continued = example_idx >= batch_size; //additional frames for group
 
       if(!duplicate) {
-        updateLabels(ex.labels, hasaffinity, hasrmsd);
-        set_grid_ex(top_data+offset, ex, batch_info[batch_idx], numposes > 1 ? -1 : 0, peturb, gpu);
+        updateLabels(ex.labels, hasaffinity, hasrmsd, seq_continued);
+        set_grid_ex(top_data+offset, ex, batch_info[batch_idx], numposes > 1 ? -1 : 0, peturb, gpu, seq_continued);
         perturbations.push_back(peturb);
       }
       else {
         for(unsigned p = 0; p < numposes; p++) {
-          updateLabels(ex.labels, hasaffinity, hasrmsd);
+          updateLabels(ex.labels, hasaffinity, hasrmsd, seq_continued);
           int p_offset = batch_idx*(example_size*numposes)+example_size*p;
-          set_grid_ex(top_data+p_offset, ex, batch_info[batch_idx], p, peturb, gpu);
+          set_grid_ex(top_data+p_offset, ex, batch_info[batch_idx], p, peturb, gpu, seq_continued);
           perturbations.push_back(peturb);
         }
       }
-
+      example_idx++;
     }
 
   }
+
+  example_idx = example_idx %(group_size*batch_size); //wrap if done with group
 
   copyToBlobs(top, hasaffinity, hasrmsd, gpu);
 
@@ -971,11 +976,12 @@ void MolGridDataLayer<Dtype>::clearLabels() {
   labels.clear();
   affinities.clear();
   rmsds.clear();
+  seqcont.clear();
 }
 
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::updateLabels(const std::vector<float>& l, bool hasaffinity,
-    bool hasrmsd) {
+    bool hasrmsd, bool seq_continued) {
   float pose = 0, affinity = 0, rmsd = 0;
   unsigned n = l.size();
 
@@ -992,15 +998,10 @@ void MolGridDataLayer<Dtype>::updateLabels(const std::vector<float>& l, bool has
       }
     }
   }
-  updateLabels(pose, affinity, rmsd);
-}
-
-// add labels for a _single_ example (call multiple times with duplicated multiple poses)
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::updateLabels(Dtype pose, Dtype affinity, Dtype rmsd) {
   labels.push_back(pose);
   affinities.push_back(affinity);
   rmsds.push_back(rmsd);
+  seqcont.push_back(seq_continued); //zero for first member of group
 }
 
 template <typename Dtype>
@@ -1017,13 +1018,22 @@ void MolGridDataLayer<Dtype>::copyToBlob(Dtype* src, size_t size, Blob<Dtype>* b
 template <typename Dtype>
 void MolGridDataLayer<Dtype>::copyToBlobs(const vector<Blob<Dtype>*>& top, bool hasaffinity,
     bool hasrmsd, bool gpu) {
-  unsigned rmsdi = 2 + hasaffinity;
-  copyToBlob(&labels[0], labels.size(), top[1], gpu);
-  if (hasaffinity)
-    copyToBlob(&affinities[0], affinities.size(), top[2], gpu);
-  if (hasrmsd)
-    copyToBlob(&rmsds[0], rmsds.size(), top[rmsdi], gpu);
+  unsigned idx = 1;
+  copyToBlob(&labels[0], labels.size(), top[idx], gpu);
+  idx++;
+  if (hasaffinity) {
+    copyToBlob(&affinities[0], affinities.size(), top[idx], gpu);
+    idx++;
+  }
+  if (hasrmsd) {
+    copyToBlob(&rmsds[0], rmsds.size(), top[idx], gpu);
+    idx++;
+  }
 
+  if(group_size > 1) {
+    copyToBlob(&seqcont[0], seqcont.size(), top[idx], gpu);
+    idx++;
+  }
   if (ligpeturb)
     copyToBlob((Dtype*) &perturbations[0],
         perturbations.size() * perturbations[0].size(), top.back(), gpu);

@@ -951,9 +951,9 @@ message MolGridDataParameter {
   optional string mem_recmap = 46 [default = ""]; //contents of a recmap
   optional string mem_ligmap = 47 [default = ""]; //contents of a ligmap
   optional bool duplicate_poses = 48 [default = false]; //if num_poses > 1, create separate examples (with receptor) for each ligand pose
-  optional float subgrid_dim = 49 [default = 0.0]; //perform recurrence over subgrids with this dim
-  optional uint32 maxgroupsize = 50 [default = 1]; //max size of group when performing a recurrence over frame groups; 1 if there are no groups
-  optional uint32 maxchunksize = 51 [default = 1]; //max size of subsequence for BPTT
+  optional float subgrid_dim = 49 [default = 0.0]; //DEPRECATED!
+  optional uint32 max_group_size = 50 [default = 1]; //max size of group when performing a recurrence over frame groups; 1 if there are no groups
+  optional uint32 max_group_chunk_size = 51 [default = 0]; //max size of subsequence for BPTT, if zero will be set to max_group_size
   optional int32 stride = 52 [default = 0]; // Stride when selecting subsets of input for recurrence, default is same size as filter width
   optional bool use_rec_center = 53 [default = false]; //use rec to define grid center
   optional uint32 peturb_bins = 54 [default = 0]; // if > 0, output categorical labels for discretized bins instead of actual values for peturb
