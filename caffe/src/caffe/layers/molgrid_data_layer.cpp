@@ -352,7 +352,7 @@ static ExampleProviderSettings settings_from_param(const MolGridDataParameter& p
   ret.stratify_max = param.stratify_affinity_max();
   ret.stratify_step = param.stratify_affinity_step();
   ret.max_group_size = param.maxgroupsize();
-  ret.group_batch_size = param.maxchunksize();
+  ret.group_batch_size = param.batch_size();
   ret.cache_structs = param.cache_structs();
   ret.add_hydrogens = param.addh();
   ret.duplicate_first = false;  // at least for now we do any duplication ourselves
@@ -837,33 +837,18 @@ void MolGridDataLayer<Dtype>::forward(const vector<Blob<Dtype>*>& bottom, const 
       int step = idx / batch_size;
       int offset = ((batch_size * step) + batch_idx) * example_size;
 
-      //if label == -1 then this is a padding example for grouped data; just
-      //memset data to 0
-      if (ex.labels[0] == -1) {
-          unsigned gsize = (numReceptorTypes + numLigandTypes) * dim *
-            dim * dim;
-          if (gpu) {
-            CUDA_CHECK(cudaMemset(top_data+offset, 0, gsize * sizeof(Dtype)));
-          }
-          else
-            memset(top_data+offset, 0, gsize*sizeof(Dtype));
+      if(!duplicate) {
+        updateLabels(ex.labels, hasaffinity, hasrmsd);
+        set_grid_ex(top_data+offset, ex, batch_info[batch_idx], numposes > 1 ? -1 : 0, peturb, gpu);
+        perturbations.push_back(peturb);
       }
-
       else {
-        if(!duplicate) {
+        for(unsigned p = 0; p < numposes; p++) {
           updateLabels(ex.labels, hasaffinity, hasrmsd);
-          set_grid_ex(top_data+offset, ex, batch_info[batch_idx], numposes > 1 ? -1 : 0, peturb, gpu);
+          int p_offset = batch_idx*(example_size*numposes)+example_size*p;
+          set_grid_ex(top_data+p_offset, ex, batch_info[batch_idx], p, peturb, gpu);
           perturbations.push_back(peturb);
         }
-        else {
-      	  for(unsigned p = 0; p < numposes; p++) {
-      	    updateLabels(ex.labels, hasaffinity, hasrmsd);
-            int p_offset = batch_idx*(example_size*numposes)+example_size*p;
-            set_grid_ex(top_data+p_offset, ex, batch_info[batch_idx], p, peturb, gpu);
-            perturbations.push_back(peturb);
-          }
-        }
-        //NOTE: batch_transform contains transformation of last pose only - don't use unless numposes == 1
       }
 
     }
