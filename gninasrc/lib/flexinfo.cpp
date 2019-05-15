@@ -169,7 +169,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
         //and second atom is a flexatom need to add bond
         if(a == bond.GetBeginAtom() && flexmap.count(bond.GetEndAtom()))
         {
-          flex.AddBond(flexmap[a],flexmap[bond.GetEndAtom()],bond.GetBO(), bond.GetFlags());
+          flex.AddBond(flexmap[a],flexmap[bond.GetEndAtom()],bond.GetBondOrder(), bond.GetFlags());
         }
       }
     }

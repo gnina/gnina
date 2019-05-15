@@ -29,6 +29,12 @@
 #include <utility> // pair#include <algorithm> // too common#include <vector> // used in typedef, and commonly used overall#include <cmath> // commonly used#include <iostream> // various debugging everywhere#include <fstream> // print_coords#include <iomanip> // to_string#include <sstream> // to_string#include <string> // probably included by the above anyway, common anyway#include <boost/serialization/vector.hpp> // can't come before the above two - wart fixed in upcoming Boost versions#include <boost/serialization/base_object.hpp> // movable_atom needs it - (derived from atom)#include <boost/filesystem/path.hpp> // typedef'ed#include "macros.h"
 #include "math.h"
 #include <cuda_runtime.h>
+#include <openbabel/mol.h>
+#include <openbabel/atom.h>
+#include <openbabel/obutil.h>
+#include <openbabel/obiter.h>
+#include <openbabel/generic.h>
+#include <openbabel/bond.h>
 
 typedef float fl;
 
