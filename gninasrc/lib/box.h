@@ -18,16 +18,20 @@ struct Box {
             min_z(HUGE_VAL), max_z(-HUGE_VAL) {
     }
 
+    //update min and max to include x,y,z
+    void add_coord(fl x, fl y, fl z) {
+      min_x = std::min(min_x, x);
+      min_y = std::min(min_y, y);
+      min_z = std::min(min_z, z);
+      max_x = std::max(max_x, x);
+      max_y = std::max(max_y, y);
+      max_z = std::max(max_z, z);
+    }
     void add_ligand_box(OpenBabel::OBMol& mol) {
       using namespace OpenBabel;
 
       FOR_ATOMS_OF_MOL(a, mol){
-      min_x = std::min(min_x, (fl) a->x());
-      min_y = std::min(min_y, (fl) a->y());
-      min_z = std::min(min_z, (fl) a->z());
-      max_x = std::max(max_x, (fl) a->x());
-      max_y = std::max(max_y, (fl) a->y());
-      max_z = std::max(max_z, (fl) a->z());
+        add_coord(a->x(), a->y(), a->z());
     }
   }
 
@@ -51,8 +55,8 @@ struct Box {
   }
 };
 
-void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
-    fl& center_x, fl& center_y, fl& center_z, fl& size_x, fl& size_y,
-    fl& size_z);
+class model;
+void setup_autobox(const model& m, const std::string& autobox_ligand, fl autobox_add,
+    fl& center_x, fl& center_y, fl& center_z, fl& size_x, fl& size_y, fl& size_z);
 
 #endif /* SMINA_BOX_H */

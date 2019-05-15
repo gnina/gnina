@@ -1398,8 +1398,7 @@ Thank you!\n";
       }
     }
 
-    if (ligand_names.size() == 0)
-        {
+    if (ligand_names.size() == 0) {
       if (!no_lig)
       {
         std::cerr << "Missing ligand.\n" << "\nCorrect usage:\n"
@@ -1440,15 +1439,16 @@ Thank you!\n";
     if (vm.count("atom_terms") > 0)
       atomoutfile.open(atom_name.c_str());
 
-    if (autobox_ligand.length() > 0)
-        {
-      setup_autobox(autobox_ligand, autobox_add,
-          center_x, center_y, center_z,
-          size_x, size_y, size_z);
+    FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, log);
+    //dkoes - parse in receptor once
+    MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
+
+    if (autobox_ligand.length() > 0) {
+      setup_autobox(mols.getInitModel(),autobox_ligand, autobox_add,
+          center_x, center_y, center_z, size_x, size_y, size_z);
     }
 
-    if (search_box_needed && autobox_ligand.length() == 0)
-        {
+    if (search_box_needed && autobox_ligand.length() == 0)  {
       options_occurrence oo = get_occurrence(vm, search_area);
       if (!oo.all)
       {
@@ -1460,12 +1460,9 @@ Thank you!\n";
         throw usage_error("Search space dimensions should be positive");
     }
 
-    if (flex_dist > 0 && flexdist_ligand.size() == 0)
-        {
+    if (flex_dist > 0 && flexdist_ligand.size() == 0) {
       throw usage_error("Must specify flexdist_ligand with flex_dist");
     }
-
-    FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, log);
 
     log << cite_message << '\n';
 
@@ -1507,11 +1504,9 @@ Thank you!\n";
       t.add("num_tors_div", 5 * 0.05846 / 0.1 - 1);
     }
 
-    log << std::setw(12) << std::left << "Weights" << " Terms\n" << t
-        << "\n";
+    log << std::setw(12) << std::left << "Weights" << " Terms\n" << t << "\n";
 
-    if (usergrid_file_name.size() > 0)
-        {
+    if (usergrid_file_name.size() > 0) {
       ifile user_in(usergrid_file_name);
       fl ug_scaling_factor = 1.0;
       if (user_grid_lambda != -1.0)
@@ -1536,8 +1531,7 @@ Thank you!\n";
       }
     }
 
-    if (vm.count("cpu") == 0)
-        {
+    if (vm.count("cpu") == 0) {
       settings.cpu = boost::thread::hardware_concurrency();
       if (settings.verbosity > 1)
           {
@@ -1551,12 +1545,7 @@ Thank you!\n";
     if (settings.cpu < 1)
       settings.cpu = 1;
     if (settings.verbosity > 1 && settings.exhaustiveness < settings.cpu)
-      log
-          << "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
-
-    //dkoes - parse in receptor once
-    MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens,
-        log);
+      log  << "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
 
     //dkoes, hoist precalculation outside of loop
     weighted_terms wt(&t, t.weights());
