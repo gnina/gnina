@@ -59,7 +59,7 @@ MolGridder::MolGridder(const gridoptions& opt) :
 void MolGridder::setReceptor(const model& m) {
   const atomv& atoms = m.get_fixed_atoms();
   vector<float3> coords; coords.reserve(atoms.size());
-  vector<unsigned> t; t.reserve(atoms.size());
+  vector<int> t; t.reserve(atoms.size());
   vector<float> r; t.reserve(atoms.size());
 
   for (unsigned i = 0, n = atoms.size(); i < n; i++) {
@@ -80,7 +80,7 @@ void MolGridder::setLigand(const model& m) {
   assert(atoms.size() == m.coordinates().size());
 
   vector<float3> coords; coords.reserve(atoms.size());
-  vector<unsigned> t; t.reserve(atoms.size());
+  vector<int> t; t.reserve(atoms.size());
   vector<float> r; t.reserve(atoms.size());
 
   for (unsigned i = 0, n = atoms.size(); i < n; i++) {

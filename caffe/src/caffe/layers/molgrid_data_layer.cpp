@@ -625,6 +625,7 @@ inline double unit_sample(rng_t *rng)
 static void apply_jitter(CoordinateSet& c, float jitter) {
   if(jitter <= 0) return;
   rng_t* rng = caffe_rng();
+  bool ongpu = c.coord.ongpu();
   c.coord.tocpu();
   for (unsigned i = 0, n = c.size(); i < n; i++) {
     for(unsigned j = 0; j < 3; j++) {
@@ -632,6 +633,7 @@ static void apply_jitter(CoordinateSet& c, float jitter) {
       c.coord[i][j] += diff;
     }
   }
+  if(ongpu) c.coord.togpu();
 }
 
 //take a mol info, which includes receptor and ligand atoms
@@ -672,6 +674,14 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
   CoordinateSet& rec_atoms = minfo.transformed_rec_atoms;
   CoordinateSet& lig_atoms = minfo.transformed_lig_atoms;
 
+  //make sure memory is in gpu mode
+  if(gpu) {
+    minfo.orig_lig_atoms.coord.togpu();
+    minfo.orig_rec_atoms.coord.togpu();
+    lig_atoms.coord.togpu();
+    rec_atoms.coord.togpu();
+  }
+
   if(!minfo.transform.is_identity()) { //transformed are initialized to orig
     minfo.transform.forward(minfo.orig_rec_atoms, rec_atoms);
     minfo.transform.forward(minfo.orig_lig_atoms, lig_atoms);
@@ -694,15 +704,11 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
     peturb.set_from_quaternion(qinv);
   }
 
-  Example ex;
-  if(ignore_ligand) {
-    ex.sets = {rec_atoms};
-  } else {
-    ex.sets = {rec_atoms, lig_atoms};
-  }
-  CoordinateSet atoms = ex.merge_coordinates(); //properly offsets types
-  //apply jitter
-  apply_jitter(atoms, jitter);
+  //CoordinateSet atoms = ex.merge_coordinates(); //properly offsets types
+  //apply jitter - this is on cpu and so inefficient, if it every turns out to be useful,
+  //incorporate it into transform
+  apply_jitter(rec_atoms, jitter);
+  apply_jitter(lig_atoms, jitter);
 
   //set the grid center
   if(fixcenter) {
@@ -717,14 +723,29 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
   unsigned dim = gmaker.get_grid_dims().x;
   if (gpu)
   {
-    Grid<Dtype, 4, true> outgrid(data, numchannels, dim, dim, dim);
-    gmaker.forward(minfo.grid_center, atoms, outgrid);
+    Grid<Dtype, 4, true> recgrid(data, numReceptorTypes, dim, dim, dim);
+    gmaker.forward(minfo.grid_center, rec_atoms, recgrid);
+    if(!ignore_ligand) {
+      Grid<Dtype, 4, true> liggrid(data+numgridpoints*numReceptorTypes, numchannels-numReceptorTypes, dim, dim, dim);
+      gmaker.forward(minfo.grid_center, lig_atoms, liggrid);
+    }
   }
   else
   {
-    Grid<Dtype, 4, false> outgrid(data, numchannels, dim,dim,dim);
-    gmaker.forward(minfo.grid_center, atoms, outgrid);
+    Grid<Dtype, 4, false> recgrid(data, numReceptorTypes, dim, dim, dim);
+    gmaker.forward(minfo.grid_center, rec_atoms, recgrid);
+    if(!ignore_ligand) {
+      Grid<Dtype, 4, false> liggrid(data+numgridpoints*numReceptorTypes, numchannels-numReceptorTypes, dim, dim, dim);
+      gmaker.forward(minfo.grid_center, lig_atoms, liggrid);
+    }
   }
+
+  //center currently is cpu only, so avoid some data movement by reverting to cpu
+  //todo: gpu-ize center
+  if (param.use_rec_center())
+    minfo.orig_rec_atoms.coord.reset_tocpu();
+  else
+    minfo.orig_lig_atoms.coord.reset_tocpu();
 }
 
 
