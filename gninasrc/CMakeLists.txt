@@ -3,7 +3,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Boost REQUIRED COMPONENTS program_options system iostreams timer
     thread serialization filesystem date_time regex unit_test_framework)
-find_package(RDKit REQUIRED)
 find_package(OpenBabel2 REQUIRED)
 find_package(OpenMP)
 
@@ -28,7 +27,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 include_directories(${Boost_INCLUDE_DIRS}) 
 include_directories(${CUDA_INCLUDE_DIRS})
 include_directories(${OPENBABEL2_INCLUDE_DIR})
-include_directories(${RDKIT_INCLUDE_DIR})
 # need to use eigen 3.2 until CUDA fixes are released
 include_directories(../Eigen)
 
@@ -75,27 +73,23 @@ lib/weighted_terms.cpp
 lib/conf.cpp
 lib/conf_gpu.cu
 lib/gpucode.cu
-lib/gridmaker.cu
 lib/model.cu
 lib/non_cache_gpu.cu
 lib/precalculate_gpu.cu
 lib/tree_gpu.cu
-gninavis/cnn_visualization.cpp
 )
 
 #test
 file(GLOB TEST_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/*.c*)
 
-set(rdkit_lib_line "-lFileParsers -lSmilesParse -lDepictor -lGraphMol -lRDGeometryLib -lRDGeneral -lSubstructMatch -lSubgraphs -lDataStructs")
-
 add_library(gninalib ${LIB_SRCS})
 set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES})
+target_link_libraries(gninalib caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
 # MESSAGE(STATUS "variable is: " ${NVCC_FLAGS_EXTRA})
 
 add_library(gninalib_static STATIC ${LIB_SRCS})
 set_target_properties(gninalib_static PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib_static caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES})
+target_link_libraries(gninalib_static caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
 
 install(TARGETS gninalib gninalib_static DESTINATION lib)
 
@@ -105,8 +99,7 @@ include_directories(${LIBMOLGRID_INCLUDE})
 
 # compile in libgnina - there are enough dependencies to deal with
 add_executable(gnina main/main.cpp ${LIB_SRCS})
-target_link_libraries(gnina caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES}
-    ${RDKIT_LIBRARIES} ${LIBMOLGRID_LIBRARY})
+target_link_libraries(gnina caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${LIBMOLGRID_LIBRARY})
 
 add_subdirectory(gninaserver)
 
@@ -114,18 +107,28 @@ add_executable(fromgnina fromgnina/fromgnina.cpp lib/CommandLine2/CommandLine.cp
 target_link_libraries(fromgnina  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} )
 
 add_executable(gninagrid gninagrid/gninagrid.cpp gninagrid/molgridder.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(gninagrid  caffe gninalib ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_LIBRARIES})
+target_link_libraries(gninagrid  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${CUDA_LIBRARIES})
 
 add_executable(gninatyper gninatyper/gninatyper.cpp lib/CommandLine2/CommandLine.cpp ${LIB_SRCS})
-target_link_libraries(gninatyper  caffe ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES}  ${LIBMOLGRID_LIBRARY})
+target_link_libraries(gninatyper  caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${LIBMOLGRID_LIBRARY})
 
 add_executable(tognina tognina/tognina.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
 
-add_executable(gninavis gninavis/gninavis.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES})
+install(TARGETS gnina gninagrid gninatyper fromgnina tognina RUNTIME DESTINATION bin)
 
-install(TARGETS gnina gninagrid gninatyper fromgnina tognina gninavis RUNTIME DESTINATION bin)
+# gninavis uses rdkit, which can be a pain to install, so gracefully deal with its absence 
+find_package(RDKit)
+
+if(RDKIT_FOUND)
+    include_directories(${RDKIT_INCLUDE_DIR})
+    set(rdkit_lib_line "-lFileParsers -lSmilesParse -lDepictor -lGraphMol -lRDGeometryLib -lRDGeneral -lSubstructMatch -lSubgraphs -lDataStructs")
+    
+    add_executable(gninavis gninavis/gninavis.cpp lib/CommandLine2/CommandLine.cpp gninavis/cnn_visualization.cpp gninavis/cnn_visualization.hpp)
+    target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES})
+    install(TARGETS gninavis RUNTIME DESTINATION bin)
+    
+else()
+    message(WARNING "RDKIT not found.  gninavis will NOT be built.")
+endif()
+

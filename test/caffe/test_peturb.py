@@ -17,6 +17,7 @@ import caffe
 import numpy as np
 import os,sys,re
 from pyquaternion import Quaternion as qt
+import molgrid
 
 #these might change - are also assuming the first channel is aliphatic carbon
 LIGCHANNELS = 19
@@ -155,15 +156,14 @@ def test_perturb():
     if not isclose(np.square(euler-peturb[-3:]).sum(),0):
         print("Euler angles don't match quaternion")
         sys.exit(1)
-        
-        
+                
     #first make sure different peturbations genreate different grids
     if np.square(data-data2).sum() < 0.25:
         print("Not generating distinct grids with peturbation")
         sys.exit(1)
         
     
-    newcoords = np.array(map(q.inverse.rotate,coords-center))+center-trans
+    newcoords = np.array(list(map(q.inverse.rotate,coords-center)))+center-trans
     
     setmol(newcoords)
     plainnet = caffe.Net('peturbfiles/plain.model',caffe.TEST)
@@ -172,7 +172,7 @@ def test_perturb():
     
     diff = np.square(plaindata - data).sum()
     if not isclose(diff,0):
-        print("Peturbed ligand not as expected %f"%diff)
+        print(("Peturbed ligand not as expected %f"%diff))
         sys.exit(1)
     
     
@@ -185,10 +185,11 @@ def test_perturb():
     data = res['data'][0].copy()
     l =net.layers[0]
     mt = l.get_moltransform(0)
-    trans = -mt.center.x(),-mt.center.y(),-mt.center.z()
-    q = qt(mt.Q.a,mt.Q.b,mt.Q.c,mt.Q.d)
+    trans = np.array(tuple(mt.get_translation())) 
+    Q = mt.get_quaternion()
+    q = qt(Q.R_component_1(),Q.R_component_2(),Q.R_component_3(),Q.R_component_4())
     #rotating
-    newcoords = np.array(map(q.rotate,coords-center))+center+trans
+    newcoords = np.array(list(map(q.rotate,coords-center)))+center+trans
     
     setmol(newcoords)
     setmol(newcoords,'rec.xyz')
@@ -198,7 +199,7 @@ def test_perturb():
     
     diff = np.square(plaindata - data).sum()
     if not isclose(diff,0):
-        print("Rotated ligand not as expected %f"%diff)
+        print(("Rotated ligand not as expected %f"%diff))
         sys.exit(1)
         
     #check peturbed ligand with rotation
@@ -213,15 +214,16 @@ def test_perturb():
     
     l =net.layers[0]
     mt = l.get_moltransform(0)
-    Rtrans = -mt.center.x(),-mt.center.y(),-mt.center.z()
-    Rq = qt(mt.Q.a,mt.Q.b,mt.Q.c,mt.Q.d)
+    Rtrans = np.array(tuple(mt.get_translation())) 
+    Q = mt.get_quaternion()
+    Rq = qt(Q.R_component_1(),Q.R_component_2(),Q.R_component_3(),Q.R_component_4())    
     
     #first randomize, then peturb
     center = np.mean(coords,axis=0)
-    newreccoords = np.array(map(Rq.rotate,coords-center))+center+Rtrans
-    newligcoords = np.array(map(Rq.rotate,coords-center))+center+Rtrans
+    newreccoords = np.array(list(map(Rq.rotate,coords-center)))+center+Rtrans
+    newligcoords = np.array(list(map(Rq.rotate,coords-center)))+center+Rtrans
     center = np.mean(newligcoords,axis=0)
-    newligcoords = np.array(map(q.inverse.rotate,newligcoords-center))+center-trans
+    newligcoords = np.array(list(map(q.inverse.rotate,newligcoords-center)))+center-trans
     
     setmol(newligcoords)
     setmol(newreccoords,'rec.xyz')
@@ -231,7 +233,7 @@ def test_perturb():
     
     diff = np.square(plaindata - data).sum()
     if not isclose(diff,0):
-        print("Rotated and peturbed ligand not as expected %f"%diff)
+        print(("Rotated and peturbed ligand not as expected %f"%diff))
         sys.exit(1)
     
     #don't fix to the origin - result will be centered around ligand, and then translated
@@ -245,19 +247,20 @@ def test_perturb():
     trans = peturb[:3]
     q = qt(peturb[3:7])  
     
-    l =net.layers[0]
+    l = net.layers[0]
     mt = l.get_moltransform(0)
-    Rtrans = -mt.center.x(),-mt.center.y(),-mt.center.z()
-    Rq = qt(mt.Q.a,mt.Q.b,mt.Q.c,mt.Q.d)
+    Rtrans = np.array(tuple(mt.get_translation())) 
+    Q = mt.get_quaternion()
+    Rq = qt(Q.R_component_1(),Q.R_component_2(),Q.R_component_3(),Q.R_component_4())    
     
     center = np.mean(coords,axis=0)
     
     #first rotate
-    newligcoords = np.array(map(Rq.rotate,coords-center))+center+Rtrans
-    newreccoords = np.array(map(Rq.rotate,coords-center))+center+Rtrans
+    newligcoords = np.array(list(map(Rq.rotate,coords-center)))+center+Rtrans
+    newreccoords = np.array(list(map(Rq.rotate,coords-center)))+center+Rtrans
     center = np.mean(newligcoords,axis=0)
     #then peturb, using updated ligand center
-    newligcoords = np.array(map(q.inverse.rotate,newligcoords-center))+center-trans
+    newligcoords = np.array(list(map(q.inverse.rotate,newligcoords-center)))+center-trans
     
     setmol(newligcoords)
     setmol(newreccoords,'rec.xyz')
@@ -267,6 +270,6 @@ def test_perturb():
     
     diff = np.square(plaindata - data).sum()
     if not isclose(diff,0):
-        print("Fully Rotated and peturbed ligand not as expected %f"%diff)
+        print(("Fully Rotated and peturbed ligand not as expected %f"%diff))
         sys.exit(1)
 

@@ -123,9 +123,8 @@ CNNScorer::CNNScorer(const cnn_options& opts)
 
 //returns gradient scores per atom
 //assumes necessary pass (backward or backward_relevance) has already been done
-std::unordered_map<string, float> CNNScorer::get_scores_per_atom(bool receptor,
-    bool relevance) {
-  std::unordered_map<string, float3> gradient;
+std::unordered_map<string, float> CNNScorer::get_gradient_norm_per_atom(bool receptor) {
+  std::unordered_map<string, gfloat3> gradient;
 
   if (receptor) {
     mgrid->getReceptorAtoms(0, atoms);
@@ -138,20 +137,29 @@ std::unordered_map<string, float> CNNScorer::get_scores_per_atom(bool receptor,
   std::unordered_map<string, float> scores;
 
   for (std::pair<string, gfloat3> pair : gradient) {
-    if (relevance) {
-      scores[pair.first] = pair.second.x;
-    } else //gradient
-    {
       //sqrt(x^2 + y^2 + z^2)
       float x = pair.second.x;
       float y = pair.second.y;
       float z = pair.second.z;
       scores[pair.first] = sqrt(x * x + y * y + z * z);
-    }
-
   }
 
   return scores;
+}
+
+//assumes backwards_relevance has been called
+std::unordered_map<string, float> CNNScorer::get_relevance_per_atom(bool receptor) {
+  std::unordered_map<string, float> relevance;
+
+  if (receptor) {
+    mgrid->getReceptorAtoms(0, atoms);
+    mgrid->getMappedReceptorRelevance(0, relevance);
+  } else {
+    mgrid->getLigandAtoms(0, atoms);
+    mgrid->getMappedLigandRelevance(0, relevance);
+  }
+
+  return relevance;
 }
 
 void CNNScorer::lrp(const model& m, const string& layer_to_ignore,
@@ -163,7 +171,8 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore,
   mgrid->setReceptor(m.get_fixed_atoms());
   mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
   mgrid->setLabels(1); //for now pose optimization only
-  mgrid->enableAtomGradients();
+  mgrid->enableLigandGradients();
+  mgrid->enableReceptorGradients();
 
   net->Forward();
   if (zero_values) {
@@ -188,7 +197,8 @@ void CNNScorer::gradient_setup(const model& m, const string& recname,
   mgrid->setReceptor(m.get_fixed_atoms());
   mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
   mgrid->setLabels(1); //for now pose optimization only
-  mgrid->enableAtomGradients();
+  mgrid->enableLigandGradients();
+  mgrid->enableReceptorGradients();
 
   net->Forward();
 
@@ -222,7 +232,7 @@ bool CNNScorer::has_affinity() const {
 //call this before minimizing a ligand
 void CNNScorer::set_center_from_model(model& m) {
 
-  if (isfinite(current_center[0]) && !cnnopts.move_minimize_frame && !cnnopts.fix_receptor) {
+  if (isfinite(current_center[0]) && cnnopts.moving_receptor()) {
     //when we recenter, we need to apply any receptor transformations to the ligand (inversed)
     //unless, of course, the center hasn't been set yet
     vec center = get_center();
@@ -240,8 +250,9 @@ void CNNScorer::set_center_from_model(model& m) {
     qt rot = m.rec_conf.orientation.inverse();
 
     VINA_FOR_IN(i, coords) {
-      gfloat3 pt = rot.transform(coords[i][0], coords[i][1], coords[i][2], c,
-          trans);
+      gfloat3 coord = gfloat3(coords[i][0], coords[i][1], coords[i][2]) + trans-c; //inverse transformation
+      gfloat3 pt = rot.rotate(coord.x,coord.y,coord.z);
+      pt += c;
       coords[i][0] = pt.x;
       coords[i][1] = pt.y;
       coords[i][2] = pt.z;
@@ -297,23 +308,29 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
   if (!isnan(cnnopts.cnn_center[0])) {
-    mgrid->setCenter(cnnopts.cnn_center);
-    current_center = mgrid->getCenter();
-  } else {
-    mgrid->setCenter(current_center);      
+    mgrid->setGridCenter(cnnopts.cnn_center);
+    current_center = mgrid->getGridCenter();
+  } else if(!isnan(current_center[0])){
+    mgrid->setGridCenter(current_center);
   }
 
   mgrid->setLigand(m.get_movable_atoms(), m.coordinates(), cnnopts.move_minimize_frame);
-  if (!cnnopts.move_minimize_frame) {
+  if (!cnnopts.move_minimize_frame) { //if fixed_receptor, rec_conf will be identify
     mgrid->setReceptor(m.get_fixed_atoms(), m.rec_conf.position, m.rec_conf.orientation);
   } else { //don't move receptor
     mgrid->setReceptor(m.get_fixed_atoms());
-    current_center = mgrid->getCenter(); //has been recalculated from ligand
+    current_center = mgrid->getGridCenter(); //has been recalculated from ligand
     if(cnnopts.verbose) {
       std::cout << "current center: ";
       current_center.print(std::cout);
       std::cout << "\n";
     }
+  }
+
+  if(compute_gradient || cnnopts.outputxyz) {
+    mgrid->enableLigandGradients();
+    if(cnnopts.moving_receptor() || cnnopts.outputxyz)
+      mgrid->enableReceptorGradients();
   }
 
   m.clear_minus_forces();
@@ -339,12 +356,12 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
     }
 
     if (compute_gradient || cnnopts.outputxyz) {
-      mgrid->enableAtomGradients();
+
       net->Backward();
       mgrid->getLigandGradient(0, gradient);
-      mgrid->getReceptorTransformationGradient(0, m.rec_change.position,
-          m.rec_change.orientation);
-      m.add_minus_forces(gradient); //TODO divide by cnt?
+      m.add_minus_forces(gradient);
+      if(cnnopts.moving_receptor())
+        mgrid->getReceptorTransformationGradient(0, m.rec_change.position, m.rec_change.orientation);
     }
     cnt++;
   }
@@ -543,8 +560,8 @@ void CNNScorer::outputDX(const string& prefix, double scale, bool lrp,
 
 }
 
-void CNNScorer::outputXYZ(const string& base, const vector<float4>& atoms,
-    const vector<short>& whichGrid, const vector<float3>& gradient) {
+void CNNScorer::outputXYZ(const string& base, const vector<gfloat3>& atoms,
+    const vector<short>& whichGrid, const vector<gfloat3>& gradient) {
   const char* sym[] = { "C", "C", "C", "C", "Ca", "Fe", "Mg", "N", "N", "N",
       "N", "O", "O", "P", "S", "Zn", "C", "C", "C", "C", "Br", "Cl", "F", "N",
       "N", "N", "N", "O", "O", "O", "P", "S", "S", "I" };

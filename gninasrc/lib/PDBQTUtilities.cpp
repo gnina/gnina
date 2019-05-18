@@ -34,6 +34,10 @@
 #include <cassert>
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
+#include <openbabel/mol.h>
+#include <openbabel/atom.h>
+#include <openbabel/bond.h>
+
 using namespace std;
 using namespace OpenBabel;
 
@@ -271,7 +275,7 @@ void createSDFContext(OBMol& mol, vector<OBAtom*> atoms, sdfcontext& sc) {
   for (OBMolBondIter bitr(mol); bitr; ++bitr) {
     unsigned first = idx2atompos[bitr->GetBeginAtomIdx()];
     unsigned second = idx2atompos[bitr->GetEndAtomIdx()];
-    sc.bonds.push_back(sdfcontext::sdfbond(first, second, bitr->GetBO()));
+    sc.bonds.push_back(sdfcontext::sdfbond(first, second, bitr->GetBondOrder()));
   }
 }
 

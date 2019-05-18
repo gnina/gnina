@@ -491,8 +491,8 @@ struct model {
     }
 
     void clear_minus_forces();
-    void add_minus_forces(const std::vector<float3>& forces);
-    void sub_minus_forces(const std::vector<float3>& forces);
+    void add_minus_forces(const std::vector<gfloat3>& forces);
+    void sub_minus_forces(const std::vector<gfloat3>& forces);
     void scale_minus_forces(fl scale);
     void round_minus_forces();
 

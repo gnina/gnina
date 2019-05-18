@@ -905,11 +905,6 @@ message MolGridDataParameter {
   optional bool check = 10 [default = false];
   //path to prepend to receptor/ligand files
   optional string root_folder = 12 [default = ""];
-  //if > 0, then apply this many distinct axial rotations (max 24)
-  //to the data to expand the input set; note that with balanced the rotation
-  //will be cycled with every pass through the actives, even if not all decoys have
-  //been sampled
-  optional uint32 rotate = 13 [default = 0];
   //randomly rotate each input file; a new rotation is applied each epoch
   optional bool random_rotation = 14 [default = false];
   //randomly translate each input by up this amount; new translation applied each epoch
@@ -922,10 +917,10 @@ message MolGridDataParameter {
   optional string ligmap = 18 [default = ""];
   //ignore files, input will be provided programmatically, e.g. through gnina
   optional bool inmemory = 19 [default = false];
-  //specify radius multiple
-  optional float radius_multiple = 20 [default = 1.5];
+  //deprecated option - not used
+  optional float radius_multiple = 20 [default = 0];
   //if nonzero, set all atomic radii to this value
-  optional float fixed_radius = 21 [default = 0.0];
+  optional float fixed_radius = 21 [default = 0.0]; 
   //if true, has affinity in addition to label - order is label affinity rmd
   optional bool has_affinity = 22 [default = false];
   //if true has rmsd in addition to label - order is label affinity rmsd
@@ -956,12 +951,14 @@ message MolGridDataParameter {
   optional string mem_recmap = 46 [default = ""]; //contents of a recmap
   optional string mem_ligmap = 47 [default = ""]; //contents of a ligmap
   optional bool duplicate_poses = 48 [default = false]; //if num_poses > 1, create separate examples (with receptor) for each ligand pose
-  optional float subgrid_dim = 49 [default = 0.0]; //perform recurrence over subgrids with this dim
-  optional uint32 maxgroupsize = 50 [default = 1]; //max size of group when performing a recurrence over frame groups; 1 if there are no groups
-  optional uint32 maxchunksize = 51 [default = 1]; //max size of subsequence for BPTT
+  optional float subgrid_dim = 49 [default = 0.0]; //DEPRECATED!
+  optional uint32 max_group_size = 50 [default = 1]; //max size of group when performing a recurrence over frame groups; 1 if there are no groups
+  optional uint32 max_group_chunk_size = 51 [default = 0]; //max size of subsequence for BPTT, if zero will be set to max_group_size
   optional int32 stride = 52 [default = 0]; // Stride when selecting subsets of input for recurrence, default is same size as filter width
   optional bool use_rec_center = 53 [default = false]; //use rec to define grid center
   optional uint32 peturb_bins = 54 [default = 0]; // if > 0, output categorical labels for discretized bins instead of actual values for peturb
+  optional float gaussian_radius_multiple = 55 [default = 1.0]; //radius multiple where gaussian switches to quadratic  
+  optional float radius_scaling = 56 [default = 1.0]; //specify radius scaling factor
 }
 
 message NDimDataParameter {

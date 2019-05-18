@@ -40,7 +40,7 @@ MolGridder::MolGridder(const gridoptions& opt) :
   gmaker.set_binary(opt.binary);
 
   float3 dims = gmaker.get_grid_dims();
-  grid = MGrid4f(rectyper->num_types()+ligtyper->num_types()+usergrids.size(), dims[0], dims[1], dims[2]);
+  grid = MGrid4f(rectyper->num_types()+ligtyper->num_types()+usergrids.size(), dims.x, dims.y, dims.z);
   tee log(true);
   FlexInfo finfo(log); //dummy
   mols.create_init_model(opt.receptorfile, "", finfo, log);
@@ -58,8 +58,8 @@ MolGridder::MolGridder(const gridoptions& opt) :
 //set receptor coordinate set from model
 void MolGridder::setReceptor(const model& m) {
   const atomv& atoms = m.get_fixed_atoms();
-  vector<libmolgrid::cuda_float3> coords; coords.reserve(atoms.size());
-  vector<unsigned> t; t.reserve(atoms.size());
+  vector<float3> coords; coords.reserve(atoms.size());
+  vector<int> t; t.reserve(atoms.size());
   vector<float> r; t.reserve(atoms.size());
 
   for (unsigned i = 0, n = atoms.size(); i < n; i++) {
@@ -79,8 +79,8 @@ void MolGridder::setLigand(const model& m) {
   const atomv& atoms = m.get_movable_atoms();
   assert(atoms.size() == m.coordinates().size());
 
-  vector<libmolgrid::cuda_float3> coords; coords.reserve(atoms.size());
-  vector<unsigned> t; t.reserve(atoms.size());
+  vector<float3> coords; coords.reserve(atoms.size());
+  vector<int> t; t.reserve(atoms.size());
   vector<float> r; t.reserve(atoms.size());
 
   for (unsigned i = 0, n = atoms.size(); i < n; i++) {
@@ -166,7 +166,7 @@ void MolGridder::cpuSetGridCheck() {
 }
 
 
-void MolGridder::set_center(float3 c) {
+void MolGridder::set_center(gfloat3 c) {
   center_set = true;
   center = c;
 }

@@ -1,6 +1,8 @@
 #include "flexinfo.h"
 #include <boost/lexical_cast.hpp>
 #include <openbabel/mol.h>
+#include <openbabel/atom.h>
+#include <openbabel/bond.h>
 #include <boost/unordered_map.hpp>
 
 FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
@@ -169,7 +171,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
         //and second atom is a flexatom need to add bond
         if(a == bond.GetBeginAtom() && flexmap.count(bond.GetEndAtom()))
         {
-          flex.AddBond(flexmap[a],flexmap[bond.GetEndAtom()],bond.GetBO(), bond.GetFlags());
+          flex.AddBond(flexmap[a],flexmap[bond.GetEndAtom()],bond.GetBondOrder(), bond.GetFlags());
         }
       }
     }

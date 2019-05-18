@@ -571,13 +571,12 @@ struct atom_type_inverse_power : public atom_type_base {
       fl c = boost::lexical_cast<fl>(match[5]);
       if (i == 1)
         return new atom_type_inverse_power<1>(n1, n2, cap, c);
-      else
+      else {
         if (i == 2)
           return new atom_type_inverse_power<2>(n1, n2, cap, c);
         else
           throw scoring_function_error(desc, "Invalid exponent: 1 or 2 only");
-
-      return NULL;
+      }
     }
 };
 

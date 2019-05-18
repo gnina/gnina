@@ -12,7 +12,7 @@ list(APPEND Caffe_INCLUDE_DIRS PRIVATE ${PROJECT_BINARY_DIR}/include)
 find_package(Boost 1.54 REQUIRED COMPONENTS system thread filesystem iostreams timer)
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 list(APPEND Caffe_INCLUDE_DIRS PUBLIC ${Boost_INCLUDE_DIRS})
-list(APPEND Caffe_LINKER_LIBS ${Boost_LIBRARIES} python2.7)
+list(APPEND Caffe_LINKER_LIBS ${Boost_LIBRARIES} )
 
 # find and setup openbabel
 find_package(OpenBabel2 REQUIRED)
@@ -168,24 +168,8 @@ if(BUILD_python)
     set(version ${PYTHONLIBS_VERSION_STRING})
 
     STRING( REGEX REPLACE "[^0-9]" "" boost_py_version ${version} )
-    find_package(Boost 1.46 COMPONENTS "python-py${boost_py_version}")
-    set(Boost_PYTHON_FOUND ${Boost_PYTHON-PY${boost_py_version}_FOUND})
-
-    while(NOT "${version}" STREQUAL "" AND NOT Boost_PYTHON_FOUND)
-      STRING( REGEX REPLACE "([0-9.]+).[0-9]+" "\\1" version ${version} )
-
-      STRING( REGEX REPLACE "[^0-9]" "" boost_py_version ${version} )
-      find_package(Boost 1.46 COMPONENTS "python-py${boost_py_version}")
-      set(Boost_PYTHON_FOUND ${Boost_PYTHON-PY${boost_py_version}_FOUND})
-
-      STRING( REGEX MATCHALL "([0-9.]+).[0-9]+" has_more_version ${version} )
-      if("${has_more_version}" STREQUAL "")
-        break()
-      endif()
-    endwhile()
-    if(NOT Boost_PYTHON_FOUND)
-      find_package(Boost 1.46 COMPONENTS python)
-    endif()
+    find_package(Boost 1.58 COMPONENTS "python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}")
+    set(Boost_PYTHON_FOUND "Boost_PYTHON-PY${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}_FOUND")
   else()
     # disable Python 3 search
     find_package(PythonInterp 2.7)
@@ -193,6 +177,7 @@ if(BUILD_python)
     find_package(NumPy 1.7.1)
     find_package(Boost 1.46 COMPONENTS python)
   endif()
+   
   if(PYTHONLIBS_FOUND AND NUMPY_FOUND AND Boost_PYTHON_FOUND)
     set(HAVE_PYTHON TRUE)
     if(BUILD_python_layer)

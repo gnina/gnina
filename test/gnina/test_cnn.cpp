@@ -3,7 +3,6 @@
 #include "test_utils.h"
 #include "test_cnn.h"
 #include "atom_constants.h"
-#include "gridmaker.h"
 #include "cnn_scorer.h"
 #include <cuda_runtime.h>
 #include "quaternion.h"
@@ -19,7 +18,11 @@
 
 extern parsed_args p_args;
 
+using namespace caffe;
+using namespace std;
+
 void test_set_atom_gradients() {
+  Caffe::set_mode(Caffe::GPU);
   // randomly generate gridpoint gradients, accumulate for atoms, and then compare
   p_args.log << "CNN Set Atom Gradients Test \n";
   p_args.log << "Using random seed: " << p_args.seed << '\n';
@@ -36,68 +39,44 @@ void test_set_atom_gradients() {
   model m;
   CNNScorer cnn_scorer(cnnopts);
   typedef CNNScorer::Dtype Dtype;
-  unsigned ntypes = smt::NumTypes;
-  caffe::GenericMolGridDataLayer<Dtype>* mgrid = 
-    dynamic_cast<caffe::GenericMolGridDataLayer<Dtype>*>(cnn_scorer.mgrid);
+  MolGridDataLayer<Dtype>* mgrid = cnn_scorer.get_mgrid();
   assert(mgrid);
-  mgrid->batch_transform.resize(1);
-  mgrid->batch_transform[0] =
-      caffe::BaseMolGridDataLayer<Dtype, GridMaker>::mol_transform();
-  caffe::BaseMolGridDataLayer<Dtype, GridMaker>::mol_transform& transform =
-      mgrid->batch_transform[0];
-  vec center(0, 0, 0);
-  for (size_t i = 0; i < mol_atoms.size(); ++i) {
-    atom_params& ainfo = mol_atoms[i];
-    transform.mol.atoms.push_back(
-        make_float4(ainfo.coords.x, ainfo.coords.y, ainfo.coords.z,
-            xs_radius(mol_types[i])));
-    transform.mol.whichGrid.push_back(mol_types[i]);
-    transform.mol.gradient.push_back(make_float3(0, 0, 0));
-    center += vec(ainfo.coords.x, ainfo.coords.y, ainfo.coords.z);
-  }
-  center /= mol_atoms.size();
-  transform.center = center;
-  transform.Q = quaternion(1, 0, 0, 0);
-  caffe::Caffe::set_random_seed(p_args.seed);
-  transform.set_random_quaternion(caffe::caffe_rng());
-  //initialize gmaker
-  GridMaker gmaker;
-  bool spherize = false;
-  double dim = round(mgrid->dimension / mgrid->resolution) + 1;
-  gmaker.initialize(mgrid->resolution, mgrid->dimension, mgrid->radiusmultiple,
-      mgrid->binary, spherize);
-  gmaker.setCenter(center[0], center[1], center[2]);
+  int ntypes = mgrid->getNumChannels();
+  int dim = mgrid->getGridDims().x;
+  mgrid->enableLigandGradients();
 
+  set_cnn_grids(mgrid, mol_atoms, mol_types);
+
+  vector<gfloat3> cpugrad, gpugrad;
   //randomly intialize gridpoint gradients
-  std::vector<float> diff((ntypes) * dim * dim * dim);
-  generate(begin(diff), end(diff), gen);
+  Blob<Dtype> diff({1,ntypes,dim,dim,dim});
+  Dtype* diffcpu = diff.mutable_cpu_diff();
+  generate(diffcpu, diffcpu+diff.count(), gen);
+
+  vector<Blob<Dtype>*> top{&diff};
+  vector<Blob<Dtype>*> bottom; //not used
 
   //set up and calculate CPU atom gradients
-  caffe::BaseMolGridDataLayer<Dtype, GridMaker>::Grids grids(&diff[0], 
-          boost::extents[ntypes][dim][dim][dim]);
-  caffe::BaseMolGridDataLayer<Dtype, GridMaker>::mol_transform cpu_transform =
-      mgrid->batch_transform[0];
-  gmaker.setAtomGradientsCPU(cpu_transform.mol.atoms, cpu_transform.mol.whichGrid,
-          cpu_transform.Q.boost(), grids, cpu_transform.mol.gradient);
+  mgrid->backward(top, bottom, false);
+  //store
+  mgrid->getLigandGradient(0, cpugrad);
 
   //calculate GPU atom gradients
-  float* gpu_diff;
-  cudaMalloc(&gpu_diff, diff.size() * sizeof(float));
-  cudaMemcpy(gpu_diff, &diff[0], diff.size() * sizeof(float),
-      cudaMemcpyHostToDevice);
-  mgrid->setAtomGradientsGPU(gmaker, gpu_diff, 1);
+  mgrid->backward(top, bottom, true);
+  mgrid->getLigandGradient(0, gpugrad);
 
+  p_args.log << "NUMATOMS " << mol_atoms.size() << "\n";
   //compare results
+  double sum = 0;
   for (size_t i = 0; i < mol_atoms.size(); ++i) {
     for (size_t j = 0; j < 3; ++j) {
-      p_args.log << "CPU " << cpu_transform.mol.gradient[i][j] << " GPU "
-          << transform.mol.gradient[i][j] << "\n";
-      BOOST_REQUIRE_SMALL(
-          cpu_transform.mol.gradient[i][j] - transform.mol.gradient[i][j],
-          (float )0.01);
+      p_args.log << i <<"," << j << "  CPU " << cpugrad[i][j] << " GPU " << gpugrad[i][j] << "  " << mol_types[i] << " " << mol_atoms[i].coords << "\n";
+      BOOST_REQUIRE_SMALL(cpugrad[i][j] - gpugrad[i][j], (float )0.01);
+      sum += cpugrad[i].x+cpugrad[i].y+cpugrad[i].z;
     }
   }
-  cudaFree(gpu_diff);
+
+  BOOST_REQUIRE_NE(sum, 0); //make sure something was actually calculated
 }
 
 void test_vanilla_grids() {
@@ -106,16 +85,11 @@ void test_vanilla_grids() {
   p_args.log << "Using random seed: " << p_args.seed << '\n';
   p_args.log << "Iteration " << p_args.iter_count << '\n';
   std::mt19937 engine(p_args.seed);
+  Caffe::set_mode(Caffe::GPU);
 
   //honestly just trying to replicate libmolgrid test to check whether it fails
   //here too, so being less stringent than I was for the other tests in terms
   //of randomization
-  float resolution = 0.5;
-  float dimension = 23.5;
-  float radiusmultiple = 1.5;
-  unsigned dim = std::round(dimension / resolution) + 1; //number of grid points on a side
-  unsigned ntypes = smt::NumTypes;
-  unsigned batch_size = 1;
   std::vector<atom_params> mol_atoms;
   std::vector<smt> mol_types;
   make_mol(mol_atoms, mol_types, engine);
@@ -124,69 +98,49 @@ void test_vanilla_grids() {
   cnnopts.cnn_scoring = true;
   model m;
   CNNScorer cnn_scorer(cnnopts);
-  caffe::GenericMolGridDataLayer<float>* mgrid = 
-    dynamic_cast<caffe::GenericMolGridDataLayer<float>*>(cnn_scorer.mgrid);
+  typedef CNNScorer::Dtype Dtype;
+
+  MolGridDataLayer<Dtype>* mgrid = cnn_scorer.get_mgrid();
   assert(mgrid);
-  caffe::MolGridDataParameter* param = mgrid->layer_param_.mutable_molgrid_data_param();
-  param->set_dimension(dimension);
-  param->set_resolution(resolution);
-  mgrid->batch_transform.resize(1);
+  int ntypes = mgrid->getNumChannels();
+  int dim = mgrid->getGridDims().x;
 
-  unsigned example_size = ntypes * dim * dim * dim;
-  unsigned gsize = batch_size * example_size;
-  mgrid->batch_transform[0] =
-      caffe::BaseMolGridDataLayer<float, GridMaker>::mol_transform();
-  caffe::BaseMolGridDataLayer<float, GridMaker>::mol_transform& transform =
-      mgrid->batch_transform[0];
-  vec center(0, 0, 0);
-  for (size_t i = 0; i < mol_atoms.size(); ++i) {
-    atom_params& ainfo = mol_atoms[i];
-    transform.mol.atoms.push_back(
-        make_float4(ainfo.coords.x, ainfo.coords.y, ainfo.coords.z,
-            xs_radius(mol_types[i])));
-    transform.mol.whichGrid.push_back(mol_types[i]);
+  set_cnn_grids(mgrid, mol_atoms, mol_types);
+
+  vector<Blob<Dtype> > topblobs(mgrid->ExactNumTopBlobs());
+  topblobs[0].Reshape({1,ntypes,dim,dim,dim});
+
+  vector<Blob<Dtype>*> bottom;
+  vector<Blob<Dtype>*> top;
+
+  top.push_back(&topblobs[0]);
+  for(unsigned i = 1; i < mgrid->ExactNumTopBlobs(); i++) {
+    topblobs[i].Reshape({1,1});
+    top.push_back(&topblobs[i]);
   }
-  transform.center = center;
-  transform.Q = quaternion(1, 0, 0, 0);
-  caffe::Caffe::set_random_seed(p_args.seed);
-  transform.set_random_quaternion(caffe::caffe_rng());
-
-  GridMaker gmaker;
-  gmaker.initialize(resolution, dimension, radiusmultiple);
-  gmaker.setCenter(center[0], center[1], center[2]);
 
   //get CPU grid
-  std::vector<float> cout(gsize, 0);
-  gmaker.setAtomsCPU(transform.mol.atoms, transform.mol.whichGrid, transform.Q.boost(), 
-      &cout[0], ntypes);
-  //get GPU grid
-  unsigned natoms = transform.mol.atoms.size();
-  mgrid->allocateGPUMem(natoms);
-  CUDA_CHECK(cudaMemcpy(mgrid->gpu_gridatoms, &transform.mol.atoms[0], 
-        natoms*sizeof(float4), cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(mgrid->gpu_gridwhich, &transform.mol.whichGrid[0], 
-        natoms*sizeof(short), cudaMemcpyHostToDevice));
-  float* gpu_grids;
-  CUDA_CHECK(cudaMalloc(&gpu_grids, sizeof(float) * gsize));
-  gmaker.setAtomsGPU(natoms, mgrid->gpu_gridatoms, 
-      mgrid->gpu_gridwhich, transform.Q.boost(), ntypes, gpu_grids);
-  std::vector<float> gout(gsize, 0);
-  CUDA_CHECK(cudaMemcpy(&gout[0], gpu_grids, sizeof(float)*gsize, cudaMemcpyDeviceToHost));
-  //compare
-  boost::multi_array_ref<float, 4> cgrids(&cout[0], boost::extents[ntypes][dim][dim][dim]);
-  boost::multi_array_ref<float, 4> ggrids(&gout[0], boost::extents[ntypes][dim][dim][dim]);
-  for (size_t type = 0; type < ntypes; ++type) {
-    for (size_t i = 0; i < dim; ++i) {
-      for (size_t j = 0; j < dim; ++j) {
-        for (size_t k = 0; k < dim; ++k) {
-          BOOST_REQUIRE_SMALL(cgrids[type][i][j][k] - ggrids[type][i][j][k], TOL);
-          p_args.log << "CPU " << cgrids[type][i][j][k] << " GPU " << ggrids[type][i][j][k] << "\n";
-        }
-      }
-    }
+  mgrid->forward(bottom, top, false);
+  //store cpu result
+  vector<Dtype> cpuout(topblobs[0].count(), 0);
+  copy(topblobs[0].cpu_data(),topblobs[0].cpu_data()+topblobs[0].count(), cpuout.begin());
+  topblobs[0].Clear();
+  //get gpu grid
+  mgrid->forward(bottom, top, true);
+
+  vector<Dtype> gpuout(topblobs[0].count(), 0);
+  copy(topblobs[0].cpu_data(),topblobs[0].cpu_data()+topblobs[0].count(), gpuout.begin());
+
+  BOOST_REQUIRE_EQUAL(cpuout.size(),gpuout.size());
+  BOOST_REQUIRE_EQUAL(gpuout.size(), dim*dim*dim*ntypes);
+  for(unsigned i = 0, n = gpuout.size(); i < n; i++) {
+    BOOST_REQUIRE_SMALL(cpuout[i]-gpuout[i], TOL);
+    p_args.log << "CPU " << cpuout[i] << " GPU " << gpuout[i] << "\n";
   }
 }
 
+//TODO TODO TODO: reimplement this functionality
+#if 0
 void test_subcube_grids() {
   //randomly generate mol, randomly choose a subgrid size, generate full grid
   //and subcube grid, check that the grid points match
@@ -467,3 +421,4 @@ void test_strided_cube_datagetter() {
     BOOST_CHECK_EQUAL(failed, false);
   }
 }
+#endif

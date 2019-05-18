@@ -26,18 +26,18 @@ struct GPUSplineInfo {
  pack it in with a relevant piece of 1-dimensional data. NB: without
  __align__, the compiler can't do this coalescing. */
 struct __align__(sizeof(float4)) atom_params {
-    float3 coords;
+    gfloat3 coords;
     float charge;
 };
 
 struct __align__(sizeof(float4)) force_energy_tup {
-    float3 minus_force;
+    gfloat3 minus_force;
     float energy;
 
     __host__ __device__ force_energy_tup(void)
         : minus_force(0, 0, 0), energy(0) {
     }
-    __host__ __device__ force_energy_tup(float3 f, float e)
+    __host__ __device__ force_energy_tup(gfloat3 f, float e)
         : minus_force(f), energy(e) {
     }
     ;
@@ -73,8 +73,8 @@ struct GPUNonCacheInfo {
     float slope;
 
     //device pointers for grid data
-    float3 gridends; //max range of grid
-    float3 gridbegins; //min range of grid
+    gfloat3 gridends; //max range of grid
+    gfloat3 gridbegins; //min range of grid
 
     //device pointers for ligand data
     force_energy_tup *lig_penalties;
@@ -90,7 +90,8 @@ struct GPUNonCacheInfo {
 };
 
 struct GPUCacheInfo {
-    float3 gridends;float3 gridbegins;
+    gfloat3 gridends;
+    gfloat3 gridbegins;
     fl slope;
     float cutoff_sq;
     unsigned num_movable_atoms;

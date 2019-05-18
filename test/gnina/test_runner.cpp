@@ -66,6 +66,7 @@ BOOST_AUTO_TEST_CASE(vanilla_grids) {
   boost_loop_test(&test_vanilla_grids);
 }
 
+#if 0
 BOOST_AUTO_TEST_CASE(subcube_grids) {
   boost_loop_test(&test_subcube_grids);
 }
@@ -73,6 +74,7 @@ BOOST_AUTO_TEST_CASE(subcube_grids) {
 BOOST_AUTO_TEST_CASE(strided_cube_datagetter) {
   boost_loop_test(&test_strided_cube_datagetter);
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()
 
@@ -181,7 +183,7 @@ int main(int argc, char* argv[]) {
     po::store(
         po::command_line_parser(argc, argv).options(desc).style(
             po::command_line_style::default_style
-                ^ po::command_line_style::allow_guessing).positional(positional).run(),
+                ^ po::command_line_style::allow_guessing).positional(positional).allow_unregistered().run(),
         vm);
     notify(vm);
   } catch (po::error& e) {

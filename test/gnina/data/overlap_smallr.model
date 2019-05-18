@@ -1,0 +1,111 @@
+#force_backward: true
+layer {
+  name: "data"
+  type: "MolGridData"
+  top: "data"
+  top: "label"
+  molgrid_data_param {
+    source: "dummy.types"
+    batch_size: 1
+    dimension: 23.5
+    resolution: 0.5
+    radius_scaling: 0.5
+    balanced: false
+    shuffle: false
+    ligmap: "data/singletype.map"
+    recmap: "data/singletype.map"
+  }
+}
+
+layer {
+  name: "slicer"
+  type: "Slice"
+  bottom: "data"
+  top: "rec"
+  top: "lig"
+  slice_param {
+    axis: 1
+    slice_point: 1
+  }
+}
+
+layer {
+  name: "product"
+  type: "Eltwise"
+  bottom: "rec"
+  bottom: "lig"
+  top: "product"
+  eltwise_param {
+    operation: PROD
+  }
+}
+layer {
+  name: "ave"
+  type: "Pooling"
+  bottom: "product"
+  top: "ave"
+  pooling_param {
+    pool: AVE
+    global_pooling: true
+  }
+}
+
+layer {
+  name: "avereshape"
+  type: "Reshape"
+  bottom: "ave"
+  top: "ave1"
+  reshape_param {
+   shape: {
+    dim: 1
+    dim: 1
+    }
+  }
+}
+
+layer {
+  name: "zero"
+  type: "Power"
+  bottom: "label"
+  top: "zero"
+  power_param {
+    power: 1
+    scale: 0
+    shift: 0
+  }
+}
+
+layer {
+  name: "zeroreshape"
+  type: "Reshape"
+  bottom: "zero"
+  top: "zero1"
+  reshape_param {
+   shape: {
+    dim: 1
+    dim: 1
+    }
+  }
+}
+
+#need to make predictions for both negative and positive class
+layer {
+  name: "output"
+  type: "Concat"
+  bottom: "zero1"
+  bottom: "ave1"
+  top: "output"
+  concat_param {
+    axis: 1
+  }
+}
+layer {
+  name: "loss"
+  type: "MultinomialLogisticLoss"
+  bottom: "output"
+  bottom: "label"
+  top: "loss"
+}
+
+
+
