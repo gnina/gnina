@@ -6,7 +6,11 @@ struct atom_params;
 struct force_energy_tup;
 
 struct grid_gpu {
-    float3 m_init;float3 m_range;float3 m_factor;float3 m_dim_fl_minus_1;float3 m_factor_inv;
+    gfloat3 m_init;
+    gfloat3 m_range;
+    gfloat3 m_factor;
+    gfloat3 m_dim_fl_minus_1;
+    gfloat3 m_factor_inv;
     array3d_gpu<fl, fl> data;
     array3d_gpu<fl, fl> chargedata; //needs to be multiplied by atom charge
 

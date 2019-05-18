@@ -15,7 +15,6 @@
 #include "boost/thread/mutex.hpp"
 #include <boost/thread/recursive_mutex.hpp>
 
-#include "nngridder.h"
 #include "model.h"
 #include "cnn_data.h"
 
@@ -24,7 +23,9 @@
  */
 
 class CNNScorer {
+  public:
     typedef float Dtype;
+  private:
     caffe::shared_ptr<caffe::Net<Dtype> > net;
     caffe::MolGridDataLayer<Dtype> *mgrid;
     caffe::MolGridDataParameter *mgridparam;
@@ -33,9 +34,9 @@ class CNNScorer {
     caffe::shared_ptr<boost::recursive_mutex> mtx; //todo, enable parallel scoring
 
     //scratch vectors to avoid memory reallocation
-    vector<float3> gradient;
-    vector<float4> atoms;
-    vector<short> channels;
+    std::vector<gfloat3> gradient;
+    std::vector<gfloat3> atoms;
+    std::vector<short> channels;
     vec current_center; //center last time set_center was called, if min frame is moving, the mgrid center will be changing
 
   public:
@@ -56,17 +57,17 @@ class CNNScorer {
     float score(model& m); //score only - no gradient
     float score(model& m, bool compute_gradient, float& affinity, float& loss);
 
-    void outputDX(const string& prefix, double scale = 1.0, bool relevance =
-        false, string layer_to_ignore = "", bool zero_values = false);
-    void outputXYZ(const string& base, const vector<float4>& atoms,
-        const vector<short>& whichGrid, const vector<float3>& gradient);
-    std::unordered_map<string, float> get_scores_per_atom(bool receptor,
-        bool relevance = false);
+    void outputDX(const std::string& prefix, double scale = 1.0, bool relevance =
+        false, std::string layer_to_ignore = "", bool zero_values = false);
+    void outputXYZ(const std::string& base, const std::vector<gfloat3>& atoms,
+        const std::vector<short>& whichGrid, const std::vector<gfloat3>& gradient);
+    std::unordered_map<std::string, float> get_gradient_norm_per_atom(bool receptor);
+    std::unordered_map<std::string, float> get_relevance_per_atom(bool receptor);
 
-    void lrp(const model& m, const string& layer_to_ignore = "",
+    void lrp(const model& m, const std::string& layer_to_ignore = "",
         bool zero_values = false);
-    void gradient_setup(const model& m, const string& recname,
-        const string& ligname, const string& layer_to_ignore = "");
+    void gradient_setup(const model& m, const std::string& recname,
+        const std::string& ligname, const std::string& layer_to_ignore = "");
 
     //readjust center
     void set_center_from_model(model &m);
@@ -85,15 +86,10 @@ class CNNScorer {
       return mgrid->getResolution();
     }
 
+    caffe::MolGridDataLayer<Dtype> * get_mgrid() { return mgrid; }
   protected:
     void get_net_output(Dtype& score, Dtype& aff, Dtype& loss);
     void check_gradient();
-    friend void test_set_atom_gradients();
-    friend void test_vanilla_grids();
-    friend void test_subcube_grids();
-    template <typename atomT, typename MGridT, typename GridMakerT> 
-      friend void set_cnn_grids(MGridT* mgrid, GridMakerT& gmaker, 
-          std::vector<atom_params>& mol_atoms, std::vector<atomT>& mol_types);
 };
 
 #endif /* SRC_LIB_CNN_SCORER_H_ */

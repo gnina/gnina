@@ -326,7 +326,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 158 (last added: trig_param)
+// LayerParameter next available layer-specific ID: 159 (last added: trig_param)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -389,6 +389,7 @@ message LayerParameter {
   optional ConvolutionParameter convolution_param = 106;
   optional CropParameter crop_param = 144;
   optional DataParameter data_param = 107;
+  optional DiscretizeParameter discretize_param = 158;
   optional DropoutParameter dropout_param = 108;
   optional DummyDataParameter dummy_data_param = 109;
   optional EltwiseParameter eltwise_param = 110;
@@ -794,6 +795,14 @@ message ExpParameter {
   optional float shift = 3 [default = 0.0];
 }
 
+// Message that stores parameters used by EmbedLayer
+message DiscretizeParameter {
+  optional uint32 bins = 1; // Number of bins, matches dimension of the output
+  optional float min_value = 2; //minimum value, anything less gets put in lowest bin
+  optional float max_value = 3; //maximum value, anything greater gets put in highest bin
+
+}
+
 /// Message that stores parameters used by FlattenLayer
 message FlattenParameter {
   // The first axis to flatten: all preceding axes are retained in the output.
@@ -896,11 +905,6 @@ message MolGridDataParameter {
   optional bool check = 10 [default = false];
   //path to prepend to receptor/ligand files
   optional string root_folder = 12 [default = ""];
-  //if > 0, then apply this many distinct axial rotations (max 24)
-  //to the data to expand the input set; note that with balanced the rotation
-  //will be cycled with every pass through the actives, even if not all decoys have
-  //been sampled
-  optional uint32 rotate = 13 [default = 0];
   //randomly rotate each input file; a new rotation is applied each epoch
   optional bool random_rotation = 14 [default = false];
   //randomly translate each input by up this amount; new translation applied each epoch
@@ -913,10 +917,10 @@ message MolGridDataParameter {
   optional string ligmap = 18 [default = ""];
   //ignore files, input will be provided programmatically, e.g. through gnina
   optional bool inmemory = 19 [default = false];
-  //specify radius multiple
-  optional float radius_multiple = 20 [default = 1.5];
+  //deprecated option - not used
+  optional float radius_multiple = 20 [default = 0];
   //if nonzero, set all atomic radii to this value
-  optional float fixed_radius = 21 [default = 0.0];
+  optional float fixed_radius = 21 [default = 0.0]; 
   //if true, has affinity in addition to label - order is label affinity rmd
   optional bool has_affinity = 22 [default = false];
   //if true has rmsd in addition to label - order is label affinity rmsd
@@ -941,21 +945,20 @@ message MolGridDataParameter {
   optional float jitter = 37 [default = 0]; //random perturbations of atom cartesian coordinates by +/- jitter amount
   optional uint32 num_poses = 38 [default = 1]; //number of ligands specified on line, all will be generated as examples with receptor resulting in batch_size*num_poses examples
   optional bool use_covalent_radius = 39 [default = false]; //use covalent instead of xs_radius
-  optional float affinity_reweight_mean = 40 [default = 0.0]; //mean of normal distribution to use to reweight affinities, 0 for no reweighting
-  optional float affinity_reweight_std = 41 [default = 0.0]; //std of normal distribution to use to reweight affinities
-  optional float affinity_reweight_stdcut = 42 [default = 0.0]; // cutoff for outlier treatment (limit at most this much out)
   optional bool fix_center_to_origin = 43 [default = false]; // center box at origin
   optional string recmolcache = 44 [default = ""]; //single binary file of combined receptor gninatypes, relative to root_folder
   optional string ligmolcache = 45 [default = ""]; //single binary file of combined ligand gninatypes, relative to root_folder
   optional string mem_recmap = 46 [default = ""]; //contents of a recmap
   optional string mem_ligmap = 47 [default = ""]; //contents of a ligmap
   optional bool duplicate_poses = 48 [default = false]; //if num_poses > 1, create separate examples (with receptor) for each ligand pose
-  optional float subgrid_dim = 49 [default = 0.0]; //perform recurrence over subgrids with this dim
-  optional uint32 maxgroupsize = 50 [default = 1]; //max size of group when performing a recurrence over frame groups; 0 if there are no groups
-  optional uint32 maxchunksize = 51 [default = 1]; //max size of subsequence for BPTT
+  optional float subgrid_dim = 49 [default = 0.0]; //DEPRECATED!
+  optional uint32 max_group_size = 50 [default = 1]; //max size of group when performing a recurrence over frame groups; 1 if there are no groups
+  optional uint32 max_group_chunk_size = 51 [default = 0]; //max size of subsequence for BPTT, if zero will be set to max_group_size
   optional int32 stride = 52 [default = 0]; // Stride when selecting subsets of input for recurrence, default is same size as filter width
   optional bool use_rec_center = 53 [default = false]; //use rec to define grid center
   optional uint32 peturb_bins = 54 [default = 0]; // if > 0, output categorical labels for discretized bins instead of actual values for peturb
+  optional float gaussian_radius_multiple = 55 [default = 1.0]; //radius multiple where gaussian switches to quadratic  
+  optional float radius_scaling = 56 [default = 1.0]; //specify radius scaling factor
 }
 
 message NDimDataParameter {

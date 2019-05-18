@@ -120,7 +120,9 @@ struct charge_independent : public distance_additive {
     }
     virtual fl eval(smt t1, smt t2, fl r) const {
       VINA_CHECK(false);
-      return 0;
+      #ifndef NDEBUG
+        return 0;
+      #endif
     }
     virtual ~charge_independent() {
     }
@@ -314,7 +316,6 @@ struct terms {
         break;
       default:
         VINA_CHECK(false);
-        break;
       }
     }
 

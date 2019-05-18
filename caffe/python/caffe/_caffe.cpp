@@ -103,28 +103,6 @@ void toggle_ave_to_max(Net<Dtype>& net) {
   }
 }
 
-std::vector<std::string> get_rec_types(Layer<Dtype>& layer) {
-  MolGridDataLayer<Dtype>* mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(&layer);
-  assert(mgrid);
-  return mgrid->getRecTypes();
-}
-
-std::vector<std::string> get_lig_types(Layer<Dtype>& layer) {
-  MolGridDataLayer<Dtype>* mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(&layer);
-  assert(mgrid);
-  return mgrid->getLigTypes();
-}
-
-std::vector<float> get_grid_center(Layer<Dtype>& layer, unsigned mol_idx) {
-  MolGridDataLayer<Dtype>* mgrid = dynamic_cast<MolGridDataLayer<Dtype>*>(&layer);
-  assert(mgrid);
-  vec center = mgrid->getCenter(mol_idx);
-  std::vector<float> vcenter;
-  for (int i=0; i<3; ++i) 
-    vcenter.push_back(center[i]);
-  return vcenter;
-}
-
 
 void InitLog() {
   ::google::InitGoogleLogging("");
@@ -451,6 +429,19 @@ bp::object NCCL_New_Uid() {
 }
 #endif
 
+//register a vector of the specified type using name, but only if it isn't already registered
+template <typename T>
+void register_vector_type(const char *name) {
+  bp::type_info info = bp::type_id< std::vector<T> >();
+  const bp::converter::registration* reg = bp::converter::registry::query(info);
+  if (reg == NULL || (*reg).m_to_python == NULL) {
+    //register the type
+    bp::class_<std::vector<T> >(name)
+        .def(bp::vector_indexing_suite<std::vector<T> >());
+  }
+}
+
+
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(SolveOverloads, Solve, 0, 1);
 
 BOOST_PYTHON_MODULE(_caffe) {
@@ -479,9 +470,6 @@ BOOST_PYTHON_MODULE(_caffe) {
   bp::def("layer_type_list", &LayerRegistry<Dtype>::LayerTypeList);
   bp::def("toggle_max_to_ave", &toggle_max_to_ave);
   bp::def("toggle_ave_to_max", &toggle_ave_to_max);
-  bp::def("get_grid_center", &get_grid_center);
-  bp::def("get_rec_types", &get_rec_types);
-  bp::def("get_lig_types", &get_lig_types);
 
   bp::class_<Net<Dtype>, shared_ptr<Net<Dtype> >, boost::noncopyable >("Net",
     bp::no_init)
@@ -573,12 +561,16 @@ BOOST_PYTHON_MODULE(_caffe) {
 
   bp::class_<MolGridDataLayer<Dtype>, bp::bases<Layer<Dtype> >,
     shared_ptr<MolGridDataLayer<Dtype> >, boost::noncopyable>("MolGridDataLayer", bp::no_init)
-    .def("get_moltransform", &MolGridDataLayer<Dtype>::getMolTransform);
+    .def("get_mol_info", +[](const MolGridDataLayer<Dtype>& self, int i) { return self.getMolInfo(i);})
+    .def("get_moltransform", +[](const MolGridDataLayer<Dtype>& self, int i) { return self.getMolInfo(i).transform;})
+    .def("get_grid_center", +[](MolGridDataLayer<Dtype>& self) { vec c = self.getGridCenter(); return std::vector<float>{c[0],c[1],c[2]};})
+    .def("get_rec_types", &MolGridDataLayer<Dtype>::getRecTypes)
+    .def("get_lig_types", &MolGridDataLayer<Dtype>::getLigTypes);
+
   BP_REGISTER_SHARED_PTR_TO_PYTHON(MolGridDataLayer<Dtype>);
 
-  bp::class_<MolGridDataLayer<Dtype>::mol_transform>("mol_transform")
-      .def_readonly("center",&MolGridDataLayer<Dtype>::mol_transform::center)
-      .def_readonly("Q",&MolGridDataLayer<Dtype>::mol_transform::Q);
+  bp::class_<MolGridDataLayer<Dtype>::mol_info>("mol_info")
+      .def_readonly("transform",&MolGridDataLayer<Dtype>::mol_info::transform);
 
   bp::class_<vec>("vec")
       .def("x",&vec::x)
@@ -651,16 +643,15 @@ BOOST_PYTHON_MODULE(_caffe) {
     .def(bp::vector_indexing_suite<vector<Blob<Dtype>*>, true>());
   bp::class_<vector<shared_ptr<Layer<Dtype> > > >("LayerVec")
     .def(bp::vector_indexing_suite<vector<shared_ptr<Layer<Dtype> > >, true>());
-  bp::class_<vector<string> >("StringVec")
-    .def(bp::vector_indexing_suite<vector<string> >());
-  bp::class_<vector<int> >("IntVec")
-    .def(bp::vector_indexing_suite<vector<int> >());
-  bp::class_<vector<Dtype> >("DtypeVec")
-    .def(bp::vector_indexing_suite<vector<Dtype> >());
+
+  register_vector_type<string>("StringVec");
+  register_vector_type<int>("IntVec");
+  register_vector_type<float>("FloatVec");
+  register_vector_type<double>("DoubleVec");
+  register_vector_type<bool>("BoolVec");
+
   bp::class_<vector<shared_ptr<Net<Dtype> > > >("NetVec")
     .def(bp::vector_indexing_suite<vector<shared_ptr<Net<Dtype> > >, true>());
-  bp::class_<vector<bool> >("BoolVec")
-    .def(bp::vector_indexing_suite<vector<bool> >());
 
   bp::class_<NCCL<Dtype>, shared_ptr<NCCL<Dtype> >,
     boost::noncopyable>("NCCL",

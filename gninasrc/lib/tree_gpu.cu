@@ -25,7 +25,7 @@ __host__    __device__ gfloat4 operator*(const gpu_mat &m, const gfloat4&_v) {
       m.vecs[0][2] * v[0] + m.vecs[1][2] * v[1] + m.vecs[2][2] * v[2], 0);
 }
 
-__host__    __device__ gfloat4 operator*(const gpu_mat &m, const float3&v) {
+__host__    __device__ gfloat4 operator*(const gpu_mat &m, const gfloat3&v) {
   return gfloat4(
       m.vecs[0][0] * v[0] + m.vecs[1][0] * v[1] + m.vecs[2][0] * v[2],
       m.vecs[0][1] * v[0] + m.vecs[1][1] * v[1] + m.vecs[2][1] * v[2],
