@@ -600,15 +600,15 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const Example& ex,
   }
 
   CHECK_LT(pose, ex.sets.size()-1) << "Incorrect pose index";  //pose index doesn't include rec
-  minfo.setReceptor(ex.sets[0]);
+  minfo.setReceptor(ex.sets[0], gpu);
 
   if (doall) { //first ligand pose already set, add others as discrete channels
     CHECK_EQ(pose,0)<< "Invalid pose specifier (internal error)";
     //merge non-receptor poses
-    minfo.setLigand(ex.merge_coordinates(1));
+    minfo.setLigand(ex.merge_coordinates(1), gpu);
   } else {
     //normal single ligand case
-    minfo.setLigand(ex.sets[pose+1]);
+    minfo.setLigand(ex.sets[pose+1], gpu);
   }
 
   set_grid_minfo(data, minfo, peturb, gpu, keeptransform);
@@ -674,18 +674,10 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
   CoordinateSet& rec_atoms = minfo.transformed_rec_atoms;
   CoordinateSet& lig_atoms = minfo.transformed_lig_atoms;
 
-  //make sure memory is in gpu mode
-  if(gpu) {
-    minfo.orig_lig_atoms.coord.togpu();
-    minfo.orig_rec_atoms.coord.togpu();
-    lig_atoms.coord.togpu();
-    rec_atoms.coord.togpu();
-  }
-
   if(!minfo.transform.is_identity()) { //transformed are initialized to orig
-    minfo.transform.forward(minfo.orig_rec_atoms, rec_atoms);
-    minfo.transform.forward(minfo.orig_lig_atoms, lig_atoms);
-  }
+    minfo.transform.forward(rec_atoms, rec_atoms);
+    minfo.transform.forward(lig_atoms, lig_atoms);
+  } 
 
   if (ligpeturb) { //apply ligand specific peturbation
     Transform P(lig_atoms.center(), ligpeturb_translate, ligpeturb_rotate);
@@ -740,12 +732,6 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
     }
   }
 
-  //center currently is cpu only, so avoid some data movement by reverting to cpu
-  //todo: gpu-ize center
-  if (param.use_rec_center())
-    minfo.orig_rec_atoms.coord.reset_tocpu();
-  else
-    minfo.orig_lig_atoms.coord.reset_tocpu();
 }
 
 
