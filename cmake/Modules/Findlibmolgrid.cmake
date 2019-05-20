@@ -24,7 +24,7 @@ else()
       /usr/local/include
       )
     if(LIBMOLGRID_INCLUDE_DIR)
-       message(STATUS "Found RDKit include files at ${LIBMOLGRID_INCLUDE_DIR}")
+       message(STATUS "Found libmolgrid include files at ${LIBMOLGRID_INCLUDE_DIR}")
     endif()
   endif()
 
