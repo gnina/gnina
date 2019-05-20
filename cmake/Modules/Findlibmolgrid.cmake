@@ -20,6 +20,7 @@ else()
     find_path(LIBMOLGRID_INCLUDE_DIR libmolgrid/libmolgrid.h
     PATHS
       $ENV{LIBMOLGRID_INCLUDE_DIR}
+      ${CMAKE_INSTALL_PREFIX}/include
       /usr/include/
       /usr/local/include
       )
@@ -32,6 +33,7 @@ else()
       find_library(LIBMOLGRID_LIBRARY NAMES molgrid
       PATHS
         $ENV{LIBMOLGRID_LIBRARY_DIR}
+        ${CMAKE_INSTALL_PREFIX}/lib
         /usr/lib
         /usr/local/lib
         $ENV{LD_LIBRARY_PATH}
