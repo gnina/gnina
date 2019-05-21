@@ -33,6 +33,8 @@ if(NOT LIBMOLGRID_LIBRARY)
   )
   set(LIBMOLGRID_INCLUDE_DIR ${EXTERNAL_INSTALL_LOCATION}/include)
   set(LIBMOLGRID_LIBRARY ${EXTERNAL_INSTALL_LOCATION}/lib/libmolgrid.so)
+else()
+  add_custom_target(libmolgrid)	
 endif()
 
 include_directories(${LIBMOLGRID_INCLUDE_DIR})
@@ -49,6 +51,7 @@ set(CMAKE_CUDA_STANDARD 14)
 
 
 add_subdirectory(caffe)
+add_dependencies(caffe libmolgrid)
 
 include_directories(${CMAKE_BINARY_DIR}/caffe/include/)
 include_directories(caffe/include)
