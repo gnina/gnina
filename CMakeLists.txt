@@ -33,6 +33,8 @@ if(NOT LIBMOLGRID_LIBRARY)
   )
   set(LIBMOLGRID_INCLUDE_DIR ${EXTERNAL_INSTALL_LOCATION}/include)
   set(LIBMOLGRID_LIBRARY ${EXTERNAL_INSTALL_LOCATION}/lib/libmolgrid.so)
+else()
+  add_custom_target(libmolgrid)	
 endif()
 
 include_directories(${LIBMOLGRID_INCLUDE_DIR})
