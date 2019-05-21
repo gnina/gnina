@@ -49,6 +49,7 @@ set(CMAKE_CUDA_STANDARD 14)
 
 
 add_subdirectory(caffe)
+add_dependencies(caffe libmolgrid)
 
 include_directories(${CMAKE_BINARY_DIR}/caffe/include/)
 include_directories(caffe/include)
