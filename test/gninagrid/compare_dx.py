@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 '''Compare two dx files'''
 
@@ -19,6 +19,6 @@ for i in range(7):
 #triplets of floats
 for l1 in f1:
     l2 = f2.readline()
-    vals1 = map(float,l1.split())
-    vals2 = map(float,l2.split())
+    vals1 = list(map(float,l1.split()))
+    vals2 = list(map(float,l2.split()))
     assert vals1 == approx(vals2,abs=1e-4)
