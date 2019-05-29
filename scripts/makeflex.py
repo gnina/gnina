@@ -39,7 +39,7 @@ for ci in range(flex.numCoordsets()):
             if (chain,resnum) in flexres and aname not in backbone:
                 
                 if  atype != "H":
-                    resatoms = flex[chain].select('resnum %d'%resnum)
+                    resatoms = flex[chain].select('resnum %d and not name H'%resnum)
                     w = which[(chain,resnum)]
                     which[(chain,resnum)] += 1 #update to next index
                     atom = resatoms[w] #this is the atom to replace this line with
