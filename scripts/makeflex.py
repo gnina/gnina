@@ -35,9 +35,10 @@ for ci in range(flex.numCoordsets()):
             chain = line[21]
             resnum = int(line[22:26].strip())
             aname = line[12:16].strip()
+            atype = line[76:].strip()
             if (chain,resnum) in flexres and aname not in backbone:
                 
-                if  not aname.startswith('H'):
+                if  atype != "H":
                     resatoms = flex[chain].select('resnum %d'%resnum)
                     w = which[(chain,resnum)]
                     which[(chain,resnum)] += 1 #update to next index
