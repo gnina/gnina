@@ -44,7 +44,7 @@ for ci in range(flex.numCoordsets()):
                     which[(chain,resnum)] += 1 #update to next index
                     atom = resatoms[w] #this is the atom to replace this line with
                     c = atom.getCoordsets(ci)
-                    line = PDBLINE%(line[:13],atom.getName(),line[17:30],c[0],c[1],c[2])
+                    line = PDBLINE%(line[:13],aname,line[17:30],c[0],c[1],c[2])
                 else:
                     line = ''
         
