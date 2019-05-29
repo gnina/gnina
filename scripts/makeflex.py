@@ -69,6 +69,10 @@ for ci in range(flex.numCoordsets()):
                     )
                 else:
                     line = ""
+        elif line.startswith("END"):
+            line = ""
 
         out.write(line)
-out.write("ENDMDL\n")
+    
+    out.write("ENDMDL\n")
+out.write("END\n")
