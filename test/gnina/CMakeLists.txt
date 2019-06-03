@@ -24,5 +24,5 @@ if(OpenMP_CXX_FOUND)
     target_link_libraries(gninacheck OpenMP::OpenMP_CXX)
 endif()
 
-add_test(NAME gninacheck COMMAND gninacheck --n_iters=1)
+add_test(NAME gninacheck COMMAND gninacheck -- --n_iters 1)
 add_test(NAME gninamin COMMAND ./test_min.py $<TARGET_FILE:gnina> WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
