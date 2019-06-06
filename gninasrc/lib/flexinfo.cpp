@@ -58,6 +58,8 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
 
   flexpdbqt.clear();
 
+  std::cerr << ">>> EXTRACT FLEXERS: OLD" << std::endl;
+
   //identify residues close to distligand here
   Box b;
   b.add_ligand_box(distligand);
