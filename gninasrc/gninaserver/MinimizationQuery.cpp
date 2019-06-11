@@ -72,7 +72,7 @@ bool MinimizationQuery::finished() {
 //execute the query - set up the minimization threads and communication queue
 void MinimizationQuery::execute(bool block/*=false*/) {
   assert(minimizationSpawner == NULL);
-  minimizationSpawner = new thread(thread_startMinimization, this);
+  minimizationSpawner = new boost::thread(thread_startMinimization, this);
 
   if (block) minimizationSpawner->join();
 }
@@ -85,7 +85,7 @@ void MinimizationQuery::thread_startMinimization(MinimizationQuery *query) {
   timer::cpu_timer mintime;
 
   for (unsigned t = 0; t < query->minparm.nthreads; t++) {
-    minthreads.add_thread(new thread(thread_minimize, query));
+    minthreads.add_thread(new boost::thread(thread_minimize, query));
   }
   minthreads.join_all(); //block till all done
 
