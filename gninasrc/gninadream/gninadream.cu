@@ -61,3 +61,26 @@ void do_gpu_l2sq(const float* optgrid, const float* screengrid, float* scoregrid
   unsigned nblocks = block_multiple < CUDA_NUM_BLOCKS ? block_multiple : CUDA_NUM_BLOCKS;
   gpu_l2sq<<<nblocks, CUDA_NUM_THREADS>>>(optgrid, screengrid, scoregrid, gsize);
 }
+
+__global__
+void gpu_mult(const float* optgrid, const float* screengrid, float* scoregrid,
+    size_t gsize) {
+  unsigned tidx = blockDim.x * blockIdx.x + threadIdx.x;
+  unsigned nthreads = blockDim.x * gridDim.x;
+  // optimized grids
+  float sum = 0.;
+  for (size_t k=tidx; k<gsize; k+=nthreads) {
+    float weight = optgrid[k] * screengrid[k];
+    sum += weight;
+  }
+  float total = block_sum<float>(sum);
+  if (threadIdx.x == 0)
+    atomicAdd(scoregrid, total);
+}
+
+void do_gpu_mult(const float* optgrid, const float* screengrid, float* scoregrid,
+    size_t gsize) {
+  unsigned block_multiple = gsize / CUDA_NUM_THREADS;
+  unsigned nblocks = block_multiple < CUDA_NUM_BLOCKS ? block_multiple : CUDA_NUM_BLOCKS;
+  gpu_mult<<<nblocks, CUDA_NUM_THREADS>>>(optgrid, screengrid, scoregrid, gsize);
+}

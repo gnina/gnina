@@ -128,7 +128,7 @@ bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned num
 void do_exact_vs(LayerParameter param, caffe::Net<float>& net, 
     std::string vsfile, std::vector<std::string>& ref_ligs,
     std::vector<caffe::shared_ptr<std::ostream> >& out, 
-    bool gpu) {
+    bool gpu, std::string dist_method) {
   // use net top blob to do virtual screen against input sdf
   // produce output file for each input from which we started optimization
   // output will just be overlap score, in order of the compounds in the
@@ -208,19 +208,34 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
         const float* optgrid = net.top_vecs()[0][0]->gpu_data();
         const float* screengrid = top[0]->gpu_data();
         CUDA_CHECK_GNINA(cudaMemset(gpu_score, 0, sizeof(float)));
-        do_gpu_l2sq(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize);
+        if (std::strcmp(dist_method.c_str(), "l2"))
+          do_gpu_l2sq(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize);
+        else if(std::strcmp(dist_method.c_str(), "mult"))
+          do_gpu_mult(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize);
+        else {
+          cerr << "Unknown distance method for overlap-based virtual screen\n";
+          exit(-1);
+        }
         float scoresq;
         CUDA_CHECK_GNINA(cudaMemcpy(&scoresq, gpu_score, sizeof(float), cudaMemcpyDeviceToHost));
-        scores.push_back(std::sqrt(scoresq));
+        scores.push_back(std::sqrt(scoresq / ligGridSize));
       }
       else {
         opt_mgrid.Forward_cpu(bottom, top);
         const float* optgrid = net.top_vecs()[0][0]->cpu_data();
         const float* screengrid = top[0]->cpu_data();
         scores.push_back(float());
-        cpu_l2sq(optgrid + i * example_size + recGridSize, screengrid, &scores.back(), 
-            ligGridSize);
-        scores.back() = std::sqrt(scores.back());
+        if (std::strcmp(dist_method.c_str(), "l2"))
+          cpu_l2sq(optgrid + i * example_size + recGridSize, screengrid, &scores.back(), 
+              ligGridSize);
+        else if(std::strcmp(dist_method.c_str(), "mult"))
+          cpu_mult(optgrid + i * example_size + recGridSize, screengrid, &scores.back(), 
+              ligGridSize);
+        else {
+          cerr << "Unknown distance method for overlap-based virtual screen\n";
+          exit(-1);
+        }
+        scores.back() = std::sqrt(scores.back() / ligGridSize);
       }
     }
     // write to output
@@ -257,6 +272,7 @@ int main(int argc, char* argv[]) {
   bool allow_neg = false;
   std::string sigint_effect = "stop";
   std::string sighup_effect = "snapshot";
+  std::string dist_method = NULL;
   unsigned default_batch_size = 50;
   unsigned batch_size;
   unsigned nopts = 0;
@@ -309,7 +325,10 @@ int main(int argc, char* argv[]) {
       "ignore_ligand", bool_switch(&ignore_ligand)->default_value(false),
       "just use ligand to set center, don't use it to initialize grids")(
       "allow_negative", bool_switch(&allow_neg)->default_value(false),
-      "allow optimization to result in negative atom density");
+      "allow optimization to result in negative atom density")(
+      "distance", value<std::string>(&dist_method), 
+      "distance function for virtual screen"
+        );
 
   options_description desc;
   desc.add(inputs).add(cnn).add(output).add(options);
@@ -328,7 +347,7 @@ int main(int argc, char* argv[]) {
         << "\nCorrect usage:\n" << desc << '\n';
     return 1;
   }
-  // FLAGS_alsologtostderr = 1; // for debug unless you wanna get spammed from
+  FLAGS_alsologtostderr = 1; // for debug unless you wanna get spammed from
   // molgrid about the receptor not being set during virtual screen
 
   // treat rec + lig + grids as mutually exclusive with types (the former are
@@ -517,7 +536,8 @@ int main(int argc, char* argv[]) {
         if (ligand_names[0] == "")
           ligand_names[0] = "none";
         if (vsfile.size())
-          do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1);
+          do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1, 
+              dist_method);
       }
     }
   }
@@ -564,7 +584,8 @@ int main(int argc, char* argv[]) {
         for (auto& name : opt_names) {
           out.push_back(boost::make_shared<std::ofstream>((name + ".vsout").c_str()));
         }
-        do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1);
+        do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1, 
+            dist_method);
       }
     }
   }
@@ -720,7 +741,8 @@ int main(int argc, char* argv[]) {
     if (vsfile.size()) {
       std::vector<caffe::shared_ptr<ostream> > out;
       out.push_back(boost::make_shared<std::ofstream>((out_prefix + ".vsout").c_str()));
-      do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1);
+      do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1, 
+          dist_method);
     }
   }
   else if (solverstate.size()) {
@@ -736,7 +758,8 @@ int main(int argc, char* argv[]) {
     if (vsfile.size()) {
       std::vector<caffe::shared_ptr<ostream> > out;
       out.push_back(boost::make_shared<std::ofstream>((out_prefix + ".vsout").c_str()));
-      do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1);
+      do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1, 
+          dist_method);
     }
   }
   else {

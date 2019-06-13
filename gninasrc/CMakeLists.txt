@@ -139,11 +139,11 @@ target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES}
     ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
 
 cuda_add_executable(gninadream ${DREAM_SRCS})
-target_link_libraries(gninadream caffe gninalib ${Boost_LIBRARIES}
+target_link_libraries(gninadream caffe gninalib 
     ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA} OpenMP::OpenMP_CXX)
 
 cuda_add_executable(dreamcheck ${DREAMTEST_SRCS} gninadream/gninadream.cu)
-target_link_libraries(dreamcheck caffe gninalib ${Boost_LIBRARIES}
+target_link_libraries(dreamcheck caffe gninalib 
     ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES} ${CUDA_DEV_RT} ${CUDA} OpenMP::OpenMP_CXX)
 
 cuda_add_executable(check ${TEST_SRCS} ${LIB_SRCS})
