@@ -272,7 +272,7 @@ int main(int argc, char* argv[]) {
   bool allow_neg = false;
   std::string sigint_effect = "stop";
   std::string sighup_effect = "snapshot";
-  std::string dist_method = NULL;
+  std::string dist_method = "l2";
   unsigned default_batch_size = 50;
   unsigned batch_size;
   unsigned nopts = 0;
@@ -327,7 +327,7 @@ int main(int argc, char* argv[]) {
       "allow_negative", bool_switch(&allow_neg)->default_value(false),
       "allow optimization to result in negative atom density")(
       "distance", value<std::string>(&dist_method), 
-      "distance function for virtual screen"
+      "distance function for virtual screen, default is l2"
         );
 
   options_description desc;
