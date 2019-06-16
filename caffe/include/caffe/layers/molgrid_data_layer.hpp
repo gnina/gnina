@@ -166,8 +166,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
       //set receptor info, if gpu is true, keep transformed in gpu mem
       void setReceptor(const libmolgrid::CoordinateSet& c, bool gpu=false) {
         orig_rec_atoms.copyInto(c); //copy is probably unnecessary...
-	transformed_rec_atoms.size_like(c);
-	if(gpu) transformed_rec_atoms.togpu(false);
+        transformed_rec_atoms.size_like(c);
+        if(gpu) transformed_rec_atoms.togpu(false);
         transformed_rec_atoms.copyInto(c);
         rec_gradient = rec_gradient.resized(c.size(), 3);
         rec_gradient.fill_zero();
@@ -175,8 +175,8 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
       void setLigand(const libmolgrid::CoordinateSet& c, bool gpu=false) {
         orig_lig_atoms.copyInto(c);
-	transformed_lig_atoms.size_like(c);
-	if(gpu) transformed_lig_atoms.togpu(false);
+        transformed_lig_atoms.size_like(c);
+        if(gpu) transformed_lig_atoms.togpu(false);
         transformed_lig_atoms.copyInto(c);
         lig_gradient = lig_gradient.resized(c.size(), 3);
         lig_gradient.fill_zero();
