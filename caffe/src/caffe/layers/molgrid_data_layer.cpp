@@ -40,7 +40,7 @@ double MolGridDataLayer<Dtype>::mol_info::ligandRadius() const {
 
   double maxdsq = 0.0;
   for (unsigned i = 0, n = orig_lig_atoms.size(); i < n; i++) {
-    vec pos(orig_lig_atoms.coord[i][0],orig_lig_atoms.coord[i][1],orig_lig_atoms.coord[i][2]);
+    vec pos(orig_lig_atoms.coord_radius(i,0),orig_lig_atoms.coord_radius(i,1),orig_lig_atoms.coord_radius(i,2));
     pos -= c;
     double dsq = pos.norm_sqr();
     if (dsq > maxdsq)
@@ -132,9 +132,9 @@ void MolGridDataLayer<Dtype>::getReceptorAtoms(int batch_idx, vector<gfloat3>& a
   CoordinateSet& ratoms = batch_info[batch_idx].transformed_rec_atoms;
   for (unsigned i = 0, n = ratoms.size(); i < n; ++i) {
     gfloat3 a; //todo: change to float3
-    a.x = ratoms.coord[i][0];
-    a.y = ratoms.coord[i][1];
-    a.z = ratoms.coord[i][2];
+    a.x = ratoms.coord_radius[i][0];
+    a.y = ratoms.coord_radius[i][1];
+    a.z = ratoms.coord_radius[i][2];
     atoms.push_back(a);
   }
 }
@@ -147,9 +147,9 @@ void MolGridDataLayer<Dtype>::getLigandAtoms(int batch_idx, vector<gfloat3>& ato
   CoordinateSet& latoms = batch_info[batch_idx].transformed_lig_atoms;
   for (unsigned i = 0, n = latoms.size(); i < n; ++i) {
     gfloat3 a; //todo: change to float3
-    a.x = latoms.coord[i][0];
-    a.y = latoms.coord[i][1];
-    a.z = latoms.coord[i][2];
+    a.x = latoms.coord_radius[i][0];
+    a.y = latoms.coord_radius[i][1];
+    a.z = latoms.coord_radius[i][2];
     atoms.push_back(a);
   }
 }
@@ -213,7 +213,7 @@ void MolGridDataLayer<Dtype>::getReceptorTransformationGradient(int batch_idx, v
   for (unsigned i = 0, n = ratoms.size(); i < n; ++i)
   {
     gfloat3 g = gfloat3(grads(i,0), grads(i,1), grads(i,2));
-    gfloat3 a {ratoms.coord[i][0], ratoms.coord[i][1], ratoms.coord[i][2]};
+    gfloat3 a {ratoms.coord_radius[i][0], ratoms.coord_radius[i][1], ratoms.coord_radius[i][2]};
     vec v(g.x,g.y,g.z);
     vec pos(a.x,a.y,a.z);
 
@@ -235,7 +235,7 @@ void MolGridDataLayer<Dtype>::getMappedReceptorGradient(int batch_idx, unordered
 
   gradient.clear();
   for (unsigned i = 0, n = ratoms.size(); i < n; ++i) {
-    string xyz = xyz_to_string(ratoms.coord[i][0], ratoms.coord[i][1], ratoms.coord[i][2]);
+    string xyz = xyz_to_string(ratoms.coord_radius[i][0], ratoms.coord_radius[i][1], ratoms.coord_radius[i][2]);
     gradient[xyz] = gfloat3(grads(i,0), grads(i,1), grads(i,2));
   }
 }
@@ -252,7 +252,7 @@ void MolGridDataLayer<Dtype>::getMappedReceptorRelevance(int batch_idx, unordere
   relmap.clear();
 
   for (unsigned i = 0, n = atoms.size(); i < n; ++i) {
-    string xyz = xyz_to_string(atoms.coord[i][0], atoms.coord[i][1], atoms.coord[i][2]);
+    string xyz = xyz_to_string(atoms.coord_radius[i][0], atoms.coord_radius[i][1], atoms.coord_radius[i][2]);
     relmap[xyz] = relevance[i];
   }
 }
@@ -288,7 +288,7 @@ void MolGridDataLayer<Dtype>::getMappedLigandGradient(int batch_idx, unordered_m
 
   for (unsigned i = 0, n = latoms.size(); i < n; ++i) {
     gfloat3 g = gfloat3(grads(i,0), grads(i,1), grads(i,2));
-    string xyz = xyz_to_string(latoms.coord[i][0], latoms.coord[i][1], latoms.coord[i][2]);
+    string xyz = xyz_to_string(latoms.coord_radius[i][0], latoms.coord_radius[i][1], latoms.coord_radius[i][2]);
     gradient[xyz] = g;
   }
 }
@@ -305,7 +305,7 @@ void MolGridDataLayer<Dtype>::getMappedLigandRelevance(int batch_idx, unordered_
   relmap.clear();
 
   for (unsigned i = 0, n = latoms.size(); i < n; ++i) {
-    string xyz = xyz_to_string(latoms.coord[i][0], latoms.coord[i][1], latoms.coord[i][2]);
+    string xyz = xyz_to_string(latoms.coord_radius[i][0], latoms.coord_radius[i][1], latoms.coord_radius[i][2]);
     relmap[xyz] = relevance[i];
   }
 }
@@ -625,15 +625,15 @@ inline double unit_sample(rng_t *rng)
 static void apply_jitter(CoordinateSet& c, float jitter) {
   if(jitter <= 0) return;
   rng_t* rng = caffe_rng();
-  bool ongpu = c.coord.ongpu();
-  c.coord.tocpu();
+  bool ongpu = c.coord_radius.ongpu();
+  c.coord_radius.tocpu();
   for (unsigned i = 0, n = c.size(); i < n; i++) {
     for(unsigned j = 0; j < 3; j++) {
       float diff = jitter * (unit_sample(rng)*2.0-1.0);
-      c.coord[i][j] += diff;
+      c.coord_radius[i][j] += diff;
     }
   }
-  if(ongpu) c.coord.togpu();
+  if(ongpu) c.coord_radius.togpu();
 }
 
 //take a mol info, which includes receptor and ligand atoms

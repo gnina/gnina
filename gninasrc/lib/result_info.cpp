@@ -22,8 +22,7 @@ void result_info::setMolecule(const model& m) {
     molstr = str.str();
   }
 
-  if (m.num_flex() > 0) //save flex residue info
-      {
+  if (m.num_flex() > 0) { //save flex residue info
     std::stringstream fstr;
     m.write_flex(fstr);
     flexstr = fstr.str();

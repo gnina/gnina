@@ -5,6 +5,7 @@
 #include <openbabel/bond.h>
 #include <boost/unordered_map.hpp>
 
+using namespace std;
 FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
     const std::string& ligand, tee& l)
     : flex_dist(flexdist), log(l) {
@@ -22,12 +23,18 @@ FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
       boost::split(chres, tok, boost::is_any_of(":"));
       char chain = 0;
       int resid = 0;
-      if (chres.size() == 2) {
+      char icode = 0;
+      if (chres.size() >= 2) {
         if (chres[0].size() != 1)
           log << "WARNING: chain specification not single character "
               << chres[0] << "\n";
         chain = chres[0][0]; //if empty will be null which is what is desired
         resid = boost::lexical_cast<int>(chres[1]);
+	if (chres.size() == 3 && chres[2].size() == 1) {
+	  icode = chres[2][0];
+	} else {
+          log << "WARNING: ignoring invalid chain:resid:icode specifier " << tok << "\n";
+	}
       } else
         if (chres.size() == 1) {
           resid = boost::lexical_cast<int>(chres[0]);
@@ -37,7 +44,7 @@ FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
           continue;
         }
 
-      residues.insert(pair<char, int>(chain, resid));
+      residues.insert(tuple<char, int, char>(chain, resid, icode));
     }
   }
 
@@ -55,7 +62,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
     std::string& flexpdbqt) {
   using namespace OpenBabel;
   rigid = receptor;
-
+  rigid.SetChainsPerceived(true); //OB bug workaround
   flexpdbqt.clear();
 
   //identify residues close to distligand here
@@ -82,7 +89,8 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
         {
           char ch = residue->GetChain();
           int resid = residue->GetNum();
-          residues.insert(std::pair<char, int>(ch, resid));
+	  char icode = residue->GetInsertionCode();
+          residues.insert(std::tuple<char, int, char>(ch, resid, icode));
         }
         break;
       }
@@ -96,10 +104,9 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   OBResidue *firstres = rigid.BeginResidue(ritr);
   if (firstres) defaultch = firstres->GetChain();
 
-  std::vector<std::pair<char, int> > sortedres(residues.begin(),
-      residues.end());
+  std::vector<std::tuple<char, int, char> > sortedres(residues.begin(), residues.end());
   for (unsigned i = 0, n = sortedres.size(); i < n; i++) {
-    if (sortedres[i].first == 0) sortedres[i].first = defaultch;
+    if (get<0>(sortedres[i]) == 0) get<0>(sortedres[i]) = defaultch;
   }
 
   sort(sortedres.begin(), sortedres.end());
@@ -107,7 +114,8 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   if (sortedres.size() > 0) {
     log << "Flexible residues:";
     for (unsigned i = 0, n = sortedres.size(); i < n; i++) {
-      log << " " << sortedres[i].first << ":" << sortedres[i].second;
+      log << " " << get<0>(sortedres[i]) << ":" << get<1>(sortedres[i]);
+      if(get<2>(sortedres[i]) > 0) log << ":" << get<2>(sortedres[i]);
     }
     log << "\n";
   }
@@ -119,6 +127,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   conv.SetOutFormat("PDBQT");
   conv.AddOption("s", OBConversion::OUTOPTIONS); //flexible residue
   rigid.BeginModify();
+  int flexcnt = 0;
   //identify atoms that have to be in flexible component
   //this is the side chain and CA, but _not_ the C and N
   for (OBResidueIterator ritr = rigid.BeginResidues(), rend =
@@ -126,9 +135,10 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
     OBResidue *r = *ritr;
     char ch = r->GetChain();
     int resid = r->GetNum();
-
-    std::pair<char, int> chres(ch, resid);
+    char icode = r->GetInsertionCode();
+    std::tuple<char, int, char> chres(ch, resid, icode);
     if (residues.count(chres)) {
+      flexcnt++;
       //create a separate molecule for each flexible residue
       OBMol flex;
       std::vector<OBAtom*> flexatoms; //rigid atom ptrs that should be flexible
@@ -206,6 +216,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
           resnum = " " + resnum;
 
         char ch = newres->GetChain();
+	char icode = newres->GetInsertionCode();
         boost::split(tokens, flexres, boost::is_any_of("\n"));
         for (unsigned i = 0, n = tokens.size(); i < n; i++) {
           std::string line = tokens[i];
@@ -218,7 +229,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
             for (unsigned p = 0; p < 4; p++) {
               line[22 + p] = resnum[p];
             }
-
+            if(icode > 0) line[26] = icode;
             line[21] = ch;
           }
 
@@ -238,7 +249,9 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
       }
     } //end if residue
   }
-
+  if(flexcnt != residues.size()) {
+    log << "WARNING: Only identified " << flexcnt << " of " << residues.size() << " requested flexible residues.\n";
+  }
   rigid.EndModify();
 
 }

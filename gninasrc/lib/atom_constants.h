@@ -32,8 +32,10 @@
 #if (OB_VERSION >= OB_VERSION_CHECK(2,4,90))
 # include <openbabel/elements.h>
 # define GET_SYMBOL OpenBabel::OBElements::GetSymbol
+# define GET_HVY(a) a->GetHvyDegree()
 #else
 # define GET_SYMBOL etab.GetSymbol
+# define GET_HVY(a) a->GetHvyValence()
 #endif
 
 //SMINA unified atom types - these must represent all possible combinations of autodock and x-scale atom types
