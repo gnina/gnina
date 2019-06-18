@@ -208,9 +208,9 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
         const float* optgrid = net.top_vecs()[0][0]->gpu_data();
         const float* screengrid = top[0]->gpu_data();
         CUDA_CHECK_GNINA(cudaMemset(gpu_score, 0, sizeof(float)));
-        if (std::strcmp(dist_method.c_str(), "l2"))
+        if (!std::strcmp(dist_method.c_str(), "l2"))
           do_gpu_l2sq(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize);
-        else if(std::strcmp(dist_method.c_str(), "mult"))
+        else if(!std::strcmp(dist_method.c_str(), "mult"))
           do_gpu_mult(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize);
         else {
           cerr << "Unknown distance method for overlap-based virtual screen\n";
@@ -225,10 +225,10 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
         const float* optgrid = net.top_vecs()[0][0]->cpu_data();
         const float* screengrid = top[0]->cpu_data();
         scores.push_back(float());
-        if (std::strcmp(dist_method.c_str(), "l2"))
+        if (!std::strcmp(dist_method.c_str(), "l2"))
           cpu_l2sq(optgrid + i * example_size + recGridSize, screengrid, &scores.back(), 
               ligGridSize);
-        else if(std::strcmp(dist_method.c_str(), "mult"))
+        else if(!std::strcmp(dist_method.c_str(), "mult"))
           cpu_mult(optgrid + i * example_size + recGridSize, screengrid, &scores.back(), 
               ligGridSize);
         else {
