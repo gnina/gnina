@@ -218,7 +218,7 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
         }
         float scoresq;
         CUDA_CHECK_GNINA(cudaMemcpy(&scoresq, gpu_score, sizeof(float), cudaMemcpyDeviceToHost));
-        scores.push_back(std::sqrt(scoresq / ligGridSize));
+        scores.push_back(scoresq / ligGridSize);
       }
       else {
         opt_mgrid.Forward_cpu(bottom, top);
@@ -235,7 +235,7 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
           cerr << "Unknown distance method for overlap-based virtual screen\n";
           exit(-1);
         }
-        scores.back() = std::sqrt(scores.back() / ligGridSize);
+        scores.back() = scores.back() / ligGridSize;
       }
     }
     // write to output
