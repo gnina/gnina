@@ -304,7 +304,7 @@ int main(int argc, char* argv[]) {
 
   options_description output("Output");
   output.add_options()("vs_output,o",
-      value<std::string>(&outname), "output virtual screen compounds with grid overlap score")(
+      value<std::string>(&outname), "name for output file of virtual screen compounds with grid overlap score, default is {receptor_file}.vsout")(
       "out_prefix,p", value<std::string>(&out_prefix),
       "prefix for storing checkpoint files for optimization in progress, default is gninadream.<PID>")(
       "dump_all", bool_switch(&dump_all)->default_value(false), 
@@ -510,7 +510,10 @@ int main(int argc, char* argv[]) {
     }
     boost::filesystem::path rec(receptor_name);
     std::vector<caffe::shared_ptr<ostream> > out;
-    out.push_back(boost::make_shared<std::ofstream>((rec.stem().string() + ".vsout").c_str()));
+    if (outname.size())
+      out.push_back(boost::make_shared<std::ofstream>((outname + ".vsout").c_str()));
+    else
+      out.push_back(boost::make_shared<std::ofstream>((rec.stem().string() + ".vsout").c_str()));
     for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++) {
       const std::string ligand_name = ligand_names[l];
       boost::filesystem::path lig(ligand_name);
