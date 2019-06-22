@@ -712,6 +712,10 @@ void MolGridDataLayer<Dtype>::set_grid_minfo(Dtype *data,
   }
 
   //compute grid from atoms
+  //this would be slightly faster (10%) if we did rec and lig at the same time,
+  //BUT allocating and copying into a combined buffer is significantly 
+  //slower (50%) and for flexibility I want to keep them separate
+  //if the buffer is preallocated and we mergeInto, it's only 10% slower, but still slower
   unsigned dim = gmaker.get_grid_dims().x;
   if (gpu)
   {
