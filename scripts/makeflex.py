@@ -38,6 +38,31 @@ PDBLINE = "%s%-4s%s%8.3f%8.3f%8.3f%6.2f%6.2f          %2s\n"
 # Print flexible residues
 print("Flexres:", flexres)
 
+def atype_perception(atype, aname):
+    """
+    Automatically perceive atom type from atom name, when the atom type is not
+    included in the PDB file.
+
+    Assumpsions:
+        * Atom names start either with a number or the correct element name
+        * Atom names follow the periodic table (i.e. HG is a type of hydrogen,
+          Hg is mercury)
+    """
+
+    atype = atype.strip()
+    
+    if atype == "": # PDB file is missing atom types
+        # Remove numbers from atom name
+        atype = "".join(c for c in aname if not c.isdigit())
+        atype = atype[:2]
+
+        # Check if two-letter name is element (upper + lowercase) or custom
+        # atom name (e.g. HG is hydrogen of carbon CG, Hg is mercury)
+        if atype[-1].isupper():
+            atype = atype[0]
+
+    return atype
+
 for ci in range(flex.numCoordsets()):
     which = defaultdict(int)
     out.write("MODEL %d\n" % ci)
@@ -47,7 +72,8 @@ for ci in range(flex.numCoordsets()):
             resnum = int(line[22:26].strip())
             resname = line[17:20].strip()
             aname = line[12:16].strip()
-            atype = line[76:].strip()
+            atype = atype_perception(line[76:].strip(), aname)
+
             if (chain, resnum) in flexres and aname not in backbone:
 
                 if atype != "H":
