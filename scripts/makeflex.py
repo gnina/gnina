@@ -8,6 +8,7 @@ output the full restored receptors with the flexible residues re-inserted.
 This is a bit fragile and may break if atoms do not have standard names.
 """
 
+
 import prody, argparse
 from collections import defaultdict
 
@@ -26,7 +27,7 @@ outfile = args.out
 out = open(outfile, "w")
 
 flex = prody.parsePDB(flexname)
-flexres = set(zip(flex.getChids(), flex.getResnums()))
+flexres = set(zip(flex.getChids(), flex.getResnums(), flex.getIcodes()))
 backbone = {
     "N",
     "O",
@@ -62,25 +63,30 @@ def atype_perception(atype, aname):
         if atype[-1].isupper():
             atype = atype[0]
 
-    return atype
+    return atype.strip()
 
-for ci in range(flex.numCoordsets()):
+for ci in range(flex.numCoordsets()):  # Loop over different MODELs (MODEL/ENDMDL)
     which = defaultdict(int)
     out.write("MODEL %d\n" % ci)
-    for line in open(rigidname):
+    for line in open(rigidname):  # Read rigid receptor PDB file line-by-line
         if line.startswith("ATOM"):
+            # Chain, residue and atom informations
             chain = line[21]
             resnum = int(line[22:26].strip())
             resname = line[17:20].strip()
             aname = line[12:16].strip()
             atype = atype_perception(line[76:].strip(), aname)
 
-            if (chain, resnum) in flexres and aname not in backbone:
+            # Insertion code
+            # strip() is needed because getIcodes() returns empty strings
+            icode = line[26].strip()  
 
+            if (chain, resnum, icode) in flexres and aname not in backbone:
                 if atype != "H":
                     resatoms = flex[chain].select("resnum %d and not name H" % resnum)
                     w = which[(chain, resnum)]
                     which[(chain, resnum)] += 1  # update to next index
+                    #print(resnum, aname, chain, [atom for atom in resatoms])
                     atom = resatoms[w]  # this is the atom to replace this line with
                     c = atom.getCoordsets(ci)
                     line = PDBLINE % (
@@ -95,11 +101,14 @@ for ci in range(flex.numCoordsets()):
                         atype,
                     )
                 else:
+                    # Remove H atoms
                     line = ""
+
         elif line.startswith("END"):
+            # Remove END card (for multiple MODELs)
             line = ""
 
         out.write(line)
-    
+
     out.write("ENDMDL\n")
 out.write("END\n")
