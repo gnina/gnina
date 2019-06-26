@@ -86,7 +86,6 @@ for ci in range(flex.numCoordsets()):  # Loop over different MODELs (MODEL/ENDMD
                     resatoms = flex[chain].select("resnum %d and not name H" % resnum)
                     w = which[(chain, resnum)]
                     which[(chain, resnum)] += 1  # update to next index
-                    #print(resnum, aname, chain, [atom for atom in resatoms])
                     atom = resatoms[w]  # this is the atom to replace this line with
                     c = atom.getCoordsets(ci)
                     line = PDBLINE % (
@@ -101,7 +100,7 @@ for ci in range(flex.numCoordsets()):  # Loop over different MODELs (MODEL/ENDMD
                         atype,
                     )
                 else:
-                    # Remove H atoms
+                    # Remove non-backbone H atoms in flexible residue
                     line = ""
 
         elif line.startswith("END"):
