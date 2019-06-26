@@ -30,6 +30,9 @@ class FlexInfo {
     void extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
         std::string& flexpdbqt);
 
+  private:
+    void sanitizeResidues(OpenBabel::OBMol& receptor); //remove inflexible residues from residues set
+
 };
 
 #endif /* SMINA_FLEXINFO_H */
