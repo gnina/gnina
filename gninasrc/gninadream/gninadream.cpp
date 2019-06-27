@@ -177,8 +177,9 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
   unsigned ligGridSize = opt_mgrid.getNumGridPoints() * opt_mgrid.getNumLigTypes();
   unsigned recGridSize = opt_mgrid.getNumGridPoints()* opt_mgrid.getNumRecTypes();
   float* gpu_score = nullptr;
-  if (gpu)
-    CUDA_CHECK_GNINA(cudaMalloc(&gpu_score, sizeof(float)));
+  // two floats since for the sum method we need two storage locations
+  if (gpu) 
+    CUDA_CHECK_GNINA(cudaMalloc(&gpu_score, sizeof(float)*2));
   
   //VS compounds are currently done one at a time, inmem
   //out is the vector of output filestreams, one per optimized input to be
@@ -207,18 +208,29 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
         opt_mgrid.Forward_gpu(bottom, top);
         const float* optgrid = net.top_vecs()[0][0]->gpu_data();
         const float* screengrid = top[0]->gpu_data();
-        CUDA_CHECK_GNINA(cudaMemset(gpu_score, 0, sizeof(float)));
+        CUDA_CHECK_GNINA(cudaMemset(gpu_score, 0, sizeof(float)*2));
         if (!std::strcmp(dist_method.c_str(), "l2"))
           do_gpu_l2sq(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize);
         else if(!std::strcmp(dist_method.c_str(), "mult"))
           do_gpu_mult(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize);
+        else if(!std::strcmp(dist_method.c_str(), "sum")) {
+          float l2;
+          float mult;
+          do_gpu_l2sq(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize);
+          CUDA_CHECK_GNINA(cudaMemcpy(&l2, gpu_score, sizeof(float), cudaMemcpyDeviceToHost));
+          do_gpu_mult(optgrid+i*example_size + recGridSize, screengrid, gpu_score+sizeof(float), ligGridSize);
+          CUDA_CHECK_GNINA(cudaMemcpy(&mult, gpu_score+sizeof(float), sizeof(float), cudaMemcpyDeviceToHost));
+          scores.push_back((l2 + mult) / ligGridSize);
+        }
         else {
           cerr << "Unknown distance method for overlap-based virtual screen\n";
           exit(-1);
         }
-        float scoresq;
-        CUDA_CHECK_GNINA(cudaMemcpy(&scoresq, gpu_score, sizeof(float), cudaMemcpyDeviceToHost));
-        scores.push_back(scoresq / ligGridSize);
+        if(std::strcmp(dist_method.c_str(), "sum")) {
+          float scoresq;
+          CUDA_CHECK_GNINA(cudaMemcpy(&scoresq, gpu_score, sizeof(float), cudaMemcpyDeviceToHost));
+          scores.push_back(scoresq / ligGridSize);
+        }
       }
       else {
         opt_mgrid.Forward_cpu(bottom, top);
@@ -231,6 +243,15 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
         else if(!std::strcmp(dist_method.c_str(), "mult"))
           cpu_mult(optgrid + i * example_size + recGridSize, screengrid, &scores.back(), 
               ligGridSize);
+        else if(!std::strcmp(dist_method.c_str(), "sum")) {
+          float l2;
+          cpu_l2sq(optgrid + i * example_size + recGridSize, screengrid, &l2, 
+              ligGridSize);
+          float mult;
+          cpu_mult(optgrid + i * example_size + recGridSize, screengrid, &mult, 
+              ligGridSize);
+          scores.back() = l2 + mult;
+        }
         else {
           cerr << "Unknown distance method for overlap-based virtual screen\n";
           exit(-1);
@@ -278,7 +299,6 @@ int main(int argc, char* argv[]) {
   unsigned nopts = 0;
   std::vector<std::string> opt_names;
 
-  // TODO: add choice between multiplicative overlap score and Euclidean
   positional_options_description positional; 
   options_description inputs("General Input");
   inputs.add_options()("receptor,r",
@@ -327,7 +347,7 @@ int main(int argc, char* argv[]) {
       "allow_negative", bool_switch(&allow_neg)->default_value(false),
       "allow optimization to result in negative atom density")(
       "distance", value<std::string>(&dist_method), 
-      "distance function for virtual screen, default is l2"
+      "distance function for virtual screen; options are 'l2', 'mult', and 'sum' (which is a sum of the scores produced by those two options) default is l2"
         );
 
   options_description desc;
@@ -510,10 +530,12 @@ int main(int argc, char* argv[]) {
     }
     boost::filesystem::path rec(receptor_name);
     std::vector<caffe::shared_ptr<ostream> > out;
-    if (outname.size())
-      out.push_back(boost::make_shared<std::ofstream>((outname + ".vsout").c_str()));
-    else
-      out.push_back(boost::make_shared<std::ofstream>((rec.stem().string() + ".vsout").c_str()));
+    if (vsfile.size()) {
+      if (outname.size())
+        out.push_back(boost::make_shared<std::ofstream>((outname + ".vsout").c_str()));
+      else
+        out.push_back(boost::make_shared<std::ofstream>((rec.stem().string() + ".vsout").c_str()));
+    }
     for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++) {
       const std::string ligand_name = ligand_names[l];
       boost::filesystem::path lig(ligand_name);
@@ -642,13 +664,13 @@ int main(int argc, char* argv[]) {
       std::string channels = std::regex_replace(stem, std::regex(grid_prefix + "_"), "");
       std::vector<std::string> channelvec;
       boost::split(channelvec, channels, boost::is_any_of("_"));
-      // the first entry in channelvec is either Rec_ or Lig_
+      // the first entry in channelvec is either Rec or Lig
       std::unordered_set<std::string> channelmap(&channelvec[1], &channelvec[channelvec.size()]);
       for (auto& thisch : channelmap) {
         // does this correspond to channels in the net's map, if so what's the index
         // and use that to copy it
         unsigned idx = 0;
-        if (channelvec[0] == "Rec_") {
+        if (channelvec[0] == "Rec") {
           for (auto& chanset : recset) {
             if (channelmap == chanset) {
               // cool it's a match read it in
@@ -689,7 +711,7 @@ int main(int argc, char* argv[]) {
             ++idx;
           }
         }
-        else if (channelvec[0] == "Lig_") {
+        else if (channelvec[0] == "Lig") {
           idx = rectypes.size();
           for (auto& chanset : ligset) {
             if (channelmap == chanset) {

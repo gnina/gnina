@@ -1428,7 +1428,7 @@ void BaseMolGridDataLayer<Dtype,GridMakerT>::dumpGridDX(const std::string& prefi
     if (!(grid_empty(grid[indices[a]
         [range_t(0, dim)] [range_t(0, dim)][range_t(0,dim)]].origin(), dim*dim*dim))) {
 		  string name = getIndexName(rmap, a);
-		  string fname = prefix + "_rec_" + name + to_string(current_iter) + ".dx";
+		  string fname = "iter"+to_string(current_iter) + prefix + "_Rec_" + name + ".dx";
 		  ofstream out(fname.c_str());
 		  outputDXGrid(out, grid, a, scale, dim, mol_index);
     }
@@ -1437,7 +1437,7 @@ void BaseMolGridDataLayer<Dtype,GridMakerT>::dumpGridDX(const std::string& prefi
     if (!(grid_empty(grid[indices[numReceptorTypes+a]
         [range_t(0, dim)] [range_t(0, dim)][range_t(0,dim)]].origin(), dim*dim*dim))) {
 			string name = getIndexName(lmap, a);
-			string fname = prefix + "_lig_" + name + to_string(current_iter) + ".dx";
+			string fname = prefix + "_Lig_" + name + to_string(current_iter) + ".dx";
 			ofstream out(fname.c_str());
 			outputDXGrid(out, grid, numReceptorTypes+a, scale, dim, mol_index);
     }
