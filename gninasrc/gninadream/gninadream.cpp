@@ -203,7 +203,7 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
       }
       else
         opt_mgrid.setCenter(vec(0, 0, 0));
-      opt_mgrid.setLabels(1); 
+      opt_mgrid.setLabels(1, 10); 
       if (gpu) {
         opt_mgrid.Forward_gpu(bottom, top);
         const float* optgrid = net.top_vecs()[0][0]->gpu_data();
@@ -549,8 +549,8 @@ int main(int argc, char* argv[]) {
         mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
         mgrid->setReceptor(m.get_fixed_atoms());
         // with a types file you can target arbitrary pose and affinity values,
-        // here we just assume pose 
-        mgrid->setLabels(1); 
+        // here we assume you just want a really good active
+        mgrid->setLabels(1, 10); 
         solver->ResetIter();
         std::string prefix = rec.stem().string() + "_" + lig.stem().string();
         for (size_t i=0; i<iterations; ++i) {
