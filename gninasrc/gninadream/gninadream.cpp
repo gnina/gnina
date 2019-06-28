@@ -472,7 +472,7 @@ int main(int argc, char* argv[]) {
   solver_param.set_snapshot_prefix("inputopt_");
   solver_param.set_type("InputOptSGD");
   if (cnnopts.cnn_weights.size())
-    solver_param.set_weights(0, cnnopts.cnn_weights);
+    solver_param.add_weights(cnnopts.cnn_weights);
 
   caffe::shared_ptr<caffe::Solver<float> >
       solver(caffe::SolverRegistry<float>::CreateSolver(solver_param));
