@@ -646,9 +646,9 @@ int main(int argc, char* argv[]) {
      */ 
     float* inputblob;
     double resolution = mgrid->getResolution();
-    unsigned npts_allchs = mgrid->getNumGridPoints();
-    unsigned nchannels = npts_allchs / (rectypes.size() + ligtypes.size());
-    unsigned npts_onech = npts_allchs / nchannels;
+    unsigned npts_onech = mgrid->getNumGridPoints();
+    unsigned nchannels = rectypes.size() + ligtypes.size();
+    unsigned npts_allchs = npts_onech * nchannels;
     if (gpu)  {
       inputblob = net->top_vecs()[0][0]->mutable_gpu_data();
       CUDA_CHECK_GNINA(cudaMemset(inputblob, 0, npts_allchs* sizeof(float)));
@@ -693,7 +693,7 @@ int main(int argc, char* argv[]) {
                 g = &hostbuf[0];
               }
               else 
-                g = inputblob + idx * npts_allchs;
+                g = inputblob + idx * npts_onech;
 		          if(!readDXGrid(gridfile, gridcenter, gridres, g, npts_onech, fname))
 		          {
                 std::cerr << "I couldn't understand the provided dx file " << fname << "\n";
@@ -734,7 +734,7 @@ int main(int argc, char* argv[]) {
                 g = &hostbuf[0];
               }
               else 
-                g = inputblob + idx * npts_allchs;
+                g = inputblob + idx * npts_onech;
 		          if(!readDXGrid(gridfile, gridcenter, gridres, g, npts_onech, fname))
 		          {
                 std::cerr << "I couldn't understand the provided dx file " << fname << "\n";
@@ -764,6 +764,9 @@ int main(int argc, char* argv[]) {
         mgrid->dumpGridDX(out_prefix, net->top_vecs()[0][0]->mutable_cpu_data());
     }
     if (vsfile.size()) {
+      if (!ligand_names.size()) {
+        ligand_names.push_back("none");
+      }
       std::vector<caffe::shared_ptr<ostream> > out;
       out.push_back(boost::make_shared<std::ofstream>((out_prefix + ".vsout").c_str()));
       do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1, 
