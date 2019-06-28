@@ -220,6 +220,7 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
           CUDA_CHECK_GNINA(cudaMemcpy(&l2, gpu_score, sizeof(float), cudaMemcpyDeviceToHost));
           do_gpu_mult(optgrid+i*example_size + recGridSize, screengrid, gpu_score+1, ligGridSize);
           CUDA_CHECK_GNINA(cudaMemcpy(&mult, gpu_score+1, sizeof(float), cudaMemcpyDeviceToHost));
+          l2 = std::sqrt(l2);
           scores.push_back((l2 + mult) / ligGridSize);
         }
         else {
@@ -229,6 +230,8 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
         if(std::strcmp(dist_method.c_str(), "sum")) {
           float scoresq;
           CUDA_CHECK_GNINA(cudaMemcpy(&scoresq, gpu_score, sizeof(float), cudaMemcpyDeviceToHost));
+          if (!std::strcmp(dist_method.c_str(), "l2"))
+            scoresq = std::sqrt(scoresq);
           scores.push_back(scoresq / ligGridSize);
         }
       }
