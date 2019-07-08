@@ -128,14 +128,13 @@ bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned num
 void do_exact_vs(LayerParameter param, caffe::Net<float>& net, 
     std::string vsfile, std::vector<std::string>& ref_ligs,
     std::vector<caffe::shared_ptr<std::ostream> >& out, 
-    bool gpu, std::string dist_method) {
+    bool gpu, std::string dist_method, float positive_threshold, float negative_threshold) {
   // use net top blob to do virtual screen against input sdf
   // produce output file for each input from which we started optimization
   // output will just be overlap score, in order of the compounds in the
   // original file
   // right now we assume these are pre-generated poses, although we could dock
-  // them internally or generate conformers in theory. right now only
-  // support computing L2 distance between grids
+  // them internally or generate conformers in theory. 
   //
   // reinit MolGrid with params for virtual screening
   // for each example rec is the lig used to set center (unless there was no
@@ -223,6 +222,10 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
           l2 = std::sqrt(l2);
           scores.push_back((l2 + mult) / ligGridSize);
         }
+        else if(!std::strcmp(dist_method.c_str(), "threshold")) {
+          do_gpu_thresh(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize,
+              positive_threshold, negative_threshold);
+        }
         else {
           cerr << "Unknown distance method for overlap-based virtual screen\n";
           exit(-1);
@@ -254,6 +257,10 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
           cpu_mult(optgrid + i * example_size + recGridSize, screengrid, &mult, 
               ligGridSize);
           scores.back() = l2 + mult;
+        }
+        else if(!std::strcmp(dist_method.c_str(), "threshold")) {
+          cpu_thresh(optgrid + i * example_size + recGridSize, screengrid, &scores.back(), 
+              ligGridSize, positive_threshold, negative_threshold);
         }
         else {
           cerr << "Unknown distance method for overlap-based virtual screen\n";
@@ -301,6 +308,8 @@ int main(int argc, char* argv[]) {
   unsigned batch_size;
   unsigned nopts = 0;
   std::vector<std::string> opt_names;
+  float positive_threshold = 0.037526;
+  float negative_threshold = 0.033237;
 
   positional_options_description positional; 
   options_description inputs("General Input");
@@ -313,7 +322,11 @@ int main(int argc, char* argv[]) {
       "grid,g", value<std::string>(&grid_prefix), 
       "prefix for grid files from which to begin optimization (instead of molecules), filenames assumed to be [prefix]_[Rec/Lig]_[channel0]_[channel1][...].dx")(
       "virtualscreen,v", value<std::string>(&vsfile), 
-      "file of compounds to score according to overlap with optimized grid");
+      "file of compounds to score according to overlap with optimized grid")(
+      "positive_threshold", value<float>(&positive_threshold), 
+      "optionally specify positive threshold value for threshold overlap method")(
+      "negative_threshold", value<float>(&negative_threshold), 
+      "optionally specify negative threshold value for threshold overlap method");
 
   options_description cnn("CNN Input");
   cnn.add_options()("cnn_model", value<std::string>(&cnnopts.cnn_model),
@@ -350,7 +363,7 @@ int main(int argc, char* argv[]) {
       "allow_negative", bool_switch(&allow_neg)->default_value(false),
       "allow optimization to result in negative atom density")(
       "distance", value<std::string>(&dist_method), 
-      "distance function for virtual screen; options are 'l2', 'mult', and 'sum' (which is a sum of the scores produced by those two options) default is l2"
+      "distance function for virtual screen; options are 'l2', 'mult', 'sum' (which is a sum of the scores produced by those two options), and 'threshold'; default is l2"
         );
 
   options_description desc;
@@ -565,7 +578,7 @@ int main(int argc, char* argv[]) {
           ligand_names[0] = "none";
         if (vsfile.size())
           do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1, 
-              dist_method);
+              dist_method, positive_threshold, negative_threshold);
       }
     }
   }
@@ -613,7 +626,7 @@ int main(int argc, char* argv[]) {
           out.push_back(boost::make_shared<std::ofstream>((name + ".vsout").c_str()));
         }
         do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1, 
-            dist_method);
+            dist_method, positive_threshold, negative_threshold);
       }
     }
   }
@@ -773,7 +786,7 @@ int main(int argc, char* argv[]) {
       std::vector<caffe::shared_ptr<ostream> > out;
       out.push_back(boost::make_shared<std::ofstream>((out_prefix + ".vsout").c_str()));
       do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1, 
-          dist_method);
+          dist_method, positive_threshold, negative_threshold);
     }
   }
   else if (solverstate.size()) {
@@ -790,7 +803,7 @@ int main(int argc, char* argv[]) {
       std::vector<caffe::shared_ptr<ostream> > out;
       out.push_back(boost::make_shared<std::ofstream>((out_prefix + ".vsout").c_str()));
       do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1, 
-          dist_method);
+          dist_method, positive_threshold, negative_threshold);
     }
   }
   else {

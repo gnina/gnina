@@ -24,6 +24,22 @@ inline void cpu_mult(const float* optgrid, const float* screengrid, float* score
   *scoregrid = sum;
 }
 
+inline void cpu_thresh(const float* optgrid, const float* screengrid, float* scoregrid, 
+    size_t gsize, float positive_threshold, float negative_threshold) {
+  float sum = 0.;
+#pragma omp parallel for reduction(+:sum)
+  for (size_t k=0; k<gsize; ++k) {
+    float threshold = optgrid[k] >=0 ? positive_threshold : negative_threshold;
+    float sign = optgrid[k] >= 0 ? 1 : -1;
+    float magnitude = fabs(optgrid[k]);
+    float weight = ((magnitude > threshold) && screengrid[k]) ? 1 : 0;
+    sum += sign * weight;
+  }
+  *scoregrid = sum;
+}
+
 void do_gpu_l2sq(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize);
 
 void do_gpu_mult(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize);
+
+void do_gpu_thresh(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize, float positive_threshold, float negative_threshold);
