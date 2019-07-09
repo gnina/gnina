@@ -255,9 +255,15 @@ struct ligand : public flexible_body, atom_range {
 
 struct residue : public main_branch {
     residue() {
-    } //serialization
+    } // for serialization
     residue(const main_branch& m)
         : main_branch(m) {
+    }
+
+    friend class boost::serialization::access;
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned version) {
+      ar & boost::serialization::base_object<main_branch>(*this);
     }
 };
 
