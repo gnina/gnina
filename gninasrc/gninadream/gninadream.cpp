@@ -220,7 +220,7 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
           do_gpu_mult(optgrid+i*example_size + recGridSize, screengrid, gpu_score+1, ligGridSize);
           CUDA_CHECK_GNINA(cudaMemcpy(&mult, gpu_score+1, sizeof(float), cudaMemcpyDeviceToHost));
           l2 = std::sqrt(l2);
-          scores.push_back((l2 + mult) / ligGridSize);
+          scores.push_back((l2/100.f + mult) / ligGridSize);
         }
         else if(!std::strcmp(dist_method.c_str(), "threshold")) {
           do_gpu_thresh(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize,
@@ -256,7 +256,7 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
           float mult;
           cpu_mult(optgrid + i * example_size + recGridSize, screengrid, &mult, 
               ligGridSize);
-          scores.back() = l2 + mult;
+          scores.back() = l2/100.f + mult;
         }
         else if(!std::strcmp(dist_method.c_str(), "threshold")) {
           cpu_thresh(optgrid + i * example_size + recGridSize, screengrid, &scores.back(), 
