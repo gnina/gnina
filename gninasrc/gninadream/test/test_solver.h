@@ -7,3 +7,5 @@
 void test_iopt_update(caffe::Solver<float>* solver);
 
 void test_iopt_improvement(caffe::Solver<float>* solver);
+
+void test_iopt_exclude_rec(caffe::Solver<float>* solver);

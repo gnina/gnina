@@ -121,6 +121,10 @@ BOOST_AUTO_TEST_CASE(solver_improvement) {
   test_iopt_improvement(this->solver);
 }
 
+BOOST_AUTO_TEST_CASE(solver_exclude_rec) {
+  test_iopt_exclude_rec(this->solver);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 void initializeCUDA(int device) {

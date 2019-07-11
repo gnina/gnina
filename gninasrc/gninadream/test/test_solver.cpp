@@ -3,6 +3,9 @@
 #include "common.h"
 #include "caffe/blob.hpp"
 #include "caffe/net.hpp"
+#include "caffe/layers/molgrid_data_layer.hpp"
+
+typedef caffe::BaseMolGridDataLayer<float, GridMaker> mgridT;
 
 void test_iopt_update(caffe::Solver<float>* solver) {
   caffe::InputOptSGDSolver<float>* iopt_solver = dynamic_cast<caffe::InputOptSGDSolver<float>* >(solver);
@@ -65,4 +68,54 @@ void test_iopt_improvement(caffe::Solver<float>* solver) {
   net->Forward(&end_loss);
   std::cout << "end loss is " << end_loss << "\n";
   BOOST_CHECK_LT(end_loss, start_loss);
+}
+
+void test_iopt_exclude_rec(caffe::Solver<float>* solver) {
+  caffe::InputOptSGDSolver<float>* iopt_solver = dynamic_cast<caffe::InputOptSGDSolver<float>* >(solver);
+  if (!iopt_solver) {
+    throw usage_error("InputOptSolver test passed non-InputOptSolver ");
+  }
+  // check that when exclude_receptor is set updates touch only the ligand channels
+  caffe::Blob<float> init_grid;
+  caffe::shared_ptr<caffe::Net<float> > net = iopt_solver->net();
+
+  const auto& input_blob = iopt_solver->input_blob();
+  init_grid.CopyFrom(*input_blob, false, true);
+  const vector<caffe::shared_ptr<caffe::Layer<float> > >& layers = net->layers();
+  mgridT* mgrid = dynamic_cast<caffe::BaseMolGridDataLayer<float, GridMaker>*>(layers[0].get());
+  if (mgrid == NULL) {
+    throw usage_error("First layer of model must be MolGridDataLayer.");
+  }
+  iopt_solver->SetNrecTypes(mgrid->getNumRecTypes());
+  iopt_solver->SetNpoints(mgrid->getNumGridPoints());
+  iopt_solver->Solve();
+  
+  unsigned nlt = mgrid->getNumLigTypes();
+  unsigned nrt = mgrid->getNumRecTypes();
+  unsigned npts = mgrid->getNumGridPoints();
+
+  // rec grid points were not updated
+  const float* current = input_blob->cpu_data();
+  const float* init = init_grid.cpu_data();
+  for (size_t i=0; i<nrt; ++i) {
+    bool failed = false;
+#pragma omp parallel for shared(failed)
+    for (size_t j=0; j<npts; ++j) {
+      if ((current[i*npts + j] - init[i*npts+j]) != 0) 
+        failed = true;
+    }
+    std::cout << "failure index " << i << "\n";
+    BOOST_CHECK_EQUAL(failed, false);
+  }
+  // lig grid points were updated
+  unsigned nt = nlt + nrt;
+  bool failed = true;
+  for (size_t i=nrt; i<nt; ++i) {
+#pragma omp parallel for shared(failed)
+    for (size_t j=0; j<npts; ++j) {
+      if ((current[i*npts + j] - init[i*npts+j]) != 0) 
+        failed = false;
+    }
+  }
+  BOOST_CHECK_EQUAL(failed, false);
 }
