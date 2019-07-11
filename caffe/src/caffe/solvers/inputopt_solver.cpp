@@ -94,8 +94,30 @@ namespace caffe {
     this->smoothed_loss_ = 0;
     this->iteration_timer_.Start();
 
-    if (this->iter_ == 0)
+    if (this->iter_ == 0) {
       this->net_->ForwardFromTo(0,0);
+      if (carve_) {
+        switch (Caffe::mode()) {
+        case Caffe::GPU: {
+      #ifndef CPU_ONLY
+          Dtype* dest = input_blob_->mutable_gpu_data();
+          std::vector<Dtype> fillbuffer(lig_grid_size_, carve_val_);
+          CUDA_CHECK(cudaMemcpy(dest + rec_grid_size_, &fillbuffer[0], lig_grid_size_ * sizeof(Dtype), cudaMemcpyHostToDevice));
+      #else
+          NO_GPU;
+      #endif
+          break;
+        }
+        case Caffe::CPU: {
+          Dtype* dest = input_blob_->mutable_cpu_data();
+          std::fill(dest + rec_grid_size_, dest + rec_grid_size_ + lig_grid_size_, carve_val_);
+          break;
+        }
+        default:
+          LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
+        }
+      }
+    }
     while (this->iter_ < stop_iter) {
       // zero-init the params
       this->net_->ClearParamDiffs();

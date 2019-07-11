@@ -301,12 +301,14 @@ int main(int argc, char* argv[]) {
   bool exclude_ligand = false;
   bool ignore_ligand = false;
   bool allow_neg = false;
+  bool carve = false;
   std::string sigint_effect = "stop";
   std::string sighup_effect = "snapshot";
   std::string dist_method = "l2";
   unsigned default_batch_size = 50;
   unsigned batch_size;
   unsigned nopts = 0;
+  float carve_val = 1;
   std::vector<std::string> opt_names;
   float positive_threshold = 0.037526;
   float negative_threshold = 0.033237;
@@ -363,7 +365,11 @@ int main(int argc, char* argv[]) {
       "allow_negative", bool_switch(&allow_neg)->default_value(false),
       "allow optimization to result in negative atom density")(
       "distance", value<std::string>(&dist_method), 
-      "distance function for virtual screen; options are 'l2', 'mult', 'sum' (which is a sum of the scores produced by those two options), and 'threshold'; default is l2"
+      "distance function for virtual screen; options are 'l2', 'mult', 'sum' (which is a sum of the scores produced by those two options), and 'threshold'; default is l2")(
+      "carve", bool_switch(&carve)->default_value(false),
+      "do optimization from positive-initialized grids")(
+      "carve_val", value<float>(&carve_val),
+      "initialization value when carving, default is 1"
         );
 
   options_description desc;
@@ -529,6 +535,15 @@ int main(int argc, char* argv[]) {
     solver->SetNrecTypes(mgrid->getNumRecTypes());
     solver->SetNpoints(mgrid->getNumGridPoints());
   }
+  if (carve) {
+    solver->DoCarve(carve);
+    solver->SetCarveVal(carve_val);
+    unsigned nlt = mgrid->getNumLigTypes();
+    unsigned nrt = mgrid->getNumRecTypes();
+    unsigned npts = mgrid->getNumGridPoints();
+    solver->SetRecGridSize(nrt * npts);
+    solver->SetLigGridSize(nlt * npts);
+  }
 
   // figure out what the initial state should be and run optimization
   if (receptor_name.size()) {
@@ -665,7 +680,7 @@ int main(int argc, char* argv[]) {
     unsigned npts_onech = mgrid->getNumGridPoints();
     unsigned nchannels = rectypes.size() + ligtypes.size();
     unsigned npts_allchs = npts_onech * nchannels;
-    if (gpu)  {
+    if (gpu > -1)  {
       inputblob = net->top_vecs()[0][0]->mutable_gpu_data();
       CUDA_CHECK_GNINA(cudaMemset(inputblob, 0, npts_allchs* sizeof(float)));
     }
@@ -703,7 +718,7 @@ int main(int argc, char* argv[]) {
               // and memcpy to the device
               float* g;
               std::vector<float> hostbuf;
-              if (gpu) {
+              if (gpu > -1) {
                 hostbuf.resize(npts_onech);
                 memset(&hostbuf[0], 0, npts_onech * sizeof(float));
                 g = &hostbuf[0];
@@ -719,8 +734,8 @@ int main(int argc, char* argv[]) {
                 std::cerr << "grid resolution in file " << fname << " does not match grid resolution specified for trained net.\n" << std::endl;
                 std::exit(1);
               }
-              if (gpu) 
-                CUDA_CHECK_GNINA(cudaMemcpy(g, inputblob + idx * npts_onech, 
+              if (gpu > -1) 
+                CUDA_CHECK_GNINA(cudaMemcpy(inputblob + idx * npts_onech, g,
                       npts_onech * sizeof(float), cudaMemcpyHostToDevice));
               break;
             }
@@ -745,7 +760,7 @@ int main(int argc, char* argv[]) {
               // and memcpy to the device
               float* g;
               std::vector<float> hostbuf;
-              if (gpu) {
+              if (gpu > -1) {
                 hostbuf.resize(npts_onech);
                 g = &hostbuf[0];
               }
@@ -760,8 +775,8 @@ int main(int argc, char* argv[]) {
                 std::cerr << "grid resolution in file " << fname << " does not match grid resolution specified for trained net.\n" << std::endl;
                 std::exit(1);
               }
-              if (gpu) 
-                CUDA_CHECK_GNINA(cudaMemcpy(g, inputblob + idx * npts_onech, 
+              if (gpu > -1) 
+                CUDA_CHECK_GNINA(cudaMemcpy(inputblob + idx * npts_onech, g,
                       npts_onech * sizeof(float), cudaMemcpyHostToDevice));
               break;
             }
@@ -774,6 +789,8 @@ int main(int argc, char* argv[]) {
         }
       }
     }
+    //TODO: on iteration 0 the inputopt solver does MolGrid::Forward, which
+    //probably zeros out the input blob...
     for (size_t i=0; i<iterations; ++i) {
       solver->Step(1);
       if (dump_all || (i==iterations-1 && dump_last))

@@ -155,19 +155,29 @@ template <typename Dtype>
 class InputOptSGDSolver : public SGDSolver<Dtype> {
  public:
   explicit InputOptSGDSolver(const SolverParameter& param)
-      : SGDSolver<Dtype>(param), threshold_update_(true), threshold_value_(0.0f), 
-        nrec_types(0), nlig_types(0) { InputOptSGDPreSolve(); } 
+      : SGDSolver<Dtype>(param), threshold_update_(true),  
+        exclude_ligand_(false), exclude_receptor_(false), carve_(false), 
+        carve_val_(1.0), threshold_value_(0.0f),  
+        nrec_types(0), nlig_types(0), 
+        rec_grid_size_(0), lig_grid_size_(0), npoints_(0) { InputOptSGDPreSolve(); } 
   explicit InputOptSGDSolver(const string& param_file)
-      : SGDSolver<Dtype>(param_file), threshold_update_(true), threshold_value_(0.0f), 
-        nrec_types(0), nlig_types(0) { InputOptSGDPreSolve(); }
+      : SGDSolver<Dtype>(param_file), threshold_update_(true),  
+        exclude_ligand_(false), exclude_receptor_(false), carve_(false), 
+        carve_val_(1.0), threshold_value_(0.0f),
+        nrec_types(0), nlig_types(0), 
+        rec_grid_size_(0), lig_grid_size_(0), npoints_(0) { InputOptSGDPreSolve(); }
   virtual inline const char* type() const { return "InputOptSGD"; }
   void ResetIter() { this->iter_ = 0; }
   shared_ptr<Blob<Dtype> > input_blob() const { return input_blob_; }
   void DoThreshold(bool threshold_update) { threshold_update_ = threshold_update; }
+  void DoCarve(bool carve) { carve_ = carve; }
   void SetThresholdValue(float threshold_value) { threshold_value_ = threshold_value; }
   void SetNrecTypes(unsigned ntypes) { nrec_types = ntypes; }
   void SetNligTypes(unsigned ntypes) { nlig_types = ntypes; }
+  void SetRecGridSize(unsigned rec_grid_size) { rec_grid_size_ = rec_grid_size; }
+  void SetLigGridSize(unsigned lig_grid_size) { lig_grid_size_ = lig_grid_size; }
   void SetNpoints(unsigned npoints) { npoints_ = npoints; }
+  void SetCarveVal(float carve_val) {carve_val_ = carve_val; }
 
  protected:
   void InputOptSGDPreSolve();
@@ -185,9 +195,13 @@ class InputOptSGDSolver : public SGDSolver<Dtype> {
   bool threshold_update_;
   bool exclude_ligand_;
   bool exclude_receptor_;
+  bool carve_;
+  float carve_val_;
   float threshold_value_; // thought this might be useful but for now not using it, just using 0
   unsigned nrec_types;
   unsigned nlig_types;
+  unsigned rec_grid_size_;
+  unsigned lig_grid_size_;
   unsigned npoints_;
 
   DISABLE_COPY_AND_ASSIGN(InputOptSGDSolver);
