@@ -217,14 +217,24 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
     size_t ptr_offset = nrec_types * npoints_;
     switch (Caffe::mode()) {
     case Caffe::CPU: {
+      Dtype* diff_ptr = input_blob_->mutable_cpu_diff();
+      if (nrec_types)
+        std::fill(diff_ptr, diff_ptr+ptr_offset, 0);
+      else if (nlig_types)
+        std::fill(diff_ptr+blobsize, diff_ptr+blobsize+nlig_types*npoints_, 0);
       caffe_cpu_axpby(blobsize, rate, input_blob_->cpu_diff() + ptr_offset,
           momentum, this->history_[0]->mutable_cpu_data() + ptr_offset);
       caffe_copy(blobsize, this->history_[0]->cpu_data() + ptr_offset,
-          input_blob_->mutable_cpu_diff() + ptr_offset);
+          diff_ptr + ptr_offset);
       break;
     }
     case Caffe::GPU: {
   #ifndef CPU_ONLY
+      Dtype* diff_ptr = input_blob_->mutable_gpu_diff();
+      if (nrec_types) 
+          CUDA_CHECK(cudaMemset(diff_ptr, 0, nrec_types * npoints_ * sizeof(Dtype)));
+      if (nlig_types)
+          CUDA_CHECK(cudaMemset(diff_ptr+blobsize, 0, nlig_types * npoints_ * sizeof(Dtype)));
       sgd_update_gpu(blobsize, input_blob_->mutable_gpu_diff() + ptr_offset,
           this->history_[0]->mutable_gpu_data() + ptr_offset, momentum, rate);
   #else

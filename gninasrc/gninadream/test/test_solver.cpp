@@ -101,8 +101,10 @@ void test_iopt_exclude_rec(caffe::Solver<float>* solver) {
     bool failed = false;
 #pragma omp parallel for shared(failed)
     for (size_t j=0; j<npts; ++j) {
-      if ((current[i*npts + j] - init[i*npts+j]) != 0) 
+      if ((current[i*npts + j] - init[i*npts+j]) >= 0.001) {
+        std::cout << current[i*npts + j] - init[i*npts+j] << "\n";
         failed = true;
+      }
     }
     std::cout << "failure index " << i << "\n";
     BOOST_CHECK_EQUAL(failed, false);
