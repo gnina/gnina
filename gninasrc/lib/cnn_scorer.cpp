@@ -169,7 +169,7 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore,
   caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
   mgrid->setReceptor(m.get_fixed_atoms());
-  mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
+  mgrid->setLigand(m.get_movable_atoms(), m.coordinates()); // TODO: Movable atoms for receptor
   mgrid->setLabels(1); //for now pose optimization only
   mgrid->enableLigandGradients();
   mgrid->enableReceptorGradients();
@@ -314,6 +314,8 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
     mgrid->setGridCenter(current_center);
   }
 
+  // TODO: Here ligand and receptor are initialized
+  // TODO: Ligand is initialized from movable atoms, receptor from fixed atoms
   mgrid->setLigand(m.get_movable_atoms(), m.coordinates(), cnnopts.move_minimize_frame);
   if (!cnnopts.move_minimize_frame) { //if fixed_receptor, rec_conf will be identify
     mgrid->setReceptor(m.get_fixed_atoms(), m.rec_conf.position, m.rec_conf.orientation);
@@ -329,7 +331,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
 
   if(compute_gradient || cnnopts.outputxyz) {
     mgrid->enableLigandGradients();
-    if(cnnopts.moving_receptor() || cnnopts.outputxyz)
+    if(cnnopts.moving_receptor() || cnnopts.outputxyz || cnnopts.flexopt)
       mgrid->enableReceptorGradients();
   }
 
@@ -358,8 +360,21 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
     if (compute_gradient || cnnopts.outputxyz) {
 
       net->Backward();
+
+      // Get ligand gradient
       mgrid->getLigandGradient(0, gradient);
+      
+
+      // Get receptor gradient
+      if(cnnopts.flexopt){ // Optimization of flexible residues 
+        mgrid->getReceprotGradient(0, receptor_gradient);
+
+      }
+
+      // Ligand plus flexible residues gradient
       m.add_minus_forces(gradient);
+
+      // Gradient for rigid receptor transformation: translation and torque
       if(cnnopts.moving_receptor())
         mgrid->getReceptorTransformationGradient(0, m.rec_change.position, m.rec_change.orientation);
     }
