@@ -676,7 +676,7 @@ int main(int argc, char* argv[]) {
      * we're using. if they don't match, error out, otherwise load in the grids
      * in the right order for the map
      */ 
-    float* inputblob;
+    float* inputblob = nullptr;
     double resolution = mgrid->getResolution();
     unsigned npts_onech = mgrid->getNumGridPoints();
     unsigned nchannels = rectypes.size() + ligtypes.size();
@@ -717,7 +717,7 @@ int main(int argc, char* argv[]) {
               // if we're running on the CPU we can read directly into the
               // right place, otherwise we read into a temporary host buffer
               // and memcpy to the device
-              float* g;
+              float* g = nullptr;
               std::vector<float> hostbuf;
               if (gpu > -1) {
                 hostbuf.resize(npts_onech);
@@ -759,7 +759,7 @@ int main(int argc, char* argv[]) {
               // if we're running on the CPU we can read directly into the
               // right place, otherwise we read into a temporary host buffer
               // and memcpy to the device
-              float* g;
+              float* g = nullptr;
               std::vector<float> hostbuf;
               if (gpu > -1) {
                 hostbuf.resize(npts_onech);
