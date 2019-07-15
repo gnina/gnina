@@ -1439,6 +1439,10 @@ Thank you!\n";
     if (vm.count("atom_terms") > 0)
       atomoutfile.open(atom_name.c_str());
 
+    FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, log);
+    // dkoes - parse in receptor once
+    MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
+
     if (autobox_ligand.length() > 0) {
       setup_autobox(mols.getInitModel(),autobox_ligand, autobox_add,
           center_x, center_y, center_z, size_x, size_y, size_z);
@@ -1501,10 +1505,6 @@ Thank you!\n";
     }
 
     log << std::setw(12) << std::left << "Weights" << " Terms\n" << t << "\n";
-
-    FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, log);
-    // dkoes - parse in receptor once
-    MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
 
     if (usergrid_file_name.size() > 0) {
       ifile user_in(usergrid_file_name);
