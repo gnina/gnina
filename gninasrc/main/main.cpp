@@ -1506,6 +1506,9 @@ Thank you!\n";
 
     log << std::setw(12) << std::left << "Weights" << " Terms\n" << t << "\n";
 
+    // Print out flexible residues
+    finfo.printFlex();
+
     if (usergrid_file_name.size() > 0) {
       ifile user_in(usergrid_file_name);
       fl ug_scaling_factor = 1.0;

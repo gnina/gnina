@@ -136,7 +136,6 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   }
 
   //replace any empty chains with first chain in mol
-  char defaultch = ' ';
   OBResidueIterator ritr;
   OBResidue *firstres = rigid.BeginResidue(ritr);
   if (firstres) defaultch = firstres->GetChain();
@@ -150,14 +149,6 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
 
   sort(sortedres.begin(), sortedres.end());
 
-  if (sortedres.size() > 0) {
-    log << "Flexible residues:";
-    for (unsigned i = 0, n = sortedres.size(); i < n; i++) {
-      log << " " << get<0>(sortedres[i]) << ":" << get<1>(sortedres[i]);
-      if(get<2>(sortedres[i]) > 0) log << ":" << get<2>(sortedres[i]);
-    }
-    log << "\n";
-  }
   //reinsert residues now with default chain
   residues.clear();
   residues.insert(sortedres.begin(), sortedres.end());
@@ -293,4 +284,21 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   }
   rigid.EndModify();
 
+}
+
+void FlexInfo::printFlex() const{
+
+  // Residues are stored as unordered_se
+  // Sort before printing
+  std::vector<std::tuple<char, int, char> > sortedres(residues.begin(), residues.end());
+  sort(sortedres.begin(), sortedres.end());
+
+  if (sortedres.size() > 0) {
+    log << "Flexible residues:";
+    for (unsigned i = 0, n = sortedres.size(); i < n; i++) {
+      log << " " << get<0>(sortedres[i]) << ":" << get<1>(sortedres[i]);
+      if(get<2>(sortedres[i]) > 0) log << ":" << get<2>(sortedres[i]);
+    }
+    log << "\n";
+  }
 }
