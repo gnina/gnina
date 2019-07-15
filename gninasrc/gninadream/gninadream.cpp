@@ -186,6 +186,7 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
   model m;
   for (size_t i=0; i<out.size(); ++i) {
     std::vector<float> scores;
+    unsigned offset = i * example_size + recGridSize;
     std::string& next_ref_lig = ref_ligs[i];
     if (next_ref_lig != "none")
       mols.create_init_model(ref_ligs[0], std::string(), finfo, log);
@@ -209,21 +210,21 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
         const float* screengrid = top[0]->gpu_data();
         CUDA_CHECK_GNINA(cudaMemset(gpu_score, 0, sizeof(float)*2));
         if (!std::strcmp(dist_method.c_str(), "l2"))
-          do_gpu_l2sq(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize);
+          do_gpu_l2sq(optgrid + offset, screengrid + recGridSize, gpu_score, ligGridSize);
         else if(!std::strcmp(dist_method.c_str(), "mult"))
-          do_gpu_mult(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize);
+          do_gpu_mult(optgrid + offset, screengrid + recGridSize, gpu_score, ligGridSize);
         else if(!std::strcmp(dist_method.c_str(), "sum")) {
           float l2;
           float mult;
-          do_gpu_l2sq(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize);
+          do_gpu_l2sq(optgrid + offset, screengrid + recGridSize, gpu_score, ligGridSize);
           CUDA_CHECK_GNINA(cudaMemcpy(&l2, gpu_score, sizeof(float), cudaMemcpyDeviceToHost));
-          do_gpu_mult(optgrid+i*example_size + recGridSize, screengrid, gpu_score+1, ligGridSize);
+          do_gpu_mult(optgrid + offset, screengrid + recGridSize, gpu_score+1, ligGridSize);
           CUDA_CHECK_GNINA(cudaMemcpy(&mult, gpu_score+1, sizeof(float), cudaMemcpyDeviceToHost));
           l2 = std::sqrt(l2);
           scores.push_back((l2/100.f + mult) / ligGridSize);
         }
         else if(!std::strcmp(dist_method.c_str(), "threshold")) {
-          do_gpu_thresh(optgrid+i*example_size + recGridSize, screengrid, gpu_score, ligGridSize,
+          do_gpu_thresh(optgrid + offset, screengrid + recGridSize, gpu_score, ligGridSize,
               positive_threshold, negative_threshold);
         }
         else {
@@ -244,22 +245,22 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
         const float* screengrid = top[0]->cpu_data();
         scores.push_back(float());
         if (!std::strcmp(dist_method.c_str(), "l2"))
-          cpu_l2sq(optgrid + i * example_size + recGridSize, screengrid, &scores.back(), 
+          cpu_l2sq(optgrid + offset, screengrid + recGridSize, &scores.back(), 
               ligGridSize);
         else if(!std::strcmp(dist_method.c_str(), "mult"))
-          cpu_mult(optgrid + i * example_size + recGridSize, screengrid, &scores.back(), 
+          cpu_mult(optgrid + offset, screengrid + recGridSize, &scores.back(), 
               ligGridSize);
         else if(!std::strcmp(dist_method.c_str(), "sum")) {
           float l2;
-          cpu_l2sq(optgrid + i * example_size + recGridSize, screengrid, &l2, 
+          cpu_l2sq(optgrid + offset, screengrid + recGridSize, &l2, 
               ligGridSize);
           float mult;
-          cpu_mult(optgrid + i * example_size + recGridSize, screengrid, &mult, 
+          cpu_mult(optgrid + offset, screengrid + recGridSize, &mult, 
               ligGridSize);
           scores.back() = l2/100.f + mult;
         }
         else if(!std::strcmp(dist_method.c_str(), "threshold")) {
-          cpu_thresh(optgrid + i * example_size + recGridSize, screengrid, &scores.back(), 
+          cpu_thresh(optgrid + offset, screengrid + recGridSize, &scores.back(), 
               ligGridSize, positive_threshold, negative_threshold);
         }
         else {
