@@ -332,7 +332,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   if(compute_gradient || cnnopts.outputxyz) {
     mgrid->enableLigandGradients();
     if(cnnopts.moving_receptor() || cnnopts.outputxyz || cnnopts.flexopt)
-      mgrid->enableReceptorGradients();
+      mgrid->enableReceptorGradients(); // Enable computation of full receptor gradient
   }
 
   m.clear_minus_forces();
@@ -363,13 +363,16 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
 
       // Get ligand gradient
       mgrid->getLigandGradient(0, gradient);
-      
 
       // Get receptor gradient
-      if(cnnopts.flexopt){ // Optimization of flexible residues 
-        mgrid->getReceprotGradient(0, receptor_gradient);
-
+      std::vector<gfloat3> gradient_rec;
+      if (cnnopts.flexopt) { // Optimization of flexible residues
+        mgrid->getReceptorGradient(0, gradient_rec);
+        // TODO: Select components of flexible residues!
       }
+
+      // Merge ligand and flexible residues gradient
+      gradient.insert(gradient.end(), gradient_rec.begin(), gradient_rec.end());
 
       // Ligand plus flexible residues gradient
       m.add_minus_forces(gradient);
@@ -390,7 +393,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
     mgrid->getLigandChannels(0, channels);
     outputXYZ(ligname, atoms, channels, gradient);
 
-    mgrid->getReceptorGradient(0, gradient);
+    mgrid->getReceptorGradient(0, gradient); // TODO: Full gradient or just flexres?
     mgrid->getReceptorAtoms(0, atoms);
     mgrid->getReceptorChannels(0, channels);
     outputXYZ(recname, atoms, channels, gradient);
