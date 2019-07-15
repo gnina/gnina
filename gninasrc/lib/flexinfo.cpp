@@ -288,7 +288,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
 
 void FlexInfo::printFlex() const{
 
-  // Residues are stored as unordered_se
+  // Residues are stored as unordered_set
   // Sort before printing
   std::vector<std::tuple<char, int, char> > sortedres(residues.begin(), residues.end());
   sort(sortedres.begin(), sortedres.end());

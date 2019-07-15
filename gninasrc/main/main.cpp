@@ -1440,6 +1440,7 @@ Thank you!\n";
       atomoutfile.open(atom_name.c_str());
 
     FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, log);
+
     // dkoes - parse in receptor once
     MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
 
@@ -1506,8 +1507,18 @@ Thank you!\n";
 
     log << std::setw(12) << std::left << "Weights" << " Terms\n" << t << "\n";
 
-    // Print out flexible residues
+    // Print out flexible residues 
     finfo.printFlex();
+
+    // Print information about flexible residues use
+    if (finfo.hasContent() && (cnnopts.cnn_refinement ||
+                               (cnnopts.cnn_scoring && settings.dominimize))) {
+      cnnopts.flexopt = true; // Flexible residues
+
+      log << "Optimizing flexible residues with CNN scoring function.\n";
+    } else if (finfo.hasContent() && cnnopts.cnn_scoring) {
+      log << "WARNING: Flexible residues specified but not used.\n";
+    }
 
     if (usergrid_file_name.size() > 0) {
       ifile user_in(usergrid_file_name);
