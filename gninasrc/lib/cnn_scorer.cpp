@@ -314,9 +314,13 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
     mgrid->setGridCenter(current_center);
   }
 
-  // TODO: Here ligand and receptor are initialized
-  // TODO: Ligand is initialized from movable atoms, receptor from fixed atoms
+  // rmeli: Here ligand and receptor are initialized
+  // rmeli: Ligand is initialized from movable atoms, receptor from fixed atoms
   mgrid->setLigand(m.get_movable_atoms(), m.coordinates(), cnnopts.move_minimize_frame);
+
+  // rmeli: Concatenate fixed and movable part of the receptor
+
+
   if (!cnnopts.move_minimize_frame) { //if fixed_receptor, rec_conf will be identify
     mgrid->setReceptor(m.get_fixed_atoms(), m.rec_conf.position, m.rec_conf.orientation);
   } else { //don't move receptor
@@ -332,7 +336,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   if(compute_gradient || cnnopts.outputxyz) {
     mgrid->enableLigandGradients();
     if(cnnopts.moving_receptor() || cnnopts.outputxyz || cnnopts.flexopt)
-      mgrid->enableReceptorGradients(); // Enable computation of full receptor gradient
+      mgrid->enableReceptorGradients(); // rmeli: Enable computation of full receptor gradient
   }
 
   m.clear_minus_forces();
@@ -368,7 +372,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
       std::vector<gfloat3> gradient_rec;
       if (cnnopts.flexopt) { // Optimization of flexible residues
         mgrid->getReceptorGradient(0, gradient_rec);
-        // TODO: Select components of flexible residues!
+        // rmeli: Select components of flexible residues!
       }
 
       // Merge ligand and flexible residues gradient
