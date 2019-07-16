@@ -335,8 +335,14 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
 
   if(compute_gradient || cnnopts.outputxyz) {
     mgrid->enableLigandGradients();
-    if(cnnopts.moving_receptor() || cnnopts.outputxyz || cnnopts.flexopt)
-      mgrid->enableReceptorGradients(); // rmeli: Enable computation of full receptor gradient
+    if(cnnopts.moving_receptor() || cnnopts.outputxyz){
+      mgrid->enableReceptorGradients();
+    }
+    else if(cnnopts.flexopt){
+      mgrid->enableReceptorGradients(); // rmeli: TODO flexres gradients only
+    }
+      
+
   }
 
   m.clear_minus_forces();
