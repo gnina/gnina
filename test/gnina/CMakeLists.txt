@@ -29,4 +29,7 @@ if(Boost_MINOR_VERSION  VERSION_GREATER 64)
 else()
     add_test(NAME gninacheck COMMAND gninacheck --n_iters=1)
 endif()
+
 add_test(NAME gninamin COMMAND ./test_min.py $<TARGET_FILE:gnina> WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_test(NAME gninaminflex COMMAND ./test_minflex.py $<TARGET_FILE:gnina> WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
