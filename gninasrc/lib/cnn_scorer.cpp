@@ -314,17 +314,64 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
     mgrid->setGridCenter(current_center);
   }
 
-  // rmeli: Here ligand and receptor are initialized
-  // rmeli: Ligand is initialized from movable atoms, receptor from fixed atoms
-  mgrid->setLigand(m.get_movable_atoms(), m.coordinates(), cnnopts.move_minimize_frame);
+  // rmeli: Carve out ligand from movable atoms
+  atomv ligand_atoms = atomv(
+    m.get_movable_atoms().cbegin() + m.ligands[0].node.begin,
+    m.get_movable_atoms().cbegin() + m.ligands[0].node.begin + m.m_num_movable_atoms
+  );
 
-  // rmeli: Concatenate fixed and movable part of the receptor
+  vecv ligand_coords = vecv(
+    m.coordinates().cbegin() + m.ligands[0].node.begin,
+    m.coordinates().cbegin() + m.ligands[0].node.begin + m.m_num_movable_atoms
+  );
 
+  if(!cnnopts.flexopt){
+    // Ligand only
+    assert(ligand_atoms.size() == m.get_movable_atoms().size());
+    assert(ligand_coords.size() == m.coordinates().size());
+  }
+
+  mgrid->setLigand(ligand_atoms, ligand_coords, cnnopts.move_minimize_frame);
+
+  // rmeli: Carve out receptor atoms from movable atoms
+  atomv flexible_atoms = atomv(
+    m.get_movable_atoms().cbegin(),
+    m.get_movable_atoms().cbegin() + m.ligands[0].node.begin
+  );
+
+  atomv inflex_atoms = atomv(
+    m.get_movable_atoms().cbegin() + m.ligands[0].node.begin + m.m_num_movable_atoms,
+    m.get_movable_atoms().cend()
+  );
+
+  if(!cnnopts.flexopt){
+    // No atoms from flexible residues should be present
+    assert(flexible_atoms.size() == 0);
+    assert(inflex_atoms.size() == 0);
+  }
+
+  // rmeli: Use std::move_iterator instead?
+  atomv receptor_atoms;
+  receptor_atoms.insert( // Insert flexible residues movable atoms
+    receptor_atoms.end(), 
+    flexible_atoms.cbegin(), 
+    flexible_atoms.cend()
+  );
+  receptor_atoms.insert( // Insert inflex atoms
+    receptor_atoms.end(), 
+    inflex_atoms.cbegin(), 
+    inflex_atoms.cend()
+  );
+  receptor_atoms.insert( // Insert fixed receptor atoms
+    receptor_atoms.end(), 
+    m.get_fixed_atoms().cbegin(), 
+    m.get_fixed_atoms().cend()
+  );
 
   if (!cnnopts.move_minimize_frame) { //if fixed_receptor, rec_conf will be identify
-    mgrid->setReceptor(m.get_fixed_atoms(), m.rec_conf.position, m.rec_conf.orientation);
+    mgrid->setReceptor(receptor_atoms, m.rec_conf.position, m.rec_conf.orientation);
   } else { //don't move receptor
-    mgrid->setReceptor(m.get_fixed_atoms());
+    mgrid->setReceptor(receptor_atoms);
     current_center = mgrid->getGridCenter(); //has been recalculated from ligand
     if(cnnopts.verbose) {
       std::cout << "current center: ";
@@ -341,8 +388,6 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
     else if(cnnopts.flexopt){
       mgrid->enableReceptorGradients(); // rmeli: TODO flexres gradients only
     }
-      
-
   }
 
   m.clear_minus_forces();
