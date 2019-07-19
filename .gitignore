@@ -88,7 +88,10 @@ distribute/*
 python/caffe/proto/
 cmake_build
 .cmake_build
+
+# Test
 test/gnina/Testing/Temporary
+test/gnina/*.pdb
 
 # Generated documentation
 docs/_site
