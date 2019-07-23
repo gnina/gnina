@@ -283,7 +283,7 @@ void MolGridDataLayer<Dtype>::getMappedLigandGradient(int batch_idx, unordered_m
 
   CoordinateSet& latoms = batch_info[batch_idx].transformed_lig_atoms;
   ManagedGrid<Dtype, 2>& grads = batch_info[batch_idx].lig_gradient;
-  CHECK_EQ(latoms.size(), grads.size());
+  CHECK_EQ(latoms.size(), grads.dimension(0));
   gradient.clear();
 
   for (unsigned i = 0, n = latoms.size(); i < n; ++i) {
