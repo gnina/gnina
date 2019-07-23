@@ -5,18 +5,9 @@
 #include <regex>
 #include <unordered_set>
 #include "../lib/tee.h"
-#include <google/protobuf/io/coded_stream.h>
-#include <google/protobuf/io/zero_copy_stream_impl.h>
-#include <google/protobuf/text_format.h>
-#include "../lib/cnn_scorer.h"
 #include <boost/filesystem.hpp>
-#include <boost/algorithm/string.hpp>
 #include "caffe/util/signal_handler.h"
-#include "loss.h"
-
-using namespace caffe;
-
-typedef BaseMolGridDataLayer<float, GridMaker> mgridT;
+#include "gninadream.h"
 
 std::vector<std::string> glob(const std::string& pattern) {
     using namespace std;
@@ -123,165 +114,6 @@ bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned num
   }
 
   return true;
-}
-
-void do_exact_vs(LayerParameter param, caffe::Net<float>& net, 
-    std::string vsfile, std::vector<std::string>& ref_ligs,
-    std::vector<caffe::shared_ptr<std::ostream> >& out, 
-    bool gpu, std::string dist_method, float positive_threshold, float negative_threshold) {
-  // use net top blob to do virtual screen against input sdf
-  // produce output file for each input from which we started optimization
-  // output will just be overlap score, in order of the compounds in the
-  // original file
-  // right now we assume these are pre-generated poses, although we could dock
-  // them internally or generate conformers in theory. 
-  //
-  // reinit MolGrid with params for virtual screening
-  // for each example rec is the lig used to set center (unless there was no
-  // lig, in which case we effectively fix center to origin) and lig is one of the
-  // vs ligands; we set use_rec_center and ignore_rec if there was an autocenter
-  // lig. this is annoying because done the naive way we have to regrid the
-  // same ligand many times
-  unsigned nopts = net.top_vecs()[0][0]->shape()[0];
-  unsigned batch_size = 1; // inmem for now
-
-  tee log(true);
-  FlexInfo finfo(log);
-  MolGetter mols(std::string(), std::string(), finfo, false, false, log);
-  mols.setInputFile(vsfile);
-
-  MolGridDataParameter* mparam = param.mutable_molgrid_data_param();
-  if (!mparam) {
-    std::cerr << "Virtual screen passed non-molgrid layer parameter.\n";
-    std::exit(1);
-  }
-  mparam->set_ignore_rec(true);
-  mparam->set_ignore_ligand(false);
-  mparam->set_has_affinity(false);
-  mparam->set_inmemory(true);
-  mparam->set_use_rec_center(true);
-  mparam->set_batch_size(batch_size);
-  // initblobs for virtual screen compound grids and set up
-  vector<Blob<float>*> bottom; // will always be empty
-  vector<Blob<float>*> top(2); // want to use MGrid::Forward so we'll need a dummy labels blob
-  Blob<float> datablob;
-  Blob<float> labelsblob;
-  top[0] = &datablob;
-  top[1] = &labelsblob;
-
-  mgridT opt_mgrid(param);
-  opt_mgrid.VSLayerSetUp(bottom, top);
-  // actually want size for lig channels only
-  unsigned example_size = opt_mgrid.getExampleSize();
-  unsigned ligGridSize = opt_mgrid.getNumGridPoints() * opt_mgrid.getNumLigTypes();
-  unsigned recGridSize = opt_mgrid.getNumGridPoints()* opt_mgrid.getNumRecTypes();
-  float* gpu_score = nullptr;
-  // two floats since for the sum method we need two storage locations
-  if (gpu) 
-    CUDA_CHECK_GNINA(cudaMalloc(&gpu_score, sizeof(float)*2));
-  
-  //VS compounds are currently done one at a time, inmem
-  //out is the vector of output filestreams, one per optimized input to be
-  //screened against 
-  model m;
-  for (size_t i=0; i<out.size(); ++i) {
-    std::vector<float> scores;
-    unsigned offset = i * example_size + recGridSize;
-    std::string& next_ref_lig = ref_ligs[i];
-    if (next_ref_lig != "none")
-      mols.create_init_model(ref_ligs[0], std::string(), finfo, log);
-    else
-      mols.create_init_model(std::string(), std::string(), finfo, log);
-    for (;;) {
-      if (!mols.readMoleculeIntoModel(m)) {
-        break;
-      }
-      opt_mgrid.setLigand(m.get_movable_atoms(), m.coordinates());
-      if (next_ref_lig != "none") {
-        opt_mgrid.setReceptor(m.get_fixed_atoms());
-        opt_mgrid.setCenter(opt_mgrid.getCenter());
-      }
-      else
-        opt_mgrid.setCenter(vec(0, 0, 0));
-      opt_mgrid.setLabels(1, 10); 
-      if (gpu) {
-        opt_mgrid.Forward_gpu(bottom, top);
-        const float* optgrid = net.top_vecs()[0][0]->gpu_data();
-        const float* screengrid = top[0]->gpu_data();
-        CUDA_CHECK_GNINA(cudaMemset(gpu_score, 0, sizeof(float)*2));
-        if (!std::strcmp(dist_method.c_str(), "l2"))
-          do_gpu_l2sq(optgrid + offset, screengrid + recGridSize, gpu_score, ligGridSize);
-        else if(!std::strcmp(dist_method.c_str(), "mult"))
-          do_gpu_mult(optgrid + offset, screengrid + recGridSize, gpu_score, ligGridSize);
-        else if(!std::strcmp(dist_method.c_str(), "sum")) {
-          float l2;
-          float mult;
-          do_gpu_l2sq(optgrid + offset, screengrid + recGridSize, gpu_score, ligGridSize);
-          CUDA_CHECK_GNINA(cudaMemcpy(&l2, gpu_score, sizeof(float), cudaMemcpyDeviceToHost));
-          do_gpu_mult(optgrid + offset, screengrid + recGridSize, gpu_score+1, ligGridSize);
-          CUDA_CHECK_GNINA(cudaMemcpy(&mult, gpu_score+1, sizeof(float), cudaMemcpyDeviceToHost));
-          l2 = std::sqrt(l2);
-          scores.push_back((l2/100.f + mult) / ligGridSize);
-        }
-        else if(!std::strcmp(dist_method.c_str(), "threshold")) {
-          do_gpu_thresh(optgrid + offset, screengrid + recGridSize, gpu_score, ligGridSize,
-              positive_threshold, negative_threshold);
-        }
-        else {
-          cerr << "Unknown distance method for overlap-based virtual screen\n";
-          exit(-1);
-        }
-        if(std::strcmp(dist_method.c_str(), "sum")) {
-          float scoresq;
-          CUDA_CHECK_GNINA(cudaMemcpy(&scoresq, gpu_score, sizeof(float), cudaMemcpyDeviceToHost));
-          if (!std::strcmp(dist_method.c_str(), "l2"))
-            scoresq = std::sqrt(scoresq);
-          scores.push_back(scoresq / ligGridSize);
-        }
-      }
-      else {
-        opt_mgrid.Forward_cpu(bottom, top);
-        const float* optgrid = net.top_vecs()[0][0]->cpu_data();
-        const float* screengrid = top[0]->cpu_data();
-        scores.push_back(float());
-        if (!std::strcmp(dist_method.c_str(), "l2"))
-          cpu_l2sq(optgrid + offset, screengrid + recGridSize, &scores.back(), 
-              ligGridSize);
-        else if(!std::strcmp(dist_method.c_str(), "mult"))
-          cpu_mult(optgrid + offset, screengrid + recGridSize, &scores.back(), 
-              ligGridSize);
-        else if(!std::strcmp(dist_method.c_str(), "sum")) {
-          float l2;
-          cpu_l2sq(optgrid + offset, screengrid + recGridSize, &l2, 
-              ligGridSize);
-          float mult;
-          cpu_mult(optgrid + offset, screengrid + recGridSize, &mult, 
-              ligGridSize);
-          scores.back() = l2/100.f + mult;
-        }
-        else if(!std::strcmp(dist_method.c_str(), "threshold")) {
-          cpu_thresh(optgrid + offset, screengrid + recGridSize, &scores.back(), 
-              ligGridSize, positive_threshold, negative_threshold);
-        }
-        else {
-          cerr << "Unknown distance method for overlap-based virtual screen\n";
-          exit(-1);
-        }
-        scores.back() = scores.back() / ligGridSize;
-      }
-    }
-    // write to output
-    for (auto& score : scores) {
-      *out[i] << score << "\n";
-    }
-  }
-}
-
-void do_approx_vs(mgridT* opt_mgrid, caffe::Net<float>& net, 
-    std::string vsfile, std::vector<std::string>& ref_ligs,std::vector<std::ostream>& out, 
-    bool gpu) {
-  // TODO?
-  assert(0);
 }
 
 int main(int argc, char* argv[]) {
@@ -441,15 +273,15 @@ int main(int argc, char* argv[]) {
   // params for all of them?
   LayerParameter* first = net_param.mutable_layer(1);
   MolGridDataParameter* mgridparam = first->mutable_molgrid_data_param();
+  if (mgridparam == NULL) {
+    throw usage_error("First layer of model must be MolGridData.");
+  }
+
   mgridparam->set_random_rotation(false);
   mgridparam->set_random_translate(false);
   mgridparam->set_shuffle(false);
   mgridparam->set_balanced(false);
   mgridparam->set_stratify_receptor(false);
-
-  if (mgridparam == NULL) {
-    throw usage_error("First layer of model must be MolGridData.");
-  }
 
   if (cnnopts.cnn_model.size() == 0) {
     const char *recmap = cnn_models[cnnopts.cnn_model_name].recmap;
@@ -553,7 +385,9 @@ int main(int argc, char* argv[]) {
     // setting center at minimum; without ligand things _should_ work (verify
     // there aren't errors about not having lig atoms) and expect that grid
     // center will be set to origin in that case. possibly that should
-    // be changed
+    // be changed (in the past when there wasn't a ligand I would set 
+    // use_rec_center, so that you could provide binding site residues without
+    // a reference ligand and get a reasonable result)
     tee log(true);
     FlexInfo finfo(log);
     MolGetter mols(receptor_name, std::string(), finfo, true, true, log);
@@ -627,7 +461,7 @@ int main(int argc, char* argv[]) {
     if (!nopts) throw usage_error("No examples in types file");
     n_passes = std::ceil((float)(nopts) / batch_size);
     for (unsigned i=0; i<n_passes; ++i) {
-      net->ForwardFromTo(1,1);
+      net->ForwardFromTo(0,0);
       solver->ResetIter();
       for (size_t j=0; j<iterations; ++j) {
         solver->Step(1);

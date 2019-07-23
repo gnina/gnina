@@ -6,6 +6,7 @@
 #include "test_utils.h"
 #include "test_loss.h"
 #include "test_solver.h"
+#include "test_vs.h"
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
@@ -123,6 +124,14 @@ BOOST_AUTO_TEST_CASE(solver_improvement) {
 
 BOOST_AUTO_TEST_CASE(solver_exclude_rec) {
   test_iopt_exclude_rec(this->solver);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE(vs)
+
+BOOST_AUTO_TEST_CASE(vs_rank) {
+  test_do_exact_vs();
 }
 
 BOOST_AUTO_TEST_SUITE_END()
