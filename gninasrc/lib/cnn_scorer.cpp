@@ -680,8 +680,23 @@ void CNNScorer::outputXYZ(const string& base, const vector<gfloat3>& atoms,
   ofstream out(base.c_str());
   out.precision(5);
 
-  out << atoms.size() << "\n\n";
+  // Count number of valid (>= 0) whichGrid entries
+  size_t n_atoms{0};
+  for(size_t i = 0, n = atoms.size(); i < n; ++i){
+    if(whichGrid[i] >= 0){
+      n_atoms++;
+    }
+  }
+  out << n_atoms << "\n\n"; // xyz
+  
+  // Print coordinates and gradients
   for (unsigned i = 0, n = atoms.size(); i < n; ++i) {
+
+    // Skip invalid channel
+    if(whichGrid[i] < 0){
+      continue;
+    }
+
     out << sym[whichGrid[i]] << " ";
     out << atoms[i].x << " " << atoms[i].y << " " << atoms[i].z << " ";
     out << gradient[i].x << " " << gradient[i].y << " " << gradient[i].z;
