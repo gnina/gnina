@@ -449,23 +449,23 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
       CHECK_EQ(gradient.size(), ligand_coords.size());
 
       // Get receptor gradient
-      std::vector<gfloat3> gradient_rec;
+      std::vector<gfloat3> gradient_rec, gradient_flex;
       if (cnnopts.flexopt) { // Optimization of flexible residues
         mgrid->getReceptorGradient(0, gradient_rec);
         
         // rmeli: Select components of flexible residues!
-        gradient_rec = std::vector<gfloat3>(
+        gradient_flex = std::vector<gfloat3>(
           gradient_rec.cbegin(), 
           gradient_rec.cbegin() + num_flexres_atoms
         );
 
         // rmeli: receptor coords?
-        CHECK_EQ(gradient_rec.size(), num_flexres_atoms);
+        CHECK_EQ(gradient_flex.size(), num_flexres_atoms);
       }
 
       // Merge ligand and flexible residues gradient
       // Flexible residues comes first
-      gradient.insert(gradient.begin(), gradient_rec.cbegin(), gradient_rec.cend());
+      gradient.insert(gradient.begin(), gradient_flex.cbegin(), gradient_flex.cend());
 
       // Ligand plus flexible residues gradient
       m.add_minus_forces(gradient);
