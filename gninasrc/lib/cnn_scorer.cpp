@@ -309,8 +309,8 @@ std::pair<atomv, vecv> CNNScorer::get_ligand(model& m) const{
   );
 
   if(!cnnopts.flexopt){ // No flexible residues
-    assert(ligand_atoms.size() == m.get_movable_atoms().size());
-    assert(ligand_coords.size() == m.coordinates().size());
+    CHECK_EQ(ligand_atoms.size(), m.get_movable_atoms().size());
+    CHECK_EQ(ligand_coords.size(), m.coordinates().size());
   }
 
   return std::pair<atomv, vecv>(ligand_atoms, ligand_coords);
@@ -331,11 +331,11 @@ std::pair<atomv,sz> CNNScorer::get_receptor(model& m, sz num_ligand_atoms) const
 
   // Check that ligand atoms and movable atoms in flexible residues sum up to the 
   // total number of movable atoms
-  assert(flexible_atoms.size() + num_ligand_atoms == m.m_num_movable_atoms);
+  CHECK_EQ(flexible_atoms.size() + num_ligand_atoms, m.m_num_movable_atoms);
 
   if(!cnnopts.flexopt){ // No atoms from flexible residues should be present
-    assert(flexible_atoms.size() == 0);
-    assert(inflex_atoms.size() == 0);
+    CHECK_EQ(flexible_atoms.size(), 0);
+    CHECK_EQ(inflex_atoms.size(), 0);
   }
 
   // rmeli: Use std::move_iterator instead?
@@ -357,7 +357,7 @@ std::pair<atomv,sz> CNNScorer::get_receptor(model& m, sz num_ligand_atoms) const
   );
 
   if(!cnnopts.flexopt){ // No atoms from flexible residues should be present
-    assert(receptor_atoms.size() ==  m.get_fixed_atoms().size());
+    CHECK_EQ(receptor_atoms.size(), m.get_fixed_atoms().size());
   }
 
   return std::pair<atomv,sz>(receptor_atoms, flexible_atoms.size());
@@ -446,7 +446,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
       // Get ligand gradient
       mgrid->getLigandGradient(0, gradient);
 
-      assert(gradient.size() == ligand_coords.size());
+      CHECK_EQ(gradient.size(), ligand_coords.size());
 
       // Get receptor gradient
       std::vector<gfloat3> gradient_rec;
@@ -460,7 +460,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
         );
 
         // rmeli: receptor coords?
-        assert(gradient_rec.size() == num_flexres_atoms);
+        CHECK_EQ(gradient_rec.size(), num_flexres_atoms);
       }
 
       // Merge ligand and flexible residues gradient
@@ -486,7 +486,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
     mgrid->getLigandChannels(0, channels);
     outputXYZ(ligname, atoms, channels, gradient);
 
-    mgrid->getReceptorGradient(0, gradient); // TODO: Full gradient or just flexres?
+    mgrid->getReceptorGradient(0, gradient); // rmeli: TODO Full gradient or just flexres?
     mgrid->getReceptorAtoms(0, atoms);
     mgrid->getReceptorChannels(0, channels);
     outputXYZ(recname, atoms, channels, gradient);
