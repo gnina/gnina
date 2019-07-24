@@ -1514,8 +1514,10 @@ Thank you!\n";
     if (finfo.hasContent() && (cnnopts.cnn_refinement ||
                                (cnnopts.cnn_scoring && settings.dominimize))) {
       cnnopts.flexopt = true; // Flexible residues
+      cmnopts.fix_receptor = true; // Fix receptor position and orientation
 
       log << "Optimizing flexible residues with CNN scoring function.\n";
+      log << "Receptor position and orientation are frozen.\n";
     } else if (finfo.hasContent() && cnnopts.cnn_scoring) {
       log << "WARNING: Flexible residues specified but not used.\n";
     }
