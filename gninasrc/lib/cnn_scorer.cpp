@@ -297,7 +297,7 @@ void CNNScorer::get_net_output(Dtype& score, Dtype& aff, Dtype& loss) {
 }
 
 // Extract ligand atoms and coordinates
-std::pair<atomv, vecv> CNNScorer::get_ligand(model& m) const{
+std::pair<atomv, vecv> CNNScorer::get_ligand(const model& m) const{
   atomv ligand_atoms = atomv(
     m.get_movable_atoms().cbegin() + m.ligands[0].node.begin,
     m.get_movable_atoms().cbegin() + m.m_num_movable_atoms
@@ -317,7 +317,7 @@ std::pair<atomv, vecv> CNNScorer::get_ligand(model& m) const{
 }
 
 // Concatenate movable and fixed receptor atoms
-std::pair<atomv,sz> CNNScorer::get_receptor(model& m) const{
+std::pair<atomv,sz> CNNScorer::get_receptor(const model& m) const{
   // Get receptor flexible atoms
   atomv flexible_atoms = atomv(
     m.get_movable_atoms().cbegin(),
