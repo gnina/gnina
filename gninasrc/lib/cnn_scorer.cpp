@@ -316,7 +316,8 @@ std::pair<atomv, vecv> CNNScorer::get_ligand(model& m) const{
   return std::pair<atomv, vecv>(ligand_atoms, ligand_coords);
 }
 
-std::pair<atomv,sz> CNNScorer::get_receptor(model& m, sz num_ligand_atoms) const{
+// Concatenate movable and fixed receptor atoms
+std::pair<atomv,sz> CNNScorer::get_receptor(model& m) const{
   // Get receptor flexible atoms
   atomv flexible_atoms = atomv(
     m.get_movable_atoms().cbegin(),
@@ -328,10 +329,6 @@ std::pair<atomv,sz> CNNScorer::get_receptor(model& m, sz num_ligand_atoms) const
     m.get_movable_atoms().cbegin() + m.m_num_movable_atoms,
     m.get_movable_atoms().cend()
   );
-
-  // Check that ligand atoms and movable atoms in flexible residues sum up to the 
-  // total number of movable atoms
-  CHECK_EQ(flexible_atoms.size() + num_ligand_atoms, m.m_num_movable_atoms);
 
   if(!cnnopts.flexopt){ // No atoms from flexible residues should be present
     CHECK_EQ(flexible_atoms.size(), 0);
@@ -351,8 +348,8 @@ std::pair<atomv,sz> CNNScorer::get_receptor(model& m, sz num_ligand_atoms) const
     inflex_atoms.cend()
   );
   receptor_atoms.insert( // Insert fixed receptor atoms
-    receptor_atoms.end(), 
-    m.get_fixed_atoms().cbegin(), 
+    receptor_atoms.end(),
+    m.get_fixed_atoms().cbegin(),
     m.get_fixed_atoms().cend()
   );
 
@@ -392,9 +389,12 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   // rmeli: Carve out receptor atoms from movable atoms
   atomv receptor_atoms;
   sz num_flexres_atoms;
-  std::tie(receptor_atoms, num_flexres_atoms) = get_receptor(m, ligand_atoms.size());
+  std::tie(receptor_atoms, num_flexres_atoms) = get_receptor(m);
 
-  // rmeli: what about receptor coordinates?
+  // Check that ligand atoms and movable atoms in flexible residues sum up to the 
+  // total number of movable atoms
+  CHECK_EQ(num_flexres_atoms + ligand_atoms.size(), m.m_num_movable_atoms);
+
   if (!cnnopts.move_minimize_frame) { //if fixed_receptor, rec_conf will be identify
     mgrid->setReceptor(receptor_atoms, m.rec_conf.position, m.rec_conf.orientation);
   } else { //don't move receptor

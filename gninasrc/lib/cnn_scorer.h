@@ -58,7 +58,7 @@ class CNNScorer {
     float score(model& m, bool compute_gradient, float& affinity, float& loss);
 
     std::pair<atomv, vecv> get_ligand(model& m) const;
-    std::pair<atomv, sz> get_receptor(model& m, sz num_ligand_atoms) const;
+    std::pair<atomv, sz> get_receptor(model& m) const;
 
     void outputDX(const std::string& prefix, double scale = 1.0, bool relevance =
         false, std::string layer_to_ignore = "", bool zero_values = false);
