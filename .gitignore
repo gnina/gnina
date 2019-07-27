@@ -92,6 +92,8 @@ cmake_build
 # Test
 test/gnina/Testing/Temporary
 test/gnina/*.pdb
+test/gnina/*.xyz
+test/gnina/*.pymol
 
 # Generated documentation
 docs/_site
