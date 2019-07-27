@@ -317,7 +317,7 @@ std::pair<atomv, vecv> CNNScorer::get_ligand(const model& m) const{
 }
 
 // Concatenate movable and fixed receptor atoms
-std::pair<atomv,sz> CNNScorer::get_receptor(const model& m) const{
+std::tuple<atomv,vecv, std::size_t> CNNScorer::get_receptor(const model& m) const{
   // Get receptor flexible atoms
   atomv flexible_atoms = atomv(
     m.get_movable_atoms().cbegin(),
@@ -357,7 +357,21 @@ std::pair<atomv,sz> CNNScorer::get_receptor(const model& m) const{
     CHECK_EQ(receptor_atoms.size(), m.get_fixed_atoms().size());
   }
 
-  return std::pair<atomv,sz>(receptor_atoms, flexible_atoms.size());
+  // Extract flex and inflex coordinates from model
+  vecv flex_inflex_coords(
+    m.coordinates().cbegin(),
+    m.coordinates().cbegin() + flexible_atoms.size()
+  );
+  flex_inflex_coords.insert(
+    flex_inflex_coords.end(),
+    m.coordinates().cbegin() + m.m_num_movable_atoms,
+    m.coordinates().cend()
+  );
+
+  // Get number of residues as lvalue
+  std::size_t num_flex_atoms = flexible_atoms.size();
+  
+  return std::make_tuple(receptor_atoms, flex_inflex_coords, num_flex_atoms);
 }
 
 //return score of model, assumes receptor has not changed from initialization
@@ -388,16 +402,21 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
 
   // rmeli: Carve out receptor atoms from movable atoms
   atomv receptor_atoms;
+  vecv flex_inflex_coords;
   sz num_flexres_atoms;
-  std::tie(receptor_atoms, num_flexres_atoms) = get_receptor(m);
+  std::tie(receptor_atoms, flex_inflex_coords, num_flexres_atoms) = get_receptor(m);
 
   // Check that ligand atoms and movable atoms in flexible residues sum up to the 
   // total number of movable atoms
   CHECK_EQ(num_flexres_atoms + ligand_atoms.size(), m.m_num_movable_atoms);
 
-  if (!cnnopts.move_minimize_frame) { //if fixed_receptor, rec_conf will be identify
+  if (!cnnopts.move_minimize_frame && !cnnopts.flexopt) { //if fixed_receptor, rec_conf will be identify
     mgrid->setReceptor(receptor_atoms, m.rec_conf.position, m.rec_conf.orientation);
-  } else { //don't move receptor
+  } 
+  else if(cnnopts.flexopt){
+    mgrid->setReceptorFlex(receptor_atoms, flex_inflex_coords);
+  }
+  else { //don't move receptor
     mgrid->setReceptor(receptor_atoms);
     current_center = mgrid->getGridCenter(); //has been recalculated from ligand
     if(cnnopts.verbose) {
@@ -413,6 +432,8 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
       mgrid->enableReceptorGradients();
     }
     else if(cnnopts.flexopt){
+      // rmeli: remove debug
+      std::cout << "DEBUG: Enabling receptor gradient..." << std::endl;
       mgrid->enableReceptorGradients(); // rmeli: TODO flexres gradients only
     }
   }
@@ -455,7 +476,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
         
         // rmeli: Select components of flexible residues!
         gradient_flex = std::vector<gfloat3>(
-          gradient_rec.cbegin(), 
+          gradient_rec.cbegin(),
           gradient_rec.cbegin() + num_flexres_atoms
         );
 
