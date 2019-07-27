@@ -393,14 +393,14 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
     mgrid->setGridCenter(current_center);
   }
 
-  // rmeli: Carve out ligand from movable atoms
+  // Get ligand atoms and coords from movable atoms
   atomv ligand_atoms;
   vecv ligand_coords;
   std::tie(ligand_atoms, ligand_coords) = get_ligand(m);
 
   mgrid->setLigand(ligand_atoms, ligand_coords, cnnopts.move_minimize_frame);
 
-  // rmeli: Carve out receptor atoms from movable atoms
+  // Get receptor atoms and flex/inflex coordinats from movable atoms
   atomv receptor_atoms;
   vecv flex_inflex_coords;
   sz num_flexres_atoms;
@@ -432,8 +432,6 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
       mgrid->enableReceptorGradients();
     }
     else if(cnnopts.flexopt){
-      // rmeli: remove debug
-      std::cout << "DEBUG: Enabling receptor gradient..." << std::endl;
       mgrid->enableReceptorGradients(); // rmeli: TODO flexres gradients only
     }
   }
@@ -474,13 +472,12 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
       if (cnnopts.flexopt) { // Optimization of flexible residues
         mgrid->getReceptorGradient(0, gradient_rec);
         
-        // rmeli: Select components of flexible residues!
+        // Select gradient on flexible residues atoms
         gradient_flex = std::vector<gfloat3>(
           gradient_rec.cbegin(),
           gradient_rec.cbegin() + num_flexres_atoms
         );
 
-        // rmeli: receptor coords?
         CHECK_EQ(gradient_flex.size(), num_flexres_atoms);
       }
 
