@@ -99,6 +99,9 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
 
     virtual void setReceptor(const vector<atom>& receptor, const vec& translate =
         {}, const qt& rotate = {});
+
+    virtual void setReceptorFlex(const vector<atom>& receptor, const vector<vec>& flexcoords);
+
     virtual void setLigand(const vector<atom>& ligand, const vector<vec>& coords,
         bool calcCenter=true);
 
