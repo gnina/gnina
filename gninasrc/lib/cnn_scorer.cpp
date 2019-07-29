@@ -335,7 +335,6 @@ std::tuple<atomv,vecv, std::size_t> CNNScorer::get_receptor(const model& m) cons
     CHECK_EQ(inflex_atoms.size(), 0);
   }
 
-  // rmeli: Use std::move_iterator instead?
   atomv receptor_atoms;
   receptor_atoms.insert( // Insert flexible residues movable atoms
     receptor_atoms.end(), 
@@ -397,7 +396,6 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   atomv ligand_atoms;
   vecv ligand_coords;
   std::tie(ligand_atoms, ligand_coords) = get_ligand(m);
-
   mgrid->setLigand(ligand_atoms, ligand_coords, cnnopts.move_minimize_frame);
 
   // Get receptor atoms and flex/inflex coordinats from movable atoms
@@ -473,6 +471,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
         mgrid->getReceptorGradient(0, gradient_rec);
         
         // Select gradient on flexible residues atoms
+        // rmeli: TODO Remove useless copy
         gradient_flex = std::vector<gfloat3>(
           gradient_rec.cbegin(),
           gradient_rec.cbegin() + num_flexres_atoms
@@ -482,10 +481,10 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
       }
 
       // Merge ligand and flexible residues gradient
-      // Flexible residues comes first
+      // Flexible residues, if any, come first
       gradient.insert(gradient.begin(), gradient_flex.cbegin(), gradient_flex.cend());
 
-      // Ligand plus flexible residues gradient
+      // Update ligand (and flexible residues) gradient
       m.add_minus_forces(gradient);
 
       // Gradient for rigid receptor transformation: translation and torque
