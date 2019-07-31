@@ -305,7 +305,7 @@ void CNNScorer::get_net_output(Dtype& score, Dtype& aff, Dtype& loss) {
 // Extract ligand atoms and coordinates
 void CNNScorer::setLigand(const model& m){
 
-  if(ligand_atoms.size() == 0){ // Initialize only once
+  if(ligand_atoms.size() == 0){ // Do once at setup
     ligand_atoms = atomv(
       m.get_movable_atoms().cbegin() + m.ligands[0].node.begin,
       m.get_movable_atoms().cbegin() + m.m_num_movable_atoms
@@ -329,7 +329,7 @@ void CNNScorer::setLigand(const model& m){
 // Concatenate movable and fixed receptor atoms
 void CNNScorer::setReceptor(const model& m){
 
-  if(receptor_atoms.size() == 0){
+  if(receptor_atoms.size() == 0){ // Do once at setup
 
     // Insert flexible residues movable atoms
     receptor_atoms.insert(
@@ -360,7 +360,7 @@ void CNNScorer::setReceptor(const model& m){
     );
   }
 
-  if(receptor_coords.size() == 0 ){
+  if(receptor_coords.size() == 0 ){ // Do once at setup
     sz n = m.get_fixed_atoms().size();
 
     receptor_coords.reserve(n); // Reserve memory, but size() == 0
@@ -384,7 +384,7 @@ void CNNScorer::setReceptor(const model& m){
       m.coordinates().cbegin() + num_flex_atoms
     );
   }
-  else{ // Update flex coordinates
+  else{ // Update flex coordinates at every call
     std::copy(
       m.coordinates().cbegin(),
       m.coordinates().cbegin() + num_flex_atoms,
