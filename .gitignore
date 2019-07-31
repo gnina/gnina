@@ -89,7 +89,7 @@ python/caffe/proto/
 cmake_build
 .cmake_build
 
-# Test
+# tests
 test/gnina/Testing/Temporary
 
 # Generated documentation

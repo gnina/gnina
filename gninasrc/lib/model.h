@@ -255,7 +255,7 @@ struct ligand : public flexible_body, atom_range {
 
 struct residue : public main_branch {
     residue() {
-    } // for serialization
+    } //serialization
     residue(const main_branch& m)
         : main_branch(m) {
     }
