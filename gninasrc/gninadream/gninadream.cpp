@@ -116,6 +116,66 @@ bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned num
   return true;
 }
 
+void cpu_constant_fill(float* fillgrid, size_t gsize, float fillval) {
+#pragma omp parallel
+  for (size_t i=0; i<gsize; ++i) {
+    if (fillgrid[i] == 0) 
+      fillgrid[i] = fillval;
+  }
+}
+
+void carve_init(mgridT& mgrid, bool no_density, caffe::shared_ptr<Net<float> >& net, 
+    float carve_val) {
+  unsigned nlt = mgrid.getNumLigTypes();
+  unsigned nrt = mgrid.getNumRecTypes();
+  unsigned npts = mgrid.getNumGridPoints();
+  unsigned lig_grid_size = nlt * npts;
+  unsigned rec_grid_size = nrt * npts;
+ if (no_density) {
+   // no ligand density, just set the values
+   switch (Caffe::mode()) {
+   case Caffe::GPU: {
+ #ifndef CPU_ONLY
+     float* optgrid = net->top_vecs()[0][0]->mutable_gpu_data();
+     std::vector<float> fillbuffer(lig_grid_size, carve_val);
+     CUDA_CHECK(cudaMemcpy(optgrid + rec_grid_size, &fillbuffer[0], lig_grid_size * sizeof(float), cudaMemcpyHostToDevice));
+ #else
+     NO_GPU;
+ #endif
+     break;
+   }
+   case Caffe::CPU: {
+     float* optgrid = net->top_vecs()[0][0]->mutable_cpu_data();
+     std::fill(optgrid + rec_grid_size, optgrid + rec_grid_size + lig_grid_size, carve_val);
+     break;
+   }
+   default:
+     LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
+   }
+ }
+ else {
+   // some ligand density present, set value to carve_val only if it's 0
+   switch (Caffe::mode()) {
+   case Caffe::GPU: {
+ #ifndef CPU_ONLY
+     float* optgrid = net->top_vecs()[0][0]->mutable_gpu_data();
+     do_constant_fill(optgrid + rec_grid_size, lig_grid_size, carve_val);
+ #else
+     NO_GPU;
+ #endif
+     break;
+   }
+   case Caffe::CPU: {
+     float* optgrid = net->top_vecs()[0][0]->mutable_cpu_data();
+     cpu_constant_fill(optgrid + rec_grid_size, lig_grid_size, carve_val);
+     break;
+   }
+   default:
+     LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
+   }
+ }
+}
+
 int main(int argc, char* argv[]) {
   using namespace boost::program_options;
 
@@ -368,15 +428,6 @@ int main(int argc, char* argv[]) {
     solver->SetNrecTypes(mgrid->getNumRecTypes());
     solver->SetNpoints(mgrid->getNumGridPoints());
   }
-  if (carve) {
-    solver->DoCarve(carve);
-    solver->SetCarveVal(carve_val);
-    unsigned nlt = mgrid->getNumLigTypes();
-    unsigned nrt = mgrid->getNumRecTypes();
-    unsigned npts = mgrid->getNumGridPoints();
-    solver->SetRecGridSize(nrt * npts);
-    solver->SetLigGridSize(nlt * npts);
-  }
 
   // figure out what the initial state should be and run optimization
   if (receptor_name.size()) {
@@ -417,7 +468,11 @@ int main(int argc, char* argv[]) {
         // with a types file you can target arbitrary pose and affinity values,
         // here we assume you just want a really good active
         mgrid->setLabels(1, 10); 
-        solver->ResetIter();
+        net->ForwardFromTo(0,0);
+        if (carve) {
+          bool no_density = ligand_name.empty() || ignore_ligand;
+          carve_init(*mgrid, no_density, net, carve_val);
+        }
         std::string prefix = rec.stem().string() + "_" + lig.stem().string();
         for (size_t i=0; i<iterations; ++i) {
           solver->Step(1);
@@ -463,6 +518,11 @@ int main(int argc, char* argv[]) {
     for (unsigned i=0; i<n_passes; ++i) {
       net->ForwardFromTo(0,0);
       solver->ResetIter();
+      if (carve) {
+        // could figure out if ligand was 'none' too but that's more work 
+        bool no_density = ignore_ligand;
+        carve_init(*mgrid, no_density, net, carve_val);
+      }
       for (size_t j=0; j<iterations; ++j) {
         solver->Step(1);
         if (dump_all || (i==iterations-1 && dump_last)) {
@@ -624,8 +684,10 @@ int main(int argc, char* argv[]) {
         }
       }
     }
-    //TODO: on iteration 0 the inputopt solver does MolGrid::Forward, which
-    //probably zeros out the input blob...
+    if (carve) {
+      bool no_density = false;
+      carve_init(*mgrid, no_density, net, carve_val);
+    }
     for (size_t i=0; i<iterations; ++i) {
       solver->Step(1);
       if (dump_all || (i==iterations-1 && dump_last))

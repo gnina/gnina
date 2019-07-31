@@ -169,3 +169,4 @@ void do_approx_vs(mgridT* opt_mgrid, caffe::Net<float>& net,
   assert(0);
 }
 
+void do_constant_fill(float* fillgrid, size_t gsize, float fillval);

@@ -2,6 +2,7 @@
 #define CUDA_NUM_THREADS 256
 #define CUDA_NUM_BLOCKS 48
 #define warpSize 32
+#define KERNEL_CHECK CUDA_CHECK_GNINA(cudaPeekAtLastError())
 
 // device functions for warp-based reduction using shufl operations
 // TODO: should probably just be factored out into gpu_math or gpu_util
@@ -60,6 +61,7 @@ void do_gpu_l2sq(const float* optgrid, const float* screengrid, float* scoregrid
   unsigned block_multiple = gsize / CUDA_NUM_THREADS;
   unsigned nblocks = block_multiple < CUDA_NUM_BLOCKS ? block_multiple : CUDA_NUM_BLOCKS;
   gpu_l2sq<<<nblocks, CUDA_NUM_THREADS>>>(optgrid, screengrid, scoregrid, gsize);
+  KERNEL_CHECK;
 }
 
 __global__
@@ -83,6 +85,7 @@ void do_gpu_mult(const float* optgrid, const float* screengrid, float* scoregrid
   unsigned block_multiple = gsize / CUDA_NUM_THREADS;
   unsigned nblocks = block_multiple < CUDA_NUM_BLOCKS ? block_multiple : CUDA_NUM_BLOCKS;
   gpu_mult<<<nblocks, CUDA_NUM_THREADS>>>(optgrid, screengrid, scoregrid, gsize);
+  KERNEL_CHECK;
 }
 
 __global__
@@ -110,4 +113,23 @@ void do_gpu_thresh(const float* optgrid, const float* screengrid, float* scoregr
   unsigned nblocks = block_multiple < CUDA_NUM_BLOCKS ? block_multiple : CUDA_NUM_BLOCKS;
   gpu_thresh<<<nblocks, CUDA_NUM_THREADS>>>(optgrid, screengrid, scoregrid,
       gsize, positive_threshold, negative_threshold);
+  KERNEL_CHECK;
+}
+
+__global__
+void constant_fill(float* fillgrid, size_t gsize, float fillval) {
+  unsigned tidx = blockDim.x * blockIdx.x + threadIdx.x;
+  unsigned nthreads = blockDim.x * gridDim.x;
+  for (size_t i=tidx; i<gsize; i+=nthreads) {
+    if (fillgrid[i] == 0)
+      fillgrid[i] = fillval;
+  }
+}
+
+void do_constant_fill(float* fillgrid, size_t gsize, float fillval) {
+  // sets any 0 values to constant fill value
+  unsigned block_multiple = gsize / CUDA_NUM_THREADS;
+  unsigned nblocks = block_multiple < CUDA_NUM_BLOCKS ? block_multiple : CUDA_NUM_BLOCKS;
+  constant_fill<<<nblocks, CUDA_NUM_THREADS>>>(fillgrid, gsize, fillval);
+  KERNEL_CHECK;
 }
