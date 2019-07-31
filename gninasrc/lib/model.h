@@ -259,12 +259,6 @@ struct residue : public main_branch {
     residue(const main_branch& m)
         : main_branch(m) {
     }
-
-    friend class boost::serialization::access;
-    template<class Archive>
-    void serialize(Archive& ar, const unsigned version) {
-      ar & boost::serialization::base_object<main_branch>(*this);
-    }
 };
 
 enum distance_type {
