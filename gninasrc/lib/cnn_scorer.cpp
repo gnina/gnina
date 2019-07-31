@@ -306,14 +306,15 @@ void CNNScorer::get_net_output(Dtype& score, Dtype& aff, Dtype& loss) {
 void CNNScorer::setLigand(const model& m){
 
   if(ligand_atoms.size() == 0){ // Do once at setup
-    ligand_atoms = atomv(
+
+    ligand_atoms.assign(
       m.get_movable_atoms().cbegin() + m.ligands[0].node.begin,
       m.get_movable_atoms().cbegin() + m.m_num_movable_atoms
     );
   }
 
   // Coordinates need to be updated at every call
-  ligand_coords = vecv(
+  ligand_coords.assign(
       m.coordinates().cbegin() + m.ligands[0].node.begin,
       m.coordinates().cbegin() + m.m_num_movable_atoms
   );
@@ -333,9 +334,12 @@ void CNNScorer::setReceptor(const model& m){
 
   if(receptor_atoms.size() == 0){ // Do once at setup
 
+    sz size = m.get_movable_atoms().size() + m.get_fixed_atoms().size();
+
+    receptor_atoms.reserve(size);
+
     // Insert flexible residues movable atoms
-    receptor_atoms.insert(
-      receptor_atoms.end(), 
+    receptor_atoms.assign(
       m.get_movable_atoms().cbegin(), 
       m.get_movable_atoms().cbegin() + m.ligands[0].node.begin
     );
