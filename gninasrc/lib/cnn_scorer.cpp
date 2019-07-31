@@ -169,7 +169,7 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore,
   caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
   mgrid->setReceptor(m.get_fixed_atoms());
-  mgrid->setLigand(m.get_movable_atoms(), m.coordinates()); // TODO: Movable atoms for receptor
+  mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
   mgrid->setLabels(1); //for now pose optimization only
   mgrid->enableLigandGradients();
   mgrid->enableReceptorGradients();
