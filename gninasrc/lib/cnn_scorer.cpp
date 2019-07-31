@@ -326,7 +326,9 @@ void CNNScorer::setLigand(const model& m){
   CHECK_EQ(ligand_atoms.size(), ligand_coords.size());
 }
 
-// Concatenate movable and fixed receptor atoms
+// Extracts receptor atoms and coordinates
+// Flex and inflex coordinates are taken from the model's movable atoms
+// Flex coordinates are stored at the beginning, then inflex, then fixed
 void CNNScorer::setReceptor(const model& m){
 
   if(receptor_atoms.size() == 0){ // Do once at setup
@@ -433,9 +435,6 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   if (!cnnopts.move_minimize_frame && !cnnopts.flexopt) { //if fixed_receptor, rec_conf will be identify
     mgrid->setReceptor(receptor_atoms, receptor_coords,  m.rec_conf.position, m.rec_conf.orientation);
   } 
-  else if(cnnopts.flexopt){
-    mgrid->setReceptor(receptor_atoms, receptor_coords);
-  }
   else { //don't move receptor
     mgrid->setReceptor(receptor_atoms, receptor_coords);
     current_center = mgrid->getGridCenter(); //has been recalculated from ligand
