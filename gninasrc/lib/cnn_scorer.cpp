@@ -167,9 +167,12 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore,
   boost::lock_guard<boost::recursive_mutex> guard(*mtx);
 
   caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
+  
+  setLigand(m);
+  setReceptor(m);
 
-  mgrid->setReceptor(m.get_fixed_atoms());
-  mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
+  mgrid->setReceptor(receptor_atoms, receptor_coords);
+  mgrid->setLigand(ligand_atoms, ligand_coords);
   mgrid->setLabels(1); //for now pose optimization only
   mgrid->enableLigandGradients();
   mgrid->enableReceptorGradients();
@@ -194,8 +197,11 @@ void CNNScorer::gradient_setup(const model& m, const string& recname,
 
   caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
 
-  mgrid->setReceptor(m.get_fixed_atoms());
-  mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
+  setLigand(m);
+  setReceptor(m);
+
+  mgrid->setReceptor(receptor_atoms, receptor_coords);
+  mgrid->setLigand(ligand_atoms, ligand_coords);
   mgrid->setLabels(1); //for now pose optimization only
   mgrid->enableLigandGradients();
   mgrid->enableReceptorGradients();
@@ -432,13 +438,13 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   mgrid->setLigand(ligand_atoms, ligand_coords, cnnopts.move_minimize_frame);
 
   if (!cnnopts.move_minimize_frame && !cnnopts.flexopt) { //if fixed_receptor, rec_conf will be identify
-    mgrid->setReceptor(receptor_atoms, m.rec_conf.position, m.rec_conf.orientation);
+    mgrid->setReceptor(receptor_atoms, receptor_coords,  m.rec_conf.position, m.rec_conf.orientation);
   } 
   else if(cnnopts.flexopt){
-    mgrid->setReceptorFlex(receptor_atoms, receptor_coords);
+    mgrid->setReceptor(receptor_atoms, receptor_coords);
   }
   else { //don't move receptor
-    mgrid->setReceptor(receptor_atoms);
+    mgrid->setReceptor(receptor_atoms, receptor_coords);
     current_center = mgrid->getGridCenter(); //has been recalculated from ligand
     if(cnnopts.verbose) {
       std::cout << "current center: ";

@@ -1039,46 +1039,7 @@ void MolGridDataLayer<Dtype>::copyToBlobs(const vector<Blob<Dtype>*>& top, bool 
 //set in memory buffer
 //will apply translate and rotate iff rotate is valid
 template <typename Dtype>
-void MolGridDataLayer<Dtype>::setReceptor(const vector<atom>& receptor, const vec& translate, const qt& rotate ) {
-  CHECK_GT(batch_info.size(), 0) << "Empty batch info in setReceptor";
-
-  vector<float3> cs; cs.reserve(receptor.size());
-  vector<float> types; types.reserve(receptor.size());
-  vector<float> radii; radii.reserve(receptor.size());
-
-  //receptor atoms
-  for (unsigned i = 0, n = receptor.size(); i < n; i++) {
-    const atom& a = receptor[i];
-    smt origt = a.sm;
-    auto t_r = recTypes->get_int_type(origt);
-    int t = t_r.first;
-    const vec& coord = a.coords;
-    cs.push_back(gfloat3(coord[0],coord[1],coord[2]));
-    types.push_back(t);
-    radii.push_back(t_r.second);
-
-    if(t < 0 && origt > 1) { //don't warn about hydrogens
-      std::cerr << "Unsupported receptor atom type " << GninaIndexTyper::gnina_type_name(origt) << "\n";
-    }
-  }
-
-  CoordinateSet rec(cs, types, radii, recTypes->num_types());
-  if(rotate.real() != 0) {
-    //apply transformation
-    vec c  = getGridCenter();
-    float3 center{c[0],c[1],c[2]};
-    float3 trans = {translate[0], translate[1], translate[2]};
-    Quaternion Q(rotate.a, rotate.b, rotate.c, rotate.d);
-    Transform rectrans(Q, center, trans);
-
-    rectrans.forward(rec, rec);
-  }
-
-  batch_info[0].setReceptor(rec);
-}
-
-template <typename Dtype>
-void MolGridDataLayer<Dtype>::setReceptorFlex(const vector<atom>& receptor, const vector<vec>& coords) {
+void MolGridDataLayer<Dtype>::setReceptor(const vector<atom>& receptor, const vector<vec>& coords, const vec& translate, const qt& rotate ) {
   CHECK_GT(batch_info.size(), 0) << "Empty batch info in setReceptor";
 
   vector<float3> cs; cs.reserve(receptor.size());
@@ -1102,6 +1063,16 @@ void MolGridDataLayer<Dtype>::setReceptorFlex(const vector<atom>& receptor, cons
   }
 
   CoordinateSet rec(cs, types, radii, recTypes->num_types());
+  if(rotate.real() != 0) {
+    //apply transformation
+    vec c  = getGridCenter();
+    float3 center{c[0],c[1],c[2]};
+    float3 trans = {translate[0], translate[1], translate[2]};
+    Quaternion Q(rotate.a, rotate.b, rotate.c, rotate.d);
+    Transform rectrans(Q, center, trans);
+
+    rectrans.forward(rec, rec);
+  }
 
   batch_info[0].setReceptor(rec);
 }
