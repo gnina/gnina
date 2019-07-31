@@ -1078,7 +1078,7 @@ void MolGridDataLayer<Dtype>::setReceptor(const vector<atom>& receptor, const ve
 }
 
 template <typename Dtype>
-void MolGridDataLayer<Dtype>::setReceptorFlex(const vector<atom>& receptor, const vector<vec>& flexcoords) {
+void MolGridDataLayer<Dtype>::setReceptorFlex(const vector<atom>& receptor, const vector<vec>& coords) {
   CHECK_GT(batch_info.size(), 0) << "Empty batch info in setReceptor";
 
   vector<float3> cs; cs.reserve(receptor.size());
@@ -1091,16 +1091,7 @@ void MolGridDataLayer<Dtype>::setReceptorFlex(const vector<atom>& receptor, cons
     smt origt = a.sm;
     auto t_r = recTypes->get_int_type(origt);
     int t = t_r.first;
-
-    vec coord;
-    if(i < flexcoords.size()){
-      // Get flex and inflex coords explicitly
-      coord = flexcoords[i];
-    }else{
-      // Get standard receptor coordinate from atom
-      coord = a.coords;
-    }
-
+    const vec& coord = coords[i];
     cs.push_back(gfloat3(coord[0],coord[1],coord[2]));
     types.push_back(t);
     radii.push_back(t_r.second);
