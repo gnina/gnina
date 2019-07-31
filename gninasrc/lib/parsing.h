@@ -303,7 +303,7 @@ struct pdbqt_initializer {
       m.minus_forces.resize(m.coords.size());
 
       m.m_num_movable_atoms = nrp.atoms.size();
-      
+
       if (is_ligand) {
         VINA_CHECK(m.ligands.size() == 1);
         m.ligands.front().cont = c;
