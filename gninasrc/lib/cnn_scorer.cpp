@@ -330,41 +330,34 @@ void CNNScorer::setLigand(const model& m){
 void CNNScorer::setReceptor(const model& m){
 
   if(receptor_atoms.size() == 0){
-    // Get receptor flexible atoms
-    atomv flexible_atoms = atomv(
-      m.get_movable_atoms().cbegin(),
+
+    // Insert flexible residues movable atoms
+    receptor_atoms.insert(
+      receptor_atoms.end(), 
+      m.get_movable_atoms().cbegin(), 
       m.get_movable_atoms().cbegin() + m.ligands[0].node.begin
     );
 
-    // Get inflex atoms
-    atomv inflex_atoms = atomv(
-      m.get_movable_atoms().cbegin() + m.m_num_movable_atoms,
+    // Get number of movable atoms in flexible residues
+    num_flex_atoms = receptor_atoms.size();
+
+    // Insert inflex atoms
+    receptor_atoms.insert(
+      receptor_atoms.end(), 
+      m.get_movable_atoms().cbegin() + m.m_num_movable_atoms, 
       m.get_movable_atoms().cend()
     );
 
-    if(!cnnopts.flexopt){ // No atoms from flexible residues should be present
-      CHECK_EQ(flexible_atoms.size(), 0);
-      CHECK_EQ(inflex_atoms.size(), 0);
+    if(!cnnopts.flexopt){
+      // No atoms from flexible residues should be present
+      CHECK_EQ(receptor_atoms.size(), 0);
     }
 
-    receptor_atoms.insert( // Insert flexible residues movable atoms
-      receptor_atoms.end(), 
-      flexible_atoms.cbegin(), 
-      flexible_atoms.cend()
-    );
-    receptor_atoms.insert( // Insert inflex atoms
-      receptor_atoms.end(), 
-      inflex_atoms.cbegin(), 
-      inflex_atoms.cend()
-    );
     receptor_atoms.insert( // Insert fixed receptor atoms
       receptor_atoms.end(),
       m.get_fixed_atoms().cbegin(),
       m.get_fixed_atoms().cend()
     );
-
-    // Get number of residues
-    num_flex_atoms = flexible_atoms.size();
   }
 
   if(receptor_coords.size() == 0 ){
