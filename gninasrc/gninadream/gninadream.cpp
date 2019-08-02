@@ -258,7 +258,7 @@ int main(int argc, char* argv[]) {
       "allow_negative", bool_switch(&allow_neg)->default_value(false),
       "allow optimization to result in negative atom density")(
       "distance", value<std::string>(&dist_method), 
-      "distance function for virtual screen; options are 'l2', 'mult', 'sum' (which is a sum of the scores produced by those two options), and 'threshold'; default is l2")(
+      "distance function for virtual screen; options are 'l1', 'l2', 'mult', 'sum' (which is a sum of the scores produced by those two options), and 'threshold'; default is l2")(
       "carve", bool_switch(&carve)->default_value(false),
       "do optimization from positive-initialized grids")(
       "carve_val", value<float>(&carve_val),

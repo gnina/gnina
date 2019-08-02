@@ -40,6 +40,29 @@ __device__   __forceinline__ T block_sum(T mySum) {
 }
 
 __global__
+void gpu_l1(const float* optgrid, const float* screengrid, float* scoregrid,
+    size_t gsize) {
+  unsigned tidx = blockDim.x * blockIdx.x + threadIdx.x;
+  unsigned nthreads = blockDim.x * gridDim.x;
+  // optimized grids
+  float sum = 0.;
+  for (size_t k=tidx; k<gsize; k+=nthreads) {
+    sum += optgrid[k] - screengrid[k];
+  }
+  float total = block_sum<float>(sum);
+  if (threadIdx.x == 0)
+    atomicAdd(scoregrid, total);
+}
+
+void do_gpu_l1(const float* optgrid, const float* screengrid, float* scoregrid,
+    size_t gsize) {
+  unsigned block_multiple = gsize / CUDA_NUM_THREADS;
+  unsigned nblocks = block_multiple < CUDA_NUM_BLOCKS ? block_multiple : CUDA_NUM_BLOCKS;
+  gpu_l1<<<nblocks, CUDA_NUM_THREADS>>>(optgrid, screengrid, scoregrid, gsize);
+  KERNEL_CHECK;
+}
+
+__global__
 void gpu_l2sq(const float* optgrid, const float* screengrid, float* scoregrid,
     size_t gsize) {
   unsigned tidx = blockDim.x * blockIdx.x + threadIdx.x;

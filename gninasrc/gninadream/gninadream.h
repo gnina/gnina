@@ -94,7 +94,9 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
         const float* optgrid = net.top_vecs()[0][0]->gpu_data();
         const float* screengrid = top[0]->gpu_data();
         CUDA_CHECK_GNINA(cudaMemset(gpu_score, 0, sizeof(float)*2));
-        if (!std::strcmp(dist_method.c_str(), "l2"))
+        if (!std::strcmp(dist_method.c_str(), "l1"))
+          do_gpu_l1(optgrid + offset, screengrid + recGridSize, gpu_score, ligGridSize);
+        else if (!std::strcmp(dist_method.c_str(), "l2"))
           do_gpu_l2sq(optgrid + offset, screengrid + recGridSize, gpu_score, ligGridSize);
         else if(!std::strcmp(dist_method.c_str(), "mult"))
           do_gpu_mult(optgrid + offset, screengrid + recGridSize, gpu_score, ligGridSize);
@@ -129,7 +131,10 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
         const float* optgrid = net.top_vecs()[0][0]->cpu_data();
         const float* screengrid = top[0]->cpu_data();
         scores.push_back(float());
-        if (!std::strcmp(dist_method.c_str(), "l2"))
+        if (!std::strcmp(dist_method.c_str(), "l1"))
+          cpu_l1(optgrid + offset, screengrid + recGridSize, &scores.back(), 
+              ligGridSize);
+        else if (!std::strcmp(dist_method.c_str(), "l2"))
           cpu_l2sq(optgrid + offset, screengrid + recGridSize, &scores.back(), 
               ligGridSize);
         else if(!std::strcmp(dist_method.c_str(), "mult"))
