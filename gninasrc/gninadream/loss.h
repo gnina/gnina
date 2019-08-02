@@ -7,7 +7,7 @@ inline void cpu_l1(const float* optgrid, const float* screengrid, float* scoregr
   float sum = 0.;
 #pragma omp parallel for reduction(+:sum)
   for (size_t k=0; k<gsize; ++k) {
-    float diff = optgrid[k] - screengrid[k];
+    float diff = fabs(optgrid[k] - screengrid[k]);
     sum += diff;
   }
   *scoregrid = sum;

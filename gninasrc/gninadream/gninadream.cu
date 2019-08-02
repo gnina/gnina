@@ -47,7 +47,7 @@ void gpu_l1(const float* optgrid, const float* screengrid, float* scoregrid,
   // optimized grids
   float sum = 0.;
   for (size_t k=tidx; k<gsize; k+=nthreads) {
-    sum += optgrid[k] - screengrid[k];
+    sum += fabsf(optgrid[k] - screengrid[k]);
   }
   float total = block_sum<float>(sum);
   if (threadIdx.x == 0)
