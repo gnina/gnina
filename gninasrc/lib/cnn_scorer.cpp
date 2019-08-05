@@ -369,26 +369,26 @@ void CNNScorer::setReceptor(const model& m){
   if(receptor_coords.size() == 0 ){ // Do once at setup
     sz n = m.get_fixed_atoms().size();
 
-    receptor_coords.reserve(n); // Reserve memory, but size() == 0
+    // Reserve memory, but size() == 0
+    receptor_coords.reserve(n + m.get_movable_atoms().size());
+
+    // Insert flex
+    receptor_coords.insert(
+        receptor_coords.begin(),
+        m.coordinates().cbegin(),
+        m.coordinates().cbegin() + num_flex_atoms);
+
+    // Insert inflex
+    receptor_coords.insert(
+        receptor_coords.begin(),
+        m.coordinates().cbegin() + m.m_num_movable_atoms,
+        m.coordinates().cend());
+
     for(size_t i = 0 ; i < n; i++){
       const atom& a = m.get_fixed_atoms()[i];
       const vec& coord = a.coords;
       receptor_coords.push_back(coord);
     }
-
-    // Insert inflex
-    receptor_coords.insert(
-      receptor_coords.begin(),
-      m.coordinates().cbegin() + m.m_num_movable_atoms,
-      m.coordinates().cend()
-    );
-
-    // Insert flex
-    receptor_coords.insert(
-      receptor_coords.begin(),
-      m.coordinates().cbegin(),
-      m.coordinates().cbegin() + num_flex_atoms
-    );
   }
   else{ // Update flex coordinates at every call
     std::copy(
