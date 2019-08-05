@@ -82,18 +82,20 @@ template <typename atomT, typename Dtype>
 inline void set_cnn_grids(caffe::MolGridDataLayer<Dtype>* mgrid, std::vector<atom_params>& mol_atoms, std::vector<atomT>& mol_types) {
   //first set up mgrid
   vec center(0,0,0);
-  std::vector<atom> ligand;
-  std::vector<vec> coords;
+  std::vector<float3> coords;
+  std::vector<smt> smtypes;
   for (size_t i=0; i<mol_atoms.size(); ++i) {
     atom_params& ainfo = mol_atoms[i];
     atom a;
     a.sm = mol_types[i]; //really all it's used for
-    vec coord(ainfo.coords.x, ainfo.coords.y, ainfo.coords.z);
-    a.coords = coord; //not actually used
-    ligand.push_back(a);
+
+    smtypes.push_back(mol_types[i]);
+
+    float3 coord({ainfo.coords.x, ainfo.coords.y, ainfo.coords.z});
+    a.coords = vec({coord.x, coord.y, coord.z});
     coords.push_back(coord);
   }
-  mgrid->setLigand(ligand, coords);
+  mgrid->setLigand(coords, smtypes);
   mgrid->setLabels(1.0,0);
 }
 

@@ -1079,34 +1079,31 @@ void MolGridDataLayer<Dtype>::setReceptor(const vector<atom>& receptor, const ve
 
 //set in memory buffer, will set grid_Center if it isn't set, but will only overwrite set grid_center if calcCenter
 template <typename Dtype>
-void MolGridDataLayer<Dtype>::setLigand(const vector<atom>& ligand, const vector<vec>& coords, bool calcCenter)  {
+void MolGridDataLayer<Dtype>::setLigand(const vector<float3>& coords, const vector<smt>& smtypes, bool calcCenter)  {
 
   CHECK_GT(batch_info.size(), 0) << "Empty batch info in setLigand";
 
-  vector<float3> cs; cs.reserve(ligand.size());
-  vector<float> types; types.reserve(ligand.size());
-  vector<float> radii; radii.reserve(ligand.size());
+  vector<float> types; types.reserve(coords.size());
+  vector<float> radii; radii.reserve(coords.size());
 
-  CHECK_EQ(ligand.size(), coords.size()) << "Size mismatch between ligand atoms and coords";
-  //ligand atoms, grid positions offset and coordinates are specified separately
+  CHECK_EQ(coords.size(), smtypes.size()) << "Size mismatch between ligand coords and smtypes";
+
+
   vec center(0, 0, 0);
-  for (unsigned i = 0, n = ligand.size(); i < n; i++) {
-    smt origt = ligand[i].sm;
+  for (unsigned i = 0, n = coords.size(); i < n; i++) {
+    smt origt = smtypes[i];
     auto t_r = ligTypes->get_int_type(origt);
     int t = t_r.first;
-    float r = t_r.second;
-    //unsupported types are kept around with t == -1
-    const vec& coord = coords[i];
-    cs.push_back(gfloat3(coord[0],coord[1],coord[2]));
+
     types.push_back(t);
-    radii.push_back(r);
+    radii.push_back(t_r.second);
 
     if(t < 0 && origt > 1) { //don't warn about hydrogens
       std::cerr << "Unsupported ligand atom type " << GninaIndexTyper::gnina_type_name(origt) << "\n";
     }
   }
 
-  CoordinateSet ligatoms(cs, types, radii, ligTypes->num_types());
+  CoordinateSet ligatoms(coords, types, radii, ligTypes->num_types());
   batch_info[0].setLigand(ligatoms);
 
   if (calcCenter || !isfinite(grid_center[0])) {

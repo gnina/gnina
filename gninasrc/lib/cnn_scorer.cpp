@@ -172,7 +172,7 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore,
   setReceptor(m);
 
   mgrid->setReceptor(receptor_atoms, receptor_coords);
-  mgrid->setLigand(ligand_atoms, ligand_coords);
+  mgrid->setLigand(ligand_coords, ligand_smtypes);
   mgrid->setLabels(1); //for now pose optimization only
   mgrid->enableLigandGradients();
   mgrid->enableReceptorGradients();
@@ -201,7 +201,7 @@ void CNNScorer::gradient_setup(const model& m, const string& recname,
   setReceptor(m);
 
   mgrid->setReceptor(receptor_atoms, receptor_coords);
-  mgrid->setLigand(ligand_atoms, ligand_coords);
+  mgrid->setLigand(ligand_coords, ligand_smtypes);
   mgrid->setLabels(1); //for now pose optimization only
   mgrid->enableLigandGradients();
   mgrid->enableReceptorGradients();
@@ -305,26 +305,43 @@ void CNNScorer::get_net_output(Dtype& score, Dtype& aff, Dtype& loss) {
 // Extract ligand atoms and coordinates
 void CNNScorer::setLigand(const model& m){
 
-  if(ligand_atoms.size() == 0){ // Do once at setup
+  sz n = m.get_movable_atoms().size();
 
-    ligand_atoms.assign(
-      m.get_movable_atoms().cbegin() + m.ligands[0].node.begin,
-      m.get_movable_atoms().cbegin() + m.m_num_movable_atoms
-    );
+  // Preallocation (on first call)
+  ligand_coords.reserve(n);
+  ligand_smtypes.reserve(n);
+
+  // Get ligand types and radii
+  if (ligand_smtypes.size() == 0){ // Do once at setup
+    auto cbegin = m.get_movable_atoms().cbegin() + m.ligands[0].node.begin;
+    auto cend = m.get_movable_atoms().cbegin() + m.m_num_movable_atoms;
+
+    for(auto it = cbegin; it != cend; ++it){
+      smt origt = it->sm; // Original smina type
+      ligand_smtypes.push_back(origt);
+    }
   }
 
   // Coordinates need to be updated at every call
-  ligand_coords.assign(
-      m.coordinates().cbegin() + m.ligands[0].node.begin,
-      m.coordinates().cbegin() + m.m_num_movable_atoms
-  );
+  auto cbegin = m.coordinates().cbegin() + m.ligands[0].node.begin;
+  auto cend = m.coordinates().cbegin() + m.m_num_movable_atoms;
+  if(ligand_coords.size() == 0){
+    // Back insertion on first call
+    std::transform(cbegin, cend, std::back_inserter(ligand_coords),
+      [](const vec& coord) -> float3 {return float3({coord[0], coord[1], coord[2]});}
+    );
+  }else{
+    // Update coordinates (transforming from vec to float3)
+    std::transform(cbegin, cend, ligand_coords.begin(),
+      [](const vec& coord) -> float3 {return float3({coord[0], coord[1], coord[2]});}
+    );
+  }
 
   if(!cnnopts.flexopt){ // No flexible residues
-      CHECK_EQ(ligand_atoms.size(), m.get_movable_atoms().size());
       CHECK_EQ(ligand_coords.size(), m.coordinates().size());
   }
 
-  CHECK_EQ(ligand_atoms.size(), ligand_coords.size());
+  CHECK_EQ(ligand_smtypes.size(), ligand_coords.size());
 }
 
 // Extracts receptor atoms and coordinates
@@ -432,9 +449,9 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
 
   // Check that ligand atoms and movable atoms in flexible residues sum up to the 
   // total number of movable atoms
-  CHECK_EQ(num_flex_atoms + ligand_atoms.size(), m.m_num_movable_atoms);
+  CHECK_EQ(num_flex_atoms + ligand_coords.size(), m.m_num_movable_atoms);
 
-  mgrid->setLigand(ligand_atoms, ligand_coords, cnnopts.move_minimize_frame);
+  mgrid->setLigand(ligand_coords, ligand_smtypes, cnnopts.move_minimize_frame);
 
   if (!cnnopts.move_minimize_frame && !cnnopts.flexopt) { //if fixed_receptor, rec_conf will be identify
     mgrid->setReceptor(receptor_atoms, receptor_coords,  m.rec_conf.position, m.rec_conf.orientation);
