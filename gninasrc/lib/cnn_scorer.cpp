@@ -361,7 +361,7 @@ void CNNScorer::setReceptor(const model& m){
   sz n_inflex = std::distance(
     m.get_movable_atoms().cbegin() + m.m_num_movable_atoms,
     m.get_movable_atoms().cend()
-  )
+  );
 
   // Number of fixed receptor atoms
   sz n_rigid = m.get_fixed_atoms().size();
@@ -405,7 +405,7 @@ void CNNScorer::setReceptor(const model& m){
   if(receptor_coords.size() == 0 ){ // Do once at setup
 
     // Reserve memory, but size() == 0
-    receptor_coords.reserve(size);
+    receptor_coords.reserve(n);
 
     // Append flex 
     auto cbegin_flex = m.coordinates().cbegin();
@@ -441,7 +441,7 @@ void CNNScorer::setReceptor(const model& m){
   }
 
   // Check final size
-  CHECK_EQ(receptor_smtypes.size(), n)
+  CHECK_EQ(receptor_smtypes.size(), n);
   CHECK_EQ(receptor_coords.size(), n);
 }
 
