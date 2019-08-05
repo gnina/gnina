@@ -307,12 +307,10 @@ void CNNScorer::setLigand(const model& m){
 
   sz n = m.get_movable_atoms().size();
 
-  // Preallocation (on first call)
-  ligand_coords.reserve(n);
-  ligand_smtypes.reserve(n);
-
   // Get ligand types and radii
   if (ligand_smtypes.size() == 0){ // Do once at setup
+    ligand_coords.reserve(n);
+
     auto cbegin = m.get_movable_atoms().cbegin() + m.ligands[0].node.begin;
     auto cend = m.get_movable_atoms().cbegin() + m.m_num_movable_atoms;
 
@@ -326,6 +324,8 @@ void CNNScorer::setLigand(const model& m){
   auto cbegin = m.coordinates().cbegin() + m.ligands[0].node.begin;
   auto cend = m.coordinates().cbegin() + m.m_num_movable_atoms;
   if(ligand_coords.size() == 0){
+    ligand_smtypes.reserve(n);
+    
     // Back insertion on first call
     std::transform(cbegin, cend, std::back_inserter(ligand_coords),
       [](const vec& coord) -> float3 {return float3({coord[0], coord[1], coord[2]});}
