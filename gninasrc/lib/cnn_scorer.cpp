@@ -434,6 +434,26 @@ void CNNScorer::setReceptor(const model& m){
   CHECK_EQ(receptor_coords.size(), receptor_smtypes.size());
 }
 
+// Get ligand (and flexible receptor) gradient
+void CNNScorer::getGradient(){
+  gradient.reserve(ligand_coords.size() + num_flex_atoms);
+
+  // Get ligand gradient
+  mgrid->getLigandGradient(0, gradient);
+
+  // Get receptor gradient
+  std::vector<gfloat3> gradient_rec;
+  if (num_flex_atoms != 0) { // Optimization of flexible residues
+    mgrid->getReceptorGradient(0, gradient_rec);
+  }
+
+  // Merge ligand and flexible residues gradient
+  // Flexible residues, if any, come first
+  gradient.insert(gradient.begin(), gradient_rec.cbegin(), gradient_rec.cbegin() + num_flex_atoms);
+
+  CHECK_EQ(gradient.size(), ligand_coords.size() + num_flex_atoms);
+}
+
 //return score of model, assumes receptor has not changed from initialization
 //also sets affinity (if available) and loss (for use with minimization)
 //if compute_gradient is set, also adds cnn atom gradient to m.minus_forces
@@ -514,22 +534,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
 
       net->Backward();
 
-      // Get ligand gradient
-      mgrid->getLigandGradient(0, gradient);
-
-      CHECK_EQ(gradient.size(), ligand_coords.size());
-
-      // Get receptor gradient
-      std::vector<gfloat3> gradient_rec;
-      if (cnnopts.flexopt) { // Optimization of flexible residues
-        mgrid->getReceptorGradient(0, gradient_rec);
-      }
-
-      // Merge ligand and flexible residues gradient
-      // Flexible residues, if any, come first
-      gradient.insert(gradient.begin(), gradient_rec.cbegin(), gradient_rec.cbegin() + num_flex_atoms);
-
-      CHECK_EQ(gradient.size(), ligand_coords.size() + num_flex_atoms);
+      getGradient();
 
       // Update ligand (and flexible residues) gradient
       m.add_minus_forces(gradient);

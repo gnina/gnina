@@ -49,6 +49,8 @@ class CNNScorer {
     void setLigand(const model& m);
     void setReceptor(const model& m);
 
+    void getGradient();
+
   public:
     CNNScorer()
         : mgrid(NULL), mtx(new boost::recursive_mutex), current_center(NAN,NAN,NAN) {
