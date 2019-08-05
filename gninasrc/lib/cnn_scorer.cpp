@@ -171,7 +171,7 @@ void CNNScorer::lrp(const model& m, const string& layer_to_ignore,
   setLigand(m);
   setReceptor(m);
 
-  mgrid->setReceptor(receptor_atoms, receptor_coords);
+  mgrid->setReceptor(receptor_coords, receptor_smtypes);
   mgrid->setLigand(ligand_coords, ligand_smtypes);
   mgrid->setLabels(1); //for now pose optimization only
   mgrid->enableLigandGradients();
@@ -200,7 +200,7 @@ void CNNScorer::gradient_setup(const model& m, const string& recname,
   setLigand(m);
   setReceptor(m);
 
-  mgrid->setReceptor(receptor_atoms, receptor_coords);
+  mgrid->setReceptor(receptor_coords, receptor_smtypes);
   mgrid->setLigand(ligand_coords, ligand_smtypes);
   mgrid->setLabels(1); //for now pose optimization only
   mgrid->enableLigandGradients();
@@ -349,77 +349,89 @@ void CNNScorer::setLigand(const model& m){
 // Flex coordinates are stored at the beginning, then inflex, then fixed
 void CNNScorer::setReceptor(const model& m){
 
-  if(receptor_atoms.size() == 0){ // Do once at setup
+  sz size = m.get_movable_atoms().size() + m.get_fixed_atoms().size();
 
-    sz size = m.get_movable_atoms().size() + m.get_fixed_atoms().size();
+  if(receptor_smtypes.size() == 0){ // Do once at setup
 
-    receptor_atoms.reserve(size);
+    // Preallocation (only on first call)
+    receptor_smtypes.reserve(size);
 
     // Insert flexible residues movable atoms
-    receptor_atoms.assign(
-      m.get_movable_atoms().cbegin(), 
-      m.get_movable_atoms().cbegin() + m.ligands[0].node.begin
-    );
+    auto cbegin = m.get_movable_atoms().cbegin();
+    auto cend = m.get_movable_atoms().cbegin() + m.ligands[0].node.begin;
+    for(auto it = cbegin; it != cend; ++it){
+      smt origt = it->sm; // Original smina type
+      receptor_smtypes.push_back(origt);
+    }
 
     // Get number of movable atoms in flexible residues
-    num_flex_atoms = receptor_atoms.size();
+    num_flex_atoms = receptor_smtypes.size();
 
     // Insert inflex atoms
-    receptor_atoms.insert(
-      receptor_atoms.end(), 
-      m.get_movable_atoms().cbegin() + m.m_num_movable_atoms, 
-      m.get_movable_atoms().cend()
-    );
+    cbegin = m.get_movable_atoms().cbegin() + m.m_num_movable_atoms;
+    cend = m.get_movable_atoms().cend();
+    for(auto it = cbegin; it != cend; ++it){
+      smt origt = it->sm; // Original smina type
+      receptor_smtypes.push_back(origt);
+    }
 
     if(!cnnopts.flexopt){
       // No atoms from flexible residues should be present
-      CHECK_EQ(receptor_atoms.size(), 0);
+      CHECK_EQ(receptor_coords.size(), 0);
     }
 
-    receptor_atoms.insert( // Insert fixed receptor atoms
-      receptor_atoms.end(),
-      m.get_fixed_atoms().cbegin(),
-      m.get_fixed_atoms().cend()
-    );
+    // Insert fixed receptor atoms
+    cbegin = m.get_fixed_atoms().cbegin();
+    cend = m.get_fixed_atoms().cend();
+    for(auto it = cbegin; it != cend; ++it){
+      smt origt = it->sm; // Original smina type
+      receptor_smtypes.push_back(origt);
+    }
   }
 
   if(receptor_coords.size() == 0 ){ // Do once at setup
-    sz n = m.get_fixed_atoms().size();
 
     // Reserve memory, but size() == 0
-    receptor_coords.reserve(n + m.get_movable_atoms().size());
+    receptor_coords.reserve(size);
 
-    // Insert flex
-    receptor_coords.insert(
-        receptor_coords.begin(),
-        m.coordinates().cbegin(),
-        m.coordinates().cbegin() + num_flex_atoms);
+    // Append flex 
+    auto cbegin_flex = m.coordinates().cbegin();
+    auto cend_flex = m.coordinates().cbegin() + num_flex_atoms;
+    std::transform(cbegin_flex, cend_flex, std::back_inserter(receptor_coords),
+      [](const vec& coord) -> float3 {return float3({coord[0], coord[1], coord[2]});}
+    );
 
-    // Insert inflex
-    receptor_coords.insert(
-        receptor_coords.begin(),
-        m.coordinates().cbegin() + m.m_num_movable_atoms,
-        m.coordinates().cend());
+    // Append inflex 
+    auto cbegin_inflex = m.coordinates().cbegin() + m.m_num_movable_atoms;
+    auto cend_inflex = m.coordinates().cend();
+    std::transform(cbegin_inflex, cend_inflex, std::back_inserter(receptor_coords),
+      [](const vec& coord) -> float3 {return float3({coord[0], coord[1], coord[2]});}
+    );
 
-    for(size_t i = 0 ; i < n; i++){
-      const atom& a = m.get_fixed_atoms()[i];
-      const vec& coord = a.coords;
-      receptor_coords.push_back(coord);
-    }
+    // Append rigid receptor
+    auto cbegin_rigid = m.get_fixed_atoms().cbegin();
+    auto cend_rigid = m.get_fixed_atoms().cend();
+    std::transform(cbegin_rigid, cend_rigid, std::back_inserter(receptor_coords),
+      [](const atom& a) -> float3 {
+        const vec& coord = a.coords;
+        return float3({coord[0], coord[1], coord[2]});
+      }
+    );
+    
   }
   else{ // Update flex coordinates at every call
-    std::copy(
-      m.coordinates().cbegin(),
-      m.coordinates().cbegin() + num_flex_atoms,
-      receptor_coords.begin()
+    auto cbegin = m.coordinates().cbegin();
+    auto cend = m.coordinates().cbegin() + num_flex_atoms;
+    std::transform(cbegin, cend, receptor_coords.begin(),
+      [](const vec& coord) -> float3 {return float3({coord[0], coord[1], coord[2]});}
     );
   }
 
   if(!cnnopts.flexopt){ // No atoms from flexible residues should be present
-    CHECK_EQ(receptor_atoms.size(), m.get_fixed_atoms().size());
+    CHECK_EQ(receptor_coords.size(), m.get_fixed_atoms().size());
   }
 
-  CHECK_EQ(receptor_atoms.size(), receptor_coords.size());
+  CHECK_EQ(receptor_coords.size(), receptor_smtypes.size());
 }
 
 //return score of model, assumes receptor has not changed from initialization
@@ -454,10 +466,10 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   mgrid->setLigand(ligand_coords, ligand_smtypes, cnnopts.move_minimize_frame);
 
   if (!cnnopts.move_minimize_frame && !cnnopts.flexopt) { //if fixed_receptor, rec_conf will be identify
-    mgrid->setReceptor(receptor_atoms, receptor_coords,  m.rec_conf.position, m.rec_conf.orientation);
+    mgrid->setReceptor(receptor_coords, receptor_smtypes, m.rec_conf.position, m.rec_conf.orientation);
   } 
   else { //don't move receptor
-    mgrid->setReceptor(receptor_atoms, receptor_coords);
+    mgrid->setReceptor(receptor_coords, receptor_smtypes);
     current_center = mgrid->getGridCenter(); //has been recalculated from ligand
     if(cnnopts.verbose) {
       std::cout << "current center: ";

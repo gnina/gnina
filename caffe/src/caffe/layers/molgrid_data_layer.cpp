@@ -1039,21 +1039,20 @@ void MolGridDataLayer<Dtype>::copyToBlobs(const vector<Blob<Dtype>*>& top, bool 
 //set in memory buffer
 //will apply translate and rotate iff rotate is valid
 template <typename Dtype>
-void MolGridDataLayer<Dtype>::setReceptor(const vector<atom>& receptor, const vector<vec>& coords, const vec& translate, const qt& rotate ) {
+void MolGridDataLayer<Dtype>::setReceptor(const vector<float3>& coords, const vector<smt>& smtypes, const vec& translate, const qt& rotate ) {
   CHECK_GT(batch_info.size(), 0) << "Empty batch info in setReceptor";
 
-  vector<float3> cs; cs.reserve(receptor.size());
-  vector<float> types; types.reserve(receptor.size());
-  vector<float> radii; radii.reserve(receptor.size());
+  vector<float> types; types.reserve(smtypes.size());
+  vector<float> radii; radii.reserve(smtypes.size());
+
+  CHECK_EQ(coords.size(), smtypes.size()) << "Size mismatch between receptor coords and smtypes";
+
 
   //receptor atoms
-  for (unsigned i = 0, n = receptor.size(); i < n; i++) {
-    const atom& a = receptor[i];
-    smt origt = a.sm;
+  for (unsigned i = 0, n = smtypes.size(); i < n; i++) {
+    smt origt = smtypes[i];
     auto t_r = recTypes->get_int_type(origt);
     int t = t_r.first;
-    const vec& coord = coords[i];
-    cs.push_back(gfloat3(coord[0],coord[1],coord[2]));
     types.push_back(t);
     radii.push_back(t_r.second);
 
@@ -1062,7 +1061,7 @@ void MolGridDataLayer<Dtype>::setReceptor(const vector<atom>& receptor, const ve
     }
   }
 
-  CoordinateSet rec(cs, types, radii, recTypes->num_types());
+  CoordinateSet rec(coords, types, radii, recTypes->num_types());
   if(rotate.real() != 0) {
     //apply transformation
     vec c  = getGridCenter();
@@ -1088,13 +1087,11 @@ void MolGridDataLayer<Dtype>::setLigand(const vector<float3>& coords, const vect
 
   CHECK_EQ(coords.size(), smtypes.size()) << "Size mismatch between ligand coords and smtypes";
 
-
   vec center(0, 0, 0);
-  for (unsigned i = 0, n = coords.size(); i < n; i++) {
+  for (unsigned i = 0, n = smtypes.size(); i < n; i++) {
     smt origt = smtypes[i];
     auto t_r = ligTypes->get_int_type(origt);
     int t = t_r.first;
-
     types.push_back(t);
     radii.push_back(t_r.second);
 

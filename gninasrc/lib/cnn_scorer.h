@@ -40,10 +40,8 @@ class CNNScorer {
     vec current_center; //center last time set_center was called, if min frame is moving, the mgrid center will be changing
 
     // Receptor and ligand information
-    std::vector<float3> ligand_coords;
-    std::vector<smt> ligand_smtypes;
-    vecv receptor_coords;
-    atomv receptor_atoms;
+    std::vector<float3> ligand_coords, receptor_coords;
+    std::vector<smt> ligand_smtypes, receptor_smtypes;
 
     std::size_t num_flex_atoms; // Number of flexible atoms
 
