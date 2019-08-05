@@ -1513,7 +1513,6 @@ Thank you!\n";
     // Print information about flexible residues use
     if (finfo.hasContent() && (cnnopts.cnn_refinement ||
                                (cnnopts.cnn_scoring && settings.dominimize))) {
-      cnnopts.flexopt = true; // Flexible residues
       cnnopts.fix_receptor = true; // Fix receptor position and orientation
 
       log << "Optimizing flexible residues with CNN scoring function.\n";

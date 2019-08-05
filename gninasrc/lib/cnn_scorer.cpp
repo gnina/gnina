@@ -337,10 +337,6 @@ void CNNScorer::setLigand(const model& m){
     );
   }
 
-  if(!cnnopts.flexopt){ // No flexible residues
-      CHECK_EQ(ligand_coords.size(), m.coordinates().size());
-  }
-
   CHECK_EQ(ligand_smtypes.size(), ligand_coords.size());
 }
 
@@ -375,7 +371,7 @@ void CNNScorer::setReceptor(const model& m){
       receptor_smtypes.push_back(origt);
     }
 
-    if(!cnnopts.flexopt){
+    if(num_flex_atoms == 0){
       // No atoms from flexible residues should be present
       CHECK_EQ(receptor_coords.size(), 0);
     }
@@ -427,10 +423,6 @@ void CNNScorer::setReceptor(const model& m){
     );
   }
 
-  if(!cnnopts.flexopt){ // No atoms from flexible residues should be present
-    CHECK_EQ(receptor_coords.size(), m.get_fixed_atoms().size());
-  }
-
   CHECK_EQ(receptor_coords.size(), receptor_smtypes.size());
 }
 
@@ -479,13 +471,16 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
   // Get receptor atoms and flex/inflex coordinats from movable atoms
   setReceptor(m);
 
-  // Check that ligand atoms and movable atoms in flexible residues sum up to the 
-  // total number of movable atoms
+  // Checks
+  if(num_flex_atoms == 0){ // No flexible residues
+      CHECK_EQ(ligand_coords.size(), m.coordinates().size());
+      CHECK_EQ(receptor_coords.size(), m.get_fixed_atoms().size());
+  }
   CHECK_EQ(num_flex_atoms + ligand_coords.size(), m.m_num_movable_atoms);
 
   mgrid->setLigand(ligand_coords, ligand_smtypes, cnnopts.move_minimize_frame);
 
-  if (!cnnopts.move_minimize_frame && !cnnopts.flexopt) { //if fixed_receptor, rec_conf will be identify
+  if (!cnnopts.move_minimize_frame) { //if fixed_receptor, rec_conf will be identify
     mgrid->setReceptor(receptor_coords, receptor_smtypes, m.rec_conf.position, m.rec_conf.orientation);
   } 
   else { //don't move receptor
@@ -503,7 +498,7 @@ float CNNScorer::score(model& m, bool compute_gradient, float& affinity,
     if(cnnopts.moving_receptor() || cnnopts.outputxyz){
       mgrid->enableReceptorGradients();
     }
-    else if(cnnopts.flexopt){
+    else if(num_flex_atoms != 0){
       mgrid->enableReceptorGradients(); // rmeli: TODO flexres gradients only
     }
   }

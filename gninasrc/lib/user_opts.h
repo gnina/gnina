@@ -20,7 +20,6 @@ struct cnn_options {
     bool gradient_check;
     bool move_minimize_frame;  //recenter with every scoring evaluation
     bool fix_receptor;
-    bool flexopt; // CNN optimization of flexible residues
     bool verbose;
     std::string xyzprefix;
     unsigned seed; //random seed
@@ -29,7 +28,7 @@ struct cnn_options {
         : cnn_model_name("default2017"), cnn_center(NAN, NAN, NAN), resolution(0.5), cnn_rotations(0),
             subgrid_dim(0.0), cnn_scoring(false), cnn_refinement(false), outputdx(false),
             outputxyz(false), gradient_check(false), move_minimize_frame(false),
-            fix_receptor(false), flexopt(false), verbose(false), seed(0) {
+            fix_receptor(false), verbose(false), seed(0) {
     }
 
     bool moving_receptor() const {
