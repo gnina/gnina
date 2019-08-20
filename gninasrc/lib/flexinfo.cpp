@@ -30,10 +30,15 @@ FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
               << chres[0] << "\n";
         chain = chres[0][0]; //if empty will be null which is what is desired
         resid = boost::lexical_cast<int>(chres[1]);
-        if (chres.size() == 3 && chres[2].size() == 1) {
-          icode = chres[2][0];
-        } else {
-                log << "WARNING: ignoring invalid chain:resid:icode specifier " << tok << "\n";
+        if (chres.size() == 3) { // Insertion code is present
+          if(chres[2].size() == 1){ // Check that icode is single char
+            icode = chres[2][0];
+          }
+          else{ // Invalid icode
+            log << "WARNING: ignoring invalid chain:resid:icode specifier " << tok 
+                << "\n";
+            continue;
+          } 
         }
       } else
         if (chres.size() == 1) {
