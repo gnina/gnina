@@ -97,10 +97,10 @@ class MolGridDataLayer : public BaseDataLayer<Dtype> {
     void getMappedLigandGradient(int batch_idx, std::unordered_map<string, gfloat3>& gradient);
     void getMappedLigandRelevance(int batch_idx, std::unordered_map<string, float>& relevance);
 
-    virtual void setReceptor(const vector<atom>& receptor, const vec& translate =
+    virtual void setReceptor(const vector<float3>& coords, const vector<smt>& smtypes, const vec& translate =
         {}, const qt& rotate = {});
-    virtual void setLigand(const vector<atom>& ligand, const vector<vec>& coords,
-        bool calcCenter=true);
+    virtual void setLigand(const vector<float3>& coords, const vector<smt>& smtypes,
+                           bool calcCenter = true);
 
     //set center to use for memory ligand
     void setGridCenter(const vec& center) {
