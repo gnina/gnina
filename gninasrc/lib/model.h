@@ -259,6 +259,12 @@ struct residue : public main_branch {
     residue(const main_branch& m)
         : main_branch(m) {
     }
+
+    friend class boost::serialization::access;
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned version) {
+      ar & boost::serialization::base_object<main_branch>(*this);
+    }
 };
 
 enum distance_type {
@@ -283,6 +289,14 @@ struct pdbqt_initializer;
 struct model_test;
 
 struct model {
+
+    model()
+        : m_num_movable_atoms(0), hydrogens_stripped(false) {
+    }
+    ;
+    ~model() {
+    }
+    ;
 
     model(const model& m)
         : tree_width(m.tree_width), coords(m.coords), ligands(m.ligands),
@@ -508,14 +522,6 @@ struct model {
     } //true if good to go
     //deallocate gpu memory
     void deallocate_gpu();
-
-    model()
-        : m_num_movable_atoms(0), hydrogens_stripped(false) {
-    }
-    ;
-    ~model() {
-    }
-    ;
 
     vecv coords;
     vecv minus_forces;

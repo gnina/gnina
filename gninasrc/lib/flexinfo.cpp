@@ -30,10 +30,15 @@ FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
               << chres[0] << "\n";
         chain = chres[0][0]; //if empty will be null which is what is desired
         resid = boost::lexical_cast<int>(chres[1]);
-        if (chres.size() == 3 && chres[2].size() == 1) {
-          icode = chres[2][0];
-        } else {
-                log << "WARNING: ignoring invalid chain:resid:icode specifier " << tok << "\n";
+        if (chres.size() == 3) { // Insertion code is present
+          if(chres[2].size() == 1){ // Check that icode is single char
+            icode = chres[2][0];
+          }
+          else{ // Invalid icode
+            log << "WARNING: ignoring invalid chain:resid:icode specifier " << tok 
+                << "\n";
+            continue;
+          } 
         }
       } else
         if (chres.size() == 1) {
@@ -136,7 +141,6 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   }
 
   //replace any empty chains with first chain in mol
-  char defaultch = ' ';
   OBResidueIterator ritr;
   OBResidue *firstres = rigid.BeginResidue(ritr);
   if (firstres) defaultch = firstres->GetChain();
@@ -150,14 +154,6 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
 
   sort(sortedres.begin(), sortedres.end());
 
-  if (sortedres.size() > 0) {
-    log << "Flexible residues:";
-    for (unsigned i = 0, n = sortedres.size(); i < n; i++) {
-      log << " " << get<0>(sortedres[i]) << ":" << get<1>(sortedres[i]);
-      if(get<2>(sortedres[i]) > 0) log << ":" << get<2>(sortedres[i]);
-    }
-    log << "\n";
-  }
   //reinsert residues now with default chain
   residues.clear();
   residues.insert(sortedres.begin(), sortedres.end());
@@ -293,4 +289,21 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   }
   rigid.EndModify();
 
+}
+
+void FlexInfo::printFlex() const{
+
+  // Residues are stored as unordered_set
+  // Sort before printing
+  std::vector<std::tuple<char, int, char> > sortedres(residues.begin(), residues.end());
+  sort(sortedres.begin(), sortedres.end());
+
+  if (sortedres.size() > 0) {
+    log << "Flexible residues:";
+    for (unsigned i = 0, n = sortedres.size(); i < n; i++) {
+      log << " " << get<0>(sortedres[i]) << ":" << get<1>(sortedres[i]);
+      if(get<2>(sortedres[i]) > 0) log << ":" << get<2>(sortedres[i]);
+    }
+    log << "\n";
+  }
 }

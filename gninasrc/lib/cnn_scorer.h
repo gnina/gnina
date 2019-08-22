@@ -39,6 +39,18 @@ class CNNScorer {
     std::vector<short> channels;
     vec current_center; //center last time set_center was called, if min frame is moving, the mgrid center will be changing
 
+    // Receptor and ligand information
+    std::vector<float3> ligand_coords, receptor_coords;
+    std::vector<smt> ligand_smtypes, receptor_smtypes;
+
+    std::size_t num_flex_atoms; // Number of flexible atoms
+
+    // Set ligand and receptor atoms and coordinates from model
+    void setLigand(const model& m);
+    void setReceptor(const model& m);
+
+    void getGradient();
+
   public:
     CNNScorer()
         : mgrid(NULL), mtx(new boost::recursive_mutex), current_center(NAN,NAN,NAN) {
