@@ -12,7 +12,8 @@ typedef BaseMolGridDataLayer<float, GridMaker> mgridT;
 void do_exact_vs(LayerParameter param, caffe::Net<float>& net, 
     std::string vsfile, std::vector<std::string>& ref_ligs,
     std::vector<caffe::shared_ptr<std::ostream> >& out, 
-    bool gpu, std::string dist_method, float positive_threshold, float negative_threshold) {
+    bool gpu, std::string dist_method, float positive_threshold, float negative_threshold, 
+    bool compute_cost=true) {
   // use net top blob to do virtual screen against input sdf
   // produce output file for each input from which we started optimization
   // output will just be overlap score, in order of the compounds in the
@@ -30,6 +31,7 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
   unsigned batch_size = 1; // inmem for now
 
   tee log(true);
+  unsigned subgrid_dim = 4; // right now require grid dimension be divisible by this if using EMD
   FlexInfo finfo(log);
   MolGetter mols(std::string(), std::string(), finfo, false, false, log);
   mols.setInputFile(vsfile);
@@ -64,6 +66,25 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
   if (gpu) 
     CUDA_CHECK_GNINA(cudaMalloc(&gpu_score, sizeof(float)*2));
   
+  // if using EMD for virtual screen, populate cost_matrix once
+  flmat cost_matrix;
+  flmat_gpu gpu_cost_matrix;
+  if (!std::strcmp(dist_method.c_str(), "emd") && compute_cost) {
+    double dimension = opt_mgrid.getDimension();
+    unsigned dim = dimension * 2 + 1;
+    if (dim % subgrid_dim) {
+      std::cerr << "Grid dimension not divisible by 4, which is currently required for EMD.\n";
+      std::exit(1);
+    }
+    unsigned blocks_per_side = dim / subgrid_dim;
+    unsigned ncubes = blocks_per_side * blocks_per_side * blocks_per_side;
+    unsigned ntypes = opt_mgrid.getNumLigTypes();
+    unsigned n_matrix_elems = ncubes * ntypes;
+    cost_matrix = flmat(n_matrix_elems, 0);
+    populate_cost_matrix(ncubes, subgrid_dim, ntypes, blocks_per_side, dimension, cost_matrix);
+    gpu_cost_matrix = flmat_gpu(cost_matrix);
+  }
+
   //VS compounds are currently done one at a time, inmem
   //out is the vector of output filestreams, one per optimized input to be
   //screened against 

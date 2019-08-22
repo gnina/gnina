@@ -31,6 +31,9 @@
  ***********************************************************************/
 
 #include "PDBQTUtilities.h"
+#include <openbabel/atom.h>
+#include <openbabel/bond.h>
+#include <openbabel/mol.h>
 #include <cassert>
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
@@ -116,8 +119,8 @@ bool IsRotBond_PDBQT(OBBond * the_bond, unsigned desired_root)
       || the_bond->IsInRing()) {
     return false;
   }
-  if (((the_bond->GetBeginAtom())->GetHvyValence() == 1)
-      || ((the_bond->GetEndAtom())->GetHvyValence() == 1)) {
+  if (((the_bond->GetBeginAtom())->GetHvyDegree() == 1)
+      || ((the_bond->GetEndAtom())->GetHvyDegree() == 1)) {
     if (the_bond->GetBeginAtomIdx() == desired_root)
       return true;
     else
@@ -271,7 +274,7 @@ void createSDFContext(OBMol& mol, vector<OBAtom*> atoms, sdfcontext& sc) {
   for (OBMolBondIter bitr(mol); bitr; ++bitr) {
     unsigned first = idx2atompos[bitr->GetBeginAtomIdx()];
     unsigned second = idx2atompos[bitr->GetEndAtomIdx()];
-    sc.bonds.push_back(sdfcontext::sdfbond(first, second, bitr->GetBO()));
+    sc.bonds.push_back(sdfcontext::sdfbond(first, second, bitr->GetBondOrder()));
   }
 }
 

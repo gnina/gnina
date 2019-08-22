@@ -258,7 +258,7 @@ int main(int argc, char* argv[]) {
       "allow_negative", bool_switch(&allow_neg)->default_value(false),
       "allow optimization to result in negative atom density")(
       "distance", value<std::string>(&dist_method), 
-      "distance function for virtual screen; options are 'l1', 'l2', 'mult', 'sum' (which is a sum of the scores produced by those two options), and 'threshold'; default is l2")(
+      "distance function for virtual screen; options are 'l1', 'l2', 'mult', 'sum' (which is a sum of the scores produced by those two options), 'emd', and 'threshold'; default is l2")(
       "carve", bool_switch(&carve)->default_value(false),
       "do optimization from positive-initialized grids")(
       "carve_val", value<float>(&carve_val),
@@ -309,7 +309,7 @@ int main(int argc, char* argv[]) {
   google::InitGoogleLogging(argv[0]);
   google::SetStderrLogging(2);
 
-  //find out/set up some stuff about the CNN model
+  // find out/set up some stuff about the CNN model
   NetParameter net_param;
 
   if (cnnopts.cnn_model.size() == 0) {
@@ -365,7 +365,7 @@ int main(int argc, char* argv[]) {
   net_param.set_force_backward(true);
   mgridparam->set_ignore_ligand(ignore_ligand);
 
-  //set up solver params and then construct solver
+  // set up solver params and then construct solver
   if (gpu > -1) {
     caffe::Caffe::SetDevice(gpu);
     caffe::Caffe::set_mode(caffe::Caffe::GPU);
@@ -453,6 +453,7 @@ int main(int argc, char* argv[]) {
       else
         out.push_back(boost::make_shared<std::ofstream>((rec.stem().string() + ".vsout").c_str()));
     }
+    bool compute_cost = true;
     for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++) {
       const std::string ligand_name = ligand_names[l];
       boost::filesystem::path lig(ligand_name);
@@ -483,7 +484,8 @@ int main(int argc, char* argv[]) {
           ligand_names[0] = "none";
         if (vsfile.size())
           do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1, 
-              dist_method, positive_threshold, negative_threshold);
+              dist_method, positive_threshold, negative_threshold, compute_cost);
+        compute_cost = false;
       }
     }
   }

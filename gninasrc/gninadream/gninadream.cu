@@ -1,4 +1,5 @@
 #include "../lib/gpu_math.h"
+#include "../lib/matrix.h"
 #define CUDA_NUM_THREADS 256
 #define CUDA_NUM_BLOCKS 48
 #define warpSize 32
@@ -136,6 +137,74 @@ void do_gpu_thresh(const float* optgrid, const float* screengrid, float* scoregr
   unsigned nblocks = block_multiple < CUDA_NUM_BLOCKS ? block_multiple : CUDA_NUM_BLOCKS;
   gpu_thresh<<<nblocks, CUDA_NUM_THREADS>>>(optgrid, screengrid, scoregrid,
       gsize, positive_threshold, negative_threshold);
+  KERNEL_CHECK;
+}
+
+__global__
+void gpu_calcSig(const float* grid, float* sig, unsigned subgrid_dim, unsigned dim, 
+    unsigned gsize, unsigned ntypes, unsigned blocks_per_side) {
+  // perform reduction to obtain total weight for each cube
+  // this might not be the "right" signature, but i think we basically want to
+  // say, with reasonably good granularity, "this is how much weight is here"
+  unsigned n_subcubes = blocks_per_side * blocks_per_side * blocks_per_side;
+  unsigned ch_idx = blockIdx.x / n_subcubes;
+  unsigned cube_idx = blockIdx.x % n_subcubes;
+  unsigned block_x_offset = cube_idx / (blocks_per_side * blocks_per_side);
+  unsigned block_y_offset = (cube_idx % (blocks_per_side * blocks_per_side)) / blocks_per_side;
+  unsigned block_z_offset = cube_idx % blocks_per_side;
+  unsigned cube_offset = block_x_offset * (blocks_per_side * blocks_per_side * 
+      subgrid_dim * subgrid_dim * subgrid_dim) + 
+      block_y_offset * (blocks_per_side * subgrid_dim * subgrid_dim) + 
+      block_z_offset * subgrid_dim;
+  unsigned thread_x_offset = threadIdx.x / (subgrid_dim * subgrid_dim);
+  unsigned thread_y_offset = (threadIdx.x % (subgrid_dim * subgrid_dim)) / subgrid_dim;
+  unsigned thread_z_offset = threadIdx.x % subgrid_dim;
+  unsigned tidx = cube_offset + thread_x_offset * (dim*dim) + thread_y_offset *
+    dim + thread_z_offset;
+  float val = grid[ch_idx * gsize + tidx];
+  float total = block_sum<float>(val);
+  if (threadIdx.x == 0)
+    sig[blockIdx.x] = total;
+}
+
+__global__
+void gpu_emd(float* optsig, float* screensig, float* scoregrid, unsigned dim, 
+    unsigned subgrid_dim, unsigned ntypes, unsigned gsize, flmat_gpu cost_matrix, float* flow) {
+  float cost = 0;
+  // calculates EMD for the pair of signatures optsig and screensig, 
+  // using user-provided cost_matrix. populates the flow matrix for
+  // visualization purposes and returns the final transportation cost
+  *scoregrid = cost;
+}
+
+void do_gpu_emd(const float* optgrid, const float* screengrid, float* scoregrid, 
+    unsigned dim, unsigned subgrid_dim, unsigned blocks_per_side, unsigned ntypes, 
+    float dimension, size_t gsize, flmat_gpu& gpu_cost_matrix) {
+  // allocate signature memory
+  float* optsig;
+  float* screensig;
+  float* flow;
+  unsigned ncubes = blocks_per_side * blocks_per_side * blocks_per_side;
+  unsigned n_matrix_elems = ncubes * ntypes;
+  CUDA_CHECK_GNINA(cudaMalloc(&optsig, sizeof(float)*n_matrix_elems));
+  CUDA_CHECK_GNINA(cudaMalloc(&screensig, sizeof(float)*n_matrix_elems));
+  CUDA_CHECK_GNINA(cudaMalloc(&flow, sizeof(float)*n_matrix_elems*2));
+
+  // accumulate weights for each subcube; this is easiest if we can use 
+  // block_sum, which means we need a block for each cube with some funny
+  // indexing
+  unsigned threads_per_block = subgrid_dim * subgrid_dim * subgrid_dim;
+  // TODO: depending on calcSig performance, could store the optgrid signature
+  // since it is reused...but it might be pretty fast
+  gpu_calcSig<<<n_matrix_elems, threads_per_block>>>(optgrid, optsig,
+      subgrid_dim, dim, gsize, ntypes, blocks_per_side);
+  gpu_calcSig<<<n_matrix_elems, threads_per_block>>>(screengrid, screensig,
+      subgrid_dim, dim, gsize, ntypes, blocks_per_side);
+
+  unsigned block_multiple = gsize / CUDA_NUM_THREADS;
+  unsigned nblocks = block_multiple < CUDA_NUM_BLOCKS ? block_multiple : CUDA_NUM_BLOCKS;
+  gpu_emd<<<nblocks, CUDA_NUM_THREADS>>>(optsig, screensig, scoregrid, dim, subgrid_dim, 
+      ntypes, gsize, gpu_cost_matrix, flow);
   KERNEL_CHECK;
 }
 

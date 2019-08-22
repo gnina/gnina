@@ -129,6 +129,9 @@ struct triangular_matrix_gpu {
     __device__ sz index_permissive(sz i, sz j) const {
       return (i < j) ? index(i, j) : index(j, i);
     }
+
+    triangular_matrix_gpu() = default;
+
     triangular_matrix_gpu(sz n)
         : m_data(NULL), m_dim(n) {
       triangular_matrix<T> cpu_matrix(n, 0);
@@ -140,7 +143,25 @@ struct triangular_matrix_gpu {
               sizeof(T) * cpu_matrix.m_data.size(), cudaMemcpyHostToDevice));
     }
 
+    triangular_matrix_gpu(sz n, const T& filler_val)
+        : m_data(NULL), m_dim(n) {
+      triangular_matrix<T> cpu_matrix(n, filler_val);
+      CUDA_CHECK_GNINA(
+          cudaMalloc(&m_data, sizeof(T) * cpu_matrix.m_data.size()));
+      CUDA_CHECK_GNINA(
+          cudaMemcpy(m_data, &cpu_matrix.m_data[0],
+              sizeof(T) * cpu_matrix.m_data.size(), cudaMemcpyHostToDevice));
+    }
+
+    triangular_matrix_gpu(triangular_matrix<T>& cpu_matrix) : m_data(NULL), m_dim(cpu_matrix.m_dim) {
+      CUDA_CHECK_GNINA(cudaMalloc(&m_data, sizeof(T) * cpu_matrix.m_data.size()));
+      CUDA_CHECK_GNINA(
+          cudaMemcpy(m_data, &cpu_matrix.m_data[0], sizeof(T) * cpu_matrix.m_data.size(), 
+            cudaMemcpyHostToDevice));
+    }
+
     ~triangular_matrix_gpu() {
+      // TODO: can leak if not using device buffer...
       device_free(m_data);
     }
 

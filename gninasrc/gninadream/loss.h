@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <iostream>
+#include "../lib/matrix.h"
 
 inline void cpu_l1(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize) {
   float sum = 0.;
@@ -48,6 +49,63 @@ inline void cpu_thresh(const float* optgrid, const float* screengrid, float* sco
   *scoregrid = sum;
 }
 
+float l2(const vec& icoords, const vec& jcoords) {
+  float sum = 0.;
+  for (size_t k=0; k<3; ++k) {
+    float diff = icoords[k] - jcoords[k];
+    float sqdiff = diff * diff;
+    sum += sqdiff;
+  }
+  return std::sqrt(sum);
+}
+
+inline vec get_cube_coords(unsigned cube_idx, float dimension, unsigned blocks_per_side) {
+  // wlog have cube(0,0,0) start at (0,0,0) (i.e. ignore grid center) since
+  // distance is invariant to translation
+  vec coords(0,0,0);
+  // map flat cube index to (x,y,z) offsets
+  unsigned x_offset = cube_idx / (blocks_per_side * blocks_per_side);
+  unsigned y_offset = (cube_idx % (blocks_per_side * blocks_per_side)) / blocks_per_side;
+  unsigned z_offset = cube_idx % blocks_per_side;
+  float cube_dimension = dimension / blocks_per_side;
+  coords[0] = x_offset * cube_dimension;
+  coords[1] = y_offset * cube_dimension;
+  coords[2] = z_offset * cube_dimension;
+  return coords;
+}
+
+inline float get_cube_l2(unsigned i_cube, unsigned j_cube, float dimension, unsigned
+    blocks_per_side) {
+  // get (x,y,z) coords of cubes
+  vec icoords = get_cube_coords(i_cube, dimension, blocks_per_side);
+  vec jcoords = get_cube_coords(j_cube, dimension, blocks_per_side);
+  return l2(icoords, jcoords);
+}
+
+inline void populate_cost_matrix(unsigned ncubes, unsigned subgrid_dim,
+    unsigned ntypes, unsigned blocks_per_side, float dimension, flmat& cost_matrix) {
+  // fill in cost matrix for comparing two spatial signatures
+  unsigned n_elements = ntypes * ncubes;
+  for (unsigned i=0; i<n_elements; ++i) {
+    for (unsigned j=i+1; j<n_elements; ++j) {
+      // within the same cube, cost is 0...assumes 0-initialized
+      if (i!=j) {
+        unsigned i_ch = i / ncubes;
+        unsigned j_ch = j / ncubes;
+        unsigned i_cube = i % ncubes;
+        unsigned j_cube = j % ncubes;
+        float cube_l2 = get_cube_l2(i_cube, j_cube, dimension, blocks_per_side);
+        // within the same channel but different cube, cost is L2 distance between cubes
+        if (i_ch == j_ch)
+          cost_matrix(i,j) = cube_l2;
+        // across channels, cost is constant, arbitrarily large value + L2
+        else
+          cost_matrix(i,j) = cube_l2 + 1e6;
+      }
+    }
+  }
+}
+
 void do_gpu_l1(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize);
 
 void do_gpu_l2sq(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize);
@@ -55,3 +113,5 @@ void do_gpu_l2sq(const float* optgrid, const float* screengrid, float* scoregrid
 void do_gpu_mult(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize);
 
 void do_gpu_thresh(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize, float positive_threshold, float negative_threshold);
+
+void do_gpu_emd(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize);
