@@ -49,14 +49,12 @@ inline void cpu_thresh(const float* optgrid, const float* screengrid, float* sco
   *scoregrid = sum;
 }
 
-float l2(const vec& icoords, const vec& jcoords) {
+float l1(const vec& icoords, const vec& jcoords) {
   float sum = 0.;
   for (size_t k=0; k<3; ++k) {
-    float diff = icoords[k] - jcoords[k];
-    float sqdiff = diff * diff;
-    sum += sqdiff;
+    sum += icoords[k] - jcoords[k];
   }
-  return std::sqrt(sum);
+  return sum;
 }
 
 inline vec get_cube_coords(unsigned cube_idx, float dimension, unsigned blocks_per_side) {
@@ -74,12 +72,12 @@ inline vec get_cube_coords(unsigned cube_idx, float dimension, unsigned blocks_p
   return coords;
 }
 
-inline float get_cube_l2(unsigned i_cube, unsigned j_cube, float dimension, unsigned
+inline float get_cube_l1(unsigned i_cube, unsigned j_cube, float dimension, unsigned
     blocks_per_side) {
   // get (x,y,z) coords of cubes
   vec icoords = get_cube_coords(i_cube, dimension, blocks_per_side);
   vec jcoords = get_cube_coords(j_cube, dimension, blocks_per_side);
-  return l2(icoords, jcoords);
+  return l1(icoords, jcoords);
 }
 
 inline void populate_cost_matrix(unsigned ncubes, unsigned subgrid_dim,
@@ -94,13 +92,13 @@ inline void populate_cost_matrix(unsigned ncubes, unsigned subgrid_dim,
         unsigned j_ch = j / ncubes;
         unsigned i_cube = i % ncubes;
         unsigned j_cube = j % ncubes;
-        float cube_l2 = get_cube_l2(i_cube, j_cube, dimension, blocks_per_side);
-        // within the same channel but different cube, cost is L2 distance between cubes
+        float cube_l1 = get_cube_l1(i_cube, j_cube, dimension, blocks_per_side);
+        // within the same channel but different cube, cost is L1 distance between cubes
         if (i_ch == j_ch)
-          cost_matrix(i,j) = cube_l2;
-        // across channels, cost is constant, arbitrarily large value + L2
+          cost_matrix(i,j) = cube_l1;
+        // across channels, cost is constant, arbitrarily large value + L1
         else
-          cost_matrix(i,j) = cube_l2 + 1e6;
+          cost_matrix(i,j) = cube_l1 + 1e6;
       }
     }
   }
