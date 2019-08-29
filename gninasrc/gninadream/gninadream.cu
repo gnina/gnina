@@ -1,5 +1,6 @@
 #include "../lib/gpu_math.h"
 #include "../lib/matrix.h"
+#include "../../caffe/include/caffe/util/device_alternate.hpp"
 #define CUDA_NUM_THREADS 256
 #define CUDA_NUM_BLOCKS 48
 #define warpSize 32
@@ -143,9 +144,9 @@ void do_gpu_thresh(const float* optgrid, const float* screengrid, float* scoregr
 __global__
 void gpu_calcSig(const float* grid, float* sig, unsigned subgrid_dim, unsigned dim, 
     unsigned gsize, unsigned ntypes, unsigned blocks_per_side) {
-  // perform reduction to obtain total weight for each cube
+  // perform reduction to obtain total weight for each cube, normalized...
   // this might not be the "right" signature, but i think we basically want to
-  // say, with reasonably good granularity, "this is how much weight is here"
+  // say, with reasonably good granularity, "this is how much weight is here."
   unsigned n_subcubes = blocks_per_side * blocks_per_side * blocks_per_side;
   unsigned ch_idx = blockIdx.x / n_subcubes;
   unsigned cube_idx = blockIdx.x % n_subcubes;
@@ -161,19 +162,43 @@ void gpu_calcSig(const float* grid, float* sig, unsigned subgrid_dim, unsigned d
   unsigned thread_z_offset = threadIdx.x % subgrid_dim;
   unsigned tidx = cube_offset + thread_x_offset * (dim*dim) + thread_y_offset *
     dim + thread_z_offset;
-  float val = grid[ch_idx * gsize + tidx];
+  unsigned overall_idx = ch_idx * gsize + tidx;
+  float val = grid[overall_idx];
   float total = block_sum<float>(val);
   if (threadIdx.x == 0)
     sig[blockIdx.x] = total;
 }
 
 __global__
+void gpu_normalizeSig(float* sig, unsigned sigsize, unsigned roundsize) {
+  __shared__ float sigsum;
+  float total;
+  // can't just loop on sigsize because block_sum has __syncthreads
+  CUDA_KERNEL_LOOP(i,roundsize) {
+    float val = 0;
+    if (i<sigsize)
+      val = sig[i];
+    total = block_sum<float>(val);
+  }
+  if (threadIdx.x == 0)
+    sigsum = total;
+  __syncthreads();
+
+  CUDA_KERNEL_LOOP(i,sigsize) {
+    sig[i] /= sigsum;
+  }
+}
+
+__global__
 void gpu_emd(float* optsig, float* screensig, float* scoregrid, unsigned dim, 
     unsigned subgrid_dim, unsigned ntypes, unsigned gsize, flmat_gpu cost_matrix, float* flow) {
   float cost = 0;
-  // calculates EMD for the pair of signatures optsig and screensig, 
+  // calculates the Greenkhorn distance, a near-linear time approximation to
+  // the entropy-regularized EMD, for the pair of signatures optsig and screensig, 
   // using user-provided cost_matrix. populates the flow matrix for
-  // visualization purposes and returns the final transportation cost
+  // visualization purposes and returns the final transportation cost in
+  // location specified by scoregrid
+  // TODO
   *scoregrid = cost;
 }
 
@@ -191,15 +216,22 @@ void do_gpu_emd(const float* optgrid, const float* screengrid, float* scoregrid,
   CUDA_CHECK_GNINA(cudaMalloc(&flow, sizeof(float)*n_matrix_elems*2));
 
   // accumulate weights for each subcube; this is easiest if we can use 
-  // block_sum, which means we need a block for each cube with some funny
-  // indexing
+  // block_sum, which means we need a thread block for each cube with some 
+  // funny indexing
   unsigned threads_per_block = subgrid_dim * subgrid_dim * subgrid_dim;
+  unsigned remainder = n_matrix_elems % 1024;
+  unsigned roundsize = n_matrix_elems;
+  if (remainder)
+    roundsize += 1024 - remainder;
   // TODO: depending on calcSig performance, could store the optgrid signature
   // since it is reused...but it might be pretty fast
   gpu_calcSig<<<n_matrix_elems, threads_per_block>>>(optgrid, optsig,
       subgrid_dim, dim, gsize, ntypes, blocks_per_side);
+  gpu_normalizeSig<<<1, 1024>>>(optsig, n_matrix_elems, roundsize);
+
   gpu_calcSig<<<n_matrix_elems, threads_per_block>>>(screengrid, screensig,
       subgrid_dim, dim, gsize, ntypes, blocks_per_side);
+  gpu_normalizeSig<<<1, 1024>>>(screensig, n_matrix_elems, roundsize);
 
   unsigned block_multiple = gsize / CUDA_NUM_THREADS;
   unsigned nblocks = block_multiple < CUDA_NUM_BLOCKS ? block_multiple : CUDA_NUM_BLOCKS;

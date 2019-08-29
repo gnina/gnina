@@ -4,6 +4,17 @@
 #include <iostream>
 #include "../lib/matrix.h"
 
+struct flt_int {
+  float val;
+  int idx;
+};
+
+const flt_int& max( const flt_int& a, const flt_int& b) {
+      return a.val > b.val ? a : b;
+}
+
+#pragma omp declare reduction( maxVal: flt_int: omp_out=max( omp_out, omp_in ) )
+
 inline void cpu_l1(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize) {
   float sum = 0.;
 #pragma omp parallel for reduction(+:sum)
@@ -47,6 +58,228 @@ inline void cpu_thresh(const float* optgrid, const float* screengrid, float* sco
     sum += sign * weight;
   }
   *scoregrid = sum;
+}
+
+inline void cpu_calcSig(const float* grid, std::vector<float>& sig, unsigned subgrid_dim, 
+    unsigned dim, unsigned gsize, unsigned ntypes, unsigned blocks_per_side) {
+  // perform reduction to obtain total weight for each cube, normalized...
+  // this might not be the "right" signature, but i think we basically want to
+  // say, with reasonably good granularity, "this is how much weight is here."
+  // TODO: redo this with boost::multi_array_ref to sanity check the indexing
+  unsigned n_subcubes = blocks_per_side * blocks_per_side * blocks_per_side;
+  unsigned subcube_npts = subgrid_dim * subgrid_dim * subgrid_dim;
+  unsigned siglength = n_subcubes * ntypes;
+  if (sig.size() != siglength) {
+    sig.resize(siglength);
+  }
+
+  for (size_t ch=0; ch<ntypes; ++ch) {
+#pragma omp parallel for
+    for (size_t cube_idx=0; cube_idx<n_subcubes; ++cube_idx) {
+      float total = 0;
+      unsigned block_x_offset = cube_idx / (blocks_per_side * blocks_per_side);
+      unsigned block_y_offset = (cube_idx % (blocks_per_side * blocks_per_side)) / blocks_per_side;
+      unsigned block_z_offset = cube_idx % blocks_per_side;
+      unsigned cube_offset = block_x_offset * (blocks_per_side * blocks_per_side * 
+          subgrid_dim * subgrid_dim * subgrid_dim) + 
+          block_y_offset * (blocks_per_side * subgrid_dim * subgrid_dim) + 
+          block_z_offset * subgrid_dim;
+      // omp simd?
+      for (size_t idx=0; idx<subcube_npts; ++idx) {
+        unsigned thread_x_offset = idx / (subgrid_dim * subgrid_dim);
+        unsigned thread_y_offset = (idx % (subgrid_dim * subgrid_dim)) / subgrid_dim;
+        unsigned thread_z_offset = idx % subgrid_dim;
+        unsigned tidx = cube_offset + thread_x_offset * (dim*dim) + thread_y_offset *
+          dim + thread_z_offset;
+        total += grid[ch * gsize + tidx];
+      }
+      sig[ch * n_subcubes + cube_idx] = total;
+    }
+  }
+
+  // that's the total amt of density per cube, now let's convert to weights
+  float sum = 0.;
+#pragma omp parallel for reduction(+:sum)
+  for (size_t i=0; i<sig.size(); ++i) {
+    sum += sig[i];
+  }
+#pragma omp parallel
+  for (size_t i=0; i<sig.size(); ++i) {
+    sig[i] /= sum;
+  }
+}
+  
+inline void cpu_emd(std::vector<float>& optsig, std::vector<float>& screensig, 
+    float* scoregrid, unsigned dim, unsigned subgrid_dim, unsigned ntypes, 
+    unsigned gsize, flmat& cost_matrix, std::vector<float>& flow) {
+  unsigned maxiter = 10000;
+  float reg = 9;
+  double tolerance = 1e-9;
+  double current_threshval = 1;
+  unsigned siglength = optsig.size();
+  unsigned sigsq = siglength * siglength;
+
+  // right now require signatures to be the same length, they always should be
+  // anyway because they depend on the CNN grid size
+  if (screensig.size() != siglength) {
+    std::cerr << "EMD signatures need to be the same length, pad if necessary";
+    std::exit(1);
+  }
+  // sanity check cost matrix too
+  if (cost_matrix.dim() != siglength) {
+    std::cerr << "Cost matrix dimension doesn't match signatures";
+    std::exit(1);
+  }
+  // unlike cost, flow isn't symmetric
+  if (flow.size() != sigsq) {
+    std::cerr << "Flow matrix is wrong size";
+    std::exit(1);
+  }
+  if (siglength == 0) {
+    std::cerr << "Signature is empty";
+    std::exit(1);
+  }
+  flmat K(siglength,0); 
+#pragma omp parallel for
+  for (size_t i=0; i<siglength; ++i) {
+    K(i) = std::exp(cost_matrix(i) / -reg);
+  }
+
+  std::vector<float> u(siglength, 1.f/siglength);
+  std::vector<float> v(siglength, 1.f/siglength);
+#pragma omp parallel for
+  for (size_t i=0; i<siglength; ++i) {
+#pragma omp for simd
+    for (size_t j=0; j<siglength; ++j) {
+      flow[i*siglength + j] = u[i] * K(i,j) * v[j];
+    }
+  }
+
+  std::vector<float> viol(siglength, 0);
+  std::vector<float> viol_2(siglength, 0);
+  // TODO: verify the inner loop is actually being vectorized
+  float sum = 0;
+#pragma omp parallel for
+  for (size_t i=0; i<siglength; ++i) {
+#pragma omp simd reduction(+: sum)
+    for (size_t j=0; j<siglength; ++j) {
+      sum += flow[i*siglength+j];
+    }
+    viol[i] = sum - optsig[i];
+    sum = 0;
+  }
+
+#pragma omp parallel for
+  for (size_t i=0; i<siglength; ++i) {
+#pragma omp simd reduction(+: sum)
+    for (size_t j=0; j<siglength; ++j) {
+      sum += flow[j*siglength+i];
+    }
+    viol_2[i] = sum - screensig[i];
+    sum = 0;
+  }
+
+  for (size_t i=0; i<maxiter; ++i) {
+    flt_int argmax_1 = { -100., -1 };
+#pragma omp parallel for reduction( maxVal: argmax_1 )
+    for (size_t i=0; i<maxiter; ++i) {
+      float val = std::abs(viol[i]);
+      if (val > argmax_1.val) {
+        argmax_1.idx = i;
+        argmax_1.val = std::abs(viol[i]);
+      }
+    }
+    unsigned i_1 = argmax_1.idx;
+    float m_viol_1 = std::abs(viol[i_1]);
+
+    flt_int argmax_2 = { -100., -1 };
+#pragma omp parallel for reduction( maxVal: argmax_2 )
+    for (size_t i=0; i<maxiter; ++i) {
+      float val = std::abs(viol_2[i]);
+      if (val > argmax_2.val) {
+        argmax_2.idx = i;
+        argmax_2.val = std::abs(viol_2[i]);
+      }
+    }
+    unsigned i_2 = argmax_2.idx;
+    float m_viol_2 = std::abs(viol_2[i_2]);
+    current_threshval = std::max(m_viol_1, m_viol_2);
+
+    if (m_viol_1 > m_viol_2) {
+      float old_u = u[i_1];
+      float K_dot_v = 0;
+#pragma omp parallel for reduction(+: K_dot_v)
+      for (size_t i=0; i<siglength; ++i) {
+        K_dot_v += K[i_1 * siglength + i] * v[i];
+      }
+      u[i_1] = optsig[i_1] / K_dot_v;
+      float udiff = u[i_1] - old_u;
+
+#pragma omp parallel for
+      for (size_t i=0; i<siglength; ++i) {
+        flow[i_1 * siglength + i] = u[i_1] * K[i_1 * siglength + i] * v[i];
+        viol_2[i] += K[i_1*siglength + i] * v[i] * udiff;
+      }
+      viol[i_1] = u[i_1] * K_dot_v - optsig[i_1];
+    }
+    else {
+      float old_v = v[i_2];
+      float K_dot_u = 0;
+#pragma omp parallel for reduction(+: K_dot_u)
+      for (size_t i=0; i<siglength; ++i) {
+        K_dot_u += K[i*siglength+i_2] * u[i];
+      }
+      v[i_2] = screensig[i_2] / K_dot_u;
+      float vdiff = v[i_2] - old_v;
+
+#pragma omp parallel for
+      for (size_t i=0; i<siglength; ++i) {
+        float Kval = K[i*siglength + i_2];
+        flow[i*siglength + i_2] = u[i] * Kval * v[i_2];
+        viol[i] += vdiff * Kval * u[i];
+      }
+      viol_2[i_2] = v[i_2] * K_dot_u - b[i_2];
+    }
+    
+    if (current_threshval <= tolerance)
+      break;
+    else if (i == maxiter-1)
+      std::cout << "Warning: EMD did not converge"; // everything user-facing calls this EMD
+  }
+
+  // now we have the flow and can do \sum F \odot D to get the total cost
+  float cost = 0;
+#pragma omp parallel for reduction(+: cost)
+  for (size_t i=0; i<sigsq; ++i) {
+    // gross...
+    unsigned idx1 = i / siglength;
+    unsigned idx2 = i % siglength;
+    cost += cost_matrix(idx1, idx2) * flow[i];
+  }
+  *scoregrid = cost;
+}
+
+inline void do_cpu_emd(const float* optgrid, const float* screengrid, float* scoregrid, 
+    unsigned dim, unsigned subgrid_dim, unsigned blocks_per_side, unsigned ntypes, 
+    float dimension, size_t gsize, flmat& cost_matrix) {
+  // calculates the Greenkhorn distance, a near-linear time approximation to
+  // the entropy-regularized EMD, for the pair of signatures optsig and screensig, 
+  // using user-provided cost_matrix. populates the flow matrix for
+  // visualization purposes and sets score to the final transportation cost
+  std::vector<float> optsig;
+  std::vector<float> screensig;
+  std::vector<float> flow;
+  unsigned ncubes = blocks_per_side * blocks_per_side * blocks_per_side;
+  unsigned n_matrix_elems = ncubes * ntypes;
+
+  // get signatures for each grid
+  cpu_calcSig(optgrid, optsig, subgrid_dim, dim, gsize, ntypes, blocks_per_side);
+  cpu_calcSig(screengrid, screensig, subgrid_dim, dim, gsize, ntypes, blocks_per_side);
+
+  // calculate flow 
+  cpu_emd(optsig, screensig, scoregrid, dim, subgrid_dim, ntypes, gsize, cost_matrix, flow);
+
+  // set score
 }
 
 float l1(const vec& icoords, const vec& jcoords) {
@@ -112,4 +345,6 @@ void do_gpu_mult(const float* optgrid, const float* screengrid, float* scoregrid
 
 void do_gpu_thresh(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize, float positive_threshold, float negative_threshold);
 
-void do_gpu_emd(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize);
+void do_gpu_emd(const float* optgrid, const float* screengrid, float* scoregrid, 
+    unsigned dim, unsigned subgrid_dim, unsigned blocks_per_side, unsigned ntypes, 
+    float dimension, size_t gsize, flmat_gpu& gpu_cost_matrix);
