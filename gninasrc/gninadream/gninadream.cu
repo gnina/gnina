@@ -1,11 +1,33 @@
 #include "../lib/gpu_math.h"
 #include "../lib/matrix.h"
-#include "../../caffe/include/caffe/util/device_alternate.hpp"
 #include "loss.h"
 #define CUDA_NUM_THREADS 256
 #define CUDA_NUM_BLOCKS 48
 #define warpSize 32
 #define KERNEL_CHECK CUDA_CHECK_GNINA(cudaPeekAtLastError())
+#define CUDA_KERNEL_LOOP(i, n) \
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
+       i < (n); \
+       i += blockDim.x * gridDim.x)
+
+template<typename T> T __device__ __host__ zero(void);
+template<> float3 zero(void) {
+  return float3(0, 0, 0);
+}
+
+template<> float zero(void) {
+  return 0;
+}
+
+template<> flt_int zero(void) {
+  flt_int tmp = {0, 0};
+  return tmp;
+}
+
+flt_int __device__ __host__  min(void) {
+  flt_int tmp = { -100., -1 };
+  return tmp;
+}
 
 // device functions for warp-based reduction using shufl operations
 // TODO: should probably just be factored out into gpu_math or gpu_util
@@ -43,7 +65,7 @@ __device__   __forceinline__ T block_sum(T mySum) {
   __syncthreads();
 
   if (wid == 0) {
-    mySum = (threadIdx.x < blockDim.x >> 5) ? scratch[lane] : 0;
+    mySum = (threadIdx.x < blockDim.x >> 5) ? scratch[lane] : zero<T>();
     mySum = warp_sum(mySum);
     if (threadIdx.x == 0 && isNotDiv32(blockDim.x))
       mySum += scratch[blockDim.x >> 5];
@@ -64,7 +86,7 @@ __device__   __forceinline__ T block_max(T myMax) {
   __syncthreads();
 
   if (wid == 0) {
-    myMax = (threadIdx.x < blockDim.x >> 5) ? scratch[lane] : 0;
+    myMax = (threadIdx.x < blockDim.x >> 5) ? scratch[lane] : min();
     myMax = warp_max(myMax);
     if (threadIdx.x == 0 && isNotDiv32(blockDim.x)) {
       T nextMax = scratch[blockDim.x >> 5]; 

@@ -9,14 +9,31 @@ struct flt_int {
   int idx;
 };
 
-inline bool operator==(const flt_int& lhs, const flt_int& rhs){ return lhs.val==rhs.val && lhs.idx == rhs.idx; }
-inline bool operator!=(const flt_int& lhs, const flt_int& rhs){return !operator==(lhs,rhs);}
-inline bool operator< (const flt_int& lhs, const flt_int& rhs){ return lhs.val < rhs.val ? lhs : rhs }
-inline bool operator> (const flt_int& lhs, const flt_int& rhs){return  operator< (rhs,lhs);}
-inline bool operator<=(const flt_int& lhs, const flt_int& rhs){return !operator> (lhs,rhs);}
-inline bool operator>=(const flt_int& lhs, const flt_int& rhs){return !operator< (lhs,rhs);}
+__host__ __device__ inline bool operator==(const flt_int& lhs, const flt_int& rhs){ return lhs.val==rhs.val && lhs.idx == rhs.idx; }
+__host__ __device__ inline bool operator!=(const flt_int& lhs, const flt_int& rhs){return !operator==(lhs,rhs);}
+__host__ __device__ inline bool operator< (const flt_int& lhs, const flt_int& rhs){ return lhs.val < rhs.val ? true: false; }
+__host__ __device__ inline bool operator> (const flt_int& lhs, const flt_int& rhs){return  operator< (rhs,lhs);}
+__host__ __device__ inline bool operator<=(const flt_int& lhs, const flt_int& rhs){return !operator> (lhs,rhs);}
+__host__ __device__ inline bool operator>=(const flt_int& lhs, const flt_int& rhs){return !operator< (lhs,rhs);}
 
-const flt_int& max( const flt_int& a, const flt_int& b) {
+#ifdef __CUDACC__
+
+__device__ __inline__ flt_int shuffle_down(flt_int pair, int offset) {
+  //wrapper for sync for normal float type
+  flt_int tmp;
+#if __CUDACC_VER_MAJOR__ >= 9
+  tmp.val = __shfl_down_sync(0xffffffff, pair.val, offset);
+  tmp.idx = __shfl_down_sync(0xffffffff, pair.idx, offset);
+#else
+  tmp.val = __shfl_down(pair.val,offset);
+  tmp.idx = __shfl_down(pair.idx,offset);
+#endif
+  return tmp;
+}
+
+#endif
+
+inline const flt_int& max( const flt_int& a, const flt_int& b) {
       return a.val > b.val ? a : b;
 }
 
@@ -156,7 +173,6 @@ inline void cpu_emd(std::vector<float>& optsig, std::vector<float>& screensig,
   std::vector<float> v(siglength, 1.f/siglength);
 #pragma omp parallel for
   for (size_t i=0; i<siglength; ++i) {
-#pragma omp for simd
     for (size_t j=0; j<siglength; ++j) {
       flow[i*siglength + j] = u[i] * K(i,j) * v[j];
     }
@@ -286,7 +302,7 @@ inline void do_cpu_emd(const float* optgrid, const float* screengrid, float* sco
   cpu_emd(optsig, screensig, scoregrid, dim, subgrid_dim, ntypes, gsize, cost_matrix, flow);
 }
 
-float l1(const vec& icoords, const vec& jcoords) {
+inline float l1(const vec& icoords, const vec& jcoords) {
   float sum = 0.;
   for (size_t k=0; k<3; ++k) {
     sum += icoords[k] - jcoords[k];
