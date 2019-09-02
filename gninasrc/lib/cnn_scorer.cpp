@@ -113,6 +113,9 @@ CNNScorer::CNNScorer(const cnn_options& opts)
     if (!net->has_blob("output")) {
       throw usage_error("Model must have output layer named \"output\".");
     }
+    if (!net->has_blob("loss")) {
+      throw usage_error("Model must have loss calculation layer named \"loss\" (to compute gradient for optimization).");
+    }  
     if (net->blob_by_name("output")->count() != 2 * bsize) {
       throw usage_error(
           "Model output layer does not have exactly two outputs.");
