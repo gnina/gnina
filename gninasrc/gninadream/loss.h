@@ -9,6 +9,13 @@ struct flt_int {
   int idx;
 };
 
+inline bool operator==(const flt_int& lhs, const flt_int& rhs){ return lhs.val==rhs.val && lhs.idx == rhs.idx; }
+inline bool operator!=(const flt_int& lhs, const flt_int& rhs){return !operator==(lhs,rhs);}
+inline bool operator< (const flt_int& lhs, const flt_int& rhs){ return lhs.val < rhs.val ? lhs : rhs }
+inline bool operator> (const flt_int& lhs, const flt_int& rhs){return  operator< (rhs,lhs);}
+inline bool operator<=(const flt_int& lhs, const flt_int& rhs){return !operator> (lhs,rhs);}
+inline bool operator>=(const flt_int& lhs, const flt_int& rhs){return !operator< (lhs,rhs);}
+
 const flt_int& max( const flt_int& a, const flt_int& b) {
       return a.val > b.val ? a : b;
 }
@@ -179,14 +186,14 @@ inline void cpu_emd(std::vector<float>& optsig, std::vector<float>& screensig,
     sum = 0;
   }
 
-  for (size_t i=0; i<maxiter; ++i) {
+  for (size_t iter=0; iter<maxiter; ++iter) {
     flt_int argmax_1 = { -100., -1 };
 #pragma omp parallel for reduction( maxVal: argmax_1 )
-    for (size_t i=0; i<maxiter; ++i) {
+    for (size_t i=0; i<siglength; ++i) {
       float val = std::abs(viol[i]);
       if (val > argmax_1.val) {
         argmax_1.idx = i;
-        argmax_1.val = std::abs(viol[i]);
+        argmax_1.val = val;
       }
     }
     unsigned i_1 = argmax_1.idx;
@@ -194,11 +201,11 @@ inline void cpu_emd(std::vector<float>& optsig, std::vector<float>& screensig,
 
     flt_int argmax_2 = { -100., -1 };
 #pragma omp parallel for reduction( maxVal: argmax_2 )
-    for (size_t i=0; i<maxiter; ++i) {
+    for (size_t i=0; i<siglength; ++i) {
       float val = std::abs(viol_2[i]);
       if (val > argmax_2.val) {
         argmax_2.idx = i;
-        argmax_2.val = std::abs(viol_2[i]);
+        argmax_2.val = val;
       }
     }
     unsigned i_2 = argmax_2.idx;
@@ -210,15 +217,15 @@ inline void cpu_emd(std::vector<float>& optsig, std::vector<float>& screensig,
       float K_dot_v = 0;
 #pragma omp parallel for reduction(+: K_dot_v)
       for (size_t i=0; i<siglength; ++i) {
-        K_dot_v += K[i_1 * siglength + i] * v[i];
+        K_dot_v += K(i_1 * siglength + i) * v[i];
       }
       u[i_1] = optsig[i_1] / K_dot_v;
       float udiff = u[i_1] - old_u;
 
 #pragma omp parallel for
       for (size_t i=0; i<siglength; ++i) {
-        flow[i_1 * siglength + i] = u[i_1] * K[i_1 * siglength + i] * v[i];
-        viol_2[i] += K[i_1*siglength + i] * v[i] * udiff;
+        flow[i_1 * siglength + i] = u[i_1] * K(i_1 * siglength + i) * v[i];
+        viol_2[i] += K(i_1*siglength + i) * v[i] * udiff;
       }
       viol[i_1] = u[i_1] * K_dot_v - optsig[i_1];
     }
@@ -227,23 +234,23 @@ inline void cpu_emd(std::vector<float>& optsig, std::vector<float>& screensig,
       float K_dot_u = 0;
 #pragma omp parallel for reduction(+: K_dot_u)
       for (size_t i=0; i<siglength; ++i) {
-        K_dot_u += K[i*siglength+i_2] * u[i];
+        K_dot_u += K(i*siglength+i_2) * u[i];
       }
       v[i_2] = screensig[i_2] / K_dot_u;
       float vdiff = v[i_2] - old_v;
 
 #pragma omp parallel for
       for (size_t i=0; i<siglength; ++i) {
-        float Kval = K[i*siglength + i_2];
+        float Kval = K(i*siglength + i_2);
         flow[i*siglength + i_2] = u[i] * Kval * v[i_2];
         viol[i] += vdiff * Kval * u[i];
       }
-      viol_2[i_2] = v[i_2] * K_dot_u - b[i_2];
+      viol_2[i_2] = v[i_2] * K_dot_u - screensig[i_2];
     }
     
     if (current_threshval <= tolerance)
       break;
-    else if (i == maxiter-1)
+    else if (iter == maxiter-1)
       std::cout << "Warning: EMD did not converge"; // everything user-facing calls this EMD
   }
 
@@ -261,25 +268,22 @@ inline void cpu_emd(std::vector<float>& optsig, std::vector<float>& screensig,
 
 inline void do_cpu_emd(const float* optgrid, const float* screengrid, float* scoregrid, 
     unsigned dim, unsigned subgrid_dim, unsigned blocks_per_side, unsigned ntypes, 
-    float dimension, size_t gsize, flmat& cost_matrix) {
+    size_t gsize, flmat& cost_matrix) {
   // calculates the Greenkhorn distance, a near-linear time approximation to
   // the entropy-regularized EMD, for the pair of signatures optsig and screensig, 
   // using user-provided cost_matrix. populates the flow matrix for
   // visualization purposes and sets score to the final transportation cost
+  // TODO: dump the flow matrix someplace
   std::vector<float> optsig;
   std::vector<float> screensig;
   std::vector<float> flow;
-  unsigned ncubes = blocks_per_side * blocks_per_side * blocks_per_side;
-  unsigned n_matrix_elems = ncubes * ntypes;
 
   // get signatures for each grid
   cpu_calcSig(optgrid, optsig, subgrid_dim, dim, gsize, ntypes, blocks_per_side);
   cpu_calcSig(screengrid, screensig, subgrid_dim, dim, gsize, ntypes, blocks_per_side);
 
-  // calculate flow 
+  // calculate flow and total cost
   cpu_emd(optsig, screensig, scoregrid, dim, subgrid_dim, ntypes, gsize, cost_matrix, flow);
-
-  // set score
 }
 
 float l1(const vec& icoords, const vec& jcoords) {
@@ -347,4 +351,4 @@ void do_gpu_thresh(const float* optgrid, const float* screengrid, float* scoregr
 
 void do_gpu_emd(const float* optgrid, const float* screengrid, float* scoregrid, 
     unsigned dim, unsigned subgrid_dim, unsigned blocks_per_side, unsigned ntypes, 
-    float dimension, size_t gsize, flmat_gpu& gpu_cost_matrix);
+    size_t gsize, flmat& cost_matrix);

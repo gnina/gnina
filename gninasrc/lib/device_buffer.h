@@ -24,6 +24,7 @@ class device_buffer {
   public:
     device_buffer();
     void init(size_t capacity);
+    bool initialized() { return begin; }
 
     void resize(size_t n_bytes);
     template<typename T>

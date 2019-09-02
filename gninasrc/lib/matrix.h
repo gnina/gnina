@@ -153,7 +153,7 @@ struct triangular_matrix_gpu {
               sizeof(T) * cpu_matrix.m_data.size(), cudaMemcpyHostToDevice));
     }
 
-    triangular_matrix_gpu(triangular_matrix<T>& cpu_matrix) : m_data(NULL), m_dim(cpu_matrix.m_dim) {
+    triangular_matrix_gpu(const triangular_matrix<T>& cpu_matrix) : m_data(NULL), m_dim(cpu_matrix.m_dim) {
       CUDA_CHECK_GNINA(cudaMalloc(&m_data, sizeof(T) * cpu_matrix.m_data.size()));
       CUDA_CHECK_GNINA(
           cudaMemcpy(m_data, &cpu_matrix.m_data[0], sizeof(T) * cpu_matrix.m_data.size(), 
@@ -161,8 +161,10 @@ struct triangular_matrix_gpu {
     }
 
     ~triangular_matrix_gpu() {
-      // TODO: can leak if not using device buffer...
-      device_free(m_data);
+      if (thread_buffer.initialized())
+        device_free(m_data);
+      else if (m_data)
+        cudaFree(m_data);
     }
 
     __device__  const T& operator()(sz i) const {

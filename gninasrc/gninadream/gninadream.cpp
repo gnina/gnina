@@ -685,6 +685,10 @@ int main(int argc, char* argv[]) {
           std::exit(1);
         }
       }
+      // TODO: ****MUST**** set up dummy gninatypes with atom at gridcenter for
+      // virtual screening reference ligand, should also sanity check grid
+      // centers for all identified DX files (grid center ambiguity will mess
+      // with virtual screen results, for one thing)
     }
     if (carve) {
       bool no_density = false;

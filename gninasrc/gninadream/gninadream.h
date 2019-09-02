@@ -68,21 +68,24 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
   
   // if using EMD for virtual screen, populate cost_matrix once
   flmat cost_matrix;
-  flmat_gpu gpu_cost_matrix;
+  unsigned blocks_per_side;
+  unsigned ncubes;
+  unsigned ntypes;
+  unsigned n_matrix_elems;
+  unsigned dim;
   if (!std::strcmp(dist_method.c_str(), "emd") && compute_cost) {
     double dimension = opt_mgrid.getDimension();
-    unsigned dim = dimension * 2 + 1;
+    dim = dimension * 2 + 1;
     if (dim % subgrid_dim) {
       std::cerr << "Grid dimension not divisible by 4, which is currently required for EMD.\n";
       std::exit(1);
     }
-    unsigned blocks_per_side = dim / subgrid_dim;
-    unsigned ncubes = blocks_per_side * blocks_per_side * blocks_per_side;
-    unsigned ntypes = opt_mgrid.getNumLigTypes();
-    unsigned n_matrix_elems = ncubes * ntypes;
+    blocks_per_side = dim / subgrid_dim;
+    ncubes = blocks_per_side * blocks_per_side * blocks_per_side;
+    ntypes = opt_mgrid.getNumLigTypes();
+    n_matrix_elems = ncubes * ntypes;
     cost_matrix = flmat(n_matrix_elems, 0);
     populate_cost_matrix(ncubes, subgrid_dim, ntypes, blocks_per_side, dimension, cost_matrix);
-    gpu_cost_matrix = flmat_gpu(cost_matrix);
   }
 
   //VS compounds are currently done one at a time, inmem
@@ -135,6 +138,10 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
           do_gpu_thresh(optgrid + offset, screengrid + recGridSize, gpu_score, ligGridSize,
               positive_threshold, negative_threshold);
         }
+        else if (!std::strcmp(dist_method.c_str(), "emd")) {
+          do_gpu_emd(optgrid + offset, screengrid + recGridSize, gpu_score, dim, subgrid_dim, 
+              blocks_per_side, ntypes, ligGridSize, cost_matrix);
+        }
         else {
           cerr << "Unknown distance method for overlap-based virtual screen\n";
           exit(-1);
@@ -173,6 +180,10 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
         else if(!std::strcmp(dist_method.c_str(), "threshold")) {
           cpu_thresh(optgrid + offset, screengrid + recGridSize, &scores.back(), 
               ligGridSize, positive_threshold, negative_threshold);
+        }
+        else if (!std::strcmp(dist_method.c_str(), "emd")) {
+          do_cpu_emd(optgrid+offset, screengrid + recGridSize, &scores.back(), dim, subgrid_dim, 
+              blocks_per_side, ntypes, ligGridSize, cost_matrix);
         }
         else {
           cerr << "Unknown distance method for overlap-based virtual screen\n";
