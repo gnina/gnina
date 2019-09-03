@@ -28,6 +28,7 @@
 #include <limits>
 #include <utility> // pair#include <algorithm> // too common#include <vector> // used in typedef, and commonly used overall#include <cmath> // commonly used#include <iostream> // various debugging everywhere#include <fstream> // print_coords#include <iomanip> // to_string#include <sstream> // to_string#include <string> // probably included by the above anyway, common anyway#include <boost/serialization/vector.hpp> // can't come before the above two - wart fixed in upcoming Boost versions#include <boost/serialization/base_object.hpp> // movable_atom needs it - (derived from atom)#include <boost/filesystem/path.hpp> // typedef'ed#include "macros.h"
 #include "math.h"
+#include <float.h>
 #include <cuda_runtime.h>
 
 typedef float fl;
@@ -49,6 +50,22 @@ struct minimization_params {
 
     }
 };
+
+inline bool AlmostEqual(float A, float B,
+                         float maxRelDiff = FLT_EPSILON) {
+  if (A==B) { return true; }
+
+  // Calculate the difference.
+  float diff = fabs(A - B);
+  A = fabs(A);
+  B = fabs(B);
+  // Find the largest
+  float largest = (B > A) ? B : A;
+ 
+  if (diff <= largest * maxRelDiff)
+    return true;
+  return false;
+}
 
 template<typename T>
 __host__   __device__
@@ -189,9 +206,12 @@ struct CUDA_ALIGN(4 * sizeof(float)) vec {
     }
 
     bool operator==(const vec& rhs) {
-      return data[0] == rhs.data[0] && data[1] == rhs.data[1]
-          && data[2] == rhs.data[2];
+      return AlmostEqual(data[0], rhs.data[0]) && AlmostEqual(data[1],rhs.data[1])
+          && AlmostEqual(data[2],rhs.data[2]);
     }
+
+    bool operator!=(const vec& rhs) { return !(*this==rhs); }
+
     __host__ __device__
     void assign(fl s) {
       data[0] = data[1] = data[2] = s;

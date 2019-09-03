@@ -1,6 +1,7 @@
 #include <boost/program_options.hpp>
 #include <cmath>
 #include <unistd.h>
+#include <cstdio>
 #include <glob.h>
 #include <regex>
 #include <unordered_set>
@@ -8,6 +9,14 @@
 #include <boost/filesystem.hpp>
 #include "caffe/util/signal_handler.h"
 #include "gninadream.h"
+
+struct atom_info {
+	float x, y, z;
+	int type;
+
+	atom_info(): x(0), y(0), z(0), type(-1) {}
+	atom_info(float X, float Y, float Z, int T): x(X), y(Y), z(Z), type(T) {}
+};
 
 std::vector<std::string> glob(const std::string& pattern) {
     using namespace std;
@@ -577,6 +586,7 @@ int main(int argc, char* argv[]) {
     unsigned npts_onech = mgrid->getNumGridPoints();
     unsigned nchannels = rectypes.size() + ligtypes.size();
     unsigned npts_allchs = npts_onech * nchannels;
+    vec gridcenter(NAN,NAN,NAN);
     if (gpu > -1)  {
       inputblob = net->top_vecs()[0][0]->mutable_gpu_data();
       CUDA_CHECK_GNINA(cudaMemset(inputblob, 0, npts_allchs* sizeof(float)));
@@ -608,7 +618,7 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Could not open example grid file " << fname << "\n";
 		          	abort();
 		          }
-		          vec gridcenter;
+		          vec this_gridcenter;
 		          double gridres = 0;
               // if we're running on the CPU we can read directly into the
               // right place, otherwise we read into a temporary host buffer
@@ -622,7 +632,7 @@ int main(int argc, char* argv[]) {
               }
               else 
                 g = inputblob + idx * npts_onech;
-		          if(!readDXGrid(gridfile, gridcenter, gridres, g, npts_onech, fname))
+		          if(!readDXGrid(gridfile, this_gridcenter, gridres, g, npts_onech, fname))
 		          {
                 std::cerr << "I couldn't understand the provided dx file " << fname << "\n";
                 std::exit(1);
@@ -634,6 +644,12 @@ int main(int argc, char* argv[]) {
               if (gpu > -1) 
                 CUDA_CHECK_GNINA(cudaMemcpy(inputblob + idx * npts_onech, g,
                       npts_onech * sizeof(float), cudaMemcpyHostToDevice));
+              if (std::isnan(gridcenter[0])) {
+                gridcenter = this_gridcenter;
+              }
+              else {
+                assert(gridcenter == this_gridcenter);
+              }
               break;
             }
             ++idx;
@@ -650,7 +666,7 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Could not open example grid file " << fname << "\n";
 		          	abort();
 		          }
-		          vec gridcenter;
+		          vec this_gridcenter;
 		          double gridres = 0;
               // if we're running on the CPU we can read directly into the
               // right place, otherwise we read into a temporary host buffer
@@ -663,7 +679,7 @@ int main(int argc, char* argv[]) {
               }
               else 
                 g = inputblob + idx * npts_onech;
-		          if(!readDXGrid(gridfile, gridcenter, gridres, g, npts_onech, fname))
+		          if(!readDXGrid(gridfile, this_gridcenter, gridres, g, npts_onech, fname))
 		          {
                 std::cerr << "I couldn't understand the provided dx file " << fname << "\n";
                 std::exit(1);
@@ -675,6 +691,15 @@ int main(int argc, char* argv[]) {
               if (gpu > -1) 
                 CUDA_CHECK_GNINA(cudaMemcpy(inputblob + idx * npts_onech, g,
                       npts_onech * sizeof(float), cudaMemcpyHostToDevice));
+              if (std::isnan(gridcenter[0])) {
+                gridcenter = this_gridcenter;
+              }
+              else {
+                if (this_gridcenter != gridcenter) {
+                  std::cerr << "Provided grids don't all have the same center.\n";
+                  std::exit(1);
+                }
+              }
               break;
             }
             ++idx;
@@ -685,10 +710,6 @@ int main(int argc, char* argv[]) {
           std::exit(1);
         }
       }
-      // TODO: ****MUST**** set up dummy gninatypes with atom at gridcenter for
-      // virtual screening reference ligand, should also sanity check grid
-      // centers for all identified DX files (grid center ambiguity will mess
-      // with virtual screen results, for one thing)
     }
     if (carve) {
       bool no_density = false;
@@ -700,13 +721,29 @@ int main(int argc, char* argv[]) {
         mgrid->dumpGridDX(out_prefix, net->top_vecs()[0][0]->mutable_cpu_data());
     }
     if (vsfile.size()) {
+      // make temp gninatypes for setting the center for screen ligands
+      string gt_name = "tmp_" + std::to_string(getpid()) + ".gninatypes";
+	  	ofstream gt(gt_name.c_str());
+	  	if (!gt)
+	  	{
+	  		cerr << "Error opening output file " << gt_name << "\n";
+	  		exit(1);
+	  	}
+      atom_info atom;
+      atom.x = gridcenter[0];
+      atom.y = gridcenter[1];
+      atom.z = gridcenter[2];
+      atom.type = 2;
+	  	gt.write((char*)&atom, sizeof(atom));
+	  	gt.close();
       if (!ligand_names.size()) {
-        ligand_names.push_back("none");
+        ligand_names.push_back(gt_name);
       }
       std::vector<caffe::shared_ptr<ostream> > out;
       out.push_back(boost::make_shared<std::ofstream>((out_prefix + ".vsout").c_str()));
       do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1, 
           dist_method, positive_threshold, negative_threshold);
+      std::remove(gt_name.c_str());
     }
   }
   else if (solverstate.size()) {

@@ -19,7 +19,6 @@ __host__ __device__ inline bool operator>=(const flt_int& lhs, const flt_int& rh
 #ifdef __CUDACC__
 
 __device__ __inline__ flt_int shuffle_down(flt_int pair, int offset) {
-  //wrapper for sync for normal float type
   flt_int tmp;
 #if __CUDACC_VER_MAJOR__ >= 9
   tmp.val = __shfl_down_sync(0xffffffff, pair.val, offset);
