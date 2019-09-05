@@ -96,7 +96,9 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
     std::vector<float> scores;
     unsigned offset = i * example_size + recGridSize;
     std::string& next_ref_lig = ref_ligs[i];
-    if (next_ref_lig != "none")
+    bool is_gninatypes = boost::algorithm::ends_with(next_ref_lig, ".gninatypes");
+    
+    if (next_ref_lig != "none" && !is_gninatypes)
       mols.create_init_model(ref_ligs[0], std::string(), finfo, log);
     else
       mols.create_init_model(std::string(), std::string(), finfo, log);
@@ -107,8 +109,38 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
       unsigned natoms = m.num_movable_atoms();
       opt_mgrid.setLigand(m.get_movable_atoms(), m.coordinates());
       if (next_ref_lig != "none") {
-        opt_mgrid.setReceptor(m.get_fixed_atoms());
-        opt_mgrid.setCenter(opt_mgrid.getCenter());
+        if (is_gninatypes) {
+          int cnt = 0;
+          vec center(0,0,0);
+          struct info {
+            float x,y,z;
+            int type;
+          } gt_atom;
+          std::vector<atom> atoms;
+
+          ifstream in(next_ref_lig.c_str());
+          CHECK(in) << "Could not read " << next_ref_lig;
+
+          while(in.read((char*)&gt_atom, sizeof(gt_atom)))
+          {
+            smt t = (smt)gt_atom.type;
+            cnt++;
+            center += vec(gt_atom.x,gt_atom.y,gt_atom.z);
+            atom next_atom;
+            next_atom.sm = (smt)gt_atom.type;
+            next_atom.coords[0] = gt_atom.x;
+            next_atom.coords[1] = gt_atom.y;
+            next_atom.coords[2] = gt_atom.z;
+            atoms.push_back(next_atom);
+          }
+          center /= cnt;
+          opt_mgrid.setReceptor(atoms);
+          opt_mgrid.setCenter(center);
+        }
+        else {
+          opt_mgrid.setReceptor(m.get_fixed_atoms());
+          opt_mgrid.setCenter(opt_mgrid.getCenter());
+        }
       }
       else
         opt_mgrid.setCenter(vec(0, 0, 0));

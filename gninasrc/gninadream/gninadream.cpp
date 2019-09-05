@@ -404,23 +404,31 @@ int main(int argc, char* argv[]) {
   solver->SetActionFunction(signal_handler.GetActionFunction());
   solver->DoThreshold(!allow_neg);
   caffe::shared_ptr<Net<float> > net = solver->net();
-  //if there wasn't a weights file, check that we're using one of the provided
-  //cnn models and attempt to load the appropriate stored weights
-  if (cnnopts.cnn_weights.size() == 0) {
-    NetParameter wparam;
+  // if there wasn't a weights file and we actually care about network output,
+  // check that we're using one of the provided cnn models and attempt to load
+  // the appropriate stored weights
+  // if we don't do any optimizations of the input we don't need the network
+  // for anything except loading data into grids so weights don't matter
+  if (iterations != 0) {
+    if (cnnopts.cnn_weights.size() == 0) {
+      NetParameter wparam;
 
-    const unsigned char *weights = cnn_models[cnnopts.cnn_model_name].weights;
-    unsigned int nweights = cnn_models[cnnopts.cnn_model_name].num_weights;
+      if (cnn_models.find(cnnopts.cnn_model_name) == cnn_models.end()) {
+        throw usage_error("No weights for CNN model " + cnnopts.cnn_model_name);
+      }
+      const unsigned char *weights = cnn_models[cnnopts.cnn_model_name].weights;
+      unsigned int nweights = cnn_models[cnnopts.cnn_model_name].num_weights;
 
-    google::protobuf::io::ArrayInputStream weightdata(weights,nweights);
-    google::protobuf::io::CodedInputStream strm(&weightdata);
-    strm.SetTotalBytesLimit(INT_MAX, 536870912);
-    bool success = wparam.ParseFromCodedStream(&strm);
-    if (!success) throw usage_error("Error with default weights.");
+      google::protobuf::io::ArrayInputStream weightdata(weights,nweights);
+      google::protobuf::io::CodedInputStream strm(&weightdata);
+      strm.SetTotalBytesLimit(INT_MAX, 536870912);
+      bool success = wparam.ParseFromCodedStream(&strm);
+      if (!success) throw usage_error("Error with default weights.");
 
-    net->CopyTrainedLayersFrom(wparam);
-  } else {
-    net->CopyTrainedLayersFrom(cnnopts.cnn_weights);
+      net->CopyTrainedLayersFrom(wparam);
+    } else {
+      net->CopyTrainedLayersFrom(cnnopts.cnn_weights);
+    }
   }
 
   const vector<caffe::shared_ptr<Layer<float> > >& layers = net->layers();
@@ -599,7 +607,7 @@ int main(int argc, char* argv[]) {
     for (auto& fname : filenames) {
       boost::filesystem::path p(fname);
       std::string stem = p.stem().string();
-      std::string channels = std::regex_replace(stem, std::regex(grid_prefix + "_"), "");
+      std::string channels = std::regex_replace(stem, std::regex(grid_prefix), "");
       std::vector<std::string> channelvec;
       boost::split(channelvec, channels, boost::is_any_of("_"));
       // the first entry in channelvec is either Rec or Lig
