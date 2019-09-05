@@ -308,45 +308,21 @@ void CNNScorer::get_net_output(Dtype& score, Dtype& aff, Dtype& loss) {
 // Extract ligand atoms and coordinates
 void CNNScorer::setLigand(const model& m){
 
-  // Ligand atoms
-  sz n = std::distance(
-    m.get_movable_atoms().cbegin() + m.ligands[0].node.begin,
-    m.get_movable_atoms().cbegin() + m.m_num_movable_atoms
-  );
+  // Ligand atoms start at ligand root node start idx
+  sz n = m.m_num_movable_atoms - m.ligands[0].node.begin;
 
   // Get ligand types and radii
-  if (ligand_smtypes.size() == 0){ // Do once at setup
-    ligand_coords.reserve(n);
+  ligand_smtypes.resize(n);
+  ligand_coords.resize(n);
 
-    auto cbegin = m.get_movable_atoms().cbegin() + m.ligands[0].node.begin;
-    auto cend = m.get_movable_atoms().cbegin() + m.m_num_movable_atoms;
+  auto m_atoms = m.get_movable_atoms().cbegin() + m.ligands[0].node.begin;
+  auto m_coords = m.coordinates().cbegin() + m.ligands[0].node.begin;
 
-    for(auto it = cbegin; it != cend; ++it){
-      smt origt = it->sm; // Original smina type
-      ligand_smtypes.push_back(origt);
-    }
+  for(sz i=0;  i<n; ++i) {
+    ligand_smtypes[i] = m_atoms[i].sm;
+    const vec& coord = m_coords[i];
+    ligand_coords[i] = gfloat3(coord[0], coord[1], coord[2]);
   }
-
-  // Coordinates need to be updated at every call
-  auto cbegin = m.coordinates().cbegin() + m.ligands[0].node.begin;
-  auto cend = m.coordinates().cbegin() + m.m_num_movable_atoms;
-  if(ligand_coords.size() == 0){
-    ligand_smtypes.reserve(n);
-    
-    // Back insertion on first call
-    std::transform(cbegin, cend, std::back_inserter(ligand_coords),
-      [](const vec& coord) -> float3 {return float3({coord[0], coord[1], coord[2]});}
-    );
-  }else if(ligand_coords.size() == n){
-    // Update coordinates (transforming from vec to float3)
-    std::transform(cbegin, cend, ligand_coords.begin(),
-      [](const vec& coord) -> float3 {return float3({coord[0], coord[1], coord[2]});}
-    );
-  }
-
-  // Check final size
-  CHECK_EQ(ligand_smtypes.size(), n);
-  CHECK_EQ(ligand_coords.size(), n);
 }
 
 // Extracts receptor atoms and coordinates
