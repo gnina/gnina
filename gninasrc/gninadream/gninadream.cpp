@@ -605,9 +605,7 @@ int main(int argc, char* argv[]) {
     }
 
     for (auto& fname : filenames) {
-      boost::filesystem::path p(fname);
-      std::string stem = p.stem().string();
-      std::string channels = std::regex_replace(stem, std::regex(grid_prefix), "");
+      std::string channels = std::regex_replace(fname, std::regex(grid_prefix), "");
       std::vector<std::string> channelvec;
       boost::split(channelvec, channels, boost::is_any_of("_"));
       // the first entry in channelvec is either Rec or Lig
