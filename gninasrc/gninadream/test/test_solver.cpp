@@ -8,7 +8,7 @@
 typedef caffe::BaseMolGridDataLayer<float, GridMaker> mgridT;
 
 void test_iopt_update(caffe::Solver<float>* solver) {
-  caffe::InputOptSGDSolver<float>* iopt_solver = dynamic_cast<caffe::InputOptSGDSolver<float>* >(solver);
+  caffe::InputOptSolver<float>* iopt_solver = dynamic_cast<caffe::InputOptSolver<float>* >(solver);
   if (!iopt_solver) {
     throw usage_error("InputOptSolver test passed non-InputOptSolver ");
   }
@@ -52,7 +52,7 @@ void test_iopt_update(caffe::Solver<float>* solver) {
 }
 
 void test_iopt_improvement(caffe::Solver<float>* solver) {
-  caffe::InputOptSGDSolver<float>* iopt_solver = dynamic_cast<caffe::InputOptSGDSolver<float>* >(solver);
+  caffe::InputOptSolver<float>* iopt_solver = dynamic_cast<caffe::InputOptSolver<float>* >(solver);
   if (!iopt_solver) {
     throw usage_error("InputOptSolver test passed non-InputOptSolver ");
   }
@@ -71,7 +71,7 @@ void test_iopt_improvement(caffe::Solver<float>* solver) {
 }
 
 void test_iopt_exclude_rec(caffe::Solver<float>* solver) {
-  caffe::InputOptSGDSolver<float>* iopt_solver = dynamic_cast<caffe::InputOptSGDSolver<float>* >(solver);
+  caffe::InputOptSolver<float>* iopt_solver = dynamic_cast<caffe::InputOptSolver<float>* >(solver);
   if (!iopt_solver) {
     throw usage_error("InputOptSolver test passed non-InputOptSolver ");
   }

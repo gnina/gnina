@@ -59,7 +59,7 @@ struct f_iopt_solver {
     solver_param.set_lr_policy("inv");
     solver_param.set_snapshot_after_train(false);
     solver_param.set_snapshot_prefix("inputopt");
-    solver_param.set_type("InputOptSGD");
+    solver_param.set_type("InputOpt");
 
     solver = SolverRegistry<float>::CreateSolver(solver_param);
     

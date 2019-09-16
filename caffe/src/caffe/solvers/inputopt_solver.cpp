@@ -8,7 +8,7 @@
 
 namespace caffe {
   template <typename Dtype> 
-  void InputOptSGDSolver<Dtype>::InputOptSGDPreSolve() {
+  void InputOptSolver<Dtype>::InputOptPreSolve() {
     const auto& blob_names = this->net_->blob_names();
     int data_idx = -1;
     for (size_t i=0; i<blob_names.size(); ++i) {
@@ -19,6 +19,7 @@ namespace caffe {
     }
     if (data_idx < 0)
       LOG(FATAL) << "Net doesn't have a data blob";
+    input_idx_ = data_idx;
     input_blob_ = this->net_->blobs()[data_idx];
     this->history_.clear();
     this->update_.clear();
@@ -30,7 +31,7 @@ namespace caffe {
   }
 
   template <typename Dtype>
-  PoolingLayer<Dtype>* InputOptSGDSolver<Dtype>::ToggleMaxToAve() {
+  PoolingLayer<Dtype>* InputOptSolver<Dtype>::ToggleMaxToAve() {
     const vector<shared_ptr<Layer<Dtype> > >& layers = this->net_->layers();
     PoolingLayer<Dtype> *pool = NULL;
     for (unsigned i = 1, nl = layers.size(); i < nl; i++) {
@@ -55,24 +56,35 @@ namespace caffe {
   }
 
   template <typename Dtype>
-  void InputOptSGDSolver<Dtype>::ThresholdBlob(shared_ptr<Blob<Dtype> >& tblob) {
+  void InputOptSolver<Dtype>::ThresholdBlob(shared_ptr<Blob<Dtype> >& tblob) {
+    // if threshold_value_ is nonzero, clip to [-val, +val]
     size_t blobsize = tblob->count() - nrec_types * npoints_ - nlig_types * npoints_;
     switch (Caffe::mode()) {
     case Caffe::CPU: {
       Dtype* tptr = tblob->mutable_cpu_data();
       Dtype* offset_tptr = tptr + nrec_types * npoints_;
+        if (this->threshold_value_ == 0) {
     #pragma omp parallel for
-      for (size_t i=0; i<blobsize; ++i) {
-        if (*(offset_tptr + i) < 0)
-          *(offset_tptr + i) = 0;
+        for (size_t i=0; i<blobsize; ++i) {
+          if (*(offset_tptr + i) < 0)
+            *(offset_tptr + i) = 0;
+        }
       }
+        else {
+          Dtype clip_min = this->threshold_value_ > 0 ? -this->threshold_value_ : this->threshold_value;
+          Dtype clip_max = this->threshold_value_ > 0 ? this->threshold_value_ : -this->threshold_value;
+    #pragma omp parallel for
+          for (size_t i=0; i<blobsize; ++i) {
+            *(offset_tptr+i) = std::max(clip_min, std::min(*(offset_tptr+i), clip_max));
+          }
+        }
       break;
     }
     case Caffe::GPU: {
   #ifndef CPU_ONLY
       Dtype* tptr = tblob->mutable_gpu_data();
       Dtype* offset_tptr = tptr + nrec_types * npoints_;
-      DoThresholdGPU(offset_tptr, blobsize);
+      DoThresholdGPU(offset_tptr, blobsize, this->threshold_value_);
   #else
       NO_GPU;
   #endif
@@ -84,9 +96,7 @@ namespace caffe {
   }
 
   template <typename Dtype> 
-  void InputOptSGDSolver<Dtype>::Step(int iters) {
-    // after iteration 0 we want to do ForwardFrom starting with the layer
-    // _after_ the input layer
+  void InputOptSolver<Dtype>::Step(int iters) {
     const int start_iter = this->iter_;
     const int stop_iter = this->iter_ + iters;
     int average_loss = this->param_.average_loss();
@@ -116,7 +126,7 @@ namespace caffe {
       // accumulate the loss and gradient
       Dtype loss = 0;
       for (int i = 0; i < this->param_.iter_size(); ++i) {
-        loss += this->net_->ForwardFrom(1);
+        loss += this->net_->ForwardFrom(input_idx_+1);
         PoolingLayer<Dtype>* pool = ToggleMaxToAve();
         this->net_->Backward();
         if (pool) 
@@ -186,11 +196,14 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
 #endif
 
   template <typename Dtype> 
-  void InputOptSGDSolver<Dtype>::ComputeUpdateValue(Dtype rate) {
+  void InputOptSolver<Dtype>::ComputeUpdateValue(Dtype rate) {
     Dtype momentum = this->param_.momentum();
     size_t blobsize = input_blob_->count() - nrec_types * npoints_ - 
       nlig_types * npoints_;
     size_t ptr_offset = nrec_types * npoints_;
+    // if we're stepping in LInf, update is rate * sgn(g)
+    // so replace g with sgn(g) (in-place) 
+    // and set momentum to 0
     switch (Caffe::mode()) {
     case Caffe::CPU: {
       Dtype* diff_ptr = input_blob_->mutable_cpu_diff();
@@ -198,8 +211,15 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
         std::fill(diff_ptr, diff_ptr+ptr_offset, 0);
       else if (nlig_types)
         std::fill(diff_ptr+blobsize, diff_ptr+blobsize+nlig_types*npoints_, 0);
-      caffe_cpu_axpby(blobsize, rate, input_blob_->cpu_diff() + ptr_offset,
-          momentum, this->history_[0]->mutable_cpu_data() + ptr_offset);
+      if (this->LInf) {
+        caffe_cpu_sign(blobsize, input_blob_->cpu_diff(), 
+            input_blob_->mutable_cpu_diff());
+        caffe_cpu_axpby(blobsize, rate, input_blob_->cpu_diff() + ptr_offset,
+            Dtype(0), this->history_[0]->mutable_cpu_data() + ptr_offset);
+      }
+      else 
+        caffe_cpu_axpby(blobsize, rate, input_blob_->cpu_diff() + ptr_offset,
+            momentum, this->history_[0]->mutable_cpu_data() + ptr_offset);
       caffe_copy(blobsize, this->history_[0]->cpu_data() + ptr_offset,
           diff_ptr + ptr_offset);
       break;
@@ -211,8 +231,15 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
           CUDA_CHECK(cudaMemset(diff_ptr, 0, nrec_types * npoints_ * sizeof(Dtype)));
       if (nlig_types)
           CUDA_CHECK(cudaMemset(diff_ptr+blobsize, 0, nlig_types * npoints_ * sizeof(Dtype)));
-      sgd_update_gpu(blobsize, input_blob_->mutable_gpu_diff() + ptr_offset,
-          this->history_[0]->mutable_gpu_data() + ptr_offset, momentum, rate);
+      if (this->LInf) {
+        caffe_gpu_sign(blobsize, input_blob_->gpu_diff(), 
+            input_blob_->mutable_gpu_diff());
+        sgd_update_gpu(blobsize, input_blob_->mutable_gpu_diff() + ptr_offset,
+            this->history_[0]->mutable_gpu_data() + ptr_offset, Dtype(0), rate);
+      }
+      else
+        sgd_update_gpu(blobsize, input_blob_->mutable_gpu_diff() + ptr_offset,
+            this->history_[0]->mutable_gpu_data() + ptr_offset, momentum, rate);
   #else
       NO_GPU;
   #endif
@@ -225,23 +252,26 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
 
   // Update is very simple, no reason (I think) to normalize/regularize updates
   template <typename Dtype>
-  void InputOptSGDSolver<Dtype>::ApplyUpdate() {
-    Dtype rate = this->GetLearningRate();
+  void InputOptSolver<Dtype>::ApplyUpdate() {
+    Dtype rate = this->GetLearningRate(); // if L_inf stepping, this is a_
     if (this->param_.display() && this->iter_ % this->param_.display() == 0) {
       LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << this->iter_
-          << ", lr = " << rate;
+          << ", inputopt_lr = " << rate;
     }
     // do we want this? I guess it doesn't hurt to have it enabled, even if
     // param.clip_gradients() is always 0
     ClipGradients();
     ComputeUpdateValue(rate);
-    input_blob_->Update();
+    if (this->LInf) 
+      input_blob_->AscentUpdate();
+    else
+      input_blob_->Update();
     if (threshold_update_)
       ThresholdBlob(input_blob_);
   }
 
   template <typename Dtype>
-  void InputOptSGDSolver<Dtype>::ClipGradients() {
+  void InputOptSolver<Dtype>::ClipGradients() {
     const Dtype clip_gradients = this->param_.clip_gradients();
     if (clip_gradients < 0) { return; }
     Dtype sumsq_diff = input_blob_->sumsq_diff();
@@ -258,7 +288,7 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
   // When snapshotting, include net data blob...can probably refactor base
   // class to simplify or even remove this
   template <typename Dtype> 
-  void InputOptSGDSolver<Dtype>::SnapshotSolverStateToBinaryProto(const string& model_filename) {
+  void InputOptSolver<Dtype>::SnapshotSolverStateToBinaryProto(const string& model_filename) {
     SolverState state;
     state.set_iter(this->iter_);
     state.set_learned_net(model_filename);
@@ -277,7 +307,7 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
   }
 
   template <typename Dtype> 
-  void InputOptSGDSolver<Dtype>::SnapshotSolverStateToHDF5(const string& model_filename) {
+  void InputOptSolver<Dtype>::SnapshotSolverStateToHDF5(const string& model_filename) {
     string snapshot_filename =
         Solver<Dtype>::SnapshotFilename(".solverstate.h5");
     LOG(INFO) << "Snapshotting solver state to HDF5 file " << snapshot_filename;
@@ -307,7 +337,7 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
     H5Fclose(file_hid);
   }
 
-INSTANTIATE_CLASS(InputOptSGDSolver);
-REGISTER_SOLVER_CLASS(InputOptSGD);
+INSTANTIATE_CLASS(InputOptSolver);
+REGISTER_SOLVER_CLASS(InputOpt);
 
 } // namespace caffe

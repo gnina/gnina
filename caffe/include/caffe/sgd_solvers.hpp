@@ -26,7 +26,7 @@ class SGDSolver : public Solver<Dtype> {
 
  protected:
   void PreSolve();
-  Dtype GetLearningRate();
+  virtual Dtype GetLearningRate();
   virtual void ApplyUpdate();
   virtual void Normalize(int param_id);
   virtual void Regularize(int param_id);
@@ -148,31 +148,38 @@ class AdamSolver : public SGDSolver<Dtype> {
  * @brief Solver that optimizes input grids using weights from a pre-trained
  * network, i.e. "dreaming." Compared with the base SGD solver, the InputOpt
  * Solver stores and loads the input data blob when checkpointing, and it only
- * updates the input data blob when updating.
+ * updates the input data blob when updating. Can also be used as part of
+ * adversarially robust training.
  *
  */
 template <typename Dtype>
-class InputOptSGDSolver : public SGDSolver<Dtype> {
+class InputOptSolver : public SGDSolver<Dtype> {
  public:
-  explicit InputOptSGDSolver(const SolverParameter& param)
-      : SGDSolver<Dtype>(param), threshold_update_(true),  
-        exclude_ligand_(false), exclude_receptor_(false), 
-        threshold_value_(0.0f), nrec_types(0), nlig_types(0), npoints_(0) { InputOptSGDPreSolve(); } 
-  explicit InputOptSGDSolver(const string& param_file)
-      : SGDSolver<Dtype>(param_file), threshold_update_(true),  
-        exclude_ligand_(false), exclude_receptor_(false), threshold_value_(0.0f),
-        nrec_types(0), nlig_types(0), npoints_(0) { InputOptSGDPreSolve(); }
-  virtual inline const char* type() const { return "InputOptSGD"; }
+  explicit InputOptSolver(const SolverParameter& param)
+      : SGDSolver<Dtype>(param), input_idx_(-1), input_blob_(nullptr),
+        l_inf_(false), a_(0.1), 
+        threshold_update_(true),  exclude_ligand_(false), exclude_receptor_(false), 
+        threshold_value_(Dtype(0)), nrec_types(0), nlig_types(0), 
+        npoints_(0) { InputOptPreSolve(); } 
+  explicit InputOptSolver(const string& param_file)
+      : SGDSolver<Dtype>(param_file), input_idx_(-1), input_blob_(nullptr), 
+        l_inf_(false), a_(0.1), 
+        threshold_update_(true), exclude_ligand_(false), exclude_receptor_(false), 
+        threshold_value_(Dtype(0)),
+        nrec_types(0), nlig_types(0), npoints_(0) { InputOptPreSolve(); }
+  virtual inline const char* type() const { return "InputOpt"; }
   void ResetIter() { this->iter_ = 0; }
   shared_ptr<Blob<Dtype> > input_blob() const { return input_blob_; }
-  void DoThreshold(bool threshold_update) { threshold_update_ = threshold_update; }
-  void SetThresholdValue(float threshold_value) { threshold_value_ = threshold_value; }
+  void DoThreshold(bool threshold_update) { this->threshold_update_ = threshold_update; }
+  void SetThresholdValue(Dtype threshold_value) { threshold_value_ = threshold_value; }
   void SetNrecTypes(unsigned ntypes) { nrec_types = ntypes; }
   void SetNligTypes(unsigned ntypes) { nlig_types = ntypes; }
   void SetNpoints(unsigned npoints) { npoints_ = npoints; }
+  void SetLInf(bool l_inf) {l_inf_ = l_inf;}
 
  protected:
-  void InputOptSGDPreSolve();
+  void InputOptPreSolve();
+  virtual Dtype GetLearningRate() {return l_inf_ ? a_ : SGDSolver<Dtype>::GetLearningRate();}
   virtual void Step(int iters);
   virtual void ComputeUpdateValue(Dtype rate);
   virtual void ComputeUpdateValue(int param_id, Dtype rate) { NOT_IMPLEMENTED; }
@@ -183,16 +190,52 @@ class InputOptSGDSolver : public SGDSolver<Dtype> {
   PoolingLayer<Dtype>* ToggleMaxToAve();
   void ThresholdBlob(shared_ptr<Blob<Dtype> >& tblob);
   void DoThresholdGPU(Dtype* offset_tblob, size_t blobsize);
+  int input_idx_;
   shared_ptr<Blob<Dtype> > input_blob_;
+  bool l_inf_; // take max steps within l_inf ball
+  float a_; // maximization problem step size
   bool threshold_update_;
   bool exclude_ligand_;
   bool exclude_receptor_;
-  float threshold_value_; // thought this might be useful but for now not using it, just using 0
+  Dtype threshold_value_; 
   unsigned nrec_types;
   unsigned nlig_types;
   unsigned npoints_;
 
-  DISABLE_COPY_AND_ASSIGN(InputOptSGDSolver);
+  DISABLE_COPY_AND_ASSIGN(InputOptSolver);
+};
+
+/**
+ * @brief Attempts to learn a more robust model that is resistant to
+ * adversarial attacks using Projected Gradient Descent, training on 
+ * the worst-case attacks that can be generated using the provided 
+ * training examples. Described in [1]. 
+ *
+ * [1] Madry et al, "Towards Deep Learning Models Resistant to Adversarial
+ * Attacks." arXiv preprint arXiv:1706.06083 (2019). 
+ *
+ * It does this by containing an internal inputopt solver for properly perturbing 
+ * each training example, then using those "attacks" for training.
+ *
+ */
+template <typename Dtype>
+class MinMaxSolver : public SGDSolver<Dtype> {
+ public:
+  explicit MinMaxSolver(const SolverParameter& param)
+      : SGDSolver<Dtype>(param), adversary_(param), eps_(0.3), k_(40) { MinMaxPreSolve(); }
+  explicit MinMaxSolver(const string& param_file)
+      : SGDSolver<Dtype>(param_file), adversary_(param_file), eps_(0.3), k_(40) { MinMaxPreSolve(); }
+  virtual inline const char* type() const { return "MinMax"; }
+
+ protected:
+  void MinMaxPreSolve();
+  virtual void Step(int iters); // looks like generic SGDSolver::Step() except it calls out to the InputOptSolver before starting, and does ForwardBackward starting and ending after the data layer 
+  int data_idx_ = -1;
+  InputOptSolver adversary_;
+  float eps_; // maximization problem distance from initial point
+  int k_; // maximization problem number of steps
+
+  DISABLE_COPY_AND_ASSIGN(MinMaxSolver);
 };
 
 }  // namespace caffe

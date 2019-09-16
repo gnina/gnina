@@ -394,7 +394,7 @@ int main(int argc, char* argv[]) {
   solver_param.set_lr_policy("fixed");
   solver_param.set_display(1);
   solver_param.set_snapshot_prefix("inputopt_");
-  solver_param.set_type("InputOptSGD");
+  solver_param.set_type("InputOpt");
   if (cnnopts.cnn_weights.size())
     solver_param.add_weights(cnnopts.cnn_weights);
 
