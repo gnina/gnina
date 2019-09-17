@@ -13,9 +13,7 @@ void MinMaxSolver<Dtype>::MinMaxPreSolve() {
     }
     if (data_idx < 0)
       LOG(FATAL) << "Net doesn't have a data blob";
-    this->input_idx_ = data_idx;
-    this->SetLInf(true);
-    this->SetThresholdValue(this->eps_);
+    data_idx_ = data_idx;
 }
 
 template <typename Dtype>
@@ -47,12 +45,13 @@ Dtype MinMaxSolver<Dtype>::Step(int iters) {
     const bool display = param_.display() && iter_ % param_.display() == 0;
     net_->set_debug_info(display && param_.debug_info());
     // do PGD via the InputOpt Solver adversary
-    adversary_.Step(this->k_);
+    adversary_.ResetIter();
+    adversary_.Step(k_);
     
     // accumulate the loss and gradient
     Dtype loss = 0;
     for (int i = 0; i < param_.iter_size(); ++i) {
-      loss += net_->ForwardFrom(this->data_idx_); 
+      loss += net_->ForwardFrom(data_idx_); 
       net_->Backward();
     }
     loss /= param_.iter_size();

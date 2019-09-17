@@ -43,12 +43,13 @@ class Solver {
  public:
   explicit Solver(const SolverParameter& param);
   explicit Solver(const string& param_file);
+  explicit Solver() {}
   void Init(const SolverParameter& param);
   void InitTrainNet();
   void InitTestNets();
   virtual void ResetIter() { this->iter_ = 0; }
   virtual void DoThreshold(bool threshold_update) {}
-  virtual void SetThresholdValue(float threshold_value) {}
+  virtual void SetThresholdValue(Dtype threshold_value) {}
   virtual void SetNrecTypes(unsigned ntypes) {}
   virtual void SetNligTypes(unsigned ntypes) {}
   virtual void SetNpoints(unsigned npoints) {}

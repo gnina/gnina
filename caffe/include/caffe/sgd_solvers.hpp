@@ -20,13 +20,14 @@ class SGDSolver : public Solver<Dtype> {
       : Solver<Dtype>(param) { PreSolve(); }
   explicit SGDSolver(const string& param_file)
       : Solver<Dtype>(param_file) { PreSolve(); }
+  explicit SGDSolver() {}
   virtual inline const char* type() const { return "SGD"; }
 
   const vector<shared_ptr<Blob<Dtype> > >& history() { return history_; }
 
  protected:
   void PreSolve();
-  virtual Dtype GetLearningRate();
+  Dtype GetLearningRate();
   virtual void ApplyUpdate();
   virtual void Normalize(int param_id);
   virtual void Regularize(int param_id);
@@ -156,17 +157,22 @@ template <typename Dtype>
 class InputOptSolver : public SGDSolver<Dtype> {
  public:
   explicit InputOptSolver(const SolverParameter& param)
-      : SGDSolver<Dtype>(param), input_idx_(-1), input_blob_(nullptr),
-        l_inf_(false), a_(0.1), 
+      : SGDSolver<Dtype>(param), data_idx_(-1), input_blob_(nullptr), l_inf_(false), 
         threshold_update_(true),  exclude_ligand_(false), exclude_receptor_(false), 
         threshold_value_(Dtype(0)), nrec_types(0), nlig_types(0), 
         npoints_(0) { InputOptPreSolve(); } 
   explicit InputOptSolver(const string& param_file)
-      : SGDSolver<Dtype>(param_file), input_idx_(-1), input_blob_(nullptr), 
-        l_inf_(false), a_(0.1), 
+      : SGDSolver<Dtype>(param_file), data_idx_(-1), input_blob_(nullptr), l_inf_(false), 
         threshold_update_(true), exclude_ligand_(false), exclude_receptor_(false), 
         threshold_value_(Dtype(0)),
         nrec_types(0), nlig_types(0), npoints_(0) { InputOptPreSolve(); }
+  explicit InputOptSolver(const SolverParameter& param, shared_ptr<Net<Dtype> > net_, 
+        vector<shared_ptr<Net<Dtype> > > test_nets_, Dtype eps_) : 
+        data_idx_(-1), input_blob_(nullptr), l_inf_(true), threshold_update_(true), 
+        exclude_ligand_(false), exclude_receptor_(true), threshold_value_(eps_), 
+        nrec_types(0), nlig_types(0), npoints_(0) {
+       InputOptPreSolve();
+  }
   virtual inline const char* type() const { return "InputOpt"; }
   void ResetIter() { this->iter_ = 0; }
   shared_ptr<Blob<Dtype> > input_blob() const { return input_blob_; }
@@ -175,11 +181,10 @@ class InputOptSolver : public SGDSolver<Dtype> {
   void SetNrecTypes(unsigned ntypes) { nrec_types = ntypes; }
   void SetNligTypes(unsigned ntypes) { nlig_types = ntypes; }
   void SetNpoints(unsigned npoints) { npoints_ = npoints; }
-  void SetLInf(bool l_inf) {l_inf_ = l_inf;}
+  void SetLInf(bool l_inf) { l_inf_ = l_inf; }
 
  protected:
   void InputOptPreSolve();
-  virtual Dtype GetLearningRate() {return l_inf_ ? a_ : SGDSolver<Dtype>::GetLearningRate();}
   virtual void Step(int iters);
   virtual void ComputeUpdateValue(Dtype rate);
   virtual void ComputeUpdateValue(int param_id, Dtype rate) { NOT_IMPLEMENTED; }
@@ -189,11 +194,10 @@ class InputOptSolver : public SGDSolver<Dtype> {
   virtual void SnapshotSolverStateToHDF5(const string& model_filename);
   PoolingLayer<Dtype>* ToggleMaxToAve();
   void ThresholdBlob(shared_ptr<Blob<Dtype> >& tblob);
-  void DoThresholdGPU(Dtype* offset_tblob, size_t blobsize);
-  int input_idx_;
+  void DoThresholdGPU(Dtype* offset_tblob, size_t blobsize, Dtype threshold_value);
+  int data_idx_;
   shared_ptr<Blob<Dtype> > input_blob_;
   bool l_inf_; // take max steps within l_inf ball
-  float a_; // maximization problem step size
   bool threshold_update_;
   bool exclude_ligand_;
   bool exclude_receptor_;
@@ -222,16 +226,34 @@ template <typename Dtype>
 class MinMaxSolver : public SGDSolver<Dtype> {
  public:
   explicit MinMaxSolver(const SolverParameter& param)
-      : SGDSolver<Dtype>(param), adversary_(param), eps_(0.3), k_(40) { MinMaxPreSolve(); }
+      : SGDSolver<Dtype>(param), a_(0.1), eps_(0.3), k_(40) { 
+        MinMaxPreSolve(); 
+        SolverParameter tmparam = this->param();
+        tmparam.set_lr_policy("fixed");
+        tmparam.set_base_lr(a_);
+        tmparam.set_momentum(Dtype(0));
+        adversary_ = InputOptSolver<Dtype>(tmparam, this->net(), 
+        this->test_nets(), eps_);
+      }
   explicit MinMaxSolver(const string& param_file)
-      : SGDSolver<Dtype>(param_file), adversary_(param_file), eps_(0.3), k_(40) { MinMaxPreSolve(); }
+      : SGDSolver<Dtype>(param_file), adversary_(param_file), 
+      a_(0.1), eps_(0.3), k_(40) { 
+        MinMaxPreSolve(); 
+        SolverParameter tmparam = this->param();
+        tmparam.set_lr_policy("fixed");
+        tmparam.set_base_lr(a_);
+        tmparam.set_momentum(Dtype(0));
+        adversary_ = InputOptSolver<Dtype>(tmparam, this->net(), 
+        this->test_nets(), eps_);
+      }
   virtual inline const char* type() const { return "MinMax"; }
 
  protected:
   void MinMaxPreSolve();
   virtual void Step(int iters); // looks like generic SGDSolver::Step() except it calls out to the InputOptSolver before starting, and does ForwardBackward starting and ending after the data layer 
   int data_idx_ = -1;
-  InputOptSolver adversary_;
+  InputOptSolver<Dtype> adversary_;
+  float a_; // maximization problem step size
   float eps_; // maximization problem distance from initial point
   int k_; // maximization problem number of steps
 

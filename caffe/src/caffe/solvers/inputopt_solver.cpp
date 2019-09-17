@@ -19,7 +19,7 @@ namespace caffe {
     }
     if (data_idx < 0)
       LOG(FATAL) << "Net doesn't have a data blob";
-    input_idx_ = data_idx;
+    data_idx_ = data_idx;
     input_blob_ = this->net_->blobs()[data_idx];
     this->history_.clear();
     this->update_.clear();
@@ -71,8 +71,8 @@ namespace caffe {
         }
       }
         else {
-          Dtype clip_min = this->threshold_value_ > 0 ? -this->threshold_value_ : this->threshold_value;
-          Dtype clip_max = this->threshold_value_ > 0 ? this->threshold_value_ : -this->threshold_value;
+          Dtype clip_min = threshold_value_ > 0 ? -threshold_value_ : threshold_value_;
+          Dtype clip_max = threshold_value_ > 0 ? threshold_value_ : -threshold_value_;
     #pragma omp parallel for
           for (size_t i=0; i<blobsize; ++i) {
             *(offset_tptr+i) = std::max(clip_min, std::min(*(offset_tptr+i), clip_max));
@@ -126,7 +126,7 @@ namespace caffe {
       // accumulate the loss and gradient
       Dtype loss = 0;
       for (int i = 0; i < this->param_.iter_size(); ++i) {
-        loss += this->net_->ForwardFrom(input_idx_+1);
+        loss += this->net_->ForwardFrom(data_idx_+1);
         PoolingLayer<Dtype>* pool = ToggleMaxToAve();
         this->net_->Backward();
         if (pool) 
@@ -202,8 +202,8 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
       nlig_types * npoints_;
     size_t ptr_offset = nrec_types * npoints_;
     // if we're stepping in LInf, update is rate * sgn(g)
-    // so replace g with sgn(g) (in-place) 
-    // and set momentum to 0
+    // so replace g with sgn(g) (in-place); also momentum should be 0 (set in
+    // SolverParameter by MinMaxSolver)
     switch (Caffe::mode()) {
     case Caffe::CPU: {
       Dtype* diff_ptr = input_blob_->mutable_cpu_diff();
@@ -211,15 +211,11 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
         std::fill(diff_ptr, diff_ptr+ptr_offset, 0);
       else if (nlig_types)
         std::fill(diff_ptr+blobsize, diff_ptr+blobsize+nlig_types*npoints_, 0);
-      if (this->LInf) {
+      if (l_inf_) 
         caffe_cpu_sign(blobsize, input_blob_->cpu_diff(), 
             input_blob_->mutable_cpu_diff());
-        caffe_cpu_axpby(blobsize, rate, input_blob_->cpu_diff() + ptr_offset,
-            Dtype(0), this->history_[0]->mutable_cpu_data() + ptr_offset);
-      }
-      else 
-        caffe_cpu_axpby(blobsize, rate, input_blob_->cpu_diff() + ptr_offset,
-            momentum, this->history_[0]->mutable_cpu_data() + ptr_offset);
+      caffe_cpu_axpby(blobsize, rate, input_blob_->cpu_diff() + ptr_offset,
+          momentum, this->history_[0]->mutable_cpu_data() + ptr_offset);
       caffe_copy(blobsize, this->history_[0]->cpu_data() + ptr_offset,
           diff_ptr + ptr_offset);
       break;
@@ -231,15 +227,11 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
           CUDA_CHECK(cudaMemset(diff_ptr, 0, nrec_types * npoints_ * sizeof(Dtype)));
       if (nlig_types)
           CUDA_CHECK(cudaMemset(diff_ptr+blobsize, 0, nlig_types * npoints_ * sizeof(Dtype)));
-      if (this->LInf) {
+      if (l_inf_) 
         caffe_gpu_sign(blobsize, input_blob_->gpu_diff(), 
             input_blob_->mutable_gpu_diff());
-        sgd_update_gpu(blobsize, input_blob_->mutable_gpu_diff() + ptr_offset,
-            this->history_[0]->mutable_gpu_data() + ptr_offset, Dtype(0), rate);
-      }
-      else
-        sgd_update_gpu(blobsize, input_blob_->mutable_gpu_diff() + ptr_offset,
-            this->history_[0]->mutable_gpu_data() + ptr_offset, momentum, rate);
+      sgd_update_gpu(blobsize, input_blob_->mutable_gpu_diff() + ptr_offset,
+          this->history_[0]->mutable_gpu_data() + ptr_offset, momentum, rate);
   #else
       NO_GPU;
   #endif
@@ -262,7 +254,7 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
     // param.clip_gradients() is always 0
     ClipGradients();
     ComputeUpdateValue(rate);
-    if (this->LInf) 
+    if (l_inf_) 
       input_blob_->AscentUpdate();
     else
       input_blob_->Update();
