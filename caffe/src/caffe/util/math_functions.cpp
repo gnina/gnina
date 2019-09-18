@@ -79,6 +79,14 @@ template <>
 void caffe_axpy<double>(const int N, const double alpha, const double* X,
     double* Y) { cblas_daxpy(N, alpha, X, 1, Y, 1); }
 
+template <>
+void caffe_axpy<int>(const int N, const int alpha, const int* X,
+    int* Y) {}
+
+template <>
+void caffe_axpy<unsigned int>(const int N, const unsigned int alpha, const unsigned int * X,
+    unsigned int* Y) {}
+
 template <typename Dtype>
 void caffe_set(const int N, const Dtype alpha, Dtype* Y) {
   if (alpha == 0) {

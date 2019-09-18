@@ -7,6 +7,20 @@
 #include "caffe/util/upgrade_proto.hpp"
 
 namespace caffe {
+  template <typename Dtype>
+  void InputOptSolver<Dtype>::LInfInit(const SolverParameter& param, 
+      const shared_ptr<Net<Dtype> >& net, float eps) {
+    this->param_ = param;
+    CHECK_GE(this->param_.average_loss(), 1) << "average_loss should be non-negative.";
+    this->iter_ = 0;
+    this->current_step_ = 0;
+    this->net_ = net;
+    threshold_value_ = eps;
+    // net should have already been set up
+    CHECK_NOTNULL(net.get());
+    InputOptPreSolve();
+  }
+
   template <typename Dtype> 
   void InputOptSolver<Dtype>::InputOptPreSolve() {
     const auto& blob_names = this->net_->blob_names();

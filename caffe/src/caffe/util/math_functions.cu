@@ -108,6 +108,14 @@ void caffe_gpu_axpy<double>(const int N, const double alpha, const double* X,
   CUBLAS_CHECK(cublasDaxpy(Caffe::cublas_handle(), N, &alpha, X, 1, Y, 1));
 }
 
+template <>
+void caffe_gpu_axpy<int>(const int N, const int alpha, const int* X,
+    int* Y) {}
+
+template <>
+void caffe_gpu_axpy<unsigned int>(const int N, const unsigned int alpha, const unsigned int* X,
+    unsigned int* Y) {}
+
 void caffe_gpu_memcpy(const size_t N, const void* X, void* Y) {
   if (X != Y) {
     CUDA_CHECK(cudaMemcpy(Y, X, N, cudaMemcpyDefault));  // NOLINT(caffe/alt_fn)

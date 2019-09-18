@@ -1441,11 +1441,9 @@ Thank you!\n";
     if (vm.count("atom_terms") > 0)
       atomoutfile.open(atom_name.c_str());
 
-    if (autobox_ligand.length() > 0)
-        {
+    if (autobox_ligand.length() > 0) {
       setup_autobox(autobox_ligand, autobox_add,
-          center_x, center_y, center_z,
-          size_x, size_y, size_z);
+          center_x, center_y, center_z, size_x, size_y, size_z);
     }
 
     if (search_box_needed && autobox_ligand.length() == 0)

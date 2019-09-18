@@ -43,11 +43,11 @@ class Solver {
  public:
   explicit Solver(const SolverParameter& param);
   explicit Solver(const string& param_file);
-  explicit Solver() {}
+  explicit Solver() : iter_(0), current_step_(0) {}
   void Init(const SolverParameter& param);
   void InitTrainNet();
   void InitTestNets();
-  virtual void ResetIter() { this->iter_ = 0; }
+  virtual void ResetIter() { iter_ = 0; }
   virtual void DoThreshold(bool threshold_update) {}
   virtual void SetThresholdValue(Dtype threshold_value) {}
   virtual void SetNrecTypes(unsigned ntypes) {}
@@ -92,6 +92,8 @@ class Solver {
     friend class Solver;
     template <typename T>
     friend class InputOptSolver;
+    template <typename T>
+    friend class MinMaxSolver;
   };
   const vector<Callback*>& callbacks() const { return callbacks_; }
   void add_callback(Callback* value) {

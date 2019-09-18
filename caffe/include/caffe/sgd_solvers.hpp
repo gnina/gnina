@@ -166,14 +166,12 @@ class InputOptSolver : public SGDSolver<Dtype> {
         threshold_update_(true), exclude_ligand_(false), exclude_receptor_(false), 
         threshold_value_(Dtype(0)),
         nrec_types(0), nlig_types(0), npoints_(0) { InputOptPreSolve(); }
-  explicit InputOptSolver(const SolverParameter& param, shared_ptr<Net<Dtype> > net_, 
-        vector<shared_ptr<Net<Dtype> > > test_nets_, Dtype eps_) : 
+  explicit InputOptSolver() :
         data_idx_(-1), input_blob_(nullptr), l_inf_(true), threshold_update_(true), 
-        exclude_ligand_(false), exclude_receptor_(true), threshold_value_(eps_), 
-        nrec_types(0), nlig_types(0), npoints_(0) {
-       InputOptPreSolve();
-  }
+        exclude_ligand_(false), exclude_receptor_(true), 
+        nrec_types(0), nlig_types(0), npoints_(0) {}
   virtual inline const char* type() const { return "InputOpt"; }
+  void LInfInit(const SolverParameter& param, const shared_ptr<Net<Dtype> >& net, float eps);
   void ResetIter() { this->iter_ = 0; }
   shared_ptr<Blob<Dtype> > input_blob() const { return input_blob_; }
   void DoThreshold(bool threshold_update) { this->threshold_update_ = threshold_update; }
@@ -184,6 +182,8 @@ class InputOptSolver : public SGDSolver<Dtype> {
   void SetLInf(bool l_inf) { l_inf_ = l_inf; }
 
  protected:
+  template <typename T>
+    friend class MinMaxSolver;
   void InputOptPreSolve();
   virtual void Step(int iters);
   virtual void ComputeUpdateValue(Dtype rate);
@@ -231,9 +231,7 @@ class MinMaxSolver : public SGDSolver<Dtype> {
         SolverParameter tmparam = this->param();
         tmparam.set_lr_policy("fixed");
         tmparam.set_base_lr(a_);
-        tmparam.set_momentum(Dtype(0));
-        adversary_ = InputOptSolver<Dtype>(tmparam, this->net(), 
-        this->test_nets(), eps_);
+        adversary_.LInfInit(tmparam, this->net(), eps_);
       }
   explicit MinMaxSolver(const string& param_file)
       : SGDSolver<Dtype>(param_file), adversary_(param_file), 
@@ -242,9 +240,7 @@ class MinMaxSolver : public SGDSolver<Dtype> {
         SolverParameter tmparam = this->param();
         tmparam.set_lr_policy("fixed");
         tmparam.set_base_lr(a_);
-        tmparam.set_momentum(Dtype(0));
-        adversary_ = InputOptSolver<Dtype>(tmparam, this->net(), 
-        this->test_nets(), eps_);
+        adversary_.LInfInit(tmparam, this->net(), eps_);
       }
   virtual inline const char* type() const { return "MinMax"; }
 
