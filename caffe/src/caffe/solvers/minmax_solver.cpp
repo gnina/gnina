@@ -44,6 +44,8 @@ void MinMaxSolver<Dtype>::Step(int iters) {
     }
     const bool display = this->param_.display() && this->iter_ % this->param_.display() == 0;
     this->net_->set_debug_info(display && this->param_.debug_info());
+    // go forward from data layer to set input blob 
+    this->net_->ForwardFromTo(data_idx_, data_idx_);
     // do PGD via the InputOpt Solver adversary
     adversary_.ResetIter();
     adversary_.Step(k_);
@@ -51,7 +53,9 @@ void MinMaxSolver<Dtype>::Step(int iters) {
     // accumulate the loss and gradient
     Dtype loss = 0;
     for (int i = 0; i < this->param_.iter_size(); ++i) {
-      loss += this->net_->ForwardFrom(data_idx_); 
+      // go forward from layer after data layer (don't touch data, which was
+      // perturbed by adversary)
+      loss += this->net_->ForwardFrom(data_idx_+1); 
       this->net_->Backward();
     }
     loss /= this->param_.iter_size();
