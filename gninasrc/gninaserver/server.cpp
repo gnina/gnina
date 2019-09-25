@@ -24,7 +24,7 @@ cl::opt<unsigned> maxConcurrent("max-concurrent-requests",
     cl::init(16));
 cl::opt<unsigned> minimizationThreads("threads",
     cl::desc("number of threads to use for minimization"),
-    cl::init(max(1U, thread::hardware_concurrency() / 2)));
+    cl::init(max(1U, boost::thread::hardware_concurrency() / 2)));
 cl::opt<string> logfile("logfile", cl::desc("file for logging information"));
 
 typedef unordered_map<string, boost::shared_ptr<Command> > cmd_map;
@@ -49,7 +49,7 @@ static void process_request(stream_ptr s, cmd_map& cmap) {
 //periodically check for expired queries
 static void thread_purge_old_queries(QueryManager *qmgr) {
   while (true) {
-    this_thread::sleep(posix_time::time_duration(0, 3, 0, 0));
+    boost::this_thread::sleep(posix_time::time_duration(0, 3, 0, 0));
     unsigned npurged = qmgr->purgeOldQueries();
   }
 }
@@ -79,11 +79,11 @@ int main(int argc, char *argv[]) {
   cout << "Listening on port " << port << "\n";
 
   //start up cleanup thread
-  thread cleanup(thread_purge_old_queries, &queries);
+  boost::thread cleanup(thread_purge_old_queries, &queries);
   while (true) {
     stream_ptr s = stream_ptr(new tcp::iostream());
     a.accept(*s->rdbuf());
-    thread t(bind(process_request, s, commands));
+    boost::thread t(bind(process_request, s, commands));
   }
 
 }

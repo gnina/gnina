@@ -15,10 +15,7 @@ list(INSERT Caffe_LINKER_LIBS 0 PUBLIC caffeproto) # note, crucial to prepend!
 # creates 'test_srcs', 'srcs', 'test_cuda', 'cuda' lists
 caffe_pickup_caffe_sources(${PROJECT_SOURCE_DIR})
 
-if(HAVE_CUDA)
-  caffe_cuda_compile(cuda_objs ${cuda})
-  list(APPEND srcs ${cuda_objs} ${cuda})
-endif()
+list(APPEND srcs ${cuda})
 
 add_library(caffe ${srcs})
 caffe_default_properties(caffe)

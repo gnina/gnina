@@ -1,5 +1,7 @@
 #include <boost/unordered_set.hpp>
 #include <boost/algorithm/string.hpp>
+#include <tuple>
+
 #include "obmolopener.h"
 #include "box.h"
 #include "tee.h"
@@ -12,9 +14,12 @@
  */
 class FlexInfo {
     double flex_dist;
-    boost::unordered_set<std::pair<char, int> > residues;
+    boost::unordered_set<std::tuple<char, int, char> > residues; //chain, resid, insertion code
     OpenBabel::OBMol distligand;
     tee& log;
+
+    char defaultch = ' '; // Default chain
+
   public:
     FlexInfo(tee& l)
         : flex_dist(0), log(l) {
@@ -27,6 +32,11 @@ class FlexInfo {
 
     void extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
         std::string& flexpdbqt);
+
+    void printFlex() const;
+
+  private:
+    void sanitizeResidues(OpenBabel::OBMol& receptor); //remove inflexible residues from residues set
 
 };
 

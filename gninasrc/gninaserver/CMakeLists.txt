@@ -12,10 +12,7 @@ server.cpp
 ../lib/CommandLine2/CommandLine.cpp
 )
 
-find_library(CUDA_DEV_RT NAMES cudadevrt PATHS ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
-find_library(CUDA NAMES cuda PATHS ${CUDA_TOOLKIT_ROOT_DIR}/lib64/stubs)
-cuda_add_executable(gninaserver ${SERVER_SRCS})
-target_link_libraries(gninaserver caffe gninalib ${Boost_LIBRARIES}
-    ${OPENBABEL2_LIBRARIES} ${CUDA_DEV_RT} ${CUDA})
+add_executable(gninaserver ${SERVER_SRCS})
+target_link_libraries(gninaserver caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
 
 install(TARGETS gninaserver DESTINATION bin)

@@ -194,8 +194,7 @@ output_container remove_redundant(const output_container& in, fl min_rmsd)
 
 //print info to log about cnn scoring
 static void get_cnn_info(model& m, CNNScorer& cnn, tee& log, float& cnnscore,
-    float& cnnaffinity, float& cnnforces)
-    {
+    float& cnnaffinity, float& cnnforces) {
   float loss = 0;
   cnnscore = 0;
   cnnforces = 0;
@@ -309,10 +308,12 @@ void do_search(model& m, const boost::optional<model>& ref,
     e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, out.c,
         intramolecular_energy, user_grid);
 
+    //reset the center after last call to set
+    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
+
     vecv newcoords = m.get_heavy_atom_movable_coords();
     assert(newcoords.size() == origcoords.size());
-    for (unsigned i = 0, n = newcoords.size(); i < n; i++)
-        {
+    for (unsigned i = 0, n = newcoords.size(); i < n; i++) {
       rmsd += (newcoords[i] - origcoords[i]).norm_sqr();
     }
     rmsd /= newcoords.size();
@@ -321,9 +322,6 @@ void do_search(model& m, const boost::optional<model>& ref,
         << intramolecular_energy
         << " (kcal/mol)\nRMSD: " << rmsd;
     log.endl();
-
-    //reset the center after last call to set
-    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
 
     if (!nc.within(m))
       log << "WARNING: not all movable atoms are within the search space\n";
@@ -1052,7 +1050,8 @@ Thank you!\n";
           "   __/ |                    \n"
           "  |___/                     \n"
           "\ngnina is based on smina and AutoDock Vina.\nPlease cite appropriately.\n\n"
-          "*** IMPORTANT: gnina is not yet intended for production use. Use smina. ***\n";
+          "*** IMPORTANT: Use of CNN scoring while docking is not recommended. ***\n"
+          "***     CNN scoring is best used with --minimize or --score_only    ***\n";
 
   try
   {
@@ -1399,8 +1398,7 @@ Thank you!\n";
       }
     }
 
-    if (ligand_names.size() == 0)
-        {
+    if (ligand_names.size() == 0) {
       if (!no_lig)
       {
         std::cerr << "Missing ligand.\n" << "\nCorrect usage:\n"
@@ -1441,13 +1439,17 @@ Thank you!\n";
     if (vm.count("atom_terms") > 0)
       atomoutfile.open(atom_name.c_str());
 
+    FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, log);
+
+    // dkoes - parse in receptor once
+    MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
+
     if (autobox_ligand.length() > 0) {
-      setup_autobox(autobox_ligand, autobox_add,
+      setup_autobox(mols.getInitModel(),autobox_ligand, autobox_add,
           center_x, center_y, center_z, size_x, size_y, size_z);
     }
 
-    if (search_box_needed && autobox_ligand.length() == 0)
-        {
+    if (search_box_needed && autobox_ligand.length() == 0)  {
       options_occurrence oo = get_occurrence(vm, search_area);
       if (!oo.all)
       {
@@ -1459,12 +1461,9 @@ Thank you!\n";
         throw usage_error("Search space dimensions should be positive");
     }
 
-    if (flex_dist > 0 && flexdist_ligand.size() == 0)
-        {
+    if (flex_dist > 0 && flexdist_ligand.size() == 0) {
       throw usage_error("Must specify flexdist_ligand with flex_dist");
     }
-
-    FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, log);
 
     log << cite_message << '\n';
 
@@ -1506,11 +1505,23 @@ Thank you!\n";
       t.add("num_tors_div", 5 * 0.05846 / 0.1 - 1);
     }
 
-    log << std::setw(12) << std::left << "Weights" << " Terms\n" << t
-        << "\n";
+    log << std::setw(12) << std::left << "Weights" << " Terms\n" << t << "\n";
 
-    if (usergrid_file_name.size() > 0)
-        {
+    // Print out flexible residues 
+    finfo.printFlex();
+
+    // Print information about flexible residues use
+    if (finfo.hasContent() && (cnnopts.cnn_refinement ||
+                               (cnnopts.cnn_scoring && settings.dominimize))) {
+      cnnopts.fix_receptor = true; // Fix receptor position and orientation
+
+      log << "Optimizing flexible residues with CNN scoring function.\n";
+      log << "Receptor position and orientation are frozen.\n";
+    } else if (finfo.hasContent() && cnnopts.cnn_scoring) {
+      log << "WARNING: Flexible residues specified but not used.\n";
+    }
+
+    if (usergrid_file_name.size() > 0) {
       ifile user_in(usergrid_file_name);
       fl ug_scaling_factor = 1.0;
       if (user_grid_lambda != -1.0)
@@ -1535,8 +1546,7 @@ Thank you!\n";
       }
     }
 
-    if (vm.count("cpu") == 0)
-        {
+    if (vm.count("cpu") == 0) {
       settings.cpu = boost::thread::hardware_concurrency();
       if (settings.verbosity > 1)
           {
@@ -1550,13 +1560,11 @@ Thank you!\n";
     if (settings.cpu < 1)
       settings.cpu = 1;
     if (settings.verbosity > 1 && settings.exhaustiveness < settings.cpu)
-      log
-          << "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
+      log  << "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
 
-    //dkoes - parse in receptor once
-    MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens,
-        log);
-
+    if (settings.verbosity <= 1) {
+      OpenBabel::obErrorLog.SetOutputLevel(OpenBabel::obError);
+    }
     //dkoes, hoist precalculation outside of loop
     weighted_terms wt(&t, t.weights());
 

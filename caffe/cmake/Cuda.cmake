@@ -137,6 +137,7 @@ function(caffe_select_nvcc_arch_flags out_variable)
   endforeach()
 
   string(REPLACE ";" " " __nvcc_archs_readable "${__nvcc_archs_readable}")
+  string(REPLACE ";" " " __nvcc_flags "${__nvcc_flags}")
   set(${out_variable}          ${__nvcc_flags}          PARENT_SCOPE)
   set(${out_variable}_readable ${__nvcc_archs_readable} PARENT_SCOPE)
 endfunction()
@@ -239,7 +240,7 @@ endfunction()
 ###  Non macro section
 ################################################################################################
 
-find_package(CUDA 5.5 QUIET)
+find_package(CUDA 9.0 QUIET)
 find_cuda_helper_libs(curand)  # cmake 2.8.7 compatibility which doesn't search for curand
 
 if(NOT CUDA_FOUND)
@@ -249,8 +250,7 @@ endif()
 set(HAVE_CUDA TRUE)
 message(STATUS "CUDA detected: " ${CUDA_VERSION})
 list(APPEND Caffe_INCLUDE_DIRS PUBLIC ${CUDA_INCLUDE_DIRS})
-list(APPEND Caffe_LINKER_LIBS PUBLIC ${CUDA_CUDART_LIBRARY}
-                                     ${CUDA_curand_LIBRARY} ${CUDA_CUBLAS_LIBRARIES})
+list(APPEND Caffe_LINKER_LIBS PUBLIC ${CUDA_curand_LIBRARY} ${CUDA_CUBLAS_LIBRARIES})
 
 # cudnn detection
 if(USE_CUDNN)
@@ -264,7 +264,7 @@ endif()
 
 # setting nvcc arch flags
 caffe_select_nvcc_arch_flags(NVCC_FLAGS_EXTRA)
-list(APPEND CUDA_NVCC_FLAGS ${NVCC_FLAGS_EXTRA})
+string(APPEND CMAKE_CUDA_FLAGS " ${NVCC_FLAGS_EXTRA}")
 message(STATUS "Added CUDA NVCC flags for: ${NVCC_FLAGS_EXTRA_readable}")
 
 # Boost 1.55 workaround, see https://svn.boost.org/trac/boost/ticket/9392 or
@@ -286,7 +286,6 @@ if(NOT CUDA_TEST_DEVICE)
 endif()
 
 mark_as_advanced(CUDA_BUILD_CUBIN CUDA_BUILD_EMULATION CUDA_VERBOSE_BUILD)
-mark_as_advanced(CUDA_SDK_ROOT_DIR CUDA_SEPARABLE_COMPILATION)
 
 # Handle clang/libc++ issue
 if(APPLE)

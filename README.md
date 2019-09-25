@@ -4,7 +4,7 @@ gnina is **not** recommended for production use (*yet*) in molecular modeling ta
 
 Help
 ====
-**Reminder: gnina is not yet intended for production use**.  However, if you would like to evaluate it or use it as a research platform, please [subscribe to our slack team](http://bits.csb.pitt.edu/slack). 
+**Reminder: gnina is not yet intended for production use**.  However, if you would like to evaluate it or use it as a research platform, please [subscribe to our slack team](https://join.slack.com/t/gninacnn/shared_invite/enQtNTY3ODk2ODk5OTU5LWUxNzIzOTc3OWJiOTY3N2ZhYzgzY2IzZTBiYjMyZGVjY2UyNDlhZDkyYjk5OTY2M2M2ZGEzZjNkMjhlNGQ0NGE). 
 
 Citation
 ========
@@ -31,8 +31,9 @@ Installation
 
 ### Ubuntu 16.04
 ```
-apt-get install build-essential git wget libopenbabel-dev libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-serial-dev libatlas-base-dev python-dev cmake librdkit-dev python-numpy python-pip
+apt-get install build-essential git wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-serial-dev libatlas-base-dev python-dev librdkit-dev python-numpy python-pip
 ```
+Build and Install [Libmolgrid](https://github.com/gnina/libmolgrid) 
 
 [Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA.  *Note* we are in the process of transitioning to CUDA 9.1.
 
@@ -75,6 +76,11 @@ sudo yum  groupinstall 'Development Tools'
 ```
 sudo yum install boost-devel.x86_64 eigen3-devel.noarch protobuf-compiler.x86_64 protobuf-devel.x86_64 hdf5-devel.x86_64 cmake git wget openbabel-devel.x86_64 openbabel.x86_64 leveldb-devel.x86_64 snappy-devel.x86_64 opencv-devel.x86_64 gflags-devel.x86_64 glog-devel.x86_64 lmdb-devel.x86_64 readline-devel.x86_64 zlib-devel.x86_64 bzip2-devel.x86_64 sqlite-devel.x86_64 python-devel.x86_64 numpy.x86_64 atlas-devel.x86_64 atlas.x86_64 atlas-static.x86_64
 ```
+
+
+Build and Install [Libmolgrid](https://github.com/gnina/libmolgrid) 
+
+
 _Install cmake 3.8_  
 The cmake installed by yum in CentOS 7 (cmake version 2.8.12.2) produce a lot of error. Is better if you use an updated version.
 ```

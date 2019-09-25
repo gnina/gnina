@@ -1,0 +1,10 @@
+1 CC.gninatypes C.gninatypes
+1 CC.gninatypes N.gninatypes
+1 O.gninatypes C.gninatypes
+1 C.gninatypes C.gninatypes
+0 C.gninatypes CC.gninatypes #hello, I'm a comment
+0 N.gninatypes O.gninatypes
+0 O.gninatypes O.gninatypes
+0 O.gninatypes CC.gninatypes
+0 O.gninatypes N.gninatypes
+0 N.gninatypes CC.gninatypes

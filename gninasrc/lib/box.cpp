@@ -1,10 +1,12 @@
 #include "box.h"
 
 #include "obmolopener.h"
+#include "model.h"
 
 //generate a box around the provided ligand padded by autobox_add
+//initial model is provided to include flexible residues
 //if centers are always overwritten, but if sizes are non zero they are preserved
-void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
+void setup_autobox(const model& m, const std::string& autobox_ligand, fl autobox_add,
     fl& center_x, fl& center_y, fl& center_z, fl& size_x, fl& size_y,
     fl& size_z) {
   using namespace OpenBabel;
@@ -20,6 +22,11 @@ void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
   while (conv.Read(&mol)) //openbabel divides separate residues into multiple molecules
   {
     b.add_ligand_box(mol);
+  }
+
+  //flexible residues
+  for(const auto& a : m.get_movable_atoms()) {
+    b.add_coord(a.coords[0], a.coords[1], a.coords[2]);
   }
 
   //set to center of bounding box (as opposed to center of mass

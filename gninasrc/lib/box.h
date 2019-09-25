@@ -56,7 +56,7 @@ struct Box {
 };
 
 class model;
-void setup_autobox(const std::string& autobox_ligand, fl autobox_add,
+void setup_autobox(const model& m, const std::string& autobox_ligand, fl autobox_add,
     fl& center_x, fl& center_y, fl& center_z, fl& size_x, fl& size_y, fl& size_z);
 
 #endif /* SMINA_BOX_H */

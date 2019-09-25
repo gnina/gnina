@@ -5,6 +5,7 @@
 #include <openbabel/bond.h>
 #include <boost/unordered_map.hpp>
 
+using namespace std;
 FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
     const std::string& ligand, tee& l)
     : flex_dist(flexdist), log(l) {
@@ -22,12 +23,23 @@ FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
       boost::split(chres, tok, boost::is_any_of(":"));
       char chain = 0;
       int resid = 0;
-      if (chres.size() == 2) {
+      char icode = 0;
+      if (chres.size() >= 2) {
         if (chres[0].size() != 1)
           log << "WARNING: chain specification not single character "
               << chres[0] << "\n";
         chain = chres[0][0]; //if empty will be null which is what is desired
         resid = boost::lexical_cast<int>(chres[1]);
+        if (chres.size() == 3) { // Insertion code is present
+          if(chres[2].size() == 1){ // Check that icode is single char
+            icode = chres[2][0];
+          }
+          else{ // Invalid icode
+            log << "WARNING: ignoring invalid chain:resid:icode specifier " << tok 
+                << "\n";
+            continue;
+          } 
+        }
       } else
         if (chres.size() == 1) {
           resid = boost::lexical_cast<int>(chres[0]);
@@ -37,7 +49,7 @@ FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
           continue;
         }
 
-      residues.insert(pair<char, int>(chain, resid));
+      residues.insert(tuple<char, int, char>(chain, resid, icode));
     }
   }
 
@@ -51,11 +63,46 @@ FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
 
 }
 
+//return true if residue isn't flexible
+static bool isInflexible(const string& resname) {
+  return resname == "ALA" || resname == "GLY" || resname == "PRO";
+}
+//remove inflexible residues from residues set
+//the receptor is needed because we don't store the residue name
+void FlexInfo::sanitizeResidues(OpenBabel::OBMol& receptor) {
+  using namespace OpenBabel;
+  if(!hasContent()) return;
+
+  OBResidueIterator ritr, rend;
+  OBResidue *firstres = receptor.BeginResidue(ritr);
+  char defaultch = ' ';
+  if (firstres) defaultch = firstres->GetChain();
+
+  // Iterate over all receptor residues
+  for (ritr = receptor.BeginResidues(), rend = receptor.EndResidues(); ritr != rend; ++ritr) {
+    OBResidue *r = *ritr;
+
+    char ch = r->GetChain();
+    int resid = r->GetNum();
+    char icode = r->GetInsertionCode();
+    std::string resname = r->GetName();
+    if(ch == 0)ch = defaultch; //substitute default chain for unspecified chain
+    tuple<char,int,char> res(ch,resid,icode);
+    if (residues.count(res) > 0) { // Residue in user-specified flexible residues
+      if (isInflexible(resname)) { // Residue can't be flexible
+        residues.erase(res); // Remove residue from list of flexible residues
+        log << "WARNING: Removing non-flexible residue " << resname;
+        log << " " << ch << ":" << resid << ":" << icode << "\n";
+      }
+    }
+  }
+}
+
 void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
     std::string& flexpdbqt) {
   using namespace OpenBabel;
   rigid = receptor;
-
+  rigid.SetChainsPerceived(true); //OB bug workaround
   flexpdbqt.clear();
 
   //identify residues close to distligand here
@@ -65,52 +112,48 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   double flsq = flex_dist * flex_dist;
 
   FOR_ATOMS_OF_MOL(a, rigid){
-  if(a->GetAtomicNum() == 1)
-  continue; //heavy atoms only
-  vector3 v = a->GetVector();
-  if (b.ptIn(v.x(), v.y(), v.z()))
-  {
-    //in box, see if any atoms are close enough
-    FOR_ATOMS_OF_MOL(b, distligand)
+    if(a->GetAtomicNum() == 1)
+    continue; //heavy atoms only
+    vector3 v = a->GetVector();
+    if (b.ptIn(v.x(), v.y(), v.z()))
     {
-      vector3 bv = b->GetVector();
-      if (v.distSq(bv) < flsq)
+      //in box, see if any atoms are close enough
+      FOR_ATOMS_OF_MOL(b, distligand)
       {
-        //process residue
-        OBResidue *residue = a->GetResidue();
-        if (residue)
+        vector3 bv = b->GetVector();
+        if (v.distSq(bv) < flsq)
         {
-          char ch = residue->GetChain();
-          int resid = residue->GetNum();
-          residues.insert(std::pair<char, int>(ch, resid));
+          //process residue
+          OBResidue *residue = a->GetResidue();
+          if (residue)
+          {
+            char ch = residue->GetChain();
+            int resid = residue->GetNum();
+            char icode = residue->GetInsertionCode();
+            if(!isInflexible(residue->GetName())) {
+              residues.insert(std::tuple<char, int, char>(ch, resid, icode));
+            }
+          }
+          break;
         }
-        break;
       }
     }
   }
-}
 
-//replace any empty chains with first chain in mol
-  char defaultch = ' ';
+  //replace any empty chains with first chain in mol
   OBResidueIterator ritr;
   OBResidue *firstres = rigid.BeginResidue(ritr);
   if (firstres) defaultch = firstres->GetChain();
 
-  std::vector<std::pair<char, int> > sortedres(residues.begin(),
-      residues.end());
+  sanitizeResidues(receptor);
+
+  std::vector<std::tuple<char, int, char> > sortedres(residues.begin(), residues.end());
   for (unsigned i = 0, n = sortedres.size(); i < n; i++) {
-    if (sortedres[i].first == 0) sortedres[i].first = defaultch;
+    if (get<0>(sortedres[i]) == 0) get<0>(sortedres[i]) = defaultch;
   }
 
   sort(sortedres.begin(), sortedres.end());
 
-  if (sortedres.size() > 0) {
-    log << "Flexible residues:";
-    for (unsigned i = 0, n = sortedres.size(); i < n; i++) {
-      log << " " << sortedres[i].first << ":" << sortedres[i].second;
-    }
-    log << "\n";
-  }
   //reinsert residues now with default chain
   residues.clear();
   residues.insert(sortedres.begin(), sortedres.end());
@@ -119,6 +162,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   conv.SetOutFormat("PDBQT");
   conv.AddOption("s", OBConversion::OUTOPTIONS); //flexible residue
   rigid.BeginModify();
+  int flexcnt = 0;
   //identify atoms that have to be in flexible component
   //this is the side chain and CA, but _not_ the C and N
   for (OBResidueIterator ritr = rigid.BeginResidues(), rend =
@@ -126,9 +170,10 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
     OBResidue *r = *ritr;
     char ch = r->GetChain();
     int resid = r->GetNum();
-
-    std::pair<char, int> chres(ch, resid);
+    char icode = r->GetInsertionCode();
+    std::tuple<char, int, char> chres(ch, resid, icode);
     if (residues.count(chres)) {
+      flexcnt++;
       //create a separate molecule for each flexible residue
       OBMol flex;
       std::vector<OBAtom*> flexatoms; //rigid atom ptrs that should be flexible
@@ -206,6 +251,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
           resnum = " " + resnum;
 
         char ch = newres->GetChain();
+        char icode = newres->GetInsertionCode();
         boost::split(tokens, flexres, boost::is_any_of("\n"));
         for (unsigned i = 0, n = tokens.size(); i < n; i++) {
           std::string line = tokens[i];
@@ -218,7 +264,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
             for (unsigned p = 0; p < 4; p++) {
               line[22 + p] = resnum[p];
             }
-
+            if(icode > 0) line[26] = icode;
             line[21] = ch;
           }
 
@@ -238,7 +284,26 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
       }
     } //end if residue
   }
-
+  if(flexcnt != residues.size()) {
+    log << "WARNING: Only identified " << flexcnt << " of " << residues.size() << " requested flexible residues.\n";
+  }
   rigid.EndModify();
 
+}
+
+void FlexInfo::printFlex() const{
+
+  // Residues are stored as unordered_set
+  // Sort before printing
+  std::vector<std::tuple<char, int, char> > sortedres(residues.begin(), residues.end());
+  sort(sortedres.begin(), sortedres.end());
+
+  if (sortedres.size() > 0) {
+    log << "Flexible residues:";
+    for (unsigned i = 0, n = sortedres.size(); i < n; i++) {
+      log << " " << get<0>(sortedres[i]) << ":" << get<1>(sortedres[i]);
+      if(get<2>(sortedres[i]) > 0) log << ":" << get<2>(sortedres[i]);
+    }
+    log << "\n";
+  }
 }

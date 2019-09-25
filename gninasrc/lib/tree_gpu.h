@@ -17,7 +17,7 @@ struct gfloat4 : float4 {
     __host__ __device__ gfloat4(const vec &v)
         : float4 { v[0], v[1], v[2], 0 } {
     }
-    __host__ __device__ gfloat4(const float3 &v)
+    __host__ __device__ gfloat4(const gfloat3 &v)
         : float4 { v[0], v[1], v[2], 0 } {
     }
 
@@ -49,7 +49,7 @@ struct gpu_mat {
 };
 
 struct __align__(sizeof(float4)) marked_coord {
-    float3 coords;
+    gfloat3 coords;
     uint owner_idx;
 };
 

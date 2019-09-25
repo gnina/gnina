@@ -121,8 +121,8 @@ float eval_deriv_gpu(const GPUSplineInfo* splineInfo, unsigned t, float charge,
 }
 
 template<typename T> T __device__ __host__ zero(void);
-template<> float3 zero(void) {
-  return float3(0, 0, 0);
+template<> gfloat3 zero(void) {
+  return gfloat3(0, 0, 0);
 }
 
 template<> float zero(void) {
@@ -186,10 +186,10 @@ void eval_intra_st(const GPUSplineInfo * spinfo, const atom_params * atoms,
   for (unsigned i = 0; i < npairs; i += 1) {
 
     const interacting_pair& ip = pairs[i];
-    float3 r = atoms[ip.b].coords - atoms[ip.a].coords;
+    gfloat3 r = atoms[ip.b].coords - atoms[ip.a].coords;
     float r2 = dot(r, r);
     if (r2 < cutoff_sqr) {
-      float3 deriv = float3(0, 0, 0);
+      gfloat3 deriv(0, 0, 0);
       float dor;
       unsigned t1 = ip.t1;
       unsigned t2 = ip.t2;
@@ -227,10 +227,10 @@ void interaction_energy(const GPUNonCacheInfo dinfo, unsigned remainder_offset,
   //get ligand atom info
   unsigned t = dinfo.types[l];
   float rec_energy = 0;
-  float3 rec_deriv = float3(0, 0, 0);
+  gfloat3 rec_deriv(0, 0, 0);
 
   atom_params lin = ligs[l];
-  float3 xyz = lin.coords;
+  gfloat3 xyz = lin.coords;
 
   //TODO: remove hydrogen atoms completely
   if (t > 1) { //ignore hydrogens
@@ -238,7 +238,7 @@ void interaction_energy(const GPUNonCacheInfo dinfo, unsigned remainder_offset,
     if (ridx < dinfo.nrec_atoms) {
       //compute squared difference
       atom_params rin = dinfo.rec_atoms[ridx];
-      float3 diff = xyz - rin.coords;
+      gfloat3 diff = xyz - rin.coords;
 
       float rSq = 0;
       for (unsigned j = 0; j < 3; j++) {
@@ -257,7 +257,7 @@ void interaction_energy(const GPUNonCacheInfo dinfo, unsigned remainder_offset,
     }
   }
   float this_e = block_sum<float>(rec_energy);
-  float3 deriv = block_sum<float3>(rec_deriv);
+  gfloat3 deriv = block_sum<gfloat3>(rec_deriv);
   if (threadIdx.x == 0) {
     if (dinfo.nrec_atoms > 1024)
       pseudoAtomicAdd(&out[l], force_energy_tup(deriv, this_e));
@@ -292,14 +292,14 @@ void interaction_energy(const GPUCacheInfo& dinfo, const atom_params *ligs,
 }
 
 __global__ void reduce_energy(force_energy_tup *result, int n, float v,
-    float3 gridbegins, float3 gridends, float slope, const atom_params* ligs) {
+    gfloat3 gridbegins, gfloat3 gridends, float slope, const atom_params* ligs) {
   int l = threadIdx.x;
   force_energy_tup val = force_energy_tup(0, 0, 0, 0);
   if (l < n) {
     val = result[l];
     curl(val.energy, val.minus_force, v);
-    float3 xyz = ligs[l].coords;
-    float3 out_of_bounds_deriv = float3(0, 0, 0);
+    gfloat3 xyz = ligs[l].coords;
+    gfloat3 out_of_bounds_deriv(0, 0, 0);
     float out_of_bounds_penalty = 0;
     //evaluate for out of boundsness
     for (unsigned i = 0; i < 3; i++) {
@@ -411,10 +411,10 @@ void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
   CUDA_THREADS_PER_BLOCK * gridDim.x) {
 
     const interacting_pair& ip = pairs[i];
-    float3 r = atoms[ip.b].coords - atoms[ip.a].coords;
+    gfloat3 r = atoms[ip.b].coords - atoms[ip.a].coords;
     float r2 = dot(r, r);
     if (r2 < cutoff_sqr) {
-      float3 deriv = float3(0, 0, 0);
+      gfloat3 deriv(0, 0, 0);
       float dor;
       unsigned t1 = ip.t1;
       unsigned t2 = ip.t2;

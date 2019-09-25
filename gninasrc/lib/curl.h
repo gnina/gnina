@@ -44,7 +44,7 @@ inline void curl(fl& e, fl v) {
 //curl function to scale back positive energies and match vina calculations
 //assume v is reasonable
 __device__
-inline void curl(fl& e, float3& deriv, fl v) {
+inline void curl(fl& e, gfloat3& deriv, fl v) {
   if (e > 0) {
     float tmp = (v / (v + e));
     e *= tmp;

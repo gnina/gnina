@@ -246,7 +246,7 @@ void model::clear_minus_forces() {
   }
 }
 
-void model::add_minus_forces(const std::vector<float3>& forces) {
+void model::add_minus_forces(const std::vector<gfloat3>& forces) {
   assert(forces.size() <= m_num_movable_atoms);
   unsigned j = 0;
   VINA_FOR(i, m_num_movable_atoms) {
@@ -260,7 +260,7 @@ void model::add_minus_forces(const std::vector<float3>& forces) {
   }
 }
 
-void model::sub_minus_forces(const std::vector<float3>& forces) {
+void model::sub_minus_forces(const std::vector<gfloat3>& forces) {
   assert(forces.size() <= m_num_movable_atoms);
   unsigned j = 0;
   VINA_FOR(i, m_num_movable_atoms) {

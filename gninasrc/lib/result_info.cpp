@@ -9,6 +9,7 @@
 #include <openbabel/mol.h>
 #include <openbabel/generic.h>
 #include <openbabel/obconversion.h>
+#include <openbabel/generic.h>
 #include <cstring>
 #include <boost/lexical_cast.hpp>
 
@@ -22,8 +23,7 @@ void result_info::setMolecule(const model& m) {
     molstr = str.str();
   }
 
-  if (m.num_flex() > 0) //save flex residue info
-      {
+  if (m.num_flex() > 0) { //save flex residue info
     std::stringstream fstr;
     m.write_flex(fstr);
     flexstr = fstr.str();
@@ -197,6 +197,7 @@ void result_info::write(std::ostream& out, std::string& ext,
       mol.SetTitle(name); //otherwise lose space separated names
       outconv.SetLast(false);
       outconv.SetOutputIndex(modelnum + 1); //for pdb multi model output, workaround OB bug with ignoring model 1
-      outconv.Write(&mol, &out);
+      outconv.SetOutStream(&out, false);
+      format->WriteMolecule(&mol, &outconv); //conv ignores isLast
     }
 }
