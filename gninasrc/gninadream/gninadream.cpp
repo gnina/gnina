@@ -5,7 +5,6 @@
 #include <glob.h>
 #include <regex>
 #include <unordered_set>
-#include "../lib/tee.h"
 #include <boost/filesystem.hpp>
 #include "caffe/util/signal_handler.h"
 #include "gninadream.h"
@@ -59,7 +58,7 @@ caffe::SolverAction::Enum GetRequestedAction(
   LOG(FATAL) << "Invalid signal effect \""<< flag_value << "\" was specified";
 }
 
-bool readDXGrid(istream& in, vec& center, double& res, float* grid, unsigned numgridpoints, 
+bool readDXGrid(std::istream& in, vec& center, double& res, float* grid, unsigned numgridpoints, 
     std::string& fname) {
   string line;
   vector<string> tokens;
@@ -135,8 +134,8 @@ void cpu_constant_fill(float* fillgrid, size_t gsize, float fillval) {
 
 void carve_init(mgridT& mgrid, bool no_density, caffe::shared_ptr<Net<float> >& net, 
     float carve_val) {
-  unsigned nlt = mgrid.getNumLigTypes();
-  unsigned nrt = mgrid.getNumRecTypes();
+  unsigned nlt = mgrid.getNumLigandTypes();
+  unsigned nrt = mgrid.getNumReceptorTypes();
   unsigned npts = mgrid.getNumGridPoints();
   unsigned lig_grid_size = nlt * npts;
   unsigned rec_grid_size = nrt * npts;
@@ -438,11 +437,11 @@ int main(int argc, char* argv[]) {
   }
   
   if (exclude_ligand) {
-    solver->SetNligTypes(mgrid->getNumLigTypes());
+    solver->SetNligTypes(mgrid->getNumLigandTypes());
     solver->SetNpoints(mgrid->getNumGridPoints());
   }
   if (exclude_receptor) {
-    solver->SetNrecTypes(mgrid->getNumRecTypes());
+    solver->SetNrecTypes(mgrid->getNumReceptorTypes());
     solver->SetNpoints(mgrid->getNumGridPoints());
   }
 
@@ -463,7 +462,7 @@ int main(int argc, char* argv[]) {
       ligand_names.push_back("");
     }
     boost::filesystem::path rec(receptor_name);
-    std::vector<caffe::shared_ptr<ostream> > out;
+    std::vector<caffe::shared_ptr<std::ostream> > out;
     if (vsfile.size()) {
       if (outname.size())
         out.push_back(boost::make_shared<std::ofstream>((outname + ".vsout").c_str()));
@@ -481,8 +480,14 @@ int main(int argc, char* argv[]) {
         if (!mols.readMoleculeIntoModel(m)) {
           break;
         }
-        mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
-        mgrid->setReceptor(m.get_fixed_atoms());
+        std::vector<smt> ligand_smtypes;
+        std::vector<float3> ligand_coords;
+        setLigand(m, ligand_coords, ligand_smtypes);
+        mgrid->setLigand(ligand_coords, ligand_smtypes);
+        std::vector<smt> rec_smtypes;
+        std::vector<float3> rec_coords;
+        setReceptor(m, rec_coords, rec_smtypes);
+        mgrid->setReceptor(rec_coords, rec_smtypes);
         // with a types file you can target arbitrary pose and affinity values,
         // here we assume you just want a really good active
         mgrid->setLabels(1, 10); 
@@ -550,7 +555,7 @@ int main(int argc, char* argv[]) {
         }
       }
       if (vsfile.size()) {
-        std::vector<caffe::shared_ptr<ostream> > out;
+        std::vector<caffe::shared_ptr<std::ostream> > out;
         for (auto& name : opt_names) {
           out.push_back(boost::make_shared<std::ofstream>((name + ".vsout").c_str()));
         }
@@ -619,7 +624,7 @@ int main(int argc, char* argv[]) {
           for (auto& chanset : recset) {
             if (channelmap == chanset) {
               // cool it's a match read it in
-		          ifstream gridfile(fname.c_str());
+              std::ifstream gridfile(fname.c_str());
 		          if(!gridfile)
 		          {
                 std::cerr << "Could not open example grid file " << fname << "\n";
@@ -667,7 +672,7 @@ int main(int argc, char* argv[]) {
           for (auto& chanset : ligset) {
             if (channelmap == chanset) {
               // cool it's a match read it in
-		          ifstream gridfile(fname.c_str());
+              std::ifstream gridfile(fname.c_str());
 		          if(!gridfile)
 		          {
                 std::cerr << "Could not open example grid file " << fname << "\n";
@@ -730,10 +735,10 @@ int main(int argc, char* argv[]) {
     if (vsfile.size()) {
       // make temp gninatypes for setting the center for screen ligands
       string gt_name = "tmp_" + std::to_string(getpid()) + ".gninatypes";
-	  	ofstream gt(gt_name.c_str());
+	  	std::ofstream gt(gt_name.c_str());
 	  	if (!gt)
 	  	{
-	  		cerr << "Error opening output file " << gt_name << "\n";
+        std::cerr << "Error opening output file " << gt_name << "\n";
 	  		exit(1);
 	  	}
       atom_info atom;
@@ -746,7 +751,7 @@ int main(int argc, char* argv[]) {
       if (!ligand_names.size()) {
         ligand_names.push_back(gt_name);
       }
-      std::vector<caffe::shared_ptr<ostream> > out;
+      std::vector<caffe::shared_ptr<std::ostream> > out;
       out.push_back(boost::make_shared<std::ofstream>((out_prefix + ".vsout").c_str()));
       do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1, 
           dist_method, positive_threshold, negative_threshold);
@@ -764,7 +769,7 @@ int main(int argc, char* argv[]) {
         mgrid->dumpGridDX(out_prefix, net->top_vecs()[0][0]->mutable_cpu_data());
     }
     if (vsfile.size()) {
-      std::vector<caffe::shared_ptr<ostream> > out;
+      std::vector<caffe::shared_ptr<std::ostream> > out;
       out.push_back(boost::make_shared<std::ofstream>((out_prefix + ".vsout").c_str()));
       do_exact_vs(*net_param.mutable_layer(1), *net, vsfile, ligand_names, out, gpu+1, 
           dist_method, positive_threshold, negative_threshold);

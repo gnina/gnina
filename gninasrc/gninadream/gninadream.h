@@ -3,11 +3,37 @@
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
-#include "../lib/cnn_scorer.h"
+#include "cnn_scorer.h"
+#include "tee.h"
+#include "molgetter.h"
 #include <boost/algorithm/string.hpp>
 
 using namespace caffe;
-typedef BaseMolGridDataLayer<float, GridMaker> mgridT;
+typedef MolGridDataLayer<float> mgridT;
+
+void setLigand(model& m, std::vector<float3>& coords, std::vector<smt>& smtypes) {
+  // Ligand atoms start at ligand root node start idx
+  sz n = m.m_num_movable_atoms - m.ligands[0].node.begin;
+
+  auto m_atoms = m.get_movable_atoms().cbegin() + m.ligands[0].node.begin;
+  auto m_coords = m.coordinates().cbegin() + m.ligands[0].node.begin;
+
+  for(sz i=0;  i<n; ++i) {
+    smtypes.push_back(m_atoms[i].sm);
+    const vec& coord = m_coords[i];
+    coords.push_back(gfloat3(coord[0], coord[1], coord[2]));
+  }
+}
+
+void setReceptor(model& m, std::vector<float3>& coords, std::vector<smt>& smtypes) {
+  auto& at = m.get_fixed_atoms();
+  sz n = at.size();
+  for (sz i=0; i<n; ++i) {
+    const vec& coord = at[i].coords;
+    coords.push_back(make_float3(coord[0], coord[1], coord[2]));
+    smtypes.push_back(at[i].sm);
+  }
+}
 
 void do_exact_vs(LayerParameter param, caffe::Net<float>& net, 
     std::string vsfile, std::vector<std::string>& ref_ligs,
@@ -56,11 +82,11 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
   top[1] = &labelsblob;
 
   mgridT opt_mgrid(param);
-  opt_mgrid.VSLayerSetUp(bottom, top);
+  opt_mgrid.DataLayerSetUp(bottom, top);
   // actually want size for lig channels only
   unsigned example_size = opt_mgrid.getExampleSize();
-  unsigned ligGridSize = opt_mgrid.getNumGridPoints() * opt_mgrid.getNumLigTypes();
-  unsigned recGridSize = opt_mgrid.getNumGridPoints()* opt_mgrid.getNumRecTypes();
+  unsigned ligGridSize = opt_mgrid.getNumGridPoints() * opt_mgrid.getNumLigandTypes();
+  unsigned recGridSize = opt_mgrid.getNumGridPoints()* opt_mgrid.getNumReceptorTypes();
   float* gpu_score = nullptr;
   // two floats since for the sum method we need two storage locations
   if (gpu) 
@@ -82,7 +108,7 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
     }
     blocks_per_side = dim / subgrid_dim;
     ncubes = blocks_per_side * blocks_per_side * blocks_per_side;
-    ntypes = opt_mgrid.getNumLigTypes();
+    ntypes = opt_mgrid.getNumLigandTypes();
     n_matrix_elems = ncubes * ntypes;
     cost_matrix = flmat(n_matrix_elems, 0);
     populate_cost_matrix(ncubes, subgrid_dim, ntypes, blocks_per_side, dimension, cost_matrix);
@@ -107,43 +133,40 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
         break;
       }
       unsigned natoms = m.num_movable_atoms();
-      opt_mgrid.setLigand(m.get_movable_atoms(), m.coordinates());
+      std::vector<smt> ligand_smtypes;
+      std::vector<float3> ligand_coords;
+      setLigand(m, ligand_coords, ligand_smtypes);
+      opt_mgrid.setLigand(ligand_coords, ligand_smtypes);
       if (next_ref_lig != "none") {
         if (is_gninatypes) {
-          int cnt = 0;
-          vec center(0,0,0);
           struct info {
             float x,y,z;
             int type;
           } gt_atom;
-          std::vector<atom> atoms;
+          std::vector<float3> rec_coords;
+          std::vector<smt> rec_smtypes;
 
-          ifstream in(next_ref_lig.c_str());
+          std::ifstream in(next_ref_lig.c_str());
           CHECK(in) << "Could not read " << next_ref_lig;
 
           while(in.read((char*)&gt_atom, sizeof(gt_atom)))
           {
             smt t = (smt)gt_atom.type;
-            cnt++;
-            center += vec(gt_atom.x,gt_atom.y,gt_atom.z);
-            atom next_atom;
-            next_atom.sm = (smt)gt_atom.type;
-            next_atom.coords[0] = gt_atom.x;
-            next_atom.coords[1] = gt_atom.y;
-            next_atom.coords[2] = gt_atom.z;
-            atoms.push_back(next_atom);
+            rec_smtypes.push_back(t);
+            rec_coords.push_back(make_float3(gt_atom.x, gt_atom.y, gt_atom.z));
+
           }
-          center /= cnt;
-          opt_mgrid.setReceptor(atoms);
-          opt_mgrid.setCenter(center);
+          opt_mgrid.setReceptor(rec_coords, rec_smtypes);
         }
         else {
-          opt_mgrid.setReceptor(m.get_fixed_atoms());
-          opt_mgrid.setCenter(opt_mgrid.getCenter());
+          std::vector<smt> rec_smtypes;
+          std::vector<float3> rec_coords;
+          setReceptor(m, rec_coords, rec_smtypes);
+          opt_mgrid.setReceptor(rec_coords, rec_smtypes);
         }
       }
       else
-        opt_mgrid.setCenter(vec(0, 0, 0));
+        opt_mgrid.setGridCenter(vec(0, 0, 0));
       opt_mgrid.setLabels(1, 10); 
       if (gpu) {
         opt_mgrid.Forward_gpu(bottom, top);
@@ -175,7 +198,7 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
               blocks_per_side, ntypes, ligGridSize, cost_matrix);
         }
         else {
-          cerr << "Unknown distance method for overlap-based virtual screen\n";
+          std::cerr << "Unknown distance method for overlap-based virtual screen\n";
           exit(-1);
         }
         if(std::strcmp(dist_method.c_str(), "sum")) {
@@ -218,7 +241,7 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
               blocks_per_side, ntypes, ligGridSize, cost_matrix);
         }
         else {
-          cerr << "Unknown distance method for overlap-based virtual screen\n";
+          std::cerr << "Unknown distance method for overlap-based virtual screen\n";
           exit(-1);
         }
         scores.back() = std::sqrt(scores.back()) / (natoms * ligGridSize);

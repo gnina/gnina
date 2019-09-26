@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <vector>
 #include <functional>
-#include "parsed_args.h"
+#include "test/gnina/parsed_args.h"
 #include "../loss.h"
 #define BOOST_TEST_DYN_LINK
 #include <boost/test/unit_test.hpp>

@@ -1,9 +1,11 @@
 #include <boost/program_options.hpp>
 #include <iostream>
 #include <cuda_runtime.h>
-#include "parsed_args.h"
+#include "test/gnina/parsed_args.h"
 #include "cnn_scorer.h"
-#include "test_utils.h"
+#include "molgetter.h"
+#include "tee.h"
+#include "test/gnina/test_utils.h"
 #include "test_loss.h"
 #include "test_solver.h"
 #include "test_vs.h"
@@ -19,7 +21,7 @@
 namespace ut = boost::unit_test;
 namespace po = boost::program_options;
 using namespace caffe;
-typedef BaseMolGridDataLayer<float, GridMaker> mgridT;
+typedef MolGridDataLayer<float> mgridT;
 
 parsed_args p_args;
 
@@ -77,7 +79,7 @@ struct f_iopt_solver {
 
     net->CopyTrainedLayersFrom(wparam);
     const vector<caffe::shared_ptr<Layer<float> > >& layers = net->layers();
-    mgridT* mgrid = dynamic_cast<BaseMolGridDataLayer<float, GridMaker>*>(layers[0].get());
+    mgridT* mgrid = dynamic_cast<MolGridDataLayer<float>*>(layers[0].get());
     if (mgrid == NULL) {
       throw usage_error("First layer of model must be MolGridDataLayer.");
     }
