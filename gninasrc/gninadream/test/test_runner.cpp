@@ -91,8 +91,14 @@ struct f_iopt_solver {
     mols.setInputFile("");
     ::model m;
     mols.readMoleculeIntoModel(m);
-    mgrid->setReceptor(m.get_fixed_atoms());
-    mgrid->setLigand(m.get_movable_atoms(), std::vector<vec>());
+    std::vector<smt> rec_smtypes;
+    std::vector<float3> rec_coords;
+    setReceptor(m, rec_coords, rec_smtypes);
+    mgrid->setReceptor(rec_coords, rec_smtypes);
+    std::vector<smt> ligand_smtypes;
+    std::vector<float3> ligand_coords;
+    setLigand(m, ligand_coords, ligand_smtypes);
+    mgrid->setLigand(ligand_coords, ligand_smtypes);
     mgrid->setLabels(1);
   }
   ~f_iopt_solver() {}

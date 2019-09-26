@@ -86,7 +86,7 @@ file(GLOB TEST_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/*.c*)
 file(GLOB DREAM_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} gninadream/*.c*)
 file(GLOB DREAMTEST_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} gninadream/test/*.c*)
 
-add_library(gninalib ${LIB_SRCS})
+add_library(gninalib ${LIB_SRCS} ${DREAM_SRCS})
 set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
 target_link_libraries(gninalib caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
 # MESSAGE(STATUS "variable is: " ${NVCC_FLAGS_EXTRA})
@@ -122,8 +122,8 @@ target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LI
 add_executable(gninadream ${DREAM_SRCS})
 target_link_libraries(gninadream caffe gninalib ${OPENBABEL2_LIBRARIES} ${LIBMOLGRID_LIBRARY} OpenMP::OpenMP_CXX)
 
-add_executable(dreamcheck ${DREAMTEST_SRCS} gninadream/gninadream.cu)
-target_link_libraries(dreamcheck caffe gninalib ${OPENBABEL2_LIBRARIES} OpenMP::OpenMP_CXX)
+add_executable(dreamcheck ${DREAMTEST_SRCS})
+target_link_libraries(dreamcheck caffe gninalib ${OPENBABEL2_LIBRARIES} ${CUDA_LIBRARIES} OpenMP::OpenMP_CXX)
 
 install(TARGETS gnina gninagrid gninatyper fromgnina tognina RUNTIME DESTINATION bin)
 

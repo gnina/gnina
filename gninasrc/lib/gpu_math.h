@@ -226,4 +226,17 @@ class array3d_gpu {
     }
 };
 
+template<typename T> inline T __device__ __host__ zero(void);
+template<> inline gfloat3 zero(void) {
+  return gfloat3(0, 0, 0);
+}
+
+template<> inline float zero(void) {
+  return 0;
+}
+
+template<> inline float3 zero(void) {
+  return make_float3(0, 0, 0);
+}
+
 #endif

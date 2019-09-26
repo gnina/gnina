@@ -9,6 +9,18 @@ struct flt_int {
   int idx;
 };
 
+template<typename T> inline T __device__ __host__ zero(void);
+
+template<> inline flt_int zero(void) {
+  flt_int tmp = {0., 0};
+  return tmp;
+}
+
+inline flt_int __device__ __host__  min(void) {
+  flt_int tmp = { -100., -1 };
+  return tmp;
+}
+
 __host__ __device__ inline bool operator==(const flt_int& lhs, const flt_int& rhs){ return lhs.val==rhs.val && lhs.idx == rhs.idx; }
 __host__ __device__ inline bool operator!=(const flt_int& lhs, const flt_int& rhs){return !operator==(lhs,rhs);}
 __host__ __device__ inline bool operator< (const flt_int& lhs, const flt_int& rhs){ return lhs.val < rhs.val ? true: false; }

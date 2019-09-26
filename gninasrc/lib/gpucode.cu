@@ -120,15 +120,6 @@ float eval_deriv_gpu(const GPUSplineInfo* splineInfo, unsigned t, float charge,
   return ret;
 }
 
-template<typename T> T __device__ __host__ zero(void);
-template<> gfloat3 zero(void) {
-  return gfloat3(0, 0, 0);
-}
-
-template<> float zero(void) {
-  return 0;
-}
-
 /* Can't really return an accurate value. Don't need it anyway. */
 __device__
 void xadd(force_energy_tup *a, const force_energy_tup &b) {

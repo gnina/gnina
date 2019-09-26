@@ -10,25 +10,6 @@
        i < (n); \
        i += blockDim.x * gridDim.x)
 
-template<typename T> T __device__ __host__ zero(void);
-template<> float3 zero(void) {
-  return float3(0, 0, 0);
-}
-
-template<> float zero(void) {
-  return 0;
-}
-
-template<> flt_int zero(void) {
-  flt_int tmp = {0, 0};
-  return tmp;
-}
-
-flt_int __device__ __host__  min(void) {
-  flt_int tmp = { -100., -1 };
-  return tmp;
-}
-
 // device functions for warp-based reduction using shufl operations
 // TODO: should probably just be factored out into gpu_math or gpu_util
 template<class T>

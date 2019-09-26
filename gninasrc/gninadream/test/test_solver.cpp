@@ -5,7 +5,7 @@
 #include "caffe/net.hpp"
 #include "caffe/layers/molgrid_data_layer.hpp"
 
-typedef caffe::BaseMolGridDataLayer<float, GridMaker> mgridT;
+typedef caffe::MolGridDataLayer<float> mgridT;
 
 void test_iopt_update(caffe::Solver<float>* solver) {
   caffe::InputOptSolver<float>* iopt_solver = dynamic_cast<caffe::InputOptSolver<float>* >(solver);
@@ -81,17 +81,17 @@ void test_iopt_exclude_rec(caffe::Solver<float>* solver) {
 
   const auto& input_blob = iopt_solver->input_blob();
   init_grid.CopyFrom(*input_blob, false, true);
-  const vector<caffe::shared_ptr<caffe::Layer<float> > >& layers = net->layers();
-  mgridT* mgrid = dynamic_cast<caffe::BaseMolGridDataLayer<float, GridMaker>*>(layers[0].get());
+  const std::vector<caffe::shared_ptr<caffe::Layer<float> > >& layers = net->layers();
+  mgridT* mgrid = dynamic_cast<caffe::MolGridDataLayer<float>*>(layers[0].get());
   if (mgrid == NULL) {
     throw usage_error("First layer of model must be MolGridDataLayer.");
   }
-  iopt_solver->SetNrecTypes(mgrid->getNumRecTypes());
+  iopt_solver->SetNrecTypes(mgrid->getNumReceptorTypes());
   iopt_solver->SetNpoints(mgrid->getNumGridPoints());
   iopt_solver->Solve();
   
-  unsigned nlt = mgrid->getNumLigTypes();
-  unsigned nrt = mgrid->getNumRecTypes();
+  unsigned nlt = mgrid->getNumLigandTypes();
+  unsigned nrt = mgrid->getNumReceptorTypes();
   unsigned npts = mgrid->getNumGridPoints();
 
   // rec grid points were not updated

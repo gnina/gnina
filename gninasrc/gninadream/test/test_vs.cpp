@@ -3,7 +3,6 @@
 #include "caffe/net.hpp"
 #include "caffe/layers/molgrid_data_layer.hpp"
 #include "../lib/cnn_scorer.h"
-#include "../gninadream.h"
 
 using namespace caffe;
 
@@ -97,12 +96,12 @@ void test_do_exact_vs() {
   net.CopyTrainedLayersFrom(wparam);
 
   const vector<caffe::shared_ptr<Layer<float> > >& layers = net.layers();
-  mgridT* mgrid = dynamic_cast<BaseMolGridDataLayer<float, GridMaker>*>(layers[0].get());
+  mgridT* mgrid = dynamic_cast<MolGridDataLayer<float>*>(layers[0].get());
   if (mgrid == NULL) {
     throw usage_error("First layer of model must be MolGridDataLayer.");
   }
-  unsigned ligGridSize = mgrid->getNumGridPoints() * mgrid->getNumLigTypes();
-  unsigned recGridSize = mgrid->getNumGridPoints()* mgrid->getNumRecTypes();
+  unsigned ligGridSize = mgrid->getNumGridPoints() * mgrid->getNumLigandTypes();
+  unsigned recGridSize = mgrid->getNumGridPoints()* mgrid->getNumReceptorTypes();
   std::vector<float> fillbuffer(ligGridSize, 0);
   std::vector<float> refgrid(ligGridSize, 0);
 
@@ -130,8 +129,14 @@ void test_do_exact_vs() {
     model m;
     mols.readMoleculeIntoModel(m);
     // set reference density equal to ligand density
-    mgrid->setLigand(m.get_movable_atoms(), m.coordinates());
-    mgrid->setReceptor(m.get_fixed_atoms());
+    std::vector<smt> ligand_smtypes;
+    std::vector<float3> ligand_coords;
+    setLigand(m, ligand_coords, ligand_smtypes);
+    mgrid->setLigand(ligand_coords, ligand_smtypes);
+    std::vector<smt> rec_smtypes;
+    std::vector<float3> rec_coords;
+    setReceptor(m, rec_coords, rec_smtypes);
+    mgrid->setReceptor(rec_coords, rec_smtypes);
     mgrid->setLabels(1, 10); 
     unsigned natoms = m.num_movable_atoms();
     net.ForwardFromTo(0,0);

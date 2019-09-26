@@ -1,6 +1,7 @@
 #pragma once
 
 #include "test/gnina/parsed_args.h"
+#include "../gninadream.h"
 #include "../loss.h"
 #define BOOST_TEST_DYN_LINK
 #include <boost/test/unit_test.hpp>
