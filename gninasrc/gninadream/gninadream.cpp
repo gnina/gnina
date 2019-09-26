@@ -6,6 +6,7 @@
 #include <regex>
 #include <unordered_set>
 #include <boost/filesystem.hpp>
+#include <libmolgrid/grid_io.h>
 #include "caffe/util/signal_handler.h"
 #include "gninadream.h"
 
@@ -122,6 +123,27 @@ bool readDXGrid(std::istream& in, vec& center, double& res, float* grid, unsigne
   }
 
   return true;
+}
+
+void write_dx(const std::string& prefix, mgridT* mgrid, 
+    const libmolgrid::Grid<float,4>& grid) {
+  std::vector<std::string> recnames = mgrid->getRecTypes();
+  gfloat3 center(mgrid->getGridCenter());
+  double resolution = mgrid->getResolution();
+  for (unsigned a = 0, na = recnames.size(); a < na; ++a) {
+    std::string name = recnames[a];
+    std::string fname = prefix + "_rec_" + name + ".dx";
+    std::ofstream out(fname.c_str());
+    libmolgrid::write_dx<float>(out, grid[a], center, resolution);
+  }
+  std::vector<std::string> lignames = mgrid->getLigTypes();
+  unsigned offset = recnames.size();
+  for (unsigned a = 0, na = lignames.size(); a < na; ++a) {
+    std::string name = lignames[a];
+    std::string fname = prefix + "_lig_" + name + ".dx";
+    std::ofstream out(fname.c_str());
+    libmolgrid::write_dx<float>(out, grid[a+offset], center, resolution);
+  }
 }
 
 void cpu_constant_fill(float* fillgrid, size_t gsize, float fillval) {
@@ -431,7 +453,7 @@ int main(int argc, char* argv[]) {
   }
 
   const vector<caffe::shared_ptr<Layer<float> > >& layers = net->layers();
-  mgridT* mgrid = dynamic_cast<BaseMolGridDataLayer<float, GridMaker>*>(layers[0].get());
+  mgridT* mgrid = dynamic_cast<MolGridDataLayer<float>*>(layers[0].get());
   if (mgrid == NULL) {
     throw usage_error("First layer of model must be MolGridDataLayer.");
   }
@@ -497,10 +519,13 @@ int main(int argc, char* argv[]) {
           carve_init(*mgrid, no_density, net, carve_val);
         }
         std::string prefix = rec.stem().string() + "_" + lig.stem().string();
+        float* data = net->top_vecs()[0][0]->mutable_cpu_data();
+        unsigned dim = mgrid->getDim();
+        libmolgrid::Grid<float,4> grid(data, mgrid->getNumChannels(), dim, dim, dim);
         for (size_t i=0; i<iterations; ++i) {
           solver->Step(1);
           if (dump_all || (i==iterations-1 && dump_last))
-            mgrid->dumpGridDX(prefix, net->top_vecs()[0][0]->mutable_cpu_data());
+            write_dx(prefix + "_iteration" + std::to_string(i) + "_", mgrid, grid);
         }
         if (ligand_names[0] == "")
           ligand_names[0] = "none";
@@ -547,11 +572,14 @@ int main(int argc, char* argv[]) {
         bool no_density = ignore_ligand;
         carve_init(*mgrid, no_density, net, carve_val);
       }
+      float* data = net->top_vecs()[0][0]->mutable_cpu_data();
+      unsigned dim = mgrid->getDim();
+      libmolgrid::Grid<float,4> grid(data, mgrid->getNumChannels(), dim, dim, dim);
       for (size_t j=0; j<iterations; ++j) {
         solver->Step(1);
         if (dump_all || (i==iterations-1 && dump_last)) {
           for (size_t k=0; k<opt_names.size(); ++k)
-            mgrid->dumpGridDX(opt_names[k], net->top_vecs()[0][0]->mutable_cpu_data(), 1, k);
+            write_dx(opt_names[k] + "_iteration" + std::to_string(i) + "_", mgrid, grid);
         }
       }
       if (vsfile.size()) {
@@ -727,10 +755,13 @@ int main(int argc, char* argv[]) {
       bool no_density = false;
       carve_init(*mgrid, no_density, net, carve_val);
     }
+    float* data = net->top_vecs()[0][0]->mutable_cpu_data();
+    unsigned dim = mgrid->getDim();
+    libmolgrid::Grid<float,4> grid(data, mgrid->getNumChannels(), dim, dim, dim);
     for (size_t i=0; i<iterations; ++i) {
       solver->Step(1);
       if (dump_all || (i==iterations-1 && dump_last))
-        mgrid->dumpGridDX(out_prefix, net->top_vecs()[0][0]->mutable_cpu_data());
+        write_dx(out_prefix + "_iteration" + std::to_string(i) + "_", mgrid, grid);
     }
     if (vsfile.size()) {
       // make temp gninatypes for setting the center for screen ligands
@@ -763,10 +794,13 @@ int main(int argc, char* argv[]) {
     //restart from optimization in progress
     solver->Restore(ss_cstr);
     int remaining_iters = iterations - solver->iter();
+    float* data = net->top_vecs()[0][0]->mutable_cpu_data();
+    unsigned dim = mgrid->getDim();
+    libmolgrid::Grid<float,4> grid(data, mgrid->getNumChannels(), dim, dim, dim);
     for (size_t i=0; i<remaining_iters; ++i) {
       solver->Step(1);
       if (dump_all || (i==iterations-1 && dump_last))
-        mgrid->dumpGridDX(out_prefix, net->top_vecs()[0][0]->mutable_cpu_data());
+        write_dx(out_prefix + "_iteration" + std::to_string(i) + "_", mgrid, grid);
     }
     if (vsfile.size()) {
       std::vector<caffe::shared_ptr<std::ostream> > out;
