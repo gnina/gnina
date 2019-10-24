@@ -15,7 +15,7 @@
 #define align_up_pow2(n, size)                                    \
     ((decltype (n)) align_down_pow2((uintptr_t) (n) + (size) - 1, size))
 
-size_t free_mem(size_t num_cpu_threads) {
+size_t available_mem(size_t num_cpu_threads) {
   size_t free, total;
   cudaError_t res;
   res = cudaMemGetInfo(&free, &total);
@@ -46,7 +46,7 @@ bool device_buffer::has_space(size_t n_bytes) {
 cudaError_t device_alloc_bytes(void **alloc, size_t n_bytes) {
   // static here gives us lazy initialization and saves us from
   // constructing a thread_buffer for non-worker threads not included in
-  // the free_mem() calculation.
+  // the available_mem() calculation.
   return thread_buffer.alloc((char **) alloc, n_bytes);
 }
 
