@@ -924,7 +924,8 @@ void threads_at_work(job_queue<worker_job>* wrkq,
     {
   if (gs->settings->gpu_on) {
     initializeCUDA(gs->settings->device);
-    thread_buffer.init(free_mem(gs->settings->cpu));
+    if (!(gs->cnnopts.cnn_scoring || gs->cnnopts.cnn_refinement))
+      thread_buffer.init(available_mem(gs->settings->cpu));
   }
 
   worker_job j;

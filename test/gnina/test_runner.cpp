@@ -114,7 +114,7 @@ void initializeCUDA(int device) {
 bool init_unit_test() {
   // initializeCUDA(0);
   // TODO: multithread running tests
-  thread_buffer.init(free_mem(1));
+  thread_buffer.init(available_mem(1));
   std::string logname;
   unsigned seed;
   po::positional_options_description positional;

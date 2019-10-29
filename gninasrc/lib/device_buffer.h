@@ -8,7 +8,7 @@
 #include <cuda_runtime.h>
 #include <assert.h>
 
-size_t free_mem(size_t num_cpu_threads);
+size_t available_mem(size_t num_cpu_threads);
 
 class device_buffer {
     char* begin; //pointer to the beginning of the buffer
