@@ -4,7 +4,7 @@ gnina is **not** recommended for production use (*yet*) in molecular modeling ta
 
 Help
 ====
-**Reminder: gnina is not yet intended for production use**.  However, if you would like to evaluate it or use it as a research platform, please [subscribe to our slack team](https://join.slack.com/t/gninacnn/shared_invite/enQtNTY3ODk2ODk5OTU5LWUxNzIzOTc3OWJiOTY3N2ZhYzgzY2IzZTBiYjMyZGVjY2UyNDlhZDkyYjk5OTY2M2M2ZGEzZjNkMjhlNGQ0NGE). 
+**Reminder: gnina is not yet intended for production use**.  However, if you would like to evaluate it or use it as a research platform, please [subscribe to our slack team](https://join.slack.com/t/gninacnn/shared_invite/enQtNTY3ODk2ODk5OTU5LTkzMjY1ZTE3YjJlZmIxOWI2OTU3Y2RlMTIyYmM2YmFmYTU1NTk5ZTBmMjUwMGRhYzk1ZjY5N2E4Y2I5YWU5YWI).
 
 Citation
 ========
