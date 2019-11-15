@@ -19,9 +19,6 @@
 #include "caffe/util/io.hpp"
 #include "caffe/util/math_functions.hpp"
 
-#include <openbabel/mol.h>
-#include <openbabel/obconversion.h>
-#include <openbabel/obiter.h>
 #include <boost/timer/timer.hpp>
 
 #include <libmolgrid/grid_io.h>
