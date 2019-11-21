@@ -19,9 +19,6 @@
 #include "caffe/util/io.hpp"
 #include "caffe/util/math_functions.hpp"
 
-#include <openbabel/mol.h>
-#include <openbabel/obconversion.h>
-#include <openbabel/obiter.h>
 #include <boost/timer/timer.hpp>
 
 #include <libmolgrid/grid_io.h>
@@ -611,7 +608,16 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const Example& ex,
     minfo.setLigand(ex.sets[pose+1], gpu);
   }
 
-  set_grid_minfo(data, minfo, peturb, gpu, keeptransform);
+  try {
+    set_grid_minfo(data, minfo, peturb, gpu, keeptransform);
+  } catch(...) {
+    LOG(WARNING) << "Error processing";
+    for(unsigned i = 0, n = ex.sets.size(); i < n; i++) {
+      if(ex.sets[i].src) LOG(WARNING) << " " << ex.sets[i].src;
+    }
+    LOG(WARNING) << "\n";
+    throw;
+  }
 
 }
 

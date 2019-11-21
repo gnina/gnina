@@ -5,17 +5,6 @@ find_package(Boost REQUIRED COMPONENTS program_options system iostreams timer
     thread serialization filesystem date_time regex unit_test_framework)
 find_package(OpenMP)
 
-find_package(OpenBabel2)
-if(${OPENBABEL2_FOUND})
-  set(OPENBABEL_LIBRARIES ${OPENBABEL2_LIBRARIES})
-  set(OPENBABEL_INCLUDE_DIR ${OPENBABEL2_INCLUDE_DIR})
-else()
-  find_package(OpenBabel3 REQUIRED)
-  set(OPENBABEL_LIBRARIES ${OPENBABEL3_LIBRARIES})
-  set(OPENBABEL_INCLUDE_DIR ${OPENBABEL3_INCLUDE_DIR})
-endif()
-include_directories(${OPENBABEL_INCLUDE_DIR})
-
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
   list(APPEND CUDA_NVCC_FLAGS -O3 --default-stream per-thread -Xptxas -dlcm=ca)
 elseif("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")

@@ -89,17 +89,6 @@ if(HAVE_CUDA)
   list(APPEND CUDA_NVCC_FLAGS ${Caffe_ALL_DEFINITIONS})
 endif()
 
-find_package(OpenBabel2)
-if(${OPENBABEL2_FOUND})
-  set(OPENBABEL_LIBRARIES ${OPENBABEL2_LIBRARIES})
-  set(OPENBABEL_INCLUDE_DIR ${OPENBABEL2_INCLUDE_DIR})
-else()
-  find_package(OpenBabel3 REQUIRED)
-  set(OPENBABEL_LIBRARIES ${OPENBABEL3_LIBRARIES})
-  set(OPENBABEL_INCLUDE_DIR ${OPENBABEL3_INCLUDE_DIR})
-endif()
-include_directories(${OPENBABEL_INCLUDE_DIR})
-
 # ---[ Subdirectories
 add_subdirectory(src/gtest)
 add_subdirectory(src/caffe)
