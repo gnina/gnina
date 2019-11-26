@@ -66,8 +66,7 @@ void MolGetter::create_init_model(const std::string& rigid_name,
           std::stringstream flexstream(flexstr);
           initm = parse_receptor_pdbqt(rigid_name, recstream, flex_name,
               flexstream);
-        } else //rigid only
-        {
+        } else { //rigid only
           initm = parse_receptor_pdbqt(rigid_name, recstream);
         }
 
