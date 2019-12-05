@@ -6,15 +6,6 @@ include_directories(../gninasrc/lib)
 include_directories(../gninavis)
 include_directories(${LIBMOLGRID_INCLUDE})
 
-find_package(OpenBabel2)
-if(${OPENBABEL2_FOUND})
-  set(OPENBABEL_INCLUDE_DIR ${OPENBABEL2_INCLUDE_DIR})
-else()
-  find_package(OpenBabel3 REQUIRED)
-  set(OPENBABEL_INCLUDE_DIR ${OPENBABEL3_INCLUDE_DIR})
-endif()
-include_directories(${OPENBABEL_INCLUDE_DIR})
-
 # find python
 find_package(PythonInterp)
 if(NOT PYTHONINTERP_FOUND)
