@@ -340,7 +340,7 @@ static ExampleProviderSettings settings_from_param(const MolGridDataParameter& p
   ret.data_root = param.root_folder(); //will have to overwrite if using root_folder2
   ret.recmolcache = param.recmolcache();
   ret.ligmolcache = param.ligmolcache();
-
+  ret.num_copies = param.num_copies();
   return ret;
 }
 
@@ -530,6 +530,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   int number_examples = batch_size;
   bool duplicate = this->layer_param_.molgrid_data_param().duplicate_poses();
+
   if(duplicate) number_examples = batch_size*numposes;
   numchannels = numReceptorTypes+numLigandTypes;
   if(!duplicate && numposes > 1) numchannels = numReceptorTypes+numposes*numLigandTypes;
