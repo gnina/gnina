@@ -144,7 +144,7 @@
 					<folderInfo id="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.407239." name="/" resourcePath="">
 						<toolChain id="com.nvidia.cuda.ide.toolchain.nine_zero.1001606979" name="CUDA Toolkit 9.1" superClass="com.nvidia.cuda.ide.toolchain.nine_zero">
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.601178512" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
-							<builder buildPath="${workspace_loc:/gnina/build}" id="com.nvidia.cuda.ide.builder.254458676" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="CUDA Toolkit 9.2 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
+							<builder buildPath="${workspace_loc:/gnina/build}" id="com.nvidia.cuda.ide.builder.254458676" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="CUDA Toolkit 10.1 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
 							<tool id="nvcc.compiler.base.1634562902" name="NVCC Compiler" superClass="nvcc.compiler.base">
 								<option id="nvcc.compiler.include.paths.1484858518" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/gnina/caffe/include/}&quot;"/>
@@ -179,6 +179,9 @@
 						</toolChain>
 					</folderInfo>
 					<fileInfo id="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.407239.692472802" name="common.h" rcbsApplicability="disable" resourcePath="gninasrc/lib/common.h" toolsToInvoke=""/>
+					<sourceEntries>
+						<entry excluding="*.def" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name=""/>
+					</sourceEntries>
 				</configuration>
 			</storageModule>
 			<storageModule moduleId="com.nvidia.cuda.ide.build.project.ICudaProjectConfiguration"/>

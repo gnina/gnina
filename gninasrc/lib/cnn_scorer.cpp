@@ -53,7 +53,7 @@ CNNScorer::CNNScorer(const cnn_options& opts)
     mgridparam->set_inmemory(true);
     mgridparam->set_subgrid_dim(opts.subgrid_dim);
 
-    if (cnnopts.cnn_model.size() == 0) {
+    if (cnnopts.cnn_model.size() == 0) { //using built-in model, load reg maps
       const char *recmap = cnn_models[cnnopts.cnn_model_name].recmap;
       const char *ligmap = cnn_models[cnnopts.cnn_model_name].ligmap;
       mgridparam->set_mem_recmap(recmap);
@@ -84,9 +84,9 @@ CNNScorer::CNNScorer(const cnn_options& opts)
       NetParameter wparam;
 
       const unsigned char *weights = cnn_models[cnnopts.cnn_model_name].weights;
-      unsigned int nweights = cnn_models[cnnopts.cnn_model_name].num_weights;
+      unsigned int nbytes = cnn_models[cnnopts.cnn_model_name].num_bytes;
 
-      google::protobuf::io::ArrayInputStream weightdata(weights,nweights);
+      google::protobuf::io::ArrayInputStream weightdata(weights,nbytes);
       google::protobuf::io::CodedInputStream strm(&weightdata);
       strm.SetTotalBytesLimit(INT_MAX, 536870912);
       bool success = wparam.ParseFromCodedStream(&strm);

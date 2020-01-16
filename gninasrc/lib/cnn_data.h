@@ -25,11 +25,11 @@ struct cnn_model_def {
     const char *recmap; //these are newline and whitespace delimited strings
     const char *ligmap;
     const unsigned char *weights;
-    const int num_weights;
+    const int num_bytes;
 
     cnn_model_def(const char *m, const char *r, const char *l, const unsigned char *w, int n):
-      model(m), recmap(r), ligmap(l), weights(w), num_weights(n) {}
-    cnn_model_def(): model(NULL), recmap(NULL), ligmap(NULL), weights(NULL), num_weights(0) {}
+      model(m), recmap(r), ligmap(l), weights(w), num_bytes(n) {}
+    cnn_model_def(): model(NULL), recmap(NULL), ligmap(NULL), weights(NULL), num_bytes(0) {}
 };
 
 
