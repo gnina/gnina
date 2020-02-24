@@ -188,7 +188,7 @@ void parallel_mc::operator()(const model& m, output_container& out,
       caffe::Caffe::set_mode(caffe::Caffe::GPU);
       const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(&ig);
       if (!cnn)
-      thread_buffer.init(free_mem(num_threads));}};
+      thread_buffer.init(available_mem(num_threads));}};
   parallel_iter<parallel_mc_aux, parallel_mc_task_container, parallel_mc_task,
       decltype(thread_init), true> parallel_iter_instance(
       &parallel_mc_aux_instance, num_threads, thread_init);

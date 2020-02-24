@@ -39,6 +39,11 @@ endif()
 
 include_directories(${LIBMOLGRID_INCLUDE_DIR})
 
+find_package(OpenBabel3 REQUIRED)
+#get_target_property(OPENBABEL_LIBRARIES openbabel LOCATION)
+set(OPENBABEL_LIBRARIES $<TARGET_FILE:openbabel>)
+set(OPENBABEL_INCLUDE_DIR ${OpenBabel3_INCLUDE_DIRS})
+include_directories(${OPENBABEL_INCLUDE_DIR})
 
 include(caffe/cmake/Utils.cmake)
 include(caffe/cmake/Cuda.cmake)

@@ -961,7 +961,8 @@ message MolGridDataParameter {
   optional uint32 peturb_bins = 54 [default = 0]; // if > 0, output categorical labels for discretized bins instead of actual values for peturb
   optional float gaussian_radius_multiple = 55 [default = 1.0]; //radius multiple where gaussian switches to quadratic  
   optional float radius_scaling = 56 [default = 1.0]; //specify radius scaling factor
-  optional bool ignore_rec = 57 [default = false]; //used by dream opt
+  optional uint32 num_copies = 57 [default = 1]; //number of times to copy example
+  optional bool ignore_rec = 58 [default = false]; //used by dream opt
 }
 
 message NDimDataParameter {

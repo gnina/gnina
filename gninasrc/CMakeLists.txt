@@ -3,7 +3,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Boost REQUIRED COMPONENTS program_options system iostreams timer
     thread serialization filesystem date_time regex unit_test_framework)
-find_package(OpenBabel2 REQUIRED)
 find_package(OpenMP)
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
@@ -26,7 +25,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 include_directories(${Boost_INCLUDE_DIRS}) 
 include_directories(${CUDA_INCLUDE_DIRS})
-include_directories(${OPENBABEL2_INCLUDE_DIR})
 # need to use eigen 3.2 until CUDA fixes are released
 include_directories(../Eigen)
 
@@ -88,12 +86,12 @@ file(GLOB DREAMTEST_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} gninadream/test/*.
 
 add_library(gninalib ${LIB_SRCS} ${DREAM_SRCS})
 set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
+target_link_libraries(gninalib caffe ${Boost_LIBRARIES} ${OPENBABEL_LIBRARIES})
 # MESSAGE(STATUS "variable is: " ${NVCC_FLAGS_EXTRA})
 
 add_library(gninalib_static STATIC ${LIB_SRCS})
 set_target_properties(gninalib_static PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib_static caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
+target_link_libraries(gninalib_static caffe ${Boost_LIBRARIES} ${OPENBABEL_LIBRARIES})
 
 install(TARGETS gninalib gninalib_static DESTINATION lib)
 
@@ -103,21 +101,21 @@ include_directories(${LIBMOLGRID_INCLUDE})
 
 # compile in libgnina - there are enough dependencies to deal with
 add_executable(gnina main/main.cpp ${LIB_SRCS})
-target_link_libraries(gnina caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${LIBMOLGRID_LIBRARY})
+target_link_libraries(gnina caffe ${Boost_LIBRARIES} ${OPENBABEL_LIBRARIES} ${LIBMOLGRID_LIBRARY})
 
 add_subdirectory(gninaserver)
 
 add_executable(fromgnina fromgnina/fromgnina.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(fromgnina  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} )
+target_link_libraries(fromgnina  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL_LIBRARIES} )
 
 add_executable(gninagrid gninagrid/gninagrid.cpp gninagrid/molgridder.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(gninagrid  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${CUDA_LIBRARIES})
+target_link_libraries(gninagrid  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL_LIBRARIES} ${CUDA_LIBRARIES})
 
 add_executable(gninatyper gninatyper/gninatyper.cpp lib/CommandLine2/CommandLine.cpp ${LIB_SRCS})
-target_link_libraries(gninatyper  caffe ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${LIBMOLGRID_LIBRARY})
+target_link_libraries(gninatyper  caffe ${Boost_LIBRARIES} ${OPENBABEL_LIBRARIES} ${LIBMOLGRID_LIBRARY})
 
 add_executable(tognina tognina/tognina.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES})
+target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL_LIBRARIES})
 
 add_executable(gninadream ${DREAM_SRCS})
 target_link_libraries(gninadream caffe gninalib ${OPENBABEL2_LIBRARIES} ${LIBMOLGRID_LIBRARY} OpenMP::OpenMP_CXX)
@@ -135,7 +133,7 @@ if(RDKIT_FOUND)
     set(rdkit_lib_line "-lFileParsers -lSmilesParse -lDepictor -lGraphMol -lRDGeometryLib -lRDGeneral -lSubstructMatch -lSubgraphs -lDataStructs")
     
     add_executable(gninavis gninavis/gninavis.cpp lib/CommandLine2/CommandLine.cpp gninavis/cnn_visualization.cpp gninavis/cnn_visualization.hpp)
-    target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL2_LIBRARIES} ${RDKIT_LIBRARIES})
+    target_link_libraries(gninavis caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL_LIBRARIES} ${RDKIT_LIBRARIES})
     install(TARGETS gninavis RUNTIME DESTINATION bin)
     
 else()

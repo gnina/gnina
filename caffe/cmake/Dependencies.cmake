@@ -14,11 +14,6 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 list(APPEND Caffe_INCLUDE_DIRS PUBLIC ${Boost_INCLUDE_DIRS})
 list(APPEND Caffe_LINKER_LIBS ${Boost_LIBRARIES} )
 
-# find and setup openbabel
-find_package(OpenBabel2 REQUIRED)
-include_directories(${OPENBABEL2_INCLUDE_DIR})
-list(APPEND Caffe_LINKER_LIBS  ${OPENBABEL2_LIBRARIES} )
-
 # libmolgrid
 find_package(libmolgrid REQUIRED)
 include_directories($LIBMOLGRID_INCLUDE_DIR)

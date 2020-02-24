@@ -5,7 +5,6 @@ include_directories (${Boost_INCLUDE_DIRS})
 include_directories(../gninasrc/lib)
 include_directories(../gninavis)
 include_directories(${LIBMOLGRID_INCLUDE})
-include_directories(${OPENBABEL2_INCLUDE_DIR})
 
 # find python
 find_package(PythonInterp)

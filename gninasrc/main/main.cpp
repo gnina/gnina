@@ -511,8 +511,7 @@ void main_procedure(model& m, precalculate& prec,
     }
     else
     {
-      if (settings.cnnopts.cnn_scoring || settings.cnnopts.cnn_refinement)
-          {
+      if (settings.cnnopts.cnn_scoring || settings.cnnopts.cnn_refinement) {
         nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
       }
       else
@@ -521,8 +520,7 @@ void main_procedure(model& m, precalculate& prec,
       }
     }
 
-    if (no_cache || settings.cnnopts.cnn_scoring)
-        {
+    if (no_cache || settings.cnnopts.cnn_scoring)  {
       do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
           settings, compute_atominfo, log,
           wt.unweighted_terms(), user_grid, cnn,
@@ -924,7 +922,8 @@ void threads_at_work(job_queue<worker_job>* wrkq,
     {
   if (gs->settings->gpu_on) {
     initializeCUDA(gs->settings->device);
-    thread_buffer.init(free_mem(gs->settings->cpu));
+    if (!(gs->cnnopts.cnn_scoring || gs->cnnopts.cnn_refinement))
+      thread_buffer.init(available_mem(gs->settings->cpu));
   }
 
   worker_job j;
@@ -1212,9 +1211,9 @@ Thank you!\n";
     ("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
         "evaluate multiple rotations of pose (max 24)")
     ("cnn_scoring", bool_switch(&cnnopts.cnn_scoring),
-        "Use a convolutional neural network to score final pose.")
+        "Use a convolutional neural network to score poses.")
     ("cnn_refinement", bool_switch(&cnnopts.cnn_refinement),
-        "Use a convolutional neural network for final minimization of docked poses")
+        "Use a convolutional neural network for final refinement of docked poses only")
     ("cnn_update_min_frame", bool_switch(&cnnopts.move_minimize_frame),
         "During minimization, recenter coordinate frame as ligand moves")
     ("cnn_freeze_receptor", bool_switch(&cnnopts.fix_receptor),

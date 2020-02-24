@@ -19,9 +19,6 @@
 #include "caffe/util/io.hpp"
 #include "caffe/util/math_functions.hpp"
 
-#include <openbabel/mol.h>
-#include <openbabel/obconversion.h>
-#include <openbabel/obiter.h>
 #include <boost/timer/timer.hpp>
 
 #include <libmolgrid/grid_io.h>
@@ -343,7 +340,7 @@ static ExampleProviderSettings settings_from_param(const MolGridDataParameter& p
   ret.data_root = param.root_folder(); //will have to overwrite if using root_folder2
   ret.recmolcache = param.recmolcache();
   ret.ligmolcache = param.ligmolcache();
-
+  ret.num_copies = param.num_copies();
   return ret;
 }
 
@@ -535,6 +532,7 @@ void MolGridDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   int number_examples = batch_size;
   bool duplicate = this->layer_param_.molgrid_data_param().duplicate_poses();
+
   if(duplicate) number_examples = batch_size*numposes;
   numchannels = numReceptorTypes+numLigandTypes;
   if(!duplicate && numposes > 1) numchannels = numReceptorTypes+numposes*numLigandTypes;
@@ -613,7 +611,16 @@ void MolGridDataLayer<Dtype>::set_grid_ex(Dtype *data, const Example& ex,
     minfo.setLigand(ex.sets[pose+1], gpu);
   }
 
-  set_grid_minfo(data, minfo, peturb, gpu, keeptransform);
+  try {
+    set_grid_minfo(data, minfo, peturb, gpu, keeptransform);
+  } catch(...) {
+    LOG(WARNING) << "Error processing";
+    for(unsigned i = 0, n = ex.sets.size(); i < n; i++) {
+      if(ex.sets[i].src) LOG(WARNING) << " " << ex.sets[i].src;
+    }
+    LOG(WARNING) << "\n";
+    throw;
+  }
 
 }
 

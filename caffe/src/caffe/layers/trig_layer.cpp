@@ -23,7 +23,7 @@ void TrigLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     if(func == TrigParameter_Function_COS)
       top_data[i] = cos(bottom_data[i]);
     else if(func == TrigParameter_Function_SIN)
-      top_data[i] = cos(bottom_data[i]);
+      top_data[i] = sin(bottom_data[i]);
     else
       CHECK(0) << "Unsupported trig function";
   }

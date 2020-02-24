@@ -49,11 +49,7 @@ caffe_option(USE_OPENMP "Link with OpenMP (when your BLAS wants OpenMP and you g
 # ---[ Dependencies
 include(cmake/Dependencies.cmake)
 
-find_package(OpenBabel2 REQUIRED)
-
 find_package(OpenMP)
-
-
 # ---[ Flags
 if(UNIX OR APPLE)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall")
@@ -93,11 +89,6 @@ if(HAVE_CUDA)
   list(REMOVE_ITEM Caffe_ALL_DEFINITIONS PRIVATE PUBLIC)
   list(APPEND CUDA_NVCC_FLAGS ${Caffe_ALL_DEFINITIONS})
 endif()
-
-
-
-include_directories(${OPENBABEL2_INCLUDE_DIR})
-
 
 # ---[ Subdirectories
 add_subdirectory(src/gtest)
