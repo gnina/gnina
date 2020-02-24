@@ -82,7 +82,8 @@ void MCMolConverter::convertConformer(unsigned conf, std::ostream& out) {
 unsigned convertParsing(OBMol& mol, parsing_struct& p, context& c, int rootatom,
     const vector<int>& norotate, bool addH) {
   if (addH) mol.AddHydrogens();
-
+  mol.PerceiveBondOrders();
+  mol.SetAromaticPerceived();
   mol.SetAutomaticFormalCharge(false);
   DeleteHydrogens(mol); //leaves just polars
 
