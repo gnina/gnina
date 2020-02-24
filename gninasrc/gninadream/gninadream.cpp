@@ -688,9 +688,9 @@ int main(int argc, char* argv[]) {
         throw usage_error("No weights for CNN model " + cnnopts.cnn_model_name);
       }
       const unsigned char *weights = cnn_models[cnnopts.cnn_model_name].weights;
-      unsigned int nweights = cnn_models[cnnopts.cnn_model_name].num_weights;
+      unsigned int nbytes = cnn_models[cnnopts.cnn_model_name].num_bytes;
 
-      google::protobuf::io::ArrayInputStream weightdata(weights,nweights);
+      google::protobuf::io::ArrayInputStream weightdata(weights,nbytes);
       google::protobuf::io::CodedInputStream strm(&weightdata);
       strm.SetTotalBytesLimit(INT_MAX, 536870912);
       bool success = wparam.ParseFromCodedStream(&strm);
