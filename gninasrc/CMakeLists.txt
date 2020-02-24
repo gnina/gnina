@@ -118,10 +118,10 @@ add_executable(tognina tognina/tognina.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(tognina  caffe gninalib ${Boost_LIBRARIES} ${OPENBABEL_LIBRARIES})
 
 add_executable(gninadream ${DREAM_SRCS})
-target_link_libraries(gninadream caffe gninalib ${OPENBABEL2_LIBRARIES} ${LIBMOLGRID_LIBRARY} OpenMP::OpenMP_CXX)
+target_link_libraries(gninadream caffe gninalib ${OPENBABEL_LIBRARIES} ${LIBMOLGRID_LIBRARY} OpenMP::OpenMP_CXX)
 
 add_executable(dreamcheck ${DREAMTEST_SRCS})
-target_link_libraries(dreamcheck caffe gninalib ${OPENBABEL2_LIBRARIES} ${CUDA_LIBRARIES} OpenMP::OpenMP_CXX)
+target_link_libraries(dreamcheck caffe gninalib ${OPENBABEL_LIBRARIES} ${CUDA_LIBRARIES} OpenMP::OpenMP_CXX)
 
 install(TARGETS gnina gninagrid gninatyper fromgnina tognina RUNTIME DESTINATION bin)
 
