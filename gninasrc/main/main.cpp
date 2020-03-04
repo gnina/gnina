@@ -200,8 +200,9 @@ static void get_cnn_info(model& m, CNNScorer& cnn, tee& log, float& cnnscore,
   cnnforces = 0;
   cnnaffinity = 0;
   cnnscore = cnn.score(m, false, cnnaffinity, loss);
-  if (cnnscore >= 0)
+  if (cnnscore >= 0 && cnn.options().moving_receptor())
   {
+    //recalculate with ligand at center
     if (cnn.options().verbose) {
       log << "CNNscore1: " << std::fixed << std::setprecision(10) << cnnscore;
       log.endl();
@@ -212,12 +213,13 @@ static void get_cnn_info(model& m, CNNScorer& cnn, tee& log, float& cnnscore,
 
     cnn.set_center_from_model(m);
     cnnscore = cnn.score(m, false, cnnaffinity, loss);
-    log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
-    log.endl();
-    log << "CNNaffinity: " << std::fixed << std::setprecision(10)
-        << cnnaffinity;
-    log.endl();
   }
+
+  log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
+  log.endl();
+  log << "CNNaffinity: " << std::fixed << std::setprecision(10)
+      << cnnaffinity;
+  log.endl();
 }
 
 //dkoes - return all energies and rmsds to original conf with result
@@ -245,8 +247,10 @@ void do_search(model& m, const boost::optional<model>& ref,
   const vec authentic_v(settings.forcecap, settings.forcecap,
       settings.forcecap); //small cap restricts initial movement from clash
 
+  cnn.set_center_from_model(m);
   if (settings.score_only)
   {
+    cnn.freeze_receptor();
     intramolecular_energy = m.eval_intramolecular(exact_prec,
         authentic_v, c);
     naive_non_cache nnc(&exact_prec); // for out of grid issues

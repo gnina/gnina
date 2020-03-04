@@ -88,6 +88,12 @@ class CNNScorer {
       return cnnopts;
     }
 
+    //disable receptor movement (e.g. for score only)
+    void freeze_receptor() {
+      cnnopts.move_minimize_frame = true;
+      cnnopts.fix_receptor = true;
+    }
+
     vec get_center() const {
       return current_center;
     }
