@@ -154,8 +154,10 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   if(nflex > -1 && residues.size() > nflex && nflex_hard_limit){
     throw std::runtime_error("Number of flexible residues found is higher than --flex_limit.");
   }
-  // TODO@RMeli: nflex_hard_limit==false will corespond to a "soft" limit
-  // TODO@RMeli: Only the closest nflex residues will be retained
+  else if(nflex > -1 && residues.size() > nflex){
+    log << "WARNING: Only the flex_max residues closer to the ligand are considered as flexible.\n";
+    throw std::runtime_error("NOT IMPLEMENTED");
+  }
 
   std::vector<std::tuple<char, int, char> > sortedres(residues.begin(), residues.end());
   for (unsigned i = 0, n = sortedres.size(); i < n; i++) {
