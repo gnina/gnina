@@ -5,10 +5,14 @@
 #include <openbabel/bond.h>
 #include <boost/unordered_map.hpp>
 
+#include <exception>
+
 using namespace std;
 FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
-    const std::string& ligand, tee& l)
-    : flex_dist(flexdist), log(l) {
+    const std::string& ligand,
+    int nflex_, bool nflex_hard_limit_,
+    tee& l)
+    : flex_dist(flexdist), nflex(nflex_), nflex_hard_limit(nflex_hard_limit_), log(l) {
   using namespace OpenBabel;
   using namespace std;
   //first extract comma separated list
@@ -146,6 +150,12 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   if (firstres) defaultch = firstres->GetChain();
 
   sanitizeResidues(receptor);
+
+  if(nflex > -1 && residues.size() > nflex && nflex_hard_limit){
+    throw std::runtime_error("Number of flexible residues found is higher than --flex_limit.");
+  }
+  // TODO@RMeli: nflex_hard_limit==false will corespond to a "soft" limit
+  // TODO@RMeli: Only the closest nflex residues will be retained
 
   std::vector<std::tuple<char, int, char> > sortedres(residues.begin(), residues.end());
   for (unsigned i = 0, n = sortedres.size(); i < n; i++) {

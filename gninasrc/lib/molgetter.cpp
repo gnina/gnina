@@ -56,7 +56,17 @@ void MolGetter::create_init_model(const std::string& rigid_name,
       }
         OBMol rigid;
         std::string flexstr;
-        finfo.extractFlex(rec, rigid, flexstr);
+
+        // Try to extract flexible residues
+        // Can fail with std::runtime_error if `--flex_limit` is set
+        try{
+          finfo.extractFlex(rec, rigid, flexstr);
+        }
+        catch(std::runtime_error &e){
+          // --flex_limit exceeded; print error and quit
+          log << e.what() << "\n";
+          std::exit(-1);
+        }
 
         std::string recstr = conv.WriteString(&rigid);
         std::stringstream recstream(recstr);

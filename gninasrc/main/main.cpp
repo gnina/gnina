@@ -1074,6 +1074,10 @@ Thank you!\n";
     std::string autobox_ligand;
     std::string flexdist_ligand;
     std::string builtin_scoring;
+    int flex_limit = -1;
+    int flex_max = -1;
+    int nflex = -1;
+    bool nflex_hard_limit = true; // TODO@RMeli: Use for defining "soft" flexmax
 
     // -0.035579, -0.005156, 0.840245, -0.035069, -0.587439, 0.05846
     fl weight_gauss1 = -0.035579;
@@ -1116,7 +1120,9 @@ Thank you!\n";
     ("flexdist_ligand", value<std::string>(&flexdist_ligand),
         "Ligand to use for flexdist")
     ("flexdist", value<double>(&flex_dist),
-        "set all side chains within specified distance to flexdist_ligand to flexible");
+        "set all side chains within specified distance to flexdist_ligand to flexible")
+    ("flex_limit", value<int>(&flex_limit),
+        "Hard limit for the number of flexible residues");
 
     //options_description search_area("Search area (required, except with --score_only)");
     options_description search_area("Search space (required)");
@@ -1434,6 +1440,14 @@ Thank you!\n";
       throw usage_error(
           "Flexible side chains are not allowed without the rest of the receptor"); // that's the only way parsing works, actually
 
+    if(flex_limit > -1 && flex_max > -1){
+      throw usage_error(
+          "--flex_lim and --flex_max can't be used together.");
+    }
+    else{
+      nflex = std::max(flex_limit, flex_max);
+    }
+
     tee log(quiet);
     if (vm.count("log") > 0)
       log.init(log_name);
@@ -1442,7 +1456,7 @@ Thank you!\n";
     if (vm.count("atom_terms") > 0)
       atomoutfile.open(atom_name.c_str());
 
-    FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, log);
+    FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, flex_limit, nflex_hard_limit, log);
 
     // dkoes - parse in receptor once
     MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
@@ -1469,6 +1483,10 @@ Thank you!\n";
     }
 
     log << cite_message << '\n';
+
+    if(nflex > 0 && flex_res.size() > 0){
+      log << "WARNING: --flex_limit and --flexmax ignored with --flexres\n\n";
+    }
 
     grid_dims gd; // n's = 0 via default c'tor
     grid_dims user_gd;
