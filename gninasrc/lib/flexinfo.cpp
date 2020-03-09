@@ -6,6 +6,7 @@
 #include <boost/unordered_map.hpp>
 
 #include <exception>
+#include <limits>
 
 using namespace std;
 FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
@@ -115,6 +116,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   b.expand(flex_dist);
   double flsq = flex_dist * flex_dist;
 
+  std::map<std::size_t, double> residues_distances;
   FOR_ATOMS_OF_MOL(a, rigid){
     if(a->GetAtomicNum() == 1)
     continue; //heavy atoms only
@@ -135,6 +137,8 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
             int resid = residue->GetNum();
             char icode = residue->GetInsertionCode();
             if(!isInflexible(residue->GetName())) {
+              residues_distances.insert({residue->GetIdx(), std::numeric_limits<double>::max()});
+
               residues.insert(std::tuple<char, int, char>(ch, resid, icode));
             }
           }
@@ -156,7 +160,48 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   }
   else if(nflex > -1 && residues.size() > nflex){
     log << "WARNING: Only the flex_max residues closer to the ligand are considered as flexible.\n";
-    throw std::runtime_error("NOT IMPLEMENTED");
+
+    // Loop over residue list and compute minimum distances
+    for(auto& resdist : residues_distances){
+
+      // Current residue (among flexible ones)
+      std::size_t residx = resdist.first; // Key
+      OBResidue* res = rigid.GetResidue(residx);
+
+      // Minimum distance between ligand and current residue atoms
+      double d2;
+
+      // Loop over ligand atoms
+      FOR_ATOMS_OF_MOL(alig, distligand)
+      {
+        vector3 al = alig->GetVector();
+
+        // Loop over residue atoms
+        for(const auto ares: res->GetAtoms()){
+  
+          vector3 ar = ares->GetVector();
+
+          d2 = al.distSq(ar);
+
+          if (d2 < resdist.second)
+          {
+            resdist.second = d2;
+          }
+        }
+      }
+    }
+
+    //std::sort(residues_distances.begin(), residues_distances.end(), 
+    //  [](const std::pair<std::size_t, double>& p1, const std::pair<std::size_t, double>& p2){
+    //    return p1.second < p2.second;
+    //  }
+    //);
+
+
+    std::cout << "DISTANCES" << std::endl;
+    for (const auto& resdist : residues_distances){
+      std::cout << resdist.second << std::endl;
+    }
   }
 
   std::vector<std::tuple<char, int, char> > sortedres(residues.begin(), residues.end());
