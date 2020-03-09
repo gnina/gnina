@@ -7,7 +7,6 @@
 
 #include <exception>
 #include <limits>
-#include <unordered_map>
 
 using namespace std;
 FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
@@ -104,6 +103,68 @@ void FlexInfo::sanitizeResidues(OpenBabel::OBMol& receptor) {
   }
 }
 
+void FlexInfo::keepNearestResidues(
+  const OpenBabel::OBMol& rigid, 
+  std::unordered_map<std::size_t, double>& residues_distances){
+
+  using namespace OpenBabel;
+
+  // Loop over residue list and compute minimum distances
+  for(auto& resdist : residues_distances){
+
+    // Current residue (among flexible ones)
+    std::size_t residx = resdist.first; // Key
+    OBResidue* res = rigid.GetResidue(residx);
+
+    // Minimum distance between ligand and current residue atoms
+    double d2;
+
+    // Loop over ligand atoms
+    FOR_ATOMS_OF_MOL(alig, distligand)
+    {
+      vector3 al = alig->GetVector();
+
+      // Loop over residue atoms
+      for(const auto ares: res->GetAtoms()){
+
+        vector3 ar = ares->GetVector();
+
+        d2 = al.distSq(ar);
+
+        if (d2 < resdist.second)
+        {
+          resdist.second = d2;
+        }
+      }
+    }
+  }
+
+  // std::map is sorted by keys
+  std::map<double, std::size_t> residues_distances_sorted;
+  for(const auto& resdist : residues_distances){
+    residues_distances_sorted.insert({resdist.second, resdist.first});
+  }
+
+  residues.clear();
+  std::size_t res_added = 0;
+  for (const auto& resdist : residues_distances_sorted)
+  {
+    if(res_added == nflex){
+      break;
+    }
+
+    OBResidue* residue = rigid.GetResidue(resdist.second);
+
+    char ch = residue->GetChain();
+    int resid = residue->GetNum();
+    char icode = residue->GetInsertionCode();
+
+    residues.insert(std::tuple<char, int, char>(ch, resid, icode));
+
+    res_added++;
+  }
+}
+
 void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
     std::string& flexpdbqt) {
   using namespace OpenBabel;
@@ -162,60 +223,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   else if(nflex > -1 && residues.size() > nflex){
     log << "WARNING: Only the flex_max residues closer to the ligand are considered as flexible.\n";
 
-    // Loop over residue list and compute minimum distances
-    for(auto& resdist : residues_distances){
-
-      // Current residue (among flexible ones)
-      std::size_t residx = resdist.first; // Key
-      OBResidue* res = rigid.GetResidue(residx);
-
-      // Minimum distance between ligand and current residue atoms
-      double d2;
-
-      // Loop over ligand atoms
-      FOR_ATOMS_OF_MOL(alig, distligand)
-      {
-        vector3 al = alig->GetVector();
-
-        // Loop over residue atoms
-        for(const auto ares: res->GetAtoms()){
-  
-          vector3 ar = ares->GetVector();
-
-          d2 = al.distSq(ar);
-
-          if (d2 < resdist.second)
-          {
-            resdist.second = d2;
-          }
-        }
-      }
-    }
-
-    // std::map is sorted by keys
-    std::map<double, std::size_t> residues_distances_sorted;
-    for(const auto& resdist : residues_distances){
-      residues_distances_sorted.insert({resdist.second, resdist.first});
-    }
-
-    residues.clear();
-    std::size_t res_added = 0;
-    for (const auto& resdist : residues_distances_sorted)
-    {
-      if(res_added == nflex){
-        break;
-      }
-
-      OBResidue* residue = rigid.GetResidue(resdist.second);
-
-      char ch = residue->GetChain();
-      int resid = residue->GetNum();
-      char icode = residue->GetInsertionCode();
-
-      residues.insert(std::tuple<char, int, char>(ch, resid, icode));
-
-      res_added++;
-    }
+    keepNearestResidues(rigid, residues_distances);
 
   }
 
