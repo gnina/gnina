@@ -7,6 +7,7 @@
 
 #include <exception>
 #include <limits>
+#include <unordered_map>
 
 using namespace std;
 FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
@@ -116,7 +117,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   b.expand(flex_dist);
   double flsq = flex_dist * flex_dist;
 
-  std::map<std::size_t, double> residues_distances;
+  std::unordered_map<std::size_t, double> residues_distances;
   FOR_ATOMS_OF_MOL(a, rigid){
     if(a->GetAtomicNum() == 1)
     continue; //heavy atoms only
@@ -191,17 +192,31 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
       }
     }
 
-    //std::sort(residues_distances.begin(), residues_distances.end(), 
-    //  [](const std::pair<std::size_t, double>& p1, const std::pair<std::size_t, double>& p2){
-    //    return p1.second < p2.second;
-    //  }
-    //);
-
-
-    std::cout << "DISTANCES" << std::endl;
-    for (const auto& resdist : residues_distances){
-      std::cout << resdist.second << std::endl;
+    // std::map is sorted by keys
+    std::map<double, std::size_t> residues_distances_sorted;
+    for(const auto& resdist : residues_distances){
+      residues_distances_sorted.insert({resdist.second, resdist.first});
     }
+
+    residues.clear();
+    std::size_t res_added = 0;
+    for (const auto& resdist : residues_distances_sorted)
+    {
+      if(res_added == nflex){
+        break;
+      }
+
+      OBResidue* residue = rigid.GetResidue(resdist.second);
+
+      char ch = residue->GetChain();
+      int resid = residue->GetNum();
+      char icode = residue->GetInsertionCode();
+
+      residues.insert(std::tuple<char, int, char>(ch, resid, icode));
+
+      res_added++;
+    }
+
   }
 
   std::vector<std::tuple<char, int, char> > sortedres(residues.begin(), residues.end());
