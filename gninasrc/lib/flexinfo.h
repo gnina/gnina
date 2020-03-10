@@ -45,6 +45,8 @@ class FlexInfo {
     void keepNearestResidues(
       const OpenBabel::OBMol& 
       rigid, std::unordered_map<std::size_t, double>& residues_distances);
+    bool isSideChain(std::string aid);
+
 };
 
 #endif /* SMINA_FLEXINFO_H */
