@@ -18,6 +18,9 @@ class FlexInfo {
     OpenBabel::OBMol distligand;
     tee& log;
 
+    int nflex;
+    bool nflex_hard_limit;
+
     char defaultch = ' '; // Default chain
 
   public:
@@ -25,7 +28,7 @@ class FlexInfo {
         : flex_dist(0), log(l) {
     }
     FlexInfo(const std::string& flexres, double flexdist,
-        const std::string& ligand, tee& l);
+        const std::string& ligand, int nflex, bool nflex_hard_limit, tee& l);
     bool hasContent() const {
       return residues.size() > 0 || flex_dist > 0;
     }
