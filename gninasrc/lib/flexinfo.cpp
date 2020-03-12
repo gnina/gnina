@@ -127,7 +127,7 @@ void FlexInfo::keepNearestResidues(
       // Loop over residue atoms
       for(const auto ares: res->GetAtoms()){
 
-        if(!isSideChain(ares->GetResidue()->GetAtomID(&(*ares)))) continue; // skip backbone
+        if(!isSideChain(res->GetAtomID(ares))) continue; // skip backbone
 
         vector3 ar = ares->GetVector();
 
@@ -189,7 +189,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   std::unordered_map<std::size_t, double> residues_distances;
   FOR_ATOMS_OF_MOL(a, rigid){
     if(a->GetAtomicNum() == 1) continue; //heavy atoms only
-    if(!isSideChain(a->GetResidue()->GetAtomID(&(*a)))) continue; // skip backbone
+    //if(!isSideChain(a->GetResidue()->GetAtomID(&(*a)))) continue; // skip backbone
 
     vector3 v = a->GetVector();
     if (b.ptIn(v.x(), v.y(), v.z()))
