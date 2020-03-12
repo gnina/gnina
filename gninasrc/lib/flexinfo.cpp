@@ -189,9 +189,13 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   std::unordered_map<std::size_t, double> residues_distances;
   FOR_ATOMS_OF_MOL(a, rigid){
     if(a->GetAtomicNum() == 1) continue; //heavy atoms only
-    //if(!isSideChain(a->GetResidue()->GetAtomID(&(*a)))) continue; // skip backbone
+    if (a->GetResidue() != NULL){ // Check
+      // TODO: @RMeli figure out exactly then this happens 
+      if (!isSideChain(a->GetResidue()->GetAtomID(&(*a))))
+        continue; // skip backbone
+    }
 
-    vector3 v = a->GetVector();
+      vector3 v = a->GetVector();
     if (b.ptIn(v.x(), v.y(), v.z()))
     {
       //in box, see if any atoms are close enough
