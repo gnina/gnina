@@ -26,10 +26,18 @@ class builtin_scoring {
 
     //map from names to sets of terms
     typedef boost::unordered_map<std::string, std::vector<singleterm> > funcmap;
+    //optional - map from names to different atom type data
+    typedef boost::unordered_map<std::string, const smina_atom_type::info* > datamap;
     funcmap functions;
+    datamap atomdata;
 
     void add(const std::string& name, const char *term, double w) {
       functions[name].push_back(singleterm(term, w));
+    }
+
+    void addparams(const std::string& name, const smina_atom_type::info* data)
+    {
+      atomdata[name] = data;
     }
 
   public:
@@ -43,6 +51,16 @@ class builtin_scoring {
       std::vector<singleterm>& terms = functions[name];
       for (unsigned i = 0, n = terms.size(); i < n; i++) {
         t.add(terms[i].term, terms[i].weight);
+      }
+
+      if(atomdata.count(name))
+      {
+        //not an error if doesn't exist - just use default atom parameters
+        //but if it does exist, set new params
+        const smina_atom_type::info *data = atomdata[name];
+        assert(data);
+        for(size_t i = 0u; i < smina_atom_type::NumTypes; ++i)
+          smina_atom_type::data[i] = data[i];
       }
       return true;
     }

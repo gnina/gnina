@@ -40,7 +40,7 @@ boost::unordered_map<std::string, cnn_model_def> cnn_models = boost::assign::map
     ))(
         "general_default2018", cnn_model_def(
         #include "models/default2018.def"
-    #include "models/weights/crossdock_2018_0.def"
+    #include "models/weights/general_2018_0.def"
         ))(
         "general_default2018_1", cnn_model_def(
         #include "models/default2018.def"
