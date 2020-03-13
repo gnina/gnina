@@ -28,7 +28,6 @@ def moved(output, reference, refformat):
         assert len(mola.residues) == len(molb.residues)
 
         for resa, resb in zip(mola.residues, molb.residues):
-            print(resa.name.strip(), resb.name.strip())
             assert resa.name.strip() == resb.name.strip()
 
     for a, b in zip(mola.atoms, molb.atoms):
@@ -45,7 +44,7 @@ def moved(output, reference, refformat):
 outlig="lig-min.pdb"
 outflex="flex-min.pdb"
 
-subprocess.check_call("%s  -r data/10gs_rec.pdb -l data/10gs_lig.mol2 \
+subprocess.check_call("%s -r data/10gs_rec.pdb -l data/10gs_lig.mol2 \
     --cnn_scoring --minimize \
     --flexdist 3 --flexdist_ligand data/10gs_lig.mol2 \
     -o %s --out_flex %s \
@@ -57,17 +56,16 @@ assert moved(outflex, "data/10gs_rec_ref.pdb", "pdb")
 rmout(outlig, outflex)
 
 # Test if side chains moved after docking with flexible residues
-"""
+
 outlig="lig-dock.pdb"
 outflex="flex-dock.pdb"
 
-subprocess.check_call("%s  -r data/184l_rec.pdb -l data/184l_lig.sdf \
+subprocess.check_call("%s -r data/184l_rec.pdb -l data/184l_lig.sdf \
     --autobox_ligand data/184l_lig.sdf --autobox_add 6 \
     --flexdist 3.5 --flexdist_ligand data/184l_lig.sdf \
-    -o %s --out_flex %s 2>&1 gnina.log"
+    -o %s --out_flex %s"
     %(gnina, outlig, outflex), shell=True)
 
 assert moved(outlig, "data/184l_lig.sdf", "sdf")
 assert moved(outflex, "data/184l_rec_ref.pdb", "pdb")
 rmout(outlig, outflex, "gnina.log")
-"""
