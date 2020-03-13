@@ -29,6 +29,7 @@ def moved(output, reference, refformat):
 
         for resa, resb in zip(mola.residues, molb.residues):
             assert resa.name.strip() == resb.name.strip()
+            assert resa.OBResidue.GetChain() == resb.OBResidue.GetChain()
 
     for a, b in zip(mola.atoms, molb.atoms):
             dist = np.linalg.norm(np.array(a.coords)-np.array(b.coords))
