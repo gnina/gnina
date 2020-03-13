@@ -1,0 +1,118 @@
+184L_I4B_A_401
+  RCSB PDB12061701563D
+Coordinates from PDB:184L:A:401 Model:1 without hydrogens
+ 10 10  0  0  0  0            999 V2000
+   27.3570    6.7720    3.3880   C 0  0  0  0  0  0  0  0  0  0  0  0
+   27.3210    7.2930    4.6580   C 0  0  0  0  0  0  0  0  0  0  0  0
+   26.5680    6.6500    5.6700   C 0  0  0  0  0  0  0  0  0  0  0  0
+   25.8310    5.5260    5.3590   C 0  0  0  0  0  0  0  0  0  0  0  0
+   25.8870    4.9870    4.0770   C 0  0  0  0  0  0  0  0  0  0  0  0
+   26.6640    5.6070    3.0880   C 0  0  0  0  0  0  0  0  0  0  0  0
+   28.1350    7.4950    2.3350   C 0  0  0  0  0  0  0  0  0  0  0  0
+   27.1650    8.3380    1.5330   C 0  0  0  0  0  0  0  0  0  0  0  0
+   27.8680    8.7990    0.2910   C 0  0  0  0  0  0  0  0  0  0  0  0
+   26.6640    9.5080    2.3390   C 0  0  0  0  0  0  0  0  0  0  0  0
+  1  2  2  0  0  0  0
+  1  6  1  0  0  0  0
+  1  7  1  0  0  0  0
+  2  3  1  0  0  0  0
+  3  4  2  0  0  0  0
+  4  5  1  0  0  0  0
+  5  6  2  0  0  0  0
+  7  8  1  0  0  0  0
+  8  9  1  0  0  0  0
+  8 10  1  0  0  0  0
+A    1
+C1
+A    2
+C2
+A    3
+C3
+A    4
+C4
+A    5
+C5
+A    6
+C6
+A    7
+C1'
+A    8
+C2'
+A    9
+C3'
+A   10
+C4'
+M  END
+>  <InstanceId>
+184L_I4B_A_401
+
+>  <ChemCompId>
+I4B
+
+>  <PdbId>
+184L
+
+>  <ChainId>
+A
+
+>  <ResidueNumber>
+401
+
+>  <InsertionCode>
+
+
+>  <Model>
+1
+
+>  <AltIds>
+
+
+>  <MissingHeavyAtoms>
+0
+
+>  <ObservedFormula>
+C10
+
+>  <Name>
+ISOBUTYLBENZENE
+
+>  <SystematicName>
+2-methylpropylbenzene
+
+>  <Synonyms>
+
+
+>  <Type>
+NON-POLYMER
+
+>  <Formula>
+C10 H14
+
+>  <MolecularWeight>
+134.218
+
+>  <ModifiedDate>
+2011-06-04
+
+>  <Parent>
+
+
+>  <OneLetterCode>
+
+
+>  <SubcomponentList>
+
+
+>  <AmbiguousFlag>
+N
+
+>  <InChI>
+InChI=1S/C10H14/c1-9(2)8-10-6-4-3-5-7-10/h3-7,9H,8H2,1-2H3
+
+>  <InChIKey>
+KXUHSQYYJYAXGZ-UHFFFAOYSA-N
+
+>  <SMILES>
+CC(C)Cc1ccccc1
+
+$$$$
