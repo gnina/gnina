@@ -104,17 +104,20 @@ void FlexInfo::sanitizeResidues(OpenBabel::OBMol& receptor) {
 }
 
 void FlexInfo::keepNearestResidues(
-  const OpenBabel::OBMol& rigid, 
-  std::unordered_map<std::size_t, double>& residues_distances){
+  const OpenBabel::OBMol& receptor, 
+  std::vector<std::size_t>& residues_idxs){
 
   using namespace OpenBabel;
 
   // Loop over residue list and compute minimum distances
-  for(auto& resdist : residues_distances){
+  std::vector<std::pair<std::size_t, double>> min_distance(residues_idxs.size());
+  for(std::size_t i{0}; i < residues_idxs.size(); i++){
 
-    // Current residue (among flexible ones)
-    std::size_t residx = resdist.first; // Key
-    OBResidue* res = rigid.GetResidue(residx);
+    min_distance[i].first = residues_idxs[i];
+    min_distance[i].second = std::numeric_limits<double>::max();
+
+    std::size_t residx = min_distance[i].first;
+    OBResidue* res = receptor.GetResidue(residx);
 
     // Minimum distance between ligand and current residue atoms
     double d2;
@@ -127,35 +130,38 @@ void FlexInfo::keepNearestResidues(
       // Loop over residue atoms
       for(const auto ares: res->GetAtoms()){
 
-        if(!isSideChain(res->GetAtomID(ares))) continue; // skip backbone
+        if(!isSideChain(res->GetAtomID(ares))) continue; // skip rigid backbone
 
         vector3 ar = ares->GetVector();
 
         d2 = al.distSq(ar);
 
-        if (d2 < resdist.second)
+        if (d2 < min_distance[i].second)
         {
-          resdist.second = d2;
+          min_distance[i].second = d2;
         }
       }
     }
   }
-
-  // std::map is sorted by keys
-  std::map<double, std::size_t> residues_distances_sorted;
-  for(const auto& resdist : residues_distances){
-    residues_distances_sorted.insert({resdist.second, resdist.first});
-  }
+  
+  // Sort by distance
+  std::sort(min_distance.begin(), min_distance.end(), 
+    [](const std::pair<std::size_t, double> &left, std::pair<std::size_t, double> &right) {
+      return left.second < right.second;
+    }
+  );
 
   residues.clear();
+
+  // Kep only nearest nflex residues
   std::size_t res_added = 0;
-  for (const auto& resdist : residues_distances_sorted)
+  for (const auto& resdist : min_distance)
   {
     if(res_added == nflex){
       break;
     }
 
-    OBResidue* residue = rigid.GetResidue(resdist.second);
+    OBResidue* residue = receptor.GetResidue(resdist.first);
 
     char ch = residue->GetChain();
     int resid = residue->GetNum();
@@ -186,7 +192,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   b.expand(flex_dist);
   double flsq = flex_dist * flex_dist;
 
-  std::unordered_map<std::size_t, double> residues_distances;
+  std::vector<std::size_t> residues_idxs;
   FOR_ATOMS_OF_MOL(a, rigid){
     if(a->GetAtomicNum() == 1) continue; //heavy atoms only
     if (a->GetResidue() != NULL){ // Check
@@ -195,7 +201,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
         continue; // skip backbone
     }
 
-      vector3 v = a->GetVector();
+    vector3 v = a->GetVector();
     if (b.ptIn(v.x(), v.y(), v.z()))
     {
       //in box, see if any atoms are close enough
@@ -212,7 +218,8 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
             int resid = residue->GetNum();
             char icode = residue->GetInsertionCode();
             if(!isInflexible(residue->GetName())) {
-              residues_distances.insert({residue->GetIdx(), std::numeric_limits<double>::max()});
+              // Store index of flexible residue for retrival
+              residues_idxs.push_back(residue->GetIdx());
 
               residues.insert(std::tuple<char, int, char>(ch, resid, icode));
             }
@@ -236,7 +243,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   else if(nflex > -1 && residues.size() > nflex){
     log << "WARNING: Only the flex_max residues closer to the ligand are considered as flexible.\n";
 
-    keepNearestResidues(rigid, residues_distances);
+    keepNearestResidues(receptor, residues_idxs);
 
   }
 

@@ -44,7 +44,7 @@ class FlexInfo {
     void sanitizeResidues(OpenBabel::OBMol& receptor); //remove inflexible residues from residues set
     void keepNearestResidues(
       const OpenBabel::OBMol& 
-      rigid, std::unordered_map<std::size_t, double>& residues_distances);
+      rigid, std::vector<std::size_t>& residues_idxs);
     bool isSideChain(std::string aid);
 
 };
