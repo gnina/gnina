@@ -213,6 +213,8 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
   mparam->set_ignore_rec(true);
   mparam->set_ignore_ligand(false);
   mparam->set_has_affinity(false);
+  mparam->set_has_rmsd(false);
+  mparam->set_peturb_ligand(false);
   mparam->set_inmemory(true);
   mparam->set_use_rec_center(true);
   mparam->set_batch_size(batch_size);
