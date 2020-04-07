@@ -195,8 +195,7 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   std::vector<std::size_t> residues_idxs;
   FOR_ATOMS_OF_MOL(a, rigid){
     if(a->GetAtomicNum() == 1) continue; //heavy atoms only
-    if (a->GetResidue() != NULL){ // Check
-      // TODO: @RMeli figure out exactly then this happens 
+    if (a->GetResidue() != NULL){ // Check if residue exists
       if (!isSideChain(a->GetResidue()->GetAtomID(&(*a))))
         continue; // skip backbone
     }
