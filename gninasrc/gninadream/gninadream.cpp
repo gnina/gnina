@@ -340,11 +340,19 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
           do_gpu_emd(optgrid + offset, screengrid + recGridSize, gpu_score, dim, subgrid_dim, 
               blocks_per_side, ntypes, ligGridSize, cost_matrix);
         }
+        else if (!std::strcmp(dist_method.c_str(), "iou")) {
+          float grid_intersection;
+          float grid_union;
+          do_gpu_iou(optgrid + offset, screengrid + recGridSize, gpu_score, ligGridSize, positive_threshold);
+          CUDA_CHECK_GNINA(cudaMemcpy(&grid_intersection, gpu_score, sizeof(float), cudaMemcpyDeviceToHost));
+          CUDA_CHECK_GNINA(cudaMemcpy(&grid_union, gpu_score+1, sizeof(float), cudaMemcpyDeviceToHost));
+          scores.push_back(grid_intersection/grid_union);
+        }
         else {
           std::cerr << "Unknown distance method for overlap-based virtual screen\n";
           exit(-1);
         }
-        if(std::strcmp(dist_method.c_str(), "sum")) {
+        if(std::strcmp(dist_method.c_str(), "sum") || std::strcmp(dist_method.c_str(), "iou")) {
           float scoresq;
           CUDA_CHECK_GNINA(cudaMemcpy(&scoresq, gpu_score, sizeof(float), cudaMemcpyDeviceToHost));
           if (!std::strcmp(dist_method.c_str(), "l2"))
@@ -382,6 +390,10 @@ void do_exact_vs(LayerParameter param, caffe::Net<float>& net,
         else if (!std::strcmp(dist_method.c_str(), "emd")) {
           do_cpu_emd(optgrid+offset, screengrid + recGridSize, &scores.back(), dim, subgrid_dim, 
               blocks_per_side, ntypes, ligGridSize, cost_matrix);
+        }
+        else if (!std::strcmp(dist_method.c_str(), "iou")) {
+          float val;
+          cpu_iou(optgrid + offset, screengrid + recGridSize, &val, dim, positive_threshold);
         }
         else {
           std::cerr << "Unknown distance method for overlap-based virtual screen\n";
@@ -538,7 +550,7 @@ int main(int argc, char* argv[]) {
       "allow_negative", bool_switch(&allow_neg)->default_value(false),
       "allow optimization to result in negative atom density")(
       "distance", value<std::string>(&dist_method), 
-      "distance function for virtual screen; options are 'l1', 'l2', 'mult', 'sum' (which is a sum of the scores produced by those two options), 'emd', and 'threshold'; default is l2")(
+      "distance function for virtual screen; options are 'l1', 'l2', 'mult', 'sum' (which is a sum of the scores produced by those two options), 'emd', 'iou', and 'threshold'; default is l2")(
       "carve", bool_switch(&carve)->default_value(false),
       "do optimization from positive-initialized grids")(
       "carve_val", value<float>(&carve_val),

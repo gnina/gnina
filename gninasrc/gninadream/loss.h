@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <boost/algorithm/clamp.hpp>
 #include "../lib/matrix.h"
 
 struct flt_int {
@@ -93,6 +94,35 @@ inline void cpu_thresh(const float* optgrid, const float* screengrid, float* sco
     sum += sign * weight;
   }
   *scoregrid = sum;
+}
+
+inline void cpu_iou(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize, float thresh) {
+  // probably just an improved (due to size normalization) version of the
+  // "threshold" method
+  float grid_intersection = 0.;
+  float grid_union = 0.;
+#pragma omp parallel for reduction(+:grid_intersection,grid_union)
+  for (size_t k=0; k<gsize; ++k) {
+    // convert the grids to binary occupancies
+    float thresh_optgrid;
+    float thresh_screengrid;
+    if (optgrid[k] >= thresh)
+      thresh_optgrid = 1;
+    else if(optgrid[k] <= -thresh)
+      thresh_optgrid = -1;
+    else
+      thresh_optgrid = 0;
+    if (screengrid[k] >= thresh)
+      thresh_screengrid = 1;
+    else if(screengrid[k] <= -thresh)
+      thresh_screengrid = -1;
+    else
+      thresh_screengrid = 0;
+    grid_intersection += thresh_optgrid * thresh_screengrid;
+    float uval = thresh_optgrid + thresh_screengrid;
+    grid_union += boost::algorithm::clamp(uval, 0, 1);
+  }
+  *scoregrid = grid_intersection / grid_union;
 }
 
 inline void cpu_calcSig(const float* grid, std::vector<float>& sig, unsigned subgrid_dim, 
@@ -375,6 +405,8 @@ void do_gpu_l2sq(const float* optgrid, const float* screengrid, float* scoregrid
 void do_gpu_mult(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize);
 
 void do_gpu_thresh(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize, float positive_threshold, float negative_threshold);
+
+void do_gpu_iou(const float* optgrid, const float* screengrid, float* scoregrid, size_t gsize, float thresh);
 
 void do_gpu_emd(const float* optgrid, const float* screengrid, float* scoregrid, 
     unsigned dim, unsigned subgrid_dim, unsigned blocks_per_side, unsigned ntypes, 

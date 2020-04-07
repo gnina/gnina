@@ -168,12 +168,58 @@ void gpu_thresh(const float* optgrid, const float* screengrid, float* scoregrid,
     atomicAdd(scoregrid, total);
 }
 
+__global__
+void gpu_iou(const float* optgrid, const float* screengrid, float* scoregrid,
+    size_t gsize, float thresh) {
+  unsigned tidx = blockDim.x * blockIdx.x + threadIdx.x;
+  unsigned nthreads = blockDim.x * gridDim.x;
+  float grid_intersection = 0.;
+  float grid_union = 0.;
+  for (size_t k=tidx; k<gsize; k+=nthreads) {
+    // convert the grids to binary occupancies
+    float thresh_optgrid;
+    float thresh_screengrid;
+    if (optgrid[k] >= thresh)
+      thresh_optgrid = 1;
+    else if(optgrid[k] <= -thresh)
+      thresh_optgrid = -1;
+    else
+      thresh_optgrid = 0;
+    if (screengrid[k] >= thresh)
+      thresh_screengrid = 1;
+    else if(screengrid[k] <= -thresh)
+      thresh_screengrid = -1;
+    else
+      thresh_screengrid = 0;
+    grid_intersection += thresh_optgrid * thresh_screengrid;
+    float uval = thresh_optgrid + thresh_screengrid;
+    grid_union += __saturatef(uval);
+  }
+
+  float total_union = block_sum<float>(grid_union);
+  float total_intersection = block_sum<float>(grid_intersection);
+
+  if (threadIdx.x == 0) {
+    atomicAdd(scoregrid, total_intersection);
+    atomicAdd(scoregrid+1, total_union);
+  }
+}
+
 void do_gpu_thresh(const float* optgrid, const float* screengrid, float* scoregrid,
     size_t gsize, float positive_threshold, float negative_threshold) {
   unsigned block_multiple = gsize / CUDA_NUM_THREADS;
   unsigned nblocks = block_multiple < CUDA_NUM_BLOCKS ? block_multiple : CUDA_NUM_BLOCKS;
   gpu_thresh<<<nblocks, CUDA_NUM_THREADS>>>(optgrid, screengrid, scoregrid,
       gsize, positive_threshold, negative_threshold);
+  KERNEL_CHECK;
+}
+
+void do_gpu_iou(const float* optgrid, const float* screengrid, float*
+    scoregrid, size_t gsize, float thresh) {
+  unsigned block_multiple = gsize / CUDA_NUM_THREADS;
+  unsigned nblocks = block_multiple < CUDA_NUM_BLOCKS ? block_multiple : CUDA_NUM_BLOCKS;
+  gpu_iou<<<nblocks, CUDA_NUM_THREADS>>>(optgrid, screengrid, scoregrid,
+      gsize, thresh);
   KERNEL_CHECK;
 }
 
