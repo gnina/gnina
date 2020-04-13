@@ -6,6 +6,8 @@
 #include "box.h"
 #include "tee.h"
 
+#include <unordered_map>
+
 #ifndef SMINA_FLEXINFO_H
 #define SMINA_FLEXINFO_H
 
@@ -40,6 +42,10 @@ class FlexInfo {
 
   private:
     void sanitizeResidues(OpenBabel::OBMol& receptor); //remove inflexible residues from residues set
+    void keepNearestResidues(
+      const OpenBabel::OBMol& 
+      rigid, std::vector<std::size_t>& residues_idxs);
+    bool isSideChain(std::string aid);
 
 };
 
