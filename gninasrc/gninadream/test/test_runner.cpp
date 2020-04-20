@@ -39,6 +39,7 @@ struct f_iopt_solver {
     if (!success) throw usage_error("Error with built-in cnn model "+cnn_model_name);
     UpgradeNetAsNeeded("default", &net_param);
     net_param.mutable_state()->set_phase(TRAIN);
+    net_param.set_force_backward(true);
 
     LayerParameter* first = net_param.mutable_layer(1);
     MolGridDataParameter* mgridparam = first->mutable_molgrid_data_param();
@@ -69,7 +70,7 @@ struct f_iopt_solver {
     NetParameter wparam;
 
     const unsigned char *weights = cnn_models[cnn_model_name].weights;
-    unsigned int nweights = cnn_models[cnn_model_name].num_weights;
+    unsigned int nweights = cnn_models[cnn_model_name].num_bytes;
 
     google::protobuf::io::ArrayInputStream weightdata(weights,nweights);
     google::protobuf::io::CodedInputStream strm(&weightdata);
@@ -95,10 +96,10 @@ struct f_iopt_solver {
     std::vector<float3> rec_coords;
     setReceptor(m, rec_coords, rec_smtypes);
     mgrid->setReceptor(rec_coords, rec_smtypes);
-    std::vector<smt> ligand_smtypes;
-    std::vector<float3> ligand_coords;
-    setLigand(m, ligand_coords, ligand_smtypes);
-    mgrid->setLigand(ligand_coords, ligand_smtypes);
+    // std::vector<smt> ligand_smtypes;
+    // std::vector<float3> ligand_coords;
+    // setLigand(m, ligand_coords, ligand_smtypes);
+    // mgrid->setLigand(ligand_coords, ligand_smtypes);
     mgrid->setLabels(1);
   }
   ~f_iopt_solver() {}
@@ -213,6 +214,7 @@ bool init_unit_test() {
     p_args.seed = std::random_device()();
     p_args.many_iters = true;
   }
+  caffe::Caffe::set_cudnn(false);
   if (!vm.count("n_iters")) p_args.n_iters = N_ITERS;
   if (!vm.count("log")) logname = "test.log";
   if (vm.count("gpu")) initializeCUDA(gpu);

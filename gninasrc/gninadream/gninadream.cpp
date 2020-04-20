@@ -721,7 +721,8 @@ int main(int argc, char* argv[]) {
   if (mgrid == NULL) {
     throw usage_error("First layer of model must be MolGridDataLayer.");
   }
-  
+ 
+  // TODO: move this into the solver itself?
   if (exclude_ligand) {
     solver->SetNligTypes(mgrid->getNumLigandTypes());
     solver->SetNpoints(mgrid->getNumGridPoints());
@@ -783,13 +784,14 @@ int main(int argc, char* argv[]) {
           carve_init(*mgrid, no_density, net, carve_val);
         }
         std::string prefix = rec.stem().string() + "_" + lig.stem().string();
-        float* data = net->top_vecs()[0][0]->mutable_cpu_data();
-        unsigned dim = mgrid->getDim();
-        libmolgrid::Grid<float,4> grid(data, mgrid->getNumChannels(), dim, dim, dim);
         for (size_t i=0; i<iterations; ++i) {
           solver->Step(1);
-          if (dump_all || (i==iterations-1 && dump_last))
+          if (dump_all || (i==iterations-1 && dump_last)) {
+            float* data = net->top_vecs()[0][0]->mutable_cpu_data();
+            unsigned dim = mgrid->getDim();
+            libmolgrid::Grid<float,4> grid(data, mgrid->getNumChannels(), dim, dim, dim);
             write_dx(prefix + "_iteration" + std::to_string(i) + "_", mgrid, grid);
+          }
         }
         if (ligand_names[0] == "")
           ligand_names[0] = "none";
@@ -836,14 +838,15 @@ int main(int argc, char* argv[]) {
         bool no_density = ignore_ligand;
         carve_init(*mgrid, no_density, net, carve_val);
       }
-      float* data = net->top_vecs()[0][0]->mutable_cpu_data();
-      unsigned dim = mgrid->getDim();
-      libmolgrid::Grid<float,4> grid(data, mgrid->getNumChannels(), dim, dim, dim);
       for (size_t j=0; j<iterations; ++j) {
         solver->Step(1);
         if (dump_all || (i==iterations-1 && dump_last)) {
-          for (size_t k=0; k<opt_names.size(); ++k)
+          for (size_t k=0; k<opt_names.size(); ++k) {
+            float* data = net->top_vecs()[0][0]->mutable_cpu_data();
+            unsigned dim = mgrid->getDim();
+            libmolgrid::Grid<float,4> grid(data, mgrid->getNumChannels(), dim, dim, dim);
             write_dx(opt_names[k] + "_iteration" + std::to_string(i) + "_", mgrid, grid);
+          }
         }
       }
       if (vsfile.size()) {
@@ -1019,13 +1022,14 @@ int main(int argc, char* argv[]) {
       bool no_density = false;
       carve_init(*mgrid, no_density, net, carve_val);
     }
-    float* data = net->top_vecs()[0][0]->mutable_cpu_data();
-    unsigned dim = mgrid->getDim();
-    libmolgrid::Grid<float,4> grid(data, mgrid->getNumChannels(), dim, dim, dim);
     for (size_t i=0; i<iterations; ++i) {
       solver->Step(1);
-      if (dump_all || (i==iterations-1 && dump_last))
+      if (dump_all || (i==iterations-1 && dump_last)) {
+        float* data = net->top_vecs()[0][0]->mutable_cpu_data();
+        unsigned dim = mgrid->getDim();
+        libmolgrid::Grid<float,4> grid(data, mgrid->getNumChannels(), dim, dim, dim);
         write_dx(out_prefix + "_iteration" + std::to_string(i) + "_", mgrid, grid);
+      }
     }
     if (vsfile.size()) {
       // make temp gninatypes for setting the center for screen ligands
@@ -1058,13 +1062,14 @@ int main(int argc, char* argv[]) {
     //restart from optimization in progress
     solver->Restore(ss_cstr);
     int remaining_iters = iterations - solver->iter();
-    float* data = net->top_vecs()[0][0]->mutable_cpu_data();
-    unsigned dim = mgrid->getDim();
-    libmolgrid::Grid<float,4> grid(data, mgrid->getNumChannels(), dim, dim, dim);
     for (size_t i=0; i<remaining_iters; ++i) {
       solver->Step(1);
-      if (dump_all || (i==iterations-1 && dump_last))
+      if (dump_all || (i==iterations-1 && dump_last)) {
+        float* data = net->top_vecs()[0][0]->mutable_cpu_data();
+        unsigned dim = mgrid->getDim();
+        libmolgrid::Grid<float,4> grid(data, mgrid->getNumChannels(), dim, dim, dim);
         write_dx(out_prefix + "_iteration" + std::to_string(i) + "_", mgrid, grid);
+      }
     }
     if (vsfile.size()) {
       std::vector<caffe::shared_ptr<std::ostream> > out;

@@ -85,7 +85,7 @@ void test_do_exact_vs() {
   NetParameter wparam;
 
   const unsigned char *weights = cnn_models[cnnopts.cnn_model_name].weights;
-  unsigned int nweights = cnn_models[cnnopts.cnn_model_name].num_weights;
+  unsigned int nweights = cnn_models[cnnopts.cnn_model_name].num_bytes;
 
   google::protobuf::io::ArrayInputStream weightdata(weights,nweights);
   google::protobuf::io::CodedInputStream strm(&weightdata);

@@ -259,6 +259,12 @@ message SolverParameter {
   // weights parameter separated by ',' (like in a command string) or
   // in repeated weights parameters separately.
   repeated string weights = 42;
+
+  // parameters for minmax adversarial solver
+  optional float alpha = 43 [default = 0.1]; // maximization problem step size
+  optional float epsilon = 44 [default = 0.3]; // maximization problem max distance from initial point along any dimension
+  optional int32 k = 45 [default = 40]; // maximization problem number of steps
+  optional constraint = 46 [default = "inf"]; // maximization problem constraint
 }
 
 // A message that stores the solver snapshots

@@ -70,6 +70,35 @@ namespace caffe {
   }
 
   template <typename Dtype>
+  void InputOptSolver<Dtype>::PokeDeadNodes(shared_ptr<Blob<Dtype> >& tblob) {
+    size_t blobsize = tblob->count() - nrec_types * npoints_ - nlig_types * npoints_;
+    switch (Caffe::mode()) {
+    case Caffe::CPU: {
+      Dtype* tptr = tblob->mutable_cpu_data();
+      Dtype* offset_tptr = tptr + nrec_types * npoints_;
+    #pragma omp parallel for
+      for (size_t i=0; i<blobsize; ++i) {
+        if (*(offset_tptr + i) == 0)
+          *(offset_tptr + i) = 1e-9;
+      }
+      break;
+    }
+    case Caffe::GPU: {
+  #ifndef CPU_ONLY
+      Dtype* tptr = tblob->mutable_gpu_data();
+      Dtype* offset_tptr = tptr + nrec_types * npoints_;
+      DoGPUPoking(offset_tptr, blobsize);
+  #else
+      NO_GPU;
+  #endif
+      break;
+    }
+    default:
+      LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
+    }
+  }
+
+  template <typename Dtype>
   void InputOptSolver<Dtype>::ThresholdBlob(shared_ptr<Blob<Dtype> >& tblob) {
     // if threshold_value_ is nonzero, clip to [-val, +val]
     size_t blobsize = tblob->count() - nrec_types * npoints_ - nlig_types * npoints_;
@@ -118,6 +147,8 @@ namespace caffe {
     this->smoothed_loss_ = 0;
     this->iteration_timer_.Start();
 
+    // if any voxel of the relevant blob is exactly 0, perturb it slightly
+    // PokeDeadNodes(input_blob_); 
     while (this->iter_ < stop_iter) {
       // zero-init the params
       this->net_->ClearParamDiffs();

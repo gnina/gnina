@@ -193,6 +193,8 @@ class InputOptSolver : public SGDSolver<Dtype> {
   virtual void SnapshotSolverStateToBinaryProto(const string& model_filename);
   virtual void SnapshotSolverStateToHDF5(const string& model_filename);
   PoolingLayer<Dtype>* ToggleMaxToAve();
+  void PokeDeadNodes(shared_ptr<Blob<Dtype> >& tblob);
+  void DoGPUPoking(Dtype* offset_tptr, size_t blobsize);
   void ThresholdBlob(shared_ptr<Blob<Dtype> >& tblob);
   void DoThresholdGPU(Dtype* offset_tblob, size_t blobsize, Dtype threshold_value);
   int data_idx_;
@@ -250,7 +252,7 @@ class MinMaxSolver : public SGDSolver<Dtype> {
   int data_idx_ = -1;
   InputOptSolver<Dtype> adversary_;
   float a_; // maximization problem step size
-  float eps_; // maximization problem distance from initial point
+  float eps_; // maximization problem max distance from initial point
   int k_; // maximization problem number of steps
 
   DISABLE_COPY_AND_ASSIGN(MinMaxSolver);
