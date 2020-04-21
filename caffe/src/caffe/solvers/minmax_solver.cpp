@@ -48,7 +48,7 @@ void MinMaxSolver<Dtype>::Step(int iters) {
     this->net_->ForwardFromTo(data_idx_, data_idx_);
     // do PGD via the InputOpt Solver adversary
     adversary_.ResetIter();
-    adversary_.Step(k_);
+    adversary_.Step(this->param_.k());
     
     // accumulate the loss and gradient
     Dtype loss = 0;

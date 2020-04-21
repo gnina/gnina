@@ -9,13 +9,13 @@
 namespace caffe {
   template <typename Dtype>
   void InputOptSolver<Dtype>::LInfInit(const SolverParameter& param, 
-      const shared_ptr<Net<Dtype> >& net, float eps) {
+      const shared_ptr<Net<Dtype> >& net) {
     this->param_ = param;
     CHECK_GE(this->param_.average_loss(), 1) << "average_loss should be non-negative.";
     this->iter_ = 0;
     this->current_step_ = 0;
     this->net_ = net;
-    threshold_value_ = eps;
+    threshold_value_ = param.epsilon();
     // net should have already been set up
     CHECK_NOTNULL(net.get());
     InputOptPreSolve();
@@ -290,7 +290,7 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
   // Update is very simple, no reason (I think) to normalize/regularize updates
   template <typename Dtype>
   void InputOptSolver<Dtype>::ApplyUpdate() {
-    Dtype rate = this->GetLearningRate(); // if L_inf stepping, this is a_
+    Dtype rate = this->GetLearningRate(); // if L_inf stepping, this is param.alpha
     if (this->param_.display() && this->iter_ % this->param_.display() == 0) {
       LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << this->iter_
           << ", inputopt_lr = " << rate;

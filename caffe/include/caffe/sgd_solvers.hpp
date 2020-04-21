@@ -171,7 +171,7 @@ class InputOptSolver : public SGDSolver<Dtype> {
         exclude_ligand_(false), exclude_receptor_(true), 
         nrec_types(0), nlig_types(0), npoints_(0) {}
   virtual inline const char* type() const { return "InputOpt"; }
-  void LInfInit(const SolverParameter& param, const shared_ptr<Net<Dtype> >& net, float eps);
+  void LInfInit(const SolverParameter& param, const shared_ptr<Net<Dtype> >& net);
   void ResetIter() { this->iter_ = 0; }
   shared_ptr<Blob<Dtype> > input_blob() const { return input_blob_; }
   void DoThreshold(bool threshold_update) { this->threshold_update_ = threshold_update; }
@@ -228,21 +228,20 @@ template <typename Dtype>
 class MinMaxSolver : public SGDSolver<Dtype> {
  public:
   explicit MinMaxSolver(const SolverParameter& param)
-      : SGDSolver<Dtype>(param), a_(0.1), eps_(0.3), k_(40) { 
+      : SGDSolver<Dtype>(param) { 
         MinMaxPreSolve(); 
         SolverParameter tmparam = this->param();
         tmparam.set_lr_policy("fixed");
-        tmparam.set_base_lr(a_);
-        adversary_.LInfInit(tmparam, this->net(), eps_);
+        tmparam.set_base_lr(tmparam.alpha());
+        adversary_.LInfInit(tmparam, this->net());
       }
   explicit MinMaxSolver(const string& param_file)
-      : SGDSolver<Dtype>(param_file), adversary_(param_file), 
-      a_(0.1), eps_(0.3), k_(40) { 
+      : SGDSolver<Dtype>(param_file), adversary_(param_file) {
         MinMaxPreSolve(); 
         SolverParameter tmparam = this->param();
         tmparam.set_lr_policy("fixed");
-        tmparam.set_base_lr(a_);
-        adversary_.LInfInit(tmparam, this->net(), eps_);
+        tmparam.set_base_lr(tmparam.alpha());
+        adversary_.LInfInit(tmparam, this->net());
       }
   virtual inline const char* type() const { return "MinMax"; }
 
@@ -251,9 +250,6 @@ class MinMaxSolver : public SGDSolver<Dtype> {
   virtual void Step(int iters); // looks like generic SGDSolver::Step() except it calls out to the InputOptSolver before starting, and does ForwardBackward starting and ending after the data layer 
   int data_idx_ = -1;
   InputOptSolver<Dtype> adversary_;
-  float a_; // maximization problem step size
-  float eps_; // maximization problem max distance from initial point
-  int k_; // maximization problem number of steps
 
   DISABLE_COPY_AND_ASSIGN(MinMaxSolver);
 };
