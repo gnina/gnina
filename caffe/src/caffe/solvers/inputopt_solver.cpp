@@ -295,8 +295,8 @@ void sgd_update_gpu(int N, Dtype* g, Dtype* h, Dtype momentum,
       LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << this->iter_
           << ", inputopt_lr = " << rate;
     }
-    // do we want this? I guess it doesn't hurt to have it enabled, even if
-    // param.clip_gradients() is always 0
+    // TODO: probably want to get rid of this, the inputopt solver does
+    // specific kinds of clipping when it's required, separate from this
     ClipGradients();
     ComputeUpdateValue(rate);
     if (l_inf_) 
