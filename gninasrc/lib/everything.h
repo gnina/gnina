@@ -619,12 +619,12 @@ struct atom_type_lennard_jones: public atom_type_base
 {
     fl optimal_distance;
     fl cap;
-    atom_type_lennard_jones(const std::string& n1="", const std::string& n2="", fl o=0, fl w=0, fl cutoff_=8) :
-        atom_type_base(n1, n2, cutoff_), optimal_distance(o), cap(100)
+    atom_type_lennard_jones(const std::string& n1="", const std::string& n2="", fl o=0, fl c=100, fl cutoff_=8) :
+        atom_type_base(n1, n2, cutoff_), optimal_distance(o), cap(c)
     {
         name = std::string("atom_type_lennard_jones(t1="+name1+",t2="+name2+",o=")
                 + to_string(optimal_distance)+",_^="+to_string(cap)+",_c=" + to_string(cutoff) + ")";
-        rexpr.assign("atom_type_lennard_jones\\(t1=(\\S+),t2=(\\S+),o=(\\S+),_^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+        rexpr.assign("atom_type_lennard_jones\\(t1=(\\S+),t2=(\\S+),o=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
     }
     fl eval(smt T1, smt T2, fl r) const
     {
@@ -651,7 +651,7 @@ struct atom_type_lennard_jones: public atom_type_base
         fl o = boost::lexical_cast<fl>(match[3]);
         fl cap = boost::lexical_cast<fl>(match[4]);
         fl c = boost::lexical_cast<fl>(match[5]);
-        return new atom_type_gaussian(n1,n2,o,cap,c);
+        return new atom_type_lennard_jones(n1,n2,o,cap,c);
     }
 };
 

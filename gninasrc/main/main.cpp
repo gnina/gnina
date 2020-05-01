@@ -359,6 +359,7 @@ void do_search(model& m, const boost::optional<model>& ref,
       non_cache_cnn* nc_cnn = dynamic_cast<non_cache_cnn*>(&nc);
       if (!nc_cnn)
       {
+        std::cerr << "NOT CNN\n";
         non_cache nc_base = *(dynamic_cast<non_cache*>(&nc));
         const fl best_mode_intramolecular_energy = m.eval_intramolecular(prec,
             authentic_v, out_cont[0].c);
