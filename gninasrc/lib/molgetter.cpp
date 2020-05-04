@@ -57,7 +57,7 @@ void MolGetter::create_init_model(const std::string& rigid_name,
         OBMol rigid;
         std::string flexstr;
 
-        if(boost::filesystem::extension(rigid_name) == ".pdb"){
+        if(rec.NumResidues() > 0){
           try{
             // Can fail with std::runtime_error if `--flex_limit` is set
             finfo.extractFlex(rec, rigid, flexstr);
@@ -69,6 +69,7 @@ void MolGetter::create_init_model(const std::string& rigid_name,
           }
         }
         else{
+          // No information about residues, whole receptor treated as rigid
           rigid = rec;
         }
 

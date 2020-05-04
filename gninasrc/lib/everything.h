@@ -614,6 +614,47 @@ struct atom_type_gaussian : public atom_type_base {
     }
 };
 
+/* 6-12 LJ potential (see vdw) between atom types */
+struct atom_type_lennard_jones: public atom_type_base
+{
+    fl optimal_distance;
+    fl cap;
+    atom_type_lennard_jones(const std::string& n1="", const std::string& n2="", fl o=0, fl c=100, fl cutoff_=8) :
+        atom_type_base(n1, n2, cutoff_), optimal_distance(o), cap(c)
+    {
+        name = std::string("atom_type_lennard_jones(t1="+name1+",t2="+name2+",o=")
+                + to_string(optimal_distance)+",_^="+to_string(cap)+",_c=" + to_string(cutoff) + ")";
+        rexpr.assign("atom_type_lennard_jones\\(t1=(\\S+),t2=(\\S+),o=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
+    }
+    fl eval(smt T1, smt T2, fl r) const
+    {
+        fl d0 = optimal_distance;
+        fl depth = 1;
+        fl c_i = 0;
+        fl c_j = 0;
+        find_vdw_coefficients<6, 12>(d0, depth, c_i, c_j);
+
+        fl r_i = int_pow<6>(r);
+        fl r_j = int_pow<12>(r);
+        if (r_i > epsilon_fl && r_j > epsilon_fl)
+            return (std::min)(cap, c_i / r_i + c_j / r_j);
+        else
+            return cap;
+    }
+
+    virtual term* createFrom(const std::string& desc) const {
+        boost::smatch match;
+        if(!regex_match(desc, match, rexpr))
+            return NULL;
+        std::string n1 = match[1];
+        std::string n2 = match[2];
+        fl o = boost::lexical_cast<fl>(match[3]);
+        fl cap = boost::lexical_cast<fl>(match[4]);
+        fl c = boost::lexical_cast<fl>(match[5]);
+        return new atom_type_lennard_jones(n1,n2,o,cap,c);
+    }
+};
+
 /* Linear potential (see hbond) between atom types */
 struct atom_type_linear : public atom_type_base {
     fl good, bad;
@@ -927,6 +968,7 @@ struct term_creators : public std::vector<term*> {
       push_back(new atom_type_linear());
       push_back(new atom_type_quadratic());
       push_back(new atom_type_inverse_power<0>());
+      push_back(new atom_type_lennard_jones());
 
       push_back(new num_tors_add());
       push_back(new num_tors_sqr());
