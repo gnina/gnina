@@ -199,6 +199,11 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
       if (!isSideChain(a->GetResidue()->GetAtomID(&(*a))))
         continue; // skip backbone
     }
+    else{
+      throw std::runtime_error(
+        "Missing residue information needed by FlexInfo::extractFlex."
+        );
+    }
 
     vector3 v = a->GetVector();
     if (b.ptIn(v.x(), v.y(), v.z()))
