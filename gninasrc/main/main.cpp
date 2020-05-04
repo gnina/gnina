@@ -1536,8 +1536,10 @@ Thank you!\n";
     log << std::setw(12) << std::left << "Weights" << " Terms\n" << t << "\n";
 
     // Print out flexible residues 
-    finfo.printFlex();
-
+    if(finfo.hasContent()){
+      finfo.printFlex();
+    }
+    
     // Print information about flexible residues use
     if (finfo.hasContent() && (cnnopts.cnn_refinement ||
                                (cnnopts.cnn_scoring && settings.dominimize))) {

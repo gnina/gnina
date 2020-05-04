@@ -6,6 +6,7 @@
 #include <boost/unordered_map.hpp>
 
 #include <exception>
+#include <limits>
 
 using namespace std;
 FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
@@ -102,6 +103,82 @@ void FlexInfo::sanitizeResidues(OpenBabel::OBMol& receptor) {
   }
 }
 
+void FlexInfo::keepNearestResidues(
+  const OpenBabel::OBMol& receptor, 
+  std::vector<std::size_t>& residues_idxs){
+
+  using namespace OpenBabel;
+
+  // Loop over residue list and compute minimum distances
+  std::vector<std::pair<std::size_t, double>> min_distance(residues_idxs.size());
+  for(std::size_t i{0}; i < residues_idxs.size(); i++){
+
+    min_distance[i].first = residues_idxs[i];
+    min_distance[i].second = std::numeric_limits<double>::max();
+
+    std::size_t residx = min_distance[i].first;
+    OBResidue* res = receptor.GetResidue(residx);
+
+    // Minimum distance between ligand and current residue atoms
+    double d2;
+
+    // Loop over ligand atoms
+    FOR_ATOMS_OF_MOL(alig, distligand)
+    {
+      vector3 al = alig->GetVector();
+
+      // Loop over residue atoms
+      for(const auto ares: res->GetAtoms()){
+
+        if(!isSideChain(res->GetAtomID(ares))) continue; // skip rigid backbone
+
+        vector3 ar = ares->GetVector();
+
+        d2 = al.distSq(ar);
+
+        if (d2 < min_distance[i].second)
+        {
+          min_distance[i].second = d2;
+        }
+      }
+    }
+  }
+  
+  // Sort by distance
+  std::sort(min_distance.begin(), min_distance.end(), 
+    [](const std::pair<std::size_t, double> &left, std::pair<std::size_t, double> &right) {
+      return left.second < right.second;
+    }
+  );
+
+  residues.clear();
+
+  // Kep only nearest nflex residues
+  std::size_t res_added = 0;
+  for (const auto& resdist : min_distance)
+  {
+    if(res_added == nflex){
+      break;
+    }
+
+    OBResidue* residue = receptor.GetResidue(resdist.first);
+
+    char ch = residue->GetChain();
+    int resid = residue->GetNum();
+    char icode = residue->GetInsertionCode();
+
+    residues.insert(std::tuple<char, int, char>(ch, resid, icode));
+
+    res_added++;
+  }
+}
+
+bool FlexInfo::isSideChain(std::string aid){
+  boost::trim(aid);
+  
+  return aid != "CA" && aid != "N" && aid != "C" && aid != "O" && aid != "H" && aid != "HN";
+}
+
 void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
     std::string& flexpdbqt) {
   using namespace OpenBabel;
@@ -115,9 +192,19 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   b.expand(flex_dist);
   double flsq = flex_dist * flex_dist;
 
+  std::vector<std::size_t> residues_idxs;
   FOR_ATOMS_OF_MOL(a, rigid){
-    if(a->GetAtomicNum() == 1)
-    continue; //heavy atoms only
+    if(a->GetAtomicNum() == 1) continue; //heavy atoms only
+    if (a->GetResidue() != NULL){ // Check if residue exists
+      if (!isSideChain(a->GetResidue()->GetAtomID(&(*a))))
+        continue; // skip backbone
+    }
+    else{
+      throw std::runtime_error(
+        "Missing residue information needed by FlexInfo::extractFlex."
+        );
+    }
+
     vector3 v = a->GetVector();
     if (b.ptIn(v.x(), v.y(), v.z()))
     {
@@ -135,6 +222,9 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
             int resid = residue->GetNum();
             char icode = residue->GetInsertionCode();
             if(!isInflexible(residue->GetName())) {
+              // Store index of flexible residue for retrival
+              residues_idxs.push_back(residue->GetIdx());
+
               residues.insert(std::tuple<char, int, char>(ch, resid, icode));
             }
           }
@@ -156,7 +246,9 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
   }
   else if(nflex > -1 && residues.size() > nflex){
     log << "WARNING: Only the flex_max residues closer to the ligand are considered as flexible.\n";
-    throw std::runtime_error("NOT IMPLEMENTED");
+
+    keepNearestResidues(receptor, residues_idxs);
+
   }
 
   std::vector<std::tuple<char, int, char> > sortedres(residues.begin(), residues.end());

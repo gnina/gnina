@@ -52,25 +52,30 @@ void MolGetter::create_init_model(const std::string& rigid_name,
 
         rec.AddHydrogens(true);
         FOR_ATOMS_OF_MOL(a, rec){
-        a->GetPartialCharge();
-      }
+          a->GetPartialCharge();
+        }
         OBMol rigid;
         std::string flexstr;
 
-        // Try to extract flexible residues
-        // Can fail with std::runtime_error if `--flex_limit` is set
-        try{
-          finfo.extractFlex(rec, rigid, flexstr);
+        if(rec.NumResidues() > 0){
+          try{
+            // Can fail with std::runtime_error if `--flex_limit` is set
+            finfo.extractFlex(rec, rigid, flexstr);
+          }
+          catch(std::runtime_error &e){
+            // --flex_limit exceeded; print error and quit
+            log << e.what() << "\n";
+            std::exit(-1);
+          }
         }
-        catch(std::runtime_error &e){
-          // --flex_limit exceeded; print error and quit
-          log << e.what() << "\n";
-          std::exit(-1);
+        else{
+          // No information about residues, whole receptor treated as rigid
+          rigid = rec;
         }
 
         std::string recstr = conv.WriteString(&rigid);
         std::stringstream recstream(recstr);
-
+        
         if (flexstr.size() > 0) //have flexible component
         {
           std::stringstream flexstream(flexstr);

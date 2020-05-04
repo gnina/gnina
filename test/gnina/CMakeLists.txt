@@ -32,4 +32,4 @@ endif()
 
 add_test(NAME gninamin COMMAND ./test_min.py $<TARGET_FILE:gnina> WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_test(NAME gninaflexmin COMMAND ./test_flexmin.py $<TARGET_FILE:gnina> WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME gninaflex COMMAND ./test_flex.py $<TARGET_FILE:gnina> WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
