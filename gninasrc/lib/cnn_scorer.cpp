@@ -67,13 +67,10 @@ CNNScorer::CNNScorer(const cnn_options& opts)
       //let user specify rotations
       unsigned nrot = cnnopts.cnn_rotations;
       mgridparam->set_random_rotation(true);
-      //I think there's a bug in the axial rotations - they aren't all distinct
-      //BUT it turns out this isn't actually faster
-      //bsize = nrot;
     } else {
       mgridparam->set_random_rotation(false);
-      mgridparam->set_random_translate(0);
     }
+    mgridparam->set_random_translate(0);
 
     param.set_force_backward(true);
 
