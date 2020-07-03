@@ -14,6 +14,8 @@
 #include <boost/algorithm/string/join.hpp>
 #include <vector>
 
+std::string default_model_name = "crossdock_default2018";
+
 boost::unordered_map<std::string, cnn_model_def> cnn_models = boost::assign::map_list_of(
     "default2017", cnn_model_def(
     #include "models/default2017.def"

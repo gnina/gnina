@@ -31,7 +31,7 @@ class result_info {
     result_info()
         : energy(0), cnnscore(-1), cnnaffinity(0), rmsd(-1), sdfvalid(false) {
     }
-    result_info(fl e, fl c, fl ca, fl g, fl r, const model& m)
+    result_info(fl e, fl c, fl ca, fl r, const model& m)
         : energy(e), cnnscore(c), cnnaffinity(ca), rmsd(r), sdfvalid(false) {
       setMolecule(m);
     }

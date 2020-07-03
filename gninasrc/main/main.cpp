@@ -185,19 +185,23 @@ std::string vina_remark(fl e, fl lb, fl ub)
 }
 
 output_container remove_redundant(const output_container& in, fl min_rmsd)
-    {
+{
   output_container tmp;
-  VINA_FOR_IN(i, in)
-    add_to_output_container(tmp, in[i], min_rmsd, in.size());
+
+  VINA_FOR_IN(i, in) {
+    std::pair<sz, fl> closest_rmsd = find_closest(in[i].coords, tmp);
+    if (closest_rmsd.first >= tmp.size() || closest_rmsd.second > min_rmsd) {
+      tmp.push_back(new output_type(in[i])); //not redundant
+    }
+  }
   return tmp;
 }
 
 //print info to log about cnn scoring
 static void get_cnn_info(model& m, CNNScorer& cnn, tee& log, float& cnnscore,
-    float& cnnaffinity, float& cnnforces) {
+    float& cnnaffinity) {
   float loss = 0;
   cnnscore = 0;
-  cnnforces = 0;
   cnnaffinity = 0;
   cnnscore = cnn.score(m, false, cnnaffinity, loss);
   if (cnnscore >= 0 && cnn.options().moving_receptor())
@@ -215,11 +219,13 @@ static void get_cnn_info(model& m, CNNScorer& cnn, tee& log, float& cnnscore,
     cnnscore = cnn.score(m, false, cnnaffinity, loss);
   }
 
-  log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
-  log.endl();
-  log << "CNNaffinity: " << std::fixed << std::setprecision(10)
-      << cnnaffinity;
-  log.endl();
+  if (cnn.options().verbose) {
+    log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
+    log.endl();
+    log << "CNNaffinity: " << std::fixed << std::setprecision(10)
+        << cnnaffinity;
+    log.endl();
+  }
 }
 
 //dkoes - return all energies and rmsds to original conf with result
@@ -231,7 +237,7 @@ void do_search(model& m, const boost::optional<model>& ref,
     bool compute_atominfo, tee& log,
     const terms *t, grid& user_grid, CNNScorer& cnn,
     std::vector<result_info>& results)
-    {
+{
   boost::timer::cpu_timer time;
 
   precalculate_exact exact_prec(sf); //use exact computations for final score
@@ -239,10 +245,9 @@ void do_search(model& m, const boost::optional<model>& ref,
   conf c = m.get_initial_conf(nc.move_receptor());
   fl e = max_fl;
   fl intramolecular_energy = max_fl;
-  fl cnnscore = 0, cnnaffinity = 0, cnnforces = 0;
+  fl cnnscore = 0, cnnaffinity = 0;
   fl rmsd = 0;
-  if (settings.gpu_on
-      && !(settings.cnnopts.cnn_scoring || settings.cnnopts.cnn_refinement))
+  if (settings.gpu_on && settings.cnnopts.nocnn)
     m.initialize_gpu();
   const vec authentic_v(settings.forcecap, settings.forcecap,
       settings.forcecap); //small cap restricts initial movement from clash
@@ -261,7 +266,7 @@ void do_search(model& m, const boost::optional<model>& ref,
         << " (kcal/mol)";
     log.endl();
 
-    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
+    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity);
 
     std::vector<flv> atominfo;
     flv term_values = t->evale_robust(m);
@@ -280,15 +285,14 @@ void do_search(model& m, const boost::optional<model>& ref,
 
     conf_independent_inputs in(m);
     const flv nonweight(1, 1.0);
-    for (unsigned i = 0, n = t->conf_independent_terms.size(); i < n; i++)
-        {
+    for (unsigned i = 0, n = t->conf_independent_terms.size(); i < n; i++) {
       flv::const_iterator pos = nonweight.begin();
       log << " " <<
           t->conf_independent_terms[i].eval(in, (fl) 0.0, pos);
     }
     log << '\n';
 
-    results.push_back(result_info(e, cnnscore, cnnaffinity, cnnforces, -1, m));
+    results.push_back(result_info(e, cnnscore, cnnaffinity, -1, m));
 
     if (compute_atominfo)
       results.back().setAtomValues(m, &sf);
@@ -313,7 +317,7 @@ void do_search(model& m, const boost::optional<model>& ref,
         intramolecular_energy, user_grid);
 
     //reset the center after last call to set
-    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
+    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity);
 
     vecv newcoords = m.get_heavy_atom_movable_coords();
     assert(newcoords.size() == origcoords.size());
@@ -325,19 +329,20 @@ void do_search(model& m, const boost::optional<model>& ref,
     log << "Affinity: " << std::fixed << std::setprecision(5) << e << "  "
         << intramolecular_energy
         << " (kcal/mol)\nRMSD: " << rmsd;
+    log << "CNNscore: " << std::fixed << std::setprecision(5) << cnnscore << " "
+        << "\nCNNaffinity: " << cnnaffinity;
     log.endl();
 
     if (!nc.within(m))
       log << "WARNING: not all movable atoms are within the search space\n";
 
     done(settings.verbosity, log);
-    results.push_back(
-        result_info(e, cnnscore, cnnaffinity, cnnforces, rmsd, m));
+    results.push_back(result_info(e, cnnscore, cnnaffinity, rmsd, m));
 
     if (compute_atominfo)
       results.back().setAtomValues(m, &sf);
   }
-  else
+  else //docking
   {
     rng generator(static_cast<rng::result_type>(settings.seed));
     log << "Using random seed: " << settings.seed;
@@ -347,30 +352,32 @@ void do_search(model& m, const boost::optional<model>& ref,
     par(m, out_cont, prec, ig, corner1, corner2, generator, user_grid);
     done(settings.verbosity, log);
     doing(settings.verbosity, "Refining results", log);
+
     VINA_FOR_IN(i, out_cont) {
       refine_structure(m, prec, nc, out_cont[i], authentic_v,
           par.mc.ssd_par.minparm, user_grid, settings.gpu_on);
-      get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnforces);
-    }
-
-    if (!out_cont.empty())
-    {
-      out_cont.sort();
-      non_cache_cnn* nc_cnn = dynamic_cast<non_cache_cnn*>(&nc);
-      if (!nc_cnn)
-      {
-        non_cache nc_base = *(dynamic_cast<non_cache*>(&nc));
-        const fl best_mode_intramolecular_energy = m.eval_intramolecular(prec,
-            authentic_v, out_cont[0].c);
-
-        VINA_FOR_IN(i, out_cont)
-          if (not_max(out_cont[i].e))
-            out_cont[i].e = m.eval_adjusted(sf, prec, nc_base, authentic_v,
-                out_cont[i].c, best_mode_intramolecular_energy, user_grid);
-        // the order must not change because of non-decreasing g (see paper), but we'll re-sort in case g is non strictly increasing
-        out_cont.sort();
+      get_cnn_info(m, cnn, log, cnnscore, cnnaffinity);
+      out_cont[i].cnnscore = cnnscore;
+      out_cont[i].cnnaffinity = cnnaffinity;
+      if (not_max(out_cont[i].e)) {
+          intramolecular_energy = m.eval_intramolecular(exact_prec, authentic_v, out_cont[i].c);
+          out_cont[i].e = m.eval_adjusted(sf, exact_prec, nc, authentic_v, out_cont[i].c, intramolecular_energy, user_grid);
       }
     }
+
+    auto sorter = [settings](const output_type& lhs, const output_type& rhs) {
+      switch(settings.sort_order) {
+      case Energy:
+        return lhs.e < rhs.e;
+      case CNNaffinity:
+        return lhs.cnnaffinity > rhs.cnnaffinity; //reverse
+      case CNNscore:
+      default:
+        return lhs.cnnscore > rhs.cnnscore; //reverse
+      }
+    };
+
+    out_cont.sort(sorter);
     out_cont = remove_redundant(out_cont, settings.out_min_rmsd);
 
     done(settings.verbosity, log);
@@ -378,9 +385,9 @@ void do_search(model& m, const boost::optional<model>& ref,
     log.setf(std::ios::fixed, std::ios::floatfield);
     log.setf(std::ios::showpoint);
     log << '\n';
-    log << "mode |   affinity | dist from best mode\n";
-    log << "     | (kcal/mol) | rmsd l.b.| rmsd u.b.\n";
-    log << "-----+------------+----------+----------\n";
+    log << "mode |  affinity  |    CNN         CNN\n";
+    log << "     | (kcal/mol) | pose score | affinity\n";
+    log << "-----+------------+------------+----------\n";
 
     model best_mode_model = m;
     if (!out_cont.empty())
@@ -389,29 +396,18 @@ void do_search(model& m, const boost::optional<model>& ref,
     sz how_many = 0;
     VINA_FOR_IN(i, out_cont)
     {
-      if (how_many >= settings.num_modes || !not_max(out_cont[i].e)
-          || out_cont[i].e > out_cont[0].e + settings.energy_range)
+      if (how_many >= settings.num_modes || !not_max(out_cont[i].e))
         break; // check energy_range sanity FIXME
       ++how_many;
-      log << std::setw(4) << i + 1 << "    " << std::setw(9)
-          << std::setprecision(1) << out_cont[i].e; // intermolecular_energies[i];
-      m.set(out_cont[i].c);
-      const model& r = ref ? ref.get() : best_mode_model;
-      const fl lb = m.rmsd_lower_bound(r);
-      const fl ub = m.rmsd_upper_bound(r);
-      log << "  " << std::setw(9) << std::setprecision(3) << lb << "  "
-          << std::setw(9) << std::setprecision(3) << ub; // FIXME need user-readable error messages in case of failures
-
+      log << std::setw(5) << i + 1 << "    " << std::setw(12)
+          << std::setprecision(2) << out_cont[i].e; // intermolecular_energies[i];
+      log << " " << std::setw(10) << std::setprecision(4) << out_cont[i].cnnscore << "  "
+          << std::setw(12) << std::setprecision(3) << out_cont[i].cnnaffinity;
       log.endl();
 
-      float cnnaffinity = -1;
-      float cnnforces = -1;
-      float loss = 0;
-      cnnscore = cnn.score(m, true, cnnaffinity, loss);
-      cnnforces = m.get_minus_forces_sum_magnitude();
       //dkoes - setup result_info
       results.push_back(
-          result_info(out_cont[i].e, cnnscore, cnnaffinity, cnnforces, -1, m));
+          result_info(out_cont[i].e, out_cont[i].cnnscore, out_cont[i].cnnaffinity, -1, m));
 
       if (compute_atominfo)
         results.back().setAtomValues(m, &sf);
@@ -450,14 +446,14 @@ void load_ent_values(const grid_dims& gd, std::istream& user_in,
   std::cout << user_data(gd[0].n - 3, gd[1].n, gd[2].n) << "\n";
 }
 
-void main_procedure(model& m, precalculate& prec,
-    const boost::optional<model>& ref, // m is non-const (FIXME?)
-    const user_settings& settings,
+void main_procedure(model &m, precalculate &prec,
+    const boost::optional<model> &ref, // m is non-const (FIXME?)
+    const user_settings &settings,
     bool no_cache, bool compute_atominfo,
-    const grid_dims& gd, minimization_params minparm,
-    const weighted_terms& wt, tee& log,
-    std::vector<result_info>& results, grid& user_grid, CNNScorer& cnn)
-    {
+    const grid_dims &gd, minimization_params minparm,
+    const weighted_terms &wt, tee &log,
+    std::vector<result_info> &results, grid &user_grid, CNNScorer &cnn)
+{
   doing(settings.verbosity, "Setting up the scoring function", log);
 
   done(settings.verbosity, log);
@@ -492,7 +488,7 @@ void main_procedure(model& m, precalculate& prec,
     for (unsigned i = 0; i < settings.num_modes; i++) {
       fl e = do_randomization(m, corner1, corner2, settings.seed + i,
           settings.verbosity, log);
-      results.push_back(result_info(e, -1, 0, -1, -1, m));
+      results.push_back(result_info(e, -1, 0, -1, m));
     }
     return;
   }
@@ -501,8 +497,7 @@ void main_procedure(model& m, precalculate& prec,
     non_cache *nc = NULL;
     if (settings.gpu_on)
     {
-      if (settings.cnnopts.cnn_scoring || settings.cnnopts.cnn_refinement)
-          {
+      if (settings.cnnopts.cnn_refinement) {
         nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
       }
       else
@@ -515,7 +510,7 @@ void main_procedure(model& m, precalculate& prec,
     }
     else
     {
-      if (settings.cnnopts.cnn_scoring || settings.cnnopts.cnn_refinement) {
+      if (settings.cnnopts.cnn_refinement) {
         nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
       }
       else
@@ -524,7 +519,7 @@ void main_procedure(model& m, precalculate& prec,
       }
     }
 
-    if (no_cache || settings.cnnopts.cnn_scoring)  {
+    if (no_cache || settings.cnnopts.cnn_docking)  {
       do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
           settings, compute_atominfo, log,
           wt.unweighted_terms(), user_grid, cnn,
@@ -539,8 +534,7 @@ void main_procedure(model& m, precalculate& prec,
         doing(settings.verbosity, "Analyzing the binding site", log);
       std::unique_ptr<cache> c(
           (settings.gpu_on &&
-              !(settings.cnnopts.cnn_scoring ||
-                  settings.cnnopts.cnn_refinement)) ?
+              settings.cnnopts.nocnn) ?
               new cache_gpu("scoring_function_version001",
                   gd, slope, dynamic_cast<precalculate_gpu*>(&prec)) :
               new cache("scoring_function_version001", gd, slope));
@@ -679,7 +673,7 @@ void setup_atomconstants_from_file(const std::string& atomconstants_file)
 }
 
 void print_atom_info(std::ostream& out)
-    {
+{
   out
       << "#Name radius depth solvation volume covalent_radius xs_radius xs_hydrophobe xs_donor xs_acceptr ad_heteroatom\n";
   VINA_FOR(i, smina_atom_type::NumTypes)
@@ -701,7 +695,7 @@ void print_atom_info(std::ostream& out)
 }
 
 void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
-    {
+{
   std::string line;
   size_t pLines = 3;
   std::vector<std::string> temp;
@@ -741,30 +735,6 @@ void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
 
 }
 
-//enum options and their parsers
-enum ApproxType
-{
-  LinearApprox, SplineApprox, Exact, GPU
-};
-
-std::istream& operator>>(std::istream& in, ApproxType& type)
-    {
-  using namespace boost::program_options;
-
-  std::string token;
-  in >> token;
-  if (token == "spline")
-    type = SplineApprox;
-  else if (token == "linear")
-    type = LinearApprox;
-  else if (token == "exact")
-    type = Exact;
-  else if (token == "gpu")
-    type = GPU;
-  else
-    throw validation_error(validation_error::invalid_option_value);
-  return in;
-}
 
 //set the default device to device and exit with error if there are any problems
 void initializeCUDA(int device)
@@ -773,16 +743,14 @@ void initializeCUDA(int device)
   cudaDeviceProp deviceProp;
 
   error = cudaSetDevice(device);
-  if (error != cudaSuccess)
-      {
+  if (error != cudaSuccess) {
     std::cerr << "cudaSetDevice returned error code " << error << "\n";
     exit(-1);
   }
 
   error = cudaGetDevice(&device);
 
-  if (error != cudaSuccess)
-      {
+  if (error != cudaSuccess) {
     std::cerr << "cudaGetDevice returned error code " << error << "\n";
     exit(-1);
   }
@@ -926,7 +894,7 @@ void threads_at_work(job_queue<worker_job>* wrkq,
     {
   if (gs->settings->gpu_on) {
     initializeCUDA(gs->settings->device);
-    if (!(gs->cnnopts.cnn_scoring || gs->cnnopts.cnn_refinement))
+    if (gs->settings->cnnopts.nocnn)
       thread_buffer.init(available_mem(gs->settings->cpu));
   }
 
@@ -1052,9 +1020,7 @@ Thank you!\n";
           "  \\__, |_| |_|_|_| |_|\\__,_|\n"
           "   __/ |                    \n"
           "  |___/                     \n"
-          "\ngnina is based on smina and AutoDock Vina.\nPlease cite appropriately.\n\n"
-          "*** IMPORTANT: Use of CNN scoring while docking is not recommended. ***\n"
-          "***     CNN scoring is best used with --minimize or --score_only    ***\n";
+          "\ngnina is based on smina and AutoDock Vina.\nPlease cite appropriately.\n\n";
 
   try
   {
@@ -1142,8 +1108,7 @@ Thank you!\n";
     ("no_lig", bool_switch(&no_lig)->default_value(false),
         "no ligand; for sampling/minimizing flexible residues");
 
-    //options_description outputs("Output prefixes (optional - by default, input names are stripped of .pdbqt\nare used as prefixes. _001.pdbqt, _002.pdbqt, etc. are appended to the prefixes to produce the output names");
-    options_description outputs("Output (optional)");
+    options_description outputs("Output");
     outputs.add_options()
     ("out,o", value<std::string>(&out_name),
         "output file name, format taken from file extension")
@@ -1154,7 +1119,9 @@ Thank you!\n";
         "optionally write per-atom interaction term values")
     ("atom_term_data",
         bool_switch(&settings.include_atom_info)->default_value(false),
-        "embedded per-atom interaction terms in output sd data");
+        "embedded per-atom interaction terms in output sd data")
+    ("pose_sort_order",value<pose_sort_order>(&settings.sort_order)->default_value(CNNscore),
+        "How to sort docking results (default CNNscore)");
 
     options_description scoremin("Scoring and minimization options");
     scoremin.add_options()
@@ -1212,20 +1179,22 @@ Thank you!\n";
 
     options_description cnn("Convolutional neural net (CNN) scoring");
     cnn.add_options()
-    ("cnn", value<std::string>(&cnnopts.cnn_model_name),
+    ("nocnn", bool_switch(&cnnopts.nocnn),
+            "Disable all CNN scoring")
+    ("cnn", value<std::vector<std::string> >(&cnnopts.cnn_model_names)->multitoken(),
         ("built-in model to use: " + builtin_cnn_models()).c_str())
-    ("cnn_model", value<std::string>(&cnnopts.cnn_model),
+    ("cnn_model", value<std::vector<std::string>>(&cnnopts.cnn_models)->multitoken(),
         "caffe cnn model file; if not specified a default model will be used")
-    ("cnn_weights", value<std::string>(&cnnopts.cnn_weights),
+    ("cnn_weights", value<std::vector<std::string>>(&cnnopts.cnn_weights)->multitoken(),
         "caffe cnn weights file (*.caffemodel); if not specified default weights (trained on the default model) will be used")
     ("cnn_resolution", value<fl>(&cnnopts.resolution)->default_value(0.5),
         "resolution of grids, don't change unless you really know what you are doing")
     ("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
         "evaluate multiple rotations of pose (max 24)")
-    ("cnn_scoring", bool_switch(&cnnopts.cnn_scoring),
-        "Use a convolutional neural network to score poses.")
+    ("cnn_docking", bool_switch(&cnnopts.cnn_docking),
+        "Use a convolutional neural network to score poses as a full replacement for empirical scoring.")
     ("cnn_refinement", bool_switch(&cnnopts.cnn_refinement),
-        "Use a convolutional neural network for final refinement of docked poses only")
+        "Use a convolutional neural network for final refinement of docked poses or with --minimize")
     ("cnn_update_min_frame", bool_switch(&cnnopts.move_minimize_frame),
         "During minimization, recenter coordinate frame as ligand moves")
     ("cnn_freeze_receptor", bool_switch(&cnnopts.fix_receptor),
@@ -1256,8 +1225,6 @@ Thank you!\n";
         "exhaustiveness of the global search (roughly proportional to time)")
     ("num_modes", value<sz>(&settings.num_modes)->default_value(9),
         "maximum number of binding modes to generate")
-    ("energy_range", value<fl>(&settings.energy_range)->default_value(3.0),
-        "maximum energy difference between the best binding mode and the worst one displayed (kcal/mol)")
     ("min_rmsd_filter", value<fl>(&settings.out_min_rmsd)->default_value(1.0),
         "rmsd value used to filter final poses to remove redundancy")
     ("quiet,q", bool_switch(&quiet), "Suppress output messages")
@@ -1331,6 +1298,10 @@ Thank you!\n";
       return 0;
     }
 
+    tee log(quiet);
+    if (vm.count("log") > 0)
+      log.init(log_name);
+
     if (!atomconstants_file.empty())
       setup_atomconstants_from_file(atomconstants_file);
 
@@ -1379,6 +1350,8 @@ Thank you!\n";
     if (settings.gpu_on) {
       cudaDeviceReset();
       cudaDeviceSetLimit(cudaLimitStackSize, 5120);
+    } else {
+      caffe::Caffe::set_cudnn(false); //if cudnn is on, won't fallback to cpu
     }
 
     if (accurate_line)
@@ -1394,10 +1367,23 @@ Thank you!\n";
     bool search_box_needed = !(settings.score_only || settings.local_only); // randomize_only and local_only still need the search space; dkoes - for local get box from ligand
     bool output_produced = !settings.score_only;
     bool receptor_needed = !settings.randomize_only;
-    if (cnnopts.cnn_scoring
-        &&
-        !(settings.score_only || settings.local_only || settings.randomize_only))
+
+    //cnn options don't make sense together (probably shoudl be enum)
+    if(cnnopts.cnn_docking) {
+      if(cnnopts.cnn_refinement) log << "Warning: cnn_docking implies cnn_refinement\n";
+      if(cnnopts.nocnn) log << "Warning: nocnn will disable cnn_docking\n";
+    }
+
+    if(cnnopts.cnn_refinement && cnnopts.nocnn) log << "Warning: nocnn will disable cnn_refinement\n";
+
+    if (cnnopts.cnn_docking) {
       cnnopts.move_minimize_frame = true;
+      cnnopts.cnn_refinement = true;
+    }
+
+    if(cnnopts.nocnn) {
+      settings.sort_order = Energy;
+    }
 
     if (receptor_needed)
     {
@@ -1454,10 +1440,6 @@ Thank you!\n";
       nflex = flex_max;
       nflex_hard_limit = false;
     }
-
-    tee log(quiet);
-    if (vm.count("log") > 0)
-      log.init(log_name);
 
     std::ofstream atomoutfile;
     if (vm.count("atom_terms") > 0)
@@ -1541,14 +1523,11 @@ Thank you!\n";
     }
     
     // Print information about flexible residues use
-    if (finfo.hasContent() && (cnnopts.cnn_refinement ||
-                               (cnnopts.cnn_scoring && settings.dominimize))) {
+    if (finfo.hasContent() && !cnnopts.nocnn) {
+      if(!cnnopts.fix_receptor)
+          log << "Receptor position and orientation are frozen.\n";
       cnnopts.fix_receptor = true; // Fix receptor position and orientation
 
-      log << "Optimizing flexible residues with CNN scoring function.\n";
-      log << "Receptor position and orientation are frozen.\n";
-    } else if (finfo.hasContent() && cnnopts.cnn_scoring) {
-      log << "WARNING: Flexible residues specified but not used.\n";
     }
 
     if (usergrid_file_name.size() > 0) {

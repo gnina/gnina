@@ -35,7 +35,7 @@ void test_set_atom_gradients() {
   std::vector<smt> mol_types;
   make_mol(mol_atoms, mol_types, engine, 0, 1, 5000, 11.5, 11.5, 11.5);
   cnn_options cnnopts;
-  cnnopts.cnn_scoring = true;
+  cnnopts.cnn_docking = true;
   model m;
   CNNScorer cnn_scorer(cnnopts);
   typedef CNNScorer::Dtype Dtype;
@@ -95,7 +95,7 @@ void test_vanilla_grids() {
   make_mol(mol_atoms, mol_types, engine);
 
   cnn_options cnnopts;
-  cnnopts.cnn_scoring = true;
+  cnnopts.cnn_docking = true;
   model m;
   CNNScorer cnn_scorer(cnnopts);
   typedef CNNScorer::Dtype Dtype;

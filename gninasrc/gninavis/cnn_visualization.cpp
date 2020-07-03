@@ -191,8 +191,8 @@ void cnn_visualization::masking() {
 void cnn_visualization::print() {
   std::cout << "ligand_name: " << visopts.ligand_name << '\n';
   std::cout << "receptor_name: " << visopts.receptor_name << '\n';
-  std::cout << "cnn_model: " << cnnopts.cnn_model << '\n';
-  std::cout << "cnn_weights: " << cnnopts.cnn_weights << '\n';
+  std::cout << "cnn_model: " << cnnopts.cnn_models[0] << '\n';
+  std::cout << "cnn_weights: " << cnnopts.cnn_weights[0] << '\n';
   std::cout << "box_size: " << visopts.box_size << '\n';
   std::cout << "skip_receptor_output: " << visopts.skip_receptor_output << '\n';
   std::cout << "skip_ligand_output: " << visopts.skip_ligand_output << '\n';
@@ -394,8 +394,8 @@ void cnn_visualization::write_scores(
       curr_out_file << "CNN SCORE: " << original_score << '\n';
     }
 
-    curr_out_file << "MODEL: " << cnnopts.cnn_model << '\n';
-    curr_out_file << "WEIGHTS: " << cnnopts.cnn_weights << '\n';
+    curr_out_file << "MODEL: " << cnnopts.cnn_models[0] << '\n';
+    curr_out_file << "WEIGHTS: " << cnnopts.cnn_weights[0] << '\n';
 
     std::stringstream mol_stream(mol_string);
     std::string line;

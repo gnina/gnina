@@ -75,6 +75,7 @@ lib/model.cu
 lib/non_cache_gpu.cu
 lib/precalculate_gpu.cu
 lib/tree_gpu.cu
+lib/user_opts.cpp
 )
 
 #test

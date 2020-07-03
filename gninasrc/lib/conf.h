@@ -519,6 +519,8 @@ struct conf {
 struct output_type {
     conf c;
     fl e;
+    fl cnnscore = -1;
+    fl cnnaffinity = -1;
     vecv coords;
     output_type(const conf& c_, fl e_)
         : c(c_), e(e_) {
