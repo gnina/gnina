@@ -189,6 +189,10 @@ int main(int argc, char* argv[]) {
   } catch (po::error& e) {
   }
 
+  FLAGS_minloglevel = google::GLOG_ERROR; //don't spit out info messages
+  // Google logging.
+  ::google::InitGoogleLogging(argv[0]);
+
   if (help) std::cout << desc_simple << '\n';
 
   return ut::unit_test_main(&init_unit_test, argc, argv);

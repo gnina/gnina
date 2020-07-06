@@ -33,6 +33,7 @@ static void setup_mgridparm(caffe::MolGridDataParameter *mgridparam,
   }
   mgridparam->set_inmemory(true);
   mgridparam->set_subgrid_dim(opts.subgrid_dim);
+  mgridparam->set_batch_size(1);
 
   if (mname.size() != 0)
   { //using built-in model, load reg maps
@@ -94,7 +95,6 @@ CNNScorer::CNNScorer(const cnn_options &opts) :
   //load built-in models
   for (const auto &name : model_names)
   {
-    std::cerr << name << "\n";
     NetParameter param;
     if (cnn_models.count(name) == 0)
     {
