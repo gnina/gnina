@@ -13,7 +13,7 @@ int main(int argc, char* argv[]) {
   cnn_options cnnopts;
 
   cnnopts.cnn_rotations = 0; //any reason to make this an option?
-  cnnopts.cnn_docking = true;
+  cnnopts.cnn_scoring = CNNall;
 
   using namespace boost::program_options;
 

@@ -247,7 +247,7 @@ void do_search(model& m, const boost::optional<model>& ref,
   fl intramolecular_energy = max_fl;
   fl cnnscore = 0, cnnaffinity = 0;
   fl rmsd = 0;
-  if (settings.gpu_on && settings.cnnopts.nocnn)
+  if (settings.gpu_on && settings.cnnopts.cnn_scoring == CNNnone)
     m.initialize_gpu();
   const vec authentic_v(settings.forcecap, settings.forcecap,
       settings.forcecap); //small cap restricts initial movement from clash
@@ -497,7 +497,7 @@ void main_procedure(model &m, precalculate &prec,
     non_cache *nc = NULL;
     if (settings.gpu_on)
     {
-      if (settings.cnnopts.cnn_refinement) {
+      if (settings.cnnopts.cnn_scoring >= CNNrefinement) {
         nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
       }
       else
@@ -510,7 +510,7 @@ void main_procedure(model &m, precalculate &prec,
     }
     else
     {
-      if (settings.cnnopts.cnn_refinement) {
+      if (settings.cnnopts.cnn_scoring >= CNNrefinement) {
         nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
       }
       else
@@ -519,7 +519,7 @@ void main_procedure(model &m, precalculate &prec,
       }
     }
 
-    if (no_cache || settings.cnnopts.cnn_docking)  {
+    if (no_cache || settings.cnnopts.cnn_scoring == CNNall)  {
       do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
           settings, compute_atominfo, log,
           wt.unweighted_terms(), user_grid, cnn,
@@ -534,7 +534,7 @@ void main_procedure(model &m, precalculate &prec,
         doing(settings.verbosity, "Analyzing the binding site", log);
       std::unique_ptr<cache> c(
           (settings.gpu_on &&
-              settings.cnnopts.nocnn) ?
+              settings.cnnopts.cnn_scoring == CNNnone) ?
               new cache_gpu("scoring_function_version001",
                   gd, slope, dynamic_cast<precalculate_gpu*>(&prec)) :
               new cache("scoring_function_version001", gd, slope));
@@ -894,7 +894,7 @@ void threads_at_work(job_queue<worker_job>* wrkq,
     {
   if (gs->settings->gpu_on) {
     initializeCUDA(gs->settings->device);
-    if (gs->settings->cnnopts.nocnn)
+    if (gs->settings->cnnopts.cnn_scoring == CNNnone)
       thread_buffer.init(available_mem(gs->settings->cpu));
   }
 
@@ -1179,8 +1179,8 @@ Thank you!\n";
 
     options_description cnn("Convolutional neural net (CNN) scoring");
     cnn.add_options()
-    ("nocnn", bool_switch(&cnnopts.nocnn),
-            "Disable all CNN scoring")
+    ("cnn_scoring",value<cnn_scoring_level>(&cnnopts.cnn_scoring)->default_value(CNNrescore),
+                    "Amount of CNN scoring: none, rescore (default), refinement, all")
     ("cnn", value<std::vector<std::string> >(&cnnopts.cnn_model_names)->multitoken(),
         ("built-in model to use: " + builtin_cnn_models()).c_str())
     ("cnn_model", value<std::vector<std::string>>(&cnnopts.cnn_models)->multitoken(),
@@ -1191,10 +1191,6 @@ Thank you!\n";
         "resolution of grids, don't change unless you really know what you are doing")
     ("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
         "evaluate multiple rotations of pose (max 24)")
-    ("cnn_docking", bool_switch(&cnnopts.cnn_docking),
-        "Use a convolutional neural network to score poses as a full replacement for empirical scoring.")
-    ("cnn_refinement", bool_switch(&cnnopts.cnn_refinement),
-        "Use a convolutional neural network for final refinement of docked poses or with --minimize")
     ("cnn_update_min_frame", bool_switch(&cnnopts.move_minimize_frame),
         "During minimization, recenter coordinate frame as ligand moves")
     ("cnn_freeze_receptor", bool_switch(&cnnopts.fix_receptor),
@@ -1368,20 +1364,13 @@ Thank you!\n";
     bool output_produced = !settings.score_only;
     bool receptor_needed = !settings.randomize_only;
 
-    //cnn options don't make sense together (probably shoudl be enum)
-    if(cnnopts.cnn_docking) {
-      if(cnnopts.cnn_refinement) log << "Warning: cnn_docking implies cnn_refinement\n";
-      if(cnnopts.nocnn) log << "Warning: nocnn will disable cnn_docking\n";
-    }
 
-    if(cnnopts.cnn_refinement && cnnopts.nocnn) log << "Warning: nocnn will disable cnn_refinement\n";
 
-    if (cnnopts.cnn_docking) {
+    if (cnnopts.cnn_scoring == CNNall) {
       cnnopts.move_minimize_frame = true;
-      cnnopts.cnn_refinement = true;
     }
 
-    if(cnnopts.nocnn) {
+    if(cnnopts.cnn_scoring == CNNnone) {
       settings.sort_order = Energy;
     }
 
@@ -1523,7 +1512,7 @@ Thank you!\n";
     }
     
     // Print information about flexible residues use
-    if (finfo.hasContent() && !cnnopts.nocnn) {
+    if (finfo.hasContent() && cnnopts.cnn_scoring != CNNnone) {
       if(!cnnopts.fix_receptor)
           log << "Receptor position and orientation are frozen.\n";
       cnnopts.fix_receptor = true; // Fix receptor position and orientation

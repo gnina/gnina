@@ -27,7 +27,7 @@
             			
             <storageModule moduleId="cdtBuildSystem" version="4.0.0">
                 				
-                <configuration artifactName="${ProjName}" buildProperties="" description="" id="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275" name="Default" optionalBuildProperties="org.eclipse.cdt.docker.launcher.containerbuild.property.selectedvolumes=,org.eclipse.cdt.docker.launcher.containerbuild.property.volumes=" parent="org.eclipse.cdt.build.core.emptycfg">
+                <configuration artifactName="${ProjName}" buildProperties="" description="" id="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275" name="Default" optionalBuildProperties="org.eclipse.cdt.docker.launcher.containerbuild.property.volumes=,org.eclipse.cdt.docker.launcher.containerbuild.property.selectedvolumes=" parent="org.eclipse.cdt.build.core.emptycfg">
                     					
                     <folderInfo id="com.nvidia.cuda.ide.toolchain.eight_zero.1674528275.1093790188" name="/" resourcePath="">
                         						
@@ -123,7 +123,7 @@
                             							
                             <targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.194701867" isAbstract="false" name="Debug Platform" osList="linux,macosx"/>
                             							
-                            <builder buildPath="${workspace_loc:/gnina/build-debug}" id="com.nvidia.cuda.ide.builder.390069247" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="CUDA Toolkit 9.2 Builder" parallelBuildOn="true"/>
+                            <builder arguments="-j12" autoBuildTarget="" buildPath="${workspace_loc:/gnina/build-debug}" cleanBuildTarget="" enableAutoBuild="false" enableCleanBuild="true" enabledIncrementalBuild="true" id="com.nvidia.cuda.ide.builder.390069247" incrementalBuildTarget="" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="CUDA Toolkit 9.2 Builder" parallelBuildOn="true"/>
                             						
                         </toolChain>
                         					

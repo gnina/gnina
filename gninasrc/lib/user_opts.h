@@ -20,6 +20,16 @@ enum pose_sort_order {
 //for reading in as a commandline option
 std::istream& operator>>(std::istream &in, pose_sort_order &sort_order);
 
+enum cnn_scoring_level {
+  CNNnone, //don't use CNN
+  CNNrescore, // use CNN only for final scoring and ranking
+  CNNrefinement, // use CNN only for minimization
+  CNNall // use CNN everywhere
+};
+
+std::istream& operator>>(std::istream &in, cnn_scoring_level &cnn_level);
+
+
 struct cnn_options {
     //stores options associated with cnn scoring
     std::vector<std::string> cnn_models; //path(s) to model file
@@ -30,10 +40,8 @@ struct cnn_options {
     vec cnn_center;
     fl resolution; //this isn't specified in model file, so be careful about straying from default
     unsigned cnn_rotations; //do we want to score multiple orientations?
+    cnn_scoring_level cnn_scoring;
     double subgrid_dim;
-    bool cnn_docking; //cnn replaces Vina
-    bool cnn_refinement; //cnn used only for refinement in docking
-    bool nocnn; //avoid all cnn scoring
     bool outputdx;
     bool outputxyz;
     bool gradient_check;
@@ -45,9 +53,8 @@ struct cnn_options {
 
     cnn_options()
         : cnn_center(NAN, NAN, NAN),
-           resolution(0.5), cnn_rotations(0),
-            subgrid_dim(0.0), cnn_docking(false), cnn_refinement(false),
-            nocnn(false), outputdx(false),
+           resolution(0.5), cnn_rotations(0), cnn_scoring(CNNrescore),
+            subgrid_dim(0.0), outputdx(false),
             outputxyz(false), gradient_check(false), move_minimize_frame(false),
             fix_receptor(false), verbose(false), seed(0) {
     }
