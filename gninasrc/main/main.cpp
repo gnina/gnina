@@ -359,6 +359,7 @@ void do_search(model& m, const boost::optional<model>& ref,
       get_cnn_info(m, cnn, log, cnnscore, cnnaffinity);
       out_cont[i].cnnscore = cnnscore;
       out_cont[i].cnnaffinity = cnnaffinity;
+
       if (not_max(out_cont[i].e)) {
           intramolecular_energy = m.eval_intramolecular(exact_prec, authentic_v, out_cont[i].c);
           out_cont[i].e = m.eval_adjusted(sf, exact_prec, nc, authentic_v, out_cont[i].c, intramolecular_energy, user_grid);
@@ -495,29 +496,19 @@ void main_procedure(model &m, precalculate &prec,
   else
   {
     non_cache *nc = NULL;
-    if (settings.gpu_on)
-    {
-      if (settings.cnnopts.cnn_scoring >= CNNrefinement) {
-        nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
-      }
-      else
-      {
-        precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
-        if (!gprec)
-          abort();
-        nc = new non_cache_gpu(gridcache, gd, gprec, slope);
-      }
+    if (settings.cnnopts.cnn_scoring >= CNNrefinement) {
+      nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
+    } else if(settings.gpu_on && settings.cnnopts.cnn_scoring == CNNnone) {
+      log << "WARNING: --gpu with empirical scoring is experimental and not recommended\n";
+      precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
+      if (!gprec)
+        abort();
+      nc = new non_cache_gpu(gridcache, gd, gprec, slope);
+    } else {
+      nc = new non_cache(gridcache, gd, &prec, slope);
+
     }
-    else
-    {
-      if (settings.cnnopts.cnn_scoring >= CNNrefinement) {
-        nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
-      }
-      else
-      {
-        nc = new non_cache(gridcache, gd, &prec, slope);
-      }
-    }
+
 
     if (no_cache || settings.cnnopts.cnn_scoring == CNNall)  {
       do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
@@ -1121,7 +1112,7 @@ Thank you!\n";
         bool_switch(&settings.include_atom_info)->default_value(false),
         "embedded per-atom interaction terms in output sd data")
     ("pose_sort_order",value<pose_sort_order>(&settings.sort_order)->default_value(CNNscore),
-        "How to sort docking results (default CNNscore)");
+        "How to sort docking results: CNNscore (default), CNNaffinity, Energy");
 
     options_description scoremin("Scoring and minimization options");
     scoremin.add_options()
@@ -1568,8 +1559,7 @@ Thank you!\n";
 
     boost::shared_ptr<precalculate> prec;
 
-    if (settings.gpu_on || approx == GPU)
-        { //don't get a choice
+    if (settings.gpu_on || approx == GPU)  { //don't get a choice
       prec = boost::shared_ptr<precalculate>(
           new precalculate_gpu(wt, approx_factor));
     }
