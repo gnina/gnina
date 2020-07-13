@@ -23,7 +23,7 @@
 #ifndef VINA_CONVERT_SUBSTRING_H
 #define VINA_CONVERT_SUBSTRING_H
 
-#include <cctype> // for isspace#include <boost/lexical_cast.hpp>#include "common.h"
+#include <cctype> // for isspace#include <boost/lexical_cast.hpp>#include "common.h"
 struct bad_conversion {
 };
 

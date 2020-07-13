@@ -35,7 +35,7 @@ struct parallel_mc_task {
     rng generator;
     parallel_mc_task(const model& m_, int seed)
         : m(m_), generator(static_cast<rng::result_type>(seed)) {
-      if (m_.gpu_initialized()) {
+      if (m_.gpu_initialized() && m.gdata.device_on) {
         //TODO: need to ensure that worker threads using these copies can't
         //deallocate GPU memory - race condition in
         //parallel_mc_aux::operator(), plus inefficiency of having to copy
@@ -78,7 +78,7 @@ struct parallel_mc_aux {
     void operator()(parallel_mc_task& t) const {
       //TODO: remove when the CNN is using the device buffer
       const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(ig);
-      if (t.m.gpu_initialized() && !cnn) {
+      if (t.m.gpu_initialized() && t.m.gdata.device_on && !cnn) { //only triggered with non-cnn gpu docking
         thread_buffer.reinitialize();
         //update our copy of gpu_data to have local buffers; N.B. this
         //theoretically could be restricted to fields we intend to modify,
@@ -166,8 +166,9 @@ void merge_output_containers(const output_container& in, output_container& out,
 void merge_output_containers(const parallel_mc_task_container& many,
     output_container& out, fl min_rmsd, sz max_size) {
   min_rmsd = 2; // FIXME? perhaps it's necessary to separate min_rmsd during search and during output?
-  VINA_FOR_IN(i, many)
+  VINA_FOR_IN(i, many) {
     merge_output_containers(many[i].out, out, min_rmsd, max_size);
+  }
   out.sort();
 }
 
@@ -183,13 +184,20 @@ void parallel_mc::operator()(const model& m, output_container& out,
         new parallel_mc_task(m, random_int(0, 1000000, generator)));
   if (display_progress) pp.init(num_tasks * mc.num_steps);
 
-  auto thread_init = [&]() {if (m.gdata.device_on) {
+  auto thread_init = [&]()
+  {
+    if (m.gdata.device_on)
+    {
       caffe::Caffe::SetDevice(m.gdata.device_id);
       caffe::Caffe::set_mode(caffe::Caffe::GPU);
       const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(&ig);
       if (!cnn)
-      thread_buffer.init(available_mem(num_threads));}};
-  parallel_iter<parallel_mc_aux, parallel_mc_task_container, parallel_mc_task,
+        thread_buffer.init(available_mem(num_threads));
+    }
+  };
+
+  parallel_iter<parallel_mc_aux,
+  parallel_mc_task_container, parallel_mc_task,
       decltype(thread_init), true> parallel_iter_instance(
       &parallel_mc_aux_instance, num_threads, thread_init);
   parallel_iter_instance.run(task_container);

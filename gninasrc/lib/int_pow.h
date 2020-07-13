@@ -23,7 +23,7 @@
 #ifndef VINA_INT_POW_H
 #define VINA_INT_POW_H
 
-#include "common.h" // for fl
+#include "common.h" // for fl
 template<unsigned n>
 inline fl int_pow(fl x) {
   return int_pow<n - 1>(x) * x; // tests seem to suggest that even for largish n's this optimizes well

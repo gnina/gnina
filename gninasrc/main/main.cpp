@@ -347,6 +347,7 @@ void do_search(model& m, const boost::optional<model>& ref,
     rng generator(static_cast<rng::result_type>(settings.seed));
     log << "Using random seed: " << settings.seed;
     log.endl();
+
     output_container out_cont;
     doing(settings.verbosity, "Performing search", log);
     par(m, out_cont, prec, ig, corner1, corner2, generator, user_grid);
@@ -356,7 +357,9 @@ void do_search(model& m, const boost::optional<model>& ref,
     VINA_FOR_IN(i, out_cont) {
       refine_structure(m, prec, nc, out_cont[i], authentic_v,
           par.mc.ssd_par.minparm, user_grid, settings.gpu_on);
+
       get_cnn_info(m, cnn, log, cnnscore, cnnaffinity);
+
       out_cont[i].cnnscore = cnnscore;
       out_cont[i].cnnaffinity = cnnaffinity;
 
@@ -400,6 +403,7 @@ void do_search(model& m, const boost::optional<model>& ref,
       if (how_many >= settings.num_modes || !not_max(out_cont[i].e))
         break; // check energy_range sanity FIXME
       ++how_many;
+      m.set(out_cont[i].c);
       log << std::setw(5) << i + 1 << "    " << std::setw(12)
           << std::setprecision(2) << out_cont[i].e; // intermolecular_energies[i];
       log << " " << std::setw(10) << std::setprecision(4) << out_cont[i].cnnscore << "  "
@@ -506,9 +510,7 @@ void main_procedure(model &m, precalculate &prec,
       nc = new non_cache_gpu(gridcache, gd, gprec, slope);
     } else {
       nc = new non_cache(gridcache, gd, &prec, slope);
-
     }
-
 
     if (no_cache || settings.cnnopts.cnn_scoring == CNNall)  {
       do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
@@ -1329,7 +1331,7 @@ Thank you!\n";
       minparms.type = minimization_params::BFGSAccurateLineSearch;
 
       if (!vm.count("approximation"))
-        approx = SplineApprox;
+        approx = SplineApprox; //use high accuracy approximation for --minimize
       if (!vm.count("factor"))
         approx_factor = 10;
     }
@@ -1559,7 +1561,7 @@ Thank you!\n";
 
     boost::shared_ptr<precalculate> prec;
 
-    if (settings.gpu_on || approx == GPU)  { //don't get a choice
+    if ((settings.gpu_on && settings.cnnopts.cnn_scoring == CNNnone) || approx == GPU)  { //don't get a choice
       prec = boost::shared_ptr<precalculate>(
           new precalculate_gpu(wt, approx_factor));
     }
@@ -1618,11 +1620,9 @@ Thank you!\n";
       nthreads = 1; //docking is multithreaded already, don't add additional parallelism other than pipeline
 
     //launch worker threads to process ligands in the work queue
-    for (int i = 0; i < nthreads; i++)
-        {
+    for (int i = 0; i < nthreads; i++) {
       worker_threads.create_thread(boost::bind(threads_at_work, &wrkq,
           &writerq, &gs, &mols, &nligs, cnn_scorer));
-
     }
 
     //launch writer thread to write results wherever they go
@@ -1647,7 +1647,7 @@ Thank you!\n";
             break;
           }
           m->set_pose_num(i);
-          m->gdata.device_on = settings.gpu_on;
+          m->gdata.device_on = settings.gpu_on && settings.cnnopts.cnn_scoring == CNNnone;
           m->gdata.device_id = settings.device;
 
           if (settings.local_only)

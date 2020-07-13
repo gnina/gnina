@@ -20,7 +20,7 @@
 
  */
 
-#include <ctime> // for time (for seeding)
+#include <ctime> // for time (for seeding)
 #include "random.h"
 #include "my_pid.h"
 
