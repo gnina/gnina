@@ -405,7 +405,7 @@ void do_search(model& m, const boost::optional<model>& ref,
         break; // check energy_range sanity FIXME
       ++how_many;
       m.set(out_cont[i].c);
-      log << std::setw(5) << i + 1 << "    " << std::setw(12)
+      log << std::setw(5) << how_many << "    " << std::setw(12)
           << std::setprecision(2) << out_cont[i].e; // intermolecular_energies[i];
       log << " " << std::setw(10) << std::setprecision(4) << out_cont[i].cnnscore << "  "
           << std::setw(12) << std::setprecision(3) << out_cont[i].cnnaffinity;
