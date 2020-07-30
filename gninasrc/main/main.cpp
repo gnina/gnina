@@ -260,9 +260,10 @@ void do_search(model& m, const boost::optional<model>& ref,
     naive_non_cache nnc(&exact_prec); // for out of grid issues
     e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
         intramolecular_energy, user_grid);
+    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
 
     log << "Affinity: " << std::fixed << std::setprecision(5) << e
-        << " (kcal/mol)";
+        << " (kcal/mol)\n";
 
     log << "CNNscore: " << std::fixed << std::setprecision(5) << cnnscore << " "
         << "\nCNNaffinity: " << cnnaffinity;
@@ -270,8 +271,6 @@ void do_search(model& m, const boost::optional<model>& ref,
       log << "\nCNNvariance: " << std::fixed << std::setprecision(5) << cnnvariance;
     }
     log.endl();
-
-    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
 
     std::vector<flv> atominfo;
     flv term_values = t->evale_robust(m);
