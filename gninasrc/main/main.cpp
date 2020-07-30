@@ -159,8 +159,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
     nc.setSlope(slope);
     quasi_newton_par(m, prec, nc, out, g, cap, user_grid); //quasi_newton operator
     m.set(out.c); // just to be sure
-    if (nc.within(m))
-        {
+    if (nc.within(m)) {
       break;
     }
     std::cout << m.get_name() << " | pose " << m.get_pose_num()
@@ -410,11 +409,13 @@ void do_search(model& m, const boost::optional<model>& ref,
     sz how_many = 0;
     VINA_FOR_IN(i, out_cont)
     {
-      if (how_many >= settings.num_modes || !not_max(out_cont[i].e))
+      if (!not_max(out_cont[i].e))
+	continue; //may sort by something other than energy, so do not break
+      if (how_many >= settings.num_modes)
         break; // check energy_range sanity FIXME
       ++how_many;
       m.set(out_cont[i].c);
-      log << std::setw(5) << i + 1 << "    " << std::setw(12)
+      log << std::setw(5) << how_many << "    " << std::setw(12)
           << std::setprecision(2) << out_cont[i].e; // intermolecular_energies[i];
       log << " " << std::setw(10) << std::setprecision(4) << out_cont[i].cnnscore << "  "
           << std::setw(12) << std::setprecision(3) << out_cont[i].cnnaffinity;
