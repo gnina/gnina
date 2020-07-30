@@ -67,8 +67,8 @@ class CNNScorer {
 
     bool has_affinity() const; //return true if can predict affinity
 
-    float score(model& m); //score only - no gradient
-    float score(model& m, bool compute_gradient, float& affinity, float& loss);
+    float score(model& m,float& variance); //score only - no gradient
+    float score(model& m, bool compute_gradient, float& affinity, float& loss, float& variance);
 
     void outputDX(const std::string& prefix, double scale = 1.0, bool relevance =
         false, std::string layer_to_ignore = "", bool zero_values = false);

@@ -59,3 +59,18 @@ refine = getscores(refine)
 
 assert refine[0][1] > defaultout[0][1]
 
+singleout = subprocess.check_output('%s   -r data/184l_rec.pdb -l data/184l_lig.sdf --autobox_ligand data/184l_lig.sdf --seed 2 --num_modes=10 --cnn=general_default2018'%gnina,shell=True)
+#should be sorted by CNNscore
+singleout = getscores(singleout)
+assert issorted(singleout,1)
+
+ensembleout = subprocess.check_output('%s   -r data/184l_rec.pdb -l data/184l_lig.sdf --autobox_ligand data/184l_lig.sdf --seed 2 --num_modes=10 --cnn=general_default2018_ensemble -o testingout.sdf'%gnina,shell=True)
+#should be sorted by CNNscore
+ensembleout = getscores(ensembleout)
+assert issorted(ensembleout,1)
+
+assert not np.array_equal(ensembleout,singleout)
+
+assert 'CNNvariance' in open('testingout.sdf').read()
+
+os.remove('testingout.sdf')

@@ -578,7 +578,7 @@ void CNNScorer::getGradient(caffe::MolGridDataLayer<Dtype> *mgrid)
 //if maintain center, it will not reposition the molecule
 //ALERT: clears minus forces
 float CNNScorer::score(model &m, bool compute_gradient, float &affinity,
-    float &loss)
+    float &loss, float& variance)
 {
   boost::lock_guard<boost::recursive_mutex> guard(*mtx);
   if (!initialized())
@@ -603,6 +603,9 @@ float CNNScorer::score(model &m, bool compute_gradient, float &affinity,
   loss = 0.0;
   unsigned cnt = 0;
 
+  unsigned nscores = nets.size()*max(cnnopts.cnn_rotations, 1U);
+  vector<float> scores;
+  if(nscores > 1) scores.reserve(nscores);
   for(unsigned i = 0, n = nets.size(); i < n; i++) {
     caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
     auto net = nets[i];
@@ -658,6 +661,7 @@ float CNNScorer::score(model &m, bool compute_gradient, float &affinity,
 
       get_net_output(net, s, a, l);
       score += s;
+      if(nscores > 1) scores.push_back(s);
       affinity += a;
       loss += l;
 
@@ -722,7 +726,17 @@ float CNNScorer::score(model &m, bool compute_gradient, float &affinity,
   }
   affinity /= cnt;
   loss /= cnt;
-  score /= cnt;
+  score /= cnt; //mean
+  variance = 0;
+  if(scores.size() > 1) {
+    float sum = 0;
+    for(float s : scores) {
+      float diff = score-s;
+      diff *= diff;
+      sum += diff;
+    }
+    variance = sum/scores.size();
+  }
 
   if (cnnopts.verbose)
     std::cout << std::fixed << std::setprecision(10) << "cnnscore "
@@ -732,11 +746,11 @@ float CNNScorer::score(model &m, bool compute_gradient, float &affinity,
 }
 
 //return only score
-float CNNScorer::score(model &m)
+float CNNScorer::score(model &m, float& variance)
 {
   float aff = 0;
   float loss = 0;
-  return score(m, false, aff, loss);
+  return score(m, false, aff, loss, variance);
 }
 
 // To aid in debugging, will compute the gradient at the
