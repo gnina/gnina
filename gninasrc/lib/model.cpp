@@ -965,6 +965,22 @@ fl model::gyration_radius(sz ligand_number) const {
   return (counter > 0) ? std::sqrt(acc / counter) : 0;
 }
 
+//return max distance between any two atoms
+fl model::max_span(sz ligand_number) const {
+  VINA_CHECK(ligand_number < ligands.size());
+  const ligand& lig = ligands[ligand_number];
+  fl maxval = 0;
+  VINA_RANGE(i, lig.begin, lig.end) {
+    if (!atoms[i].is_hydrogen()) { // only heavy atoms are used
+      VINA_RANGE(j,i+1, lig.end) {
+        fl dist = vec_distance_sqr(coords[i],coords[j]);
+        if(dist > maxval) maxval = dist;
+      }
+    }
+  }
+  return std::sqrt(maxval);
+}
+
 fl model::rmsd_lower_bound_asymmetric(const model& x, const model& y) const { // actually static
   sz n = x.m_num_movable_atoms;
   VINA_CHECK(n == y.m_num_movable_atoms);

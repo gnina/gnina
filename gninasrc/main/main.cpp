@@ -697,6 +697,20 @@ void print_atom_info(std::ostream& out)
   }
 }
 
+const fl box_granularity = 0.375;
+
+//set grid dims to match center/size
+static void setup_grid_dims(fl center_x, fl center_y, fl center_z, fl size_x, fl size_y, fl size_z, grid_dims& gd) {
+  vec span(size_x, size_y, size_z);
+  vec center(center_x, center_y, center_z);
+  VINA_FOR_IN(i, gd)
+  {
+    gd[i].n = sz(std::ceil(span[i] / box_granularity));
+    fl real_span = box_granularity * gd[i].n;
+    gd[i].begin = center[i] - real_span / 2;
+    gd[i].end = gd[i].begin + real_span;
+  }
+}
 void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
 {
   std::string line;
@@ -1040,6 +1054,7 @@ Thank you!\n";
     fl center_x = 0, center_y = 0, center_z = 0, size_x = 0, size_y = 0,
         size_z = 0;
     fl autobox_add = 4;
+    bool autobox_extend = false;
     std::string autobox_ligand;
     std::string flexdist_ligand;
     std::string builtin_scoring;
@@ -1108,6 +1123,8 @@ Thank you!\n";
         "Ligand to use for autobox")
     ("autobox_add", value<fl>(&autobox_add),
         "Amount of buffer space to add to auto-generated box (default +4 on all six sides)")
+    ("autobox_extend", bool_switch(&autobox_extend),
+            "Expand the autobox if needed to ensure the input conformation of the ligand being docked can freely rotate within the box.")
     ("no_lig", bool_switch(&no_lig)->default_value(false),
         "no ligand; for sampling/minimizing flexible residues");
 
@@ -1533,18 +1550,8 @@ Thank you!\n";
       user_grid.init(user_gd, user_in, ug_scaling_factor); //initialize user grid
     }
 
-    const fl granularity = 0.375;
-    if (search_box_needed)
-    {
-      vec span(size_x, size_y, size_z);
-      vec center(center_x, center_y, center_z);
-      VINA_FOR_IN(i, gd)
-      {
-        gd[i].n = sz(std::ceil(span[i] / granularity));
-        fl real_span = granularity * gd[i].n;
-        gd[i].begin = center[i] - real_span / 2;
-        gd[i].end = gd[i].begin + real_span;
-      }
+    if (search_box_needed) {
+      setup_grid_dims(center_x, center_y, center_z, size_x, size_y, size_z, gd);
     }
 
     if (vm.count("cpu") == 0) {
@@ -1651,8 +1658,7 @@ Thank you!\n";
         for (;;)  {
           model* m = new model;
 
-          if (!mols.readMoleculeIntoModel(*m))
-              {
+          if (!mols.readMoleculeIntoModel(*m))  {
             delete m;
             break;
           }
@@ -1660,15 +1666,23 @@ Thank you!\n";
           m->gdata.device_on = settings.gpu_on && settings.cnnopts.cnn_scoring == CNNnone;
           m->gdata.device_id = settings.device;
 
+          grid_dims gdbox(gd);
           if (settings.local_only)
           {
-            gd = m->movable_atoms_box(autobox_add, granularity);
+            gdbox = m->movable_atoms_box(autobox_add, box_granularity);
+          } else if(autobox_extend) {
+            //make sure every dimension is large enough for the ligand to fit
+            fl maxdim = m->max_span(0);
+            setup_grid_dims(center_x, center_y, center_z,
+                size_x > maxdim ? size_x : maxdim,
+                size_y > maxdim ? size_y : maxdim,
+                size_z > maxdim ? size_z : maxdim, gdbox);
           }
 
           done(settings.verbosity, log);
           std::vector<result_info>* results =
               new std::vector<result_info>();
-          worker_job j(i, m, results, gd);
+          worker_job j(i, m, results, gdbox);
           wrkq.push(j);
 
           i++;

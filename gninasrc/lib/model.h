@@ -406,6 +406,7 @@ struct model {
 
     std::string ligand_atom_str(sz i, sz lig = 0) const;
     fl gyration_radius(sz ligand_number) const; // uses coords
+    fl max_span(sz ligand_number) const; // uses coords
 
     const atom_base& movable_atom(sz i) const {
       assert(i < m_num_movable_atoms);
