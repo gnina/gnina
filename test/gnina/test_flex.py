@@ -107,3 +107,19 @@ for closest in [1, 2, 3]:
     assert moved(outlig, "data/184l_lig.sdf", "sdf")
     assert moved(outflex, "data/184l_rec_ref_c{closest}.pdb".format(closest=closest), "pdb")
     rmout(outlig, outflex)
+
+#this was not creating the right box resulting in empty output
+outlig="lig-dock-3rod.pdb".format(closest=closest)
+outflex="flex-dock-3rod.pdb".format(closest=closest)
+subprocess.check_call("{gnina} -r data/3rod_rec.pdb -l data/3rod_lig.pdb \
+    --autobox_ligand data/3rod_lig.pdb --seed 0\
+    --flexdist 3 --flexdist_ligand data/3rod_lig.pdb \
+    --num_mc_steps 100 --exhaustiveness 1 --cnn_scoring=none \
+    -o {outlig} --out_flex {outflex}".format(gnina=gnina,
+        outlig=outlig,
+        outflex=outflex,
+        closest=closest),
+    shell=True)
+
+assert moved(outlig, "data/3rod_lig.pdb", "pdb")
+assert moved(outflex, "data/3rod_rec_ref.pdb", "pdb")

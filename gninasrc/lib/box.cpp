@@ -25,8 +25,9 @@ void setup_autobox(const model& m, const std::string& autobox_ligand, fl autobox
   }
 
   //flexible residues
-  for(const auto& a : m.get_movable_atoms()) {
-    b.add_coord(a.coords[0], a.coords[1], a.coords[2]);
+  for(const auto& v : m.get_heavy_atom_movable_coords()) {
+    //do not iterative over atoms to add coordinates as those are relative
+    b.add_coord(v[0], v[1], v[2]);
   }
 
   //set to center of bounding box (as opposed to center of mass
