@@ -137,6 +137,11 @@ void result_info::write(std::ostream& out, std::string& ext,
       out << std::fixed << std::setprecision(10) << cnnaffinity << "\n\n";
     }
 
+    if (cnnvariance != 0) {
+      out << "> <CNNvariance>\n";
+      out << std::fixed << std::setprecision(10) << cnnvariance << "\n\n";
+    }
+
     if (include_atom_terms) {
       std::stringstream astr;
       writeAtomValues(astr, wt);

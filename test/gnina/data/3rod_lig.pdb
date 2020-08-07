@@ -1,0 +1,53 @@
+HETATM    1  N   UNK   301     -25.174 -26.476   0.095  1.00 26.15      E    N  
+HETATM    2  CA  UNK   301     -26.397 -25.845  -0.491  1.00 27.39      E    C  
+HETATM    3  C   UNK   301     -26.208 -24.319  -0.723  1.00 27.09      E    C  
+HETATM    4  O   UNK   301     -25.100 -23.774  -0.809  1.00 27.72      E    O  
+HETATM    5  CB  UNK   301     -27.639 -26.102   0.374  1.00 26.35      E    C  
+HETATM    6  CG  UNK   301     -27.501 -25.319   1.683  1.00 27.57      E    C  
+HETATM    7  SD  UNK   301     -28.978 -25.450   2.767  1.00 27.47      E    S  
+HETATM    8  C5' UNK   301     -28.521 -26.698   4.040  1.00 26.45      E    C  
+HETATM    9  C4' UNK   301     -28.492 -28.155   3.517  1.00 26.86      E    C  
+HETATM   10  O4' UNK   301     -28.293 -28.916   4.731  1.00 27.16      E    O  
+HETATM   11  C3' UNK   301     -29.762 -28.816   2.961  1.00 26.66      E    C  
+HETATM   12  O3' UNK   301     -29.502 -29.420   1.698  1.00 24.49      E    O  
+HETATM   13  C2' UNK   301     -30.087 -29.960   3.952  1.00 26.74      E    C  
+HETATM   14  O2' UNK   301     -30.553 -31.092   3.178  1.00 29.44      E    O  
+HETATM   15  C1' UNK   301     -28.697 -30.258   4.382  1.00 27.29      E    C  
+HETATM   16  OXT UNK   301     -27.173 -23.581  -0.864  1.00 26.64      E    O  
+HETATM   17  N1  UNK   301     -26.054 -33.998   6.639  1.00 24.24      E    N  
+HETATM   18  C2  UNK   301     -25.993 -33.574   5.408  1.00 24.17      E    C  
+HETATM   19  N3  UNK   301     -26.757 -32.579   5.015  1.00 25.76      E    N  
+HETATM   20  C4  UNK   301     -27.633 -31.991   5.798  1.00 26.60      E    C  
+HETATM   21  C5  UNK   301     -27.748 -32.428   7.101  1.00 26.74      E    C  
+HETATM   22  C6  UNK   301     -26.912 -33.465   7.507  1.00 25.46      E    C  
+HETATM   23  N6  UNK   301     -26.942 -33.922   8.764  1.00 24.87      E    N  
+HETATM   24  N7  UNK   301     -28.696 -31.653   7.699  1.00 27.49      E    N  
+HETATM   25  C8  UNK   301     -29.176 -30.782   6.789  1.00 27.91      E    C  
+HETATM   26  N9  UNK   301     -28.525 -31.009   5.615  1.00 28.36      E    N  
+CONECT    1    2
+CONECT    2    1    3    5
+CONECT    3    2    4   16
+CONECT    4    3
+CONECT    5    2    6
+CONECT    6    5    7
+CONECT    7    6    8
+CONECT    8    7    9
+CONECT    9    8   10   11
+CONECT   10    9   15
+CONECT   11    9   12   13
+CONECT   12   11
+CONECT   13   11   14   15
+CONECT   14   13
+CONECT   15   10   13   26
+CONECT   16    3
+CONECT   17   18   22
+CONECT   18   17   19
+CONECT   19   18   20
+CONECT   20   19   21   26
+CONECT   21   20   22   24
+CONECT   22   17   21   23
+CONECT   23   22
+CONECT   24   21   25
+CONECT   25   24   26
+CONECT   26   15   20   25
+END

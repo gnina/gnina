@@ -23,7 +23,7 @@
 #ifndef VINA_CONF_H
 #define VINA_CONF_H
 
-#include <boost/ptr_container/ptr_vector.hpp> // typedef output_container
+#include <boost/ptr_container/ptr_vector.hpp> // typedef output_container
 #include "quaternion.h"
 #include "random.h"
 
@@ -59,8 +59,9 @@ inline void torsions_increment(flv& torsions, const flv& c, fl factor) { // new 
 }
 
 inline void torsions_randomize(flv& torsions, rng& generator) {
-  VINA_FOR_IN(i, torsions)
+  VINA_FOR_IN(i, torsions) {
     torsions[i] = random_fl(-pi, pi, generator);
+  }
 }
 
 inline bool torsions_too_close(const flv& torsions1, const flv& torsions2,
@@ -519,6 +520,9 @@ struct conf {
 struct output_type {
     conf c;
     fl e;
+    fl cnnscore = -1;
+    fl cnnaffinity = -1;
+    fl cnnvariance = 0;
     vecv coords;
     output_type(const conf& c_, fl e_)
         : c(c_), e(e_) {

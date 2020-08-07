@@ -87,7 +87,7 @@ void test_cache_eval_deriv() {
   std::vector<smt> rec_types;
   const float cutoff_sqr = prec->cutoff_sqr();
   const float cutoff = std::sqrt(cutoff_sqr);
-  make_mol(rec_atoms, rec_types, engine, 0, 10, 2500, max_x + cutoff,
+  make_mol(rec_atoms, rec_types, engine, 0, 10, 500, max_x + cutoff,
       max_y + cutoff, max_z + cutoff);
 
   //manually initialize model object

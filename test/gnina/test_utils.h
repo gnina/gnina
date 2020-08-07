@@ -21,7 +21,7 @@ typedef boost::math::quaternion<float> quaternion;
 template<typename atomT>
 inline void make_mol(std::vector<atom_params>& atoms, std::vector<atomT>& types,
     std::mt19937 engine, size_t natoms = 0, size_t min_atoms = 200,
-    size_t max_atoms = 1000, float max_x = 25, float max_y = 25,
+    size_t max_atoms = 500, float max_x = 25, float max_y = 25,
     float max_z = 25) {
 
   if (!natoms) {
@@ -29,7 +29,6 @@ inline void make_mol(std::vector<atom_params>& atoms, std::vector<atomT>& types,
     std::uniform_int_distribution<int> natoms_dist(min_atoms, max_atoms + 1);
     natoms = natoms_dist(engine);
   }
-
   //randomly seed reasonable-ish coordinates and types
   //TODO: get charge from type?
   std::uniform_real_distribution<float> coords_dists[3];

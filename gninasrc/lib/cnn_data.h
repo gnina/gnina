@@ -35,5 +35,6 @@ struct cnn_model_def {
 
 extern boost::unordered_map<std::string, cnn_model_def> cnn_models;
 extern std::string builtin_cnn_models(); //return available names
+extern std::string default_model_name;
 
 #endif

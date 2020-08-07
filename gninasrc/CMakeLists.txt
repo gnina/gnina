@@ -75,7 +75,11 @@ lib/model.cu
 lib/non_cache_gpu.cu
 lib/precalculate_gpu.cu
 lib/tree_gpu.cu
+lib/user_opts.cpp
 )
+
+#grid member functions need to be called by arbitrary kernels
+set_source_files_properties(lib/grid_gpu.cu PROPERTIES COMPILE_FLAGS -maxrregcount=64)
 
 #test
 file(GLOB TEST_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/*.c*)

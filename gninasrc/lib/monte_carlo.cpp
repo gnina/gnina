@@ -99,12 +99,14 @@ void monte_carlo::operator()(model& m, output_container& out,
   tmp.c.randomize(corner1, corner2, generator);
   fl best_e = max_fl;
   minimization_params minparms = ssd_par.minparm;
+
   if (minparms.maxiters == 0) minparms.maxiters = ssd_par.evals;
   quasi_newton quasi_newton_par(minparms);
   VINA_U_FOR(step, num_steps) {
     if (increment_me) ++(*increment_me);
     output_type candidate = tmp;
     mutate_conf(candidate.c, m, mutation_amplitude, generator);
+
     if (minparms.single_min) //use full v to begin with
       quasi_newton_par(m, p, ig, candidate, g, authentic_v, user_grid);
     else

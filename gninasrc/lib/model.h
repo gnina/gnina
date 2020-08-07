@@ -67,7 +67,7 @@ struct gpu_data {
     unsigned forces_size;
     unsigned pairs_size;
     unsigned other_pairs_size;
-    bool device_on;
+    bool device_on; //use gpu for docking, not just CNN
     int device_id;
 
     //TODO delete
@@ -406,6 +406,7 @@ struct model {
 
     std::string ligand_atom_str(sz i, sz lig = 0) const;
     fl gyration_radius(sz ligand_number) const; // uses coords
+    fl max_span(sz ligand_number) const; // uses coords
 
     const atom_base& movable_atom(sz i) const {
       assert(i < m_num_movable_atoms);

@@ -23,7 +23,7 @@
 #ifndef VINA_STATISTICS_H
 #define VINA_STATISTICS_H
 
-#include <algorithm> // sort#include <cmath> // sqrt#include "common.h" // for flv
+#include <algorithm> // sort#include <cmath> // sqrt#include "common.h" // for flv
 // simple but inefficient implementations
 
 inline fl mean(const flv& v) {

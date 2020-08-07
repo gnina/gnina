@@ -626,7 +626,8 @@ struct atom_type_lennard_jones: public atom_type_base
                 + to_string(optimal_distance)+",_^="+to_string(cap)+",_c=" + to_string(cutoff) + ")";
         rexpr.assign("atom_type_lennard_jones\\(t1=(\\S+),t2=(\\S+),o=(\\S+),_\\^=(\\S+),_c=(\\S+)\\)",boost::regex::perl);
     }
-    fl eval(smt T1, smt T2, fl r) const
+
+    virtual fl eval(smt T1, smt T2, fl r) const
     {
         fl d0 = optimal_distance;
         fl depth = 1;

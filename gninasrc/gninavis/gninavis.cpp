@@ -13,7 +13,7 @@ int main(int argc, char* argv[]) {
   cnn_options cnnopts;
 
   cnnopts.cnn_rotations = 0; //any reason to make this an option?
-  cnnopts.cnn_scoring = true;
+  cnnopts.cnn_scoring = CNNall;
 
   using namespace boost::program_options;
 
@@ -27,9 +27,11 @@ int main(int argc, char* argv[]) {
       "ligand for coloring");
 
   options_description cnn("CNN Input");
-  cnn.add_options()("cnn_model", value<std::string>(&cnnopts.cnn_model),
-      "CNN model file (*.model)")("cnn_weights",
-      value<std::string>(&cnnopts.cnn_weights),
+  std::string model;
+  std::string weights;
+  cnn.add_options()("cnn_model", value<std::string>(&model),
+      "CNN model file (*.model)")
+      ("cnn_weights", value<std::string>(&weights),
       "CNN weights file (*.caffemodel)")("ignore_layer",
       value<std::string>(&visopts.layer_to_ignore)->default_value(""),
       "zero values in layer with provided name, in the case of split output");
@@ -109,6 +111,9 @@ int main(int argc, char* argv[]) {
         << "\nCorrect usage:\n" << desc << '\n';
     return 1;
   }
+
+  cnnopts.cnn_models.push_back(model);
+  cnnopts.cnn_weights.push_back(weights);
 
   google::InitGoogleLogging(argv[0]);
   google::SetStderrLogging(2);

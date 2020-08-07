@@ -12,8 +12,9 @@
 #include "caffe/net.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/layers/molgrid_data_layer.hpp"
-#include "boost/thread/mutex.hpp"
+#include <boost/thread/mutex.hpp>
 #include <boost/thread/recursive_mutex.hpp>
+#include <vector>
 
 #include "model.h"
 #include "cnn_data.h"
@@ -26,9 +27,9 @@ class CNNScorer {
   public:
     typedef float Dtype;
   private:
-    caffe::shared_ptr<caffe::Net<Dtype> > net;
-    caffe::MolGridDataLayer<Dtype> *mgrid;
-    caffe::MolGridDataParameter *mgridparam;
+    std::vector<caffe::shared_ptr<caffe::Net<Dtype> > > nets;
+    std::vector<caffe::MolGridDataLayer<Dtype> *> mgrids;
+    std::vector<caffe::MolGridDataParameter *> mgridparams;
     cnn_options cnnopts;
 
     caffe::shared_ptr<boost::recursive_mutex> mtx; //todo, enable parallel scoring
@@ -43,17 +44,17 @@ class CNNScorer {
     std::vector<float3> ligand_coords, receptor_coords;
     std::vector<smt> ligand_smtypes, receptor_smtypes;
 
-    std::size_t num_flex_atoms; // Number of flexible atoms
+    std::size_t num_flex_atoms = 0; // Number of flexible atoms
 
     // Set ligand and receptor atoms and coordinates from model
     void setLigand(const model& m);
     void setReceptor(const model& m);
 
-    void getGradient();
+    void getGradient(caffe::MolGridDataLayer<Dtype> *mgrid);
 
   public:
     CNNScorer()
-        : mgrid(NULL), mtx(new boost::recursive_mutex), current_center(NAN,NAN,NAN) {
+        : mtx(new boost::recursive_mutex), current_center(NAN,NAN,NAN) {
     }
     virtual ~CNNScorer() {
     }
@@ -61,13 +62,13 @@ class CNNScorer {
     CNNScorer(const cnn_options& opts);
 
     bool initialized() const {
-      return net.get();
+      return nets.size() > 0;
     }
 
     bool has_affinity() const; //return true if can predict affinity
 
-    float score(model& m); //score only - no gradient
-    float score(model& m, bool compute_gradient, float& affinity, float& loss);
+    float score(model& m,float& variance); //score only - no gradient
+    float score(model& m, bool compute_gradient, float& affinity, float& loss, float& variance);
 
     void outputDX(const std::string& prefix, double scale = 1.0, bool relevance =
         false, std::string layer_to_ignore = "", bool zero_values = false);
@@ -98,16 +99,21 @@ class CNNScorer {
       return current_center;
     }
     fl get_grid_dim() const {
-      return mgrid->getDimension();
+      if(mgrids.size() == 0) throw usage_error("CNN network not initialized in get_grid_dim");
+      return mgrids[0]->getDimension();
     }
     fl get_grid_res() const {
-      return mgrid->getResolution();
+      if(mgrids.size() == 0) throw usage_error("CNN network not initialized in get_grid_res");
+      return mgrids[0]->getResolution();
     }
 
-    caffe::MolGridDataLayer<Dtype> * get_mgrid() { return mgrid; }
+    caffe::MolGridDataLayer<Dtype> * get_mgrid(unsigned which=0) {
+      if(which >= mgrids.size()) throw usage_error("CNN network doesn't exist");
+      return mgrids[which];
+    }
   protected:
-    void get_net_output(Dtype& score, Dtype& aff, Dtype& loss);
-    void check_gradient();
+    void get_net_output(caffe::shared_ptr<caffe::Net<Dtype> >& net, Dtype& score, Dtype& aff, Dtype& loss);
+    void check_gradient(caffe::shared_ptr<caffe::Net<Dtype> >& net);
 };
 
 #endif /* SRC_LIB_CNN_SCORER_H_ */
