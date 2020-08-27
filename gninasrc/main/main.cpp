@@ -490,7 +490,7 @@ void main_procedure(model &m, precalculate &prec,
     minparm.maxiters = par.mc.ssd_par.evals;
   par.mc.ssd_par.minparm = minparm;
   par.mc.min_rmsd = 1.0;
-  par.mc.num_saved_mins = settings.num_modes > 20 ? settings.num_modes : 20; //dkoes, support more than 20
+  par.mc.num_saved_mins = settings.num_modes > settings.num_mc_saved ? settings.num_modes : settings.num_mc_saved; //dkoes, support more than 20
   par.mc.hunt_cap = vec(10, 10, 10);
   par.num_tasks = settings.exhaustiveness;
   par.num_threads = settings.cpu;
@@ -1054,7 +1054,7 @@ Thank you!\n";
     fl center_x = 0, center_y = 0, center_z = 0, size_x = 0, size_y = 0,
         size_z = 0;
     fl autobox_add = 4;
-    bool autobox_extend = false;
+    bool autobox_extend = true;
     std::string autobox_ligand;
     std::string flexdist_ligand;
     std::string builtin_scoring;
@@ -1123,7 +1123,7 @@ Thank you!\n";
         "Ligand to use for autobox")
     ("autobox_add", value<fl>(&autobox_add),
         "Amount of buffer space to add to auto-generated box (default +4 on all six sides)")
-    ("autobox_extend", bool_switch(&autobox_extend),
+    ("autobox_extend", value<bool>(&autobox_extend)->default_value(true),
             "Expand the autobox if needed to ensure the input conformation of the ligand being docked can freely rotate within the box.")
     ("no_lig", bool_switch(&no_lig)->default_value(false),
         "no ligand; for sampling/minimizing flexible residues");
@@ -1161,6 +1161,8 @@ Thank you!\n";
         "generate random poses, attempting to avoid clashes")
     ("num_mc_steps", value<int>(&settings.num_mc_steps),
         "number of monte carlo steps to take in each chain")
+    ("num_mc_saved", value<int>(&settings.num_mc_saved),
+            "number of top poses saved in each monte carlo chain")
     ("minimize_iters",
         value<unsigned>(&minparms.maxiters)->default_value(0),
         "number iterations of steepest descent; default scales with rotors and usually isn't sufficient for convergence")
