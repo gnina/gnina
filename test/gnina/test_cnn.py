@@ -64,6 +64,14 @@ singleout = subprocess.check_output('%s  -r data/184l_rec.pdb -l data/184l_lig.s
 singleout = getscores(singleout)
 assert issorted(singleout,1)
 
+#make sure lack of gpu still works
+nogpuout = subprocess.check_output('CUDA_VISIBLE_DEVICES= %s  -r data/184l_rec.pdb -l data/184l_lig.sdf --autobox_ligand data/184l_lig.sdf --seed 2 --num_modes=10 --cnn=general_default2018'%gnina,shell=True)
+#should be sorted by CNNscore
+nogpuout = getscores(nogpuout)
+assert issorted(nogpuout,1)
+np.testing.assert_array_almost_equal(nogpuout,singleout)
+
+
 ensembleout = subprocess.check_output('%s  -r data/184l_rec.pdb -l data/184l_lig.sdf --autobox_ligand data/184l_lig.sdf --seed 2 --num_modes=10 --cnn=general_default2018_ensemble -o testingout.sdf'%gnina,shell=True)
 #should be sorted by CNNscore
 ensembleout = getscores(ensembleout)
