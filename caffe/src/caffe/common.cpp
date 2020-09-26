@@ -115,15 +115,16 @@ Caffe::Caffe()
 #endif
   // Try to create a cublas handler, and report an error if failed (but we will
   // keep the program running as one might just want to run CPU code).
+  // dkoes - we will report lack of GPU elsewhere
   if (cublasCreate(&cublas_handle_) != CUBLAS_STATUS_SUCCESS) {
-    LOG(ERROR) << "Cannot create Cublas handle. Cublas won't be available.";
+   // LOG(ERROR) << "Cannot create Cublas handle. Cublas won't be available.";
   }
   // Try to create a curand handler.
   if (curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT)
       != CURAND_STATUS_SUCCESS ||
       curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen())
       != CURAND_STATUS_SUCCESS) {
-    LOG(ERROR) << "Cannot create Curand generator. Curand won't be available.";
+   //LOG(ERROR) << "Cannot create Curand generator. Curand won't be available.";
   }
 }
 
@@ -143,8 +144,7 @@ void Caffe::set_random_seed(const unsigned int seed) {
     CURAND_CHECK(curandSetGeneratorOffset(curand_generator(), 0));
   } else {
     if (!g_curand_availability_logged) {
-        LOG(ERROR) <<
-            "Curand not available. Skipping setting the curand seed.";
+        //LOG(ERROR) << "Curand not available. Skipping setting the curand seed.";
         g_curand_availability_logged = true;
     }
   }

@@ -66,8 +66,32 @@ CNNScorer::CNNScorer(const cnn_options &opts) :
 
   if (cnnopts.cnn_model_names.size() == 0 && cnnopts.cnn_models.size() == 0)
   {
-    //not specified, use default
+    //not specified, use a default ensemble
+    //omit 2017 since it is missing atom types
     cnnopts.cnn_model_names.push_back(default_model_name);
+    /*
+    cnnopts.cnn_model_names.push_back("crossdock_default2018");
+    cnnopts.cnn_model_names.push_back("crossdock_default2018_1");
+    cnnopts.cnn_model_names.push_back("crossdock_default2018_2");
+    cnnopts.cnn_model_names.push_back("crossdock_default2018_3");
+    cnnopts.cnn_model_names.push_back("crossdock_default2018_4");
+   // cnnopts.cnn_model_names.push_back("default2017"); NO GENERIC METAL
+    cnnopts.cnn_model_names.push_back("dense"); 
+    cnnopts.cnn_model_names.push_back("dense_1");
+    cnnopts.cnn_model_names.push_back("dense_2");
+    cnnopts.cnn_model_names.push_back("dense_3");
+    cnnopts.cnn_model_names.push_back("dense_4"); 
+    cnnopts.cnn_model_names.push_back("general_default2018"); 
+    cnnopts.cnn_model_names.push_back("general_default2018_1");
+    cnnopts.cnn_model_names.push_back("general_default2018_2");
+    cnnopts.cnn_model_names.push_back("general_default2018_3");
+    cnnopts.cnn_model_names.push_back("general_default2018_4");
+    cnnopts.cnn_model_names.push_back("redock_default2018"); 
+    cnnopts.cnn_model_names.push_back("redock_default2018_1");
+    cnnopts.cnn_model_names.push_back("redock_default2018_2");
+    cnnopts.cnn_model_names.push_back("redock_default2018_3");
+    cnnopts.cnn_model_names.push_back("redock_default2018_4");
+    */
   }
 
   if (cnnopts.cnn_models.size() != cnnopts.cnn_weights.size())
@@ -604,8 +628,8 @@ float CNNScorer::score(model &m, bool compute_gradient, float &affinity,
   unsigned cnt = 0;
 
   unsigned nscores = nets.size()*max(cnnopts.cnn_rotations, 1U);
-  vector<float> scores;
-  if(nscores > 1) scores.reserve(nscores);
+  vector<float> affinities;
+  if(nscores > 1) affinities.reserve(nscores);
   for(unsigned i = 0, n = nets.size(); i < n; i++) {
     caffe::Caffe::set_random_seed(cnnopts.seed); //same random rotations for each ligand..
     auto net = nets[i];
@@ -661,7 +685,7 @@ float CNNScorer::score(model &m, bool compute_gradient, float &affinity,
 
       get_net_output(net, s, a, l);
       score += s;
-      if(nscores > 1) scores.push_back(s);
+      if(nscores > 1) affinities.push_back(a);
       affinity += a;
       loss += l;
 
@@ -728,14 +752,14 @@ float CNNScorer::score(model &m, bool compute_gradient, float &affinity,
   loss /= cnt;
   score /= cnt; //mean
   variance = 0;
-  if(scores.size() > 1) {
+  if(affinities.size() > 1) {
     float sum = 0;
-    for(float s : scores) {
-      float diff = score-s;
+    for(float s : affinities) {
+      float diff = affinity-s;
       diff *= diff;
       sum += diff;
     }
-    variance = sum/scores.size();
+    variance = sum/affinities.size();
   }
 
   if (cnnopts.verbose)

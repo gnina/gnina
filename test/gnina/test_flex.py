@@ -61,7 +61,7 @@ for system, flexdist in [("10gs", 3.0), ("184l", 3.9)]:
         --cnn_scoring=all --minimize \
         --flexdist {flexdist} --flexdist_ligand data/{system}_lig.sdf \
         -o {outlig} --out_flex {outflex} \
-        --gpu".format(gnina=gnina, outlig=outlig, outflex=outflex, system=system, flexdist=flexdist),
+        ".format(gnina=gnina, outlig=outlig, outflex=outflex, system=system, flexdist=flexdist),
         shell=True)
 
     assert moved(outlig, "data/{system}_lig.sdf".format(system=system), "sdf")
@@ -78,7 +78,7 @@ for system, flexdist in [("10gs", 3.0), ("184l", 3.9)]:
     subprocess.check_call("{gnina} -r data/{system}_rec.pdb -l data/{system}_lig.sdf \
         --autobox_ligand data/{system}_lig.sdf --autobox_add 6 \
         --flexdist {flexdist} --flexdist_ligand data/{system}_lig.sdf \
-        --num_mc_steps 50 \
+        --num_mc_steps 50 --no_gpu\
         -o {outlig} --out_flex {outflex}".format(gnina=gnina, outlig=outlig, outflex=outflex, system=system, flexdist=flexdist), 
         shell=True)
 

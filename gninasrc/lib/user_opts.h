@@ -87,7 +87,8 @@ struct user_settings {
     bool local_only;
     bool dominimize;
     bool include_atom_info;
-    bool gpu_on;
+    bool gpu_docking; //use gpu for non-CNN operations too
+    bool no_gpu;
 
     cnn_options cnnopts;
 
@@ -97,7 +98,7 @@ struct user_settings {
             seed(auto_seed()), verbosity(1), cpu(1), device(0),
             exhaustiveness(10), num_mc_steps(0), num_mc_saved(20), sort_order(CNNscore), score_only(false),
             randomize_only(false), local_only(false), dominimize(false),
-            include_atom_info(false), gpu_on(false) {
+            include_atom_info(false), gpu_docking(false), no_gpu(false) {
 
     }
 };

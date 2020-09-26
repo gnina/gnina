@@ -15,11 +15,11 @@ DECLARE_bool(use_tensor_core);
     (CUDNN_VERSION >= (major * 1000 + minor * 100 + patch))
 
 #define CUDNN_CHECK(condition) \
-  do { \
-    cudnnStatus_t status = condition; \
-    CHECK_EQ(status, CUDNN_STATUS_SUCCESS) << " "\
-      << cudnnGetErrorString(status); \
-  } while (0)
+do { \
+  cudnnStatus_t status = condition; \
+  if(status != CUDNN_STATUS_SUCCESS) \
+    throw std::runtime_error(std::string("CUDNN Error (out of memory?): ")+cudnnGetErrorString(status)); \
+} while (0)
 
 inline const char* cudnnGetErrorString(cudnnStatus_t status) {
   switch (status) {

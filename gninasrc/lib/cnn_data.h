@@ -5,7 +5,6 @@
  *      Author: dkoes
  *
  *  Model(s) and weight(s) for CNNs compiled into the code (used xxd -i )
- *  TODO: support multiple models generically indexed by name
  *  TODO: generate this file from the raw data automatically.
  *
  *
