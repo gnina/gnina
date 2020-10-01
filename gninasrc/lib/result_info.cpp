@@ -135,10 +135,12 @@ void result_info::write(std::ostream& out, std::string& ext,
     if (cnnaffinity != 0) {
       out << "> <CNNaffinity>\n";
       out << std::fixed << std::setprecision(10) << cnnaffinity << "\n\n";
+      out << "> <CNN_VS>\n";
+      out << std::fixed << std::setprecision(10) << cnnaffinity*cnnscore << "\n\n";
     }
 
     if (cnnvariance != 0) {
-      out << "> <CNNvariance>\n";
+      out << "> <CNNaffinity_variance>\n";
       out << std::fixed << std::setprecision(10) << cnnvariance << "\n\n";
     }
 

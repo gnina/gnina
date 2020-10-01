@@ -397,7 +397,7 @@ void do_search(model& m, const boost::optional<model>& ref,
     log.setf(std::ios::fixed, std::ios::floatfield);
     log.setf(std::ios::showpoint);
     log << '\n';
-    log << "mode |  affinity  |    CNN         CNN\n";
+    log << "mode |  affinity  |    CNN     |   CNN\n";
     log << "     | (kcal/mol) | pose score | affinity\n";
     log << "-----+------------+------------+----------\n";
 
@@ -759,7 +759,7 @@ int initializeCUDA(int device)  {
 
   error = cudaSetDevice(device);
   if (error != cudaSuccess) {
-    std::cerr << "cudaSetDevice returned error code " << error << "\n";
+    //be silent if GPU not present
     return error;
   }
 
@@ -1718,12 +1718,12 @@ Thank you!\n";
     writer_thread.join();
 
     sz free_byte = 0, total_byte = 0;
-    cudaMemGetInfo( &free_byte, &total_byte ) ;
-
-   double free_db = (double)free_byte ;
-   double total_db = (double)total_byte ;
-   double used_db = total_db - free_db ;
-   log << "GPU memory usage: " << int(used_db/1024.0/1024.0) << " MB" << "\n";
+    if(cudaMemGetInfo( &free_byte, &total_byte ) == cudaSuccess) {
+      double free_db = (double)free_byte ;
+      double total_db = (double)total_byte ;
+      double used_db = total_db - free_db ;
+      log << "GPU memory usage: " << int(used_db/1024.0/1024.0) << " MB" << "\n";
+    }
 
     cudaDeviceSynchronize();
 

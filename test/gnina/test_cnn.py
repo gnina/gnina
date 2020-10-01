@@ -79,6 +79,6 @@ assert issorted(ensembleout,1)
 
 assert not np.array_equal(ensembleout,singleout)
 
-assert 'CNNvariance' in open('testingout.sdf').read()
+assert 'CNNaffinity_variance' in open('testingout.sdf').read()
 
 os.remove('testingout.sdf')
