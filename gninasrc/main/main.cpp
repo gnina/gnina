@@ -438,7 +438,7 @@ void do_search(model& m, const boost::optional<model>& ref,
       log.endl();
     }
   }
-  std::cout << "Refine time " << time.elapsed().wall / 1000000000.0 << "\n";
+  //std::cout << "Refine time " << time.elapsed().wall / 1000000000.0 << "\n";
 }
 
 void load_ent_values(const grid_dims& gd, std::istream& user_in,
@@ -1366,7 +1366,6 @@ Thank you!\n";
 
     //check for GPU
     int error = cudaDeviceReset();
-
     if(error != cudaSuccess) {
       log << "WARNING: No GPU detected. CNN scoring will be slow.\n"
           "Recommend running with single model (--cnn crossdock_default2018)\n"
@@ -1375,7 +1374,8 @@ Thank you!\n";
     } else if(settings.no_gpu) {
       caffe::Caffe::set_cudnn(false);
     } else {
-      cudaDeviceSetLimit(cudaLimitStackSize, 5120);
+      //the following reserve a lot of memory, do we really need it??
+      //cudaDeviceSetLimit(cudaLimitStackSize, 5120);
       caffe::Caffe::SetDevice(settings.device);
       caffe::Caffe::set_mode(caffe::Caffe::GPU);      
     }
@@ -1717,9 +1717,17 @@ Thank you!\n";
     writerq.close(1);
     writer_thread.join();
 
+    sz free_byte = 0, total_byte = 0;
+    cudaMemGetInfo( &free_byte, &total_byte ) ;
+
+   double free_db = (double)free_byte ;
+   double total_db = (double)total_byte ;
+   double used_db = total_db - free_db ;
+   log << "GPU memory usage: " << int(used_db/1024.0/1024.0) << " MB" << "\n";
+
     cudaDeviceSynchronize();
 
-    std::cout << "Loop time " << time.elapsed().wall / 1000000000.0 << "\n";
+    //std::cout << "Loop time " << time.elapsed().wall / 1000000000.0 << "\n";
 
   } catch (file_error& e)
   {
@@ -1747,6 +1755,20 @@ Thank you!\n";
   {
     std::cerr << "\n\nError with scoring function specification.\n";
     std::cerr << e.msg << "[" << e.name << "]\n";
+    return 1;
+  } catch(std::runtime_error e)
+  {
+    std::cerr << "\nRuntime Error\n";
+    std::cerr << e.what() << "\n";
+    sz free_byte = 0, total_byte = 0;
+    cudaMemGetInfo( &free_byte, &total_byte ) ;
+
+    double free_db = (double)free_byte ;
+    double total_db = (double)total_byte ;
+    double used_db = total_db - free_db ;
+    printf("GPU memory usage: used = %f, free = %f MB, total = %f MB\n",
+             used_db/1024.0/1024.0, free_db/1024.0/1024.0, total_db/1024.0/1024.0);
+
     return 1;
   }
 

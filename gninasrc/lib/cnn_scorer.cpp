@@ -60,7 +60,6 @@ CNNScorer::CNNScorer(const cnn_options &opts) :
     cnnopts(opts),
         mtx(new boost::recursive_mutex), current_center(NAN, NAN, NAN)
 {
-
   if (cnnopts.cnn_scoring == CNNnone)
     return; //no cnn
 
