@@ -43,7 +43,7 @@ boost::unordered_map<std::string, cnn_model_def> cnn_models = boost::assign::map
     (
         "redock_default2018", cnn_model_def(
         #include "models/default2018.def"
-    #include "models/weights/redock_2018_0.def"
+    #include "models/weights/redock_2018_2.def"
         ))(
         "redock_default2018_1", cnn_model_def(
         #include "models/default2018.def"
@@ -51,7 +51,7 @@ boost::unordered_map<std::string, cnn_model_def> cnn_models = boost::assign::map
         ))(
         "redock_default2018_2", cnn_model_def(
         #include "models/default2018.def"
-    #include "models/weights/redock_2018_2.def"
+    #include "models/weights/redock_2018_0.def"
         ))(
         "redock_default2018_3", cnn_model_def(
         #include "models/default2018.def"
@@ -84,7 +84,7 @@ boost::unordered_map<std::string, cnn_model_def> cnn_models = boost::assign::map
         ))(
             "dense", cnn_model_def(
             #include "models/dense.def"
-        #include "models/weights/crossdock_dense_0.def"
+        #include "models/weights/crossdock_dense_4.def"
             ))(
             "dense_1", cnn_model_def(
             #include "models/dense.def"
@@ -100,7 +100,7 @@ boost::unordered_map<std::string, cnn_model_def> cnn_models = boost::assign::map
             ))(
             "dense_4", cnn_model_def(
             #include "models/dense.def"
-        #include "models/weights/crossdock_dense_4.def"
+        #include "models/weights/crossdock_dense_0.def"
             ));
 
 std::string builtin_cnn_models()

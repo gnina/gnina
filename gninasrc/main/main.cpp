@@ -1103,7 +1103,7 @@ Thank you!\n";
     ("flex_limit", value<int>(&flex_limit),
         "Hard limit for the number of flexible residues")
     ("flex_max", value<int>(&flex_max),
-        "Retain at at most the closes flex_max flexible residues");
+        "Retain at at most the closest flex_max flexible residues");
 
     //options_description search_area("Search area (required, except with --score_only)");
     options_description search_area("Search space (required)");
