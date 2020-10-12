@@ -42,12 +42,15 @@ struct cnn_options {
     unsigned cnn_rotations; //do we want to score multiple orientations?
     cnn_scoring_level cnn_scoring;
     double subgrid_dim;
+    fl empirical_weight; //weight for scaling and merging potentials
     bool outputdx;
     bool outputxyz;
     bool gradient_check;
     bool move_minimize_frame;  //recenter with every scoring evaluation
     bool fix_receptor;
+    bool mix_empirical;//merge empirical and CNN potentials
     bool verbose;
+
     std::string xyzprefix;
     unsigned seed; //random seed
 
@@ -56,7 +59,7 @@ struct cnn_options {
            resolution(0.5), cnn_rotations(0), cnn_scoring(CNNrescore),
             subgrid_dim(0.0), outputdx(false),
             outputxyz(false), gradient_check(false), move_minimize_frame(false),
-            fix_receptor(false), verbose(false), seed(0) {
+            fix_receptor(false), verbose(false), mix_empirical(false),empirical_weight(1.0),seed(0) {
     }
 
     bool moving_receptor() const {
@@ -89,6 +92,7 @@ struct user_settings {
     bool include_atom_info;
     bool gpu_docking; //use gpu for non-CNN operations too
     bool no_gpu;
+
 
     cnn_options cnnopts;
 

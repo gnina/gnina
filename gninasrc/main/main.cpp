@@ -1215,6 +1215,10 @@ Thank you!\n";
         "During minimization, recenter coordinate frame as ligand moves")
     ("cnn_freeze_receptor", bool_switch(&cnnopts.fix_receptor),
         "Don't move the receptor with respect to a fixed coordinate system")
+    ("cnn_mix_empirical", bool_switch(&cnnopts.mix_empirical)->default_value(false),
+        "Merger CNN and empirical potentials")
+    ("cnn_empirical_weight", value<fl>(&cnnopts.empirical_weight)->default_value(1.0),
+        "Weight for scaling and merging empirical potential ")
     ("cnn_outputdx", bool_switch(&cnnopts.outputdx),
         "Dump .dx files of atom grid gradient.")
     ("cnn_outputxyz", bool_switch(&cnnopts.outputxyz),

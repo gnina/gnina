@@ -119,19 +119,56 @@ fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const {
 
     fl this_e = 0;
     vec deriv(0, 0, 0);
+    //empirical e and deriv values
+    fl emp_e =0;
+    vec emp_deriv(0, 0, 0);
+    if (cnn_scorer.options().mix_empirical){
+        const fl cutoff_sqr = p->cutoff_sqr();
+        const szv& possibilities = sgrid.possibilities(adjusted_a_coords);
+        VINA_FOR_IN(possibilities_j, possibilities) {
+            const sz j = possibilities[possibilities_j];
+            const atom& b = m.grid_atoms[j];
+            smt t2 = b.get();
+            vec r_ba;
+            r_ba = adjusted_a_coords - b.coords;
+            fl r2 = sqr(r_ba);
+            if (r2 < cutoff_sqr) {
+                if (r2 < epsilon_fl) {
+                    throw std::runtime_error(
+                            "Ligand atom exactly overlaps receptor atom.  I can't deal with this.");
+                }
+                //dkoes - the "derivative" value returned by eval_deriv
+                //is normalized by r (dor = derivative over r?)
+                pr e_dor = p->eval_deriv(a, b, r2);
+                emp_e += e_dor.first;
+                emp_deriv += e_dor.second * r_ba;
+                vec out_deriv = e_dor.second * r_ba;
+            }
+        }
+    }
     //VINA_FOR_IN(...) { per-atom cnn score would be here }
     if (user_grid.initialized()) {
       vec ug_deriv(0, 0, 0);
       fl uge = user_grid.evaluate_user(a_coords, slope, &ug_deriv);
       this_e += uge;
       deriv += ug_deriv;
+      if (cnn_scorer.options().mix_empirical){
+          emp_e += uge;
+          emp_deriv += ug_deriv;
+      }
     }
     curl(this_e, deriv, v);
     m.movable_minus_forces(i) += deriv + out_of_bounds_deriv
         + cnn_out_of_bounds_deriv;
+    if (cnn_scorer.options().mix_empirical){
+        curl(emp_e,emp_deriv,v);
+        m.movable_minus_forces(i) += cnn_scorer.options().empirical_weight * (emp_deriv + out_of_bounds_deriv);
+        //rescale
+        m.movable_minus_forces(i) /= (1.0 + cnn_scorer.options().empirical_weight);
+    }
     e += this_e + out_of_bounds_penalty;
-  }
 
+    }
   return e;
 }
 
