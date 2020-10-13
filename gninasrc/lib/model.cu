@@ -200,9 +200,6 @@ fl gpu_data::eval_intramolecular(const GPUNonCacheInfo& info, const float v) {
 
 fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
     const conf& c, change& g, const grid& user_grid) { // clean up
-  static loop_timer t;
-  t.resume();
-
   set(c);
 
   fl e = ig.eval_deriv(*this, v[1], user_grid); // sets minus_forces, except inflex
@@ -222,7 +219,7 @@ fl model::eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
   ligands.derivative(coords, minus_forces, g.ligands);
   flex.derivative(coords, minus_forces, g.flex); // inflex forces are ignored
   g.receptor = rec_change; //for cnn
-  t.stop();
+
   return e;
 }
 

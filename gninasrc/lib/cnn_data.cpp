@@ -14,7 +14,7 @@
 #include <boost/algorithm/string/join.hpp>
 #include <vector>
 
-std::string default_model_name = "crossdock_default2018";
+std::string default_model_name = "crossdock_default2018"; //ALL THE THINGS!
 
 boost::unordered_map<std::string, cnn_model_def> cnn_models = boost::assign::map_list_of(
     "default2017", cnn_model_def(
@@ -39,7 +39,29 @@ boost::unordered_map<std::string, cnn_model_def> cnn_models = boost::assign::map
     "crossdock_default2018_4", cnn_model_def(
     #include "models/default2018.def"
 #include "models/weights/crossdock_2018_4.def"
-    ))(
+    ))
+    (
+        "redock_default2018", cnn_model_def(
+        #include "models/default2018.def"
+    #include "models/weights/redock_2018_2.def"
+        ))(
+        "redock_default2018_1", cnn_model_def(
+        #include "models/default2018.def"
+    #include "models/weights/redock_2018_1.def"
+        ))(
+        "redock_default2018_2", cnn_model_def(
+        #include "models/default2018.def"
+    #include "models/weights/redock_2018_0.def"
+        ))(
+        "redock_default2018_3", cnn_model_def(
+        #include "models/default2018.def"
+    #include "models/weights/redock_2018_3.def"
+        ))(
+        "redock_default2018_4", cnn_model_def(
+        #include "models/default2018.def"
+    #include "models/weights/redock_2018_4.def"
+        ))
+    (
         "general_default2018", cnn_model_def(
         #include "models/default2018.def"
     #include "models/weights/general_2018_0.def"
@@ -62,7 +84,7 @@ boost::unordered_map<std::string, cnn_model_def> cnn_models = boost::assign::map
         ))(
             "dense", cnn_model_def(
             #include "models/dense.def"
-        #include "models/weights/crossdock_dense_0.def"
+        #include "models/weights/crossdock_dense_4.def"
             ))(
             "dense_1", cnn_model_def(
             #include "models/dense.def"
@@ -78,7 +100,7 @@ boost::unordered_map<std::string, cnn_model_def> cnn_models = boost::assign::map
             ))(
             "dense_4", cnn_model_def(
             #include "models/dense.def"
-        #include "models/weights/crossdock_dense_4.def"
+        #include "models/weights/crossdock_dense_0.def"
             ));
 
 std::string builtin_cnn_models()

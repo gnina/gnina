@@ -138,7 +138,7 @@ fl do_randomization(model& m, const vec& corner1,
 
 void refine_structure(model& m, const precalculate& prec, non_cache& nc,
     output_type& out, const vec& cap, const minimization_params& minparm,
-    grid& user_grid, bool gpu_on)
+    grid& user_grid)
     {
   // std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
   change g(m.get_size(), nc.move_receptor());
@@ -246,7 +246,7 @@ void do_search(model& m, const boost::optional<model>& ref,
   fl intramolecular_energy = max_fl;
   fl cnnscore = 0, cnnaffinity = 0, cnnvariance = 0;
   fl rmsd = 0;
-  if (settings.gpu_on && settings.cnnopts.cnn_scoring == CNNnone)
+  if (settings.gpu_docking)
     m.initialize_gpu();
   const vec authentic_v(settings.forcecap, settings.forcecap,
       settings.forcecap); //small cap restricts initial movement from clash
@@ -307,7 +307,7 @@ void do_search(model& m, const boost::optional<model>& ref,
     output_type out(c, e);
     doing(settings.verbosity, "Performing local search", log);
     refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm,
-        user_grid, settings.gpu_on);
+        user_grid);
     done(settings.verbosity, log);
     m.set(out.c);
 
@@ -363,7 +363,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 
     VINA_FOR_IN(i, out_cont) {
       refine_structure(m, prec, nc, out_cont[i], authentic_v,
-          par.mc.ssd_par.minparm, user_grid, settings.gpu_on);
+          par.mc.ssd_par.minparm, user_grid);
 
       get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
 
@@ -397,7 +397,7 @@ void do_search(model& m, const boost::optional<model>& ref,
     log.setf(std::ios::fixed, std::ios::floatfield);
     log.setf(std::ios::showpoint);
     log << '\n';
-    log << "mode |  affinity  |    CNN         CNN\n";
+    log << "mode |  affinity  |    CNN     |   CNN\n";
     log << "     | (kcal/mol) | pose score | affinity\n";
     log << "-----+------------+------------+----------\n";
 
@@ -438,7 +438,7 @@ void do_search(model& m, const boost::optional<model>& ref,
       log.endl();
     }
   }
-  std::cout << "Refine time " << time.elapsed().wall / 1000000000.0 << "\n";
+  //std::cout << "Refine time " << time.elapsed().wall / 1000000000.0 << "\n";
 }
 
 void load_ent_values(const grid_dims& gd, std::istream& user_in,
@@ -490,7 +490,7 @@ void main_procedure(model &m, precalculate &prec,
     minparm.maxiters = par.mc.ssd_par.evals;
   par.mc.ssd_par.minparm = minparm;
   par.mc.min_rmsd = 1.0;
-  par.mc.num_saved_mins = settings.num_modes > 20 ? settings.num_modes : 20; //dkoes, support more than 20
+  par.mc.num_saved_mins = settings.num_modes > settings.num_mc_saved ? settings.num_modes : settings.num_mc_saved; //dkoes, support more than 20
   par.mc.hunt_cap = vec(10, 10, 10);
   par.num_tasks = settings.exhaustiveness;
   par.num_threads = settings.cpu;
@@ -512,7 +512,7 @@ void main_procedure(model &m, precalculate &prec,
     non_cache *nc = NULL;
     if (settings.cnnopts.cnn_scoring >= CNNrefinement) {
       nc = new non_cache_cnn(gridcache, gd, &prec, slope, cnn);
-    } else if(settings.gpu_on && settings.cnnopts.cnn_scoring == CNNnone) {
+    } else if(settings.gpu_docking) {
       log << "WARNING: --gpu with empirical scoring is experimental and not recommended\n";
       precalculate_gpu *gprec = dynamic_cast<precalculate_gpu*>(&prec);
       if (!gprec)
@@ -536,8 +536,7 @@ void main_procedure(model &m, precalculate &prec,
       if (cache_needed)
         doing(settings.verbosity, "Analyzing the binding site", log);
       std::unique_ptr<cache> c(
-          (settings.gpu_on &&
-              settings.cnnopts.cnn_scoring == CNNnone) ?
+          (settings.gpu_docking) ?
               new cache_gpu("scoring_function_version001",
                   gd, slope, dynamic_cast<precalculate_gpu*>(&prec)) :
               new cache("scoring_function_version001", gd, slope));
@@ -753,43 +752,39 @@ void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
 }
 
 
-//set the default device to device and exit with error if there are any problems
-void initializeCUDA(int device)
-    {
+//set the default device to device and return cuda error code if there's a problem
+int initializeCUDA(int device)  {
   cudaError_t error;
   cudaDeviceProp deviceProp;
 
   error = cudaSetDevice(device);
   if (error != cudaSuccess) {
-    std::cerr << "cudaSetDevice returned error code " << error << "\n";
-    exit(-1);
+    //be silent if GPU not present
+    return error;
   }
 
   error = cudaGetDevice(&device);
 
   if (error != cudaSuccess) {
     std::cerr << "cudaGetDevice returned error code " << error << "\n";
-    exit(-1);
+    return error;
   }
 
   error = cudaGetDeviceProperties(&deviceProp, device);
 
-  if (deviceProp.computeMode == cudaComputeModeProhibited)
-      {
+  if (deviceProp.computeMode == cudaComputeModeProhibited) {
     std::cerr
         << "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n";
-    exit(-1);
+    return -1;
   }
 
-  if (error != cudaSuccess)
-      {
-    std::cerr << "cudaGetDeviceProperties returned error code " << error
-        << "\n";
-    exit(-1);
+  if (error != cudaSuccess) {
+    return error;
   }
 
   caffe::Caffe::SetDevice(device);
   caffe::Caffe::set_mode(caffe::Caffe::GPU);
+  return 0;
 }
 
 //work queue job format
@@ -905,15 +900,15 @@ struct global_state
 //function to occupy the worker threads with individual ligands from the work queue
 //TODO: see if implementing weight sharing between CNNScorer instances results
 //in enough memory efficiency to avoid using a single one
-void threads_at_work(job_queue<worker_job>* wrkq,
-    job_queue<writer_job>* writerq, global_state* gs,
-    MolGetter* mols, int* nligs, CNNScorer cnn_scorer) //copy cnn_scorer so it can maintain state
-    {
-  if (gs->settings->gpu_on) {
+void threads_at_work(job_queue<worker_job> *wrkq,
+    job_queue<writer_job> *writerq, global_state *gs,
+    MolGetter *mols, int *nligs, CNNScorer cnn_scorer) //copy cnn_scorer so it can maintain state
+{
+  if(!gs->settings->no_gpu)
     initializeCUDA(gs->settings->device);
-    if (gs->settings->cnnopts.cnn_scoring == CNNnone)
-      thread_buffer.init(available_mem(gs->settings->cpu));
-  }
+  
+  if (gs->settings->gpu_docking)
+    thread_buffer.init(available_mem(gs->settings->cpu));
 
   worker_job j;
   while (!wrkq->wait_and_pop(j))
@@ -1054,7 +1049,7 @@ Thank you!\n";
     fl center_x = 0, center_y = 0, center_z = 0, size_x = 0, size_y = 0,
         size_z = 0;
     fl autobox_add = 4;
-    bool autobox_extend = false;
+    bool autobox_extend = true;
     std::string autobox_ligand;
     std::string flexdist_ligand;
     std::string builtin_scoring;
@@ -1108,7 +1103,7 @@ Thank you!\n";
     ("flex_limit", value<int>(&flex_limit),
         "Hard limit for the number of flexible residues")
     ("flex_max", value<int>(&flex_max),
-        "Retain at at most the closes flex_max flexible residues");
+        "Retain at at most the closest flex_max flexible residues");
 
     //options_description search_area("Search area (required, except with --score_only)");
     options_description search_area("Search space (required)");
@@ -1123,7 +1118,7 @@ Thank you!\n";
         "Ligand to use for autobox")
     ("autobox_add", value<fl>(&autobox_add),
         "Amount of buffer space to add to auto-generated box (default +4 on all six sides)")
-    ("autobox_extend", bool_switch(&autobox_extend),
+    ("autobox_extend", value<bool>(&autobox_extend)->default_value(true),
             "Expand the autobox if needed to ensure the input conformation of the ligand being docked can freely rotate within the box.")
     ("no_lig", bool_switch(&no_lig)->default_value(false),
         "no ligand; for sampling/minimizing flexible residues");
@@ -1161,6 +1156,8 @@ Thank you!\n";
         "generate random poses, attempting to avoid clashes")
     ("num_mc_steps", value<int>(&settings.num_mc_steps),
         "number of monte carlo steps to take in each chain")
+    ("num_mc_saved", value<int>(&settings.num_mc_saved),
+            "number of top poses saved in each monte carlo chain")
     ("minimize_iters",
         value<unsigned>(&minparms.maxiters)->default_value(0),
         "number iterations of steepest descent; default scales with rotors and usually isn't sufficient for convergence")
@@ -1185,6 +1182,7 @@ Thank you!\n";
         "Print all available terms with default parameterizations")
     ("print_atom_types", bool_switch(&print_atom_types),
         "Print all available atom types");
+
     options_description hidden("Hidden options for internal testing");
     hidden.add_options()
     ("verbosity", value<int>(&settings.verbosity)->default_value(1),
@@ -1195,7 +1193,9 @@ Thank you!\n";
         "output minout.sdf of minimization with provided amount of interpolation")
     ("cnn_gradient_check",
         bool_switch(&cnnopts.gradient_check)->default_value(false),
-        "Perform internal checks on gradient.");
+        "Perform internal checks on gradient.")
+    ("gpu_docking", bool_switch(&settings.gpu_docking), "Turn on GPU acceleration for non-CNN scoring operations.");
+
 
     options_description cnn("Convolutional neural net (CNN) scoring");
     cnn.add_options()
@@ -1250,7 +1250,8 @@ Thank you!\n";
         "remove hydrogens from molecule _after_ performing atom typing for efficiency (on by default)")
     ("device", value<int>(&settings.device)->default_value(0),
         "GPU device to use")
-    ("gpu", bool_switch(&settings.gpu_on), "Turn on GPU acceleration");
+    ("no_gpu", bool_switch(&settings.no_gpu), "Disable GPU acceleration, even if available.");
+
 
     options_description config("Configuration file (optional)");
     config.add_options()("config", value<std::string>(&config_name),
@@ -1363,11 +1364,20 @@ Thank you!\n";
         approx_factor = 10;
     }
 
-    if (settings.gpu_on) {
-      cudaDeviceReset();
-      cudaDeviceSetLimit(cudaLimitStackSize, 5120);
-    } else {
+    //check for GPU
+    int error = cudaDeviceReset();
+    if(error != cudaSuccess) {
+      log << "WARNING: No GPU detected. CNN scoring will be slow.\n"
+          "Recommend running with single model (--cnn crossdock_default2018)\n"
+          "or without cnn scoring (--cnn_scoring=none).";
       caffe::Caffe::set_cudnn(false); //if cudnn is on, won't fallback to cpu
+    } else if(settings.no_gpu) {
+      caffe::Caffe::set_cudnn(false);
+    } else {
+      //the following reserve a lot of memory, do we really need it??
+      //cudaDeviceSetLimit(cudaLimitStackSize, 5120);
+      caffe::Caffe::SetDevice(settings.device);
+      caffe::Caffe::set_mode(caffe::Caffe::GPU);      
     }
 
     if (accurate_line)
@@ -1578,7 +1588,7 @@ Thank you!\n";
 
     boost::shared_ptr<precalculate> prec;
 
-    if ((settings.gpu_on && settings.cnnopts.cnn_scoring == CNNnone) || approx == GPU)  { //don't get a choice
+    if (settings.gpu_docking || approx == GPU)  { //don't get a choice
       prec = boost::shared_ptr<precalculate>(
           new precalculate_gpu(wt, approx_factor));
     }
@@ -1663,7 +1673,7 @@ Thank you!\n";
             break;
           }
           m->set_pose_num(i);
-          m->gdata.device_on = settings.gpu_on && settings.cnnopts.cnn_scoring == CNNnone;
+          m->gdata.device_on = settings.gpu_docking;
           m->gdata.device_id = settings.device;
 
           grid_dims gdbox(gd);
@@ -1707,9 +1717,17 @@ Thank you!\n";
     writerq.close(1);
     writer_thread.join();
 
+    sz free_byte = 0, total_byte = 0;
+    if(cudaMemGetInfo( &free_byte, &total_byte ) == cudaSuccess) {
+      double free_db = (double)free_byte ;
+      double total_db = (double)total_byte ;
+      double used_db = total_db - free_db ;
+      log << "GPU memory usage: " << int(used_db/1024.0/1024.0) << " MB" << "\n";
+    }
+
     cudaDeviceSynchronize();
 
-    std::cout << "Loop time " << time.elapsed().wall / 1000000000.0 << "\n";
+    //std::cout << "Loop time " << time.elapsed().wall / 1000000000.0 << "\n";
 
   } catch (file_error& e)
   {
@@ -1737,6 +1755,20 @@ Thank you!\n";
   {
     std::cerr << "\n\nError with scoring function specification.\n";
     std::cerr << e.msg << "[" << e.name << "]\n";
+    return 1;
+  } catch(std::runtime_error e)
+  {
+    std::cerr << "\nRuntime Error\n";
+    std::cerr << e.what() << "\n";
+    sz free_byte = 0, total_byte = 0;
+    cudaMemGetInfo( &free_byte, &total_byte ) ;
+
+    double free_db = (double)free_byte ;
+    double total_db = (double)total_byte ;
+    double used_db = total_db - free_db ;
+    printf("GPU memory usage: used = %f, free = %f MB, total = %f MB\n",
+             used_db/1024.0/1024.0, free_db/1024.0/1024.0, total_db/1024.0/1024.0);
+
     return 1;
   }
 

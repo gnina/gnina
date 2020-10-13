@@ -35,6 +35,7 @@ void classname<Dtype>::funcname##_##gpu(const vector<Blob<Dtype>*>& top, \
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <curand.h>
+#include <stdexcept>
 #include <driver_types.h>  // cuda driver types
 #ifdef USE_CUDNN  // cuDNN acceleration library.
 #include "caffe/util/cudnn.hpp"
@@ -49,7 +50,7 @@ void classname<Dtype>::funcname##_##gpu(const vector<Blob<Dtype>*>& top, \
   /* Code block avoids redefinition of cudaError_t error */ \
   do { \
     cudaError_t error = condition; \
-    CHECK_EQ(error, cudaSuccess) << " " << cudaGetErrorString(error); \
+    if(error != cudaSuccess) throw std::runtime_error(cudaGetErrorString(error)); \
   } while (0)
 
 #define CUBLAS_CHECK(condition) \
