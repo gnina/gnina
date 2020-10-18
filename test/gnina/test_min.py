@@ -44,23 +44,45 @@ subprocess.check_call('%s  -r data/C.xyz -l data/C1.xyz --cnn_scoring=refinement
 #output should be similar to receptor
 assert are_similar('data/C.xyz',outfile)
 
+rmout()
+subprocess.check_call('%s  -r data/C.xyz -l data/C1.xyz --cnn_scoring=refinement --cnn_model data/overlap.model \
+    --cnn_weights data/overlay.caffemodel --cnn_mix_empirical --cnn_empirical_weight 0.1 --no_gpu --minimize -o %s'%(gnina,outfile),shell=True)
+#output should not be similar to receptor
+assert not are_similar('data/C.xyz',outfile)
+
 #gpu
 rmout()
 subprocess.check_call('%s  -r data/C.xyz -l data/C1.xyz --cnn_scoring=refinement --cnn_model data/overlap.model \
     --cnn_weights data/overlay.caffemodel --minimize -o %s '%(gnina,outfile),shell=True)
 #output should be similar to receptor
 assert are_similar('data/C.xyz',outfile)
+
+rmout()
+subprocess.check_call('%s  -r data/C.xyz -l data/C1.xyz --cnn_scoring=refinement --cnn_model data/overlap.model \
+    --cnn_weights data/overlay.caffemodel  --cnn_mix_empirical --cnn_empirical_weight 0.1 --minimize -o %s '%(gnina,outfile),shell=True)
+#output should be similar to receptor
+assert not are_similar('data/C.xyz',outfile)
     
 rmout()
 subprocess.check_call('%s  -r data/CC.xyz -l data/CC2.xyz --cnn_scoring=all --cnn_model data/overlap.model \
     --cnn_weights data/overlay.caffemodel --minimize -o %s --no_gpu'%(gnina,outfile),shell=True)
 assert are_similar('data/CC.xyz',outfile)
 
+rmout()
+subprocess.check_call('%s  -r data/CC.xyz -l data/CC2.xyz --cnn_scoring=all --cnn_model data/overlap.model \
+    --cnn_weights data/overlay.caffemodel  --cnn_mix_empirical --cnn_empirical_weight 0.1 --minimize -o %s --no_gpu'%(gnina,outfile),shell=True)
+assert not are_similar('data/CC.xyz',outfile)
+
 #gpu
 rmout()
 subprocess.check_call('%s  -r data/CC.xyz -l data/CC2.xyz --cnn_scoring=all --cnn_model data/overlap.model \
     --cnn_weights data/overlay.caffemodel --minimize -o %s '%(gnina,outfile),shell=True)
 assert are_similar('data/CC.xyz',outfile)
+
+rmout()
+subprocess.check_call('%s  -r data/CC.xyz -l data/CC2.xyz --cnn_scoring=all --cnn_model data/overlap.model \
+    --cnn_weights data/overlay.caffemodel --cnn_mix_empirical --cnn_empirical_weight 0.1 --minimize -o %s '%(gnina,outfile),shell=True)
+assert not are_similar('data/CC.xyz',outfile)
     
     
 #fully flexible - need smaller radius to avoid local minima
@@ -73,14 +95,34 @@ assert are_similar('data/C8flat.xyz',outfile)
 rmout()
 subprocess.check_call('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_scoring=all \
   --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
+  --cnn_mix_empirical --cnn_empirical_weight 0.1 --minimize -o %s'%(gnina,outfile),shell=True)
+assert not are_similar('data/C8flat.xyz',outfile)
+
+
+rmout()
+subprocess.check_call('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_scoring=all \
+  --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
   --cnn_update_min_frame --minimize -o %s'%(gnina,outfile),shell=True)
 assert are_similar('data/C8flat.xyz',outfile)
 
 rmout()
 subprocess.check_call('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_scoring=all \
   --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
+  --cnn_update_min_frame --cnn_mix_empirical --cnn_empirical_weight 0.1 --minimize -o %s'%(gnina,outfile),shell=True)
+assert not are_similar('data/C8flat.xyz',outfile)
+
+
+rmout()
+subprocess.check_call('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_scoring=all \
+  --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
   --cnn_freeze_receptor --minimize -o %s --no_gpu'%(gnina,outfile),shell=True)
 assert are_similar('data/C8flat.xyz',outfile)
+
+rmout()
+subprocess.check_call('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_scoring=all \
+  --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
+  --cnn_freeze_receptor --cnn_mix_empirical --cnn_empirical_weight 0.1 --minimize -o %s --no_gpu'%(gnina,outfile),shell=True)
+assert not are_similar('data/C8flat.xyz',outfile)
 
 #gpu
 rmout()
@@ -92,11 +134,29 @@ assert are_similar('data/C8flat.xyz',outfile)
 rmout()
 subprocess.check_call('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_scoring=all \
   --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
+  --cnn_mix_empirical --cnn_empirical_weight 0.1 --minimize -o %s'%(gnina,outfile),shell=True)
+assert not are_similar('data/C8flat.xyz',outfile)
+
+rmout()
+subprocess.check_call('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_scoring=all \
+  --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
   --cnn_update_min_frame --minimize -o %s'%(gnina,outfile),shell=True)
 assert are_similar('data/C8flat.xyz',outfile)
 
 rmout()
 subprocess.check_call('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_scoring=all \
   --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
+  --cnn_update_min_frame --cnn_mix_empirical --cnn_empirical_weight 0.1 --minimize -o %s'%(gnina,outfile),shell=True)
+assert not are_similar('data/C8flat.xyz',outfile)
+
+rmout()
+subprocess.check_call('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_scoring=all \
+  --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
   --cnn_freeze_receptor --minimize -o %s '%(gnina,outfile),shell=True)
 assert are_similar('data/C8flat.xyz',outfile)
+
+rmout()
+subprocess.check_call('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_scoring=all \
+  --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
+  --cnn_freeze_receptor --cnn_mix_empirical --cnn_empirical_weight 0.1 --minimize -o %s '%(gnina,outfile),shell=True)
+assert not are_similar('data/C8flat.xyz',outfile)
