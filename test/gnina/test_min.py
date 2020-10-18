@@ -60,7 +60,7 @@ assert are_similar('data/C.xyz',outfile)
 rmout()
 subprocess.check_call('%s  -r data/C.xyz -l data/C1.xyz --cnn_scoring=refinement --cnn_model data/overlap.model \
     --cnn_weights data/overlay.caffemodel  --cnn_mix_empirical --cnn_empirical_weight 0.1 --minimize -o %s '%(gnina,outfile),shell=True)
-#output should be similar to receptor
+#output should not be similar to receptor
 assert not are_similar('data/C.xyz',outfile)
     
 rmout()
