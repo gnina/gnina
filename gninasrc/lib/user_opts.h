@@ -96,7 +96,7 @@ struct user_settings {
     user_settings()
         :  num_modes(9), out_min_rmsd(1), forcecap(1000),
             seed(auto_seed()), verbosity(1), cpu(1), device(0),
-            exhaustiveness(10), num_mc_steps(0), num_mc_saved(20), sort_order(CNNscore), score_only(false),
+            exhaustiveness(10), num_mc_steps(0), num_mc_saved(50), sort_order(CNNscore), score_only(false),
             randomize_only(false), local_only(false), dominimize(false),
             include_atom_info(false), gpu_docking(false), no_gpu(false) {
 

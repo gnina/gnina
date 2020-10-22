@@ -490,7 +490,7 @@ void main_procedure(model &m, precalculate &prec,
     minparm.maxiters = par.mc.ssd_par.evals;
   par.mc.ssd_par.minparm = minparm;
   par.mc.min_rmsd = 1.0;
-  par.mc.num_saved_mins = settings.num_modes > settings.num_mc_saved ? settings.num_modes : settings.num_mc_saved; //dkoes, support more than 20
+  par.mc.num_saved_mins = settings.num_modes > settings.num_mc_saved ? settings.num_modes : settings.num_mc_saved;
   par.mc.hunt_cap = vec(10, 10, 10);
   par.num_tasks = settings.exhaustiveness;
   par.num_threads = settings.cpu;
