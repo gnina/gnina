@@ -48,7 +48,8 @@ struct cnn_options {
     bool gradient_check;
     bool move_minimize_frame;  //recenter with every scoring evaluation
     bool fix_receptor;
-    bool mix_empirical;//merge empirical and CNN potentials
+    bool mix_emp_force;//merge empirical and CNN minus forces
+    bool mix_emp_energy;//merge empirical and CNN energy
     bool verbose;
 
     std::string xyzprefix;
@@ -59,7 +60,7 @@ struct cnn_options {
            resolution(0.5), cnn_rotations(0), cnn_scoring(CNNrescore),
             subgrid_dim(0.0), outputdx(false),
             outputxyz(false), gradient_check(false), move_minimize_frame(false),
-            fix_receptor(false), verbose(false), mix_empirical(false),empirical_weight(1.0),seed(0) {
+            fix_receptor(false), verbose(false), mix_emp_force(false),mix_emp_energy(false),empirical_weight(1.0),seed(0) {
     }
 
     bool moving_receptor() const {

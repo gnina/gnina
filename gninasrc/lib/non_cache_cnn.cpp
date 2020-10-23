@@ -92,7 +92,7 @@ fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const {
   fl aff = 0;
   fl loss = 0;
   fl variance = 0;
-
+  const fl cutoff_sqr = p->cutoff_sqr();
   //this is what compute cnn minus_forces
   cnn_scorer.score(m, true, aff, loss, variance);
   e += loss;
@@ -105,32 +105,33 @@ fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const {
       m.movable_minus_forces(i).assign(0);
       continue;
     }
-
+  
     const vec& a_coords = m.movable_coords(i);
     vec adjusted_a_coords;
+    //seperate adjusted coords for empirical bounds
+    vec adjusted_emp_a_coords;
     vec out_of_bounds_deriv(0, 0, 0);
     vec cnn_out_of_bounds_deriv(0, 0, 0);
-
     fl out_of_bounds_penalty = check_bounds_deriv(gd, a_coords,
-        adjusted_a_coords, out_of_bounds_deriv);
-
+        adjusted_emp_a_coords, out_of_bounds_deriv);
     out_of_bounds_penalty += check_bounds_deriv(cnn_gd, a_coords,
         adjusted_a_coords, cnn_out_of_bounds_deriv);
-
     fl this_e = 0;
     vec deriv(0, 0, 0);
     //empirical e and deriv values
     fl emp_e =0;
     vec emp_deriv(0, 0, 0);
-    if (cnn_scorer.options().mix_empirical){
-        const fl cutoff_sqr = p->cutoff_sqr();
-        const szv& possibilities = sgrid.possibilities(adjusted_a_coords);
+    
+    if (cnn_scorer.options().mix_emp_force){ 
+    	
+    	const szv& possibilities = sgrid.possibilities(adjusted_emp_a_coords);
         VINA_FOR_IN(possibilities_j, possibilities) {
             const sz j = possibilities[possibilities_j];
             const atom& b = m.grid_atoms[j];
             smt t2 = b.get();
+            
             vec r_ba;
-            r_ba = adjusted_a_coords - b.coords;
+            r_ba = adjusted_emp_a_coords - b.coords;
             fl r2 = sqr(r_ba);
             if (r2 < cutoff_sqr) {
                 if (r2 < epsilon_fl) {
@@ -152,7 +153,7 @@ fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const {
       fl uge = user_grid.evaluate_user(a_coords, slope, &ug_deriv);
       this_e += uge;
       deriv += ug_deriv;
-      if (cnn_scorer.options().mix_empirical){
+      if (cnn_scorer.options().mix_emp_force){
           emp_e += uge;
           emp_deriv += ug_deriv;
       }
@@ -160,15 +161,20 @@ fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const {
     curl(this_e, deriv, v);
     m.movable_minus_forces(i) += deriv + out_of_bounds_deriv
         + cnn_out_of_bounds_deriv;
-    if (cnn_scorer.options().mix_empirical){
+    if (cnn_scorer.options().mix_emp_force){
         curl(emp_e,emp_deriv,v);
         m.movable_minus_forces(i) += cnn_scorer.options().empirical_weight * (emp_deriv + out_of_bounds_deriv);
         //rescale
         m.movable_minus_forces(i) /= (1.0 + cnn_scorer.options().empirical_weight);
     }
     e += this_e + out_of_bounds_penalty;
-
+     if (cnn_scorer.options().mix_emp_energy){
+      e += cnn_scorer.options().empirical_weight * emp_e;
+     }
     }
+ if (cnn_scorer.options().mix_emp_energy){
+     e /=  (1.0 + cnn_scorer.options().empirical_weight);
+	}
   return e;
 }
 
