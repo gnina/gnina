@@ -252,6 +252,10 @@ class Blob {
   void scale_data(Dtype scale_factor);
   /// @brief Scale the blob diff by a constant factor.
   void scale_diff(Dtype scale_factor);
+  /// @brief Set all the values of the blob data to a constant
+  void set_data(Dtype value);
+  /// @brief Set all the values of the blob diff to a constant
+  void set_diff(Dtype value);
 
   /**
    * @brief Set the data_ shared_ptr to point to the SyncedMemory holding the

@@ -535,6 +535,11 @@ BOOST_PYTHON_MODULE(_caffe) {
         &Blob<Dtype>::count))
     .def("reshape",           bp::raw_function(&Blob_Reshape))
     .def("clear", bp::make_function(&Blob<Dtype>::Clear))
+    .def("copyfrom", &Blob<Dtype>::CopyFrom, (bp::arg("blob"), bp::arg("copy_diff") = false, bp::arg("reshape") = false))
+    .def("set_data", &Blob<Dtype>::set_data)
+    .def("set_diff", &Blob<Dtype>::set_diff)
+    .def("scale_data", &Blob<Dtype>::scale_data)
+    .def("scale_diff", &Blob<Dtype>::scale_diff)
 #ifndef CPU_ONLY
     .add_property("_gpu_data_ptr",
         reinterpret_cast<uintptr_t (Blob<Dtype>::*)()>(
