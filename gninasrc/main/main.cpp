@@ -138,7 +138,7 @@ fl do_randomization(model& m, const vec& corner1,
 
 void refine_structure(model& m, const precalculate& prec, non_cache& nc,
     output_type& out, const vec& cap, const minimization_params& minparm,
-    grid& user_grid)
+    grid& user_grid, int verbosity, tee& log)
     {
   // std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
   change g(m.get_size(), nc.move_receptor());
@@ -170,6 +170,17 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
   if (!nc.within(m))
     out.e = max_fl;
   nc.setSlope(slope_orig);
+  if (verbosity>1){
+    //log total and empirical energy, useful for testing CNN + empirical merge 
+    log.endl();
+    fl final_e = nc.eval_deriv(m, cap[1], user_grid);
+    log << "Total energy after refinement: " << std::fixed << std::setprecision(5) << final_e; 
+    log.endl();
+    //non_cache::eval for empirical energy
+    fl final_emp_e = nc.eval(m, cap[1]);
+    log << "Empirical energy after refinement: " << std::fixed << std::setprecision(5) << final_emp_e; 
+    log.endl();
+  }
 }
 
 std::string vina_remark(fl e, fl lb, fl ub)
@@ -307,7 +318,7 @@ void do_search(model& m, const boost::optional<model>& ref,
     output_type out(c, e);
     doing(settings.verbosity, "Performing local search", log);
     refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm,
-        user_grid);
+        user_grid,settings.verbosity,log);
     done(settings.verbosity, log);
     m.set(out.c);
 
@@ -363,7 +374,7 @@ void do_search(model& m, const boost::optional<model>& ref,
 
     VINA_FOR_IN(i, out_cont) {
       refine_structure(m, prec, nc, out_cont[i], authentic_v,
-          par.mc.ssd_par.minparm, user_grid);
+          par.mc.ssd_par.minparm, user_grid,settings.verbosity,log);
 
       get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
 
@@ -1215,6 +1226,12 @@ Thank you!\n";
         "During minimization, recenter coordinate frame as ligand moves")
     ("cnn_freeze_receptor", bool_switch(&cnnopts.fix_receptor),
         "Don't move the receptor with respect to a fixed coordinate system")
+    ("cnn_mix_emp_force", bool_switch(&cnnopts.mix_emp_force)->default_value(false),
+        "Merge CNN and empirical minus forces")
+    ("cnn_mix_emp_energy", bool_switch(&cnnopts.mix_emp_energy)->default_value(false),
+        "Merge CNN and empirical energy")
+    ("cnn_empirical_weight", value<fl>(&cnnopts.empirical_weight)->default_value(1.0),
+        "Weight for scaling and merging empirical force and energy ")
     ("cnn_outputdx", bool_switch(&cnnopts.outputdx),
         "Dump .dx files of atom grid gradient.")
     ("cnn_outputxyz", bool_switch(&cnnopts.outputxyz),
