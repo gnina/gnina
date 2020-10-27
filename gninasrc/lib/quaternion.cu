@@ -79,8 +79,11 @@ __device__ vec quaternion_to_angle(const qt& q) {
 #endif
 
 qt random_orientation(rng& generator) {
-  qt q(random_normal(0, 1, generator), random_normal(0, 1, generator),
-      random_normal(0, 1, generator), random_normal(0, 1, generator));
+  fl a0 = random_normal(0, 1, generator);
+  fl a1 = random_normal(0, 1, generator);
+  fl a2 = random_normal(0, 1, generator);
+  fl a3 = random_normal(0, 1, generator);
+  qt q(a0,a1,a2,a3);
   fl nrm = abs(q);
   if (nrm > epsilon_fl) {
     q /= nrm;
