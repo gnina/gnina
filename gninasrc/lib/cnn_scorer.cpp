@@ -66,31 +66,13 @@ CNNScorer::CNNScorer(const cnn_options &opts) :
   if (cnnopts.cnn_model_names.size() == 0 && cnnopts.cnn_models.size() == 0)
   {
     //not specified, use a default ensemble
-    //omit 2017 since it is missing atom types
-    cnnopts.cnn_model_names.push_back(default_model_name);
-    /*
-    cnnopts.cnn_model_names.push_back("crossdock_default2018");
-    cnnopts.cnn_model_names.push_back("crossdock_default2018_1");
-    cnnopts.cnn_model_names.push_back("crossdock_default2018_2");
-    cnnopts.cnn_model_names.push_back("crossdock_default2018_3");
-    cnnopts.cnn_model_names.push_back("crossdock_default2018_4");
-   // cnnopts.cnn_model_names.push_back("default2017"); NO GENERIC METAL
+    //this has been selected to provide the best docking performance
+    //with a minimal amount of models
     cnnopts.cnn_model_names.push_back("dense"); 
-    cnnopts.cnn_model_names.push_back("dense_1");
-    cnnopts.cnn_model_names.push_back("dense_2");
-    cnnopts.cnn_model_names.push_back("dense_3");
-    cnnopts.cnn_model_names.push_back("dense_4"); 
-    cnnopts.cnn_model_names.push_back("general_default2018"); 
-    cnnopts.cnn_model_names.push_back("general_default2018_1");
-    cnnopts.cnn_model_names.push_back("general_default2018_2");
     cnnopts.cnn_model_names.push_back("general_default2018_3");
-    cnnopts.cnn_model_names.push_back("general_default2018_4");
-    cnnopts.cnn_model_names.push_back("redock_default2018"); 
-    cnnopts.cnn_model_names.push_back("redock_default2018_1");
+    cnnopts.cnn_model_names.push_back("dense_3");
+    cnnopts.cnn_model_names.push_back("crossdock_default2018");
     cnnopts.cnn_model_names.push_back("redock_default2018_2");
-    cnnopts.cnn_model_names.push_back("redock_default2018_3");
-    cnnopts.cnn_model_names.push_back("redock_default2018_4");
-    */
   }
 
   if (cnnopts.cnn_models.size() != cnnopts.cnn_weights.size())

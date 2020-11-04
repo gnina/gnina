@@ -380,6 +380,66 @@ void Blob<Dtype>::scale_data(Dtype scale_factor) {
   }
 }
 
+template <> void Blob<unsigned int>::set_data(unsigned int value) {
+  NOT_IMPLEMENTED;
+}
+
+
+template <typename Dtype>
+void Blob<Dtype>::set_data(Dtype value) {
+  Dtype* data;
+  if (!data_) { return; }
+  switch (data_->head()) {
+  case SyncedMemory::HEAD_AT_CPU:
+    data = mutable_cpu_data();
+    caffe_set(count_, value, data);
+    return;
+  case SyncedMemory::HEAD_AT_GPU:
+  case SyncedMemory::SYNCED:
+#ifndef CPU_ONLY
+    data = mutable_gpu_data();
+    caffe_gpu_set(count_, value, data);
+    return;
+#else
+    NO_GPU;
+#endif
+  case SyncedMemory::UNINITIALIZED:
+    return;
+  default:
+    LOG(FATAL) << "Unknown SyncedMemory head state: " << data_->head();
+  }
+}
+
+template <> void Blob<unsigned int>::set_diff(unsigned int value) {
+  NOT_IMPLEMENTED;
+}
+
+
+template <typename Dtype>
+void Blob<Dtype>::set_diff(Dtype value) {
+  Dtype* diff;
+  if (!diff_) { return; }
+  switch (diff_->head()) {
+  case SyncedMemory::HEAD_AT_CPU:
+    diff = mutable_cpu_diff();
+    caffe_set(count_, value, diff);
+    return;
+  case SyncedMemory::HEAD_AT_GPU:
+  case SyncedMemory::SYNCED:
+#ifndef CPU_ONLY
+    diff = mutable_gpu_diff();
+    caffe_gpu_set(count_, value, diff);
+    return;
+#else
+    NO_GPU;
+#endif
+  case SyncedMemory::UNINITIALIZED:
+    return;
+  default:
+    LOG(FATAL) << "Unknown SyncedMemory head state: " << diff_->head();
+  }
+}
+
 template <> void Blob<unsigned int>::scale_diff(unsigned int scale_factor) {
   NOT_IMPLEMENTED;
 }
