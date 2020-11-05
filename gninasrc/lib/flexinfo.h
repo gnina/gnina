@@ -47,6 +47,7 @@ class FlexInfo {
       rigid, std::vector<std::size_t>& residues_idxs);
     bool isSideChain(std::string aid);
 
+    void checkResidue(OpenBabel::OBResidue* residue); // Check number of atoms per residue is reasonable
 };
 
 #endif /* SMINA_FLEXINFO_H */
