@@ -137,14 +137,24 @@ void FlexInfo::checkResidue(OpenBabel::OBResidue* residue)
 
   std::string resname = residue->GetName();
 
-  if(num_heavy_atoms.count(resname)){ // Check key exists
-    n_atoms_with_buffer = 1.5 * num_heavy_atoms[resname];
+  if(num_heavy_atoms_per_residue.count(resname)){ // Check key exists
+    n_atoms_with_buffer = 1.5 * num_heavy_atoms_per_residue[resname];
   }
   else{ // Non standard residue name
     n_atoms_with_buffer = std::numeric_limits<double>::max();
   }
 
-  if(residue->GetNumAtoms() > n_atoms_with_buffer)
+  // TODO: Update with OBResidue::GetNumHvyAtoms() [openbabel#2299]
+  unsigned int num_hvy_atoms = 0;
+  for (auto atom = residue->CBeginAtoms(); atom != residue->CEndAtoms(); atom++)
+  {
+    if ((*atom)->GetAtomicNum() != OBElements::Hydrogen)
+    {
+      num_hvy_atoms++;
+    }
+  }
+
+  if(num_hvy_atoms > n_atoms_with_buffer)
   {
         char ic = residue->GetInsertionCode();
 
