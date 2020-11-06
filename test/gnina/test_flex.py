@@ -123,3 +123,4 @@ subprocess.check_call("{gnina} -r data/3rod_rec.pdb -l data/3rod_lig.pdb \
 
 assert moved(outlig, "data/3rod_lig.pdb", "pdb")
 assert moved(outflex, "data/3rod_rec_ref.pdb", "pdb")
+rmout(outlig, outflex)
