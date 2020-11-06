@@ -25,6 +25,8 @@ class FlexInfo {
 
     char defaultch = ' '; // Default chain
 
+    static std::map<std::string, int> num_heavy_atoms_per_residue;
+
   public:
     FlexInfo(tee& l)
         : flex_dist(0), log(l) {

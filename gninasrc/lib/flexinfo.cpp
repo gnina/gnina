@@ -10,6 +10,30 @@
 
 using namespace std;
 
+std::map<std::string, int> FlexInfo::num_heavy_atoms_per_residue = {
+    {"ARG", 12},
+    {"HIS", 11},
+    {"LYS", 10},
+    {"ASP", 9},
+    {"GLU", 10},
+    {"SER", 7},
+    {"THR", 8},
+    {"ASN", 9},
+    {"GLN", 9},
+    {"CYS", 7},
+    {"SEC", 7},
+    {"GLY", 5},
+    {"PRO", 8},
+    {"ALA", 6},
+    {"VAL", 8},
+    {"ILE", 9},
+    {"LEU", 9},
+    {"MET", 9},
+    {"PHE", 12},
+    {"TYR", 13},
+    {"TRP", 15},
+  };
+
 FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
     const std::string& ligand,
     int nflex_, bool nflex_hard_limit_,
@@ -108,30 +132,6 @@ void FlexInfo::sanitizeResidues(OpenBabel::OBMol& receptor) {
 void FlexInfo::checkResidue(OpenBabel::OBResidue* residue)
 {
   using namespace OpenBabel;
-
-  std::map<std::string, int> num_heavy_atoms = {
-    {"ARG", 12},
-    {"HIS", 11},
-    {"LYS", 10},
-    {"ASP", 9},
-    {"GLU", 10},
-    {"SER", 7},
-    {"THR", 8},
-    {"ASN", 9},
-    {"GLN", 9},
-    {"CYS", 7},
-    {"SEC", 7},
-    {"GLY", 5},
-    {"PRO", 8},
-    {"ALA", 6},
-    {"VAL", 8},
-    {"ILE", 9},
-    {"LEU", 9},
-    {"MET", 9},
-    {"PHE", 12},
-    {"TYR", 13},
-    {"TRP", 15},
-  };
 
   double n_atoms_with_buffer = 0.0;
 
