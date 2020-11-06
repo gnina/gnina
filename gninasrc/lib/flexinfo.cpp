@@ -3,6 +3,7 @@
 #include <openbabel/mol.h>
 #include <openbabel/atom.h>
 #include <openbabel/bond.h>
+#include <openbabel/elements.h>
 #include <boost/unordered_map.hpp>
 
 #include <exception>
@@ -146,7 +147,7 @@ void FlexInfo::checkResidue(OpenBabel::OBResidue* residue)
 
   // TODO: Update with OBResidue::GetNumHvyAtoms() [openbabel#2299]
   unsigned int num_hvy_atoms = 0;
-  for (auto atom = residue->CBeginAtoms(); atom != residue->CEndAtoms(); atom++)
+  for (auto atom = residue->BeginAtoms(); atom != residue->EndAtoms(); atom++)
   {
     if ((*atom)->GetAtomicNum() != OBElements::Hydrogen)
     {
