@@ -123,6 +123,7 @@ subprocess.check_call("{gnina} -r data/3rod_rec.pdb -l data/3rod_lig.pdb \
 
 assert moved(outlig, "data/3rod_lig.pdb", "pdb")
 assert moved(outflex, "data/3rod_rec_ref.pdb", "pdb")
+rmout(outlig, outflex)
 
 # Check warning if there are two residues with same chain, number and icode
 subprocess.check_call("{gnina} -r data/1m4n_A_rec_wrong.pdb -l data/1m7y_mrd_uff2.sdf \
