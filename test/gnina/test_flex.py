@@ -123,3 +123,30 @@ subprocess.check_call("{gnina} -r data/3rod_rec.pdb -l data/3rod_lig.pdb \
 
 assert moved(outlig, "data/3rod_lig.pdb", "pdb")
 assert moved(outflex, "data/3rod_rec_ref.pdb", "pdb")
+
+# Check warning if there are two residues with same chain, number and icode
+subprocess.check_call("{gnina} -r data/1m4n_A_rec_wrong.pdb -l data/1m7y_mrd_uff2.sdf \
+    --autobox_ligand data/1m7y_mrd_uff2.sdf --seed 0\
+    --flexdist 3.5 --flexdist_ligand data/1m7y_mrd_uff2.sdf \
+    --num_mc_steps 100 --exhaustiveness 1 --cnn_scoring=none \
+    2>&1 | tee gnina.log".format(gnina=gnina),
+    shell=True)
+with open("gnina.log", "r") as f:
+    content = f.read()
+    assert content.count("Flexible residues: A:83 A:85") == 1
+    assert content.count("WARNING: Residue A:83 appears to have too many atoms.") == 2
+    assert content.count("WARNING: Residue A:85 appears to have too many atoms.") == 2
+rmout("gnina.log")
+
+# Check warning if there are two residues with same chain, number and icode
+subprocess.check_call("{gnina} -r data/1m4n_A_rec_correct.pdb -l data/1m7y_mrd_uff2.sdf \
+    --autobox_ligand data/1m7y_mrd_uff2.sdf --seed 0\
+    --flexdist 3.5 --flexdist_ligand data/1m7y_mrd_uff2.sdf \
+    --num_mc_steps 100 --exhaustiveness 1 --cnn_scoring=none \
+    2>&1 | tee gnina.log".format(gnina=gnina),
+    shell=True)
+with open("gnina.log", "r") as f:
+    content = f.read()
+    assert content.count("Flexible residues: B:83 B:85") == 1
+    assert content.count("WARNING") == 0
+rmout("gnina.log")
