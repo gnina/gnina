@@ -134,6 +134,10 @@ void FlexInfo::checkResidue(OpenBabel::OBResidue* residue)
 {
   using namespace OpenBabel;
 
+  if(residue == nullptr){
+    return;
+  }
+
   double n_atoms_with_buffer = 0.0;
 
   std::string resname = residue->GetName();
