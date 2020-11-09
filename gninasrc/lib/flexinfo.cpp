@@ -3,12 +3,38 @@
 #include <openbabel/mol.h>
 #include <openbabel/atom.h>
 #include <openbabel/bond.h>
+#include <openbabel/elements.h>
 #include <boost/unordered_map.hpp>
 
 #include <exception>
 #include <limits>
 
 using namespace std;
+
+std::map<std::string, int> FlexInfo::num_heavy_atoms_per_residue = {
+    {"ARG", 12},
+    {"HIS", 11},
+    {"LYS", 10},
+    {"ASP", 9},
+    {"GLU", 10},
+    {"SER", 7},
+    {"THR", 8},
+    {"ASN", 9},
+    {"GLN", 9},
+    {"CYS", 7},
+    {"SEC", 7},
+    {"GLY", 5},
+    {"PRO", 8},
+    {"ALA", 6},
+    {"VAL", 8},
+    {"ILE", 9},
+    {"LEU", 9},
+    {"MET", 9},
+    {"PHE", 12},
+    {"TYR", 13},
+    {"TRP", 15},
+  };
+
 FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
     const std::string& ligand,
     int nflex_, bool nflex_hard_limit_,
@@ -72,6 +98,7 @@ FlexInfo::FlexInfo(const std::string& flexres, double flexdist,
 static bool isInflexible(const string& resname) {
   return resname == "ALA" || resname == "GLY" || resname == "PRO";
 }
+
 //remove inflexible residues from residues set
 //the receptor is needed because we don't store the residue name
 void FlexInfo::sanitizeResidues(OpenBabel::OBMol& receptor) {
@@ -100,6 +127,47 @@ void FlexInfo::sanitizeResidues(OpenBabel::OBMol& receptor) {
         log << " " << ch << ":" << resid << ":" << icode << "\n";
       }
     }
+  }
+}
+
+void FlexInfo::checkResidue(OpenBabel::OBResidue* residue)
+{
+  using namespace OpenBabel;
+
+  if(residue == nullptr){
+    return;
+  }
+
+  double n_atoms_with_buffer = 0.0;
+
+  std::string resname = residue->GetName();
+
+  if(num_heavy_atoms_per_residue.count(resname)){ // Check key exists
+    n_atoms_with_buffer = 1.5 * num_heavy_atoms_per_residue[resname];
+  }
+  else{ // Non standard residue name
+    n_atoms_with_buffer = std::numeric_limits<double>::max();
+  }
+
+  // TODO: Update with OBResidue::GetNumHvyAtoms() [openbabel#2299]
+  unsigned int num_hvy_atoms = 0;
+  for (auto atom = residue->BeginAtoms(); atom != residue->EndAtoms(); atom++)
+  {
+    if ((*atom)->GetAtomicNum() != OBElements::Hydrogen)
+    {
+      num_hvy_atoms++;
+    }
+  }
+
+  if(num_hvy_atoms > n_atoms_with_buffer)
+  {
+        char ic = residue->GetInsertionCode();
+
+        log << "WARNING: Residue " << residue->GetChain() << ":" << residue->GetNum();
+        if(ic != '\0'){
+          log << ":" << ic;
+        }
+        log << " appears to have too many atoms.\n";
   }
 }
 
@@ -218,6 +286,8 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
           OBResidue *residue = a->GetResidue();
           if (residue)
           {
+            checkResidue(residue);
+
             char ch = residue->GetChain();
             int resid = residue->GetNum();
             char icode = residue->GetInsertionCode();

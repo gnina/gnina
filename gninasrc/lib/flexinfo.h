@@ -25,6 +25,8 @@ class FlexInfo {
 
     char defaultch = ' '; // Default chain
 
+    static std::map<std::string, int> num_heavy_atoms_per_residue;
+
   public:
     FlexInfo(tee& l)
         : flex_dist(0), log(l) {
@@ -47,6 +49,7 @@ class FlexInfo {
       rigid, std::vector<std::size_t>& residues_idxs);
     bool isSideChain(std::string aid);
 
+    void checkResidue(OpenBabel::OBResidue* residue); // Check number of atoms per residue is reasonable
 };
 
 #endif /* SMINA_FLEXINFO_H */
