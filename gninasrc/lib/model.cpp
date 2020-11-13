@@ -879,8 +879,9 @@ void sdfcontext::write(const vecv& coords, sz nummove,
       }
   }
 
-  //end, but leave room for sddata
+  //end, but leave room for additional sddata
   out << "M  END\n";
+  out << datastr;
 }
 
 void model::write_context(const context& c, std::ostream& out) const {

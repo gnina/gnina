@@ -177,6 +177,7 @@ struct sdfcontext {
     std::vector<sdfatom> atoms; //index should match index into coords
     std::vector<sdfbond> bonds;
     std::vector<sdfprop> properties; //CHG and ISO go here
+    std::string datastr; //retained properties
 
     void dump(std::ostream& out) const;
     //output sdf with provided coords
@@ -193,6 +194,7 @@ struct sdfcontext {
       ar & atoms;
       ar & bonds;
       ar & properties;
+      ar & datastr;
     }
 };
 

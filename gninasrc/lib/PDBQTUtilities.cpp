@@ -34,6 +34,8 @@
 #include <cassert>
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
+#include <boost/assign/list_of.hpp>
+
 #include <openbabel/mol.h>
 #include <openbabel/atom.h>
 #include <openbabel/bond.h>
@@ -244,6 +246,12 @@ bool DeleteHydrogens(OBMol & mol) {
 //parsed_atoms store an index refering each atom to a position in atoms
 //we need to construct an sdf context with the appropriate atoms in these positions
 void createSDFContext(OBMol& mol, vector<OBAtom*> atoms, sdfcontext& sc) {
+  static boost::unordered_set<string> ignored_data =
+      boost::assign::list_of("OpenBabel Symmetry Classes")("LSSR")("SSSR")
+      ("MOL Chiral Flag")("SMILES Atom Order")("PartialCharges")
+      ("minimizedAffinity")("minimizedRMSD")("CNNscore")("CNNaffinity")
+      ("CNN_VS")("CNNaffinity_variance");
+
   sc.atoms.clear();
   sc.bonds.clear();
   sc.properties.clear();
@@ -277,6 +285,19 @@ void createSDFContext(OBMol& mol, vector<OBAtom*> atoms, sdfcontext& sc) {
     unsigned second = idx2atompos[bitr->GetEndAtomIdx()];
     sc.bonds.push_back(sdfcontext::sdfbond(first, second, bitr->GetBondOrder()));
   }
+
+  //retain data attributes
+  stringstream data;
+  vector<OBGenericData *> pairdata = mol.GetAllData(1);
+  for (unsigned i = 0, n = pairdata.size(); i < n; ++i) {
+    OBGenericData *d = pairdata[i];
+    string tag = d->GetAttribute();
+    if(ignored_data.count(tag) == 0) {  //skip over anything computed or about to be overwriten
+      data << "> <" << tag << ">\n";
+      data << d->GetValue() << "\n\n";
+    }
+  }
+  sc.datastr = data.str();
 }
 
 static void OutputAtom(OBAtom* atom, context& lines, vector<OBAtom*>& atomorder,

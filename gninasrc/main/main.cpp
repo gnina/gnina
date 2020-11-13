@@ -420,7 +420,7 @@ void do_search(model& m, const boost::optional<model>& ref,
     VINA_FOR_IN(i, out_cont)
     {
       if (!not_max(out_cont[i].e))
-	continue; //may sort by something other than energy, so do not break
+        continue; //may sort by something other than energy, so do not break
       if (how_many >= settings.num_modes)
         break; // check energy_range sanity FIXME
       ++how_many;
