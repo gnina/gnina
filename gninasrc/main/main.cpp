@@ -1697,6 +1697,17 @@ Thank you!\n";
           if (settings.local_only)
           {
             gdbox = m->movable_atoms_box(autobox_add, box_granularity);
+            bool skip = false;
+            for(unsigned pos = 0; pos < 3; pos++) {
+              if(gdbox.elems[pos].n*box_granularity > 100) {
+                //we will run out of memory if the grid is too large
+                log << "WARNING: Ligand " << i << " in " << ligand_name << " has an extent greater than 100A. Skipping.\n";
+                skip = true;
+                break;
+              }
+            }
+            if(skip)
+              continue;
           } else if(autobox_extend) {
             //make sure every dimension is large enough for the ligand to fit
             fl maxdim = m->max_span(0);
@@ -1705,18 +1716,6 @@ Thank you!\n";
                 size_y > maxdim ? size_y : maxdim,
                 size_z > maxdim ? size_z : maxdim, gdbox);
           }
-
-          bool skip = false;
-          for(unsigned pos = 0; pos < 3; pos++) {
-            if(gdbox.elems[pos].n*box_granularity > 100) {
-              //we will run out of memory if the grid is too large
-              log << "WARNING: Ligand " << i << " in " << ligand_name << " has an extent greater than 100A. Skipping.\n";
-              skip = true;
-              break;
-            }
-          }
-          if(skip)
-            continue;
 
           done(settings.verbosity, log);
           std::vector<result_info>* results =
