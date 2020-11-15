@@ -1706,6 +1706,18 @@ Thank you!\n";
                 size_z > maxdim ? size_z : maxdim, gdbox);
           }
 
+          bool skip = false;
+          for(unsigned pos = 0; pos < 3; pos++) {
+            if(gdbox.elems[pos].n*box_granularity > 100) {
+              //we will run out of memory if the grid is too large
+              log << "WARNING: Ligand " << i << " in " << ligand_name << " has an extent greater than 100A. Skipping.\n";
+              skip = true;
+              break;
+            }
+          }
+          if(skip)
+            continue;
+
           done(settings.verbosity, log);
           std::vector<result_info>* results =
               new std::vector<result_info>();
