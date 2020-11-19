@@ -6,6 +6,9 @@ set(USE_LMDB 0)
 set(USE_LEVELDB 0)
 set(USE_OPENCV 0)
 
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CUDA_STANDARD 14)
+
 if("${CMAKE_BUILD_TYPE}" STREQUAL "")
   set(CMAKE_BUILD_TYPE Release)
 endif()
@@ -21,24 +24,6 @@ if(NOT ${CUDA_cublas_device_LIBRARY}) #workaround for oldercmake/newer cuda issu
  set(CUDA_cublas_device_LIBRARY "")
 endif()
 
-find_package(libmolgrid)
-if(NOT LIBMOLGRID_LIBRARY)
- message("libmolgrid will be fetched from git")
- include(ExternalProject)
- find_package(Git REQUIRED)
- set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
- ExternalProject_Add(libmolgrid
-    GIT_REPOSITORY https://github.com/gnina/libmolgrid 
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
-  )
-  set(LIBMOLGRID_INCLUDE_DIR ${EXTERNAL_INSTALL_LOCATION}/include)
-  set(LIBMOLGRID_LIBRARY ${EXTERNAL_INSTALL_LOCATION}/lib/libmolgrid.so)
-else()
-  add_custom_target(libmolgrid)	
-endif()
-
-include_directories(${LIBMOLGRID_INCLUDE_DIR})
-
 find_package(OpenBabel3 REQUIRED)
 #get_target_property(OPENBABEL_LIBRARIES openbabel LOCATION)
 set(OPENBABEL_LIBRARIES $<TARGET_FILE:openbabel>)
@@ -49,11 +34,7 @@ include(caffe/cmake/Utils.cmake)
 include(caffe/cmake/Cuda.cmake)
 
 #our version of caffe needs to pull in headers from gnina and we'll use c++11
-include_directories(.) 
-
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CUDA_STANDARD 14)
-
+include_directories(.)
 
 add_subdirectory(caffe)
 add_dependencies(caffe libmolgrid)
@@ -61,6 +42,24 @@ add_dependencies(caffe libmolgrid)
 include_directories(${CMAKE_BINARY_DIR}/caffe/include/)
 include_directories(caffe/include)
 add_subdirectory(gninasrc)
+
+find_package(libmolgrid)
+if(NOT LIBMOLGRID_LIBRARY)
+ message("libmolgrid will be fetched from git")
+ include(ExternalProject)
+ find_package(Git REQUIRED)
+ set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
+ ExternalProject_Add(libmolgrid
+    GIT_REPOSITORY https://github.com/gnina/libmolgrid
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+  )
+  set(LIBMOLGRID_INCLUDE_DIR ${EXTERNAL_INSTALL_LOCATION}/include)
+  set(LIBMOLGRID_LIBRARY ${EXTERNAL_INSTALL_LOCATION}/lib/libmolgrid.so)
+else()
+  add_custom_target(libmolgrid)
+endif()
+
+include_directories(${LIBMOLGRID_INCLUDE_DIR})
 
 # enable testing
 include(CTest)
