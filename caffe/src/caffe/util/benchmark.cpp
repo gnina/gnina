@@ -12,7 +12,7 @@ Timer::Timer()
   Init();
 }
 
-Timer::~Timer() {
+Timer::~Timer() noexcept(false) {
   if (Caffe::mode() == Caffe::GPU) {
 #ifndef CPU_ONLY
     CUDA_CHECK(cudaEventDestroy(start_gpu_));
