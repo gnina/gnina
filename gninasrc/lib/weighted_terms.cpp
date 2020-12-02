@@ -76,8 +76,7 @@ fl weighted_terms::eval_slow(const atom_base& a, const atom_base& b,
       + enabled_charge_dependent_terms.size();
   VINA_FOR_IN(i, enabled_distance_additive_terms)
     acc += weights[offset + i]
-        * t->distance_additive_terms[enabled_distance_additive_terms[i]].eval(a,
-            b, r);
+        * t->distance_additive_terms[enabled_distance_additive_terms[i]].eval_atoms(a, b, r);
   return acc;
 }
 
