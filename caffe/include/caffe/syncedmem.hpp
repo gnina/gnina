@@ -58,7 +58,7 @@ class SyncedMemory {
  public:
   SyncedMemory();
   explicit SyncedMemory(size_t size);
-  ~SyncedMemory();
+  ~SyncedMemory() noexcept(false);
   const void* cpu_data();
   void set_cpu_data(void* data);
   const void* gpu_data();
