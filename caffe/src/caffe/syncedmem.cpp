@@ -23,7 +23,7 @@ SyncedMemory::SyncedMemory(size_t size)
 #endif
 }
 
-SyncedMemory::~SyncedMemory() {
+SyncedMemory::~SyncedMemory() noexcept(false) {
   check_device();
   if (cpu_ptr_ && own_cpu_data_) {
     CaffeFreeHost(cpu_ptr_, cpu_malloc_use_cuda_);
