@@ -10,7 +10,7 @@ namespace caffe {
 class Timer {
  public:
   Timer();
-  virtual ~Timer();
+  virtual ~Timer() noexcept(false);
   virtual void Start();
   virtual void Stop();
   virtual float MilliSeconds();

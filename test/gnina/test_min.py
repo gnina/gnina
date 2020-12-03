@@ -12,7 +12,7 @@ import re
 gnina = sys.argv[1]  # take path to gnina executable as only argument
 
 #single atoms
-outfile = '/tmp/test.sdf'
+outfile = 'test.sdf'
 def rmout():
     try:
         os.remove(outfile)
@@ -97,6 +97,7 @@ subprocess.check_call('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_scoring=a
   --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
   --cnn_update_min_frame --minimize -o %s'%(gnina,outfile),shell=True)
 assert are_similar('data/C8flat.xyz',outfile)
+assert re.search(r'<molecular weight>',open(outfile).read()) #should retain sddata tag
 
 rmout()
 subprocess.check_call('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_scoring=all \
@@ -156,3 +157,5 @@ output=subprocess.check_output('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_
 #output should not be similar to receptor
 assert not are_similar('data/C8flat.xyz',outfile)
 assert validate_energies(outfile,output,0.7)
+
+rmout()

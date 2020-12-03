@@ -420,7 +420,7 @@ void do_search(model& m, const boost::optional<model>& ref,
     VINA_FOR_IN(i, out_cont)
     {
       if (!not_max(out_cont[i].e))
-	continue; //may sort by something other than energy, so do not break
+        continue; //may sort by something other than energy, so do not break
       if (how_many >= settings.num_modes)
         break; // check energy_range sanity FIXME
       ++how_many;
@@ -1697,6 +1697,17 @@ Thank you!\n";
           if (settings.local_only)
           {
             gdbox = m->movable_atoms_box(autobox_add, box_granularity);
+            bool skip = false;
+            for(unsigned pos = 0; pos < 3; pos++) {
+              if(gdbox.elems[pos].n*box_granularity > 100) {
+                //we will run out of memory if the grid is too large
+                log << "WARNING: Ligand " << i << " in " << ligand_name << " has an extent greater than 100A. Skipping.\n";
+                skip = true;
+                break;
+              }
+            }
+            if(skip)
+              continue;
           } else if(autobox_extend) {
             //make sure every dimension is large enough for the ligand to fit
             fl maxdim = m->max_span(0);
