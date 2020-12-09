@@ -57,6 +57,7 @@
 #include <boost/unordered_map.hpp>
 #include "sem.h"
 #include "user_opts.h"
+#include "version.h"
 
 #include <cuda_profiler_api.h>
 
@@ -425,10 +426,10 @@ void do_search(model& m, const boost::optional<model>& ref,
         break; // check energy_range sanity FIXME
       ++how_many;
       m.set(out_cont[i].c);
-      log << std::setw(5) << how_many << "    " << std::setw(12)
+      log << std::setw(5) << how_many << std::setw(12)
           << std::setprecision(2) << out_cont[i].e; // intermolecular_energies[i];
-      log << " " << std::setw(10) << std::setprecision(4) << out_cont[i].cnnscore << "  "
-          << std::setw(12) << std::setprecision(3) << out_cont[i].cnnaffinity;
+      log << " " << std::setw(12) << std::setprecision(4) << out_cont[i].cnnscore << "  "
+          << std::setw(9) << std::setprecision(3) << out_cont[i].cnnaffinity;
       log.endl();
 
       //dkoes - setup result_info
@@ -1011,11 +1012,10 @@ void thread_a_writing(job_queue<writer_job>* writerq,
   }
 }
 
-int main(int argc, char* argv[])
-    {
+int main(int argc, char* argv[]) {
   using namespace boost::program_options;
   const std::string version_string =
-      "gnina " __DATE__ ".";
+      std::string("gnina ") + GIT_TAG + " " + GIT_BRANCH + ":"+GIT_REV + "   Built " __DATE__ ".";
   const std::string error_message =
       "\n\n\
 Please report this error at https://github.com/gnina/gnina/issues\n"
@@ -1043,7 +1043,8 @@ Thank you!\n";
           "  \\__, |_| |_|_|_| |_|\\__,_|\n"
           "   __/ |                    \n"
           "  |___/                     \n"
-          "\ngnina is based on smina and AutoDock Vina.\nPlease cite appropriately.\n\n";
+          "\n" + version_string +
+          "\ngnina is based on smina and AutoDock Vina.\nPlease cite appropriately.\n";
 
   try
   {
@@ -1551,7 +1552,8 @@ Thank you!\n";
       t.add("num_tors_div", 5 * 0.05846 / 0.1 - 1);
     }
 
-    log << std::setw(12) << std::left << "Weights" << " Terms\n" << t << "\n";
+    if (settings.verbosity > 1)
+      log << std::setw(12) << std::left << "Weights" << " Terms\n" << t << "\n";
 
     // Print out flexible residues 
     if(finfo.hasContent()){
@@ -1583,8 +1585,7 @@ Thank you!\n";
 
     if (vm.count("cpu") == 0) {
       settings.cpu = boost::thread::hardware_concurrency();
-      if (settings.verbosity > 1)
-          {
+      if (settings.verbosity > 1) {
         if (settings.cpu > 0)
           log << "Detected " << settings.cpu << " CPU"
               << ((settings.cpu > 1) ? "s" : "") << '\n';
@@ -1746,7 +1747,7 @@ Thank you!\n";
     writer_thread.join();
 
     sz free_byte = 0, total_byte = 0;
-    if(cudaMemGetInfo( &free_byte, &total_byte ) == cudaSuccess) {
+    if(settings.verbosity > 1 && cudaMemGetInfo( &free_byte, &total_byte ) == cudaSuccess) {
       double free_db = (double)free_byte ;
       double total_db = (double)total_byte ;
       double used_db = total_db - free_db ;

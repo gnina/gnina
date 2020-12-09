@@ -76,7 +76,9 @@ lib/non_cache_gpu.cu
 lib/precalculate_gpu.cu
 lib/tree_gpu.cu
 lib/user_opts.cpp
+${CMAKE_CURRENT_BINARY_DIR}/version.cpp
 )
+
 
 #grid member functions need to be called by arbitrary kernels
 set_source_files_properties(lib/grid_gpu.cu PROPERTIES COMPILE_FLAGS -maxrregcount=64)
@@ -84,6 +86,16 @@ set_source_files_properties(lib/grid_gpu.cu PROPERTIES COMPILE_FLAGS -maxrregcou
 #test
 file(GLOB TEST_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/*.c*)
 
+# Add a custom command that produces version.cpp, plus
+# a dummy output that's not actually produced, in order
+# to force version.cmake to always be re-run before the build
+add_custom_command(
+    OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/_version.cpp
+    BYPRODUCTS  ${CMAKE_CURRENT_BINARY_DIR}/version.cpp           
+    COMMAND ${CMAKE_COMMAND} -P
+            ${CMAKE_SOURCE_DIR}/cmake/version.cmake)
+set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/_version.cpp PROPERTIES SYMBOLIC TRUE)
+            
 add_library(gninalib ${LIB_SRCS})
 set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
 target_link_libraries(gninalib caffe ${Boost_LIBRARIES} ${OPENBABEL_LIBRARIES})
@@ -133,4 +145,5 @@ if(RDKIT_FOUND)
 else()
     message(WARNING "RDKIT not found.  gninavis will NOT be built.")
 endif()
+
 
