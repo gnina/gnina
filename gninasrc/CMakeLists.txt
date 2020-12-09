@@ -30,6 +30,7 @@ include_directories(../Eigen)
 
 #lib
 set(LIB_SRCS
+${CMAKE_CURRENT_BINARY_DIR}/version.cpp
 lib/atom_constants.cpp
 lib/bfgs.cu
 lib/box.cpp
@@ -76,7 +77,6 @@ lib/non_cache_gpu.cu
 lib/precalculate_gpu.cu
 lib/tree_gpu.cu
 lib/user_opts.cpp
-${CMAKE_CURRENT_BINARY_DIR}/version.cpp
 )
 
 
@@ -91,9 +91,12 @@ file(GLOB TEST_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/*.c*)
 # to force version.cmake to always be re-run before the build
 add_custom_command(
     OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/_version.cpp
-    BYPRODUCTS  ${CMAKE_CURRENT_BINARY_DIR}/version.cpp           
+    BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/version.cpp           
     COMMAND ${CMAKE_COMMAND} -P
             ${CMAKE_SOURCE_DIR}/cmake/version.cmake)
+add_custom_command(
+    OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/version.cpp
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/_version.cpp)
 set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/_version.cpp PROPERTIES SYMBOLIC TRUE)
             
 add_library(gninalib ${LIB_SRCS})

@@ -40,7 +40,5 @@ else()
 endif()
 
 if (NOT "${VERSION}" STREQUAL "${VERSION_}")
-    message("Previous ${VERSION_}")
-    message("Writing ${VERSION}")
     file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/version.cpp "${VERSION}")
 endif()
