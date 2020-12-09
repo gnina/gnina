@@ -89,6 +89,10 @@ file(GLOB TEST_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/*.c*)
 # Add a custom command that produces version.cpp, plus
 # a dummy output that's not actually produced, in order
 # to force version.cmake to always be re-run before the build
+# This is horribly contrived, but I can't figure out a better way -
+# for some reason cmake insists on updating the timestamp of version.cpp,
+# but we only want it to update if the version has actually changed, so
+# we chain two custom commands because it seems to work this way.
 add_custom_command(
     OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/_version.cpp
     BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/version.cpp           
