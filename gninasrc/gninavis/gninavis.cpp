@@ -29,12 +29,13 @@ int main(int argc, char* argv[]) {
   options_description cnn("CNN Input");
   std::string model;
   std::string weights;
-  cnn.add_options()("cnn_model", value<std::string>(&model),
-      "CNN model file (*.model)")
-      ("cnn_weights", value<std::string>(&weights),
-      "CNN weights file (*.caffemodel)")("ignore_layer",
-      value<std::string>(&visopts.layer_to_ignore)->default_value(""),
-      "zero values in layer with provided name, in the case of split output");
+  cnn.add_options()
+      ("cnn", value<std::vector<std::string> >(&cnnopts.cnn_model_names)->multitoken(),
+          ("built-in model to use, specify PREFIX_ensemble to evaluate an ensemble of models starting with PREFIX: " + builtin_cnn_models()).c_str())
+      ("cnn_model", value<std::vector<std::string>>(&cnnopts.cnn_models)->multitoken(),
+          "caffe cnn model file; if not specified a default model will be used")
+      ("cnn_weights", value<std::vector<std::string>>(&cnnopts.cnn_weights)->multitoken(),
+          "caffe cnn weights file (*.caffemodel); if not specified default weights (trained on the default model) will be used");
 
   options_description output("Output");
   output.add_options()("skip_ligand_output",
@@ -111,9 +112,6 @@ int main(int argc, char* argv[]) {
         << "\nCorrect usage:\n" << desc << '\n';
     return 1;
   }
-
-  cnnopts.cnn_models.push_back(model);
-  cnnopts.cnn_weights.push_back(weights);
 
   google::InitGoogleLogging(argv[0]);
   google::SetStderrLogging(2);

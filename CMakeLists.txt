@@ -61,6 +61,7 @@ endif()
 
 include_directories(${LIBMOLGRID_INCLUDE_DIR})
 
+
 # enable testing
 include(CTest)
 enable_testing()

@@ -72,7 +72,7 @@ struct distance_additive : public term {
     distance_additive(fl cutoff_)
         : cutoff(cutoff_) {
     }
-    virtual fl eval(const atom_base& a, const atom_base& b, fl r) const = 0;
+    virtual fl eval_atoms(const atom_base& a, const atom_base& b, fl r) const = 0;
     virtual ~distance_additive() {
     }
 
@@ -95,7 +95,7 @@ struct charge_dependent : public distance_additive {
     //unique to charge_dependent, return comonents for given types and distance
     virtual result_components eval_components(smt t1, smt t2, fl r) const = 0;
 
-    fl eval(const atom_base& a, const atom_base& b, fl r) const {
+    fl eval_atoms(const atom_base& a, const atom_base& b, fl r) const {
       result_components c = eval_components(a.sm, b.sm, r);
       return c.eval(a, b);
     }
@@ -115,7 +115,7 @@ struct charge_independent : public distance_additive {
     charge_independent(fl cutoff_)
         : distance_additive(cutoff_) {
     }
-    virtual fl eval(const atom_base& a, const atom_base& b, fl r) const {
+    virtual fl eval_atoms(const atom_base& a, const atom_base& b, fl r) const {
       return eval(a.get(), b.get(), r);
     }
     virtual fl eval(smt t1, smt t2, fl r) const {

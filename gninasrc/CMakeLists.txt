@@ -30,6 +30,7 @@ include_directories(../Eigen)
 
 #lib
 set(LIB_SRCS
+${CMAKE_CURRENT_BINARY_DIR}/version.cpp
 lib/atom_constants.cpp
 lib/bfgs.cu
 lib/box.cpp
@@ -78,12 +79,30 @@ lib/tree_gpu.cu
 lib/user_opts.cpp
 )
 
+
 #grid member functions need to be called by arbitrary kernels
 set_source_files_properties(lib/grid_gpu.cu PROPERTIES COMPILE_FLAGS -maxrregcount=64)
 
 #test
 file(GLOB TEST_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/*.c*)
 
+# Add a custom command that produces version.cpp, plus
+# a dummy output that's not actually produced, in order
+# to force version.cmake to always be re-run before the build
+# This is horribly contrived, but I can't figure out a better way -
+# for some reason cmake insists on updating the timestamp of version.cpp,
+# but we only want it to update if the version has actually changed, so
+# we chain two custom commands because it seems to work this way.
+add_custom_command(
+    OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/_version.cpp
+    BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/version.cpp           
+    COMMAND ${CMAKE_COMMAND} -P
+            ${CMAKE_SOURCE_DIR}/cmake/version.cmake)
+add_custom_command(
+    OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/version.cpp
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/_version.cpp)
+set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/_version.cpp PROPERTIES SYMBOLIC TRUE)
+            
 add_library(gninalib ${LIB_SRCS})
 set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
 target_link_libraries(gninalib caffe ${Boost_LIBRARIES} ${OPENBABEL_LIBRARIES})
@@ -133,4 +152,5 @@ if(RDKIT_FOUND)
 else()
     message(WARNING "RDKIT not found.  gninavis will NOT be built.")
 endif()
+
 

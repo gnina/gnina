@@ -182,17 +182,17 @@ void terms::eval_additive_aux(const model& m, const atom_index& i,
 
   VINA_FOR_IN(k, charge_independent_terms)
     if (r < charge_independent_terms[k].cutoff) out[offset + k] +=
-        charge_independent_terms[k].eval(a, b, r);
+        charge_independent_terms[k].eval_atoms(a, b, r);
   offset += charge_independent_terms.size();
 
   VINA_FOR_IN(k, charge_dependent_terms)
     if (r < charge_dependent_terms[k].cutoff) out[offset + k] +=
-        charge_dependent_terms[k].eval(a, b, r);
+        charge_dependent_terms[k].eval_atoms(a, b, r);
   offset += charge_dependent_terms.size();
 
   VINA_FOR_IN(k, distance_additive_terms)
     if (r < distance_additive_terms[k].cutoff) out[offset + k] +=
-        distance_additive_terms[k].eval(a, b, r);
+        distance_additive_terms[k].eval_atoms(a, b, r);
   offset += distance_additive_terms.size();
 
   VINA_FOR_IN(k, additive_terms)
