@@ -30,19 +30,6 @@ set(OPENBABEL_LIBRARIES $<TARGET_FILE:openbabel>)
 set(OPENBABEL_INCLUDE_DIR ${OpenBabel3_INCLUDE_DIRS})
 include_directories(${OPENBABEL_INCLUDE_DIR})
 
-include(caffe/cmake/Utils.cmake)
-include(caffe/cmake/Cuda.cmake)
-
-#our version of caffe needs to pull in headers from gnina and we'll use c++11
-include_directories(.)
-
-add_subdirectory(caffe)
-add_dependencies(caffe libmolgrid)
-
-include_directories(${CMAKE_BINARY_DIR}/caffe/include/)
-include_directories(caffe/include)
-add_subdirectory(gninasrc)
-
 find_package(libmolgrid)
 if(NOT LIBMOLGRID_LIBRARY)
  message("libmolgrid will be fetched from git")
@@ -55,9 +42,25 @@ if(NOT LIBMOLGRID_LIBRARY)
   )
   set(LIBMOLGRID_INCLUDE_DIR ${EXTERNAL_INSTALL_LOCATION}/include)
   set(LIBMOLGRID_LIBRARY ${EXTERNAL_INSTALL_LOCATION}/lib/libmolgrid.so)
+  include_directories(${LIBMOLGRID_INCLUDE_DIR})
 else()
   add_custom_target(libmolgrid)
 endif()
+
+
+
+include(caffe/cmake/Utils.cmake)
+include(caffe/cmake/Cuda.cmake)
+
+#our version of caffe needs to pull in headers from gnina and we'll use c++11
+include_directories(.)
+
+add_subdirectory(caffe)
+add_dependencies(caffe libmolgrid)
+
+include_directories(${CMAKE_BINARY_DIR}/caffe/include/)
+include_directories(caffe/include)
+add_subdirectory(gninasrc)
 
 include_directories(${LIBMOLGRID_INCLUDE_DIR})
 
