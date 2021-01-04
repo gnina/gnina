@@ -1509,6 +1509,11 @@ Thank you!\n";
     }
 
     log << cite_message << '\n';
+    log << "Commandline:";
+    for(unsigned i = 0; i < argc; i++) {
+      log << " " << argv[i];
+    }
+    log << "\n";
 
     if(nflex > 0 && flex_res.size() > 0){
       log << "WARNING: --flex_limit and --flexmax ignored with --flexres\n\n";
