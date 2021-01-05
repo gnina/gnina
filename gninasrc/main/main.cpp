@@ -1567,10 +1567,9 @@ Thank you!\n";
     
     // Print information about flexible residues use
     if (finfo.hasContent() && cnnopts.cnn_scoring != CNNnone) {
-      if(!cnnopts.fix_receptor)
+      if(!cnnopts.fix_receptor && settings.verbosity > 1)
           log << "Receptor position and orientation are frozen.\n";
       cnnopts.fix_receptor = true; // Fix receptor position and orientation
-
     }
 
     if (usergrid_file_name.size() > 0) {
