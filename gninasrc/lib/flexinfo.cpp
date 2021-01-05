@@ -378,6 +378,11 @@ void FlexInfo::extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
           flexatoms.push_back(a);
           flex.AddAtom(*a);
           flexmap[a] = flex.NumAtoms(); //after addatom since indexed by
+          if(boost::starts_with(aid,"S") && boost::starts_with(r->GetName(),"CY")) {
+            if(a->GetHvyDegree() > 1) {
+              log << "WARNING: Disulfide bonds are ignored in flexible cysteine residues.\n";
+            }
+          }
         }
       }
 
