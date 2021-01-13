@@ -1482,6 +1482,14 @@ Thank you!\n";
     if (vm.count("atom_terms") > 0)
       atomoutfile.open(atom_name.c_str());
 
+    //output banner
+    log << cite_message << '\n';
+    log << "Commandline:";
+    for(unsigned i = 0; i < argc; i++) {
+      log << " " << argv[i];
+    }
+    log << "\n";
+
     FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, nflex, nflex_hard_limit, log);
 
     // dkoes - parse in receptor once
@@ -1507,8 +1515,6 @@ Thank you!\n";
     if (flex_dist > 0 && flexdist_ligand.size() == 0) {
       throw usage_error("Must specify flexdist_ligand with flex_dist");
     }
-
-    log << cite_message << '\n';
 
     if(nflex > 0 && flex_res.size() > 0){
       log << "WARNING: --flex_limit and --flexmax ignored with --flexres\n\n";
@@ -1562,10 +1568,9 @@ Thank you!\n";
     
     // Print information about flexible residues use
     if (finfo.hasContent() && cnnopts.cnn_scoring != CNNnone) {
-      if(!cnnopts.fix_receptor)
+      if(!cnnopts.fix_receptor && settings.verbosity > 1)
           log << "Receptor position and orientation are frozen.\n";
       cnnopts.fix_receptor = true; // Fix receptor position and orientation
-
     }
 
     if (usergrid_file_name.size() > 0) {
