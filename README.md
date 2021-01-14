@@ -82,23 +82,23 @@ Usage
 =====
 
 To dock ligand `lig.sdf` to a binding site on `rec.pdb` defined by another ligand `orig.sdf`:
-
-```gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf -o docked.sdf.gz
+```
+gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf -o docked.sdf.gz
 ```
 
 To perform docking with flexible sidechain residues within 3.5 Angstroms of `orig.sdf` (generally not recommend unless prior knowledge indicates pocket is highly flexible):
-
-```gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --flexdist_ligand orig.sdf --flexdist 3.5 -o flex_docked.sdf.gz
+```
+gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --flexdist_ligand orig.sdf --flexdist 3.5 -o flex_docked.sdf.gz
 ```
 
 To perform whole protein docking:
-
-```gnina -r rec.pdb -l lig.sdf --autobox_ligand rec.pdb -o whole_docked.sdf.gz --exhaustiveness 64
+```
+gnina -r rec.pdb -l lig.sdf --autobox_ligand rec.pdb -o whole_docked.sdf.gz --exhaustiveness 64
 ```
 
 To minimize and score ligands `ligs.sdf` already positioned in a binding site:
-
-```gnina -r rec.pdb -l ligs.sdf --minimize -o minimized.sdf.gz
+```
+gnina -r rec.pdb -l ligs.sdf --minimize -o minimized.sdf.gz
 ```
 
 
