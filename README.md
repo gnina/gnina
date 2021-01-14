@@ -1,7 +1,5 @@
 gnina (pronounced NEE-na) is a fork of smina, which is a fork of AutoDock Vina.
 
-gnina is **not** recommended for production use (*yet*) in molecular modeling tasks.  However, it *is* suitable as a platform for researching structure-based deep learning approaches as described in [our paper](http://pubs.acs.org/doi/abs/10.1021/acs.jcim.6b00740).  
-
 Help
 ====
  
@@ -31,137 +29,221 @@ J Sunseri, JE King, PG Francoeur, DR Koes.  *Journal of computer-aided molecular
 PG Francoeur, T Masuda, J Sunseri, A Jia, RB Iovanisci, I Snyder, DR Koes. *J. Chem. Inf. Model*, 2020
 [link](https://pubs.acs.org/doi/abs/10.1021/acs.jcim.0c00411) [PubMed](https://pubmed.ncbi.nlm.nih.gov/32865404/) [Chemrxiv](https://chemrxiv.org/articles/preprint/3D_Convolutional_Neural_Networks_and_a_CrossDocked_Dataset_for_Structure-Based_Drug_Design/11833323/1)
 
+
+Docker
+======
+
+A pre-built docker image is available [here](https://hub.docker.com/u/gnina).
+
 Installation
 ============
 
-### Ubuntu 16.04
+### Ubuntu 20.04
 ```
-apt-get install build-essential git wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-serial-dev libatlas-base-dev python-dev librdkit-dev python-numpy python-pip
-```
-Build and Install [Libmolgrid](https://github.com/gnina/libmolgrid) 
-
-[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA.  *Note* we are in the process of transitioning to CUDA 9.1.
-
-
-```
-git clone https://github.com/gnina/gnina.git
-cd gnina
-mkdir build
-cd build
-cmake ..
-make
-make install
-```
-# 
-
-Note you the scripts provided in `gnina/scripts` have additional python dependencies that must be installed. 
-
-### CentOS 7
-
-The program will not build in a computer with a gpu with computer capability < 3.5 unless
-you force a different architecture. The program will compile but will not run in that computer due to the GPU architecture difference.
-
-_Add the EPEL repository_
-```
-sudo yum  install epel-release
-```
-_[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA.  Or:_
-```
-wget http://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-repo-rhel7-9.1.85-1.x86_64.rpm
-sudo rpm -i cuda-repo-rhel7-9.1.85-1.x86_64.rpm
-sudo yum clean all
-sudo yum install cuda
-```
-
-_Install dependencies_  
-These are necessary to build RDKit, Caffe, and gnina. 
-```
-sudo yum  groupinstall 'Development Tools'
-```
-```
-sudo yum install boost-devel.x86_64 eigen3-devel.noarch protobuf-compiler.x86_64 protobuf-devel.x86_64 hdf5-devel.x86_64 cmake git wget openbabel-devel.x86_64 openbabel.x86_64 leveldb-devel.x86_64 snappy-devel.x86_64 opencv-devel.x86_64 gflags-devel.x86_64 glog-devel.x86_64 lmdb-devel.x86_64 readline-devel.x86_64 zlib-devel.x86_64 bzip2-devel.x86_64 sqlite-devel.x86_64 python-devel.x86_64 numpy.x86_64 atlas-devel.x86_64 atlas.x86_64 atlas-static.x86_64
-```
-
+apt-get install build-essential cmake git wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-dev libatlas-base-dev python3-dev librdkit-dev python3-numpy python3-pip python3-pytest```
 
 Build and Install [Libmolgrid](https://github.com/gnina/libmolgrid) 
 
+[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA. **Make sure `nvcc` is in your PATH.**
 
-_Install cmake 3.8_  
-The cmake installed by yum in CentOS 7 (cmake version 2.8.12.2) produce a lot of error. Is better if you use an updated version.
+*Optionally* install [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive) version 7.85 (>= 8.0 is not yet supported).
+
+#
+Install OpenBabel3
 ```
-cd /home/$USER/bin
-wget https://cmake.org/files/v3.8/cmake-3.8.0-Linux-x86_64.tar.gz
-tar -xvf cmake-3.8.0-Linux-x86_64.tar.gz
-export CMAKE_HOME=/home/$USER/bin/cmake-3.8.0-Linux-x86_64
-export PATH=$CMAKE_HOME/bin:$PATH
-```
-_Install RDKit Release_2017_03_1 and compile gnina_  
-  
-_Install RDKit_   
-Is better if we keep everything inside the gnina directory.
-```
-cd /home/$USER/bin
-git clone https://github.com/gnina/gnina.git
-cd gnina
-wget https://github.com/rdkit/rdkit/archive/Release_2017_03_1.tar.gz
-tar -xvf Release_2017_03_1.tar.gz
-cd rdkit-Release_2017_03_1
-export RDBASE=`pwd`
-export LD_LIBRARY_PATH=$RDBASE/lib:$LD_LIBRARY_PATH
+git clone https://github.com/openbabel/openbabel.git
+git checkout openbabel-3-1-1 
 mkdir build
 cd build
-```
-**If you are using anaconda python the you need to check that all the python variables are set correctly or set them manually.**
-```
-export ANACONDA_PY_HOME=/home/$USER/(anaconda2 or miniconda2)
-cmake -DPYTHON_EXECUTABLE=$ANACONDA_PY_HOME/bin/python -DPYTHON_INCLUDE_DIR=$ANACONDA_PY_HOME/include/python2.7 -DPYTHON_LIBRARY=$ANACONDA_PY_HOME/lib/libpython2.7.so -DPYTHON_NUMPY_INCLUDE_PATH=$ANACONDA_PY_HOME/lib/python2.7/site-packages/numpy/core/include ..
-make
-ctest
-make install
-```
-**If you are using your CentOS python**
-```
-cmake ..
-make 
-ctest
-make install
-```
-_Fix RDKit Libraries_  
-Compiling RDKit will add the name of the package to the library.   
-ex. libSmilesParse.so (UBUNTU Package) !=  libRDKitSmilesParse.so (Compiled in CentOS)  
-We need to make additional links to resemble the UBUNTU names.
-```
-cd $RDBASE/lib
-for i in $(ls -1 *.so.1.2017.03.1); do name=`basename $i .so.1.2017.03.1`; namef=`echo $name | sed 's/RDKit//g'`; ln -s $i ${namef}.so.1; ln -s ${namef}.so.1 ${namef}.so; done
-```
-
-_Continue with gnina compilation_  
-We need to set the variable for the ATLAS libraries.  
-Use lib**s**atlas.so for serial libraries or lib**t**atlas.so for threaded libraries.  
-Also, we need to set the variables for the HDF5 compilers to avoid a conflict with the provided by anaconda python.
-
-**If you are using anaconda python the you need to check that all the python variables are set correctly or set them manually.**
-```
-cd /home/$USER/bin/gnina
-mkdir build
-cd build
-cmake -DPYTHON_EXECUTABLE=$ANACONDA_PY_HOME/bin/python -DPYTHON_INCLUDE_DIR=$ANACONDA_PY_HOME/include/python2.7 -DPYTHON_LIBRARY=$ANACONDA_PY_HOME/lib/libpython2.7.so -DAtlas_BLAS_LIBRARY=/usr/lib64/atlas/libtatlas.so -DAtlas_CBLAS_LIBRARY=/usr/lib64/atlas/libtatlas.so -DAtlas_LAPACK_LIBRARY=/usr/lib64/atlas/libtatlas.so -DHDF5_CXX_COMPILER_EXECUTABLE=/usr/bin/h5c++ -DHDF5_C_COMPILER_EXECUTABLE=/usr/bin/h5cc -DHDF5_DIFF_EXECUTABLE=/usr/bin/h5diff ..
-make 
-make install
-```
-**If you are using your CentOS python**
-```
-cd /home/$USER/bin/gnina
-mkdir build
-cd build
-cmake -DAtlas_BLAS_LIBRARY=/usr/lib64/atlas/libtatlas.so -DAtlas_CBLAS_LIBRARY=/usr/lib64/atlas/libtatlas.so -DAtlas_LAPACK_LIBRARY=/usr/lib64/atlas/libtatlas.so ..
+cmake -DWITH_MAEPARSER=OFF -DWITH_COORDGEN=OFF ..
 make
 make install
 ```
 
 #
-If you are building for systems with different GPUs, include `-DCUDA_ARCH_NAME=All`.  
+Install gnina
+```
+git clone https://github.com/gnina/gnina.git
+cd gnina
+mkdir build
+cd build
+cmake ..
+make
+make install
+```
 
+#
+If you are building for systems with different GPUs (e.g. in a cluster environment), configure with `-DCUDA_ARCH_NAME=All`.   
+Note that the cmake build will automatically fetch and install [libmolgrid](https://github.com/gnina/libmolgrid) if it is not already installed.
+
+# 
+The scripts provided in `gnina/scripts` have additional python dependencies that must be installed. 
+
+Usage
+=====
+
+To dock ligand `lig.sdf` to a binding site on `rec.pdb` defined by another ligand `orig.sdf`:
+```gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf -o docked.sdf.gz```
+
+To perform docking with flexible sidechain residues within 3.5 Angstroms of `orig.sdf` (generally not recommend unless prior knowledge indicates pocket is highly flexible):
+```gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --flexdist_ligand orig.sdf --flexdist 3.5 -o flex_docked.sdf.gz``
+
+To perform whole protein docking:
+```gnina -r rec.pdb -l lig.sdf --autobox_ligand rec.pdb -o whole_docked.sdf.gz --exhaustiveness 64```
+
+To minimize and score ligands `ligs.sdf` already positioned in a binding site:
+```gnina -r rec.pdb -l ligs.sdf --minimize -o minimized.sdf.gz```
+
+
+```
+Input:
+  -r [ --receptor ] arg            rigid part of the receptor
+  --flex arg                       flexible side chains, if any (PDBQT)
+  -l [ --ligand ] arg              ligand(s)
+  --flexres arg                    flexible side chains specified by comma 
+                                   separated list of chain:resid
+  --flexdist_ligand arg            Ligand to use for flexdist
+  --flexdist arg                   set all side chains within specified 
+                                   distance to flexdist_ligand to flexible
+  --flex_limit arg                 Hard limit for the number of flexible 
+                                   residues
+  --flex_max arg                   Retain at at most the closest flex_max 
+                                   flexible residues
+
+Search space (required):
+  --center_x arg                   X coordinate of the center
+  --center_y arg                   Y coordinate of the center
+  --center_z arg                   Z coordinate of the center
+  --size_x arg                     size in the X dimension (Angstroms)
+  --size_y arg                     size in the Y dimension (Angstroms)
+  --size_z arg                     size in the Z dimension (Angstroms)
+  --autobox_ligand arg             Ligand to use for autobox
+  --autobox_add arg                Amount of buffer space to add to 
+                                   auto-generated box (default +4 on all six 
+                                   sides)
+  --autobox_extend arg (=1)        Expand the autobox if needed to ensure the 
+                                   input conformation of the ligand being 
+                                   docked can freely rotate within the box.
+  --no_lig                         no ligand; for sampling/minimizing flexible 
+                                   residues
+
+Scoring and minimization options:
+  --scoring arg                    specify alternative built-in scoring 
+                                   function
+  --custom_scoring arg             custom scoring function file
+  --custom_atoms arg               custom atom type parameters file
+  --score_only                     score provided ligand pose
+  --local_only                     local search only using autobox (you 
+                                   probably want to use --minimize)
+  --minimize                       energy minimization
+  --randomize_only                 generate random poses, attempting to avoid 
+                                   clashes
+  --num_mc_steps arg               number of monte carlo steps to take in each 
+                                   chain
+  --num_mc_saved arg               number of top poses saved in each monte 
+                                   carlo chain
+  --minimize_iters arg (=0)        number iterations of steepest descent; 
+                                   default scales with rotors and usually isn't
+                                   sufficient for convergence
+  --accurate_line                  use accurate line search
+  --simple_ascent                  use simple gradient ascent
+  --minimize_early_term            Stop minimization before convergence 
+                                   conditions are fully met.
+  --minimize_single_full           During docking perform a single full 
+                                   minimization instead of a truncated 
+                                   pre-evaluate followed by a full.
+  --approximation arg              approximation (linear, spline, or exact) to 
+                                   use
+  --factor arg                     approximation factor: higher results in a 
+                                   finer-grained approximation
+  --force_cap arg                  max allowed force; lower values more gently 
+                                   minimize clashing structures
+  --user_grid arg                  Autodock map file for user grid data based 
+                                   calculations
+  --user_grid_lambda arg (=-1)     Scales user_grid and functional scoring
+  --print_terms                    Print all available terms with default 
+                                   parameterizations
+  --print_atom_types               Print all available atom types
+
+Convolutional neural net (CNN) scoring:
+  --cnn_scoring arg (=1)           Amount of CNN scoring: none, rescore 
+                                   (default), refinement, all
+  --cnn arg                        built-in model to use, specify 
+                                   PREFIX_ensemble to evaluate an ensemble of 
+                                   models starting with PREFIX: 
+                                   crossdock_default2018 crossdock_default2018_
+                                   1 crossdock_default2018_2 
+                                   crossdock_default2018_3 
+                                   crossdock_default2018_4 default2017 dense 
+                                   dense_1 dense_2 dense_3 dense_4 
+                                   general_default2018 general_default2018_1 
+                                   general_default2018_2 general_default2018_3 
+                                   general_default2018_4 redock_default2018 
+                                   redock_default2018_1 redock_default2018_2 
+                                   redock_default2018_3 redock_default2018_4
+  --cnn_model arg                  caffe cnn model file; if not specified a 
+                                   default model will be used
+  --cnn_weights arg                caffe cnn weights file (*.caffemodel); if 
+                                   not specified default weights (trained on 
+                                   the default model) will be used
+  --cnn_resolution arg (=0.5)      resolution of grids, don't change unless you
+                                   really know what you are doing
+  --cnn_rotation arg (=0)          evaluate multiple rotations of pose (max 24)
+  --cnn_update_min_frame           During minimization, recenter coordinate 
+                                   frame as ligand moves
+  --cnn_freeze_receptor            Don't move the receptor with respect to a 
+                                   fixed coordinate system
+  --cnn_mix_emp_force              Merge CNN and empirical minus forces
+  --cnn_mix_emp_energy             Merge CNN and empirical energy
+  --cnn_empirical_weight arg (=1)  Weight for scaling and merging empirical 
+                                   force and energy 
+  --cnn_outputdx                   Dump .dx files of atom grid gradient.
+  --cnn_outputxyz                  Dump .xyz files of atom gradient.
+  --cnn_xyzprefix arg (=gradient)  Prefix for atom gradient .xyz files
+  --cnn_center_x arg               X coordinate of the CNN center
+  --cnn_center_y arg               Y coordinate of the CNN center
+  --cnn_center_z arg               Z coordinate of the CNN center
+  --cnn_verbose                    Enable verbose output for CNN debugging
+
+Output:
+  -o [ --out ] arg                 output file name, format taken from file 
+                                   extension
+  --out_flex arg                   output file for flexible receptor residues
+  --log arg                        optionally, write log file
+  --atom_terms arg                 optionally write per-atom interaction term 
+                                   values
+  --atom_term_data                 embedded per-atom interaction terms in 
+                                   output sd data
+  --pose_sort_order arg (=0)       How to sort docking results: CNNscore 
+                                   (default), CNNaffinity, Energy
+
+Misc (optional):
+  --cpu arg                        the number of CPUs to use (the default is to
+                                   try to detect the number of CPUs or, failing
+                                   that, use 1)
+  --seed arg                       explicit random seed
+  --exhaustiveness arg (=8)        exhaustiveness of the global search (roughly
+                                   proportional to time)
+  --num_modes arg (=9)             maximum number of binding modes to generate
+  --min_rmsd_filter arg (=1)       rmsd value used to filter final poses to 
+                                   remove redundancy
+  -q [ --quiet ]                   Suppress output messages
+  --addH arg                       automatically add hydrogens in ligands (on 
+                                   by default)
+  --stripH arg                     remove hydrogens from molecule _after_ 
+                                   performing atom typing for efficiency (on by
+                                   default)
+  --device arg (=0)                GPU device to use
+  --no_gpu                         Disable GPU acceleration, even if available.
+
+Configuration file (optional):
+  --config arg                     the above options can be put here
+
+Information (optional):
+  --help                           display usage summary
+  --help_hidden                    display usage summary with hidden options
+  --version                        display program version
+```
 
 Training
 ========
@@ -169,180 +251,7 @@ Training
 Scripts to aid in training new CNN models can be found at [https://github.com/gnina/scripts](https://github.com/gnina/scripts)
 and sample models at [https://github.com/gnina/models](https://github.com/gnina/models).
 
-The input layer should be a `MolGridData` layer.  For example:
-```
-layer {
-  name: "data"
-  type: "MolGridData"
-  top: "data"
-  top: "label"
-  include {
-    phase: TRAIN
-  }
-  molgrid_data_param {
-    source: "TRAINFILE"
-    batch_size:  20
-    dimension: 23.5
-    resolution: 0.5
-    shuffle: true
-    balanced: true
-    random_rotation: true
-    random_translate: 2
-    root_folder: "/home/dkoes/CSAR/"
-  }
-}
-```
 
-This layer performs GPU-accelerated grid generation on-the-fly which means it can apply random rotations
-and translations to the input (essential for training).  The input file (TRAINFILE) contains an example on each line, 
-which consists of a label, a receptor file, and a ligand file:
-
-```
-1 set2/297/rec.gninatypes set2/297/docked_0.gninatypes # text after a hash is ignored
-1 set2/297/rec.gninatypes set2/297/docked_1.gninatypes
-1 set2/297/rec.gninatypes set2/297/docked_2.gninatypes 
-1 set2/297/rec.gninatypes set2/297/docked_3.gninatypes 
-0 set2/297/rec.gninatypes set2/297/docked_4.gninatypes 
-0 set2/297/rec.gninatypes set2/297/docked_5.gninatypes 
-...
-```
-
-Althoug the receptor and ligand can be specified as any normal molecular data file, we strongly recommend (for training at least)
-that molecular structure files be converted to `gninatypes` files with the `gninatyper` executable.  These are much smaller files
-that incur less I/O. Relative file paths will be prepended with the `root_folder` parameter in MolGridData, if applicable.
-
-The provided models are templated with `TRAINFILE` and `TESTFILE` arguments, which the `train.py` script will substitue with 
-actual files.  The `train.py` script can be called with a model and a prefix for testing and training files:
-
-```
-cd models/refmodel3
-train.py -m refmodel3.model -p ../data/csar/all -d ../data/csar
-```
-
-This will perform cross-validation using the `alltrain[0-2].types` and `alltest[0-2].types` files.
-Note that `refmodel3.model` requires the file `models/refmodel3/ligmap.old` to be in the current directory.
-
-There are quite a few options to `train.py` for modifying training:
-```
-usage: train.py [-h] -m MODEL -p PREFIX [-n NUMBER] [-i ITERATIONS] [-s SEED]
-                [-t TEST_INTERVAL] [-o OUTPREFIX] [-g GPU] [-c CONT] [-k] [-r]
-                [--avg_rotations] [--keep_best] [--dynamic] [--solver SOLVER]
-                [--lr_policy LR_POLICY] [--step_reduce STEP_REDUCE]
-                [--step_end STEP_END] [--step_when STEP_WHEN]
-                [--base_lr BASE_LR] [--momentum MOMENTUM]
-                [--weight_decay WEIGHT_DECAY] [--gamma GAMMA] [--power POWER]
-                [--weights WEIGHTS]
-
-Train neural net on .types data.
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -m MODEL, --model MODEL
-                        Model template. Must use TRAINFILE and TESTFILE
-  -p PREFIX, --prefix PREFIX
-                        Prefix for training/test files:
-                        <prefix>[train|test][num].types
-  -n NUMBER, --number NUMBER
-                        Fold number to run, default is all
-  -i ITERATIONS, --iterations ITERATIONS
-                        Number of iterations to run,default 10,000
-  -s SEED, --seed SEED  Random seed, default 42
-  -t TEST_INTERVAL, --test_interval TEST_INTERVAL
-                        How frequently to test (iterations), default 40
-  -o OUTPREFIX, --outprefix OUTPREFIX
-                        Prefix for output files, default <model>.<pid>
-  -g GPU, --gpu GPU     Specify GPU to run on
-  -c CONT, --cont CONT  Continue a previous simulation from the provided
-                        iteration (snapshot must exist)
-  -k, --keep            Don't delete prototxt files
-  -r, --reduced         Use a reduced file for model evaluation if exists(<pre
-                        fix>[_reducedtrain|_reducedtest][num].types)
-  --avg_rotations       Use the average of the testfile's 24 rotations in its
-                        evaluation results
-  --keep_best           Store snapshots everytime test AUC improves
-  --dynamic             Attempt to adjust the base_lr in response to training
-                        progress
-  --solver SOLVER       Solver type. Default is SGD
-  --lr_policy LR_POLICY
-                        Learning policy to use. Default is inv.
-  --step_reduce STEP_REDUCE
-                        Reduce the learning rate by this factor with dynamic
-                        stepping, default 0.5
-  --step_end STEP_END   Terminate training if learning rate gets below this
-                        amount
-  --step_when STEP_WHEN
-                        Perform a dynamic step (reduce base_lr) when training
-                        has not improved after this many test iterations,
-                        default 10
-  --base_lr BASE_LR     Initial learning rate, default 0.01
-  --momentum MOMENTUM   Momentum parameters, default 0.9
-  --weight_decay WEIGHT_DECAY
-                        Weight decay, default 0.001
-  --gamma GAMMA         Gamma, default 0.001
-  --power POWER         Power, default 1
-  --weights WEIGHTS     Set of weights to initialize the model with
-```
-
-The DUD-E docked poses used in the original paper can be found [here](http://bits.csb.pitt.edu/files/docked_dude.tar).  
-We will make additional datasets (beyond what is available in [models/data](https://github.com/gnina/models/tree/master/data) available as they are requested.   Feel free to contact us.
-
-User Grids
-----------
-
-In some cases it may be desirable to incorporate additional grid-based input
-into the training data.  In this case it is necessary to pre-generate 
-grids from the molecular data and user-supplied grids with `gninagrid` and use
-the `NDimData` input layer.
-
-```
-layer {
-  name: "data"
-  type: "NDimData"
-  top: "data"
-  top: "label"
-  include {
-    phase: TRAIN
-  }
-  ndim_data_param {
-    source: "TRAINFILE"
-    batch_size: 10
-    shape {
-      dim: 34
-      dim: 48
-      dim: 48
-      dim: 48
-    }
-    shuffle: true
-    balanced: true
-    rotate: 24
-  }
-}
-```
-
-Similar to the MolGrid layer, TRAINFILE contains an example on each line with a label and one or more binmap files generated using `gninagrid`:
-```
-1 CS12.48.19.binmap.gz CS12_0.48.18.binmap.gz
-0 CS12.48.19.binmap.gz CS12_1.48.18.binmap.gz
-0 CS12.48.19.binmap.gz CS12_2.48.18.binmap.gz
-0 CS12.48.19.binmap.gz CS12_3.48.18.binmap.gz
-```
-
-As an example, imagine we want to incorporate three additional grids, `cdk_gist-dipole-dens.dx`, `cdk_gist-dipolex-dens.dx`, and `cdk_gist-gO.dx` into the input.
-We would run `gninagrid`:
-```
-gninagrid  -r rec.pdb -l CDK2_CS12_docked.sdf.gz -g cdk_gist-dipole-dens.dx -g cdk_gist-dipolex-dens.dx -g cdk_gist-gO.dx -o CS12 --separate
-```
-Since `--separate` is passed, this will produce separate receptor (which includes the user provided grids) and ligand files:
-```
--rw-rw-r-- 1 dkoes dkoes 8404992 Apr 28 12:55 CS12.48.19.binmap
--rw-rw-r-- 1 dkoes dkoes 7962624 Apr 28 12:55 CS12_0.48.18.binmap
--rw-rw-r-- 1 dkoes dkoes 7962624 Apr 28 12:55 CS12_1.48.18.binmap
-...
-```
-The receptor file has 16 channels for the regular protein atom types and 3 for the provided grids.  The grid dimensions, resolution, and positioning is determined from the provided grids (which must all match).  To save (a lot of) space, the binmap files can be gzipped:
-```
-gzip *.binmap
-```
-
-Note that it is up to the user to ensure that the dimensions (including _total_ number of channels) of the input files match the specified dimensions in NGridLayer.
+The DUD-E docked poses used in the original paper can be found [here](http://bits.csb.pitt.edu/files/docked_dude.tar) and
+the CrossDocked2020 is [here](http://bits.csb.pitt.edu/files/crossdock2020/).
 
