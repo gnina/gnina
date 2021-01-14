@@ -1491,7 +1491,6 @@ Thank you!\n";
     log << "\n";
 
     FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, nflex, nflex_hard_limit, log);
-
     // dkoes - parse in receptor once
     MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
 
