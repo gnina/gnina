@@ -252,6 +252,17 @@ Information (optional):
   --version                        display program version
 ```
 
+CNN Scoring
+===========
+
+`--cnn_scoring` determines at what points of the docking procedure that the CNN scoring function is used.
+ * ``none’’ - No CNNs used for docking. Uses the specified empirical scoring function throughout.
+ * ``rescore’‘(default) - CNN used for reranking of final poses. Least computationally expensive CNN option.
+ * ``refinement’' - CNN used to refine poses after Monte Carlo chains and for final ranking of output poses. 10x slower than ``rescore’' when using a GPU.
+ * ``all’' - CNN used as the scoring function throughout the whole procedure. Extremely computationally intensive and not recommended.
+
+The default CNN scoring function is an ensemble of 5 models selected to balance pose prediction performance and runtime: dense_4, general_default2018_3, dense_3, crossdock_default2018, and redock_default2018_2.  More information on these various models can be found in the papers listed above.
+
 Training
 ========
 
