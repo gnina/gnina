@@ -77,7 +77,7 @@ make install
 If you are building for systems with different GPUs (e.g. in a cluster environment), configure with `-DCUDA_ARCH_NAME=All`.   
 Note that the cmake build will automatically fetch and install [libmolgrid](https://github.com/gnina/libmolgrid) if it is not already installed.
 
-# 
+
 The scripts provided in `gnina/scripts` have additional python dependencies that must be installed. 
 
 Usage
