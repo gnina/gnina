@@ -96,7 +96,7 @@ To perform whole protein docking:
 gnina -r rec.pdb -l lig.sdf --autobox_ligand rec.pdb -o whole_docked.sdf.gz --exhaustiveness 64
 ```
 
-To utilize the default enemble CNN in the energy minimization during the refinement step of docking (10 times slower than the default rescore option):
+To utilize the default ensemble CNN in the energy minimization during the refinement step of docking (10 times slower than the default rescore option):
 ```
 gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --cnn_scoring refinement -o cnn_refined.sdf.gz
 ```
