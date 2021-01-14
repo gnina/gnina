@@ -96,6 +96,22 @@ To perform whole protein docking:
 gnina -r rec.pdb -l lig.sdf --autobox_ligand rec.pdb -o whole_docked.sdf.gz --exhaustiveness 64
 ```
 
+To utilize the default ensemble CNN in the energy minimization during the refinement step of docking (10 times slower than the default rescore option):
+```
+gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --cnn_scoring refinement -o cnn_refined.sdf.gz
+```
+
+To utilize the default ensemble CNN for every step of docking (100 times slower than the default rescore option):
+```
+gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --cnn_scoring all -o cnn_all.sdf.gz
+```
+
+To utilize a different CNN during docking (see help for possible options):
+```
+
+gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --cnn dense -o dense_docked.sdf.gz
+```
+
 To minimize and score ligands `ligs.sdf` already positioned in a binding site:
 ```
 gnina -r rec.pdb -l ligs.sdf --minimize -o minimized.sdf.gz
