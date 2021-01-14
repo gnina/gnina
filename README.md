@@ -101,7 +101,7 @@ To utilize the default ensemble CNN in the energy minimization during the refine
 gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --cnn_scoring refinement -o cnn_refined.sdf.gz
 ```
 
-To utilize the default enemble CNN for every step of docking (100 times slower than the default rescore option):
+To utilize the default ensemble CNN for every step of docking (100 times slower than the default rescore option):
 ```
 gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --cnn_scoring all -o cnn_all.sdf.gz
 ```
