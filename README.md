@@ -101,7 +101,7 @@ To minimize and score ligands `ligs.sdf` already positioned in a binding site:
 gnina -r rec.pdb -l ligs.sdf --minimize -o minimized.sdf.gz
 ```
 
-
+All options:
 ```
 Input:
   -r [ --receptor ] arg            rigid part of the receptor
