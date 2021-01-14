@@ -1,4 +1,4 @@
-gnina (pronounced NEE-na) is a fork of smina, which is a fork of AutoDock Vina.  It is a molecular docking program with integrated support for scoring and optimizing ligands using convolutional neural networks.
+gnina (pronounced NEE-na) is a molecular docking program with integrated support for scoring and optimizing ligands using convolutional neural networks. It is a fork of [smina](http://smina.sf.net/), which is a fork of [AutoDock Vina](http://vina.scripps.edu/).  
 
 Help
 ====
@@ -101,9 +101,14 @@ To utilize the default ensemble CNN in the energy minimization during the refine
 gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --cnn_scoring refinement -o cnn_refined.sdf.gz
 ```
 
-To utilize the default ensemble CNN for every step of docking (100 times slower than the default rescore option):
+To utilize the default ensemble CNN for every step of docking (1000 times slower than the default rescore option):
 ```
 gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --cnn_scoring all -o cnn_all.sdf.gz
+```
+
+To utilize all empirical scoring using the [Vinardo](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0155183) scoring function:
+```
+gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --scoring vinardo --cnn_scoring none -o vinardo_docked.sdf.gz
 ```
 
 To utilize a different CNN during docking (see help for possible options):
@@ -272,12 +277,12 @@ CNN Scoring
 ===========
 
 `--cnn_scoring` determines at what points of the docking procedure that the CNN scoring function is used.
- * ``none’’ - No CNNs used for docking. Uses the specified empirical scoring function throughout.
- * ``rescore’‘(default) - CNN used for reranking of final poses. Least computationally expensive CNN option.
- * ``refinement’' - CNN used to refine poses after Monte Carlo chains and for final ranking of output poses. 10x slower than ``rescore’' when using a GPU.
- * ``all’' - CNN used as the scoring function throughout the whole procedure. Extremely computationally intensive and not recommended.
+ * `none` - No CNNs used for docking. Uses the specified empirical scoring function throughout.
+ * `rescore` (default) - CNN used for reranking of final poses. Least computationally expensive CNN option.
+ * `refinement` - CNN used to refine poses after Monte Carlo chains and for final ranking of output poses. 10x slower than `rescore` when using a GPU.
+ * `all` - CNN used as the scoring function throughout the whole procedure. Extremely computationally intensive and not recommended.
 
-The default CNN scoring function is an ensemble of 5 models selected to balance pose prediction performance and runtime: dense_4, general_default2018_3, dense_3, crossdock_default2018, and redock_default2018_2.  More information on these various models can be found in the papers listed above.
+The default CNN scoring function is an ensemble of 5 models selected to balance pose prediction performance and runtime: dense, general_default2018_3, dense_3, crossdock_default2018, and redock_default2018.  More information on these various models can be found in the papers listed above.
 
 Training
 ========
