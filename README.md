@@ -1,4 +1,4 @@
-gnina (pronounced NEE-na) is a fork of smina, which is a fork of AutoDock Vina.
+gnina (pronounced NEE-na) is a fork of smina, which is a fork of AutoDock Vina.  It is a molecular docking program with integrated support for scoring and optimizing ligands using convolutional neural networks.
 
 Help
 ====
