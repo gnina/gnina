@@ -45,7 +45,7 @@ We strongly recommend that you build gnina from source to ensure you are using l
 apt-get install build-essential cmake git wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-dev libatlas-base-dev python3-dev librdkit-dev python3-numpy python3-pip python3-pytest
 ```
 
-[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA. **Make sure `nvcc` is in your PATH.**
+[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA (>= 10.0 is required). **Make sure `nvcc` is in your PATH.**
 
 *Optionally* install [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive) version 7.85 (>= 8.0 is not yet supported).
 
