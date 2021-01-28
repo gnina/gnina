@@ -33,7 +33,7 @@ PG Francoeur, T Masuda, J Sunseri, A Jia, RB Iovanisci, I Snyder, DR Koes. *J. C
 Docker
 ======
 
-A pre-built docker image is available [here](https://hub.docker.com/u/gnina).
+A pre-built docker image is available [here](https://hub.docker.com/u/gnina) and Dockerfiles are [here](https://github.com/gnina/gnina/tree/master/docker).
 
 Installation
 ============
