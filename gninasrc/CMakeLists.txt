@@ -126,10 +126,10 @@ target_link_libraries(gnina  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OPENBABEL_LIBRA
 add_subdirectory(gninaserver)
 
 add_executable(fromgnina fromgnina/fromgnina.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(fromgnina   ${Caffe_LINK}  gninalib ${Boost_LIBRARIES} ${OPENBABEL_LIBRARIES} )
+target_link_libraries(fromgnina  gninalib)
 
 add_executable(gninagrid gninagrid/gninagrid.cpp gninagrid/molgridder.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(gninagrid   ${Caffe_LINK}  gninalib ${Boost_LIBRARIES} ${OPENBABEL_LIBRARIES} ${CUDA_LIBRARIES})
+target_link_libraries(gninagrid  gninalib  ${CUDA_LIBRARIES})
 
 add_executable(gninatyper gninatyper/gninatyper.cpp lib/CommandLine2/CommandLine.cpp ${LIB_SRCS})
 target_link_libraries(gninatyper   ${Caffe_LINK}  ${Boost_LIBRARIES} ${OPENBABEL_LIBRARIES} ${LIBMOLGRID_LIBRARY})
