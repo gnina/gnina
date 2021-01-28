@@ -1,4 +1,4 @@
-gnina (pronounced NEE-na) is a fork of smina, which is a fork of AutoDock Vina.
+gnina (pronounced NEE-na) is a molecular docking program with integrated support for scoring and optimizing ligands using convolutional neural networks. It is a fork of [smina](http://smina.sf.net/), which is a fork of [AutoDock Vina](http://vina.scripps.edu/).  
 
 Help
 ====
@@ -40,9 +40,8 @@ Installation
 
 ### Ubuntu 20.04
 ```
-apt-get install build-essential cmake git wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-dev libatlas-base-dev python3-dev librdkit-dev python3-numpy python3-pip python3-pytest```
-
-Build and Install [Libmolgrid](https://github.com/gnina/libmolgrid) 
+apt-get install build-essential cmake git wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-dev libatlas-base-dev python3-dev librdkit-dev python3-numpy python3-pip python3-pytest
+```
 
 [Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA. **Make sure `nvcc` is in your PATH.**
 
@@ -76,25 +75,54 @@ make install
 If you are building for systems with different GPUs (e.g. in a cluster environment), configure with `-DCUDA_ARCH_NAME=All`.   
 Note that the cmake build will automatically fetch and install [libmolgrid](https://github.com/gnina/libmolgrid) if it is not already installed.
 
-# 
+
 The scripts provided in `gnina/scripts` have additional python dependencies that must be installed. 
 
 Usage
 =====
 
 To dock ligand `lig.sdf` to a binding site on `rec.pdb` defined by another ligand `orig.sdf`:
-```gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf -o docked.sdf.gz```
+```
+gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf -o docked.sdf.gz
+```
 
 To perform docking with flexible sidechain residues within 3.5 Angstroms of `orig.sdf` (generally not recommend unless prior knowledge indicates pocket is highly flexible):
-```gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --flexdist_ligand orig.sdf --flexdist 3.5 -o flex_docked.sdf.gz``
+```
+gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --flexdist_ligand orig.sdf --flexdist 3.5 -o flex_docked.sdf.gz
+```
 
 To perform whole protein docking:
-```gnina -r rec.pdb -l lig.sdf --autobox_ligand rec.pdb -o whole_docked.sdf.gz --exhaustiveness 64```
+```
+gnina -r rec.pdb -l lig.sdf --autobox_ligand rec.pdb -o whole_docked.sdf.gz --exhaustiveness 64
+```
+
+To utilize the default ensemble CNN in the energy minimization during the refinement step of docking (10 times slower than the default rescore option):
+```
+gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --cnn_scoring refinement -o cnn_refined.sdf.gz
+```
+
+To utilize the default ensemble CNN for every step of docking (1000 times slower than the default rescore option):
+```
+gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --cnn_scoring all -o cnn_all.sdf.gz
+```
+
+To utilize all empirical scoring using the [Vinardo](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0155183) scoring function:
+```
+gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --scoring vinardo --cnn_scoring none -o vinardo_docked.sdf.gz
+```
+
+To utilize a different CNN during docking (see help for possible options):
+```
+
+gnina -r rec.pdb -l lig.sdf --autobox_ligand orig.sdf --cnn dense -o dense_docked.sdf.gz
+```
 
 To minimize and score ligands `ligs.sdf` already positioned in a binding site:
-```gnina -r rec.pdb -l ligs.sdf --minimize -o minimized.sdf.gz```
+```
+gnina -r rec.pdb -l ligs.sdf --minimize -o minimized.sdf.gz
+```
 
-
+All options:
 ```
 Input:
   -r [ --receptor ] arg            rigid part of the receptor
@@ -245,6 +273,17 @@ Information (optional):
   --version                        display program version
 ```
 
+CNN Scoring
+===========
+
+`--cnn_scoring` determines at what points of the docking procedure that the CNN scoring function is used.
+ * `none` - No CNNs used for docking. Uses the specified empirical scoring function throughout.
+ * `rescore` (default) - CNN used for reranking of final poses. Least computationally expensive CNN option.
+ * `refinement` - CNN used to refine poses after Monte Carlo chains and for final ranking of output poses. 10x slower than `rescore` when using a GPU.
+ * `all` - CNN used as the scoring function throughout the whole procedure. Extremely computationally intensive and not recommended.
+
+The default CNN scoring function is an ensemble of 5 models selected to balance pose prediction performance and runtime: dense, general_default2018_3, dense_3, crossdock_default2018, and redock_default2018.  More information on these various models can be found in the papers listed above.
+
 Training
 ========
 
@@ -253,5 +292,5 @@ and sample models at [https://github.com/gnina/models](https://github.com/gnina/
 
 
 The DUD-E docked poses used in the original paper can be found [here](http://bits.csb.pitt.edu/files/docked_dude.tar) and
-the CrossDocked2020 is [here](http://bits.csb.pitt.edu/files/crossdock2020/).
+the CrossDocked2020 set is [here](http://bits.csb.pitt.edu/files/crossdock2020/).
 
