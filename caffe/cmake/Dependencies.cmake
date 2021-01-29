@@ -17,7 +17,7 @@ list(APPEND Caffe_LINKER_LIBS ${Boost_LIBRARIES} )
 # libmolgrid
 find_package(libmolgrid REQUIRED)
 include_directories($LIBMOLGRID_INCLUDE_DIR)
-list(APPEND Caffe_LINKER_LIBS ${LIBMOLGRID_LIBRARY} )
+list(APPEND Caffe_LINKER_LIBS ${LIBMOLGRID_LIBRARY} ${OPENBABEL_LIBRARIES})
 
 # ---[ Threads
 find_package(Threads REQUIRED)

@@ -11,7 +11,7 @@ gnina = sys.argv[1]  # take path to gnina executable as only argument
 
 def getscores(out):
     '''Read scores for docked poses and return list of tuples'''
-    scores = re.findall(r'^\d\s+(\S+)\s+(\S+)\s+(\S+)', out.decode(), re.MULTILINE)
+    scores = re.findall(r'^\s*\d\s+(\S+)\s+(\S+)\s+(\S+)', out.decode(), re.MULTILINE)
     return [(float(a),float(b),float(c)) for (a,b,c) in scores]
 
 def issorted(scores, index):
@@ -56,7 +56,6 @@ np.testing.assert_array_almost_equal(affout,affoutg,3)
 refine = subprocess.check_output('%s  -r data/184l_rec.pdb -l data/184l_lig.sdf --autobox_ligand data/184l_lig.sdf --seed 2 --num_modes=10 --cnn_scoring=refinement'%gnina,shell=True)
 #should be sorted by CNNscore
 refine = getscores(refine)
-
 assert refine[0][1] > defaultout[0][1]
 
 singleout = subprocess.check_output('%s  -r data/184l_rec.pdb -l data/184l_lig.sdf --autobox_ligand data/184l_lig.sdf --seed 2 --num_modes=10 --cnn=general_default2018'%gnina,shell=True)
@@ -69,7 +68,7 @@ nogpuout = subprocess.check_output('CUDA_VISIBLE_DEVICES= %s  -r data/184l_rec.p
 #should be sorted by CNNscore
 nogpuout = getscores(nogpuout)
 assert issorted(nogpuout,1)
-np.testing.assert_array_almost_equal(nogpuout,singleout)
+np.testing.assert_array_almost_equal(nogpuout,singleout,decimal=2)
 
 
 ensembleout = subprocess.check_output('%s  -r data/184l_rec.pdb -l data/184l_lig.sdf --autobox_ligand data/184l_lig.sdf --seed 2 --num_modes=10 --cnn=general_default2018_ensemble -o testingout.sdf'%gnina,shell=True)

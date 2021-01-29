@@ -1383,11 +1383,8 @@ Thank you!\n";
     }
 
     //check for GPU
-    int error = cudaDeviceReset();
-    if(error != cudaSuccess) {
-      log << "WARNING: No GPU detected. CNN scoring will be slow.\n"
-          "Recommend running with single model (--cnn crossdock_default2018)\n"
-          "or without cnn scoring (--cnn_scoring=none).";
+    int cudaerror = cudaDeviceReset();
+    if(cudaerror != cudaSuccess) {
       caffe::Caffe::set_cudnn(false); //if cudnn is on, won't fallback to cpu
     } else if(settings.no_gpu) {
       caffe::Caffe::set_cudnn(false);
@@ -1484,6 +1481,12 @@ Thank you!\n";
 
     //output banner
     log << cite_message << '\n';
+
+    if(cudaerror != cudaSuccess) {
+      log << "WARNING: No GPU detected. CNN scoring will be slow.\n"
+          "Recommend running with single model (--cnn crossdock_default2018)\n"
+          "or without cnn scoring (--cnn_scoring=none).\n\n";
+    }
     log << "Commandline:";
     for(unsigned i = 0; i < argc; i++) {
       log << " " << argv[i];
@@ -1491,7 +1494,6 @@ Thank you!\n";
     log << "\n";
 
     FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, nflex, nflex_hard_limit, log);
-
     // dkoes - parse in receptor once
     MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
 
