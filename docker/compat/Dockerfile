@@ -1,7 +1,7 @@
 # Maximum Compatibility Build - DO NOT USE FOR PRODUCTION
 # Build off of centos7 (ubi 7 didn't have static libc)
 
-FROM nvidia/cuda:10.2-cudnn7-devel-centos7
+FROM nvidia/cuda:10.0-cudnn7-devel-centos7
 
 # get packages 
 WORKDIR /tmp
@@ -47,7 +47,7 @@ RUN mkdir gcc-${gcc_version}_build && \
         --host x86_64-redhat-linux-gnu \
         --build x86_64-redhat-linux-gnu \ 
         --with-default-libstdcxx-abi=gcc4-compatible
-RUN cd gcc-${gcc_version}_build && make -j4
+RUN cd gcc-${gcc_version}_build && make -j8
 RUN cd gcc-${gcc_version}_build && make install
 
 # register new libraries with `ldconfig`
@@ -77,8 +77,8 @@ RUN cd eigen-3.3.7; mkdir build; cd build; cmake ..; make install
 # build and install openbabel
 RUN git clone https://github.com/openbabel/openbabel.git; \
     cd openbabel; git checkout openbabel-3-1-1; mkdir build; cd build;  \
-    cmake -DPTHREAD_LIBRARY=/lib64/libpthread_nonshared.a  -DBUILD_SHARED=OFF -DPYTHON_BINDINGS=OFF  -DWITH_COORDGEN=0 -DWITH_MAEPARSER=0 -DRUN_SWIG=OFF -DCMAKE_CXX_FLAGS="-std=c++14 -fPIC" -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DCMAKE_C_COMPILER=/usr/bin/gcc ..;  \
-    make -j4; make install
+    cmake -DPTHREAD_LIBRARY=/lib64/libpthread.a  -DBUILD_SHARED=OFF -DPYTHON_BINDINGS=OFF  -DWITH_COORDGEN=0 -DWITH_MAEPARSER=0 -DRUN_SWIG=OFF -DCMAKE_CXX_FLAGS="-std=c++14 -fPIC" -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DCMAKE_C_COMPILER=/usr/bin/gcc ..;  \
+    make -j8; make install
 
 #for versioning need -C option of git
 RUN git clone https://github.com/git/git.git; \
@@ -96,41 +96,41 @@ RUN git clone https://github.com/gnina/libmolgrid.git; \
     cd libmolgrid; \
     mkdir build; cd build; \
     cmake -DBoost_INCLUDE_DIR=/usr/include/boost169/ -DBOOST_LIBRARYDIR=/usr/lib64/boost169/ ..; \
-    make -j4; make install; \
+    make -j8; make install; \
     cmake -DBoost_INCLUDE_DIR=/usr/include/boost169/ -DBOOST_LIBRARYDIR=/usr/lib64/boost169/ -DBUILD_STATIC=ON -DBoost_USE_STATIC_LIBS=ON -DBUILD_SHARED=OFF ..; \
-    make -j4 libmolgrid_static; cp lib64/libmolgrid.a /usr/local/lib/libmolgrid.a 
+    make -j8 libmolgrid_static; cp lib64/libmolgrid.a /usr/local/lib/libmolgrid.a 
     
 RUN git clone https://github.com/gflags/gflags.git; \
     cd gflags; git checkout v2.2.2; \
     mkdir build; cd build; \
-    cmake ..; make -j4; \
+    cmake ..; make -j8; \
     make install
 
 RUN git clone https://github.com/google/glog.git; \
     cd glog; git checkout v0.4.0; \
     mkdir build; cd build; \
-    cmake ..  -DHAVE_PWD_H=0 ; make -j4; \
+    cmake ..  -DHAVE_PWD_H=0 ; make -j8; \
     make install
     
 RUN git clone https://github.com/protocolbuffers/protobuf.git; \
     cd protobuf; git checkout v3.6.1.3; \
     git submodule update --init --recursive; \
     ./autogen.sh; ./configure; \
-    make -j4; \
+    make -j8; \
     make install
     
 RUN git clone  https://github.com/erget/libaec.git; \
     cd libaec; git checkout v0.3.4; \
     mkdir build; cd build; \
-    cmake -DBUILD_SHARED_LIBS=OFF ..; make -j4; \
+    cmake -DBUILD_SHARED_LIBS=OFF ..; make -j8; \
     make install    
                 
 RUN git clone https://github.com/gnina/gnina.git; \
     cd gnina; mkdir build; cd build; \
     cmake .. -DAtlas_CBLAS_LIBRARY=/usr/lib64/libopenblas.a  -DBUILD_SHARED_LIBS=OFF -DBoost_INCLUDE_DIR=/usr/include/boost169/ \
     -DPYTHON_EXECUTABLE=/usr/bin/python3 -DBOOST_LIBRARYDIR=/usr/lib64/boost169/ -DHAVE_PYTHON=0 -DBUILD_python=OFF \
-    -DLIBMOLGRID_LIBRARY=/usr/local/lib/libmolgrid.a ; \
-    make gnina; 
+    -DLIBMOLGRID_LIBRARY=/usr/local/lib/libmolgrid.a -DCUDA_ARCH_NAME=All ; \
+    make -j8 gnina; 
     
 #make "mostly static" executable
 RUN cd gnina/build/gninasrc; \
@@ -164,7 +164,6 @@ RUN cd gnina/build/gninasrc; \
   /usr/local/cuda/lib64/libcurand_static.a  \
   /usr/lib64/libcudnn_static.a \
   /usr/local/cuda/lib64/libcublas_static.a \
-  /usr/local/cuda/lib64/libcublasLt_static.a \
   /usr/local/cuda/lib64/libculibos.a \
   /usr/lib64/liblapack.a \
   /usr/lib64/libopenblas64.a  \
@@ -172,7 +171,7 @@ RUN cd gnina/build/gninasrc; \
   /usr/local/lib/libsz.a \
   /usr/local/lib/libaec.a \
   /usr/local/cuda/lib64/libcudart_static.a  \
-   /usr/local/cuda-10.2/targets/x86_64-linux/lib/libcudadevrt.a \
+   /usr/local/cuda/targets/x86_64-linux/lib/libcudadevrt.a \
      -lm -lpthread -ldl -lrt 
 
 #./bin/gnina -r ../test/gnina/data/184l_rec.pdb -l ../test/gnina/data/184l_lig.sdf --autobox_ligand ../test/gnina/data/184l_lig.sdf --seed 0
