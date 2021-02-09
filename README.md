@@ -296,3 +296,7 @@ and sample models at [https://github.com/gnina/models](https://github.com/gnina/
 The DUD-E docked poses used in the original paper can be found [here](http://bits.csb.pitt.edu/files/docked_dude.tar) and
 the CrossDocked2020 set is [here](http://bits.csb.pitt.edu/files/crossdock2020/).
 
+License
+=======
+
+gnina is dual licensed under GPL and Apache.  The GPL license is necessitated by the use of OpenBabel (which is GPL licensed).  In order to use gnina under the Apache license only, all references to OpenBabel must be removed from the source code.
