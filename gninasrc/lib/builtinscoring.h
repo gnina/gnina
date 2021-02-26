@@ -65,7 +65,7 @@ class builtin_scoring {
       return true;
     }
 
-    void print_functions(std::ostream& out);
+    std::string names(const std::string& delim);
 };
 
 extern builtin_scoring builtin_scoring_functions;

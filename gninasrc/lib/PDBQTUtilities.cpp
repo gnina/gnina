@@ -320,8 +320,8 @@ static void OutputAtom(OBAtom* atom, context& lines, vector<OBAtom*>& atomorder,
   if (strlen(type_name) > 1)
     type_name[1] = toupper(type_name[1]);
   else {
-    char tmp[10];
-    strncpy(tmp, type_name, 10);
+    char tmp[11];
+    strncpy(tmp, type_name, 11);
     snprintf(type_name, sizeof(type_name), " %-3s", tmp);
   }
 
@@ -336,8 +336,8 @@ static void OutputAtom(OBAtom* atom, context& lines, vector<OBAtom*>& atomorder,
     {
       if (strlen(type_name) < 4)
       {
-        char tmp[10];
-        strncpy(tmp, type_name, 10);
+        char tmp[11];
+        strncpy(tmp, type_name, 11);
         snprintf(padded_name, sizeof(padded_name), " %-3s", tmp);
         strncpy(type_name, padded_name, 4);
         type_name[4] = '\0';

@@ -85,8 +85,10 @@ builtin_scoring::builtin_scoring() {
   add("ad4_scoring", "num_tors_add", 0.2744);
 }
 
-void builtin_scoring::print_functions(std::ostream& out) {
+std::string builtin_scoring::names(const std::string& delim) {
   std::vector < std::string > names;
+  std::stringstream ss;
+
   for (funcmap::iterator itr = functions.begin(), en = functions.end();
       itr != en; ++itr) {
     names.push_back(itr->first);
@@ -94,8 +96,10 @@ void builtin_scoring::print_functions(std::ostream& out) {
   std::sort(names.begin(), names.end());
 
   for (unsigned i = 0, n = names.size(); i < n; i++) {
-    out << names[i] << "\n";
+    ss << names[i];
+    if(i < n-1) ss << delim;
   }
+  return ss.str();
 }
 
 //global object for getting scoring functions

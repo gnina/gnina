@@ -1153,7 +1153,7 @@ Thank you!\n";
     options_description scoremin("Scoring and minimization options");
     scoremin.add_options()
     ("scoring", value<std::string>(&builtin_scoring),
-        "specify alternative built-in scoring function")
+        ("specify alternative built-in scoring function: "+builtin_scoring_functions.names(" ")).c_str())
     ("custom_scoring", value<std::string>(&custom_file_name),
         "custom scoring function file")
     ("custom_atoms", value<std::string>(&atomconstants_file),
@@ -1531,23 +1531,21 @@ Thank you!\n";
     //dkoes, set the scoring function
     custom_terms t;
     if (user_grid_lambda != -1.0)
-        {
+    {
       t.set_scaling_factor(user_grid_lambda);
     }
     if (custom_file_name.size() > 0)
-        {
+    {
       ifile custom_file(custom_file_name);
       t.add_terms_from_file(custom_file);
     }
     else if (builtin_scoring.size() > 0)
-        {
+    {
       if (!builtin_scoring_functions.set(t, builtin_scoring))
-          {
-        std::stringstream ss;
-        builtin_scoring_functions.print_functions(ss);
+      {
         throw usage_error(
             "Invalid built-in scoring function: " + builtin_scoring
-                + ". Options are:\n" + ss.str());
+                + ". Options are:\n" + builtin_scoring_functions.names("\n"));
       }
     }
     else
