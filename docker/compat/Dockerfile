@@ -75,8 +75,14 @@ RUN tar xzf eigen-3.3.7.tar.gz
 RUN cd eigen-3.3.7; mkdir build; cd build; cmake ..; make install
 
 # build and install openbabel
+# Need to be new enough to include this fix: https://github.com/openbabel/openbabel/pull/2328
+# but need to undo commit 96b7a33b58e5496b6570aab5172cd6cb6ade7d15 which breaks cmake config
+# todo: change to release version once a release exists with these fixes
 RUN git clone https://github.com/openbabel/openbabel.git; \
-    cd openbabel; git checkout openbabel-3-1-1; mkdir build; cd build;  \
+    cd openbabel; \
+    sed 's/set(OpenBabel3_INCLUDE_DIRS "")/set(OpenBabel3_INCLUDE_DIRS "@PACKAGE_OpenBabel3_INCLUDE_DIRS@")/' OpenBabel3Config.cmake.in -i ; \
+    sed 's/INSTALL_DESTINATION "${OB_CONFIG_DIR}"/INSTALL_DESTINATION "${OB_CONFIG_DIR}" PATH_VARS OpenBabel3_INCLUDE_DIRS/' -i CMakeLists.txt ; \
+    mkdir build; cd build;  \
     cmake -DPTHREAD_LIBRARY=/lib64/libpthread.a  -DBUILD_SHARED=OFF -DPYTHON_BINDINGS=OFF  -DWITH_COORDGEN=0 -DWITH_MAEPARSER=0 -DRUN_SWIG=OFF -DCMAKE_CXX_FLAGS="-std=c++14 -fPIC" -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DCMAKE_C_COMPILER=/usr/bin/gcc ..;  \
     make -j8; make install
 
@@ -126,7 +132,7 @@ RUN git clone  https://github.com/erget/libaec.git; \
     make install    
                 
 RUN git clone https://github.com/gnina/gnina.git; \
-    cd gnina; mkdir build; cd build; \
+    cd gnina; git checkout v1.0; mkdir build; cd build; \
     cmake .. -DAtlas_CBLAS_LIBRARY=/usr/lib64/libopenblas.a  -DBUILD_SHARED_LIBS=OFF -DBoost_INCLUDE_DIR=/usr/include/boost169/ \
     -DPYTHON_EXECUTABLE=/usr/bin/python3 -DBOOST_LIBRARYDIR=/usr/lib64/boost169/ -DHAVE_PYTHON=0 -DBUILD_python=OFF \
     -DLIBMOLGRID_LIBRARY=/usr/local/lib/libmolgrid.a -DCUDA_ARCH_NAME=All ; \
