@@ -10,28 +10,28 @@ Citation
 ========
 If you find gnina useful, please cite our paper(s):  
 
-**GNINA 1.0: Molecular docking with deep learning** (Primary application citation)
-A McNutt, P Francoeur, R Aggarwal, T Masuda, R Meli, M Ragoza, J Sunseri, DR Koes. 
+**GNINA 1.0: Molecular docking with deep learning** (Primary application citation)  
+A McNutt, P Francoeur, R Aggarwal, T Masuda, R Meli, M Ragoza, J Sunseri, DR Koes. ChemRxiv   
 [ChemRxiv](https://chemrxiv.org/articles/preprint/GNINA_1_0_Molecular_Docking_with_Deep_Learning/13578140)
 
-**Protein–Ligand Scoring with Convolutional Neural Networks**  (Primary methods citation)
+**Protein–Ligand Scoring with Convolutional Neural Networks**  (Primary methods citation)  
 M Ragoza, J Hochuli, E Idrobo, J Sunseri, DR Koes. *J. Chem. Inf. Model*, 2017  
 [link](http://pubs.acs.org/doi/full/10.1021/acs.jcim.6b00740) [arXiv](https://arxiv.org/abs/1612.02751)  
 
-**Ligand pose optimization with atomic grid-based convolutional neural networks**
-M Ragoza, L Turner, DR Koes. *Machine Learning for Molecules and Materials NIPS 2017 Workshop*, 2017
+**Ligand pose optimization with atomic grid-based convolutional neural networks**  
+M Ragoza, L Turner, DR Koes. *Machine Learning for Molecules and Materials NIPS 2017 Workshop*, 2017  
 [arXiv](https://arxiv.org/abs/1710.07400)  
 
-**Visualizing convolutional neural network protein-ligand scoring**
-J Hochuli, A Helbling, T Skaist, M Ragoza, DR Koes.  *Journal of Molecular Graphics and Modelling*, 2018
+**Visualizing convolutional neural network protein-ligand scoring**  
+J Hochuli, A Helbling, T Skaist, M Ragoza, DR Koes.  *Journal of Molecular Graphics and Modelling*, 2018  
 [link](https://www.sciencedirect.com/science/article/pii/S1093326318301670) [arXiv](https://arxiv.org/abs/1803.02398)
 
-**Convolutional neural network scoring and minimization in the D3R 2017 community challenge**
-J Sunseri, JE King, PG Francoeur, DR Koes.  *Journal of computer-aided molecular design*, 2018
+**Convolutional neural network scoring and minimization in the D3R 2017 community challenge**  
+J Sunseri, JE King, PG Francoeur, DR Koes.  *Journal of computer-aided molecular design*, 2018  
 [link](https://link.springer.com/article/10.1007/s10822-018-0133-y) [PubMed](https://www.ncbi.nlm.nih.gov/pubmed/29992528)
 
-**Three-Dimensional Convolutional Neural Networks and a Cross-Docked Data Set for Structure-Based Drug Design**
-PG Francoeur, T Masuda, J Sunseri, A Jia, RB Iovanisci, I Snyder, DR Koes. *J. Chem. Inf. Model*, 2020
+**Three-Dimensional Convolutional Neural Networks and a Cross-Docked Data Set for Structure-Based Drug Design**  
+PG Francoeur, T Masuda, J Sunseri, A Jia, RB Iovanisci, I Snyder, DR Koes. *J. Chem. Inf. Model*, 2020  
 [link](https://pubs.acs.org/doi/abs/10.1021/acs.jcim.0c00411) [PubMed](https://pubmed.ncbi.nlm.nih.gov/32865404/) [Chemrxiv](https://chemrxiv.org/articles/preprint/3D_Convolutional_Neural_Networks_and_a_CrossDocked_Dataset_for_Structure-Based_Drug_Design/11833323/1)
 
 
