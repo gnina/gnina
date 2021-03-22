@@ -1,4 +1,3 @@
-cmake_minimum_required(VERSION 2.8.7)
 if(POLICY CMP0046)
   cmake_policy(SET CMP0046 NEW)
 endif()
@@ -8,6 +7,10 @@ endif()
 
 if(POLICY CMP0022)
   cmake_policy(SET CMP0022 NEW)
+endif()
+
+if(POLICY CMP0104)
+  cmake_policy(SET CMP0104 OLD) #TODO: clean up Cuda.cmake to be modern to avoid this workaround
 endif()
 
 # ---[ Caffe project

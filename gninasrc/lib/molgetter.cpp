@@ -93,32 +93,37 @@ void MolGetter::create_init_model(const std::string& rigid_name,
 }
 
 //setup for reading from fname
-void MolGetter::setInputFile(const std::string& fname) {
+void MolGetter::setInputFile(const std::string &fname)
+{
   if (fname.size() > 0) //zer if no_lig
-      {
+  {
     lpath = path(fname);
-    if (lpath.extension() == ".pdbqt") {
+    if (lpath.extension() == ".pdbqt")
+    {
       //built-in pdbqt parsing that respects rotabable bonds in pdbqt
       type = PDBQT;
       pdbqtdone = false;
-    } else
-      if (infile.open(lpath, ".smina", true)) //smina always gzipped
-          {
-        type = SMINA;
-      } else
-        if (infile.open(lpath, ".gnina", true)) //gnina always gzipped
-            {
-          type = GNINA;
-        } else
-          if (fname.length() > 0) //openbabel
-              {
-            type = OB;
-            //clear in case we had previous file
-            infileopener.clear();
-            infileopener.openForInput(conv, fname);
-            VINA_CHECK(conv.SetOutFormat("PDBQT"));
+    }
+    else
+    if (infile.open(lpath, ".smina", true)) //smina always gzipped
+    {
+      type = SMINA;
+    }
+    else
+    if (infile.open(lpath, ".gnina", true)) //gnina always gzipped
+    {
+      type = GNINA;
+    }
+    else
+    if (fname.length() > 0) //openbabel
+    {
+      type = OB;
+      //clear in case we had previous file
+      infileopener.clear();
+      infileopener.openForInput(conv, fname);
+      VINA_CHECK(conv.SetOutFormat("PDBQT"));
 
-          }
+    }
   }
 }
 

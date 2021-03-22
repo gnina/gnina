@@ -300,8 +300,9 @@ void createSDFContext(OBMol& mol, vector<OBAtom*> atoms, sdfcontext& sc) {
   sc.datastr = data.str();
 }
 
-static void OutputAtom(OBAtom* atom, context& lines, vector<OBAtom*>& atomorder,
-    parsing_struct& p, const unsigned int index, unsigned immobile_num) {
+static void OutputAtom(OBAtom *atom, context &lines, vector<OBAtom*> &atomorder,
+    parsing_struct &p, const unsigned int index, unsigned immobile_num)
+{
   char buffer[BUFF_SIZE];
   char type_name[10], padded_name[10];
   char the_res[10];
@@ -319,13 +320,15 @@ static void OutputAtom(OBAtom* atom, context& lines, vector<OBAtom*>& atomorder,
 
   if (strlen(type_name) > 1)
     type_name[1] = toupper(type_name[1]);
-  else {
+  else
+  {
     char tmp[11];
     strncpy(tmp, type_name, 11);
     snprintf(type_name, sizeof(type_name), " %-3s", tmp);
   }
 
-  if ((res = atom->GetResidue()) != 0) {
+  if ((res = atom->GetResidue()) != 0)
+  {
 //			het = res->IsHetAtom(atom);
     snprintf(the_res, 4, "%s", (char*) res->GetName().c_str());
     snprintf(type_name, 5, "%s", (char*) res->GetAtomID(atom).c_str());
@@ -348,7 +351,9 @@ static void OutputAtom(OBAtom* atom, context& lines, vector<OBAtom*>& atomorder,
       }
     }
     res_num = res->GetNum();
-  } else {
+  }
+  else
+  {
     strcpy(the_res, "UNK");
     snprintf(padded_name, sizeof(padded_name), "%s", type_name);
     strncpy(type_name, padded_name, 4);
@@ -360,35 +365,50 @@ static void OutputAtom(OBAtom* atom, context& lines, vector<OBAtom*>& atomorder,
   char element_name_final[3];
   element_name_final[2] = '\0';
 
-  if (atom->GetAtomicNum() == 1) {
+  if (atom->GetAtomicNum() == 1)
+  {
     element_name_final[0] = 'H';
     element_name_final[1] = 'D';
-  } else
-    if ((atom->GetAtomicNum() == 6) && (atom->IsAromatic())) {
-      element_name_final[0] = 'A';
-      element_name_final[1] = '\0';
-    } else
-      if (atom->GetAtomicNum() == 8) {
-        element_name_final[0] = 'O';
-        element_name_final[1] = 'A';
-      } else
-        if ((atom->GetAtomicNum() == 7) && (atom->IsHbondAcceptor())) {
-          element_name_final[0] = 'N';
-          element_name_final[1] = 'A';
-        } else
-          if ((atom->GetAtomicNum() == 16) && (atom->IsHbondAcceptor())) {
-            element_name_final[0] = 'S';
-            element_name_final[1] = 'A';
-          } else {
-            if (!isalnum(element_name[0])) {
-              element_name_final[0] = '\0';
-            } else
-              element_name_final[0] = element_name[0];
-            if (!isalnum(element_name[1])) {
-              element_name_final[1] = '\0'; //null terminate
-            } else
-              element_name_final[1] = element_name[1];
-          }
+  }
+  else
+  if ((atom->GetAtomicNum() == 6) && (atom->IsAromatic()))
+  {
+    element_name_final[0] = 'A';
+    element_name_final[1] = '\0';
+  }
+  else
+  if (atom->GetAtomicNum() == 8)
+  {
+    element_name_final[0] = 'O';
+    element_name_final[1] = 'A';
+  }
+  else
+  if ((atom->GetAtomicNum() == 7) && (atom->IsHbondAcceptor()))
+  {
+    element_name_final[0] = 'N';
+    element_name_final[1] = 'A';
+  }
+  else
+  if ((atom->GetAtomicNum() == 16) && (atom->IsHbondAcceptor()))
+  {
+    element_name_final[0] = 'S';
+    element_name_final[1] = 'A';
+  }
+  else
+  {
+    if (!isalnum(element_name[0]))
+    {
+      element_name_final[0] = '\0';
+    }
+    else
+      element_name_final[0] = element_name[0];
+    if (!isalnum(element_name[1]))
+    {
+      element_name_final[1] = '\0'; //null terminate
+    }
+    else
+      element_name_final[1] = element_name[1];
+  }
 
   double charge = atom->GetPartialCharge();
   snprintf(buffer, BUFF_SIZE,
@@ -402,7 +422,8 @@ static void OutputAtom(OBAtom* atom, context& lines, vector<OBAtom*>& atomorder,
   parsed_atom patom(sm, charge, vec(atom->GetX(), atom->GetY(), atom->GetZ()),
       index);
   //add_pdbqt_context(lines, ofs.str());
-  if (patom.number == immobile_num) p.immobile_atom = p.atoms.size();
+  if (patom.number == immobile_num)
+    p.immobile_atom = p.atoms.size();
   p.add(patom, lines, atomorder.size());
 
   atomorder.push_back(atom);
