@@ -11,7 +11,7 @@ Citation
 If you find gnina useful, please cite our paper(s):  
 
 **GNINA 1.0: Molecular docking with deep learning** (Primary application citation)
-A McNutt, P Francoeur, R Aggarwal, T Masuda, R Meli, M Ragoza, J Sunseri, DR Koes. ChemRxiv
+A McNutt, P Francoeur, R Aggarwal, T Masuda, R Meli, M Ragoza, J Sunseri, DR Koes. 
 [ChemRxiv](https://chemrxiv.org/articles/preprint/GNINA_1_0_Molecular_Docking_with_Deep_Learning/13578140)
 
 **Protein–Ligand Scoring with Convolutional Neural Networks**  (Primary methods citation)
