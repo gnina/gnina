@@ -106,12 +106,12 @@ set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/_version.cpp PROPERTIES 
             
 add_library(gninalib ${LIB_SRCS})
 set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES})
+target_link_libraries(gninalib  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ZLIB::ZLIB)
 # MESSAGE(STATUS "variable is: " ${NVCC_FLAGS_EXTRA})
 
 add_library(gninalib_static STATIC ${LIB_SRCS})
 set_target_properties(gninalib_static PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib_static  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES})
+target_link_libraries(gninalib_static  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ZLIB::ZLIB)
 
 install(TARGETS gninalib gninalib_static DESTINATION lib)
 

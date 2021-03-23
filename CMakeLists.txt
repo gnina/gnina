@@ -64,6 +64,8 @@ set(OpenBabel3_LIBRARIES $<TARGET_FILE:openbabel>)
 include_directories($<TARGET_PROPERTY:openbabel,INTERFACE_INCLUDE_DIRECTORIES>)
 include_directories(${OpenBabel3_INCLUDE_DIRS})
   
+find_package(ZLIB REQUIRED)
+  
 find_package(libmolgrid)
 if(NOT LIBMOLGRID_LIBRARY)
  message("libmolgrid will be fetched from git")
