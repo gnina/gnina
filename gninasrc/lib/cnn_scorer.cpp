@@ -22,6 +22,40 @@ using namespace caffe;
 using namespace std;
 using namespace boost::algorithm;
 
+//set the default device to device and return cuda error code if there's a problem
+int initializeCUDA(int device)  {
+  cudaError_t error;
+  cudaDeviceProp deviceProp;
+
+  error = cudaSetDevice(device);
+  if (error != cudaSuccess) {
+    //be silent if GPU not present
+    return error;
+  }
+
+  error = cudaGetDevice(&device);
+
+  if (error != cudaSuccess) {
+    std::cerr << "cudaGetDevice returned error code " << error << "\n";
+    return error;
+  }
+
+  error = cudaGetDeviceProperties(&deviceProp, device);
+
+  if (deviceProp.computeMode == cudaComputeModeProhibited) {
+    std::cerr
+        << "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n";
+    return -1;
+  }
+
+  if (error != cudaSuccess) {
+    return error;
+  }
+
+  caffe::Caffe::SetDevice(device);
+  caffe::Caffe::set_mode(caffe::Caffe::GPU);
+  return 0;
+}
 
 static void setup_mgridparm(caffe::MolGridDataParameter *mgridparam,
     const cnn_options &opts, const string &mname)

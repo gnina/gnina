@@ -186,10 +186,9 @@ void parallel_mc::operator()(const model& m, output_container& out,
 
   auto thread_init = [&]()
   {
+    initializeCUDA(m.gdata.device_id); //harmless to do if there isn't a gpu
     if (m.gdata.device_on)
     {
-      caffe::Caffe::SetDevice(m.gdata.device_id);
-      caffe::Caffe::set_mode(caffe::Caffe::GPU);
       const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(&ig);
       if (!cnn)
         thread_buffer.init(available_mem(num_threads));

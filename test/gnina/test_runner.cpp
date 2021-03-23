@@ -78,39 +78,6 @@ BOOST_AUTO_TEST_CASE(strided_cube_datagetter) {
 
 BOOST_AUTO_TEST_SUITE_END()
 
-void initializeCUDA(int device) {
-  cudaError_t error;
-  cudaDeviceProp deviceProp;
-
-  error = cudaSetDevice(device);
-  if (error != cudaSuccess) {
-    std::cerr << "cudaSetDevice returned error code " << error << "\n";
-    exit(-1);
-  }
-
-  error = cudaGetDevice(&device);
-
-  if (error != cudaSuccess) {
-    std::cerr << "cudaGetDevice returned error code " << error << "\n";
-    exit(-1);
-  }
-
-  error = cudaGetDeviceProperties(&deviceProp, device);
-
-  if (deviceProp.computeMode == cudaComputeModeProhibited) {
-    std::cerr
-        << "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n";
-    exit(-1);
-  }
-
-  if (error != cudaSuccess) {
-    std::cerr << "cudaGetDeviceProperties returned error code " << error
-        << "\n";
-    exit(-1);
-  }
-
-}
-
 bool init_unit_test() {
   // initializeCUDA(0);
   // TODO: multithread running tests

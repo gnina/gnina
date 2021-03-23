@@ -19,6 +19,9 @@
 #include "model.h"
 #include "cnn_data.h"
 
+//this must be called in every thread that uses CNNScorer
+extern int initializeCUDA(int device);
+
 /* This class evaluates protein-ligand poses according to a provided
  * Caffe convolutional neural net (CNN) model.
  */

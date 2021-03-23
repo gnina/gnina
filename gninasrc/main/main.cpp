@@ -13,6 +13,22 @@
 #include <boost/thread/thread.hpp> // hardware_concurrency // FIXME rm ?
 #include <boost/lexical_cast.hpp>
 #include <boost/assign.hpp>
+#include <openbabel/babelconfig.h>
+#include <openbabel/mol.h>
+#include <openbabel/parsmart.h>
+#include <openbabel/obconversion.h>
+#include <boost/iostreams/stream.hpp>
+#include <boost/iostreams/device/null.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/timer/timer.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/unordered_set.hpp>
+#include <boost/thread/thread.hpp>
+#include <boost/ref.hpp>
+#include <boost/bind.hpp>
+#include <boost/lockfree/queue.hpp>
+#include <boost/unordered_map.hpp>
+
 #include "parse_pdbqt.h"
 #include "parallel_mc.h"
 #include "file.h"
@@ -29,20 +45,10 @@
 #include "tee.h"
 #include "custom_terms.h"
 #include "cnn_scorer.h"
-#include <openbabel/babelconfig.h>
-#include <openbabel/mol.h>
-#include <openbabel/parsmart.h>
-#include <openbabel/obconversion.h>
-#include <boost/iostreams/stream.hpp>
-#include <boost/iostreams/device/null.hpp>
-#include <boost/shared_ptr.hpp>
 #include "coords.h"
 #include "obmolopener.h"
 #include "gpucode.h"
 #include "precalculate_gpu.h"
-#include <boost/timer/timer.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/unordered_set.hpp>
 #include "array3d.h"
 #include "grid.h"
 #include "molgetter.h"
@@ -50,11 +56,6 @@
 #include "box.h"
 #include "flexinfo.h"
 #include "builtinscoring.h"
-#include <boost/thread/thread.hpp>
-#include <boost/ref.hpp>
-#include <boost/bind.hpp>
-#include <boost/lockfree/queue.hpp>
-#include <boost/unordered_map.hpp>
 #include "sem.h"
 #include "user_opts.h"
 #include "version.h"
@@ -763,41 +764,6 @@ void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
 
 }
 
-
-//set the default device to device and return cuda error code if there's a problem
-int initializeCUDA(int device)  {
-  cudaError_t error;
-  cudaDeviceProp deviceProp;
-
-  error = cudaSetDevice(device);
-  if (error != cudaSuccess) {
-    //be silent if GPU not present
-    return error;
-  }
-
-  error = cudaGetDevice(&device);
-
-  if (error != cudaSuccess) {
-    std::cerr << "cudaGetDevice returned error code " << error << "\n";
-    return error;
-  }
-
-  error = cudaGetDeviceProperties(&deviceProp, device);
-
-  if (deviceProp.computeMode == cudaComputeModeProhibited) {
-    std::cerr
-        << "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n";
-    return -1;
-  }
-
-  if (error != cudaSuccess) {
-    return error;
-  }
-
-  caffe::Caffe::SetDevice(device);
-  caffe::Caffe::set_mode(caffe::Caffe::GPU);
-  return 0;
-}
 
 //work queue job format
 struct worker_job

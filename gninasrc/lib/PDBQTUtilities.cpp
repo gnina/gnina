@@ -304,8 +304,9 @@ static void OutputAtom(OBAtom *atom, context &lines, vector<OBAtom*> &atomorder,
     parsing_struct &p, const unsigned int index, unsigned immobile_num)
 {
   char buffer[BUFF_SIZE];
-  char type_name[10], padded_name[10];
-  char the_res[10];
+  char type_name[16] = {0,};
+  char padded_name[16] = {0,};
+  char the_res[16] = {0,};
   char the_chain = ' ';
   const char *element_name;
   string element_name_string;
