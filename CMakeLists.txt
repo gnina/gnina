@@ -6,8 +6,9 @@ set(USE_LMDB 0)
 set(USE_LEVELDB 0)
 set(USE_OPENCV 0)
 
-cmake_policy(SET CMP0104 OLD) #TODO: clean up Cuda.cmake to be modern to avoid this workaround
-
+if(POLICY CMP0104)
+  cmake_policy(SET CMP0104 OLD) #TODO: clean up Cuda.cmake to be modern to avoid this workaround
+endif()
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CUDA_STANDARD 14)
