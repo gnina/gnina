@@ -3,14 +3,18 @@
 
 FROM nvidia/cuda:10.0-cudnn7-devel-centos7
 
+RUN yum update -y
+
 # get packages 
-WORKDIR /tmp
+WORKDIR /root
 RUN yum -y install openssl-devel bzip2-devel wget make xz git epel-release \
     bzip2 glibc-static dh-autoreconf curl-devel expat-devel gettext-devel \
     perl-devel zlib-devel hdf5-devel atlas-devel atlas-static \
     lapack-devel lapack-static   python3
 RUN yum -y install boost169-devel boost169-test boost169-regex \
     boost169-python3-devel hdf5-devel  dh-autoreconf hdf5-static boost169-static zlib-static openblas-static
+
+RUN yum -y install cuda-11-2
 
 # build compatible gcc
 # download and extract source 
@@ -45,7 +49,7 @@ RUN mkdir gcc-${gcc_version}_build && \
         --disable-libunwind-exceptions \
         --disable-libada \
         --host x86_64-redhat-linux-gnu \
-        --build x86_64-redhat-linux-gnu \ 
+        --build x86_64-redhat-linux-gnu \
         --with-default-libstdcxx-abi=gcc4-compatible
 RUN cd gcc-${gcc_version}_build && make -j8
 RUN cd gcc-${gcc_version}_build && make install
@@ -79,7 +83,7 @@ RUN cd eigen-3.3.7; mkdir build; cd build; cmake ..; make install
 # todo: change to release version once a release exists with this fixes
 RUN git clone https://github.com/openbabel/openbabel.git; \
     cd openbabel; \
-    sed 's/set(OpenBabel3_INCLUDE_DIRS "")/set(OpenBabel3_INCLUDE_DIRS "@PACKAGE_OpenBabel3_INCLUDE_DIRS@")/' OpenBabel3Config.cmake.in -i ; \
+    git checkout openbabel-3-1-1; \
     mkdir build; cd build;  \
     cmake -DPTHREAD_LIBRARY=/lib64/libpthread.a  -DBUILD_SHARED=OFF -DPYTHON_BINDINGS=OFF  -DWITH_COORDGEN=0 -DWITH_MAEPARSER=0 -DRUN_SWIG=OFF -DCMAKE_CXX_FLAGS="-std=c++14 -fPIC" -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DCMAKE_C_COMPILER=/usr/bin/gcc ..;  \
     make -j8; make install
@@ -135,7 +139,7 @@ RUN git clone https://github.com/gnina/gnina.git; \
      mkdir build; cd build; \
     cmake .. -DAtlas_CBLAS_LIBRARY=/usr/lib64/libopenblas.a  -DBUILD_SHARED_LIBS=OFF -DBoost_INCLUDE_DIR=/usr/include/boost169/ \
     -DPYTHON_EXECUTABLE=/usr/bin/python3 -DBOOST_LIBRARYDIR=/usr/lib64/boost169/ -DHAVE_PYTHON=0 -DBUILD_python=OFF \
-    -DLIBMOLGRID_LIBRARY=/usr/local/lib/libmolgrid.a -DCUDA_ARCH_NAME=All ; \
+    -DLIBMOLGRID_LIBRARY=/usr/local/lib/libmolgrid.a -DCUDA_ARCH_NAME=All -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda-11; \
     make -j8 gnina; 
     
 #make "mostly static" executable
@@ -178,6 +182,7 @@ RUN cd gnina/build/gninasrc; \
   /usr/local/lib/libaec.a \
   /usr/local/cuda/lib64/libcudart_static.a  \
    /usr/local/cuda/targets/x86_64-linux/lib/libcudadevrt.a \
+   /usr/local/cuda/lib64/libcublasLt_static.a \
      -lm -lpthread -ldl -lrt 
 
 #./bin/gnina -r ../test/gnina/data/184l_rec.pdb -l ../test/gnina/data/184l_lig.sdf --autobox_ligand ../test/gnina/data/184l_lig.sdf --seed 0
