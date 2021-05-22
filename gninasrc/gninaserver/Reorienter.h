@@ -10,8 +10,8 @@
 #ifndef REORIENTER_H_
 #define REORIENTER_H_
 
-#include <eigen3/Eigen/Core>
-#include <eigen3/Eigen/Eigenvalues>
+#include <Eigen/Core>
+#include <Eigen/Eigenvalues>
 #include <iostream>
 #include "common.h"
 #include "parsing.h"
