@@ -142,9 +142,9 @@ def get_layer_label(layer, rankdir, display_lrm=False):
     # Describe parameters for spatial operation layers
     if layer.type in ['Convolution', 'Deconvolution', 'Pooling']:
         if layer.type == 'Pooling':
-            kernel_size = layer.pooling_param.kernel_size
-            stride = layer.pooling_param.stride
-            padding = layer.pooling_param.pad
+            kernel_size = layer.pooling_param.kernel_size[0] if len(layer.pooling_param.kernel_size) else 1
+            stride = layer.pooling_param.stride[0] if len(layer.pooling_param.stride) else 1
+            padding = layer.pooling_param.pad[0] if len(layer.pooling_param.pad) else 0
         else:
             kernel_size = layer.convolution_param.kernel_size[0] if \
                 len(layer.convolution_param.kernel_size) else 1
