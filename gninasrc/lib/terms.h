@@ -92,7 +92,7 @@ struct charge_dependent : public distance_additive {
     virtual ~charge_dependent() {
     }
 
-    //unique to charge_dependent, return comonents for given types and distance
+    //unique to charge_dependent, return components for given types and distance
     virtual result_components eval_components(smt t1, smt t2, fl r) const = 0;
 
     fl eval_atoms(const atom_base& a, const atom_base& b, fl r) const {
