@@ -497,6 +497,9 @@ void main_procedure(model &m, precalculate &prec,
   if (settings.num_mc_steps > 0) {
     par.mc.num_steps = settings.num_mc_steps;
   }
+  if (settings.max_mc_steps > 0 && par.mc.num_steps > settings.max_mc_steps) {
+    par.mc.num_steps = settings.max_mc_steps;
+  }
 
   par.mc.ssd_par.evals = unsigned((25 + m.num_movable_atoms()) / 3);
   if (minparm.maxiters == 0)
@@ -1133,7 +1136,9 @@ Thank you!\n";
     ("randomize_only", bool_switch(&settings.randomize_only),
         "generate random poses, attempting to avoid clashes")
     ("num_mc_steps", value<int>(&settings.num_mc_steps),
-        "number of monte carlo steps to take in each chain")
+        "fixed number of monte carlo steps to take in each chain")
+    ("max_mc_steps", value<int>(&settings.max_mc_steps),
+        "cap on number of monte carlo steps to take in each chain")
     ("num_mc_saved", value<int>(&settings.num_mc_saved),
             "number of top poses saved in each monte carlo chain")
     ("minimize_iters",
@@ -1231,7 +1236,7 @@ Thank you!\n";
     ("addH", value<bool>(&add_hydrogens),
         "automatically add hydrogens in ligands (on by default)")
     ("stripH", value<bool>(&strip_hydrogens),
-        "remove hydrogens from molecule _after_ performing atom typing for efficiency (on by default)")
+        "remove hydrogens from molecule _after_ performing atom typing for efficiency (off by default)")
     ("device", value<int>(&settings.device)->default_value(0),
         "GPU device to use")
     ("no_gpu", bool_switch(&settings.no_gpu), "Disable GPU acceleration, even if available.");
