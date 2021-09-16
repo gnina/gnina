@@ -66,9 +66,9 @@ def atype_perception(atype, aname):
     return atype.strip()
 
 for ci in range(flex.numCoordsets()):  # Loop over different MODELs (MODEL/ENDMDL)
+    which = defaultdict(int)
     out.write("MODEL %d\n" % ci)
     for line in open(rigidname):  # Read rigid receptor PDB file line-by-line
-        which = defaultdict(int)
         if line.startswith("ATOM"):
             # Chain, residue and atom informations
             chain = line[21]
