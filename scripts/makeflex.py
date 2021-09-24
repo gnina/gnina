@@ -24,6 +24,10 @@ rigidname = args.rigid
 flexname = args.flex
 outfile = args.out
 
+rigid = prody.parsePDB(rigidname)
+if rigid.numCoordsets() != 1:
+    raise ValueError(f"More than one model (MODEL/ENDMDL) for {rigidname} is not allowed.")
+
 out = open(outfile, "w")
 
 flex = prody.parsePDB(flexname)
