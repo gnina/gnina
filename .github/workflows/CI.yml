@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    - cron: 0 0 * * 0
+
+env:
+  BUILD_TYPE: Release
+  CUDACXX: /usr/local/cuda/bin/nvcc
+
+jobs:
+  build: 
+    runs-on: self-hosted
+    
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        
+    - name: apt update
+      run: apt update -y && apt upgrade -y
+        
+    - name: Build from src
+      run: mkdir build && cd build && cmake .. && make && export PYTHONPATH=/gnina/build/external/lib/python3.8/site-packages/ && make install
+      
+    - name: Run tests
+      run: cd build && make test
