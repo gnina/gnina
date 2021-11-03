@@ -11,7 +11,6 @@ on:
 env:
   BUILD_TYPE: Release
   CUDACXX: /usr/local/cuda/bin/nvcc
-  PYTHONPATH: /gnina-runner/_work/gnina/gnina/build/external/lib/python3.8/site-packages/
 
 jobs:
   build: 
@@ -26,7 +25,13 @@ jobs:
       run: apt update -y && apt upgrade -y
         
     - name: Build from src
-      run: mkdir build && cd build && cmake .. && make && export PYTHONPATH=/gnina-runner/_work/gnina/gnina/build/external/lib/python3.8/site-packages/ && make install 
+      run: mkdir build && cd build && cmake .. && make && make install
+      
+    - name: Set pythonpath 
+      run: echo "PYTHONPATH=/gnina-runner/_work/gnina/gnina/build/external/lib/python3.8/site-packages/" >> $GITHUB_ENV
+      
+    - name: Try install again
+      run: cd build && make install
       
     - name: Run tests
       run: cd build && make test
