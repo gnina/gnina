@@ -22,13 +22,16 @@ jobs:
         fetch-depth: 0
         
     - name: apt update
-      run: apt update -y && apt upgrade -y
-    
-    - name: set PYTHONPATH
-      run: echo "PYTHONPATH=/gnina-runner/_work/gnina/gnina/build/external/lib/python3.8/site-packages/" >> $GITHUB_ENV 
+      run: apt update -y && apt upgrade -y 
         
     - name: Build from src
-      run: mkdir build && cd build && cmake .. && make && make install
+      run: mkdir build && cd build && cmake .. && make
+      
+    - name: set PYTHONPATH
+      run: echo PYTHONPATH=/gnina-runner/_work/gnina/gnina/build/external/lib/python3.8/site-packages/ >> $GITHUB_ENV
+      
+    - name: install gnina
+      run: cd build && make install
       
     - name: Run tests
       run: cd build && make test
