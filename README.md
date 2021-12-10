@@ -34,6 +34,9 @@ J Sunseri, JE King, PG Francoeur, DR Koes.  *Journal of computer-aided molecular
 PG Francoeur, T Masuda, J Sunseri, A Jia, RB Iovanisci, I Snyder, DR Koes. *J. Chem. Inf. Model*, 2020  
 [link](https://pubs.acs.org/doi/abs/10.1021/acs.jcim.0c00411) [PubMed](https://pubmed.ncbi.nlm.nih.gov/32865404/) [Chemrxiv](https://chemrxiv.org/articles/preprint/3D_Convolutional_Neural_Networks_and_a_CrossDocked_Dataset_for_Structure-Based_Drug_Design/11833323/1)
 
+**Virtual Screening with Gnina 1.0**
+J Sunseri, DR Koes D. *Molecules*, 2021
+[link](https://www.mdpi.com/1420-3049/26/23/7369)[Preprints](https://www.preprints.org/manuscript/202111.0329/v1)
 
 Docker
 ======
