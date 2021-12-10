@@ -61,6 +61,7 @@ apt-get install build-essential cmake git wget libboost-all-dev libeigen3-dev li
 Install OpenBabel3
 ```
 git clone https://github.com/openbabel/openbabel.git
+cd openbabel
 git checkout openbabel-3-1-1 
 mkdir build
 cd build
