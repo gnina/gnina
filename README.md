@@ -4,7 +4,7 @@ Help
 ====
  
 Please [subscribe to our slack team](https://join.slack.com/t/gninacnn/shared_invite/enQtNTY3ODk2ODk5OTU5LTkzMjY1ZTE3YjJlZmIxOWI2OTU3Y2RlMTIyYmM2YmFmYTU1NTk5ZTBmMjUwMGRhYzk1ZjY5N2E4Y2I5YWU5YWI).
-An example colab notebook showing how to use gnina is available <a href="https://colab.research.google.com/drive/1QYo5QLUE80N_G28PlpYs6OKGddhhd931?usp=sharing">here</a>. We also hosted a workshp on using gnina ([video](https://www.youtube.com/watch?v=MG3Srzi5kZ0), [slides](https://bits.csb.pitt.edu/workshop/docking_with_gnina.slides.html#/)).
+An example colab notebook showing how to use gnina is available <a href="https://colab.research.google.com/drive/1QYo5QLUE80N_G28PlpYs6OKGddhhd931?usp=sharing">here</a>. We also hosted a workshp on using gnina ([video](https://www.youtube.com/watch?v=MG3Srzi5kZ0), [slides](https://bits.csb.pitt.edu/rsc_workshop2021/docking_with_gnina.slides.html#/)).
 
 Citation
 ========
