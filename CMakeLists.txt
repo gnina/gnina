@@ -17,9 +17,15 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "")
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+option(BUILD_COVERAGE "Build with code coverage" OFF)
+
 set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 set(CMAKE_CXX_FLAGS "-Wno-deprecated-declarations -Wno-unknown-pragmas")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+
+if (BUILD_COVERAGE)
+  set(CMAKE_CXX_FLAGS_RELEASE "-fprofile-arcs -ftest-coverage")
+endif()
 
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 find_package(CUDA 9.0 REQUIRED)
