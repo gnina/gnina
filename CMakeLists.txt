@@ -92,7 +92,7 @@ else()
   add_custom_target(libmolgrid)
 endif()
 
-
+include_directories(${LIBMOLGRID_INCLUDE_DIR})
 
 include(caffe/cmake/Utils.cmake)
 include(caffe/cmake/Cuda.cmake)
