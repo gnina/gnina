@@ -23,7 +23,7 @@ jobs:
       run: apt update -y && apt upgrade -y
         
     - name: Build from src
-      run: mkdir build && cd build && cmake -DBUILD_COVERAGE=1 .. && make -j8 && make install
+      run: mkdir build && cd build && cmake -DBUILD_COVERAGE=1 .. && make && make install
       
     - name: Run tests 
       continue-on-error: true 
