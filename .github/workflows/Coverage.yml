@@ -1,0 +1,33 @@
+name: Coverage
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  BUILD_TYPE: Release
+  CUDACXX: /usr/local/cuda/bin/nvcc
+
+jobs:
+  build: 
+    runs-on: self-hosted
+    
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        
+    - name: apt update
+      run: apt update -y && apt upgrade -y
+        
+    - name: Build from src
+      run: mkdir build && cd build && cmake -DBUILD_COVERAGE=1 .. && make -j8 && make install
+      
+    - name: Run tests 
+      continue-on-error: true 
+      run: cd build && ctest --timeout 3600 && ctest -T Coverage
+      
+    - name: Upload code coverage
+      run: curl -Os https://uploader.codecov.io/latest/linux/codecov && chmod +x codecov && ./codecov
