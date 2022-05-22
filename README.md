@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/gnina/gnina/branch/master/graph/badge.svg?token=kOC9GUKEGa)](https://codecov.io/gh/gnina/gnina)
+![Github CI](https://github.com/gnina/gnina/actions/workflows/CI.yml/badge.svg)
 gnina (pronounced NEE-na) is a molecular docking program with integrated support for scoring and optimizing ligands using convolutional neural networks. It is a fork of [smina](http://smina.sf.net/), which is a fork of [AutoDock Vina](http://vina.scripps.edu/).  
 
 Help
