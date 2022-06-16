@@ -19,9 +19,9 @@
 #ifndef VINA_MACROS_H
 #define VINA_MACROS_H
 
-#define VINA_FOR_IN(i, v) for(std::size_t VINA_MACROS_TMP = (v).size(), (i) = 0; (i) < VINA_MACROS_TMP; ++(i))
-#define VINA_FOR(i, n)    for(std::size_t VINA_MACROS_TMP = (n),        (i) = 0; (i) < VINA_MACROS_TMP; ++(i))
-#define VINA_U_FOR(i, n)  for(unsigned    VINA_MACROS_TMP = (n),        (i) = 0; (i) < VINA_MACROS_TMP; ++(i))
+#define VINA_FOR_IN(i, v) for(std::size_t VINA_MACROS_TMP = (v).size(), i = 0; (i) < VINA_MACROS_TMP; ++(i))
+#define VINA_FOR(i, n)    for(std::size_t VINA_MACROS_TMP = (n),        i = 0; (i) < VINA_MACROS_TMP; ++(i))
+#define VINA_U_FOR(i, n)  for(unsigned    VINA_MACROS_TMP = (n),        i = 0; (i) < VINA_MACROS_TMP; ++(i))
 
 #define VINA_RANGE(i, a, b)   for(std::size_t VINA_MACROS_TMP = (b), (i) = (a); (i) < VINA_MACROS_TMP; ++(i))
 #define VINA_U_RANGE(i, a, b) for(unsigned    VINA_MACROS_TMP = (b), (i) = (a); (i) < VINA_MACROS_TMP; ++(i))

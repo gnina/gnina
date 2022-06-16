@@ -13,13 +13,35 @@
 #include <boost/multi_array/multi_array_ref.hpp>
 #define BOOST_TEST_DYN_LINK
 #include <boost/test/unit_test.hpp>
-#include <boost/test/floating_point_comparison.hpp>
+#include <boost/test/tools/floating_point_comparison.hpp>
 #define TOL 0.0001f
 
 extern parsed_args p_args;
 
 using namespace caffe;
 using namespace std;
+
+template <typename atomT, typename Dtype>
+inline void set_cnn_grids(caffe::MolGridDataLayer<Dtype>* mgrid, std::vector<atom_params>& mol_atoms, std::vector<atomT>& mol_types) {
+  //first set up mgrid
+  vec center(0,0,0);
+  std::vector<float3> coords;
+  std::vector<smt> smtypes;
+  for (size_t i=0; i<mol_atoms.size(); ++i) {
+    atom_params& ainfo = mol_atoms[i];
+    atom a;
+    a.sm = mol_types[i]; //really all it's used for
+
+    smtypes.push_back(mol_types[i]);
+
+    float3 coord({ainfo.coords.x, ainfo.coords.y, ainfo.coords.z});
+    a.coords = vec({coord.x, coord.y, coord.z});
+    coords.push_back(coord);
+  }
+  mgrid->setLigand(coords, smtypes);
+  mgrid->setLabels(1.0,0);
+}
+
 
 void test_set_atom_gradients() {
   // randomly generate gridpoint gradients, accumulate for atoms, and then compare

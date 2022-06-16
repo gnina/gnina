@@ -112,7 +112,21 @@ void CuDNNDeconvolutionLayer<Dtype>::Reshape(
                                      filter_desc_,
                                      pad, stride);
 
+#if CUDNN_VERSION_MIN(8, 0, 0)
+    cudnnConvolutionFwdAlgoPerf_t fwd_perf_results[CUDNN_CONVOLUTION_FWD_ALGO_COUNT];
+    int perf_count = 0;
     // choose forward and backward algorithms + workspace(s)
+    CUDNN_CHECK(cudnnGetConvolutionForwardAlgorithm_v7(
+        handle_[0],
+        top_descs_[i],
+        filter_desc_,
+        conv_descs_[i],
+        bottom_descs_[i],
+        CUDNN_CONVOLUTION_FWD_ALGO_COUNT,
+        &perf_count,
+        fwd_perf_results));
+    fwd_algo_[i] = fwd_perf_results[0].algo;
+#else
     CUDNN_CHECK(cudnnGetConvolutionForwardAlgorithm(
         handle_[0],
         top_descs_[i],
@@ -122,6 +136,7 @@ void CuDNNDeconvolutionLayer<Dtype>::Reshape(
         CUDNN_CONVOLUTION_FWD_SPECIFY_WORKSPACE_LIMIT,
         workspace_limit_bytes,
         &fwd_algo_[i]));
+#endif
 
     // We have found that CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM is
     // buggy. Thus, if this algo was chosen, choose winograd instead. If
@@ -155,6 +170,21 @@ void CuDNNDeconvolutionLayer<Dtype>::Reshape(
         &(workspace_fwd_sizes_[i])));
 
     // choose backward algorithm for filter
+#if CUDNN_VERSION_MIN(8, 0, 0)
+
+    cudnnConvolutionBwdFilterAlgoPerf_t bwd_perf_results[CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT];
+
+    CUDNN_CHECK(cudnnGetConvolutionBackwardFilterAlgorithm_v7(
+        handle_[0],
+        top_descs_[i],
+        bottom_descs_[i],
+        conv_descs_[i],
+        filter_desc_,
+        CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT,
+        &perf_count,
+        bwd_perf_results));
+    bwd_filter_algo_[i] = bwd_perf_results[0].algo;
+#else
     CUDNN_CHECK(cudnnGetConvolutionBackwardFilterAlgorithm(
         handle_[0],
         top_descs_[i],
@@ -164,6 +194,7 @@ void CuDNNDeconvolutionLayer<Dtype>::Reshape(
         CUDNN_CONVOLUTION_BWD_FILTER_SPECIFY_WORKSPACE_LIMIT,
         workspace_limit_bytes,
         &bwd_filter_algo_[i]));
+#endif
 
     // get workspace for backwards filter algorithm
     CUDNN_CHECK(cudnnGetConvolutionBackwardFilterWorkspaceSize(
@@ -176,6 +207,20 @@ void CuDNNDeconvolutionLayer<Dtype>::Reshape(
         &workspace_bwd_filter_sizes_[i]));
 
     // choose backward algo for data
+#if CUDNN_VERSION_MIN(8, 0, 0)
+    cudnnConvolutionBwdDataAlgoPerf_t bwd_data_perf_results[CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT];
+
+    CUDNN_CHECK(cudnnGetConvolutionBackwardDataAlgorithm_v7(
+        handle_[0],
+        filter_desc_,
+        bottom_descs_[i],
+        conv_descs_[i],
+        top_descs_[i],
+        CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT,
+        &perf_count,
+        bwd_data_perf_results));
+    bwd_data_algo_[i] = bwd_data_perf_results[0].algo;
+#else
     CUDNN_CHECK(cudnnGetConvolutionBackwardDataAlgorithm(
         handle_[0],
         filter_desc_,
@@ -185,6 +230,7 @@ void CuDNNDeconvolutionLayer<Dtype>::Reshape(
         CUDNN_CONVOLUTION_BWD_DATA_SPECIFY_WORKSPACE_LIMIT,
         workspace_limit_bytes,
         &bwd_data_algo_[i]));
+#endif
 
     // get workspace size
     CUDNN_CHECK(cudnnGetConvolutionBackwardDataWorkspaceSize(

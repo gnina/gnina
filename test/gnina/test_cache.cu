@@ -1,6 +1,11 @@
 #include <numeric>
 #include <cmath>
 #include <random>
+#include <cuda_runtime.h>
+#define BOOST_TEST_DYN_LINK
+#include <boost/test/unit_test.hpp>
+#include <boost/test/tools/floating_point_comparison.hpp>
+
 #include "common.h"
 #include "cache_gpu.h"
 #include "weighted_terms.h"
@@ -10,10 +15,7 @@
 #include "test_cache.h"
 #include "parsed_args.h"
 #include "test_utils.h"
-#include <cuda_runtime.h>
-#define BOOST_TEST_DYN_LINK
-#include <boost/test/unit_test.hpp>
-#include <boost/test/floating_point_comparison.hpp>
+
 
 void test_cache_eval_deriv() {
   p_args.log << "Cache Eval Test \n";
@@ -150,3 +152,4 @@ void test_cache_eval_deriv() {
     for (size_t j = 0; j < 3; ++j)
       BOOST_REQUIRE_SMALL(m->minus_forces[i][j] - g_forces[i][j], (float )0.01);
 }
+

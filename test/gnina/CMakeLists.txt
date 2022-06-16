@@ -12,6 +12,7 @@ set( TEST_SRCS
  test_runner.cpp
  test_tree.h
  test_tree.cu
+ test_utils.cpp
  test_utils.h
 )
 

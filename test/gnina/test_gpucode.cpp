@@ -17,7 +17,7 @@
 #include "gpu_debug.h"
 #define BOOST_TEST_DYN_LINK
 #include <boost/test/unit_test.hpp>
-#include <boost/test/floating_point_comparison.hpp>
+#include <boost/test/tools/floating_point_comparison.hpp>
 
 void test_interaction_energy() {
   p_args.log << "Interaction Energy Test \n";
