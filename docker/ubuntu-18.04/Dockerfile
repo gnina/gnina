@@ -1,7 +1,7 @@
 # Recommended build process
 
-#get CUDA and cudnn (cudnn8 currently not supported)
-FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
+#get CUDA and cudnn
+FROM nvidia/cuda:11.4.2-cudnn8-devel-ubuntu18.04
 
 # get packages 
 WORKDIR /root
@@ -23,5 +23,5 @@ RUN git clone https://github.com/openbabel/openbabel.git; \
 
 RUN git clone https://github.com/gnina/gnina.git; \
     cd gnina; mkdir build; cd build; \
-    cmake .. ;\
+    cmake -DCUDA_ARCH_NAME=All .. ;\
     make -j4 ; make install 
