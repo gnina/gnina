@@ -58,7 +58,7 @@ apt-get install build-essential cmake git wget libboost-all-dev libeigen3-dev li
 
 [Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA (>= 10.0 is required). **Make sure `nvcc` is in your PATH.**
 
-*Optionally* install [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive) version 7.85 (>= 8.0 is not yet supported).
+*Optionally* install [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive).
 
 #
 Install OpenBabel3
