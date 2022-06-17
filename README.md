@@ -1,10 +1,13 @@
+[![codecov](https://codecov.io/gh/gnina/gnina/branch/master/graph/badge.svg?token=kOC9GUKEGa)](https://codecov.io/gh/gnina/gnina)
+![Github CI](https://github.com/gnina/gnina/actions/workflows/CI.yml/badge.svg)
+
 gnina (pronounced NEE-na) is a molecular docking program with integrated support for scoring and optimizing ligands using convolutional neural networks. It is a fork of [smina](http://smina.sf.net/), which is a fork of [AutoDock Vina](http://vina.scripps.edu/).  
 
 Help
 ====
  
 Please [subscribe to our slack team](https://join.slack.com/t/gninacnn/shared_invite/enQtNTY3ODk2ODk5OTU5LTkzMjY1ZTE3YjJlZmIxOWI2OTU3Y2RlMTIyYmM2YmFmYTU1NTk5ZTBmMjUwMGRhYzk1ZjY5N2E4Y2I5YWU5YWI).
-An example colab notebook showing how to use gnina is available <a href="https://colab.research.google.com/drive/1QYo5QLUE80N_G28PlpYs6OKGddhhd931?usp=sharing">here</a>
+An example colab notebook showing how to use gnina is available <a href="https://colab.research.google.com/drive/1QYo5QLUE80N_G28PlpYs6OKGddhhd931?usp=sharing">here</a>. We also hosted a workshp on using gnina ([video](https://www.youtube.com/watch?v=MG3Srzi5kZ0), [slides](https://bits.csb.pitt.edu/rsc_workshop2021/docking_with_gnina.slides.html#/)).
 
 Citation
 ========
@@ -36,7 +39,7 @@ PG Francoeur, T Masuda, J Sunseri, A Jia, RB Iovanisci, I Snyder, DR Koes. *J. C
 
 **Virtual Screening with Gnina 1.0**
 J Sunseri, DR Koes D. *Molecules*, 2021
-[link](https://www.mdpi.com/1420-3049/26/23/7369)[Preprints](https://www.preprints.org/manuscript/202111.0329/v1)
+[link](https://www.mdpi.com/1420-3049/26/23/7369) [Preprints](https://www.preprints.org/manuscript/202111.0329/v1)
 
 Docker
 ======
