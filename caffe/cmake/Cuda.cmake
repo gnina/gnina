@@ -232,9 +232,9 @@ function(detect_cuDNN)
 
     message(STATUS "Found cuDNN: ver. ${CUDNN_VERSION} found (include: ${CUDNN_INCLUDE}, library: ${CUDNN_LIBRARY})")
 
-    string(COMPARE LESS "${CUDNN_VERSION_MAJOR}" 8 cuDNNVersionIncompatible)
+    string(COMPARE LESS "${CUDNN_VERSION_MAJOR}" 7 cuDNNVersionIncompatible)
     if(cuDNNVersionIncompatible)
-      message(FATAL_ERROR "cuDNN version >=8 is required.")
+      message(FATAL_ERROR "cuDNN version >=7 is required.")
     endif()
 
     set(CUDNN_VERSION "${CUDNN_VERSION}" PARENT_SCOPE)
