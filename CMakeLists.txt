@@ -28,7 +28,7 @@ if (BUILD_COVERAGE)
 endif()
 
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
-find_package(CUDA 9.0 REQUIRED)
+find_package(CUDA 11.0 REQUIRED)
 
 if(NOT ${CUDA_cublas_device_LIBRARY}) #workaround for oldercmake/newer cuda issue
  set(CUDA_cublas_device_LIBRARY "")

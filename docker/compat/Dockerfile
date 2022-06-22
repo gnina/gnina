@@ -66,10 +66,10 @@ RUN ln -s /usr/bin/g++ /usr/local/cuda/bin/g++
 
 
 # set up acceptable cmake version
-RUN wget https://github.com/Kitware/CMake/releases/download/v3.18.6/cmake-3.18.6-Linux-x86_64.tar.gz
-RUN tar xzf cmake-3.18.6-Linux-x86_64.tar.gz
-RUN cp cmake-3.18.6-Linux-x86_64/bin/* /usr/local/bin
-RUN cp -r cmake-3.18.6-Linux-x86_64/share/cmake-3.18 /usr/local/share/
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.23.2/cmake-3.23.2-linux-x86_64.tar.gz
+RUN tar xzf cmake-3.23.2-linux-x86_64.tar.gz
+RUN cp cmake-3.23.2-linux-x86_64/bin/* /usr/local/bin
+RUN cp -r cmake-3.23.2-linux-x86_64/share/cmake-3.23 /usr/local/share/
 
 # set up eigen
 RUN wget https://gitlab.com/libeigen/eigen/-/archive/3.3.7/eigen-3.3.7.tar.gz
@@ -101,9 +101,9 @@ RUN python3.6 -m pip install numpy pytest pyquaternion auditwheel twine
 RUN git clone https://github.com/gnina/libmolgrid.git; \
     cd libmolgrid; \
     mkdir build; cd build; \
-    cmake -DBoost_INCLUDE_DIR=/usr/include/boost169/ -DBOOST_LIBRARYDIR=/usr/lib64/boost169/ ..; \
+    cmake -DCUDA_ARCHITECTURES=all -DBoost_INCLUDE_DIR=/usr/include/boost169/ -DBOOST_LIBRARYDIR=/usr/lib64/boost169/ ..; \
     make -j8; make install; \
-    cmake -DBoost_INCLUDE_DIR=/usr/include/boost169/ -DBOOST_LIBRARYDIR=/usr/lib64/boost169/ -DBUILD_STATIC=ON -DBoost_USE_STATIC_LIBS=ON -DBUILD_SHARED=OFF ..; \
+    cmake -DCUDA_ARCHITECTURES=all -DBoost_INCLUDE_DIR=/usr/include/boost169/ -DBOOST_LIBRARYDIR=/usr/lib64/boost169/ -DBUILD_STATIC=ON -DBoost_USE_STATIC_LIBS=ON -DBUILD_SHARED=OFF ..; \
     make -j8 libmolgrid_static; cp lib64/libmolgrid.a /usr/local/lib/libmolgrid.a 
     
 RUN git clone https://github.com/gflags/gflags.git; \
@@ -171,7 +171,19 @@ RUN cd gnina/build/gninasrc; \
   /usr/lib64/libhdf5.a \
   /usr/lib64/libz.a \
   /usr/local/cuda/lib64/libcurand_static.a  \
-  /usr/lib64/libcudnn_static.a \
+  /usr/lib64/libcudnn_ops_train_static_v8.a   \
+  /usr/lib64/libcudnn_cnn_train_static_v8.a  \
+  /usr/lib64/libcudnn_adv_train_static_v8.a  \
+  /usr/lib64/libcudnn_ops_train_static.a   \
+  /usr/lib64/libcudnn_cnn_train_static.a  \
+  /usr/lib64/libcudnn_adv_train_static.a  \
+  /usr/lib64/libcudnn_adv_infer_static.a \
+  /usr/lib64/libcudnn_adv_infer_static_v8.a \
+  /usr/lib64/libcudnn_cnn_infer_static.a \
+  /usr/lib64/libcudnn_cnn_infer_static_v8.a  \
+  /usr/lib64/libcudnn_ops_infer_static.a \
+  /usr/lib64/libcudnn_ops_infer_static_v8.a \
+  /usr/local/cuda/lib64/libcusolver_static.a  \
   /usr/local/cuda/lib64/libcublas_static.a \
   /usr/local/cuda/lib64/libculibos.a \
   /usr/lib64/liblapack.a \
