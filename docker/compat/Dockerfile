@@ -1,7 +1,7 @@
 # Maximum Compatibility Build - DO NOT USE FOR PRODUCTION
 # Build off of centos7 (ubi 7 didn't have static libc)
 
-FROM nvidia/cuda:10.0-cudnn7-devel-centos7
+FROM nvidia/cuda:11.6.2-cudnn8-devel-centos7
 
 RUN yum update -y
 
@@ -13,8 +13,6 @@ RUN yum -y install openssl-devel bzip2-devel wget make xz git epel-release \
     lapack-devel lapack-static   python3
 RUN yum -y install boost169-devel boost169-test boost169-regex \
     boost169-python3-devel hdf5-devel  dh-autoreconf hdf5-static boost169-static zlib-static openblas-static
-
-RUN yum -y install cuda-11-2
 
 # build compatible gcc
 # download and extract source 
@@ -135,7 +133,8 @@ RUN git clone  https://github.com/erget/libaec.git; \
                 
 RUN git clone https://github.com/gnina/gnina.git; \
     cd gnina; \
-    git checkout v1.0.1; \
+    git checkout v1.0.2; \
+    sed -i 's/LIBMOLGRID_LIBRARY}/LIBMOLGRID_LIBRARY} ZLIB::ZLIB/' gninasrc/CMakeLists.txt ; \
      mkdir build; cd build; \
     cmake .. -DAtlas_CBLAS_LIBRARY=/usr/lib64/libopenblas.a  -DBUILD_SHARED_LIBS=OFF -DBoost_INCLUDE_DIR=/usr/include/boost169/ \
     -DPYTHON_EXECUTABLE=/usr/bin/python3 -DBOOST_LIBRARYDIR=/usr/lib64/boost169/ -DHAVE_PYTHON=0 -DBUILD_python=OFF \
