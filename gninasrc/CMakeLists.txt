@@ -128,6 +128,9 @@ add_subdirectory(gninaserver)
 add_executable(fromgnina fromgnina/fromgnina.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(fromgnina  gninalib )
 
+add_executable(dumpmodel dumpmodel/dumpmodel.cpp)
+target_link_libraries(dumpmodel  gninalib )
+
 add_executable(gninagrid gninagrid/gninagrid.cpp gninagrid/molgridder.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(gninagrid  gninalib  ${CUDA_LIBRARIES})
 
