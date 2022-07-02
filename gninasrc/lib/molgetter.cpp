@@ -12,6 +12,7 @@
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/timer/timer.hpp>
 #include "GninaConverter.h"
+#include <openbabel/bond.h>
 
 //create the initial model from the specified receptor files
 //mostly because Matt kept complaining about it, this will automatically create
@@ -50,6 +51,20 @@ void MolGetter::create_init_model(const std::string& rigid_name,
         OBMol rec;
         if (!conv.Read(&rec)) throw file_error(rigid_name, true);
 
+        //this is an obnoxious fix for problems in released openbabel (3_1_1 at least)
+        //where arginine is not correctly protonated if NH1 is charged
+        FOR_ATOMS_OF_MOL(a, rec) {
+          OBResidue *residue = a->GetResidue();
+          if(residue && a->GetFormalCharge() == 1) {
+            std::string aname = residue->GetAtomID(&*a);
+            boost::trim(aname);
+            if(aname == "NH1") {
+              a->SetFormalCharge(0);
+              a->SetImplicitHCount(2);
+            }
+          }
+        }
+
         rec.AddHydrogens(true);
         FOR_ATOMS_OF_MOL(a, rec){
           a->GetPartialCharge();
@@ -75,7 +90,7 @@ void MolGetter::create_init_model(const std::string& rigid_name,
 
         std::string recstr = conv.WriteString(&rigid);
         std::stringstream recstream(recstr);
-        
+
         if (flexstr.size() > 0) //have flexible component
         {
           std::stringstream flexstream(flexstr);

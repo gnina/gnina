@@ -29,6 +29,7 @@ fl grid::evaluate(const atom& a, const vec& location, fl slope, fl c,
     vec *deriv /*=NULL*/) const {
   //charge indep
   fl ret = evaluate_aux(data, location, slope, c, deriv);
+
   if (a.charge != 0 && chargedata.dim0() > 0) {
     //charge dependent
     if (deriv == NULL) {
@@ -169,6 +170,7 @@ fl grid::evaluate_aux(const array3d<fl>& m_data, const vec& location, fl slope,
         + f101 * x * my * 1 + f011 * mx * y * 1 + f111 * x * y * 1;
 
     vec gradient(x_g, y_g, z_g);
+
     curl(f, gradient, v);
     vec gradient_everywhere;
 
@@ -176,7 +178,6 @@ fl grid::evaluate_aux(const array3d<fl>& m_data, const vec& location, fl slope,
       gradient_everywhere[i] = ((region[i] == 0) ? gradient[i] : 0);
       (*deriv)[i] = m_factor[i] * gradient_everywhere[i] + slope * region[i];
     }
-
     return f + penalty;
   } else {
     curl(f, v);

@@ -664,6 +664,7 @@ void model::assign_types() {
     const atom_index ai = sz_to_atom_index(i);
     atom& a = get_atom(ai);
 
+    smt old = a.sm;
     //this is where the X-scale atom types diverge from autodock
     a.sm = adjust_smina_type(a.sm, bonded_to_HD(a), bonded_to_heteroatom(a));
   }

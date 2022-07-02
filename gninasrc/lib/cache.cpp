@@ -138,6 +138,7 @@ void cache::populate(const model& m, const precalculate& p,
           const atom& a = m.grid_atoms[i];
           const smt t1 = a.get();
           const fl r2 = vec_distance_sqr(a.coords, probe_coords);
+
           if (r2 <= cutoff_sqr) {
             VINA_FOR_IN(j, needed) {
               const smt t2 = needed[j];
@@ -167,8 +168,9 @@ void cache::populate(const model& m, const precalculate& p,
           sz t = needed[j];
           assert(t < nat);
           grids[t].data(x, y, z) = affinities[j]; //+ user_grid.evaluate_user(vec(x, y, z));
-          if (haschargeterms) grids[t].chargedata(x, y, z) =
-              chargeaffinities[j];
+          if (haschargeterms)
+            grids[t].chargedata(x, y, z) = chargeaffinities[j];
+
           if (user_grid.initialized())
             grids[t].data(x, y, z) += user_grid.evaluate_user(vec(x, y, z),
                 slope);

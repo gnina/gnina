@@ -13,7 +13,7 @@ RUN yum -y install openssl-devel bzip2-devel wget make xz git epel-release \
     lapack-devel lapack-static   python3
 RUN yum -y install boost169-devel boost169-test boost169-regex \
     boost169-python3-devel hdf5-devel  dh-autoreconf hdf5-static boost169-static zlib-static openblas-static
-
+    
 # build compatible gcc
 # download and extract source 
 ENV gcc_version "6.2.0"
@@ -91,6 +91,11 @@ RUN git clone https://github.com/git/git.git; \
     cd git; git checkout v2.25.4; \
     make prefix=/usr all; make prefix=/usr install
     
+# build compatible boost with python 3 lib
+RUN wget https://downloads.sourceforge.net/project/boost/boost/1.74.0/boost_1_74_0.tar.gz; \
+    tar -xzf boost_1_74_0.tar.gz; \
+    cd boost_1_74_0; ./bootstrap.sh --with-python=python3.6; ./b2 cxxflags="-std=c++14 -fPIC" -a -j4 install
+        
 # install molgrid 
 RUN yum install -y python3-devel
 RUN python3 -m pip install --upgrade pip

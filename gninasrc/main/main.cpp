@@ -1335,6 +1335,10 @@ Thank you!\n";
 #endif
     cnnopts.seed = settings.seed;
 
+    OpenBabel::vector3 dummy; //openbabel uses system rand initialized with time seed
+    dummy.randomUnitVector(); //this setups up the obrandom object with time
+    srand(settings.seed); //so now it is safe(?) to set the system seed
+
     set_fixed_rotable_hydrogens(!flex_hydrogens);
 
     if (settings.dominimize) //set default settings for minimization

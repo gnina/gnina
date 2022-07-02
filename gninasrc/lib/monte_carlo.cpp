@@ -120,13 +120,16 @@ void monte_carlo::operator()(model& m, output_container& out,
 
       // FIXME only for very promising ones
       if (tmp.e < best_e || out.size() < num_saved_mins) {
+
         if (!minparms.single_min) { //refine with full v
           quasi_newton_par(m, p, ig, tmp, g, authentic_v, user_grid);
           m.set(tmp.c); // FIXME? useless?
         }
         tmp.coords = m.get_heavy_atom_movable_coords();
         add_to_output_container(out, tmp, min_rmsd, num_saved_mins); // 20 - max size
-        if (tmp.e < best_e) best_e = tmp.e;
+        if (tmp.e < best_e) {
+          best_e = tmp.e;
+        }
       }
     }
   }

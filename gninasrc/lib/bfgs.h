@@ -79,13 +79,12 @@ fl fast_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
   fl alpha = 1;
 
   const fl pg = scalar_product(p, g, n);
-
   VINA_U_FOR(trial, max_trials) {
     x_new = x;
     x_new.increment(p, alpha);
     f1 = f(x_new, g_new);
     if (f1 - f0 < c0 * alpha * pg) // FIXME check - div by norm(p) ? no?
-    break;
+      break;
     alpha *= multiplier;
   }
   return alpha;
@@ -134,8 +133,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
     f1 = f(x_new, g_new);
 
     //std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
-    if (alpha < alamin || !std::isfinite(alpha)) //too small a step
-        {
+    if (alpha < alamin || !std::isfinite(alpha)) { //too small a step
       //std::cout << "alpha < alamin\n";
       x_new = x;
       g_new.clear(); //dkoes - set gradient to zero
@@ -175,7 +173,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
       }
     alpha2 = alpha;
     f2 = f1;
-    //std::cout << "TMPLAM " << tmplam << "\n";
+
     //considered slowing things down with f1 > 0, but it was slow without actually improving scores
     alpha = std::max(tmplam, (fl) 0.1 * alpha); //never smaller than a tenth
   }

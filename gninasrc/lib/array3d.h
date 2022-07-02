@@ -84,6 +84,10 @@ class array3d {
       m_k = k;
       m_data.resize(checked_multiply(i, j, k));
     }
+
+    void clear() {
+      m_data.clear();
+    }
     T& operator()(sz i, sz j, sz k) {
       return m_data[i + m_i * (j + m_j * k)];
     }
