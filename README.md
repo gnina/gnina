@@ -306,7 +306,7 @@ and sample models at [https://github.com/gnina/models](https://github.com/gnina/
 
 
 The DUD-E docked poses used in the original paper can be found [here](http://bits.csb.pitt.edu/files/docked_dude.tar) and
-the CrossDocked2020 set is [here](http://bits.csb.pitt.edu/files/crossdock2020/).
+the CrossDocked2020 set is [here](https://github.com/gnina/models/tree/master/data/CrossDocked2020).
 
 License
 =======
