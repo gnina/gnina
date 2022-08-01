@@ -316,6 +316,12 @@ struct internal_error {
     }
 };
 
+struct numerical_error : public std::runtime_error {
+    numerical_error(const std::string& message)
+        : std::runtime_error(message) {
+    }
+};
+
 #ifdef NDEBUG
 #define VINA_CHECK(P) do { if(!(P)) throw internal_error(__FILE__, __LINE__); } while(false)
 #else
@@ -404,7 +410,9 @@ __host__ inline void normalize_angle(fl& x) { // subtract or add enough 2*pi's t
   else if(x < -pi) { // in [-3*pi,  -pi)
     x += 2*pi;
   }
-  assert((x >= -pi && x <= pi) || !(std::cerr << "x=" << x << "\n"));
+  if(!(x >= -pi && x <= pi)) {
+    throw numerical_error("Numerical degeneracy encountered. Check for non-physical inputs.");
+  }
   // in [-pi, pi]
 }
 #else

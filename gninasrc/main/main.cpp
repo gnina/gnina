@@ -251,205 +251,210 @@ void do_search(model& m, const boost::optional<model>& ref,
     std::vector<result_info>& results)
 {
   boost::timer::cpu_timer time;
+  try {
 
-  precalculate_exact exact_prec(sf); //use exact computations for final score
-  conf_size s = m.get_size();
-  conf c = m.get_initial_conf(nc.move_receptor());
-  fl e = max_fl;
-  fl intramolecular_energy = max_fl;
-  fl cnnscore = 0, cnnaffinity = 0, cnnvariance = 0;
-  fl rmsd = 0;
-  if (settings.gpu_docking)
-    m.initialize_gpu();
-  const vec authentic_v(settings.forcecap, settings.forcecap,
-      settings.forcecap); //small cap restricts initial movement from clash
+    precalculate_exact exact_prec(sf); //use exact computations for final score
+    conf_size s = m.get_size();
+    conf c = m.get_initial_conf(nc.move_receptor());
+    fl e = max_fl;
+    fl intramolecular_energy = max_fl;
+    fl cnnscore = 0, cnnaffinity = 0, cnnvariance = 0;
+    fl rmsd = 0;
+    if (settings.gpu_docking)
+      m.initialize_gpu();
+    const vec authentic_v(settings.forcecap, settings.forcecap,
+        settings.forcecap); //small cap restricts initial movement from clash
 
-  cnn.set_center_from_model(m);
-  if (settings.score_only)
-  {
-    cnn.freeze_receptor();
-    intramolecular_energy = m.eval_intramolecular(exact_prec,
-        authentic_v, c);
-    naive_non_cache nnc(&exact_prec); // for out of grid issues
-    e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
-        intramolecular_energy, user_grid);
-    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
-
-    log << "Affinity: " << std::fixed << std::setprecision(5) << e
-        << " (kcal/mol)\n";
-
-    log << "CNNscore: " << std::fixed << std::setprecision(5) << cnnscore << " "
-        << "\nCNNaffinity: " << cnnaffinity;
-    if(cnnvariance > 0) {
-      log << "\nCNNvariance: " << std::fixed << std::setprecision(5) << cnnvariance;
-    }
-    log.endl();
-
-    std::vector<flv> atominfo;
-    flv term_values = t->evale_robust(m);
-    log << "Intramolecular energy: " << std::fixed << std::setprecision(5)
-        << intramolecular_energy << "\n";
-
-    log
-    << "Term values, before weighting:\n";
-    log << std::setprecision(5);
-    log << "## " << boost::replace_all_copy(m.get_name(), " ", "_");
-
-    VINA_FOR_IN(i, term_values)
+    cnn.set_center_from_model(m);
+    if (settings.score_only)
     {
-      log << ' ' << term_values[i];
-    }
-
-    conf_independent_inputs in(m);
-    const flv nonweight(1, 1.0);
-    for (unsigned i = 0, n = t->conf_independent_terms.size(); i < n; i++) {
-      flv::const_iterator pos = nonweight.begin();
-      log << " " <<
-          t->conf_independent_terms[i].eval(in, (fl) 0.0, pos);
-    }
-    log << '\n';
-
-    results.push_back(result_info(e, cnnscore, cnnaffinity, cnnvariance, -1, m));
-
-    if (compute_atominfo)
-      results.back().setAtomValues(m, &sf);
-  }
-  else if (settings.local_only)
-  {
-    vecv origcoords = m.get_heavy_atom_movable_coords();
-    output_type out(c, e);
-    doing(settings.verbosity, "Performing local search", log);
-    refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm,
-        user_grid,settings.verbosity,log);
-    done(settings.verbosity, log);
-    m.set(out.c);
-
-    //be as exact as possible for final score
-    naive_non_cache nnc(&exact_prec); // for out of grid issues
-
-    fl intramolecular_energy = m.eval_intramolecular(exact_prec,
-        authentic_v,
-        out.c);
-    e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, out.c,
-        intramolecular_energy, user_grid);
-
-    //reset the center after last call to set
-    get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
-
-    vecv newcoords = m.get_heavy_atom_movable_coords();
-    assert(newcoords.size() == origcoords.size());
-    for (unsigned i = 0, n = newcoords.size(); i < n; i++) {
-      rmsd += (newcoords[i] - origcoords[i]).norm_sqr();
-    }
-    rmsd /= newcoords.size();
-    rmsd = sqrt(rmsd);
-    log << "Affinity: " << std::fixed << std::setprecision(5) << e << "  "
-        << intramolecular_energy
-        << " (kcal/mol)\nRMSD: " << rmsd << "\n";
-    log << "CNNscore: " << std::fixed << std::setprecision(5) << cnnscore << " "
-        << "\nCNNaffinity: " << cnnaffinity;
-    if(cnnvariance > 0) {
-      log << "\nCNNvariance: " << std::fixed << std::setprecision(5) << cnnvariance;
-    }
-    log.endl();
-
-    if (!nc.within(m))
-      log << "WARNING: not all movable atoms are within the search space\n";
-
-    done(settings.verbosity, log);
-    results.push_back(result_info(e, cnnscore, cnnaffinity, cnnvariance, rmsd, m));
-
-    if (compute_atominfo)
-      results.back().setAtomValues(m, &sf);
-  }
-  else //docking
-  {
-    rng generator(static_cast<rng::result_type>(settings.seed));
-    log << "Using random seed: " << settings.seed;
-    log.endl();
-
-    output_container out_cont;
-    doing(settings.verbosity, "Performing search", log);
-    par(m, out_cont, prec, ig, corner1, corner2, generator, user_grid);
-    done(settings.verbosity, log);
-    doing(settings.verbosity, "Refining results", log);
-
-    VINA_FOR_IN(i, out_cont) {
-      refine_structure(m, prec, nc, out_cont[i], authentic_v,
-          par.mc.ssd_par.minparm, user_grid,settings.verbosity,log);
-
+      cnn.freeze_receptor();
+      intramolecular_energy = m.eval_intramolecular(exact_prec,
+          authentic_v, c);
+      naive_non_cache nnc(&exact_prec); // for out of grid issues
+      e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c,
+          intramolecular_energy, user_grid);
       get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
 
-      out_cont[i].cnnscore = cnnscore;
-      out_cont[i].cnnaffinity = cnnaffinity;
-      out_cont[i].cnnvariance = cnnvariance;
+      log << "Affinity: " << std::fixed << std::setprecision(5) << e
+          << " (kcal/mol)\n";
 
-      if (not_max(out_cont[i].e)) {
-          intramolecular_energy = m.eval_intramolecular(exact_prec, authentic_v, out_cont[i].c);
-          out_cont[i].e = m.eval_adjusted(sf, exact_prec, nc, authentic_v, out_cont[i].c, intramolecular_energy, user_grid);
+      log << "CNNscore: " << std::fixed << std::setprecision(5) << cnnscore << " "
+          << "\nCNNaffinity: " << cnnaffinity;
+      if(cnnvariance > 0) {
+        log << "\nCNNvariance: " << std::fixed << std::setprecision(5) << cnnvariance;
       }
-    }
-
-    auto sorter = [settings](const output_type& lhs, const output_type& rhs) {
-      switch(settings.sort_order) {
-      case Energy:
-        return lhs.e < rhs.e;
-      case CNNaffinity:
-        return lhs.cnnaffinity > rhs.cnnaffinity; //reverse
-      case CNNscore:
-      default:
-        return lhs.cnnscore > rhs.cnnscore; //reverse
-      }
-    };
-
-    out_cont.sort(sorter);
-    out_cont = remove_redundant(out_cont, settings.out_min_rmsd);
-
-    done(settings.verbosity, log);
-
-    log.setf(std::ios::fixed, std::ios::floatfield);
-    log.setf(std::ios::showpoint);
-    log << '\n';
-    log << "mode |  affinity  |    CNN     |   CNN\n";
-    log << "     | (kcal/mol) | pose score | affinity\n";
-    log << "-----+------------+------------+----------\n";
-
-    model best_mode_model = m;
-    if (!out_cont.empty())
-      best_mode_model.set(out_cont.front().c);
-
-    sz how_many = 0;
-    VINA_FOR_IN(i, out_cont)
-    {
-      if (!not_max(out_cont[i].e))
-        continue; //may sort by something other than energy, so do not break
-      if (how_many >= settings.num_modes)
-        break; // check energy_range sanity FIXME
-      ++how_many;
-      m.set(out_cont[i].c);
-      log << std::setw(5) << how_many << std::setw(12)
-          << std::setprecision(2) << out_cont[i].e; // intermolecular_energies[i];
-      log << " " << std::setw(12) << std::setprecision(4) << out_cont[i].cnnscore << "  "
-          << std::setw(9) << std::setprecision(3) << out_cont[i].cnnaffinity;
       log.endl();
 
-      //dkoes - setup result_info
-      results.push_back(
-          result_info(out_cont[i].e, out_cont[i].cnnscore, out_cont[i].cnnaffinity, out_cont[i].cnnvariance, -1, m));
+      std::vector<flv> atominfo;
+      flv term_values = t->evale_robust(m);
+      log << "Intramolecular energy: " << std::fixed << std::setprecision(5)
+          << intramolecular_energy << "\n";
+
+      log
+      << "Term values, before weighting:\n";
+      log << std::setprecision(5);
+      log << "## " << boost::replace_all_copy(m.get_name(), " ", "_");
+
+      VINA_FOR_IN(i, term_values)
+      {
+        log << ' ' << term_values[i];
+      }
+
+      conf_independent_inputs in(m);
+      const flv nonweight(1, 1.0);
+      for (unsigned i = 0, n = t->conf_independent_terms.size(); i < n; i++) {
+        flv::const_iterator pos = nonweight.begin();
+        log << " " <<
+            t->conf_independent_terms[i].eval(in, (fl) 0.0, pos);
+      }
+      log << '\n';
+
+      results.push_back(result_info(e, cnnscore, cnnaffinity, cnnvariance, -1, m));
 
       if (compute_atominfo)
         results.back().setAtomValues(m, &sf);
-
     }
-    done(settings.verbosity, log);
+    else if (settings.local_only)
+    {
+      vecv origcoords = m.get_heavy_atom_movable_coords();
+      output_type out(c, e);
+      doing(settings.verbosity, "Performing local search", log);
+      refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm,
+          user_grid,settings.verbosity,log);
+      done(settings.verbosity, log);
+      m.set(out.c);
 
-    if (how_many < 1)
-        {
-      log
-          << "WARNING: Could not find any conformations completely within the search space.\n"
-          << "WARNING: Check that it is large enough for all movable atoms, including those in the flexible side chains.";
+      //be as exact as possible for final score
+      naive_non_cache nnc(&exact_prec); // for out of grid issues
+
+      fl intramolecular_energy = m.eval_intramolecular(exact_prec,
+          authentic_v,
+          out.c);
+      e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, out.c,
+          intramolecular_energy, user_grid);
+
+      //reset the center after last call to set
+      get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
+
+      vecv newcoords = m.get_heavy_atom_movable_coords();
+      assert(newcoords.size() == origcoords.size());
+      for (unsigned i = 0, n = newcoords.size(); i < n; i++) {
+        rmsd += (newcoords[i] - origcoords[i]).norm_sqr();
+      }
+      rmsd /= newcoords.size();
+      rmsd = sqrt(rmsd);
+      log << "Affinity: " << std::fixed << std::setprecision(5) << e << "  "
+          << intramolecular_energy
+          << " (kcal/mol)\nRMSD: " << rmsd << "\n";
+      log << "CNNscore: " << std::fixed << std::setprecision(5) << cnnscore << " "
+          << "\nCNNaffinity: " << cnnaffinity;
+      if(cnnvariance > 0) {
+        log << "\nCNNvariance: " << std::fixed << std::setprecision(5) << cnnvariance;
+      }
       log.endl();
+
+      if (!nc.within(m))
+        log << "WARNING: not all movable atoms are within the search space\n";
+
+      done(settings.verbosity, log);
+      results.push_back(result_info(e, cnnscore, cnnaffinity, cnnvariance, rmsd, m));
+
+      if (compute_atominfo)
+        results.back().setAtomValues(m, &sf);
     }
+    else //docking
+    {
+      rng generator(static_cast<rng::result_type>(settings.seed));
+      log << "Using random seed: " << settings.seed;
+      log.endl();
+
+      output_container out_cont;
+      doing(settings.verbosity, "Performing search", log);
+      par(m, out_cont, prec, ig, corner1, corner2, generator, user_grid);
+      done(settings.verbosity, log);
+      doing(settings.verbosity, "Refining results", log);
+
+      VINA_FOR_IN(i, out_cont) {
+        refine_structure(m, prec, nc, out_cont[i], authentic_v,
+            par.mc.ssd_par.minparm, user_grid,settings.verbosity,log);
+
+        get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
+
+        out_cont[i].cnnscore = cnnscore;
+        out_cont[i].cnnaffinity = cnnaffinity;
+        out_cont[i].cnnvariance = cnnvariance;
+
+        if (not_max(out_cont[i].e)) {
+            intramolecular_energy = m.eval_intramolecular(exact_prec, authentic_v, out_cont[i].c);
+            out_cont[i].e = m.eval_adjusted(sf, exact_prec, nc, authentic_v, out_cont[i].c, intramolecular_energy, user_grid);
+        }
+      }
+
+      auto sorter = [settings](const output_type& lhs, const output_type& rhs) {
+        switch(settings.sort_order) {
+        case Energy:
+          return lhs.e < rhs.e;
+        case CNNaffinity:
+          return lhs.cnnaffinity > rhs.cnnaffinity; //reverse
+        case CNNscore:
+        default:
+          return lhs.cnnscore > rhs.cnnscore; //reverse
+        }
+      };
+
+      out_cont.sort(sorter);
+      out_cont = remove_redundant(out_cont, settings.out_min_rmsd);
+
+      done(settings.verbosity, log);
+
+      log.setf(std::ios::fixed, std::ios::floatfield);
+      log.setf(std::ios::showpoint);
+      log << '\n';
+      log << "mode |  affinity  |    CNN     |   CNN\n";
+      log << "     | (kcal/mol) | pose score | affinity\n";
+      log << "-----+------------+------------+----------\n";
+
+      model best_mode_model = m;
+      if (!out_cont.empty())
+        best_mode_model.set(out_cont.front().c);
+
+      sz how_many = 0;
+      VINA_FOR_IN(i, out_cont)
+      {
+        if (!not_max(out_cont[i].e))
+          continue; //may sort by something other than energy, so do not break
+        if (how_many >= settings.num_modes)
+          break; // check energy_range sanity FIXME
+        ++how_many;
+        m.set(out_cont[i].c);
+        log << std::setw(5) << how_many << std::setw(12)
+            << std::setprecision(2) << out_cont[i].e; // intermolecular_energies[i];
+        log << " " << std::setw(12) << std::setprecision(4) << out_cont[i].cnnscore << "  "
+            << std::setw(9) << std::setprecision(3) << out_cont[i].cnnaffinity;
+        log.endl();
+
+        //dkoes - setup result_info
+        results.push_back(
+            result_info(out_cont[i].e, out_cont[i].cnnscore, out_cont[i].cnnaffinity, out_cont[i].cnnvariance, -1, m));
+
+        if (compute_atominfo)
+          results.back().setAtomValues(m, &sf);
+
+      }
+      done(settings.verbosity, log);
+
+      if (how_many < 1)
+          {
+        log
+            << "WARNING: Could not find any conformations completely within the search space.\n"
+            << "WARNING: Check that it is large enough for all movable atoms, including those in the flexible side chains.";
+        log.endl();
+      }
+    }
+  } catch(numerical_error& ne) {
+    log << "ERROR processing " << m.get_name() << "\n";
+    log << ne.what() << "\n";
   }
   //std::cout << "Refine time " << time.elapsed().wall / 1000000000.0 << "\n";
 }
