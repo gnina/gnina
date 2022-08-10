@@ -156,16 +156,16 @@ void result_info::write(std::ostream& out, std::string& ext,
     if (!sdfvalid && ext == ".pdbqt") {
       out << "MODEL " << boost::lexical_cast<std::string>(modelnum) << "\n";
       out << "REMARK minimizedAffinity "
-          << boost::lexical_cast<std::string>((float) energy);
+          << boost::lexical_cast<std::string>((float) energy) << "\n";
       if (rmsd >= 0)
         out << "REMARK minimizedRMSD "
-            << boost::lexical_cast<std::string>((float) rmsd);
+            << boost::lexical_cast<std::string>((float) rmsd) << "\n";
       if (cnnscore >= 0)
         out << "REMARK CNNscore "
-            << boost::lexical_cast<std::string>((float) cnnscore);
+            << boost::lexical_cast<std::string>((float) cnnscore) << "\n";
       if (cnnaffinity != 0)
         out << "REMARK CNNaffinity "
-            << boost::lexical_cast<std::string>((float) cnnaffinity);
+            << boost::lexical_cast<std::string>((float) cnnaffinity) << "\n";
       out << molstr;
       out << "ENDMDL\n";
     } else //convert with openbabel
