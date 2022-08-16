@@ -36,4 +36,5 @@ jobs:
       run: cd build && ctest --timeout 3600 && ctest -T Coverage
       
     - name: Upload code coverage
+      run: lcov --remove coverage.info '/caffe/*' --output-file coverage.info
       run: curl -Os https://uploader.codecov.io/latest/linux/codecov && chmod +x codecov && ./codecov
