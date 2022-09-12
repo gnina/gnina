@@ -1568,6 +1568,11 @@ Thank you!\n";
       setup_grid_dims(center_x, center_y, center_z, size_x, size_y, size_z, gd);
     }
 
+    if (settings.verbosity > 1) {
+      log << "Using search box with center " << center_x << "," << center_y << "," << center_z << \
+          " and size " << size_x << "," << size_y << "," << size_z << "\n";
+    }
+
     if (vm.count("cpu") == 0) {
       settings.cpu = boost::thread::hardware_concurrency();
       if (settings.verbosity > 1) {
