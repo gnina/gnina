@@ -166,7 +166,11 @@ CNNScorer::CNNScorer(const cnn_options &opts) :
 
     google::protobuf::io::ArrayInputStream weightdata(weights, nbytes);
     google::protobuf::io::CodedInputStream strm(&weightdata);
+#if GOOGLE_PROTOBUF_VERSION >= 3006000
+    strm.SetTotalBytesLimit(INT_MAX);
+#else
     strm.SetTotalBytesLimit(INT_MAX, 536870912);
+#endif
     success = wparam.ParseFromCodedStream(&strm);
     if (!success)
       throw usage_error("Error with default weights.");
