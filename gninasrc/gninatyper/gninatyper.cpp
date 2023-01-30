@@ -15,6 +15,8 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/unordered_map.hpp>
+#include <boost/filesystem.hpp>
+
 #include <openbabel/oberror.h>
 
 #include "atom_type.h"
@@ -74,7 +76,7 @@ int main(int argc, char *argv[])
 		else
 		{
 			//convert all molecules, generating output file names using provided base name
-			filesystem::path p(argv[1]);
+			boost::filesystem::path p(argv[1]);
 			if (algorithm::ends_with(argv[1], ".gz"))
 				p.replace_extension("");
 			bool issdf = p.extension() == ".sdf";
@@ -120,7 +122,7 @@ int main(int argc, char *argv[])
 	{
 		//if only input file is specified, auto generate output file name and
 		//also handle multiple molecules
-		filesystem::path p(argv[1]);
+		boost::filesystem::path p(argv[1]);
 		if(algorithm::ends_with(argv[1],".gz"))
 			p.replace_extension("");
 		//strip extension

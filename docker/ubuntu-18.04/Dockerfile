@@ -5,7 +5,7 @@ FROM nvidia/cuda:11.4.2-cudnn8-devel-ubuntu18.04
 
 # get packages 
 WORKDIR /root
-RUN apt update ; apt upgrade -y ; apt-get -y install build-essential git wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-dev libatlas-base-dev python3-dev librdkit-dev python3-numpy python3-pip python3-pytest
+RUN apt update ; apt upgrade -y;  apt-get -y install build-essential git wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-dev libatlas-base-dev python3-dev librdkit-dev python3-numpy python3-pip python3-pytest
 
 
 # set up acceptable cmake version

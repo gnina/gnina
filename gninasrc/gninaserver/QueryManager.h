@@ -11,7 +11,6 @@
 #include <vector>
 #include <string>
 #include <boost/thread.hpp>
-#include <boost/unordered_map.hpp>
 #include <boost/shared_ptr.hpp>
 #include "MinimizationQuery.h"
 
@@ -26,7 +25,7 @@ class QueryManager {
   private:
     unsigned nextID; //counter to generate unique IDs
 
-    typedef unordered_map<unsigned, QueryPtr> QueryMap;
+    typedef std::unordered_map<unsigned, QueryPtr> QueryMap;
     QueryMap queries;
 
     boost::mutex mu;

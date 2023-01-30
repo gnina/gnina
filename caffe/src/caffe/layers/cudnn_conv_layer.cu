@@ -74,6 +74,29 @@ void CuDNNConvolutionLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
       // Gradient w.r.t. weights.
       if (this->param_propagate_down_[0]) {
         const Dtype* bottom_data = bottom[i]->gpu_data();
+
+
+//        std::cerr << "BACKWARDS\n";
+        cudnnDataType_t dt;
+        int nbDims = 0;
+        int dimA[CUDNN_DIM_MAX] = {0,};
+        int strideA[CUDNN_DIM_MAX] = {0,};
+        cudnnGetTensorNdDescriptor(bottom_descs_[0], CUDNN_DIM_MAX, &dt, &nbDims, dimA, strideA);
+  //      std::cerr << "bottom " << dt << " " << nbDims << " " << dimA[0] << " " << dimA[1] << " " << dimA[2] << " " << dimA[3] << " " << dimA[4] << "\n";
+
+        cudnnGetTensorNdDescriptor(top_descs_[0], CUDNN_DIM_MAX, &dt, &nbDims, dimA, strideA);
+    //    std::cerr << "top " << dt << " " << nbDims << " " << dimA[0] << " " << dimA[1] << " " << dimA[2] << " " << dimA[3] << " " << dimA[4] << "\n";
+
+        cudnnTensorFormat_t format;
+        CUDNN_CHECK(cudnnGetFilterNdDescriptor(filter_desc_, CUDNN_DIM_MAX, &dt, &format, &nbDims, dimA));
+      //  std::cerr << "filter " << dt << " " << nbDims << " " << format << " " << dimA[0] << " " << dimA[1] << " " << dimA[2] << " " << dimA[3] << " " << dimA[4] <<  "\n";
+
+        //std::cerr << "one type " << cudnn::dataType<Dtype>::type << "\n";
+
+        CUDNN_CHECK(cudnnGetConvolutionNdForwardOutputDim(conv_descs_[i], bottom_descs_[i], filter_desc_, 5, dimA));
+        //std::cerr << "outputdim " <<  dimA[0] << " " << dimA[1] << " " << dimA[2] << " " << dimA[3] << " " << dimA[4] <<  "\n";
+
+
         CUDNN_CHECK(cudnnConvolutionBackwardFilter(
               handle_[1*this->group_ + g],
               cudnn::dataType<Dtype>::one,

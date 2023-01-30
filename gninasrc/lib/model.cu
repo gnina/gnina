@@ -88,7 +88,7 @@ __host__  __device__ fl gpu_data::eval_interacting_pairs_deriv_gpu(
         cutoff_sqr, v, minus_forces, scratch);
   }
 #ifdef __CUDA_ARCH__ 
-  cudaDeviceSynchronize();
+  //cudaDeviceSynchronize();
   return scratch[0];
 #else
   float out;
@@ -158,9 +158,10 @@ __device__ fl gpu_data::eval_deriv_gpu(const infoT& info, const vec& v,
     set_conf_kernel<<<1, treegpu->num_atoms>>>(treegpu, atom_coords,
         (vec*) coords, c);
     memset(minus_forces, 0, sizeof(force_energy_tup) * (forces_size));
-    cudaDeviceSynchronize();
+    //cudaDeviceSynchronize();
+    assert(0); //TODO: refactor to not require synchronization
     e = single_point_calc(info, coords, minus_forces, v[1]);
-    cudaDeviceSynchronize();
+    //cudaDeviceSynchronize();
     if (other_pairs_size)
       e += eval_interacting_pairs_deriv_gpu(info, v[2], other_pairs,
           other_pairs_size);
@@ -172,7 +173,7 @@ __device__ fl gpu_data::eval_deriv_gpu(const infoT& info, const vec& v,
     derivatives_kernel<<<1, treegpu->num_atoms>>>(treegpu, (vec*) coords,
         (vec*) minus_forces, g);
 
-    cudaDeviceSynchronize();
+    //cudaDeviceSynchronize();
   }
 
   // t.stop();

@@ -27,7 +27,6 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
 using namespace std;
 using namespace boost;
@@ -470,11 +469,11 @@ static void ExpandResponseFiles(unsigned argc, char** argv,
     char *arg = argv[i];
 
     if (arg[0] == '@') {
-    	filesystem::path respFile(++arg);
+    	boost::filesystem::path respFile(++arg);
 
       // Check that the response file is not empty (mmap'ing empty
       // files can be problematic).
-      if (filesystem::exists(respFile) && filesystem::file_size(respFile) > 0) {
+      if (boost::filesystem::exists(respFile) && boost::filesystem::file_size(respFile) > 0) {
 
         // mmap the response file into memory.
     	  iostreams::mapped_file_source respFilePtr(respFile.string());
@@ -520,7 +519,7 @@ void cl::ParseCommandLineOptions(int argc, char **argv,
   // Copy the program name into ProgName, making sure not to overflow it.
   if(ProgramName == DEFAULT_PROGRAM_NAME)
   {
-	  ProgramName = filesystem::path(argv[0]).filename().string();
+	  ProgramName = boost::filesystem::path(argv[0]).filename().string();
   }
 
   if(Overview)
@@ -1079,14 +1078,14 @@ public:
     // Get all the options.
     vector<Option*> PositionalOpts;
     vector<Option*> SinkOpts;
-    unordered_map<string, Option*> OptMap;
+    unordered_map<std::string, Option*> OptMap;
     GetOptionInfo(PositionalOpts, SinkOpts, OptMap);
 
     // Copy Options into a vector so we can sort them as we like.
     vector<std::pair<const char *, Option*> > Opts;
     unordered_set<Option*> OptionSet;  // Duplicate option detection.
 
-    for (unordered_map<string, Option*>::iterator I = OptMap.begin(), E = OptMap.end();
+    for (unordered_map<std::string, Option*>::iterator I = OptMap.begin(), E = OptMap.end();
          I != E; ++I) {
       // Ignore really-hidden options.
       if (I->second->getOptionHiddenFlag() == ReallyHidden)

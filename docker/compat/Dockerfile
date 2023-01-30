@@ -12,7 +12,7 @@ RUN yum -y install openssl-devel bzip2-devel wget make xz git epel-release \
     perl-devel zlib-devel hdf5-devel atlas-devel atlas-static \
     lapack-devel lapack-static   python3
 RUN yum -y install boost169-devel boost169-test boost169-regex \
-    boost169-python3-devel hdf5-devel  dh-autoreconf hdf5-static boost169-static zlib-static openblas-static
+    boost169-python3-devel hdf5-devel  dh-autoreconf hdf5-static boost169-static zlib-static openblas-static which
     
 # build compatible gcc
 # download and extract source 
