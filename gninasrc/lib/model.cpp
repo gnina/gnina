@@ -969,6 +969,8 @@ fl model::gyration_radius(sz ligand_number) const {
 
 //return max distance between any two atoms
 fl model::max_span(sz ligand_number) const {
+  if(ligands.size() == 0)
+    return 0; //no lig
   VINA_CHECK(ligand_number < ligands.size());
   const ligand& lig = ligands[ligand_number];
   fl maxval = 0;

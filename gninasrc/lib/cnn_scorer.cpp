@@ -458,6 +458,8 @@ void CNNScorer::get_net_output(caffe::shared_ptr<caffe::Net<Dtype> >& net, Dtype
 void CNNScorer::setLigand(const model &m)
 {
 
+  if(m.ligands.size() == 0)
+    return; //nolig
 // Ligand atoms start at ligand root node start idx
   sz n = m.m_num_movable_atoms - m.ligands[0].node.begin;
 
@@ -481,12 +483,13 @@ void CNNScorer::setLigand(const model &m)
 // Flex coordinates are stored at the beginning, then inflex, then fixed
 void CNNScorer::setReceptor(const model &m)
 {
-
+  auto cbegin = m.get_movable_atoms().cbegin();
+  auto flexend = cbegin +m.m_num_movable_atoms;
+  if(m.ligands.size() > 0) {
+    flexend = cbegin + m.ligands[0].node.begin;
+  }
 // Number of receptor movable atoms
-  num_flex_atoms = std::distance(
-      m.get_movable_atoms().cbegin(),
-      m.get_movable_atoms().cbegin() + m.ligands[0].node.begin
-          );
+  num_flex_atoms = std::distance(cbegin, flexend);
 
 // Number of inflex atoms
   sz n_inflex = std::distance(
@@ -506,9 +509,7 @@ void CNNScorer::setReceptor(const model &m)
     receptor_smtypes.reserve(n);
 
     // Insert flexible residues movable atoms
-    auto cbegin = m.get_movable_atoms().cbegin();
-    auto cend = m.get_movable_atoms().cbegin() + m.ligands[0].node.begin;
-    for (auto it = cbegin; it != cend; ++it)
+    for (auto it = cbegin; it != flexend; ++it)
     {
       smt origt = it->sm; // Original smina type
       receptor_smtypes.push_back(origt);
@@ -518,7 +519,7 @@ void CNNScorer::setReceptor(const model &m)
 
     // Insert inflex atoms
     cbegin = m.get_movable_atoms().cbegin() + m.m_num_movable_atoms;
-    cend = m.get_movable_atoms().cend();
+    auto cend = m.get_movable_atoms().cend();
     for (auto it = cbegin; it != cend; ++it)
     {
       smt origt = it->sm; // Original smina type

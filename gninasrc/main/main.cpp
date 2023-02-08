@@ -1699,7 +1699,7 @@ Thank you!\n";
             }
             if(skip)
               continue;
-          } else if(autobox_extend) {
+          } else if(autobox_extend && !no_lig) {
             //make sure every dimension is large enough for the ligand to fit
             fl maxdim = m->max_span(0);
             setup_grid_dims(center_x, center_y, center_z,

@@ -1,0 +1,68 @@
+BEGIN_RES CYS A 199
+REMARK  10 active torsions:
+REMARK  status: ('A' for Active; 'I' for Inactive)
+REMARK    1  A    between atoms: CA   and  CB  
+REMARK    2  A    between atoms: CB   and  SG  
+REMARK    3  A    between atoms: SG   and  C5  
+REMARK    4  A    between atoms: N1   and  C13 
+REMARK    5  A    between atoms: O2   and  C15 
+REMARK    6  A    between atoms: C3   and  C13 
+REMARK    7  A    between atoms: C5   and  C12 
+REMARK    8  A    between atoms: C9   and  N3  
+REMARK    9  A    between atoms: C13  and  N3  
+REMARK   10  A    between atoms: N3   and  C17 
+ROOT
+ATOM      1  CA  CYS A 199      -4.173   5.075  -1.201  1.00  0.00     0.288 C 
+ENDROOT
+BRANCH   1   2
+ATOM      2  CB  CYS A 199      -5.136   5.266  -2.331  1.00  0.00     0.124 C 
+BRANCH   2   3
+ATOM      3  SG  CYS A 199      -6.491   6.387  -1.947  1.00  0.00    -0.087 SA
+BRANCH   3   4
+ATOM      4  C5  CYS A 199      -5.638   7.931  -1.851  1.00  0.00     0.215 C 
+ATOM      5  O1  CYS A 199      -4.582   8.116  -2.439  1.00  0.00    -0.283 OA
+BRANCH   4   6
+ATOM      6  C12 CYS A 199      -6.339   8.996  -0.972  1.00  0.00     0.221 C 
+ATOM      7  C16 CYS A 199      -6.433   8.554   0.593  1.00  0.00     0.091 A 
+ATOM      8  C10 CYS A 199      -6.562   8.073   2.298  1.00  0.00     0.113 A 
+ATOM      9  C14 CYS A 199      -7.768   8.176   1.490  1.00  0.00     0.110 A 
+ATOM     10  C6  CYS A 199      -5.074   8.278   0.685  1.00  0.00     0.136 C 
+ATOM     11  N2  CYS A 199      -5.529   7.237   1.466  1.00  0.00    -0.295 NA
+ATOM     12  C8  CYS A 199      -6.114   9.375   2.522  1.00  0.00     0.066 C 
+ATOM     13  C9  CYS A 199      -6.285  10.547   1.439  1.00  0.00     0.040 C 
+ATOM     14  O4  CYS A 199      -5.025   9.049   1.845  1.00  0.00     0.000 OA
+ATOM     15  C7  CYS A 199      -5.402  10.154   0.334  1.00  0.00     0.170 C 
+ATOM     16  O3  CYS A 199      -5.707  10.270  -0.990  1.00  0.00    -0.353 OA
+ATOM     17  O5  CYS A 199      -8.520   8.951   2.562  1.00  0.00    -0.360 OA
+ATOM     18  C4  CYS A 199      -8.737   8.467   0.359  1.00  0.00     0.083 C 
+ATOM     19  C18 CYS A 199      -9.169  10.196   2.125  1.00  0.00     0.116 C 
+ATOM     20  C2  CYS A 199     -10.545  10.218   2.775  1.00  0.00     0.052 C 
+ATOM     21  C15 CYS A 199      -9.104   9.965   0.352  1.00  0.00     0.101 C 
+BRANCH  13  22
+ATOM     22  N3  CYS A 199      -7.597  11.150   1.460  1.00  0.00    -0.369 N 
+BRANCH  22  23
+ATOM     23  C13 CYS A 199      -7.563  12.733   1.073  1.00  0.00     0.090 A 
+BRANCH  23  24
+ATOM     24  C3  CYS A 199      -8.990  11.969   0.544  1.00  0.00     0.135 A 
+ATOM     25  C11 CYS A 199      -8.077  11.390  -0.285  1.00  0.00     0.061 A 
+ENDBRANCH  23  24
+BRANCH  23  26
+ATOM     26  N1  CYS A 199      -6.175  13.263   0.925  1.00  0.00    -0.327 NA
+ATOM     27  H13 CYS A 199      -5.639  12.962   1.737  1.00  0.00     0.118 HD
+ATOM     28  H14 CYS A 199      -5.747  12.797   0.126  1.00  0.00     0.118 HD
+ENDBRANCH  23  26
+ENDBRANCH  22  23
+BRANCH  22  29
+ATOM     29  C17 CYS A 199      -8.222  11.720   2.495  1.00  0.00     0.078 C 
+ATOM     30  C1  CYS A 199      -7.503  11.830   3.807  1.00  0.00     0.043 C 
+ENDBRANCH  22  29
+ENDBRANCH  13  22
+BRANCH  21  31
+ATOM     31  O2  CYS A 199     -10.386  10.018  -0.322  1.00  0.00    -0.386 OA
+ATOM     32  H15 CYS A 199     -11.012   9.442   0.152  1.00  0.00     0.210 HD
+ENDBRANCH  21  31
+ENDBRANCH   4   6
+ENDBRANCH   3   4
+ENDBRANCH   2   3
+ENDBRANCH   1   2
+END_RES CYS A 199

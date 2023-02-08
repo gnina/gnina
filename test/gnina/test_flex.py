@@ -151,3 +151,18 @@ with open("gnina.log", "r") as f:
     assert content.count("Flexible residues: B:83 B:85") == 1
     assert content.count("WARNING") == 0
 rmout("gnina.log")
+
+# Issue #178  no lig
+outflex="flex-res.pdb".format(closest=closest)
+subprocess.check_call("{gnina} -r data/GSK3B_DFG_out_35-388-processed_rigid.pdbqt \
+    --flex data/flex_res_side_chain.pdbqt --center_x 0.443 --center_y 5.309 --center_z 6.109 \
+    --size_x 52 --size_y 52 --size_z 46 --no_lig --exhaustiveness 2 --num_modes 2 \
+    --out_flex {outflex} --num_mc_steps=10 --seed 0\
+    2>&1 | tee gnina.log".format(gnina=gnina,outflex=outflex),
+    shell=True)
+assert moved(outflex, "data/flex_res_side_chain.pdbqt", "pdbqt")    
+with open("gnina.log", "r") as f:
+    content = f.read()
+    assert content.count("WARNING") == 0
+rmout("gnina.log")
+rmout(outflex)
