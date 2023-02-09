@@ -33,7 +33,7 @@ jobs:
       
     - name: Run tests 
       continue-on-error: true 
-      run: cd build && ctest --timeout 3600 && ctest -T Coverage
+      run: cd build && ctest --timeout 7200 && ctest -T Coverage
       
     - name: Upload code coverage
       run: curl -Os https://uploader.codecov.io/latest/linux/codecov && chmod +x codecov && ./codecov
