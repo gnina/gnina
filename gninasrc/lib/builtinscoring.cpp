@@ -31,7 +31,9 @@ const info vinardo_data[NumTypes] = { //el, ad, xs
     {Zinc, "Zinc","Zn", 30, 0.740000, 0.550000, -0.001100,  1.700000, 1.310000, 1.200000, false,  true, false,  true},
     {Calcium,"Calcium", "Ca", 20, 0.990000, 0.550000, -0.001100,  2.770000, 1.740000, 1.200000, false,  true, false,  true},
     {Iron,"Iron", "Fe", 26, 0.650000, 0.010000, -0.001100,  1.840000, 1.250000, 1.200000, false,  true, false,  true},
-    {GenericMetal,"GenericMetal", "M", 0, 1.200000, 0.000000, -0.001100,  22.449300,  1.750000, 1.200000, false,  true, false,  true}
+    {GenericMetal,"GenericMetal", "M", 0, 1.200000, 0.000000, -0.001100,  22.449300,  1.750000, 1.200000, false,  true, false,  true},
+    // gnina adds Boron - vinardo did not parameterize boron so use defaults
+    { Boron, "Boron", "B", 5, 2.04, 0.180000, -0.0011, 12.052, 0.90, 1.920000, true, false, false, false}
 };
 } //smina_atom_type namespace
 

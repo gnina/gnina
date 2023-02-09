@@ -232,6 +232,8 @@ inline smt string_to_smina_type(const std::string& name) {
   // if name is 2 chars or less, assume it is an AD4 type,
   //otherwise assume it is a full smina type name
   //I'm assuming this will not be called frequently and so am not using lookup tables
+  if (name.length() == 0)
+    return smina_atom_type::NumTypes;
   if (name.length() <= 2) {
     VINA_FOR(i, smina_atom_type::NumTypes)
       if (smina_atom_type::data[i].adname == name)

@@ -38,6 +38,8 @@ class builtin_scoring {
     void addparams(const std::string& name, const smina_atom_type::info* data)
     {
       atomdata[name] = data;
+      VINA_FOR(i, smina_atom_type::NumTypes)
+        VINA_CHECK(smina_atom_type::data[i].adname); //make sure filled out
     }
 
   public:
