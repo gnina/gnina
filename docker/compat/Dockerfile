@@ -16,7 +16,7 @@ RUN yum -y install boost169-devel boost169-test boost169-regex \
     
 # build compatible gcc
 # download and extract source 
-ENV gcc_version "6.2.0"
+ENV gcc_version "6.3.0"
 RUN wget --no-verbose \
         http://ftpmirror.gnu.org/gcc/gcc-${gcc_version}/gcc-${gcc_version}.tar.bz2 && \
     tar xf gcc-${gcc_version}.tar.bz2
@@ -66,10 +66,10 @@ RUN ln -s /usr/bin/g++ /usr/local/cuda/bin/g++
 
 
 # set up acceptable cmake version
-RUN wget https://github.com/Kitware/CMake/releases/download/v3.23.2/cmake-3.23.2-linux-x86_64.tar.gz
-RUN tar xzf cmake-3.23.2-linux-x86_64.tar.gz
-RUN cp cmake-3.23.2-linux-x86_64/bin/* /usr/local/bin
-RUN cp -r cmake-3.23.2-linux-x86_64/share/cmake-3.23 /usr/local/share/
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.25.2/cmake-3.25.2-linux-x86_64.tar.gz
+RUN tar xzf cmake-3.25.2-linux-x86_64.tar.gz
+RUN cp cmake-3.25.2-linux-x86_64/bin/* /usr/local/bin
+RUN cp -r cmake-3.25.2-linux-x86_64/share/cmake-3.25 /usr/local/share/
 
 # set up eigen
 RUN wget https://gitlab.com/libeigen/eigen/-/archive/3.3.7/eigen-3.3.7.tar.gz
@@ -91,13 +91,14 @@ RUN git clone https://github.com/git/git.git; \
     cd git; git checkout v2.25.4; \
     make prefix=/usr all; make prefix=/usr install
     
+RUN yum install -y python3-devel
+    
 # build compatible boost with python 3 lib
-RUN wget https://downloads.sourceforge.net/project/boost/boost/1.74.0/boost_1_74_0.tar.gz; \
-    tar -xzf boost_1_74_0.tar.gz; \
-    cd boost_1_74_0; ./bootstrap.sh --with-python=python3.6; ./b2 cxxflags="-std=c++14 -fPIC" -a -j4 install
+RUN wget https://downloads.sourceforge.net/project/boost/boost/1.77.0/boost_1_77_0.tar.gz; \
+    tar -xzf boost_1_77_0.tar.gz; \
+    cd boost_1_77_0; ./bootstrap.sh --with-python=python3.6; ./b2 cxxflags="-std=c++14 -fPIC" -a -j4 install
         
 # install molgrid 
-RUN yum install -y python3-devel
 RUN python3 -m pip install --upgrade pip
 RUN python3 -m pip install numpy pytest pyquaternion -U
 # build libmolgrid
@@ -106,9 +107,9 @@ RUN python3.6 -m pip install numpy pytest pyquaternion auditwheel twine
 RUN git clone https://github.com/gnina/libmolgrid.git; \
     cd libmolgrid; \
     mkdir build; cd build; \
-    cmake -DCUDA_ARCHITECTURES=all -DBoost_INCLUDE_DIR=/usr/include/boost169/ -DBOOST_LIBRARYDIR=/usr/lib64/boost169/ ..; \
+    cmake -DCUDA_ARCHITECTURES=all -DCUDA_ARCH_NAME=All -DBoost_INCLUDE_DIR=/usr/local/include/ -DBOOST_LIBRARYDIR=/usr/local/lib/ ..; \
     make -j8; make install; \
-    cmake -DCUDA_ARCHITECTURES=all -DBoost_INCLUDE_DIR=/usr/include/boost169/ -DBOOST_LIBRARYDIR=/usr/lib64/boost169/ -DBUILD_STATIC=ON -DBoost_USE_STATIC_LIBS=ON -DBUILD_SHARED=OFF ..; \
+    cmake -DCUDA_ARCHITECTURES=all -DCUDA_ARCH_NAME=All -DBoost_INCLUDE_DIR=/usr/local/include/ -DBOOST_LIBRARYDIR=/usr/local/lib/ -DBUILD_STATIC=ON -DBoost_USE_STATIC_LIBS=ON -DBUILD_SHARED=OFF ..; \
     make -j8 libmolgrid_static; cp lib64/libmolgrid.a /usr/local/lib/libmolgrid.a 
     
 RUN git clone https://github.com/gflags/gflags.git; \
@@ -135,34 +136,38 @@ RUN git clone  https://github.com/erget/libaec.git; \
     mkdir build; cd build; \
     cmake -DBUILD_SHARED_LIBS=OFF ..; make -j8; \
     make install    
+
+
+ADD "https://api.github.com/repos/gnina/gnina/commits?per_page=1" latest_commit
                 
 RUN git clone https://github.com/gnina/gnina.git; \
     cd gnina; \
     git checkout v1.0.2; \
     sed -i 's/LIBMOLGRID_LIBRARY}/LIBMOLGRID_LIBRARY} ZLIB::ZLIB/' gninasrc/CMakeLists.txt ; \
      mkdir build; cd build; \
-    cmake .. -DAtlas_CBLAS_LIBRARY=/usr/lib64/libopenblas.a  -DBUILD_SHARED_LIBS=OFF -DBoost_INCLUDE_DIR=/usr/include/boost169/ \
-    -DPYTHON_EXECUTABLE=/usr/bin/python3 -DBOOST_LIBRARYDIR=/usr/lib64/boost169/ -DHAVE_PYTHON=0 -DBUILD_python=OFF \
-    -DLIBMOLGRID_LIBRARY=/usr/local/lib/libmolgrid.a -DCUDA_ARCH_NAME=All -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda-11; \
+    cmake .. -DAtlas_CBLAS_LIBRARY=/usr/lib64/libopenblas.a  -DBUILD_SHARED_LIBS=OFF -DBoost_INCLUDE_DIR=/usr/local/include/ \
+    -DPYTHON_EXECUTABLE=/usr/bin/python3 -DBOOST_LIBRARYDIR=/usr/local/lib/ -DHAVE_PYTHON=0 -DBUILD_python=OFF \
+    -DLIBMOLGRID_LIBRARY=/usr/local/lib/libmolgrid.a -DCUDA_ARCH_NAME=All -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda -DUSE_CUDNN=OFF; \
     make -j8 gnina; 
+    
     
 #make "mostly static" executable
 RUN cd gnina/build/gninasrc; \
 /usr/bin/c++  -Wno-deprecated-declarations -Wno-unknown-pragmas -O3 -DNDEBUG   CMakeFiles/gnina.dir/main/main.cpp.o CMakeFiles/gnina.dir/version.cpp.o CMakeFiles/gnina.dir/lib/atom_constants.cpp.o CMakeFiles/gnina.dir/lib/bfgs.cu.o CMakeFiles/gnina.dir/lib/box.cpp.o CMakeFiles/gnina.dir/lib/builtinscoring.cpp.o CMakeFiles/gnina.dir/lib/cache.cpp.o CMakeFiles/gnina.dir/lib/cache_gpu.cpp.o CMakeFiles/gnina.dir/lib/cnn_scorer.cpp.o CMakeFiles/gnina.dir/lib/cnn_data.cpp.o CMakeFiles/gnina.dir/lib/coords.cpp.o CMakeFiles/gnina.dir/lib/custom_terms.cpp.o CMakeFiles/gnina.dir/lib/device_buffer.cpp.o CMakeFiles/gnina.dir/lib/everything.cpp.o CMakeFiles/gnina.dir/lib/flexinfo.cpp.o CMakeFiles/gnina.dir/lib/GninaConverter.cpp.o CMakeFiles/gnina.dir/lib/grid.cpp.o CMakeFiles/gnina.dir/lib/grid_gpu.cu.o CMakeFiles/gnina.dir/lib/model.cpp.o CMakeFiles/gnina.dir/lib/molgetter.cpp.o CMakeFiles/gnina.dir/lib/monte_carlo.cpp.o CMakeFiles/gnina.dir/lib/mutate.cpp.o CMakeFiles/gnina.dir/lib/my_pid.cpp.o CMakeFiles/gnina.dir/lib/naive_non_cache.cpp.o CMakeFiles/gnina.dir/lib/non_cache.cpp.o CMakeFiles/gnina.dir/lib/non_cache_cnn.cpp.o CMakeFiles/gnina.dir/lib/obmolopener.cpp.o CMakeFiles/gnina.dir/lib/parallel_mc.cpp.o CMakeFiles/gnina.dir/lib/parallel_progress.cpp.o CMakeFiles/gnina.dir/lib/parse_pdbqt.cpp.o CMakeFiles/gnina.dir/lib/pdb.cpp.o CMakeFiles/gnina.dir/lib/PDBQTUtilities.cpp.o CMakeFiles/gnina.dir/lib/quasi_newton.cpp.o CMakeFiles/gnina.dir/lib/quaternion.cu.o CMakeFiles/gnina.dir/lib/random.cpp.o CMakeFiles/gnina.dir/lib/result_info.cpp.o CMakeFiles/gnina.dir/lib/ssd.cpp.o CMakeFiles/gnina.dir/lib/szv_grid.cpp.o CMakeFiles/gnina.dir/lib/terms.cpp.o CMakeFiles/gnina.dir/lib/weighted_terms.cpp.o CMakeFiles/gnina.dir/lib/conf.cpp.o CMakeFiles/gnina.dir/lib/conf_gpu.cu.o CMakeFiles/gnina.dir/lib/gpucode.cu.o CMakeFiles/gnina.dir/lib/model.cu.o CMakeFiles/gnina.dir/lib/non_cache_gpu.cu.o CMakeFiles/gnina.dir/lib/precalculate_gpu.cu.o CMakeFiles/gnina.dir/lib/tree_gpu.cu.o CMakeFiles/gnina.dir/lib/user_opts.cpp.o CMakeFiles/gnina.dir/cmake_device_link.o  -o ../bin/gnina  \
- -L/usr/local/cuda/targets/x86_64-linux/lib  -Wl,-rpath,/usr/lib64/boost169:/usr/local/lib:/usr/local/cuda/lib64:/usr/lib64/atlas: \
+ -L/usr/local/cuda/targets/x86_64-linux/lib  -Wl,-rpath,/usr/local/lib:/usr/local/cuda/lib64:/usr/lib64/atlas: \
    -Wl,--whole-archive ../caffe/lib/libcaffe.a -Wl,--no-whole-archive  \
-  /usr/lib64/boost169/libboost_program_options.a \
-  /usr/lib64/boost169/libboost_system.a \
-  /usr/lib64/boost169/libboost_iostreams.a \
-  /usr/lib64/boost169/libboost_timer.a \
-  /usr/lib64/boost169/libboost_thread.a \
-  /usr/lib64/boost169/libboost_serialization.a \
-  /usr/lib64/boost169/libboost_filesystem.a \
-  /usr/lib64/boost169/libboost_date_time.a \
-  /usr/lib64/boost169/libboost_regex.a \
-  /usr/lib64/boost169/libboost_unit_test_framework.a \
-  /usr/lib64/boost169/libboost_chrono.a \
-  /usr/lib64/boost169/libboost_atomic.a \
+  /usr/local/lib/libboost_program_options.a \
+  /usr/local/lib/libboost_system.a \
+  /usr/local/lib/libboost_iostreams.a \
+  /usr/local/lib/libboost_timer.a \
+  /usr/local/lib/libboost_thread.a \
+  /usr/local/lib/libboost_serialization.a \
+  /usr/local/lib/libboost_filesystem.a \
+  /usr/local/lib/libboost_date_time.a \
+  /usr/local/lib/libboost_regex.a \
+  /usr/local/lib/libboost_unit_test_framework.a \
+  /usr/local/lib/libboost_chrono.a \
+  /usr/local/lib/libboost_atomic.a \
   /usr/local/lib/libopenbabel.a \
   /usr/local/lib/libmolgrid.a \
   ../caffe/lib/libcaffeproto.a \
@@ -176,18 +181,6 @@ RUN cd gnina/build/gninasrc; \
   /usr/lib64/libhdf5.a \
   /usr/lib64/libz.a \
   /usr/local/cuda/lib64/libcurand_static.a  \
-  /usr/lib64/libcudnn_ops_train_static_v8.a   \
-  /usr/lib64/libcudnn_cnn_train_static_v8.a  \
-  /usr/lib64/libcudnn_adv_train_static_v8.a  \
-  /usr/lib64/libcudnn_ops_train_static.a   \
-  /usr/lib64/libcudnn_cnn_train_static.a  \
-  /usr/lib64/libcudnn_adv_train_static.a  \
-  /usr/lib64/libcudnn_adv_infer_static.a \
-  /usr/lib64/libcudnn_adv_infer_static_v8.a \
-  /usr/lib64/libcudnn_cnn_infer_static.a \
-  /usr/lib64/libcudnn_cnn_infer_static_v8.a  \
-  /usr/lib64/libcudnn_ops_infer_static.a \
-  /usr/lib64/libcudnn_ops_infer_static_v8.a \
   /usr/local/cuda/lib64/libcusolver_static.a  \
   /usr/local/cuda/lib64/libcublas_static.a \
   /usr/local/cuda/lib64/libculibos.a \
@@ -199,6 +192,7 @@ RUN cd gnina/build/gninasrc; \
   /usr/local/cuda/lib64/libcudart_static.a  \
    /usr/local/cuda/targets/x86_64-linux/lib/libcudadevrt.a \
    /usr/local/cuda/lib64/libcublasLt_static.a \
+  /usr/local/cuda/targets/x86_64-linux/lib/libnvrtc_static.a \
      -lm -lpthread -ldl -lrt 
 
 #./bin/gnina -r ../test/gnina/data/184l_rec.pdb -l ../test/gnina/data/184l_lig.sdf --autobox_ligand ../test/gnina/data/184l_lig.sdf --seed 0
