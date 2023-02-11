@@ -142,7 +142,6 @@ ADD "https://api.github.com/repos/gnina/gnina/commits?per_page=1" latest_commit
                 
 RUN git clone https://github.com/gnina/gnina.git; \
     cd gnina; \
-    git checkout v1.0.2; \
     sed -i 's/LIBMOLGRID_LIBRARY}/LIBMOLGRID_LIBRARY} ZLIB::ZLIB/' gninasrc/CMakeLists.txt ; \
      mkdir build; cd build; \
     cmake .. -DAtlas_CBLAS_LIBRARY=/usr/lib64/libopenblas.a  -DBUILD_SHARED_LIBS=OFF -DBoost_INCLUDE_DIR=/usr/local/include/ \
