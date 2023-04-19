@@ -49,7 +49,7 @@ A pre-built docker image is available [here](https://hub.docker.com/u/gnina) and
 Installation
 ============
 
-We strongly recommend that you build gnina from source to ensure you are using libraries that are optimized for your system.  However, a compatibility focused binary is [available](https://github.com/gnina/gnina/releases/download/v1.0/gnina) as part of the release for evaluation purposes.
+We strongly recommend that you build gnina from source to ensure you are using libraries that are optimized for your system.  However, a compatibility focused binary is [available](https://github.com/gnina/gnina/releases/latest) as part of the release for evaluation purposes.
 
 ### Ubuntu 20.04
 ```
