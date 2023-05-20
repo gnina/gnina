@@ -1,5 +1,5 @@
 [![codecov](https://codecov.io/gh/gnina/gnina/branch/master/graph/badge.svg?token=kOC9GUKEGa)](https://codecov.io/gh/gnina/gnina)
-![Github CI](https://github.com/gnina/gnina/actions/workflows/CI.yml/badge.svg)
+[![Github CI](https://github.com/gnina/gnina/actions/workflows/CI.yml/badge.svg)](https://github.com/gnina/gnina/actions)
 
 gnina (pronounced NEE-na) is a molecular docking program with integrated support for scoring and optimizing ligands using convolutional neural networks. It is a fork of [smina](http://smina.sf.net/), which is a fork of [AutoDock Vina](http://vina.scripps.edu/).  
 
@@ -49,7 +49,7 @@ A pre-built docker image is available [here](https://hub.docker.com/u/gnina) and
 Installation
 ============
 
-We strongly recommend that you build gnina from source to ensure you are using libraries that are optimized for your system.  However, a compatibility focused binary is [available](https://github.com/gnina/gnina/releases/download/v1.0/gnina) as part of the release for evaluation purposes.
+We strongly recommend that you build gnina from source to ensure you are using libraries that are optimized for your system.  However, a compatibility focused binary is [available](https://github.com/gnina/gnina/releases/latest) as part of the release for evaluation purposes.
 
 ### Ubuntu 20.04
 ```
