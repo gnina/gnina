@@ -95,7 +95,7 @@ assert are_similar('data/C8flat.xyz',outfile)
 rmout()
 subprocess.check_call('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_scoring=all \
   --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
-  --cnn_update_min_frame --minimize -o %s'%(gnina,outfile),shell=True)
+  --cnn_update_min_frame=true --minimize -o %s'%(gnina,outfile),shell=True)
 assert are_similar('data/C8flat.xyz',outfile)
 assert re.search(r'<molecular weight>',open(outfile).read()) #should retain sddata tag
 
@@ -115,7 +115,7 @@ assert are_similar('data/C8flat.xyz',outfile)
 rmout()
 subprocess.check_call('%s  -r data/C8flat.xyz -l data/C8bent.sdf --cnn_scoring=all \
   --cnn_model data/overlap_smallr.model --cnn_weights data/overlay.caffemodel \
-  --cnn_update_min_frame --minimize -o %s'%(gnina,outfile),shell=True)
+  --cnn_update_min_frame=true --minimize -o %s'%(gnina,outfile),shell=True)
 assert are_similar('data/C8flat.xyz',outfile)
 
 rmout()
