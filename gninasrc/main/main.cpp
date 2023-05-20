@@ -1199,7 +1199,7 @@ Thank you!\n";
         "resolution of grids, don't change unless you really know what you are doing")
     ("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
         "evaluate multiple rotations of pose (max 24)")
-    ("cnn_update_min_frame", bool_switch(&cnnopts.move_minimize_frame)->default_value(true),
+    ("cnn_update_min_frame", value<bool>(&cnnopts.move_minimize_frame)->default_value(true),
         "During minimization, recenter coordinate frame as ligand moves")
     ("cnn_freeze_receptor", bool_switch(&cnnopts.fix_receptor),
         "Don't move the receptor with respect to a fixed coordinate system")
@@ -1388,7 +1388,6 @@ Thank you!\n";
     bool search_box_needed = !(settings.score_only || settings.local_only); // randomize_only and local_only still need the search space; dkoes - for local get box from ligand
     bool output_produced = !settings.score_only;
     bool receptor_needed = !settings.randomize_only;
-
 
 
     if (cnnopts.cnn_scoring == CNNall) {
