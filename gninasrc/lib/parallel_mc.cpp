@@ -68,16 +68,17 @@ struct parallel_mc_aux {
     const vec* corner2;
     parallel_progress* pg;
     grid* user_grid;
+    non_cache* nc;
     parallel_mc_aux(const monte_carlo* mc_, const precalculate* p_, igrid* ig_,
         const vec* corner1_, const vec* corner2_, parallel_progress* pg_,
-        grid* user_grid_)
+        grid* user_grid_, non_cache* nc_)
         : mc(mc_), p(p_), ig(ig_), corner1(corner1_), corner2(corner2_),
-            pg(pg_), user_grid(user_grid_) {
+            pg(pg_), user_grid(user_grid_), nc(nc_) {
     }
 
     void operator()(parallel_mc_task& t) const {
       //TODO: remove when the CNN is using the device buffer
-      const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(ig);
+      const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(nc);
       if (t.m.gpu_initialized() && t.m.gdata.device_on && !cnn) { //only triggered with non-cnn gpu docking
         thread_buffer.reinitialize();
         //update our copy of gpu_data to have local buffers; N.B. this
@@ -141,17 +142,24 @@ struct parallel_mc_aux {
             sizeof(size_t[num_nodes]));
         t.m.gdata.bfs_order_dfs_indices = bfs_order_dfs_indices;
       }
-      if (cnn) {
+      if (cnn && cnn->get_scorer().options().cnn_scoring>CNNrefinement) {
         CNNScorer cnn_scorer(cnn->get_scorer().options());
         const precalculate* p = cnn->get_precalculate();
         szv_grid_cache gridcache(t.m, p->cutoff_sqr());
         non_cache_cnn new_cnn(gridcache, cnn->get_grid_dims(), p,
             cnn->getSlope(), cnn_scorer);
-        (*mc)(t.m, t.out, *p, new_cnn, *corner1, *corner2, pg, t.generator,
-            *user_grid);
+        if (cnn_scorer.options().cnn_scoring==CNNmetropolisrefine||cnn_scorer.options().cnn_scoring==CNNmetropolisrescore)
+        {
+            (*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator,
+                *user_grid, new_cnn);
+        }
+        else{//cnn_scoring=CNNall
+            (*mc)(t.m, t.out, *p, new_cnn, *corner1, *corner2, pg, t.generator,
+                *user_grid,new_cnn);
+        }
       } else
         (*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator,
-            *user_grid);
+            *user_grid, *ig);
     }
 };
 
@@ -174,10 +182,10 @@ void merge_output_containers(const parallel_mc_task_container& many,
 
 void parallel_mc::operator()(const model& m, output_container& out,
     const precalculate& p, igrid& ig, const vec& corner1, const vec& corner2,
-    rng& generator, grid& user_grid) const {
+    rng& generator, grid& user_grid, non_cache& nc) const {
   parallel_progress pp;
   parallel_mc_aux parallel_mc_aux_instance(&mc, &p, &ig, &corner1, &corner2,
-      (display_progress ? (&pp) : NULL), &user_grid);
+      (display_progress ? (&pp) : NULL), &user_grid, &nc);
   parallel_mc_task_container task_container;
   VINA_FOR(i, num_tasks)
     task_container.push_back(
@@ -189,7 +197,7 @@ void parallel_mc::operator()(const model& m, output_container& out,
     initializeCUDA(m.gdata.device_id); //harmless to do if there isn't a gpu
     if (m.gdata.device_on)
     {
-      const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(&ig);
+      const non_cache_cnn* cnn = dynamic_cast<const non_cache_cnn*>(&nc);
       if (!cnn)
         thread_buffer.init(available_mem(num_threads));
     }

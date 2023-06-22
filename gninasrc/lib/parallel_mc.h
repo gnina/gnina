@@ -35,7 +35,7 @@ struct parallel_mc {
     }
     void operator()(const model& m, output_container& out,
         const precalculate& p, igrid& ig, const vec& corner1,
-        const vec& corner2, rng& generator, grid& user_grid) const;
+        const vec& corner2, rng& generator, grid& user_grid, non_cache& nc) const;
 };
 
 #endif
