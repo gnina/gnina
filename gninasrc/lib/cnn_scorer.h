@@ -94,7 +94,8 @@ class CNNScorer {
 
     //disable receptor movement (e.g. for score only)
     void freeze_receptor() {
-      cnnopts.move_minimize_frame = true;
+      if (isnan(cnnopts.cnn_center[0]))
+        cnnopts.move_minimize_frame = true; //only move if center not specified
       cnnopts.fix_receptor = true;
     }
 

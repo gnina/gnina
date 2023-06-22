@@ -382,7 +382,6 @@ bool CNNScorer::has_affinity() const
 //call this before minimizing a ligand
 void CNNScorer::set_center_from_model(model &m)
 {
-
   if (isfinite(current_center[0]) && cnnopts.moving_receptor())
   {
     //when we recenter, we need to apply any receptor transformations to the ligand (inversed)
