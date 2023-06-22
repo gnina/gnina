@@ -376,7 +376,7 @@ void do_search(model& m, const boost::optional<model>& ref,
       doing(settings.verbosity, "Refining results", log);
 
       VINA_FOR_IN(i, out_cont) {
-        if (!settings.cnnopts.cnn_scoring==CNNmetropolisrescore){ //don't refine if rescoring
+        if (settings.cnnopts.cnn_scoring!=CNNmetropolisrescore){ //don't refine if rescoring
           refine_structure(m, prec, nc, out_cont[i], authentic_v,
               par.mc.ssd_par.minparm, user_grid,settings.verbosity,log);
         }
