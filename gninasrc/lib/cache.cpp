@@ -20,12 +20,15 @@
 
  */
 
-#include <algorithm> // fill, etc#if 0 // use binary cache// for some reason, binary archive gives four huge warnings in VC2008
+#include <algorithm> // fill, etc
+#if 0 // use binary cache
+// for some reason, binary archive gives four huge warnings in VC2008
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 typedef boost::archive::binary_iarchive iarchive;
 typedef boost::archive::binary_oarchive oarchive;
-#else // use text cache#include <boost/archive/text_oarchive.hpp>
+#else // use text cache
+#include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 typedef boost::archive::text_iarchive iarchive;
 typedef boost::archive::text_oarchive oarchive;
@@ -44,7 +47,7 @@ cache::cache(const std::string& scoring_function_version_, const grid_dims& gd_,
         slope(slope_), grids(num_atom_types()) {
 }
 
-fl cache::eval(const model& m, fl v) const { // needs m.coords
+fl cache::eval(model& m, fl v) const { // needs m.coords
   fl e = 0;
   sz nat = num_atom_types();
 

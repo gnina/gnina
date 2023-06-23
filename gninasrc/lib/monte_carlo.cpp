@@ -24,7 +24,6 @@
 #include "coords.h"
 #include "mutate.h"
 #include "quasi_newton.h"
-#include "non_cache_cnn.h"
 
 output_type monte_carlo::operator()(model& m, const precalculate& p, igrid& ig,
     const vec& corner1, const vec& corner2, incrementable* increment_me,
@@ -43,12 +42,8 @@ bool metropolis_accept(fl old_f, fl new_f, fl temperature, rng& generator) {
 }
 
 void update_energy(model& m, output_type& out, const vec& v, igrid* ig){
-  non_cache_cnn* nc = dynamic_cast<non_cache_cnn*>(ig);
-  if (nc){
-    nc->adjust_center(m);
-    out.e = nc->eval(m, v[1]);}
-  //nc->adjust_center(m);
-  //out.e = nc->eval(m, v[1]);
+  ig->adjust_center(m);
+  out.e = ig->eval(m, v[1]);
 }
 
 void monte_carlo::single_run(model& m, output_type& out, const precalculate& p,

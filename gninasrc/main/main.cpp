@@ -248,7 +248,7 @@ void do_search(model& m, const boost::optional<model>& ref,
     const parallel_mc& par, const user_settings& settings,
     bool compute_atominfo, tee& log,
     const terms *t, grid& user_grid, CNNScorer& cnn,
-    std::vector<result_info>& results)
+    std::vector<result_info>& results,szv_grid_cache& grid_cache, const grid_dims& gd, fl slope)
 {
   boost::timer::cpu_timer time;
   try {
@@ -375,11 +375,18 @@ void do_search(model& m, const boost::optional<model>& ref,
       done(settings.verbosity, log);
       doing(settings.verbosity, "Refining results", log);
 
+      
       VINA_FOR_IN(i, out_cont) {
-        if (settings.cnnopts.cnn_scoring!=CNNmetropolisrescore){ //don't refine if rescoring
-          refine_structure(m, prec, nc, out_cont[i], authentic_v,
+        if (settings.cnnopts.cnn_scoring==CNNmetropolisrescore)//don't refine with cnn if rescoring
+        {
+          non_cache nc_new = non_cache(grid_cache, gd, &prec, slope);
+          refine_structure(m, prec, nc_new, out_cont[i], authentic_v,
               par.mc.ssd_par.minparm, user_grid,settings.verbosity,log);
         }
+        else
+        refine_structure(m, prec, nc, out_cont[i], authentic_v,
+              par.mc.ssd_par.minparm, user_grid,settings.verbosity,log);
+        
         get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
 
         out_cont[i].cnnscore = cnnscore;
@@ -551,7 +558,7 @@ void main_procedure(model &m, precalculate &prec,
       do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
           settings, compute_atominfo, log,
           wt.unweighted_terms(), user_grid, cnn,
-          results);
+          results,gridcache,gd,slope);
     }
     else
     {
@@ -574,7 +581,7 @@ void main_procedure(model &m, precalculate &prec,
       }
       do_search(m, ref, wt, prec, *c, *nc, corner1, corner2, par,
           settings, compute_atominfo, log,
-          wt.unweighted_terms(), user_grid, cnn, results);
+          wt.unweighted_terms(), user_grid, cnn, results,gridcache,gd,slope);
     }
 
     delete nc;
