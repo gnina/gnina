@@ -24,6 +24,7 @@
 #include "coords.h"
 #include "mutate.h"
 #include "quasi_newton.h"
+#include "non_cache_cnn.h"
 
 output_type monte_carlo::operator()(model& m, const precalculate& p, igrid& ig,
     const vec& corner1, const vec& corner2, incrementable* increment_me,
@@ -41,9 +42,13 @@ bool metropolis_accept(fl old_f, fl new_f, fl temperature, rng& generator) {
   return random_fl(0, 1, generator) < acceptance_probability;
 }
 
-void update_energy(model& m, output_type& out, const vec& v, igrid& ig){
-  ig.adjust_center(m);
-  out.e = ig.eval(m, v[1]);
+void update_energy(model& m, output_type& out, const vec& v, igrid* ig){
+  non_cache_cnn* nc = dynamic_cast<non_cache_cnn*>(ig);
+  if (nc){
+    nc->adjust_center(m);
+    out.e = nc->eval(m, v[1]);}
+  //nc->adjust_center(m);
+  //out.e = nc->eval(m, v[1]);
 }
 
 void monte_carlo::single_run(model& m, output_type& out, const precalculate& p,
@@ -61,12 +66,12 @@ void monte_carlo::single_run(model& m, output_type& out, const precalculate& p,
     output_type candidate(current.c, max_fl);
     mutate_conf(candidate.c, m, mutation_amplitude, generator);
     quasi_newton_par(m, p, ig, candidate, g, hunt_cap, user_grid);
-    update_energy(m, candidate, authentic_v, ig_metropolis);
+    update_energy(m, candidate, authentic_v, &ig_metropolis);
     if (step == 0
         || metropolis_accept(current.e, candidate.e, temperature, generator)) {
       quasi_newton_par(m, p, ig, candidate, g, authentic_v, user_grid);
       current = candidate;
-      update_energy(m, current, authentic_v, ig_metropolis);
+      update_energy(m, current, authentic_v, &ig_metropolis);
       if (current.e < out.e) out = current;
     }
   }
@@ -119,7 +124,7 @@ void monte_carlo::operator()(model& m, output_container& out,
     else
       quasi_newton_par(m, p, ig, candidate, g, hunt_cap, user_grid);
     
-    update_energy(m, candidate, authentic_v, ig_metropolis);
+    update_energy(m, candidate, authentic_v, &ig_metropolis);
     
     if (step == 0
         || metropolis_accept(tmp.e, candidate.e, temperature, generator)) {
@@ -132,7 +137,7 @@ void monte_carlo::operator()(model& m, output_container& out,
 
         if (!minparms.single_min) { //refine with full v
           quasi_newton_par(m, p, ig, tmp, g, authentic_v, user_grid);
-          update_energy(m, tmp, authentic_v, ig_metropolis);
+          update_energy(m, tmp, authentic_v, &ig_metropolis);
           m.set(tmp.c); // FIXME? useless?
         }
         tmp.coords = m.get_heavy_atom_movable_coords();
