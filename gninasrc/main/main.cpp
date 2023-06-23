@@ -375,11 +375,10 @@ void do_search(model& m, const boost::optional<model>& ref,
       done(settings.verbosity, log);
       doing(settings.verbosity, "Refining results", log);
 
-      
+      non_cache nc_new = non_cache(grid_cache, gd, &prec, slope);
       VINA_FOR_IN(i, out_cont) {
         if (settings.cnnopts.cnn_scoring==CNNmetropolisrescore)//don't refine with cnn if rescoring
         {
-          non_cache nc_new = non_cache(grid_cache, gd, &prec, slope);
           refine_structure(m, prec, nc_new, out_cont[i], authentic_v,
               par.mc.ssd_par.minparm, user_grid,settings.verbosity,log);
         }
@@ -395,7 +394,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 
         if (not_max(out_cont[i].e)) {
             intramolecular_energy = m.eval_intramolecular(exact_prec, authentic_v, out_cont[i].c);
-            out_cont[i].e = m.eval_adjusted(sf, exact_prec, nc, authentic_v, out_cont[i].c, intramolecular_energy, user_grid);
+            //we want vina energies not CNN
+            out_cont[i].e = m.eval_adjusted(sf, exact_prec, nc_new, authentic_v, out_cont[i].c, intramolecular_energy, user_grid);
         }
       }
 
