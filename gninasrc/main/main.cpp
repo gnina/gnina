@@ -140,7 +140,7 @@ fl do_randomization(model& m, const vec& corner1,
 
 void refine_structure(model& m, const precalculate& prec, non_cache& nc,
     output_type& out, const vec& cap, const minimization_params& minparm,
-    grid& user_grid, int verbosity, tee& log)
+    grid& user_grid, int verbosity, tee& log,non_cache& nc_new)
     {
   // std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
   change g(m.get_size(), nc.move_receptor());
@@ -179,7 +179,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
     log << "Total energy after refinement: " << std::fixed << std::setprecision(5) << final_e; 
     log.endl();
     //non_cache::eval for empirical energy
-    fl final_emp_e = nc.eval(m, cap[1]);
+    fl final_emp_e = nc_new.eval(m, cap[1]);
     log << "Empirical energy after refinement: " << std::fixed << std::setprecision(5) << final_emp_e; 
     log.endl();
   }
@@ -266,6 +266,7 @@ void do_search(model& m, const boost::optional<model>& ref,
         settings.forcecap); //small cap restricts initial movement from clash
 
     cnn.set_center_from_model(m);
+    non_cache nc_new = non_cache(grid_cache, gd, &prec, slope);
     if (settings.score_only)
     {
       cnn.freeze_receptor();
@@ -321,7 +322,7 @@ void do_search(model& m, const boost::optional<model>& ref,
       output_type out(c, e);
       doing(settings.verbosity, "Performing local search", log);
       refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm,
-          user_grid,settings.verbosity,log);
+          user_grid,settings.verbosity,log,nc_new);
       done(settings.verbosity, log);
       m.set(out.c);
 
@@ -375,16 +376,16 @@ void do_search(model& m, const boost::optional<model>& ref,
       done(settings.verbosity, log);
       doing(settings.verbosity, "Refining results", log);
 
-      non_cache nc_new = non_cache(grid_cache, gd, &prec, slope);
+      
       VINA_FOR_IN(i, out_cont) {
         if (settings.cnnopts.cnn_scoring==CNNmetropolisrescore)//don't refine with cnn if rescoring
         {
           refine_structure(m, prec, nc_new, out_cont[i], authentic_v,
-              par.mc.ssd_par.minparm, user_grid,settings.verbosity,log);
+              par.mc.ssd_par.minparm, user_grid,settings.verbosity,log,nc_new);
         }
         else
         refine_structure(m, prec, nc, out_cont[i], authentic_v,
-              par.mc.ssd_par.minparm, user_grid,settings.verbosity,log);
+              par.mc.ssd_par.minparm, user_grid,settings.verbosity,log,nc_new);
         
         get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
 
