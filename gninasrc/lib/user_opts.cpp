@@ -59,6 +59,10 @@ std::istream& operator>>(std::istream &in, cnn_scoring_level &cnn_level)
     cnn_level = CNNrescore;
   else if (starts_with(token, "refine") || starts_with(token,"min"))
     cnn_level = CNNrefinement;
+  else if (token =="metrorescore")
+    cnn_level = CNNmetropolisrescore;
+  else if (token == "metrorefine")
+    cnn_level = CNNmetropolisrefine;
   else if(token == "none" || token == "no")
     cnn_level = CNNnone;
   else

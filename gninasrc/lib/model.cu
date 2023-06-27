@@ -97,7 +97,7 @@ __host__  __device__ fl gpu_data::eval_interacting_pairs_deriv_gpu(
 #endif
 }
 
-fl model::evali(const precalculate& p, const vec& v) const { // clean up
+fl model::evali(const precalculate& p, const vec& v){ // clean up
 
   assert(0);
   /* TODO */
@@ -109,7 +109,7 @@ fl model::evali(const precalculate& p, const vec& v) const { // clean up
   return 0;
 }
 
-fl model::evale(const precalculate& p, const igrid& ig, const vec& v) const { // clean up
+fl model::evale(const precalculate& p, const igrid& ig, const vec& v) { // clean up
   fl e = ig.eval(*this, v[1]);
   e += eval_interacting_pairs(p, v[2], other_pairs, coords);
   return e;

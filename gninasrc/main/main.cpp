@@ -140,7 +140,7 @@ fl do_randomization(model& m, const vec& corner1,
 
 void refine_structure(model& m, const precalculate& prec, non_cache& nc,
     output_type& out, const vec& cap, const minimization_params& minparm,
-    grid& user_grid, int verbosity, tee& log)
+    grid& user_grid, int verbosity, tee& log,non_cache& nc_new)
     {
   // std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
   change g(m.get_size(), nc.move_receptor());
@@ -179,7 +179,7 @@ void refine_structure(model& m, const precalculate& prec, non_cache& nc,
     log << "Total energy after refinement: " << std::fixed << std::setprecision(5) << final_e; 
     log.endl();
     //non_cache::eval for empirical energy
-    fl final_emp_e = nc.eval(m, cap[1]);
+    fl final_emp_e = nc_new.eval(m, cap[1]);
     log << "Empirical energy after refinement: " << std::fixed << std::setprecision(5) << final_emp_e; 
     log.endl();
   }
@@ -248,7 +248,7 @@ void do_search(model& m, const boost::optional<model>& ref,
     const parallel_mc& par, const user_settings& settings,
     bool compute_atominfo, tee& log,
     const terms *t, grid& user_grid, CNNScorer& cnn,
-    std::vector<result_info>& results)
+    std::vector<result_info>& results,szv_grid_cache& grid_cache, const grid_dims& gd, fl slope)
 {
   boost::timer::cpu_timer time;
   try {
@@ -266,6 +266,7 @@ void do_search(model& m, const boost::optional<model>& ref,
         settings.forcecap); //small cap restricts initial movement from clash
 
     cnn.set_center_from_model(m);
+    non_cache nc_new = non_cache(grid_cache, gd, &prec, slope);
     if (settings.score_only)
     {
       cnn.freeze_receptor();
@@ -321,7 +322,7 @@ void do_search(model& m, const boost::optional<model>& ref,
       output_type out(c, e);
       doing(settings.verbosity, "Performing local search", log);
       refine_structure(m, prec, nc, out, authentic_v, par.mc.ssd_par.minparm,
-          user_grid,settings.verbosity,log);
+          user_grid,settings.verbosity,log,nc_new);
       done(settings.verbosity, log);
       m.set(out.c);
 
@@ -371,14 +372,21 @@ void do_search(model& m, const boost::optional<model>& ref,
 
       output_container out_cont;
       doing(settings.verbosity, "Performing search", log);
-      par(m, out_cont, prec, ig, corner1, corner2, generator, user_grid);
+      par(m, out_cont, prec, ig, corner1, corner2, generator, user_grid,nc);
       done(settings.verbosity, log);
       doing(settings.verbosity, "Refining results", log);
 
+      
       VINA_FOR_IN(i, out_cont) {
+        if (settings.cnnopts.cnn_scoring==CNNmetropolisrescore)//don't refine with cnn if rescoring
+        {
+          refine_structure(m, prec, nc_new, out_cont[i], authentic_v,
+              par.mc.ssd_par.minparm, user_grid,settings.verbosity,log,nc_new);
+        }
+        else
         refine_structure(m, prec, nc, out_cont[i], authentic_v,
-            par.mc.ssd_par.minparm, user_grid,settings.verbosity,log);
-
+              par.mc.ssd_par.minparm, user_grid,settings.verbosity,log,nc_new);
+        
         get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
 
         out_cont[i].cnnscore = cnnscore;
@@ -387,7 +395,8 @@ void do_search(model& m, const boost::optional<model>& ref,
 
         if (not_max(out_cont[i].e)) {
             intramolecular_energy = m.eval_intramolecular(exact_prec, authentic_v, out_cont[i].c);
-            out_cont[i].e = m.eval_adjusted(sf, exact_prec, nc, authentic_v, out_cont[i].c, intramolecular_energy, user_grid);
+            //we want vina energies not CNN
+            out_cont[i].e = m.eval_adjusted(sf, exact_prec, nc_new, authentic_v, out_cont[i].c, intramolecular_energy, user_grid);
         }
       }
 
@@ -505,6 +514,9 @@ void main_procedure(model &m, precalculate &prec,
   if (settings.max_mc_steps > 0 && par.mc.num_steps > settings.max_mc_steps) {
     par.mc.num_steps = settings.max_mc_steps;
   }
+  if (settings.temperature > 0) {
+    par.mc.temperature = settings.temperature; //expose temperature to user for cnn metropolis
+  }
 
   par.mc.ssd_par.evals = unsigned((25 + m.num_movable_atoms()) / 3);
   if (minparm.maxiters == 0)
@@ -547,7 +559,7 @@ void main_procedure(model &m, precalculate &prec,
       do_search(m, ref, wt, prec, *nc, *nc, corner1, corner2, par,
           settings, compute_atominfo, log,
           wt.unweighted_terms(), user_grid, cnn,
-          results);
+          results,gridcache,gd,slope);
     }
     else
     {
@@ -570,7 +582,7 @@ void main_procedure(model &m, precalculate &prec,
       }
       do_search(m, ref, wt, prec, *c, *nc, corner1, corner2, par,
           settings, compute_atominfo, log,
-          wt.unweighted_terms(), user_grid, cnn, results);
+          wt.unweighted_terms(), user_grid, cnn, results,gridcache,gd,slope);
     }
 
     delete nc;
@@ -1146,6 +1158,8 @@ Thank you!\n";
         "cap on number of monte carlo steps to take in each chain")
     ("num_mc_saved", value<int>(&settings.num_mc_saved),
             "number of top poses saved in each monte carlo chain")
+    ("temperature", value<fl>(&settings.temperature),
+            "temperature for metropolis accept criterion")
     ("minimize_iters",
         value<unsigned>(&minparms.maxiters)->default_value(0),
         "number iterations of steepest descent; default scales with rotors and usually isn't sufficient for convergence")
@@ -1188,7 +1202,7 @@ Thank you!\n";
     options_description cnn("Convolutional neural net (CNN) scoring");
     cnn.add_options()
     ("cnn_scoring",value<cnn_scoring_level>(&cnnopts.cnn_scoring)->default_value(CNNrescore),
-                    "Amount of CNN scoring: none, rescore (default), refinement, all")
+                    "Amount of CNN scoring: none, rescore (default), refinement, metrorescore (metropolis+rescore), metrorefine (metropolis+refine), all")
     ("cnn", value<std::vector<std::string> >(&cnnopts.cnn_model_names)->multitoken(),
         ("built-in model to use, specify PREFIX_ensemble to evaluate an ensemble of models starting with PREFIX: " + builtin_cnn_models()).c_str())
     ("cnn_model", value<std::vector<std::string>>(&cnnopts.cnn_models)->multitoken(),

@@ -24,6 +24,8 @@ enum cnn_scoring_level {
   CNNnone, //don't use CNN
   CNNrescore, // use CNN only for final scoring and ranking
   CNNrefinement, // use CNN only for minimization
+  CNNmetropolisrescore, // use CNN for MC and final scoring
+  CNNmetropolisrefine, // use CNN for MC and minimization
   CNNall // use CNN everywhere
 };
 
@@ -85,6 +87,7 @@ struct user_settings {
     int num_mc_steps;
     int max_mc_steps;
     int num_mc_saved;
+    fl temperature;
     pose_sort_order sort_order;
 
     bool score_only;
@@ -102,7 +105,7 @@ struct user_settings {
     user_settings()
         :  num_modes(9), out_min_rmsd(1), forcecap(1000),
             seed(auto_seed()), verbosity(1), cpu(1), device(0),
-            exhaustiveness(10), num_mc_steps(0), max_mc_steps(0), num_mc_saved(50),
+            exhaustiveness(10), num_mc_steps(0), max_mc_steps(0), num_mc_saved(50), temperature(0),
             sort_order(CNNscore), score_only(false),
             randomize_only(false), local_only(false), dominimize(false),
             include_atom_info(false), gpu_docking(false), no_gpu(false) {
