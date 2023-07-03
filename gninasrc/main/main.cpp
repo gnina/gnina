@@ -1426,6 +1426,12 @@ Thank you!\n";
           << "\nCorrect usage:\n"
           << desc_simple << '\n';
       return 1;
+    } else {
+      for(const auto& lname : ligand_names) {
+        if(!boost::filesystem::exists(lname)) {
+          throw file_error(lname, true);
+        }
+      }
     }
 
     if (settings.exhaustiveness < 1)
