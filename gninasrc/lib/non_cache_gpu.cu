@@ -72,7 +72,7 @@ non_cache_gpu::~non_cache_gpu() {
   thread_buffer.reinitialize();
 }
 
-fl non_cache_gpu::eval(const model& m, fl v) const {
+fl non_cache_gpu::eval(model& m, fl v) const {
   abort(); //not implemented
 }
 

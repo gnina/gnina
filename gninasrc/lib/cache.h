@@ -41,7 +41,7 @@ struct energy_mismatch : public cache_mismatch {
 struct cache : public igrid {
     cache(const std::string& scoring_function_version_, const grid_dims& gd_,
         fl slope_);
-    fl eval(const model& m, fl v) const; // needs m.coords // clean up
+    fl eval(model& m, fl v) const; // needs m.coords // clean up
     fl eval_deriv(model& m, fl v, const grid& user_grid) const; // needs m.coords, sets m.minus_forces // clean up
 
     virtual void populate(const model& m, const precalculate& p,

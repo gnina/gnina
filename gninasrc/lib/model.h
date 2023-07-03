@@ -435,8 +435,8 @@ struct model {
         const atom_index& i, const atom_index& j) const;
 
     // clean up
-    fl evali(const precalculate& p, const vec& v) const;
-    fl evale(const precalculate& p, const igrid& ig, const vec& v) const;
+    fl evali(const precalculate& p, const vec& v);
+    fl evale(const precalculate& p, const igrid& ig, const vec& v);
     fl eval(const precalculate& p, const igrid& ig, const vec& v, const conf& c,
         const grid& user_grid);
     fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
