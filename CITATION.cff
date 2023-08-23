@@ -24,14 +24,14 @@ authors:
   - given-names: Matthew
     family-names: Ragoza
     affiliation: University of Pittsburgh
+  - given-names: Jocelyn
+    family-names: Sunseri
+    affiliation: University of Pittsburgh
   - given-names: David
     family-names: Koes
     email: dkoes@pitt.edu
     affiliation: University of Pittsburgh
     orcid: 'https://orcid.org/0000-0002-6892-6614'
-  - given-names: Jocelyn
-    family-names: Sunseri
-    affiliation: University of Pittsburgh
 identifiers:
   - type: doi
     value: 10.26434/chemrxiv.13578140.v1
