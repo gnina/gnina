@@ -411,7 +411,7 @@ __host__ inline void normalize_angle(fl& x) { // subtract or add enough 2*pi's t
     x += 2*pi;
   }
   if(!(x >= -pi && x <= pi)) {
-    throw numerical_error("Numerical degeneracy encountered. Check for non-physical inputs.");
+    throw numerical_error("Numerical degeneracy encountered. Check for non-physical inputs. "+std::to_string(x)+" should be between -pi and pi.");
   }
   // in [-pi, pi]
 }
