@@ -25,13 +25,7 @@ jobs:
       run: apt update -y && apt upgrade -y 
         
     - name: Build from src
-      run: mkdir build && cd build && cmake .. && make -j8
-      
-    - name: set PYTHONPATH
-      run: echo export PYTHONPATH=`ls -d /gnina-runner/_work/gnina/gnina/build/external/lib/python3.10/site-packages/molgrid*` >> $GITHUB_ENV
-
-    - name: set CTEST_OUT
-      run: echo export PYTHONPATH=`ls -d /gnina-runner/_work/gnina/gnina/build/external/lib/python3.10/site-packages/molgrid*` >> $GITHUB_ENV
+      run: mkdir build && cd build && cmake .. && make -j8    
             
     - name: install gnina
       run: cd build && make install
