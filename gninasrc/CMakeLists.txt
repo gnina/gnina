@@ -40,6 +40,7 @@ lib/cache_gpu.cpp
 lib/cnn_scorer.cpp
 lib/cnn_data.cpp
 lib/coords.cpp
+lib/covinfo.cpp
 lib/custom_terms.cpp
 lib/device_buffer.cpp
 lib/everything.cpp

@@ -38,7 +38,7 @@ class CNNScorer {
     caffe::shared_ptr<boost::recursive_mutex> mtx; //todo, enable parallel scoring
 
     //scratch vectors to avoid memory reallocation
-    std::vector<gfloat3> gradient;
+    std::vector<gfloat3> gradient, gradient_rec, gradient_lig;
     std::vector<gfloat3> atoms;
     std::vector<short> channels;
     vec current_center; //center last time set_center was called, if min frame is moving, the mgrid center will be changing
@@ -46,8 +46,9 @@ class CNNScorer {
     // Receptor and ligand information
     std::vector<float3> ligand_coords, receptor_coords;
     std::vector<smt> ligand_smtypes, receptor_smtypes;
+    std::vector<int> ligand_map, receptor_map; //from index in above arrays to index in movable atoms
 
-    std::size_t num_flex_atoms = 0; // Number of flexible atoms
+    std::size_t num_atoms = 0; // Number of movable atoms + inflexible atoms
 
     // Set ligand and receptor atoms and coordinates from model
     void setLigand(const model& m);

@@ -109,18 +109,19 @@ struct gpu_data {
 struct sdfcontext {
 
     struct sdfatom { //atom info
-        atmidx index; //this is set after parsing and corresponds to the model's atom index
+        atmidx index = 0; //this is set after parsing and corresponds to the model's atom index
                       //the sdf index is just the index into the atoms array plus one
-        char elem[2]; //element symbol, note not necessarily null terminated
-        bool inflex; //true if atom is nonmoving atom in flex - which means we
+        char elem[2] = {0,0}; //element symbol, note not necessarily null terminated
+        bool inflex = false; //true if atom is nonmoving atom in flex - which means we
                      //need an offset to get to the coordinate
+        bool iscovlig = false; //true if atom is part of a covalent ligand
 
         sdfatom()
             : index(0), inflex(false) {
           elem[0] = elem[1] = 0;
         }
-        sdfatom(const char* nm)
-            : index(0), inflex(false) {
+        sdfatom(const char* nm, bool iscov = false)
+            : index(0), inflex(false), iscovlig(iscov) {
           elem[0] = elem[1] = 0;
           if (nm) {
             elem[0] = nm[0];
@@ -181,7 +182,7 @@ struct sdfcontext {
 
     void dump(std::ostream& out) const;
     //output sdf with provided coords
-    void write(const vecv& coords, sz nummove, std::ostream& out) const;
+    void write(const vecv& coords, sz nummove, std::ostream& out, bool covonly=false) const;
     bool valid() const {
       return atoms.size() > 0;
     }
@@ -207,10 +208,11 @@ class appender;
 struct context {
     pdbqtcontext pdbqttext;
     sdfcontext sdftext;
+    bool has_cov_lig = false;
 
     void writePDBQT(const vecv& coords, std::ostream& out) const;
-    void writeSDF(const vecv& coords, sz nummove, std::ostream& out) const {
-      sdftext.write(coords, nummove, out);
+    void writeSDF(const vecv& coords, sz nummove, std::ostream& out, bool covonly=false) const {
+      sdftext.write(coords, nummove, out, covonly);
     }
     void update(const appender& transform);
     void set(sz pdbqtindex, sz sdfindex, sz atomindex, bool inf = false);
@@ -358,18 +360,33 @@ struct model {
     void write_flex(const path& name, const std::string& remark) const {
       write_context(flex_context, name, remark);
     }
-    void write_flex(std::ostream& out) const {
-      write_context(flex_context, out);
+    void write_flex(std::ostream& out, bool& issdf, bool covonly = false) const {
+      if(flex_context.sdftext.valid()) {
+        issdf = true;
+        flex_context.writeSDF(coords, m_num_movable_atoms, out, covonly);
+      } else {
+        write_context(flex_context, out);
+      }
     }
-    void write_flex_sdf(std::ostream& out) const {
-      flex_context.writeSDF(coords, m_num_movable_atoms, out);
-    }
+
     void dump_flex_sdf(std::ostream& out) const {
       flex_context.sdftext.dump(out);
     }
-    void write_ligand(std::ostream& out) const {
-      VINA_FOR_IN(i, ligands)
-        write_context(ligands[i].cont, out);
+
+    bool flex_has_covalent() const {
+      return flex_context.has_cov_lig;
+    }
+
+    void write_ligand(std::ostream& out, bool& issdf) const {
+      issdf = false;
+      VINA_FOR_IN(i, ligands) {
+        if (ligands[i].cont.sdftext.valid()) {
+          ligands[0].cont.writeSDF(coords, m_num_movable_atoms, out);
+          issdf = true;
+        } else {
+          write_context(ligands[i].cont, out);
+        }
+      }
     }
 
     void write_rigid_xyz(std::ostream& out, const vec& center) const;
@@ -380,14 +397,6 @@ struct model {
         write_context(flex_context, out);
     }
 
-    //write ligand data as sdf (no flex); return true if successful
-    bool write_sdf(std::ostream& out) const {
-      if (ligands.size() > 0 && ligands[0].cont.sdftext.valid()) {
-        ligands[0].cont.writeSDF(coords, m_num_movable_atoms, out);
-        return true;
-      }
-      return false;
-    }
     void write_structure(std::ostream& out, const std::string& remark) const {
       out << remark;
       write_structure(out);

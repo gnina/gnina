@@ -305,7 +305,8 @@ fl simple_gradient_ascent(F& f, Conf& x, Change& g,
         Conf xi(x);
         xi.increment(p, alpha * factor);
         f.m->set(xi);
-        f.m->write_sdf(minout);
+        bool format;
+        f.m->write_ligand(minout, format);
         minout << "$$$$\n";
       }
     }
@@ -436,11 +437,13 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
         Conf xi(x);
         xi.increment(p, alpha * factor);
         f.m->set(xi);
-        f.m->write_sdf(minout);
+        bool format;
+        f.m->write_ligand(minout, format);
         minout << "$$$$\n";
         f.m->write_rigid_xyz(recout, f.get_center());
         if(f.m->num_flex() > 0) {
-          f.m->write_flex(flexout);
+          bool format;
+          f.m->write_flex(flexout, format);
           flexout << "ENDMDL\n";
         }
       }

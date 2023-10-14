@@ -20,6 +20,15 @@ enum pose_sort_order {
 //for reading in as a commandline option
 std::istream& operator>>(std::istream &in, pose_sort_order &sort_order);
 
+enum covalent_optimization {
+  None,
+  Atom,
+  Ligand
+};
+
+//for reading in as a commandline option
+std::istream& operator>>(std::istream &in, covalent_optimization &sort_order);
+
 enum cnn_scoring_level {
   CNNnone, //don't use CNN
   CNNrescore, // use CNN only for final scoring and ranking

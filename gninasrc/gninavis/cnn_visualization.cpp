@@ -349,6 +349,7 @@ float cnn_visualization::score_modified_ligand(const std::string &mol_string) {
     if (visopts.target == "affinity") {
       return aff;
     }
+  return 0;
 }
 //map: xyz coordinates concatenated:scores
 void cnn_visualization::write_scores(

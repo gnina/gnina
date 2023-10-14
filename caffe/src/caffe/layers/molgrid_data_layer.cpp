@@ -1112,7 +1112,8 @@ void MolGridDataLayer<Dtype>::setLigand(const vector<float3>& coords, const vect
 
   if (calcCenter || !isfinite(grid_center[0])) {
     gfloat3 c = batch_info[0].orig_lig_atoms.center();
-    setGridCenter(vec(c.x,c.y,c.z));
+    if(coords.size() != 0) //don't override center if there was no ligand
+      setGridCenter(vec(c.x,c.y,c.z));
   }
 }
 

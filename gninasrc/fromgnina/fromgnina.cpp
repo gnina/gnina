@@ -68,7 +68,8 @@ int main(int argc, char *argv[]) {
     m.append(tmp.m);
 
     stringstream str;
-    m.write_sdf(str);
+    bool format;
+    m.write_ligand(str, format);
     cout << str.str() << "$$$$\n";
   }
 }

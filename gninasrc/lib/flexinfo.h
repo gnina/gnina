@@ -33,14 +33,17 @@ class FlexInfo {
     }
     FlexInfo(const std::string& flexres, double flexdist,
         const std::string& ligand, int nflex, bool nflex_hard_limit, tee& l);
-    bool hasContent() const {
+    bool has_content() const {
       return residues.size() > 0 || flex_dist > 0;
     }
 
+    void extract_residue(OpenBabel::OBMol& rigid,  OpenBabel::OBResidue *r, OpenBabel::OBMol& flexres);
     void extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
         std::string& flexpdbqt);
 
-    void printFlex() const;
+    std::string residue_to_pdbqt(OpenBabel::OBMol& flex);
+
+    void print_flex() const;
 
   private:
     void sanitizeResidues(OpenBabel::OBMol& receptor); //remove inflexible residues from residues set

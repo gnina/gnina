@@ -13,6 +13,8 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
 
+add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON) # for vs code
+
 if("${CMAKE_BUILD_TYPE}" STREQUAL "")
   set(CMAKE_BUILD_TYPE Release)
 endif()

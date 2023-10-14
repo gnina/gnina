@@ -309,8 +309,8 @@ struct pdbqt_initializer {
         m.ligands.front().cont = c;
       } else
         m.flex_context = c;
-
     }
+
     void initialize(const distance_type_matrix& mobility) {
       m.initialize(mobility);
     }

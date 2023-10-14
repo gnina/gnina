@@ -14,19 +14,18 @@
 
 void result_info::setMolecule(const model& m) {
   std::stringstream str;
-  if (m.write_sdf(str)) {
-    sdfvalid = true; //can do native sdf output, //TODO - fix flex residue output - todone? seems like it works
-    molstr = str.str();
-  } else {
-    m.write_ligand(str);
-    molstr = str.str();
-  }
+  m.write_ligand(str, sdfvalid);
 
   if (m.num_flex() > 0) { //save flex residue info
     std::stringstream fstr;
-    m.write_flex(fstr);
+
+    if(m.flex_has_covalent()) {
+      m.write_flex(str, sdfvalid, true);
+    }
+    m.write_flex(fstr, flexsdfvalid);
     flexstr = fstr.str();
   }
+  molstr = str.str();
   name = m.get_name();
 }
 
@@ -93,7 +92,11 @@ void result_info::writeFlex(std::ostream& out, std::string& ext, int modelnum) {
     throw usage_error("Invalid formt "+ext);
   }
   //residue are pdbqt only currently
-  outconv.SetInFormat("PDBQT");
+  if(flexsdfvalid) {
+    outconv.SetInFormat("SDF");
+  } else {
+    outconv.SetInFormat("PDBQT");
+  }
   outconv.SetOutFormat(format);
   outconv.ReadString(&mol, flexstr); //otherwise keep orig mol
   mol.SetTitle(name); //same name as cmpd

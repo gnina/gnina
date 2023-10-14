@@ -82,6 +82,7 @@ void MCMolConverter::convertConformer(unsigned conf, std::ostream& out) {
 unsigned convertParsing(OBMol& mol, parsing_struct& p, context& c, int rootatom,
     const vector<int>& norotate, bool addH) {
   if (addH) mol.AddHydrogens();
+
   mol.PerceiveBondOrders();
   mol.SetAromaticPerceived();
   mol.SetAutomaticFormalCharge(false);
@@ -91,8 +92,7 @@ unsigned convertParsing(OBMol& mol, parsing_struct& p, context& c, int rootatom,
   map<unsigned int, obbranch> tree;
 
   //we kind of assume a connected molecule
-  unsigned best_root_atom = FindFragments(mol, rigid_fragments, rootatom,
-      norotate);
+  unsigned best_root_atom = FindFragments(mol, rigid_fragments, rootatom, norotate);
   unsigned torsdof = rigid_fragments.size() - 1;
 
   if (rootatom > 0) {

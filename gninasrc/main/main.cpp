@@ -55,6 +55,7 @@
 #include "result_info.h"
 #include "box.h"
 #include "flexinfo.h"
+#include "covinfo.h"
 #include "builtinscoring.h"
 #include "sem.h"
 #include "user_opts.h"
@@ -784,89 +785,58 @@ void setup_user_gd(grid_dims& gd, std::ifstream& user_in)
 
 }
 
+// work queue job format
+struct worker_job {
+  unsigned int molid;
+  model *m;
+  std::vector<result_info> *results;
+  grid_dims gd;
 
-//work queue job format
-struct worker_job
-{
-    unsigned int molid;
-    model* m;
-    std::vector<result_info>* results;
-    grid_dims gd;
+  worker_job(unsigned int molid, model *m, std::vector<result_info> *results, grid_dims gd)
+      : molid(molid), m(m), results(results), gd(gd){};
 
-    worker_job(unsigned int molid, model* m, std::vector<result_info>* results,
-        grid_dims gd)
-        :
-            molid(molid), m(m), results(results), gd(gd)
-    {
+  worker_job() : molid(0), m(NULL), results(NULL) {
+    for (int i = 0; i < 3; i++) {
+      gd[i] = grid_dim();
     }
-    ;
-
-    worker_job()
-        :
-            molid(0), m(NULL), results(NULL)
-    {
-      for (int i = 0; i < 3; i++)
-          {
-        gd[i] = grid_dim();
-      }
-    }
-    ;
-
+  };
 };
 
-//writer queue job format
-struct writer_job
-{
-    unsigned int molid;
-    std::vector<result_info>* results;
+// writer queue job format
+struct writer_job {
+  unsigned int molid;
+  std::vector<result_info> *results;
 
-    writer_job(unsigned int molid, std::vector<result_info>* results)
-        :
-            molid(molid), results(results)
-    {
-    }
-    ;
+  writer_job(unsigned int molid, std::vector<result_info> *results) : molid(molid), results(results){};
 
-    writer_job()
-        :
-            molid(0), results(NULL)
-    {
-    }
-    ;
+  writer_job() : molid(0), results(NULL){};
 };
 
-template<typename T>
-struct job_queue
-{
-    job_queue()
-        :
-            jobs(0)
-    {
-    }
-    ;
+template <typename T> struct job_queue {
+  job_queue() : jobs(0){};
 
-    void push(T& job) {
-      jobs.push(job);
+  void push(T &job) {
+    jobs.push(job);
+    has_work.signal();
+  }
+
+  // Returns false and doesn't modify job iff the queue has been
+  // closed. Should not be called again in the same thread afterwards.
+  bool wait_and_pop(T &job) {
+    has_work.wait();
+    return !jobs.pop(job);
+  }
+
+  // Signal that all jobs are done. num_possible_waiters will be waiting
+  // on the sem, so arrange for them to wake. They'll find an empty
+  // queue that distinguishes these special signals.
+  void close(size_t num_possible_waiters) {
+    for (size_t i = 0; i < num_possible_waiters; i++)
       has_work.signal();
-    }
+  }
 
-    // Returns false and doesn't modify job iff the queue has been
-    // closed. Should not be called again in the same thread afterwards.
-    bool wait_and_pop(T& job) {
-      has_work.wait();
-      return !jobs.pop(job);
-    }
-
-    // Signal that all jobs are done. num_possible_waiters will be waiting
-    // on the sem, so arrange for them to wake. They'll find an empty
-    // queue that distinguishes these special signals.
-    void close(size_t num_possible_waiters) {
-      for (size_t i = 0; i < num_possible_waiters; i++)
-        has_work.signal();
-    }
-
-    sem has_work;
-    boost::lockfree::queue<T> jobs;
+  sem has_work;
+  boost::lockfree::queue<T> jobs;
 };
 
 //A struct of parameters that define the current run. These are packed together
@@ -930,8 +900,7 @@ void threads_at_work(job_queue<worker_job> *wrkq,
 void write_out(std::vector<result_info> &results, ozfile &outfile,
     std::string &outext,
     user_settings &settings, const weighted_terms &wt, ozfile &outflex,
-    std::string &outfext, std::ofstream &atomoutfile)
-    {
+    std::string &outfext, std::ofstream &atomoutfile)  {
   if (outfile)
   {
     //write out molecular data
@@ -1075,6 +1044,8 @@ Thank you!\n";
     bool strip_hydrogens = false;
     bool no_lig = false;
 
+    CovOptions copt;
+
     user_settings settings;
     cnn_options& cnnopts = settings.cnnopts;
 
@@ -1120,6 +1091,19 @@ Thank you!\n";
             "Expand the autobox if needed to ensure the input conformation of the ligand being docked can freely rotate within the box.")
     ("no_lig", bool_switch(&no_lig)->default_value(false),
         "no ligand; for sampling/minimizing flexible residues");
+
+    options_description covalent("Covalent docking");
+    covalent.add_options()
+    ("covalent_rec_atom", value<std::string>(&copt.covalent_rec_atom), "Receptor atom ligand is covalently bound to.  Can be specified as chain:resnum:atom_name or as x,y,z Cartesian coordinates.")
+    ("covalent_lig_atom_pattern", value<std::string>(&copt.covalent_lig_atom_pattern), "SMARTS expression for ligand atom that will covalently bind protein.")
+    ("covalent_lig_atom_position", value<std::string>(&copt.covalent_lig_atom_position), "Optional.  Initial placement of covalently bonding ligand atom in x,y,z Cartesian coordinates.  If not specified, OpenBabel's GetNewBondVector function will be used to position ligand.")
+    ("covalent_fix_lig_atom_position", bool_switch(&copt.covalent_fix_lig_atom_position), "If covalent_lig_atom_position is specified, fix the ligand atom to this position as opposed to using this position to define the initial structure.")
+    ("covalent_bond_order", value<int>(&copt.bond_order)->default_value(1), "Bond order of covalent bond. Default 1.")
+    ("covalent_optimize_lig", value<covalent_optimization>(&copt.covalent_optimize_lig)->default_value(None), "Extent to optimize the covalent complex of ligand and residue using UFF.\n\t[ none (default), atom, ligand]\n"
+                                                                               "\tnone - heuristically place ligand atom with OpenBabel\n"
+                                                                               "\tatom - optimize placement of ligand atom only with UFF\n"
+                                                                               "\tligand - optimize entire ligand with UFF. This will change bond angles and lengths.");
+
 
     options_description outputs("Output");
     outputs.add_options()
@@ -1272,9 +1256,9 @@ Thank you!\n";
     ("version", bool_switch(&version), "display program version");
 
     options_description desc, desc_simple;
-    desc.add(inputs).add(search_area).add(outputs).add(scoremin).add(cnn).
+    desc.add(inputs).add(search_area).add(covalent).add(outputs).add(scoremin).add(cnn).
         add(hidden).add(misc).add(config).add(info);
-    desc_simple.add(inputs).add(search_area).add(scoremin).add(cnn).
+    desc_simple.add(inputs).add(search_area).add(covalent).add(scoremin).add(cnn).
         add(outputs).add(misc).add(config).add(info);
 
     variables_map vm;
@@ -1493,8 +1477,9 @@ Thank you!\n";
     log << "\n";
 
     FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, nflex, nflex_hard_limit, log);
+    CovInfo cinfo(copt, log);
     // dkoes - parse in receptor once
-    MolGetter mols(rigid_name, flex_name, finfo, add_hydrogens, strip_hydrogens, log);
+    MolGetter mols(rigid_name, flex_name, finfo, cinfo, add_hydrogens, strip_hydrogens, log);
 
     if (autobox_ligand.length() > 0) {
       setup_autobox(mols.getInitModel(),autobox_ligand, autobox_add,
@@ -1561,12 +1546,12 @@ Thank you!\n";
       log << std::setw(12) << std::left << "Weights" << " Terms\n" << t << "\n";
 
     // Print out flexible residues 
-    if(finfo.hasContent()){
-      finfo.printFlex();
+    if(finfo.has_content()){
+      finfo.print_flex();
     }
     
     // Print information about flexible residues use
-    if (finfo.hasContent() && cnnopts.cnn_scoring != CNNnone) {
+    if (finfo.has_content() && cnnopts.cnn_scoring != CNNnone) {
       if(!cnnopts.fix_receptor && settings.verbosity > 1)
           log << "Receptor position and orientation are frozen.\n";
       cnnopts.fix_receptor = true; // Fix receptor position and orientation
@@ -1728,8 +1713,7 @@ Thank you!\n";
           }
 
           done(settings.verbosity, log);
-          std::vector<result_info>* results =
-              new std::vector<result_info>();
+          std::vector<result_info>* results = new std::vector<result_info>();
           worker_job j(i, m, results, gdbox);
           wrkq.push(j);
 

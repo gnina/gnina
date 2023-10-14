@@ -134,8 +134,8 @@ bool IsRotBond_PDBQT(OBBond * the_bond, unsigned desired_root)
   return true;
 }
 
-bool IsIn(const vector<int>& vec, const int num) //checks whether a vector of int contains a specific int
-    {
+bool IsIn(const vector<int>& vec, const int num) { //checks whether a vector of int contains a specific int
+    
   for (vector<int>::const_iterator itv = vec.begin(); itv != vec.end(); itv++) {
     if ((*itv) == num) {
       return true;
@@ -266,7 +266,7 @@ void createSDFContext(OBMol& mol, vector<OBAtom*> atoms, sdfcontext& sc) {
   for (unsigned i = 0, n = atoms.size(); i < n; i++) {
     OBAtom *atom = atoms[i];
     const char *element_name = GET_SYMBOL(atom->GetAtomicNum());
-    sc.atoms.push_back(sdfcontext::sdfatom(element_name));
+    sc.atoms.push_back(sdfcontext::sdfatom(element_name, atom->HasData("CovLig")));
 
     ///check for special properties
     if (atom->GetFormalCharge()) {
@@ -422,6 +422,9 @@ static void OutputAtom(OBAtom *atom, context &lines, vector<OBAtom*> &atomorder,
   assert(sm < smina_atom_type::NumTypes);
   parsed_atom patom(sm, charge, vec(atom->GetX(), atom->GetY(), atom->GetZ()),
       index);
+  if(atom->HasData("CovLig")) {
+    patom.iscov = true;
+  }
   //add_pdbqt_context(lines, ofs.str());
   if (patom.number == immobile_num)
     p.immobile_atom = p.atoms.size();
