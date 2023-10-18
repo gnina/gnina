@@ -42,6 +42,7 @@ class MolGetter {
   OpenBabel::OBMol covres;              // covalently bonding residue on receptor
   OpenBabel::OBAtom *covatom = nullptr; // covalently bonding atom within this residue
   vec covpos;                           // position for covalently bonding ligand atom
+  bool covres_isflex = false; //true if covalently bonded residue should be flexible
 
   OpenBabel::OBMol covmol;                  // current ligand being docked
   std::vector<std::vector<int>> match_list; // smarts matches

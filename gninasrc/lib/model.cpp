@@ -6,6 +6,7 @@
 #include "non_cache_gpu.h"
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/unordered_map.hpp>
+#include <openbabel/obconversion.h>
 
 /////////////////// begin MODEL::APPEND /////////////////////////
 
@@ -107,6 +108,17 @@ public:
       // but I do need to be able to add flex res to an existing model
       a.sdftext = b.sdftext;
       a.has_cov_lig = b.has_cov_lig;
+      //update atom indices
+      is_a = false;
+      for(sz i = 0, n = a.sdftext.atoms.size(); i < n; i++) {
+        a.sdftext.atoms[i].index = (*this)(a.sdftext.atoms[i].index);
+      }
+    } else if(a.sdftext.valid()) {
+      //need to update inflex atom indexing
+      is_a = true;
+      for(sz i = 0, n = a.sdftext.atoms.size(); i < n; i++) {
+        a.sdftext.atoms[i].index = (*this)(a.sdftext.atoms[i].index);
+      }
     }
   }
 
@@ -804,8 +816,16 @@ void sdfcontext::dump(std::ostream &out) const {
   }
 }
 
+void sdfcontext::set_inflex_indices(sz nummove) {
+  //add offset to all inflex atoms
+  for (unsigned i = 0, n = atoms.size(); i < n; i++) {
+    sdfatom &atom = atoms[i];
+    if(atom.inflex) atom.index += nummove;
+  }
+}
+
 // output sdf format to out; if covonly only output covlig atoms
-void sdfcontext::write(const vecv &coords, sz nummove, std::ostream &out, bool covonly) const {
+void sdfcontext::write(const vecv &coords, std::ostream &out, bool covonly) const {
   const unsigned bsize = 1024;
   char buff[bsize]; // since sprintf is just so much easier to use
   // name followed by two blank lines
@@ -845,8 +865,6 @@ void sdfcontext::write(const vecv &coords, sz nummove, std::ostream &out, bool c
     const sdfatom &atom = atoms[i];
     if(covonly && !atom.iscovlig)  continue;
     sz idx = atom.index;
-    if (atom.inflex)
-      idx += nummove; // rigids are after movable
     const vec &c = coords[idx];
     assert(idx < coords.size());
     snprintf(buff, bsize, "%10.4f%10.4f%10.4f %-3.2s 0  0  0  0  0  0  0  0  0  0  0  0\n", c[0], c[1], c[2],
@@ -890,7 +908,34 @@ void sdfcontext::write(const vecv &coords, sz nummove, std::ostream &out, bool c
 
 void model::write_context(const context &c, std::ostream &out) const {
   verify_bond_lengths();
-  c.writePDBQT(coords, out);
+
+  if(rigid.NumAtoms()) {
+    //output entire structure
+    using namespace OpenBabel;
+    OBConversion conv;
+    conv.SetOutFormat("PDBQT");
+    conv.SetInFormat("PDBQT");
+
+    conv.AddOption("r", OBConversion::OUTOPTIONS);      // rigid molecule
+    conv.AddOption("c", OBConversion::OUTOPTIONS); // single combined molecule
+
+    OBMol rec(rigid);
+    OBMol flex;
+    //read in flex part
+    std::stringstream ss;
+    c.writePDBQT(coords, ss);
+    conv.ReadString(&flex, ss.str());
+
+    rec += flex;
+    rec.SetChainsPerceived(true);
+    rec.ConnectTheDots();
+    rec.SetChainsPerceived(true);
+
+    conv.Write(&rec, &out);
+
+  } else {
+    c.writePDBQT(coords, out);
+  }
 }
 
 // more for debugging, dump fixed atoms as xyz to out
@@ -1154,4 +1199,44 @@ fl model::clash_penalty() const {
   e += clash_penalty_aux(ligands[i].pairs);
   e += clash_penalty_aux(other_pairs);
   return e;
+}
+
+void model::write_flex(std::ostream& out, bool& issdf, bool covonly) const {
+  using namespace OpenBabel;
+
+  if(flex_context.sdftext.valid()) {
+    if(flex_context.pdbqttext.size() > 0 && !covonly) {
+      //a mix of formats, from combining covalent docking and flexible residues
+      //pdb output works better for residues
+      OBConversion conv;
+      conv.SetOutFormat("PDBQT");
+      conv.SetInFormat("SDF");
+      conv.AddOption("r", OBConversion::OUTOPTIONS);      // rigid molecule
+      conv.AddOption("c", OBConversion::OUTOPTIONS); // single combined molecule
+
+      //read in sdf part
+      std::stringstream ss;
+      flex_context.writeSDF(coords, ss, covonly);
+      OBMol sdfmol, pdbmol;
+      conv.ReadString(&sdfmol, ss.str());
+
+      //read in pdbqt part
+      ss.str(""); ss.clear();
+      conv.SetInFormat("PDBQT");
+      write_context(flex_context, ss);
+      conv.ReadString(&pdbmol, ss.str());
+      pdbmol.SetChainsPerceived(true);
+
+      //combine and output and output as pdbqt
+      pdbmol += sdfmol;
+      pdbmol.SetChainsPerceived(true);
+      conv.Write(&pdbmol, &out);
+      issdf = false;
+    } else {
+      issdf = true;
+      flex_context.writeSDF(coords, out, covonly);
+    }
+  } else {
+    write_context(flex_context, out);
+  }
 }

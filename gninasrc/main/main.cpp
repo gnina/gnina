@@ -398,6 +398,7 @@ void do_search(model& m, const boost::optional<model>& ref,
             intramolecular_energy = m.eval_intramolecular(exact_prec, authentic_v, out_cont[i].c);
             //we want vina energies not CNN
             out_cont[i].e = m.eval_adjusted(sf, exact_prec, nc_new, authentic_v, out_cont[i].c, intramolecular_energy, user_grid);
+            out_cont[i].intramol = intramolecular_energy;
         }
       }
 
@@ -421,9 +422,9 @@ void do_search(model& m, const boost::optional<model>& ref,
       log.setf(std::ios::fixed, std::ios::floatfield);
       log.setf(std::ios::showpoint);
       log << '\n';
-      log << "mode |  affinity  |    CNN     |   CNN\n";
-      log << "     | (kcal/mol) | pose score | affinity\n";
-      log << "-----+------------+------------+----------\n";
+      log << "mode |  affinity  |  intramol  |    CNN     |   CNN\n";
+      log << "     | (kcal/mol) | (kcal/mol) | pose score | affinity\n";
+      log << "-----+------------+------------+------------+----------\n";
 
       model best_mode_model = m;
       if (!out_cont.empty())
@@ -439,7 +440,8 @@ void do_search(model& m, const boost::optional<model>& ref,
         ++how_many;
         m.set(out_cont[i].c);
         log << std::setw(5) << how_many << std::setw(12)
-            << std::setprecision(2) << out_cont[i].e; // intermolecular_energies[i];
+            << std::setprecision(2) << out_cont[i].e 
+            << std::setw(12) << std::setprecision(2) << out_cont[i].intramol; 
         log << " " << std::setw(12) << std::setprecision(4) << out_cont[i].cnnscore << "  "
             << std::setw(9) << std::setprecision(3) << out_cont[i].cnnaffinity;
         log.endl();
@@ -1042,7 +1044,7 @@ Thank you!\n";
     bool print_atom_types = false;
     bool add_hydrogens = true;
     bool strip_hydrogens = false;
-    bool no_lig = false;
+    bool full_flex_output = false;
 
     CovOptions copt;
 
@@ -1089,7 +1091,7 @@ Thank you!\n";
         "Amount of buffer space to add to auto-generated box (default +4 on all six sides)")
     ("autobox_extend", value<bool>(&autobox_extend)->default_value(true),
             "Expand the autobox if needed to ensure the input conformation of the ligand being docked can freely rotate within the box.")
-    ("no_lig", bool_switch(&no_lig)->default_value(false),
+    ("no_lig", bool_switch(&settings.no_lig)->default_value(false),
         "no ligand; for sampling/minimizing flexible residues");
 
     options_description covalent("Covalent docking");
@@ -1118,7 +1120,9 @@ Thank you!\n";
         bool_switch(&settings.include_atom_info)->default_value(false),
         "embedded per-atom interaction terms in output sd data")
     ("pose_sort_order",value<pose_sort_order>(&settings.sort_order)->default_value(CNNscore),
-        "How to sort docking results: CNNscore (default), CNNaffinity, Energy");
+        "How to sort docking results: CNNscore (default), CNNaffinity, Energy")
+    ("full_flex_output", bool_switch(&full_flex_output)->default_value(false), "Output entire structure for out_flex, not just flexible residues.");
+
 
     options_description scoremin("Scoring and minimization options");
     scoremin.add_options()
@@ -1407,7 +1411,7 @@ Thank you!\n";
     }
 
     if (ligand_names.size() == 0) {
-      if (!no_lig)
+      if (!settings.no_lig)
       {
         std::cerr << "Missing ligand.\n" << "\nCorrect usage:\n"
             << desc_simple << '\n';
@@ -1418,7 +1422,7 @@ Thank you!\n";
         ligand_names.push_back("");
       }
     }
-    else if (no_lig) //ligand specified with no_lig
+    else if (settings.no_lig) //ligand specified with no_lig
     {
       std::cerr << "Ligand specified with --no_lig.\n"
           << "\nCorrect usage:\n"
@@ -1476,7 +1480,7 @@ Thank you!\n";
     }
     log << "\n";
 
-    FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, nflex, nflex_hard_limit, log);
+    FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, nflex, nflex_hard_limit, full_flex_output, log);
     CovInfo cinfo(copt, log);
     // dkoes - parse in receptor once
     MolGetter mols(rigid_name, flex_name, finfo, cinfo, add_hydrogens, strip_hydrogens, log);
@@ -1703,7 +1707,7 @@ Thank you!\n";
             }
             if(skip)
               continue;
-          } else if(autobox_extend && !no_lig) {
+          } else if(autobox_extend && !settings.no_lig) {
             //make sure every dimension is large enough for the ligand to fit
             fl maxdim = m->max_span(0);
             setup_grid_dims(center_x, center_y, center_z,
@@ -1718,7 +1722,7 @@ Thank you!\n";
           wrkq.push(j);
 
           i++;
-          if (no_lig)
+          if (settings.no_lig)
             break;
         }
       }

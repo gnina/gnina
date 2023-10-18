@@ -114,18 +114,24 @@ void MolGetter::create_init_model(const std::string &rigid_name, const std::stri
         if (!covr) {
           throw usage_error("Could not get residue of covalent receptor atom.");
         }
+        char ch = covr->GetChain();
+        int resid = covr->GetNum();
+        char icode = covr->GetInsertionCode();
+        covres_isflex = finfo.omit_residue(std::tuple<char, int, char>(ch, resid, icode));
         finfo.extract_residue(rec, covr, covres);
         covatom = cinfo.find_rec_atom(covres);
+
         VINA_CHECK(covatom);
 
         for(int i = 0, n = cinfo.get_bond_order(); i < n; i++) {
           decrement_hydrogen(covres, covatom); 
         }
-
       }
 
+      rec.SetChainsPerceived(true);
       rec.AddHydrogens(true);
       FOR_ATOMS_OF_MOL(a, rec) { a->GetPartialCharge(); }
+
       OBMol rigid;
       std::string flexstr;
 
@@ -153,6 +159,12 @@ void MolGetter::create_init_model(const std::string &rigid_name, const std::stri
       } else { // rigid only
         initm = parse_receptor_pdbqt(rigid_name, recstream);
       }
+
+      if(finfo.full_output()) {
+        rigid.DeleteHydrogens();
+        initm.set_rigid(rigid);
+      }
+
     }
   }
 
@@ -306,20 +318,21 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
   norotate.reserve(resatoms);
 
   // if the cov res is suppose to be flexible, don't do the following
-
-  //at a minimum, do not fix ratom and its neighbors
-  std::vector<bool> fixres(resatoms, true);
-  fixres[ratom_index-1] = false;
-  if(covatom->GetExplicitValence() == 1) {
-    //if a terminal atom, allow rotation of torsion connecting it to the residue
-    FOR_NBORS_OF_ATOM(b, covatom) { 
-      unsigned i = b->GetIdx() - 1;
-      if(i < resatoms) fixres[i] = false;
+  if(!covres_isflex) {
+    //at a minimum, do not fix ratom and its neighbors
+    std::vector<bool> fixres(resatoms, true);
+    fixres[ratom_index-1] = false;
+    if(covatom->GetExplicitValence() == 1) {
+      //if a terminal atom, allow rotation of torsion connecting it to the residue
+      FOR_NBORS_OF_ATOM(b, covatom) { 
+        unsigned i = b->GetIdx() - 1;
+        if(i < resatoms) fixres[i] = false;
+      }
     }
-  }
-  for (unsigned i = 0; i < resatoms; i++) { 
-    if (fixres[i])
-      norotate.push_back(i + 1); // indexed by one for dumb reasons
+    for (unsigned i = 0; i < resatoms; i++) { 
+      if (fixres[i])
+        norotate.push_back(i + 1); // indexed by one for dumb reasons
+    }
   }
 
   c.has_cov_lig = true;

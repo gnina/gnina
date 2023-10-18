@@ -21,9 +21,9 @@ std::map<std::string, int> FlexInfo::num_heavy_atoms_per_residue = {
 
 FlexInfo::FlexInfo(const std::string &flexres, double flexdist,
                    const std::string &ligand, int nflex_,
-                   bool nflex_hard_limit_, tee &l)
+                   bool nflex_hard_limit_, bool full_flex_output_, tee &l)
     : flex_dist(flexdist), nflex(nflex_), nflex_hard_limit(nflex_hard_limit_),
-      log(l) {
+      full_flex_output(full_flex_output_), log(l) {
   using namespace OpenBabel;
   using namespace std;
   // first extract comma separated list
@@ -255,10 +255,24 @@ void FlexInfo::extract_residue(OpenBabel::OBMol &rigid, OpenBabel::OBResidue *r,
     OBAtom *a = *aitr;
     std::string aid = r->GetAtomID(a);
     boost::trim(aid);
-    if (aid != "CA" && aid != "N" && aid != "C" && aid != "O" && aid != "H" &&
-        aid !=
-            "HN" && // leave backbone alone other than CA which is handled above
-        !a->IsNonPolarHydrogen()) {
+    bool isflex = true;
+    if(aid == "CA" || aid == "N" || aid == "C" || aid == "O" || aid == "HN" || a->IsNonPolarHydrogen()) {
+      isflex = false;
+    }
+    if(aid == "H") {
+      //added hydrogens will all be H, only want to ignore backbone as polar hydrogens are needd for typing
+      isflex = true;
+      FOR_NBORS_OF_ATOM(neigh, *a){
+        std::string nid = r->GetAtomID(&*neigh);
+        boost::trim(nid);
+        if(nid == "N") {
+          isflex = false;
+          break;
+        }
+      }
+    }
+
+    if (isflex) {
       flexatoms.push_back(a);
       flex.AddAtom(*a);
       flexmap[a] = flex.NumAtoms(); // after addatom since indexed by
@@ -303,12 +317,15 @@ void FlexInfo::extract_residue(OpenBabel::OBMol &rigid, OpenBabel::OBResidue *r,
   }
 
   flex.SetChainsPerceived(true);
+  rigid.SetChainsPerceived(true);
 
   // remove flexatoms from rigid
   for (unsigned i = 0, n = flexatoms.size(); i < n; i++) {
     OBAtom *a = flexatoms[i];
     rigid.DeleteAtom(a);
   }
+  rigid.SetChainsPerceived(true);
+
 }
 
 void FlexInfo::extractFlex(OpenBabel::OBMol &receptor, OpenBabel::OBMol &rigid,
@@ -411,14 +428,15 @@ void FlexInfo::extractFlex(OpenBabel::OBMol &receptor, OpenBabel::OBMol &rigid,
       OBMol flex;
       extract_residue(rigid, r, flex);
       flexpdbqt += residue_to_pdbqt(flex);
-
     } // end if residue
   }
+
   if (flexcnt != residues.size()) {
     log << "WARNING: Only identified " << flexcnt << " of " << residues.size()
         << " requested flexible residues.\n";
   }
-  rigid.EndModify();
+  rigid.EndModify(false); //don't nuke chain perception
+
 }
 
 void FlexInfo::print_flex() const {
@@ -489,4 +507,14 @@ std::string FlexInfo::residue_to_pdbqt(OpenBabel::OBMol &flex) {
     flexpdbqt += flexres;
   }
   return flexpdbqt;
+}
+
+// remove specified residue (presumably cavalent residue) from requested residues
+// return true if removed
+bool FlexInfo::omit_residue(std::tuple<char, int, char> r) {
+  if(residues.count(r)) {
+    residues.erase(r);
+    return true;
+  }
+  return false;
 }

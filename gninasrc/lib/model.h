@@ -25,6 +25,7 @@
 
 #include <boost/optional.hpp> // for context
 #include <boost/serialization/utility.hpp>
+#include <openbabel/mol.h>
 #include <string>
 #include "optional_serialization.h"
 #include "file.h"
@@ -182,13 +183,16 @@ struct sdfcontext {
 
     void dump(std::ostream& out) const;
     //output sdf with provided coords
-    void write(const vecv& coords, sz nummove, std::ostream& out, bool covonly=false) const;
+    void write(const vecv& coords, std::ostream& out, bool covonly=false) const;
     bool valid() const {
       return atoms.size() > 0;
     }
     sz size() const {
       return atoms.size();
     }
+
+    void set_inflex_indices(sz nummove);
+
     template<class Archive>
     void serialize(Archive& ar, const unsigned version) {
       ar & name;
@@ -211,8 +215,8 @@ struct context {
     bool has_cov_lig = false;
 
     void writePDBQT(const vecv& coords, std::ostream& out) const;
-    void writeSDF(const vecv& coords, sz nummove, std::ostream& out, bool covonly=false) const {
-      sdftext.write(coords, nummove, out, covonly);
+    void writeSDF(const vecv& coords, std::ostream& out, bool covonly=false) const {
+      sdftext.write(coords, out, covonly);
     }
     void update(const appender& transform);
     void set(sz pdbqtindex, sz sdfindex, sz atomindex, bool inf = false);
@@ -222,6 +226,10 @@ struct context {
     }
     sz sdfsize() const {
       return sdftext.size();
+    }
+
+    void set_inflex_indices(sz nummove) {
+      sdftext.set_inflex_indices(nummove);
     }
 
     template<class Archive>
@@ -357,17 +365,7 @@ struct model {
     grid_dims movable_atoms_box(fl add_to_each_dimension,
         fl granularity = 0.375) const;
 
-    void write_flex(const path& name, const std::string& remark) const {
-      write_context(flex_context, name, remark);
-    }
-    void write_flex(std::ostream& out, bool& issdf, bool covonly = false) const {
-      if(flex_context.sdftext.valid()) {
-        issdf = true;
-        flex_context.writeSDF(coords, m_num_movable_atoms, out, covonly);
-      } else {
-        write_context(flex_context, out);
-      }
-    }
+    void write_flex(std::ostream& out, bool& issdf, bool covonly = false) const;
 
     void dump_flex_sdf(std::ostream& out) const {
       flex_context.sdftext.dump(out);
@@ -381,7 +379,7 @@ struct model {
       issdf = false;
       VINA_FOR_IN(i, ligands) {
         if (ligands[i].cont.sdftext.valid()) {
-          ligands[0].cont.writeSDF(coords, m_num_movable_atoms, out);
+          ligands[0].cont.writeSDF(coords, out);
           issdf = true;
         } else {
           write_context(ligands[i].cont, out);
@@ -524,6 +522,10 @@ struct model {
 
     fl get_minus_forces_sum_magnitude() const;
 
+    void set_rigid(const OpenBabel::OBMol& r) {
+      rigid = r;
+    }
+
     //allocate gpu memory, model must be setup
     //also copies over data that does not change during minimization
     //if model changes, must re-initialize
@@ -623,6 +625,8 @@ struct model {
     // all except internal to one ligand: ligand-other ligands;
     // ligand-flex/inflex; flex-flex/inflex
     // interacting_pairs other_pairs; 
+
+    OpenBabel::OBMol rigid; //for full_flex_output
 
     std::string name;
     int pose_num;
