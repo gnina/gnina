@@ -29,6 +29,10 @@ void setup_autobox(const model& m, const std::string& autobox_ligand, fl autobox
     //do not iterative over atoms to add coordinates as those are relative
     b.add_coord(v[0], v[1], v[2]);
   }
+  //covalent residue
+  for(const auto& v : m.get_extra_box_coords()) {
+    b.add_coord(v[0], v[1], v[2]);
+  }  
 
   //set to center of bounding box (as opposed to center of mass
   center_x = (b.max_x + b.min_x) / 2.0;

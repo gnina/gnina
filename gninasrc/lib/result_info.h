@@ -31,7 +31,8 @@ class result_info {
 
   public:
     result_info() { }
-    result_info(fl e, fl c, fl ca, fl cv, fl r, const model& m) {
+    result_info(fl e, fl c, fl ca, fl cv, fl r, const model& m)
+        : energy(e), cnnscore(c), cnnaffinity(ca), cnnvariance(cv), rmsd(r), sdfvalid(false) {
       setMolecule(m);
     }
 

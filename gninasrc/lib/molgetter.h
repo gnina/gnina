@@ -45,6 +45,7 @@ class MolGetter {
   bool covres_isflex = false; //true if covalently bonded residue should be flexible
 
   OpenBabel::OBMol covmol;                  // current ligand being docked
+  OpenBabel::OBMol origcovmol; //original ligand before covalent modifications
   std::vector<std::vector<int>> match_list; // smarts matches
   unsigned matchpos = UINT_MAX;             // current position in match_list
 

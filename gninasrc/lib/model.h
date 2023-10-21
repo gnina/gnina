@@ -311,7 +311,8 @@ struct model {
     ;
 
     model(const model& m)
-        : tree_width(m.tree_width), coords(m.coords), ligands(m.ligands),
+        : tree_width(m.tree_width), coords(m.coords), 
+            extra_box_coords(m.extra_box_coords), ligands(m.ligands),
             minus_forces(m.minus_forces),
             m_num_movable_atoms(m.m_num_movable_atoms), atoms(m.atoms),
             grid_atoms(m.grid_atoms), other_pairs(m.other_pairs),
@@ -514,6 +515,11 @@ struct model {
       return atoms;
     }
 
+    vecv get_extra_box_coords() const {
+      //make sure the covalent residue is in the box by providing its coordinates
+      return extra_box_coords;
+    }
+
     void clear_minus_forces();
     void add_minus_forces(const std::vector<gfloat3>& forces);
     void sub_minus_forces(const std::vector<gfloat3>& forces);
@@ -538,6 +544,7 @@ struct model {
     void deallocate_gpu();
 
     vecv coords;
+    vecv extra_box_coords;
     vecv minus_forces;
     gpu_data gdata;
     vector_mutable<ligand> ligands;

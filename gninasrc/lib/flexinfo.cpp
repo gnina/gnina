@@ -5,6 +5,7 @@
 #include <openbabel/bond.h>
 #include <openbabel/elements.h>
 #include <openbabel/mol.h>
+#include <openbabel/generic.h>
 
 #include <exception>
 #include <limits>
@@ -230,7 +231,7 @@ bool FlexInfo::isSideChain(std::string aid) {
 
 // Remove the specified residue r from rigid and put it in flexres
 void FlexInfo::extract_residue(OpenBabel::OBMol &rigid, OpenBabel::OBResidue *r,
-                               OpenBabel::OBMol &flex) {
+                               OpenBabel::OBMol &flex, bool fullres) {
 
   std::vector<OBAtom *> flexatoms; // rigid atom ptrs that should be flexible
   boost::unordered_map<OBAtom *, int>
@@ -256,9 +257,21 @@ void FlexInfo::extract_residue(OpenBabel::OBMol &rigid, OpenBabel::OBResidue *r,
     std::string aid = r->GetAtomID(a);
     boost::trim(aid);
     bool isflex = true;
-    if(aid == "CA" || aid == "N" || aid == "C" || aid == "O" || aid == "HN" || a->IsNonPolarHydrogen()) {
+    if(aid == "CA" || aid == "C") {
       isflex = false;
-    }
+    } 
+    else if(aid == "N" || aid == "O" || aid == "HN" || a->IsNonPolarHydrogen()) {
+      if(!fullres) {
+        isflex = false;
+      } else {
+        if(aid != "N" || a->GetExplicitValence() == 1) { // Nterminal special case of flexible backbone
+          OBPairData *dp = new OBPairData;
+          dp->SetAttribute("Fixed");
+          a->SetData(dp);
+        }
+      }
+    }    
+
     if(aid == "H") {
       //added hydrogens will all be H, only want to ignore backbone as polar hydrogens are needd for typing
       isflex = true;

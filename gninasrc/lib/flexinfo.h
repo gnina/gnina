@@ -39,7 +39,7 @@ class FlexInfo {
       return residues.size() > 0 || flex_dist > 0;
     }
 
-    void extract_residue(OpenBabel::OBMol& rigid,  OpenBabel::OBResidue *r, OpenBabel::OBMol& flexres);
+    void extract_residue(OpenBabel::OBMol& rigid,  OpenBabel::OBResidue *r, OpenBabel::OBMol& flexres, bool fullres=false);
     void extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
         std::string& flexpdbqt);
 

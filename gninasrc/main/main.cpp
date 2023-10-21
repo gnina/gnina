@@ -982,11 +982,9 @@ Please report this error at https://github.com/gnina/gnina/issues\n"
     * the type of computer system you are running it on,\n\
 	* all command line options,\n\
 	* configuration file (if used),\n\
-    * ligand file as PDBQT,\n\
-    * receptor file as PDBQT,\n\
-	* flexible side chains file as PDBQT (if used),\n\
-	* output file as PDBQT (if any),\n\
-    * input (if possible),\n\
+    * ligand file as provided to gnina,\n\
+    * receptor file as provided to gnina,\n\
+	* output file (if any),\n\
 	* random seed the program used (this is printed when the program starts).\n\
 \n\
 Thank you!\n";

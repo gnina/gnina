@@ -55,9 +55,9 @@ unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments,
     unsigned desired_root, const vector<int>& norotate) {
   unsigned int best_root_atom = 1;
   unsigned int shortest_maximal_remaining_subgraph = mol.NumAtoms();
-  for (unsigned int i = 1; i <= mol.NumAtoms(); i++)
+  for (unsigned int i = 1; i <= mol.NumAtoms(); i++) {
   //finds the root atom by copying the molecule, deleting each atom in turn, and finding the sizes of the resulting pieces
-      {
+      
     OBMol mol_pieces = mol;
     OBAtom * atom_to_del = mol_pieces.GetAtom(i);
     vector<vector<int> > frag_list;
@@ -83,9 +83,13 @@ unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments,
       OBBond *bond = *it;
       int src = bond->GetBeginAtomIdx();
       int dst = bond->GetEndAtomIdx();
+      OBAtom *srca = bond->GetBeginAtom();
+      OBAtom *dsta = bond->GetEndAtom();
 
-      if (norot.count(src) || norot.count(dst)) {
+      if (norot.count(src) || norot.count(dst) ) {
         //not rotatable
+      } else if(srca->HasData("Fixed") && dsta->HasData("Fixed")) {
+        // still not rotatable
       } else
         if (IsRotBond_PDBQT(bond, desired_root)) {
           bonds_to_delete.push_back((*it)->GetIdx());

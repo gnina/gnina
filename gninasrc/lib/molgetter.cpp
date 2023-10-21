@@ -118,7 +118,7 @@ void MolGetter::create_init_model(const std::string &rigid_name, const std::stri
         int resid = covr->GetNum();
         char icode = covr->GetInsertionCode();
         covres_isflex = finfo.omit_residue(std::tuple<char, int, char>(ch, resid, icode));
-        finfo.extract_residue(rec, covr, covres);
+        finfo.extract_residue(rec, covr, covres,true);
         covatom = cinfo.find_rec_atom(covres);
 
         VINA_CHECK(covatom);
@@ -168,6 +168,11 @@ void MolGetter::create_init_model(const std::string &rigid_name, const std::stri
     }
   }
 
+  FOR_ATOMS_OF_MOL(a, covres) {
+    vector3 c = a->GetVector();
+    initm.extra_box_coords.push_back(vec(c.x(),c.y(),c.z()));
+  }
+
   if (strip_hydrogens)
     initm.strip_hydrogens();
 }
@@ -204,13 +209,13 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
   // ligand is going to be made part of the receptor
   if (matchpos >= match_list.size()) { // need a new mol
     bool success = false;
-    while (conv.Read(&covmol)) {
-      std::string name = covmol.GetTitle();
-      covmol.StripSalts();
+    while (conv.Read(&origcovmol)) {
+      std::string name = origcovmol.GetTitle();
+      origcovmol.StripSalts();
       m.set_name(name);
 
       // apply smarts match
-      match_list = cinfo.get_matches(covmol);
+      match_list = cinfo.get_matches(origcovmol);
       if (match_list.size() > 0) {
         matchpos = 0;
         success = true;
@@ -223,6 +228,7 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
       return false; // done reading
     }
   }
+  covmol = origcovmol;
   // covmol should be initialized and matchpos set at this point
 
   FOR_ATOMS_OF_MOL(a, covmol){
@@ -333,7 +339,7 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
       if (fixres[i])
         norotate.push_back(i + 1); // indexed by one for dumb reasons
     }
-  }
+  } 
 
   c.has_cov_lig = true;
   GninaConverter::convertParsing(flex, p, c, 1, norotate, add_hydrogens);
