@@ -239,6 +239,7 @@ void FlexInfo::extract_residue(OpenBabel::OBMol &rigid, OpenBabel::OBResidue *r,
 
   // make absolutely sure that CA is the first atom
   // first bond is rigid, so take both CA and C
+  bool CAseen = false;
   for (OBAtomIterator aitr = r->BeginAtoms(), aend = r->EndAtoms();
        aitr != aend; ++aitr) {
     OBAtom *a = *aitr;
@@ -248,6 +249,14 @@ void FlexInfo::extract_residue(OpenBabel::OBMol &rigid, OpenBabel::OBResidue *r,
       flexatoms.push_back(a);
       flex.AddAtom(*a);
       flexmap[a] = flex.NumAtoms(); // after addatom since indexed by
+    }
+    if (aid == "CA") {
+      if(CAseen) {
+        stringstream msg;
+        msg << "Multiple copies of residue " << r->GetChain() << ":" << r->GetNum() << ".  I can't handle this situation.";
+        throw runtime_error(msg.str());
+      }
+      CAseen = true;
     }
   }
 
@@ -290,7 +299,7 @@ void FlexInfo::extract_residue(OpenBabel::OBMol &rigid, OpenBabel::OBResidue *r,
       flex.AddAtom(*a);
       flexmap[a] = flex.NumAtoms(); // after addatom since indexed by
       if (boost::starts_with(aid, "S") &&
-          boost::starts_with(r->GetName(), "CY")) {
+          boost::starts_with(r->GetName(), "CY") && !fullres) { //no warning for covalent
         if (a->GetHvyDegree() > 1) {
           log << "WARNING: Disulfide bonds are ignored in flexible cysteine "
                  "residues.\n";
@@ -522,7 +531,7 @@ std::string FlexInfo::residue_to_pdbqt(OpenBabel::OBMol &flex) {
   return flexpdbqt;
 }
 
-// remove specified residue (presumably cavalent residue) from requested residues
+// remove specified residue (presumably covalent residue) from requested residues
 // return true if removed
 bool FlexInfo::omit_residue(std::tuple<char, int, char> r) {
   if(residues.count(r)) {

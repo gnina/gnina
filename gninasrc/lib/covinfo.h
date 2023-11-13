@@ -34,6 +34,7 @@ class CovInfo {
   int ratom_num = 0;
   std::string ratom_res; // optional
   std::string ratom_name;
+  std::string ratom_icode;
 
   vec ratom_xyz = vec(0, 0, 0);
 

@@ -11,7 +11,7 @@ gnina = sys.argv[1]  # take path to gnina executable as only argument
 
 def getscores(out):
     '''Read scores for docked poses and return list of tuples'''
-    scores = re.findall(r'^\s*\d\s+(\S+)\s+(\S+)\s+(\S+)', out.decode(), re.MULTILINE)
+    scores = re.findall(r'^\s*\d+\s+(\S+)\s+\S+\s+(\S+)\s+(\S+)', out.decode(), re.MULTILINE)
     return [(float(a),float(b),float(c)) for (a,b,c) in scores]
 
 def issorted(scores, index):

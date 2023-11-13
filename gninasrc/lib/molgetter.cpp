@@ -117,11 +117,15 @@ void MolGetter::create_init_model(const std::string &rigid_name, const std::stri
         char ch = covr->GetChain();
         int resid = covr->GetNum();
         char icode = covr->GetInsertionCode();
+
         covres_isflex = finfo.omit_residue(std::tuple<char, int, char>(ch, resid, icode));
         finfo.extract_residue(rec, covr, covres,true);
         covatom = cinfo.find_rec_atom(covres);
 
         VINA_CHECK(covatom);
+        if(covatom->GetHvyDegree() == 0 ) {
+            throw usage_error("Invalid solitary receptor atom "+cinfo.rec_atom_string()+ ". Check bond lengths.");          
+        }
 
         for(int i = 0, n = cinfo.get_bond_order(); i < n; i++) {
           decrement_hydrogen(covres, covatom); 
@@ -260,7 +264,12 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
     vector3 obpos(pos[0], pos[1], pos[2]);
     success = OBBuilder::Connect(flex, ratom_index, latom_index, obpos, cinfo.get_bond_order());
   } else {
-    success = OBBuilder::Connect(flex, ratom_index, latom_index, cinfo.get_bond_order());
+    //work around openbabel bug where it is willing to return nan for the bond vector
+    vector3 newpos = OBBuilder::GetNewBondVector(flex.GetAtom(ratom_index));
+    if(!isfinite(newpos.x())) {
+      flex.GetAtom(ratom_index)->SetHyb(4); // hacky workaround - most common offender is a metal ion
+    }
+    success = OBBuilder::Connect(flex, ratom_index, latom_index, cinfo.get_bond_order());    
   }
   if (!success)
     throw internal_error("Failed to connect.", __LINE__);
@@ -343,7 +352,7 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
 
   c.has_cov_lig = true;
   GninaConverter::convertParsing(flex, p, c, 1, norotate, add_hydrogens);
-
+//conv.WriteFile(&flex,"flex.pdbqt");
   // create model
   postprocess_residue(nrp, p, c);
   tmp.initialize_from_nrp(nrp, c, false);

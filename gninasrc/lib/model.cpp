@@ -889,7 +889,7 @@ void sdfcontext::write(const vecv &coords, std::ostream &out, bool covonly) cons
     int aidx = prop.atom;
     if(covonly) {
       if(!atoms[aidx].iscovlig) continue;
-      aidx += coffset[i];
+      aidx += coffset[aidx];
     }
 
     if (prop.type == 'c') // M CHG

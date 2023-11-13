@@ -86,7 +86,7 @@ unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments,
       OBAtom *srca = bond->GetBeginAtom();
       OBAtom *dsta = bond->GetEndAtom();
 
-      if (norot.count(src) || norot.count(dst) ) {
+      if (norot.count(src) && norot.count(dst) ) {
         //not rotatable
       } else if(srca->HasData("Fixed") && dsta->HasData("Fixed")) {
         // still not rotatable

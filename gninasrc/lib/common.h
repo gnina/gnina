@@ -26,7 +26,21 @@
 #include <cassert>
 #include <string>
 #include <limits>
-#include <utility> // pair#include <algorithm> // too common#include <vector> // used in typedef, and commonly used overall#include <cmath> // commonly used#include <iostream> // various debugging everywhere#include <fstream> // print_coords#include <iomanip> // to_string#include <sstream> // to_string#include <string> // probably included by the above anyway, common anyway#include <boost/serialization/vector.hpp> // can't come before the above two - wart fixed in upcoming Boost versions#include <boost/serialization/base_object.hpp> // movable_atom needs it - (derived from atom)#include <boost/filesystem/path.hpp> // typedef'ed#include "macros.h"
+#include <utility> // pair
+#include <algorithm> // too common
+#include <vector> // used in typedef, and commonly used overall
+#include <cmath> // commonly used
+#include <iostream> // various debugging everywhere
+#include <fstream> // print_coords
+#include <iomanip> // to_string
+#include <sstream> // to_string
+#include <string> // probably included by the above anyway, common anyway
+
+#include <boost/serialization/vector.hpp> // can't come before the above two - wart fixed in upcoming Boost versions
+#include <boost/serialization/base_object.hpp> // movable_atom needs it - (derived from atom)
+#include <boost/filesystem/path.hpp> // typedef'ed
+
+#include "macros.h"
 #include "math.h"
 #include <cuda_runtime.h>
 
@@ -410,7 +424,7 @@ __host__ inline void normalize_angle(fl& x) { // subtract or add enough 2*pi's t
   else if(x < -pi) { // in [-3*pi,  -pi)
     x += 2*pi;
   }
-  if(!(x >= -pi && x <= pi)) {
+  if(!(x >= -pi-epsilon_fl && x <= pi+epsilon_fl)) {
     throw numerical_error("Numerical degeneracy encountered. Check for non-physical inputs. "+std::to_string(x)+" should be between -pi and pi.");
   }
   // in [-pi, pi]

@@ -1,6 +1,8 @@
 #include "covinfo.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/regex.hpp>
+
 #include <openbabel/elements.h>
 #include <openbabel/obiter.h>
 #include <openbabel/residue.h>
@@ -15,27 +17,31 @@ CovInfo::CovInfo(const CovOptions& copt, tee &l) :
   if (copt.covalent_rec_atom.size() == 0)
     return; // not set
 
-  // rec atom is either chain:resid:atomname, chain:resid:resname:atomname or
+  // rec atom is either chain:resid[icode]:atomname, chain:resid:resname:atomname or
   // x,y,z
   if (!getXYZ(copt.covalent_rec_atom, ratom_xyz)) {
     vector<string> tokens;
-    split(tokens, copt.covalent_rec_atom, boost::is_any_of(":"));
-    if (tokens.size() >= 3) {
-      if (tokens[0].size() == 0)
-        ratom_chain = ' ';
-      else
-        ratom_chain = tokens[0][0];
 
-      ratom_num = lexical_cast<int>(tokens[1]);
-      if (tokens.size() == 3) {
-        ratom_name = tokens[2];
-      } else if (tokens.size() == 4) {
-        ratom_res = tokens[2];
-        ratom_name = trim_copy(tokens[3]);
-      } else {
-        throw usage_error("Could not parse covalent_rec_atom: " + copt.covalent_rec_atom);
+    boost::regex expr{"([^:]+):(-?\\d+)(\\w?):([^:]+)(?::([^:]+))?"};
+    boost::smatch what;
+
+    if(boost::regex_search(copt.covalent_rec_atom, what, expr)) {
+      if(what.str(1).length() > 0) ratom_chain = what.str(1)[0];
+      if(what.str(1).length() > 1) {
+        throw usage_error("Chain identifiers with more than one character are not supported in covalent_rec_atom: "+copt.covalent_rec_atom);
       }
+      ratom_num = lexical_cast<int>(what.str(2));
+      ratom_icode = what.str(3);
+      if(what[5].length() > 0) {
+        ratom_res = what.str(4); 
+        ratom_name = what.str(5); 
+      } else {
+        ratom_name = what.str(4);
+      }
+    } else {
+        throw usage_error("Could not parse covalent_rec_atom: " + copt.covalent_rec_atom);
     }
+    
   }
 
   // lig atom pattern is smarts
@@ -65,7 +71,9 @@ bool CovInfo::is_rec_atom(OpenBabel::OBAtom *a) const {
     if (r->GetNum() == ratom_num && r->GetChain() == ratom_chain) {
       if (ratom_res.size() == 0 || r->GetName() == ratom_res) {
         if (trim_copy(r->GetAtomID(a)) == ratom_name) {
-          return true;
+          if (ratom_icode.length() == 0 || r->GetInsertionCode() == ratom_icode[0]) {
+            return true;
+          }
         }
       }
     }
