@@ -69,6 +69,7 @@ keywords:
   - Structure-based drug design
 license: GPL-1.0
 preferred-citation:
+    type: article
     title: "GNINA 1.0: molecular docking with deep learning"
     authors:
       - given-names: Andrew
