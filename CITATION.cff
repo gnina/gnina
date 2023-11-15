@@ -68,3 +68,42 @@ keywords:
   - Deep learning
   - Structure-based drug design
 license: GPL-1.0
+preferred-citation:
+    title: "GNINA 1.0: molecular docking with deep learning"
+    authors:
+      - given-names: Andrew
+        family-names: MCNutt
+        affiliation: University of Pittsburgh
+        email: anm329@pitt.edu
+      - given-names: Paul
+        family-names: Francoeur
+        affiliation: University of Pittsburgh
+        orcid: 'https://orcid.org/0000-0002-1440-567X'
+        email: paf46@pitt.edu
+      - given-names: 'Rishal '
+        family-names: Aggarwal
+        affiliation: International Institute of Information Technology
+      - given-names: Tomohide
+        family-names: Masuda
+        affiliation: University of Pittsburgh
+      - given-names: Rocco
+        family-names: Meli
+        affiliation: University of Oxford
+      - given-names: Matthew
+        family-names: Ragoza
+        affiliation: University of Pittsburgh
+      - given-names: Jocelyn
+        family-names: Sunseri
+        affiliation: University of Pittsburgh
+      - given-names: David
+        family-names: Koes
+        email: dkoes@pitt.edu
+        affiliation: University of Pittsburgh
+        orcid: 'https://orcid.org/0000-0002-6892-6614'
+    journal: "Journal of cheminformatics"
+    volume: 13
+    number: 1
+    start: 1
+    end: 20
+    year:2021
+    publisher: "BioMed Central"
