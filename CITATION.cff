@@ -4,7 +4,7 @@ message: 'If you find gnina useful, please cite our paper(s)'
 type: software
 authors:
   - given-names: Andrew
-    family-names: MCNutt
+    family-names: McNutt
     affiliation: University of Pittsburgh
     email: anm329@pitt.edu
   - given-names: Paul
@@ -12,7 +12,7 @@ authors:
     affiliation: University of Pittsburgh
     orcid: 'https://orcid.org/0000-0002-1440-567X'
     email: paf46@pitt.edu
-  - given-names: 'Rishal '
+  - given-names: Rishal
     family-names: Aggarwal
     affiliation: International Institute of Information Technology
   - given-names: Tomohide
@@ -73,7 +73,7 @@ preferred-citation:
     title: "GNINA 1.0: molecular docking with deep learning"
     authors:
       - given-names: Andrew
-        family-names: MCNutt
+        family-names: McNutt
         affiliation: University of Pittsburgh
         email: anm329@pitt.edu
       - given-names: Paul
@@ -81,7 +81,7 @@ preferred-citation:
         affiliation: University of Pittsburgh
         orcid: 'https://orcid.org/0000-0002-1440-567X'
         email: paf46@pitt.edu
-      - given-names: 'Rishal '
+      - given-names: Rishal
         family-names: Aggarwal
         affiliation: International Institute of Information Technology
       - given-names: Tomohide
