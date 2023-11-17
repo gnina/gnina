@@ -96,8 +96,7 @@ unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments,
         }
     }
 
-    if (bonds_to_delete.size() != 0) //checks there is something to delete
-        {
+    if (bonds_to_delete.size() != 0) { //checks there is something to delete
       vector<unsigned int>::iterator itb = bonds_to_delete.end();
       itb--;
       for (OBBondIterator it = mol_pieces.EndBonds(); true;) {

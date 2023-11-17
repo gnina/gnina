@@ -93,6 +93,7 @@ OpenBabel::OBAtom *CovInfo::find_rec_atom(OpenBabel::OBMol &mol) const {
   FOR_ATOMS_OF_MOL(a, mol) {
     if (is_rec_atom(&*a)) {
       covrec = &*a;
+      break; //first in file
     }
   }
   return covrec;

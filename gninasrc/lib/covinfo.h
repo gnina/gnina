@@ -64,6 +64,8 @@ public:
   bool has_user_lig_atom_pos() const { return latom_pos_set; }
   vec lig_atom_pos(OpenBabel::OBAtom *ra, OpenBabel::OBAtom *la) const;
 
+  bool has_fixed_lig_atom() const { return fix_latom_pos; }
+
   std::vector<std::vector<int> > get_matches(OpenBabel::OBMol &mol);
 
   int get_bond_order() const {

@@ -334,16 +334,11 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
 
   // if the cov res is suppose to be flexible, don't do the following
   if(!covres_isflex) {
-    //at a minimum, do not fix ratom and its neighbors
+    //at a minimum, do not fix ratom - maybe need to consider neighbors?
     std::vector<bool> fixres(resatoms, true);
-    fixres[ratom_index-1] = false;
-    if(covatom->GetExplicitValence() == 1) {
-      //if a terminal atom, allow rotation of torsion connecting it to the residue
-      FOR_NBORS_OF_ATOM(b, covatom) { 
-        unsigned i = b->GetIdx() - 1;
-        if(i < resatoms) fixres[i] = false;
-      }
-    }
+    if(!cinfo.has_fixed_lig_atom())
+      fixres[ratom_index-1] = false;
+
     for (unsigned i = 0; i < resatoms; i++) { 
       if (fixres[i])
         norotate.push_back(i + 1); // indexed by one for dumb reasons
