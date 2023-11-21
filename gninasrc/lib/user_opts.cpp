@@ -48,22 +48,6 @@ std::istream& operator>>(std::istream &in, pose_sort_order &sort_order)
   return in;
 }
 
-//for reading in as a commandline option
-std::istream& operator>>(std::istream &in, covalent_optimization &covopt)
-{
-  std::string token;
-  in >> token;
-  to_lower(token);
-  if (token == "none")
-    covopt = None;
-  else if (token == "atom")
-    covopt = Atom;
-  else if (token == "ligand")
-    covopt = Ligand;
-  else
-    throw validation_error(validation_error::invalid_option_value);
-  return in;
-}
 
 std::istream& operator>>(std::istream &in, cnn_scoring_level &cnn_level)
 {

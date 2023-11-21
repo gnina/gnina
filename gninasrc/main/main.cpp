@@ -1099,10 +1099,7 @@ Thank you!\n";
     ("covalent_lig_atom_position", value<std::string>(&copt.covalent_lig_atom_position), "Optional.  Initial placement of covalently bonding ligand atom in x,y,z Cartesian coordinates.  If not specified, OpenBabel's GetNewBondVector function will be used to position ligand.")
     ("covalent_fix_lig_atom_position", bool_switch(&copt.covalent_fix_lig_atom_position), "If covalent_lig_atom_position is specified, fix the ligand atom to this position as opposed to using this position to define the initial structure.")
     ("covalent_bond_order", value<int>(&copt.bond_order)->default_value(1), "Bond order of covalent bond. Default 1.")
-    ("covalent_optimize_lig", value<covalent_optimization>(&copt.covalent_optimize_lig)->default_value(None), "Extent to optimize the covalent complex of ligand and residue using UFF.\n\t[ none (default), atom, ligand]\n"
-                                                                               "\tnone - heuristically place ligand atom with OpenBabel\n"
-                                                                               "\tatom - optimize placement of ligand atom only with UFF\n"
-                                                                               "\tligand - optimize entire ligand with UFF. This will change bond angles and lengths.");
+    ("covalent_optimize_lig", bool_switch(&copt.covalent_optimize_lig), "Optimize the covalent complex of ligand and residue using UFF. This will change bond angles and lengths of the ligand.");
 
 
     options_description outputs("Output");

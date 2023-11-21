@@ -55,10 +55,7 @@ CovInfo::CovInfo(const CovOptions& copt, tee &l) :
   if( fix_latom_pos && !latom_pos_set) {
     *log << "WARNING: covalent_fix_lig_atom_position set without specifying covalent_lig_position. Ignoring\n";
   }
-  if (fix_latom_pos && optlevel == Atom) {
-    *log << "WARNING: covalent_fix_lig_atom_position set with covalent_optimize_lig set to atom.  Will not optimize.\n";
-    optlevel = None;
-  }
+
   initialized = true;
 }
 

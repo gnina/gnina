@@ -18,7 +18,7 @@
 struct CovOptions {
   std::string covalent_rec_atom;
   std::string covalent_lig_atom_pattern;
-  covalent_optimization covalent_optimize_lig = None;
+  bool covalent_optimize_lig = false;
   int bond_order = 1;
   std::string covalent_lig_atom_position;
   bool covalent_fix_lig_atom_position = false;
@@ -41,7 +41,7 @@ class CovInfo {
   OpenBabel::OBSmartsPattern latom_pat;
 
   int bond_order = 1;
-  covalent_optimization optlevel = None;
+  bool optlevel = false;
   vec latom_pos = vec(0, 0, 0); // where to position latom, optional
   bool latom_pos_set = false;
   bool fix_latom_pos = false;
@@ -72,7 +72,7 @@ public:
     return bond_order;
   }
 
-  covalent_optimization get_opt_level() const {
+  bool optimize_ligand() const {
     return optlevel;
   }
 private:

@@ -208,6 +208,39 @@ void MolGetter::setInputFile(const std::string &fname) {
   }
 }
 
+// identify a reasonable position for adding to atom a in molecule m
+// if we get here, a is probably a metal and we probably need to consider
+// atoms outside of the covalent residue to get the right bond vector
+// The heuristic is to identify all close by atoms and negate their average
+// to get a direction
+static vector3 heuristic_position(model &m, OBAtom* a, double bondLength) {
+  vector3 newbond;
+  const double DISTSQ = 2.5*2.5;
+  const atomv& atoms = m.get_fixed_atoms();
+  vector3 avec = a->GetVector();
+  vec v(avec.GetX(), avec.GetY(), avec.GetZ());
+  vec sum(0,0,0);
+  for (unsigned i = 0, n = atoms.size(); i < n; i++) {
+    const atom& a = atoms[i];
+    if(vec_distance_sqr(v,a.coords) < DISTSQ) {
+      sum += v-a.coords;
+    }
+  }
+
+  double len = sum.norm();
+  if(len < 0.01) {
+    //giveup and return random vector, which is no worse than what OB would do
+    newbond.randomUnitVector();
+  } else {
+    sum /= sum.norm(); //normalize
+    newbond = vector3(sum[0],sum[1],sum[2]);
+  }
+  newbond *= bondLength;
+  newbond += a->GetVector();
+
+  return newbond;
+}
+
 /* Covalently attach read molecule to receptor as a flexible residue. */
 bool MolGetter::createCovalentMoleculeInModel(model &m) {
   // ligand is going to be made part of the receptor
@@ -265,11 +298,22 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
     success = OBBuilder::Connect(flex, ratom_index, latom_index, obpos, cinfo.get_bond_order());
   } else {
     //work around openbabel bug where it is willing to return nan for the bond vector
+    auto a = flex.GetAtom(ratom_index);
     vector3 newpos = OBBuilder::GetNewBondVector(flex.GetAtom(ratom_index));
     if(!isfinite(newpos.x())) {
-      flex.GetAtom(ratom_index)->SetHyb(4); // hacky workaround - most common offender is a metal ion
+      a->SetHyb(4); // hacky workaround - most common offender is a metal ion
+    } 
+    
+    if(a->GetHyb() < a->GetExplicitDegree()) {
+      //in thise case a random vector is returned, so apply another hacky workaround
+      auto la = flex.GetAtom(latom_index);
+      double bondLength = OBElements::GetCovalentRad(a->GetAtomicNum()) +
+                           OBElements::GetCovalentRad(la->GetAtomicNum());
+      vector3 obpos = heuristic_position(m, a,bondLength);
+      success = OBBuilder::Connect(flex, ratom_index, latom_index, obpos, cinfo.get_bond_order());      
+    } else { //normal case
+      success = OBBuilder::Connect(flex, ratom_index, latom_index, cinfo.get_bond_order());    
     }
-    success = OBBuilder::Connect(flex, ratom_index, latom_index, cinfo.get_bond_order());    
   }
   if (!success)
     throw internal_error("Failed to connect.", __LINE__);
@@ -277,7 +321,7 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
   flex.AddHydrogens();
   unsigned resatoms = covres.NumAtoms();
 
-  if(cinfo.get_opt_level() != None) {
+  if(cinfo.optimize_ligand()) {
     //optimize molecule a little bit, but not the residue
     OBForceField *ff = OBForceField::FindForceField("UFF");
     
@@ -294,32 +338,10 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
       constraints.AddAtomConstraint(latom_index+1);
     }
 
-    if(cinfo.get_opt_level() == Atom) {
-      //optimize only the atom
-      for (unsigned i = resatoms+1, n = flex.NumAtoms(); i < n; i++) {
-        constraints.AddIgnore(i+1);
-      }
-
-      ff->Setup(flex,constraints);
-      ff->SteepestDescent(1000, 1e-3);
-      ff->GetCoordinates(flex);
-
-      vector3 ligpos = flex.GetAtom(latom_index)->GetVector();
-      //recreate the flex using the optimized atom position
-      flex = covres;
-      flex += covmol;
-      flex.SetChainsPerceived(true);
-
-      success = OBBuilder::Connect(flex, ratom_index, latom_index, ligpos, cinfo.get_bond_order());
-      VINA_CHECK(success);
-      flex.AddHydrogens();      
-
-    } else {
-      //full ligand optimization
-      ff->Setup(flex,constraints);
-      ff->SteepestDescent(1000, 1e-3);
-      ff->GetCoordinates(flex);
-    }
+    //full ligand optimization
+    ff->Setup(flex,constraints);
+    ff->SteepestDescent(1000, 1e-3);
+    ff->GetCoordinates(flex);    
 
   }
 
