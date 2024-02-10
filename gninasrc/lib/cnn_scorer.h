@@ -16,17 +16,16 @@
 #include <boost/thread/recursive_mutex.hpp>
 #include <vector>
 
+#include "dl_scorer.h"
 #include "model.h"
 #include "cnn_data.h"
 
-//this must be called in every thread that uses CNNScorer
-extern int initializeCUDA(int device);
 
 /* This class evaluates protein-ligand poses according to a provided
  * Caffe convolutional neural net (CNN) model.
  */
 
-class CNNScorer {
+class CNNScorer : public DLScorer {
   public:
     typedef float Dtype;
   private:
@@ -112,10 +111,17 @@ class CNNScorer {
       return mgrids[0]->getResolution();
     }
 
+    void set_bounding_box(grid_dims& box) const;
+
     caffe::MolGridDataLayer<Dtype> * get_mgrid(unsigned which=0) {
       if(which >= mgrids.size()) throw usage_error("CNN network doesn't exist");
       return mgrids[which];
     }
+
+     std::shared_ptr<DLScorer> fresh_copy() const {
+      return std::make_shared<CNNScorer>(cnnopts);
+     }
+
   protected:
     void get_net_output(caffe::shared_ptr<caffe::Net<Dtype> >& net, Dtype& score, Dtype& aff, Dtype& loss);
     void check_gradient(caffe::shared_ptr<caffe::Net<Dtype> >& net);

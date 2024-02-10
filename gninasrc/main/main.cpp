@@ -44,7 +44,7 @@
 #include "quasi_newton.h"
 #include "tee.h"
 #include "custom_terms.h"
-#include "cnn_scorer.h"
+#include "dl_scorer.h"
 #include "coords.h"
 #include "obmolopener.h"
 #include "gpucode.h"
@@ -211,7 +211,7 @@ output_container remove_redundant(const output_container& in, fl min_rmsd)
 }
 
 //print info to log about cnn scoring
-static void get_cnn_info(model& m, CNNScorer& cnn, tee& log, float& cnnscore,
+static void get_cnn_info(model& m, DLScorer& cnn, tee& log, float& cnnscore,
     float& cnnaffinity, float& cnnvariance) {
   float loss = 0;
   cnnscore = 0;
@@ -248,7 +248,7 @@ void do_search(model& m, const boost::optional<model>& ref,
     const vec& corner1, const vec& corner2,
     const parallel_mc& par, const user_settings& settings,
     bool compute_atominfo, tee& log,
-    const terms *t, grid& user_grid, CNNScorer& cnn,
+    const terms *t, grid& user_grid, DLScorer& cnn,
     std::vector<result_info>& results,szv_grid_cache& grid_cache, const grid_dims& gd, fl slope)
 {
   boost::timer::cpu_timer time;
@@ -497,7 +497,7 @@ void main_procedure(model &m, precalculate &prec,
     bool no_cache, bool compute_atominfo,
     const grid_dims &gd, minimization_params minparm,
     const weighted_terms &wt, tee &log,
-    std::vector<result_info> &results, grid &user_grid, CNNScorer &cnn)
+    std::vector<result_info> &results, grid &user_grid, DLScorer &cnn)
 {
   doing(settings.verbosity, "Setting up the scoring function", log);
 
@@ -872,7 +872,7 @@ struct global_state
 //in enough memory efficiency to avoid using a single one
 void threads_at_work(job_queue<worker_job> *wrkq,
     job_queue<writer_job> *writerq, global_state *gs,
-    MolGetter *mols, int *nligs, CNNScorer cnn_scorer) //copy cnn_scorer so it can maintain state
+    MolGetter *mols, int *nligs, std::shared_ptr<DLScorer> dl_scorer) //copy dl_scorer so it can maintain state
 {
   if(!gs->settings->no_gpu)
     initializeCUDA(gs->settings->device);
@@ -891,7 +891,7 @@ void threads_at_work(job_queue<worker_job> *wrkq,
         gs->atomoutfile->is_open()
             || gs->settings->include_atom_info, j.gd,
         *gs->minparms, *gs->wt, *gs->log, *(j.results),
-        *gs->user_grid, cnn_scorer);
+        *gs->user_grid, *dl_scorer);
 
     writer_job k(j.molid, j.results);
     writerq->push(k);
@@ -1652,7 +1652,7 @@ Thank you!\n";
         &log, &atomoutfile, cnnopts);
     boost::thread_group worker_threads;
     boost::timer::cpu_timer time;
-    CNNScorer cnn_scorer(cnnopts); //shared network
+    CNNScorer dl_scorer(cnnopts); //shared network
 
     if (!settings.local_only)
       nthreads = 1; //docking is multithreaded already, don't add additional parallelism other than pipeline
@@ -1660,7 +1660,7 @@ Thank you!\n";
     //launch worker threads to process ligands in the work queue
     for (int i = 0; i < nthreads; i++) {
       worker_threads.create_thread(boost::bind(threads_at_work, &wrkq,
-          &writerq, &gs, &mols, &nligs, cnn_scorer));
+          &writerq, &gs, &mols, &nligs, dl_scorer.fresh_copy()));
     }
 
     //launch writer thread to write results wherever they go

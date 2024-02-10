@@ -19,12 +19,16 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
   list(APPEND CUDA_NVCC_FLAGS -lineinfo)
 endif()
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 include_directories(${Boost_INCLUDE_DIRS}) 
 include_directories(${CUDA_INCLUDE_DIRS})
+include_directories(${TORCH_INCLUDE_DIRS})
+
 # need to use eigen 3.2 until CUDA fixes are released
 include_directories(../Eigen)
 
@@ -38,10 +42,12 @@ lib/builtinscoring.cpp
 lib/cache.cpp
 lib/cache_gpu.cpp
 lib/cnn_scorer.cpp
+lib/cnn_torch_scorer.cpp
 lib/cnn_data.cpp
 lib/coords.cpp
 lib/covinfo.cpp
 lib/custom_terms.cpp
+lib/dl_scorer.cpp
 lib/device_buffer.cpp
 lib/everything.cpp
 lib/flexinfo.cpp
@@ -107,12 +113,12 @@ set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/_version.cpp PROPERTIES 
             
 add_library(gninalib ${LIB_SRCS})
 set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ZLIB::ZLIB)
+target_link_libraries(gninalib  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES}  ${TORCH_LIBRARIES} ZLIB::ZLIB)
 # MESSAGE(STATUS "variable is: " ${NVCC_FLAGS_EXTRA})
 
 add_library(gninalib_static STATIC ${LIB_SRCS})
 set_target_properties(gninalib_static PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib_static  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ZLIB::ZLIB)
+target_link_libraries(gninalib_static  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES}  ${TORCH_LIBRARIES} ZLIB::ZLIB)
 
 install(TARGETS gninalib gninalib_static DESTINATION lib)
 
@@ -122,7 +128,7 @@ include_directories(${LIBMOLGRID_INCLUDE})
 
 # compile in libgnina - there are enough dependencies to deal with
 add_executable(gnina main/main.cpp ${LIB_SRCS})
-target_link_libraries(gnina  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${LIBMOLGRID_LIBRARY} ZLIB::ZLIB)
+target_link_libraries(gnina  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${LIBMOLGRID_LIBRARY} ${TORCH_LIBRARIES} ZLIB::ZLIB)
 
 add_subdirectory(gninaserver)
 
@@ -136,7 +142,7 @@ add_executable(gninagrid gninagrid/gninagrid.cpp gninagrid/molgridder.cpp lib/Co
 target_link_libraries(gninagrid  gninalib  ${CUDA_LIBRARIES})
 
 add_executable(gninatyper gninatyper/gninatyper.cpp lib/CommandLine2/CommandLine.cpp ${LIB_SRCS})
-target_link_libraries(gninatyper   ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${LIBMOLGRID_LIBRARY})
+target_link_libraries(gninatyper   ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${LIBMOLGRID_LIBRARY} ${TORCH_LIBRARIES} )
 
 add_executable(tognina tognina/tognina.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(tognina   ${Caffe_LINK}  gninalib ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES})

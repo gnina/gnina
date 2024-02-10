@@ -25,8 +25,8 @@
 #include "loop_timer.h"
 
 non_cache_cnn::non_cache_cnn(szv_grid_cache& gcache, const grid_dims& gd_,
-    const precalculate* p_, fl slope_, CNNScorer& cnn_scorer_)
-    : non_cache(gcache, gd_, p_, slope_), cnn_scorer(cnn_scorer_) {
+    const precalculate* p_, fl slope_, DLScorer& dl_scorer_)
+    : non_cache(gcache, gd_, p_, slope_), dl_scorer(dl_scorer_) {
 }
 
 //return the LOSS plus any out of bounds penalties
@@ -47,7 +47,7 @@ fl non_cache_cnn::eval(model& m, fl v) const {
   fl aff = 0;
   fl loss = 0;
   fl variance = 0;
-  cnn_scorer.score(m, false, aff, loss, variance);
+  dl_scorer.score(m, false, aff, loss, variance);
   e += loss;
 
   return e;
@@ -59,25 +59,15 @@ void non_cache_cnn::adjust_center(model& m) {
   //a second out_of_bound_box to this region
 
   //set center
-  cnn_scorer.set_center_from_model(m);
+  dl_scorer.set_center_from_model(m);
 
   //apply oob penalty to cnn grid
-  vec center = cnn_scorer.get_center();
-  fl dim = cnn_scorer.get_grid_dim();
-  fl n = dim / cnn_scorer.get_grid_res();
-  fl half = dim / 2.0;
-
-  for (unsigned i = 0; i < 3; i++) {
-    fl c = center[i];
-    cnn_gd[i].begin = c - half;
-    cnn_gd[i].end = c + half;
-    cnn_gd[i].n = n;
-  }
+  dl_scorer.set_bounding_box(cnn_gd);
 
 }
 
 vec non_cache_cnn::get_center() const {
-  return cnn_scorer.get_center();
+  return dl_scorer.get_center();
 }
 
 //check cnn box
@@ -94,7 +84,7 @@ fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const {
   fl variance = 0;
   const fl cutoff_sqr = p->cutoff_sqr();
   //this is what compute cnn minus_forces
-  cnn_scorer.score(m, true, aff, loss, variance);
+  dl_scorer.score(m, true, aff, loss, variance);
   e += loss;
 
   //out of bonds forces
@@ -122,7 +112,7 @@ fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const {
     fl emp_e =0;
     vec emp_deriv(0, 0, 0);
     
-    if (cnn_scorer.options().mix_emp_force){ 
+    if (dl_scorer.options().mix_emp_force){ 
     	
     	const szv& possibilities = sgrid.possibilities(adjusted_emp_a_coords);
         VINA_FOR_IN(possibilities_j, possibilities) {
@@ -153,7 +143,7 @@ fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const {
       fl uge = user_grid.evaluate_user(a_coords, slope, &ug_deriv);
       this_e += uge;
       deriv += ug_deriv;
-      if (cnn_scorer.options().mix_emp_force){
+      if (dl_scorer.options().mix_emp_force){
           emp_e += uge;
           emp_deriv += ug_deriv;
       }
@@ -161,19 +151,19 @@ fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const {
     curl(this_e, deriv, v);
     m.movable_minus_forces(i) += deriv + out_of_bounds_deriv
         + cnn_out_of_bounds_deriv;
-    if (cnn_scorer.options().mix_emp_force){
+    if (dl_scorer.options().mix_emp_force){
         curl(emp_e,emp_deriv,v);
-        m.movable_minus_forces(i) += cnn_scorer.options().empirical_weight * (emp_deriv + out_of_bounds_deriv);
+        m.movable_minus_forces(i) += dl_scorer.options().empirical_weight * (emp_deriv + out_of_bounds_deriv);
         //rescale
-        m.movable_minus_forces(i) /= (1.0 + cnn_scorer.options().empirical_weight);
+        m.movable_minus_forces(i) /= (1.0 + dl_scorer.options().empirical_weight);
     }
     e += this_e + out_of_bounds_penalty;
-     if (cnn_scorer.options().mix_emp_energy){
-      e += cnn_scorer.options().empirical_weight * emp_e;
+     if (dl_scorer.options().mix_emp_energy){
+      e += dl_scorer.options().empirical_weight * emp_e;
      }
     }
- if (cnn_scorer.options().mix_emp_energy){
-     e /=  (1.0 + cnn_scorer.options().empirical_weight);
+ if (dl_scorer.options().mix_emp_energy){
+     e /=  (1.0 + dl_scorer.options().empirical_weight);
 	}
   return e;
 }

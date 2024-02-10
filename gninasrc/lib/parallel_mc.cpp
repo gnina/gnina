@@ -143,12 +143,12 @@ struct parallel_mc_aux {
         t.m.gdata.bfs_order_dfs_indices = bfs_order_dfs_indices;
       }
       if (cnn && cnn->get_scorer().options().cnn_scoring>CNNrefinement) {
-        CNNScorer cnn_scorer(cnn->get_scorer().options());
+        std::shared_ptr<DLScorer> cnn_scorer = cnn->get_scorer().fresh_copy();
         const precalculate* p = cnn->get_precalculate();
         szv_grid_cache gridcache(t.m, p->cutoff_sqr());
         non_cache_cnn new_cnn(gridcache, cnn->get_grid_dims(), p,
-            cnn->getSlope(), cnn_scorer);
-        if (cnn_scorer.options().cnn_scoring==CNNmetropolisrefine||cnn_scorer.options().cnn_scoring==CNNmetropolisrescore)
+            cnn->getSlope(), *cnn_scorer);
+        if (cnn_scorer->options().cnn_scoring==CNNmetropolisrefine||cnn_scorer->options().cnn_scoring==CNNmetropolisrescore)
         {
             (*mc)(t.m, t.out, *p, *ig, *corner1, *corner2, pg, t.generator,
                 *user_grid, new_cnn);
