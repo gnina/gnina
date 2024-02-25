@@ -32,6 +32,15 @@ set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 find_package(CUDA 12.0 REQUIRED)
 set(USE_CUDNN 1)
 
+function(dump_cmake_variables)
+    get_cmake_property(_variableNames VARIABLES)
+    list (SORT _variableNames)
+    foreach (_variableName ${_variableNames})
+        if ((NOT DEFINED ARGV0) OR _variableName MATCHES ${ARGV0})
+            message(STATUS "${_variableName}=${${_variableName}}")
+        endif()
+    endforeach()
+endfunction()
 
 #zlib
 find_package(ZLIB REQUIRED)
@@ -41,7 +50,9 @@ find_package(OpenBabel3 REQUIRED)
 set(OpenBabel3_LIBRARIES $<TARGET_FILE:openbabel>)
 include_directories($<TARGET_PROPERTY:openbabel,INTERFACE_INCLUDE_DIRECTORIES>)
 include_directories(${OpenBabel3_INCLUDE_DIRS})
-  
+
+#make torch use system protobuf to be compat with caffe
+find_package(Protobuf REQUIRED)
 
 #torch
 include(FetchContent)
@@ -95,6 +106,7 @@ include_directories(.)
 add_subdirectory(caffe)
 
 unset(CUDA_ARCH_NAME CACHE) #remove conflict with torch
+
 
 add_dependencies(caffe libmolgrid)
 

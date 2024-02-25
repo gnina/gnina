@@ -32,32 +32,16 @@ class CNNScorer : public DLScorer {
     std::vector<caffe::shared_ptr<caffe::Net<Dtype> > > nets;
     std::vector<caffe::MolGridDataLayer<Dtype> *> mgrids;
     std::vector<caffe::MolGridDataParameter *> mgridparams;
-    cnn_options cnnopts;
-
-    caffe::shared_ptr<boost::recursive_mutex> mtx; //todo, enable parallel scoring
 
     //scratch vectors to avoid memory reallocation
     std::vector<gfloat3> gradient, gradient_rec, gradient_lig;
     std::vector<gfloat3> atoms;
     std::vector<short> channels;
-    vec current_center; //center last time set_center was called, if min frame is moving, the mgrid center will be changing
-
-    // Receptor and ligand information
-    std::vector<float3> ligand_coords, receptor_coords;
-    std::vector<smt> ligand_smtypes, receptor_smtypes;
-    std::vector<int> ligand_map, receptor_map; //from index in above arrays to index in movable atoms
-
-    std::size_t num_atoms = 0; // Number of movable atoms + inflexible atoms
-
-    // Set ligand and receptor atoms and coordinates from model
-    void setLigand(const model& m);
-    void setReceptor(const model& m);
 
     void getGradient(caffe::MolGridDataLayer<Dtype> *mgrid);
 
   public:
-    CNNScorer()
-        : mtx(new boost::recursive_mutex), current_center(NAN,NAN,NAN) {
+    CNNScorer() {
     }
     virtual ~CNNScorer() {
     }
@@ -85,23 +69,12 @@ class CNNScorer : public DLScorer {
     void gradient_setup(const model& m, const std::string& recname,
         const std::string& ligname, const std::string& layer_to_ignore = "");
 
-    //readjust center
-    void set_center_from_model(model &m);
-
     const cnn_options& options() const {
       return cnnopts;
     }
 
-    //disable receptor movement (e.g. for score only)
-    void freeze_receptor() {
-      if (isnan(cnnopts.cnn_center[0]))
-        cnnopts.move_minimize_frame = true; //only move if center not specified
-      cnnopts.fix_receptor = true;
-    }
 
-    vec get_center() const {
-      return current_center;
-    }
+
     fl get_grid_dim() const {
       if(mgrids.size() == 0) throw usage_error("CNN network not initialized in get_grid_dim");
       return mgrids[0]->getDimension();
@@ -125,6 +98,7 @@ class CNNScorer : public DLScorer {
   protected:
     void get_net_output(caffe::shared_ptr<caffe::Net<Dtype> >& net, Dtype& score, Dtype& aff, Dtype& loss);
     void check_gradient(caffe::shared_ptr<caffe::Net<Dtype> >& net);
+
 };
 
 #endif /* SRC_LIB_CNN_SCORER_H_ */

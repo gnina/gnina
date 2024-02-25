@@ -53,6 +53,7 @@ struct cnn_options {
     bool fix_receptor;
     bool mix_emp_force;//merge empirical and CNN minus forces
     bool mix_emp_energy;//merge empirical and CNN energy
+    bool use_torch = false; // temporary flag for switching between caffe and torch
     bool verbose;
 
     std::string xyzprefix;

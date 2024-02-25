@@ -5,6 +5,8 @@ find_package(Boost REQUIRED COMPONENTS program_options system iostreams timer
     thread serialization filesystem date_time regex unit_test_framework)
 find_package(OpenMP)
 
+find_package(jsoncpp REQUIRED)
+
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
   list(APPEND CUDA_NVCC_FLAGS -O3 --default-stream per-thread -Xptxas -dlcm=ca)
 elseif("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
@@ -28,6 +30,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 include_directories(${Boost_INCLUDE_DIRS}) 
 include_directories(${CUDA_INCLUDE_DIRS})
 include_directories(${TORCH_INCLUDE_DIRS})
+include_directories(${JSON_INC_PATH})
 
 # need to use eigen 3.2 until CUDA fixes are released
 include_directories(../Eigen)
@@ -82,6 +85,7 @@ lib/gpucode.cu
 lib/model.cu
 lib/non_cache_gpu.cu
 lib/precalculate_gpu.cu
+lib/torch_model.cpp
 lib/tree_gpu.cu
 lib/user_opts.cpp
 )
@@ -111,14 +115,17 @@ add_custom_command(
     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/_version.cpp)
 set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/_version.cpp PROPERTIES SYMBOLIC TRUE)
             
-add_library(gninalib ${LIB_SRCS})
-set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES}  ${TORCH_LIBRARIES} ZLIB::ZLIB)
-# MESSAGE(STATUS "variable is: " ${NVCC_FLAGS_EXTRA})
+add_library(gninalibobj OBJECT ${LIB_SRCS})
+set_property(TARGET gninalibobj PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-add_library(gninalib_static STATIC ${LIB_SRCS})
+add_library(gninalib_static STATIC $<TARGET_OBJECTS:gninalibobj>)
 set_target_properties(gninalib_static PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib_static  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES}  ${TORCH_LIBRARIES} ZLIB::ZLIB)
+target_link_libraries(gninalib_static  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES}  ${TORCH_LIBRARIES} jsoncpp_lib ZLIB::ZLIB)
+
+add_library(gninalib $<TARGET_OBJECTS:gninalibobj>)
+set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
+target_link_libraries(gninalib  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES}  ${TORCH_LIBRARIES} jsoncpp_lib ZLIB::ZLIB)
+# MESSAGE(STATUS "variable is: " ${NVCC_FLAGS_EXTRA})
 
 install(TARGETS gninalib gninalib_static DESTINATION lib)
 
@@ -127,8 +134,8 @@ include_directories(gninavis)
 include_directories(${LIBMOLGRID_INCLUDE})
 
 # compile in libgnina - there are enough dependencies to deal with
-add_executable(gnina main/main.cpp ${LIB_SRCS})
-target_link_libraries(gnina  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${LIBMOLGRID_LIBRARY} ${TORCH_LIBRARIES} ZLIB::ZLIB)
+add_executable(gnina main/main.cpp $<TARGET_OBJECTS:gninalibobj>)
+target_link_libraries(gnina  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${LIBMOLGRID_LIBRARY} ${TORCH_LIBRARIES} jsoncpp_lib ZLIB::ZLIB)
 
 add_subdirectory(gninaserver)
 
@@ -141,8 +148,8 @@ target_link_libraries(dumpmodel  gninalib )
 add_executable(gninagrid gninagrid/gninagrid.cpp gninagrid/molgridder.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(gninagrid  gninalib  ${CUDA_LIBRARIES})
 
-add_executable(gninatyper gninatyper/gninatyper.cpp lib/CommandLine2/CommandLine.cpp ${LIB_SRCS})
-target_link_libraries(gninatyper   ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${LIBMOLGRID_LIBRARY} ${TORCH_LIBRARIES} )
+add_executable(gninatyper gninatyper/gninatyper.cpp lib/CommandLine2/CommandLine.cpp )
+target_link_libraries(gninatyper   ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${LIBMOLGRID_LIBRARY} ${TORCH_LIBRARIES} jsoncpp_lib gninalib)
 
 add_executable(tognina tognina/tognina.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(tognina   ${Caffe_LINK}  gninalib ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES})
