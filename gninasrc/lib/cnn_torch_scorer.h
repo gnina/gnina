@@ -29,13 +29,10 @@ public:
 
 private:
   // scratch vectors to avoid memory reallocation
-  std::vector<gfloat3> gradient, gradient_rec, gradient_lig;
-  std::vector<gfloat3> atoms;
-  std::vector<short> channels;
-
-
+  std::vector<gfloat3> gradient, gradient_lig, gradient_rec;
   std::vector<std::shared_ptr<TorchModel<isCUDA> > > models;
 
+  void getGradient(std::shared_ptr<TorchModel<isCUDA> >, std::vector<gfloat3>& gradient);
 public:
   CNNTorchScorer() {}
   virtual ~CNNTorchScorer() {}

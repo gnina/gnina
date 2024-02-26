@@ -12,8 +12,8 @@
 
 #include "torch_model.h"
 #include <boost/algorithm/string.hpp>
-#include <boost/iostreams/stream.hpp>
 #include <boost/iostreams/device/array.hpp>
+#include <boost/iostreams/stream.hpp>
 #include <torch/script.h>
 
 using namespace std;
@@ -68,7 +68,7 @@ template <bool isCUDA> CNNTorchScorer<isCUDA>::CNNTorchScorer(const cnn_options 
     const char *modelend = torch_models[name].second;
 
     basic_array_source<char> model_source(modelstart, modelend - modelstart);
-    stream<basic_array_source<char> > model_stream(model_source);
+    stream<basic_array_source<char>> model_stream(model_source);
     models.push_back(std::make_shared<TorchModel<isCUDA>>(model_stream, name, log));
   }
 
@@ -118,6 +118,7 @@ float CNNTorchScorer<isCUDA>::score(model &m, bool compute_gradient, float &affi
   if (nscores > 1)
     affinities.reserve(nscores);
 
+  gradient.resize(receptor_coords.size() + ligand_coords.size());
   // loop over models
   for (auto &model : models) {
     torch::manual_seed(cnnopts.seed); // same random rotations for each ligand..
@@ -162,7 +163,16 @@ float CNNTorchScorer<isCUDA>::score(model &m, bool compute_gradient, float &affi
       }
 
       if (compute_gradient || cnnopts.outputxyz) {
-        throw usage_error("Backwards not yet supported with torch models.");
+
+        // Get gradient from mgrid into CNNScorer::gradient
+        getGradient(model, gradient);
+
+        // Update ligand (and flexible residues) gradient
+        m.add_minus_forces(gradient);
+
+        // Gradient for rigid receptor transformation: translation and torque
+        if (cnnopts.moving_receptor())
+          throw usage_error("Moving receptor not yet supported with torch models.");
       }
       cnt++;
     } // end rotations
@@ -197,6 +207,30 @@ template <bool isCUDA> float CNNTorchScorer<isCUDA>::score(model &m, float &vari
   float aff = 0;
   float loss = 0;
   return score(m, false, aff, loss, variance);
+}
+
+template <bool isCUDA>
+void CNNTorchScorer<isCUDA>::getGradient(std::shared_ptr<TorchModel<isCUDA> > model, std::vector<gfloat3> &gradient) {
+  gradient.resize(num_atoms);
+  gradient_lig.reserve(num_atoms);
+
+// Get ligand gradient
+  model->getLigandGradient(gradient_lig);
+
+// Get receptor gradient
+  if (receptor_map.size() != 0)
+  { // Optimization of flexible residues
+    model->getReceptorGradient(gradient_rec);
+  }
+
+  for(sz i = 0, n = ligand_map.size(); i < n; i++) {
+    gradient[ligand_map[i]] = gradient_lig[i];
+  }
+  for(sz i = 0, n = receptor_map.size(); i < n; i++) {
+    gradient[receptor_map[i]] = gradient_rec[i];
+  }
+
+  VINA_CHECK(gradient.size() == ligand_map.size() + receptor_map.size());
 }
 
 template <bool isCUDA> void CNNTorchScorer<isCUDA>::set_bounding_box(grid_dims &box) const {

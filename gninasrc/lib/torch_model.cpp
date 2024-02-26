@@ -106,11 +106,15 @@ template <bool isCUDA> TorchModel<isCUDA>::TorchModel(std::istream &in, const st
   }
 }
 
-static CoordinateSet make_coordset(const vector<float3>& coords, const vector<smt>& smtypes, shared_ptr<AtomTyper> typer) {
-  if(coords.size() != smtypes.size()) throw internal_error("Shape mismatch",__LINE__);
+static CoordinateSet make_coordset(const vector<float3> &coords, const vector<smt> &smtypes,
+                                   shared_ptr<AtomTyper> typer) {
+  if (coords.size() != smtypes.size())
+    throw internal_error("Shape mismatch", __LINE__);
 
-  vector<float> types; types.reserve(coords.size());
-  vector<float> radii; radii.reserve(coords.size());
+  vector<float> types;
+  types.reserve(coords.size());
+  vector<float> radii;
+  radii.reserve(coords.size());
   for (unsigned i = 0, n = smtypes.size(); i < n; i++) {
     smt origt = smtypes[i];
     auto t_r = typer->get_int_type(origt);
@@ -118,7 +122,7 @@ static CoordinateSet make_coordset(const vector<float3>& coords, const vector<sm
     types.push_back(t);
     radii.push_back(t_r.second);
 
-    if(t < 0 && origt > 1) { //don't warn about hydrogens
+    if (t < 0 && origt > 1) { // don't warn about hydrogens
       std::cerr << "Unsupported ligand atom type " << GninaIndexTyper::gnina_type_name(origt) << "\n";
     }
   }
@@ -126,56 +130,91 @@ static CoordinateSet make_coordset(const vector<float3>& coords, const vector<sm
   return CoordinateSet(coords, types, radii, typer->num_types());
 }
 
+//wrapper to get appropriate grid from an MGrid for template value of isCUDA
 template <bool isCUDA>
-std::vector<float> TorchModel<isCUDA>::forward(const std::vector<float3> &rec_coords,
-                                                      const std::vector<smt> &rec_types,
-                                                      const std::vector<float3> &lig_coords,
-                                                      const std::vector<smt> &lig_types, 
-                                                      const vec& center,
-                                                      bool rotate,
-                                                      bool compute_gradient) {
+static Grid<float, 2, isCUDA> get2DGrid(MGrid2f& mgrid);
+template<>
+Grid<float, 2, true> get2DGrid(MGrid2f& mgrid) { return mgrid.gpu();}
+template<>
+Grid<float, 2, false> get2DGrid(MGrid2f& mgrid) { return mgrid.cpu();}
+
+template <bool isCUDA>
+std::vector<float> TorchModel<isCUDA>::forward(const std::vector<float3> &rec_coords, const std::vector<smt> &rec_types,
+                                               const std::vector<float3> &lig_coords, const std::vector<smt> &lig_types,
+                                               const vec &center, bool rotate, bool compute_gradient) {
 
   torch::AutoGradMode enable_grad(false);
-  //make coordinate sets
+  // make coordinate sets
   CoordinateSet rec = make_coordset(rec_coords, rec_types, rec_typer);
   CoordinateSet lig = make_coordset(lig_coords, lig_types, lig_typer);
 
-  //set center from ligand if not specified
-  float3 gcenter = {center.x(),center.y(),center.z()};
-  if(!isfinite(center.x())) {
+  // set center from ligand if not specified
+  float3 gcenter = {center.x(), center.y(), center.z()};
+  if (!isfinite(center.x())) {
     gcenter = lig.center();
   }
 
-  CoordinateSet combined(rec,lig);
+  CoordinateSet combined(rec, lig);
 
   Transform transform(gcenter, 0, rotate);
-  if(rotate) {
+  if (rotate) {
     transform.forward(combined, combined);
   }
-  //create grids
+  // create grids
   long ntypes = combined.num_types();
   long gd = gmaker.get_first_dim();
 
   auto options = torch::TensorOptions().dtype(torch::kFloat32).device(isCUDA ? torch::kCUDA : torch::kCPU);
-  torch::Tensor gtensor = torch::zeros({1,ntypes, gd, gd, gd},options);
+  torch::Tensor gtensor = torch::zeros({1, ntypes, gd, gd, gd}, options);
   Grid<float, 4, isCUDA> out(gtensor.data_ptr<float>(), ntypes, gd, gd, gd);
   gmaker.forward(gcenter, combined, out);
 
-  //evaluate model
+  // evaluate model
   vector<torch::jit::IValue> inputs{gtensor};
   auto result = module.forward(inputs).toTuple()->elements();
 
-  //get results
+  // get results
   auto pose_logit = result[0].toTensor();
-  auto pose = torch::softmax(pose_logit,1).index({0,1}).item<float>();
+  auto pose = torch::softmax(pose_logit, 1).index({0, 1}).item<float>();
   auto affinity = result[1].toTensor()[0].item<float>();
 
   auto loptions = torch::TensorOptions().dtype(torch::kLong).device(isCUDA ? torch::kCUDA : torch::kCPU);
-  torch::Tensor labels = torch::ones({1},loptions);
+  torch::Tensor labels = torch::ones({1}, loptions);
   auto loss = torch::cross_entropy_loss(pose_logit, labels);
- 
-  vector<float> scores{pose,affinity,loss.item<float>()};
+
+  if (compute_gradient) {
+    loss.backward(); // side effect of setting grad in model
+    auto grad = gtensor.grad();
+    Grid<float, 4, isCUDA> gridgrad(grad.data_ptr<float>(), ntypes, gd, gd, gd);
+    MGrid2f atomic_gradients(combined.size(),3);
+    auto coord_grad = get2DGrid<isCUDA>(atomic_gradients);
+    gmaker.backward(gcenter,combined, gridgrad, coord_grad);
+    if(rotate) {
+      transform.backward(coord_grad,coord_grad,false);
+    }
+    unsigned nr = rec.size();
+    unsigned nl = lig.size();
+    VINA_CHECK(nr+nl == combined.size());
+    gradient_rec.resize(nr);
+    for(unsigned i = 0; i < nr; i++) {
+      gradient_rec[i] = gfloat3(coord_grad[i][0],coord_grad[i][1],coord_grad[i][2]);
+    }
+    gradient_lig.resize(nl);
+    for(unsigned i = 0; i < nl; i++) {
+      gradient_lig[i] = gfloat3(coord_grad[i+nr][0],coord_grad[i+nr][1],coord_grad[i+nr][2]);
+    }
+
+  }
+  vector<float> scores{pose, affinity, loss.item<float>()};
   return scores;
+}
+
+template <bool isCUDA> void TorchModel<isCUDA>::getLigandGradient(std::vector<gfloat3> &grad) {
+  grad = gradient_lig;
+}
+
+template <bool isCUDA> void TorchModel<isCUDA>::getReceptorGradient(std::vector<gfloat3> &grad) {
+  grad = gradient_rec;
 }
 
 // explicit instaniationsº
