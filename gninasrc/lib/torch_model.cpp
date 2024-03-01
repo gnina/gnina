@@ -59,6 +59,7 @@ template <bool isCUDA> TorchModel<isCUDA>::TorchModel(std::istream &in, const st
     string recmap, ligmap;
     double resolution = 0.5;
     double dimension = 23.5;
+    double rscale = 1.0;
     if (data.length() == 0) {
       if (log)
         *log << "WARNING: Torch model missing metadata.  Default grid parameters will be used.\n";
@@ -93,12 +94,18 @@ template <bool isCUDA> TorchModel<isCUDA>::TorchModel(std::istream &in, const st
         if (log)
           *log << "WARNING: recmap not specified in model file.  Using default.\n";
       }
-      if (root.isMember("skip_loss")) {
-        skip_loss = root["skip_loss"].asBool();
+      if (root.isMember("apply_logistic_loss")) {
+        apply_logistic_loss = root["apply_logistic_loss"].asBool();
+      }
+      if (root.isMember("skip_softmax")) {
+        skip_softmax = root["skip_softmax"].asBool();
+      }      
+      if (root.isMember("radius_scaling")) {
+        rscale = root["radius_scaling"].asFloat();
       }
     }
 
-    gmaker.initialize(resolution, dimension);
+    gmaker.initialize(resolution, dimension, false, rscale);
 
     // setup typers
     stringstream ligstream(ligmap), recstream(recmap);
@@ -179,13 +186,13 @@ std::vector<float> TorchModel<isCUDA>::forward(const std::vector<float3> &rec_co
 
   // get results
   auto pose_logit = result[0].toTensor();
-  auto pose = torch::softmax(pose_logit, 1).index({0, 1}).item<float>();
+  auto pose = skip_softmax ? pose_logit.index({0,1}).item<float>() : torch::softmax(pose_logit, 1).index({0, 1}).item<float>();
   auto affinity = result[1].toTensor()[0].item<float>();
 
   auto loptions = torch::TensorOptions().dtype(torch::kLong).device(isCUDA ? torch::kCUDA : torch::kCPU);
   torch::Tensor labels = torch::ones({1}, loptions);
 
-  auto loss = skip_loss ? pose_logit.index({0,1}) : torch::cross_entropy_loss(pose_logit, labels);
+  auto loss = apply_logistic_loss ? -torch::log(pose_logit.index({0,1})) : torch::cross_entropy_loss(pose_logit, labels);
 
   if (compute_gradient) {
     loss.backward(); 

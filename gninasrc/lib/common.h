@@ -230,6 +230,12 @@ struct CUDA_ALIGN(4 * sizeof(float)) vec {
     }
 };
 
+
+inline std::ostream& operator<<(std::ostream& os, const vec& v) {
+  os << v[0] <<","<<v[1]<<","<<v[2];
+  return os;
+}
+
 __host__   __device__
   inline vec operator*(fl s, const vec& v) {
   return vec(s * v[0], s * v[1], s * v[2]);

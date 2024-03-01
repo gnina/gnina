@@ -1012,7 +1012,7 @@ Thank you!\n";
     cnn.add_options()("cnn_scoring", value<cnn_scoring_level>(&cnnopts.cnn_scoring)->default_value(CNNrescore),
                       "Amount of CNN scoring: none, rescore (default), refinement, metrorescore (metropolis+rescore), "
                       "metrorefine (metropolis+refine), all")(
-        "cnn_torch", bool_switch(&cnnopts.use_torch)->default_value(false ), // eventually we will remove caffe
+        "cnn_torch", value<bool>(&cnnopts.use_torch)->default_value(true ), // eventually we will remove caffe
         "Use pytorch models (experimental)")(
         "cnn", value<std::vector<std::string>>(&cnnopts.cnn_model_names)->multitoken(),
         ("built-in model to use, specify PREFIX_ensemble to evaluate an ensemble of models starting with PREFIX: " +

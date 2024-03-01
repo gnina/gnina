@@ -25,7 +25,9 @@ template <bool isCUDA> class TorchModel {
   std::shared_ptr<libmolgrid::AtomTyper> lig_typer;
   std::shared_ptr<libmolgrid::AtomTyper> rec_typer;
   std::vector<gfloat3> gradient_rec, gradient_lig;
-  bool skip_loss = false;
+  bool apply_logistic_loss = false; //more for debugging 
+  bool skip_softmax = false;
+
 public:
   TorchModel(std::istream &in, const std::string &name, tee *log);
 

@@ -422,7 +422,9 @@ static void OutputAtom(OBAtom *atom, context &lines, vector<OBAtom*> &atomorder,
   ofs << buffer;
 
   smt sm = string_to_smina_type(element_name_final);
-  assert(sm < smina_atom_type::NumTypes);
+  if(sm >= smina_atom_type::NumTypes) {
+    sm = smina_atom_type::GenericMetal; //falback type
+  }
   parsed_atom patom(sm, charge, vec(atom->GetX(), atom->GetY(), atom->GetZ()),
       index);
   if(atom->HasData("CovLig")) {

@@ -364,10 +364,10 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
   reduce_energy<<<1, ROUND_TO_WARP(num_movable_atoms)>>>(out, num_movable_atoms,
       v, info.gridbegins, info.gridends, info.slope, ligs);
   abort_on_gpu_err();
-  cudaDeviceSynchronize();
 #ifdef __CUDA_ARCH__
   return out->energy;
 #else
+  cudaDeviceSynchronize();
   float cpu_out;
   definitelyPinnedMemcpy(&cpu_out, &out->energy, sizeof(float), cudaMemcpyDeviceToHost);
   return cpu_out;

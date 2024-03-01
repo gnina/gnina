@@ -132,7 +132,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 
     f1 = f(x_new, g_new);
 
-    //std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
+  //  std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
     if (alpha < alamin || !std::isfinite(alpha)) { //too small a step
       //std::cout << "alpha < alamin\n";
       x_new = x;
