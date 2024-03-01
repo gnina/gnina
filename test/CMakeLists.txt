@@ -21,6 +21,5 @@ else()
     endif()
 endif()
 
-add_subdirectory(caffe)
 add_subdirectory(gninagrid)
 add_subdirectory(gnina)

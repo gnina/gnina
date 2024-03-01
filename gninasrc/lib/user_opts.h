@@ -49,8 +49,6 @@ struct cnn_options {
     bool outputdx;
     bool outputxyz;
     bool gradient_check;
-    bool move_minimize_frame;  //recenter with every scoring evaluation
-    bool fix_receptor;
     bool mix_emp_force;//merge empirical and CNN minus forces
     bool mix_emp_energy;//merge empirical and CNN energy
     bool use_torch = false; // temporary flag for switching between caffe and torch
@@ -63,15 +61,8 @@ struct cnn_options {
         : cnn_center(NAN, NAN, NAN),
            resolution(0.5), cnn_rotations(0), cnn_scoring(CNNrescore),
             subgrid_dim(0.0), outputdx(false),
-            outputxyz(false), gradient_check(false), move_minimize_frame(false),
-            fix_receptor(false), verbose(false), mix_emp_force(false),mix_emp_energy(false),empirical_weight(1.0),seed(0) {
-    }
-
-    bool moving_receptor() const {
-      //doesn't make sense to accumulate transformation gradient with moving center
-      if(move_minimize_frame) return false;
-      if(fix_receptor) return false; //just aren't doing it
-      return true;
+            outputxyz(false), gradient_check(false), 
+            verbose(false), mix_emp_force(false),mix_emp_energy(false),empirical_weight(1.0),seed(0) {
     }
 };
 

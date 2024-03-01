@@ -53,6 +53,7 @@ template <bool isCUDA> TorchModel<isCUDA>::TorchModel(std::istream &in, const st
     torch::jit::ExtraFilesMap extras;
     extras["metadata"] = ""; // only loads if key already present
     module = torch::jit::load(in, device, extras);
+    module.to(device);
 
     string data = extras["metadata"];
     string recmap, ligmap;
@@ -91,6 +92,9 @@ template <bool isCUDA> TorchModel<isCUDA>::TorchModel(std::istream &in, const st
       } else {
         if (log)
           *log << "WARNING: recmap not specified in model file.  Using default.\n";
+      }
+      if (root.isMember("skip_loss")) {
+        skip_loss = root["skip_loss"].asBool();
       }
     }
 
@@ -143,7 +147,7 @@ std::vector<float> TorchModel<isCUDA>::forward(const std::vector<float3> &rec_co
                                                const std::vector<float3> &lig_coords, const std::vector<smt> &lig_types,
                                                const vec &center, bool rotate, bool compute_gradient) {
 
-  torch::AutoGradMode enable_grad(false);
+  torch::AutoGradMode enable_grad(compute_gradient);
   // make coordinate sets
   CoordinateSet rec = make_coordset(rec_coords, rec_types, rec_typer);
   CoordinateSet lig = make_coordset(lig_coords, lig_types, lig_typer);
@@ -164,7 +168,7 @@ std::vector<float> TorchModel<isCUDA>::forward(const std::vector<float3> &rec_co
   long ntypes = combined.num_types();
   long gd = gmaker.get_first_dim();
 
-  auto options = torch::TensorOptions().dtype(torch::kFloat32).device(isCUDA ? torch::kCUDA : torch::kCPU);
+  auto options = torch::TensorOptions().dtype(torch::kFloat32).device(isCUDA ? torch::kCUDA : torch::kCPU).requires_grad(compute_gradient);
   torch::Tensor gtensor = torch::zeros({1, ntypes, gd, gd, gd}, options);
   Grid<float, 4, isCUDA> out(gtensor.data_ptr<float>(), ntypes, gd, gd, gd);
   gmaker.forward(gcenter, combined, out);
@@ -180,10 +184,11 @@ std::vector<float> TorchModel<isCUDA>::forward(const std::vector<float3> &rec_co
 
   auto loptions = torch::TensorOptions().dtype(torch::kLong).device(isCUDA ? torch::kCUDA : torch::kCPU);
   torch::Tensor labels = torch::ones({1}, loptions);
-  auto loss = torch::cross_entropy_loss(pose_logit, labels);
+
+  auto loss = skip_loss ? pose_logit.index({0,1}) : torch::cross_entropy_loss(pose_logit, labels);
 
   if (compute_gradient) {
-    loss.backward(); // side effect of setting grad in model
+    loss.backward(); 
     auto grad = gtensor.grad();
     Grid<float, 4, isCUDA> gridgrad(grad.data_ptr<float>(), ntypes, gd, gd, gd);
     MGrid2f atomic_gradients(combined.size(),3);
@@ -196,12 +201,14 @@ std::vector<float> TorchModel<isCUDA>::forward(const std::vector<float3> &rec_co
     unsigned nl = lig.size();
     VINA_CHECK(nr+nl == combined.size());
     gradient_rec.resize(nr);
+
+    auto cg_cpu = atomic_gradients.cpu();
     for(unsigned i = 0; i < nr; i++) {
-      gradient_rec[i] = gfloat3(coord_grad[i][0],coord_grad[i][1],coord_grad[i][2]);
+      gradient_rec[i] = gfloat3(cg_cpu[i][0],cg_cpu[i][1],cg_cpu[i][2]);
     }
     gradient_lig.resize(nl);
     for(unsigned i = 0; i < nl; i++) {
-      gradient_lig[i] = gfloat3(coord_grad[i+nr][0],coord_grad[i+nr][1],coord_grad[i+nr][2]);
+      gradient_lig[i] = gfloat3(cg_cpu[i+nr][0],cg_cpu[i+nr][1],cg_cpu[i+nr][2]);
     }
 
   }

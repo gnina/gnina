@@ -197,18 +197,6 @@ static void get_cnn_info(model &m, DLScorer &cnn, tee &log, float &cnnscore, flo
   cnnscore = 0;
   cnnaffinity = 0;
   cnnscore = cnn.score(m, false, cnnaffinity, loss, cnnvariance);
-  if (cnnscore >= 0 && cnn.options().moving_receptor()) {
-    // recalculate with ligand at center
-    if (cnn.options().verbose) {
-      log << "CNNscore1: " << std::fixed << std::setprecision(10) << cnnscore;
-      log.endl();
-      log << "CNNaffinity1: " << std::fixed << std::setprecision(10) << cnnaffinity;
-      log.endl();
-    }
-
-    cnn.set_center_from_model(m);
-    cnnscore = cnn.score(m, false, cnnaffinity, loss, cnnvariance);
-  }
 
   if (cnn.options().verbose) {
     log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
@@ -243,7 +231,6 @@ void do_search(model &m, const boost::optional<model> &ref, const weighted_terms
     cnn.set_center_from_model(m);
     non_cache nc_new = non_cache(grid_cache, gd, &prec, slope);
     if (settings.score_only) {
-      cnn.freeze_receptor();
       intramolecular_energy = m.eval_intramolecular(exact_prec, authentic_v, c);
       naive_non_cache nnc(&exact_prec); // for out of grid issues
       e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c, intramolecular_energy, user_grid);
@@ -1025,7 +1012,7 @@ Thank you!\n";
     cnn.add_options()("cnn_scoring", value<cnn_scoring_level>(&cnnopts.cnn_scoring)->default_value(CNNrescore),
                       "Amount of CNN scoring: none, rescore (default), refinement, metrorescore (metropolis+rescore), "
                       "metrorefine (metropolis+refine), all")(
-        "cnn_torch", bool_switch(&cnnopts.use_torch)->default_value(false), // eventually we will remove caffe
+        "cnn_torch", bool_switch(&cnnopts.use_torch)->default_value(false ), // eventually we will remove caffe
         "Use pytorch models (experimental)")(
         "cnn", value<std::vector<std::string>>(&cnnopts.cnn_model_names)->multitoken(),
         ("built-in model to use, specify PREFIX_ensemble to evaluate an ensemble of models starting with PREFIX: " +
@@ -1038,10 +1025,6 @@ Thank you!\n";
                    "resolution of grids, don't change unless you really know what you are doing")(
         "cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
         "evaluate multiple rotations of pose (max 24)")(
-        "cnn_update_min_frame", value<bool>(&cnnopts.move_minimize_frame)->default_value(true),
-        "During minimization, recenter coordinate frame as ligand moves")(
-        "cnn_freeze_receptor", bool_switch(&cnnopts.fix_receptor),
-        "Don't move the receptor with respect to a fixed coordinate system")(
         "cnn_mix_emp_force", bool_switch(&cnnopts.mix_emp_force)->default_value(false),
         "Merge CNN and empirical minus forces")("cnn_mix_emp_energy",
                                                 bool_switch(&cnnopts.mix_emp_energy)->default_value(false),
@@ -1228,10 +1211,6 @@ Thank you!\n";
     bool output_produced = !settings.score_only;
     bool receptor_needed = !settings.randomize_only;
 
-    if (cnnopts.cnn_scoring == CNNall) {
-      cnnopts.move_minimize_frame = true;
-    }
-
     if (cnnopts.cnn_scoring == CNNnone) {
       settings.sort_order = Energy;
     }
@@ -1376,13 +1355,6 @@ Thank you!\n";
     // Print out flexible residues
     if (finfo.has_content()) {
       finfo.print_flex();
-    }
-
-    // Print information about flexible residues use
-    if (finfo.has_content() && cnnopts.cnn_scoring != CNNnone) {
-      if (!cnnopts.fix_receptor && settings.verbosity > 1)
-        log << "Receptor position and orientation are frozen.\n";
-      cnnopts.fix_receptor = true; // Fix receptor position and orientation
     }
 
     if (usergrid_file_name.size() > 0) {

@@ -128,17 +128,10 @@ float CNNTorchScorer<isCUDA>::score(model &m, bool compute_gradient, float &affi
       current_center = cnnopts.cnn_center;
     }
 
-    if (!cnnopts.move_minimize_frame) { // if fixed_receptor, rec_conf will be identify
-      throw usage_error("Immobile minimization frames not supported with torch yet");
-    }
-
     for (unsigned r = 0, n = max(cnnopts.cnn_rotations, 1U); r < n; r++) {
       Dtype s = 0, a = 0, l = 0;
 
-      vec grid_center = current_center;
-      if (cnnopts.move_minimize_frame) {
-        grid_center = vec(NAN, NAN, NAN); // recalculate from ligand
-      }
+      vec grid_center = vec(NAN, NAN, NAN); // recalculate from ligand      
       auto output = model->forward(receptor_coords, receptor_smtypes, ligand_coords, ligand_smtypes, grid_center, r > 0,
                                    compute_gradient);
       if (output.size() > 0)
@@ -170,9 +163,6 @@ float CNNTorchScorer<isCUDA>::score(model &m, bool compute_gradient, float &affi
         // Update ligand (and flexible residues) gradient
         m.add_minus_forces(gradient);
 
-        // Gradient for rigid receptor transformation: translation and torque
-        if (cnnopts.moving_receptor())
-          throw usage_error("Moving receptor not yet supported with torch models.");
       }
       cnt++;
     } // end rotations

@@ -52,7 +52,7 @@ struct non_cache_cnn : public non_cache {
       return dl_scorer;
     }
     virtual bool move_receptor() {
-      return dl_scorer.options().moving_receptor();
+      return false; //stopped supporting this with torch
     }
   protected:
     DLScorer& dl_scorer;

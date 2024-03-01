@@ -59,13 +59,6 @@ public:
 
   virtual vec get_center() const { return current_center; }
 
-  // disable receptor movement (e.g. for score only)
-  void freeze_receptor() {
-    if (isnan(cnnopts.cnn_center[0]))
-      cnnopts.move_minimize_frame = true; // only move if center not specified
-    cnnopts.fix_receptor = true;
-  }
-
   // if model has bounding box, set it (leave bbox unchanged otherwise)
   virtual void set_bounding_box(grid_dims &box) const = 0;
 
