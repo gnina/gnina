@@ -201,8 +201,8 @@ template <bool isCUDA> float CNNTorchScorer<isCUDA>::score(model &m, float &vari
 
 template <bool isCUDA>
 void CNNTorchScorer<isCUDA>::getGradient(std::shared_ptr<TorchModel<isCUDA> > model, std::vector<gfloat3> &gradient) {
-  gradient.resize(num_atoms);
-  gradient_lig.reserve(num_atoms);
+  gradient.resize(receptor_map.size()+ligand_map.size());
+  gradient_lig.reserve(ligand_map.size());
 
 // Get ligand gradient
   model->getLigandGradient(gradient_lig);

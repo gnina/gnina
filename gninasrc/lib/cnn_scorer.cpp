@@ -316,8 +316,8 @@ void CNNScorer::get_net_output(caffe::shared_ptr<caffe::Net<Dtype>> &net, Dtype 
 
 // Get ligand (and flexible receptor) gradient
 void CNNScorer::getGradient(caffe::MolGridDataLayer<Dtype> *mgrid) {
-  gradient.resize(num_atoms);
-  gradient_lig.reserve(num_atoms);
+  gradient.resize(ligand_map.size()+receptor_map.size());
+  gradient_lig.reserve(ligand_map.size());
 
   // Get ligand gradient
   mgrid->getLigandGradient(0, gradient_lig);
@@ -334,8 +334,6 @@ void CNNScorer::getGradient(caffe::MolGridDataLayer<Dtype> *mgrid) {
   for (sz i = 0, n = receptor_map.size(); i < n; i++) {
     gradient[receptor_map[i]] = gradient_rec[i];
   }
-
-  CHECK_EQ(gradient.size(), ligand_map.size() + receptor_map.size());
 }
 
 // return score of model, assumes receptor has not changed from initialization

@@ -423,7 +423,7 @@ static void OutputAtom(OBAtom *atom, context &lines, vector<OBAtom*> &atomorder,
 
   smt sm = string_to_smina_type(element_name_final);
   if(sm >= smina_atom_type::NumTypes) {
-    sm = smina_atom_type::GenericMetal; //falback type
+    sm = smina_atom_type::Hydrogen; //ignore
   }
   parsed_atom patom(sm, charge, vec(atom->GetX(), atom->GetY(), atom->GetZ()),
       index);

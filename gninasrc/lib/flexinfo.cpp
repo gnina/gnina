@@ -390,9 +390,11 @@ void FlexInfo::extractFlex(OpenBabel::OBMol &receptor, OpenBabel::OBMol &rigid,
             char icode = residue->GetInsertionCode();
             if (!isInflexible(residue->GetName())) {
               // Store index of flexible residue for retrival
-              residues_idxs.push_back(residue->GetIdx());
-
-              residues.insert(std::tuple<char, int, char>(ch, resid, icode));
+              std::tuple<char, int, char> key(ch, resid, icode);
+              if( residues.count(key) == 0) {
+                residues_idxs.push_back(residue->GetIdx());
+                residues.insert(std::tuple<char, int, char>(ch, resid, icode));
+              }
             }
           }
           break;
@@ -434,6 +436,8 @@ void FlexInfo::extractFlex(OpenBabel::OBMol &receptor, OpenBabel::OBMol &rigid,
 
   rigid.BeginModify();
   int flexcnt = 0;
+  boost::unordered_set<std::tuple<char, int, char> > seen;
+
   // identify atoms that have to be in flexible component
   // this is the side chain and CA, but _not_ the C and N
   for (OBResidueIterator ritr = rigid.BeginResidues(),
@@ -444,8 +448,15 @@ void FlexInfo::extractFlex(OpenBabel::OBMol &receptor, OpenBabel::OBMol &rigid,
     int resid = r->GetNum();
     char icode = r->GetInsertionCode();
     std::tuple<char, int, char> chres(ch, resid, icode);
+
     if (residues.count(chres)) {
+      if(seen.count(chres)) {
+        stringstream msg;
+        msg << "Multiple copies of residue " << r->GetChain() << ":" << r->GetNum() << ".  I can't handle this situation.";
+        throw runtime_error(msg.str());
+      }
       flexcnt++;
+      seen.insert(chres);
       // create a separate molecule for each flexible residue
       OBMol flex;
       extract_residue(rigid, r, flex);

@@ -172,7 +172,6 @@ void DLScorer::setReceptor(const model &m) {
       if (!atoms[i].iscov) {
         const vec &c = coords[i];
         receptor_coords.push_back(float3({c[0], c[1], c[2]}));
-        receptor_map.push_back(i);
       }
     }
 
