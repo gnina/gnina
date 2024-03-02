@@ -171,6 +171,7 @@ set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/_version.cpp PROPERTIES 
 add_library(gninalibobj OBJECT ${LIB_SRCS})
 set_property(TARGET gninalibobj PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(gninalibobj ${MODEL_OBJS})
+add_dependencies(gninalibobj libmolgrid)
 
 
 ## Get all properties that cmake supports
