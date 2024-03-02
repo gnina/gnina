@@ -30,7 +30,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 include_directories(${Boost_INCLUDE_DIRS}) 
 include_directories(${CUDA_INCLUDE_DIRS})
 include_directories(${TORCH_INCLUDE_DIRS})
-include_directories(${JSON_INC_PATH})
 
 # need to use eigen 3.2 until CUDA fixes are released
 include_directories(../Eigen)
@@ -170,7 +169,7 @@ set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/_version.cpp PROPERTIES 
             
 add_library(gninalibobj OBJECT ${LIB_SRCS})
 set_property(TARGET gninalibobj PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(gninalibobj ${MODEL_OBJS})
+target_link_libraries(gninalibobj ${MODEL_OBJS} jsoncpp_lib)
 add_dependencies(gninalibobj libmolgrid)
 
 
