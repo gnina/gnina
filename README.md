@@ -85,6 +85,36 @@ make
 make install
 ```
 
+### [WSL2 Ubuntu 22.04](https://github.com/gnina/gnina/issues/247)
+```bash
+sudo apt-get remove nvidia-cuda-toolkit
+wget https://developer.download.nvidia.com/compute/cuda/12.4.0/local_installers/cuda_12.4.0_550.54.14_linux.run
+chmod 700 cuda_12.4.0_550.54.14_linux.run
+sudo sh cuda_12.4.0_550.54.14_linux.run
+wget https://developer.download.nvidia.com/compute/cudnn/9.0.0/local_installers/cudnn-local-repo-ubuntu2204-9.0.0_1.0-1_amd64.deb
+sudo dpkg -i cudnn-local-repo-ubuntu2204-9.0.0_1.0-1_amd64.deb
+sudo cp /var/cudnn-local-repo-ubuntu2204-9.0.0/cudnn-*-keyring.gpg /usr/share/keyrings/
+sudo apt-get update
+sudo apt-get -y install cudnn-cuda-12
+apt-get install build-essential git cmake wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-dev libatlas-base-dev python3-dev librdkit-dev python3-numpy python3-pip python3-pytest
+
+git clone https://github.com/openbabel/openbabel.git
+cd openbabel
+mkdir build
+cd build
+cmake -DWITH_MAEPARSER=OFF -DWITH_COORDGEN=OFF -DPYTHON_BINDINGS=ON -DRUN_SWIG=ON ..
+make -j8
+sudo make install
+
+git clone https://github.com/gnina/gnina.git
+cd gnina
+mkdir build
+cd build
+cmake ..
+make -j8
+sudo make install
+```
+
 #
 If you are building for systems with different GPUs (e.g. in a cluster environment), configure with `-DCUDA_ARCH_NAME=All`.   
 Note that the cmake build will automatically fetch and install [libmolgrid](https://github.com/gnina/libmolgrid) if it is not already installed.
