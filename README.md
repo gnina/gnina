@@ -53,7 +53,7 @@ We recommend that you use the [pre-built binary](https://github.com/gnina/gnina/
 
 ### Ubuntu 22.04
 ```
-apt-get  install build-essential git cmake wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-dev libatlas-base-dev python3-dev librdkit-dev python3-numpy python3-pip python3-pytest 
+apt-get  install build-essential git cmake wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-dev libatlas-base-dev python3-dev librdkit-dev python3-numpy python3-pip python3-pytest libjsoncpp-dev
 
 ```
 
