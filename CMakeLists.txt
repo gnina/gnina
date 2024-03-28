@@ -12,6 +12,10 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
 
+#RPATH instead of RUNPATH, needed for transitive torch libraries
+#TODO: get static build working so we don't need this
+SET(CMAKE_EXE_LINKER_FLAGS "-Wl,--disable-new-dtags")
+
 add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON) # for vs code
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "")
@@ -20,7 +24,7 @@ endif()
 
 option(BUILD_COVERAGE "Build with code coverage" OFF)
 
-set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib;${CMAKE_INSTALL_PREFIX}/lib/gnina")
 set(CMAKE_CXX_FLAGS "-Wno-deprecated-declarations -Wno-unknown-pragmas")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
@@ -80,12 +84,12 @@ libtorch_cuda.so
 libc10_cuda.so
 libc10.so
 libtorch.so
+libcudnn.so.8
 )
 list(TRANSFORM TORCH_NEEDED PREPEND "${TORCH_LIBDIR}/")
 
 #install in subdirectory to avoid messing up a system torch install
 install(FILES ${TORCH_NEEDED} DESTINATION lib/gnina)
-list(APPEND CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/gnina")
 
 # eventually build static pytorch libraries
 
