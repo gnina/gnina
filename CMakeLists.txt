@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.22)
 project (gnina C CXX CUDA)
 
 
@@ -59,13 +59,48 @@ include(FetchContent)
 # https://discuss.pytorch.org/t/using-fetchcontent-declare-in-cmake-to-pull-libtorch/177449
 FetchContent_Declare(
         libtorch
-        URL "https://download.pytorch.org/libtorch/cu121/libtorch-cxx11-abi-shared-with-deps-2.2.0%2Bcu121.zip"
+        URL "https://download.pytorch.org/libtorch/cu121/libtorch-cxx11-abi-shared-with-deps-2.2.2%2Bcu121.zip"
 )
 
-set(TORCH_CUDA_ARCH_LIST "5.0 5.2 6.0 7.0 8.0 8.6 8.9 9.0") #All includes 3.5 which is problematic
+#set(TORCH_CUDA_ARCH_LIST "5.0 5.2 6.0 7.0 8.0 8.6 8.9 9.0") #All includes 3.5 which is problematic
+set(CMAKE_CUDA_ARCHITECTURES "all-major")
 FetchContent_MakeAvailable(libtorch)
 list(APPEND CMAKE_PREFIX_PATH "${libtorch_SOURCE_DIR}")
 find_package(Torch REQUIRED)
+
+cmake_path(GET TORCH_LIBRARY PARENT_PATH TORCH_LIBDIR)
+set(TORCH_NEEDED
+libgomp-98b21ff3.so.1 
+libcudart-9335f6a2.so.12 
+libnvToolsExt-847d78f2.so.1 
+libcublas-37d11411.so.12 
+libcublasLt-f97bfc2c.so.12 
+libtorch_cpu.so
+libtorch_cuda.so
+)
+list(TRANSFORM TORCH_NEEDED PREPEND "${TORCH_LIBDIR}/")
+
+install(FILES ${TORCH_NEEDED} DESTINATION lib)
+
+# eventually build static pytorch libraries
+
+# FetchContent_Declare(
+#         pytorch
+#         GIT_REPOSITORY "https://github.com/pytorch/pytorch"
+#         GIT_TAG "v2.2.2"
+# )
+# Configure for minimal, static, openblas-enabled CPU library.
+# set(BUILD_SHARED_LIBS OFF)
+# set(BUILD_CAFFE2_OPS OFF)
+# set(BUILD_CAFFE2 OFF)
+# set(USE_MKL 0)
+
+# set(CMAKE_CUDA_ARCHITECTURES "all-major")
+# FetchContent_MakeAvailable(pytorch)
+# list(APPEND CMAKE_PREFIX_PATH "${pytorch_BINARY_DIR}")
+
+message(STATUS ${CMAKE_PREFIX_PATH})
+#
 
 #libmolgrid  
 find_package(libmolgrid)
@@ -97,6 +132,8 @@ set(USE_LMDB 0)
 set(USE_LEVELDB 0)
 set(USE_OPENCV 0)
 set(USE_CUDNN 0) #problematic and conflicts with torch version
+set(USE_NCCL 0)
+set(USE_MKL 0)
 
 set(CUDA_ARCH_NAME "All")
 include(caffe/cmake/Utils.cmake)
