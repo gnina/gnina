@@ -77,10 +77,15 @@ libcublas-37d11411.so.12
 libcublasLt-f97bfc2c.so.12 
 libtorch_cpu.so
 libtorch_cuda.so
+libc10_cuda.so
+libc10.so
+libtorch.so
 )
 list(TRANSFORM TORCH_NEEDED PREPEND "${TORCH_LIBDIR}/")
 
-install(FILES ${TORCH_NEEDED} DESTINATION lib)
+#install in subdirectory to avoid messing up a system torch install
+install(FILES ${TORCH_NEEDED} DESTINATION lib/gnina)
+list(APPEND CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/gnina")
 
 # eventually build static pytorch libraries
 
