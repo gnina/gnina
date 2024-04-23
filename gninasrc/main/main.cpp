@@ -40,6 +40,7 @@
 #include "custom_terms.h"
 #include "dl_scorer.h"
 #include "cnn_torch_scorer.h"
+#include "torch_models.h"
 #include "everything.h"
 #include "file.h"
 #include "flexinfo.h"
@@ -1016,7 +1017,7 @@ Thank you!\n";
         "Use pytorch models (experimental)")(
         "cnn", value<std::vector<std::string>>(&cnnopts.cnn_model_names)->multitoken(),
         ("built-in model to use, specify PREFIX_ensemble to evaluate an ensemble of models starting with PREFIX: " +
-         builtin_cnn_models())
+         builtin_torch_models())
             .c_str())("cnn_model", value<std::vector<std::string>>(&cnnopts.cnn_models)->multitoken(),
                       "caffe cnn model file; if not specified a default model will be used")(
         "cnn_weights", value<std::vector<std::string>>(&cnnopts.cnn_weights)->multitoken(),

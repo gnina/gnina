@@ -118,12 +118,40 @@ function(model_to_obj out_var)
 endfunction()
 
 set(MODELS
+lib/models/all_default_to_default_1.3_1.pt
+lib/models/all_default_to_default_1.3_2.pt
+lib/models/all_default_to_default_1.3_3.pt
+lib/models/crossdock_default2018_1.3_1.pt
+lib/models/crossdock_default2018_1.3_2.pt
+lib/models/crossdock_default2018_1.3_3.pt
+lib/models/crossdock_default2018_1.3_4.pt
+lib/models/crossdock_default2018_1.3.pt
 lib/models/crossdock_default2018_1.pt
 lib/models/crossdock_default2018_2.pt
 lib/models/crossdock_default2018_3.pt
 lib/models/crossdock_default2018_4.pt
+lib/models/crossdock_default2018_KD_1.pt
+lib/models/crossdock_default2018_KD_2.pt
+lib/models/crossdock_default2018_KD_3.pt
+lib/models/crossdock_default2018_KD_4.pt
+lib/models/crossdock_default2018_KD_5.pt
 lib/models/crossdock_default2018.pt
 lib/models/default2017.pt
+lib/models/dense_1.3_1.pt
+lib/models/dense_1.3_2.pt
+lib/models/dense_1.3_3.pt
+lib/models/dense_1.3_4.pt
+lib/models/dense_1.3.pt
+lib/models/dense_1.3_PT_KD_1.pt
+lib/models/dense_1.3_PT_KD_2.pt
+lib/models/dense_1.3_PT_KD_3.pt
+lib/models/dense_1.3_PT_KD_4.pt
+lib/models/dense_1.3_PT_KD_def2018_1.pt
+lib/models/dense_1.3_PT_KD_def2018_2.pt
+lib/models/dense_1.3_PT_KD_def2018_3.pt
+lib/models/dense_1.3_PT_KD_def2018_4.pt
+lib/models/dense_1.3_PT_KD_def2018.pt
+lib/models/dense_1.3_PT_KD.pt
 lib/models/dense_1.pt
 lib/models/dense_2.pt
 lib/models/dense_3.pt
@@ -133,15 +161,31 @@ lib/models/general_default2018_1.pt
 lib/models/general_default2018_2.pt
 lib/models/general_default2018_3.pt
 lib/models/general_default2018_4.pt
+lib/models/general_default2018_KD_1.pt
+lib/models/general_default2018_KD_2.pt
+lib/models/general_default2018_KD_3.pt
+lib/models/general_default2018_KD_4.pt
+lib/models/general_default2018_KD_5.pt
 lib/models/general_default2018.pt
+lib/models/redock_default2018_1.3_1.pt
+lib/models/redock_default2018_1.3_2.pt
+lib/models/redock_default2018_1.3_3.pt
+lib/models/redock_default2018_1.3_4.pt
+lib/models/redock_default2018_1.3.pt
 lib/models/redock_default2018_1.pt
 lib/models/redock_default2018_2.pt
 lib/models/redock_default2018_3.pt
 lib/models/redock_default2018_4.pt
+lib/models/redock_default2018_KD_1.pt
+lib/models/redock_default2018_KD_2.pt
+lib/models/redock_default2018_KD_3.pt
+lib/models/redock_default2018_KD_4.pt
+lib/models/redock_default2018_KD_5.pt
 lib/models/redock_default2018.pt
 )
 
 model_to_obj(MODEL_OBJS "${MODELS}")
+
 
 #grid member functions need to be called by arbitrary kernels
 set_source_files_properties(lib/grid_gpu.cu PROPERTIES COMPILE_FLAGS -maxrregcount=64)

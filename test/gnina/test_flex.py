@@ -58,7 +58,7 @@ for system, flexdist in [("10gs", 3.0), ("184l", 3.9)]:
     outflex="flex-min-{system}.pdb".format(system=system)
 
     subprocess.check_call("{gnina} -r data/{system}_rec.pdb -l data/{system}_lig.sdf \
-        --cnn_scoring=all --minimize \
+        --cnn_scoring=all --minimize --cnn fast \
         --flexdist {flexdist} --flexdist_ligand data/{system}_lig.sdf \
         -o {outlig} --out_flex {outflex} \
         ".format(gnina=gnina, outlig=outlig, outflex=outflex, system=system, flexdist=flexdist),
