@@ -25,7 +25,7 @@ template <bool isCUDA> CNNTorchScorer<isCUDA>::CNNTorchScorer(const cnn_options 
   if (cnnopts.cnn_scoring == CNNnone)
     return; // no cnn
 
-  if(cnnopts.cnn_models.size() == 0) {
+  if (cnnopts.cnn_models.size() == 0) {
     if (cnnopts.cnn_model_names.size() == 0) {
       // not specified, use a default ensemble
       // this has been selected to provide the best docking performance
@@ -33,8 +33,17 @@ template <bool isCUDA> CNNTorchScorer<isCUDA>::CNNTorchScorer(const cnn_options 
       cnnopts.cnn_model_names.push_back("dense_1_3");
       cnnopts.cnn_model_names.push_back("dense_1_3_PT_KD_3");
       cnnopts.cnn_model_names.push_back("crossdock_default2018_KD_4");
-    } else if (cnnopts.cnn_model_names.size() == 1 && cnnopts.cnn_model_names[0] == "fast") {
-      cnnopts.cnn_model_names[0] = "all_default_to_default_1_3_1";
+    } else if (cnnopts.cnn_model_names.size() == 1) {
+      if (cnnopts.cnn_model_names[0] == "fast") {
+        cnnopts.cnn_model_names[0] = "all_default_to_default_1_3_1";
+      } else if (cnnopts.cnn_model_names[0] == "default1.0") {
+        //gnina 1.0 models
+        cnnopts.cnn_model_names[0] = "dense";
+        cnnopts.cnn_model_names.push_back("general_default2018_3");
+        cnnopts.cnn_model_names.push_back("dense_3");
+        cnnopts.cnn_model_names.push_back("crossdock_default2018");
+        cnnopts.cnn_model_names.push_back("redock_default2018_2");
+      }
     }
   }
 
@@ -133,7 +142,7 @@ float CNNTorchScorer<isCUDA>::score(model &m, bool compute_gradient, float &affi
     for (unsigned r = 0, n = max(cnnopts.cnn_rotations, 1U); r < n; r++) {
       Dtype s = 0, a = 0, l = 0;
 
-      vec grid_center = vec(NAN, NAN, NAN); // recalculate from ligand      
+      vec grid_center = vec(NAN, NAN, NAN); // recalculate from ligand
       auto output = model->forward(receptor_coords, receptor_smtypes, ligand_coords, ligand_smtypes, grid_center, r > 0,
                                    compute_gradient);
       if (output.size() > 0)
@@ -164,7 +173,6 @@ float CNNTorchScorer<isCUDA>::score(model &m, bool compute_gradient, float &affi
 
         // Update ligand (and flexible residues) gradient
         m.add_minus_forces(gradient);
-
       }
       cnt++;
     } // end rotations
@@ -202,23 +210,22 @@ template <bool isCUDA> float CNNTorchScorer<isCUDA>::score(model &m, float &vari
 }
 
 template <bool isCUDA>
-void CNNTorchScorer<isCUDA>::getGradient(std::shared_ptr<TorchModel<isCUDA> > model, std::vector<gfloat3> &gradient) {
-  gradient.resize(receptor_map.size()+ligand_map.size());
+void CNNTorchScorer<isCUDA>::getGradient(std::shared_ptr<TorchModel<isCUDA>> model, std::vector<gfloat3> &gradient) {
+  gradient.resize(receptor_map.size() + ligand_map.size());
   gradient_lig.reserve(ligand_map.size());
 
-// Get ligand gradient
+  // Get ligand gradient
   model->getLigandGradient(gradient_lig);
 
-// Get receptor gradient
-  if (receptor_map.size() != 0)
-  { // Optimization of flexible residues
+  // Get receptor gradient
+  if (receptor_map.size() != 0) { // Optimization of flexible residues
     model->getReceptorGradient(gradient_rec);
   }
 
-  for(sz i = 0, n = ligand_map.size(); i < n; i++) {
+  for (sz i = 0, n = ligand_map.size(); i < n; i++) {
     gradient[ligand_map[i]] = gradient_lig[i];
   }
-  for(sz i = 0, n = receptor_map.size(); i < n; i++) {
+  for (sz i = 0, n = receptor_map.size(); i < n; i++) {
     gradient[receptor_map[i]] = gradient_rec[i];
   }
 

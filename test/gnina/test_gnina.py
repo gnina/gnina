@@ -62,3 +62,22 @@ aff,cnn = get_scores(output)
 assert aff < -8
 assert cnn > 5
 rmout()
+
+#make sure different models are different
+output = subprocess.check_output('%s  -r data/3rod_rec.pdb -l data/3rod_lig.pdb --score_only'%(gnina),shell=True)
+affd,cnnd = get_scores(output)
+
+output = subprocess.check_output('%s  -r data/3rod_rec.pdb -l data/3rod_lig.pdb --score_only --cnn fast'%(gnina),shell=True)
+aff,cnn = get_scores(output)
+
+assert aff == affd # this is Vina
+assert cnn != cnnd
+#but not too different
+assert abs(cnn-cnnd) < 1
+
+output = subprocess.check_output('%s  -r data/3rod_rec.pdb -l data/3rod_lig.pdb --score_only --cnn default1.0'%(gnina),shell=True)
+aff,cnn = get_scores(output)
+assert aff == affd # Vina
+assert cnn != cnnd
+#but not too different
+assert abs(cnn-cnnd) < 1

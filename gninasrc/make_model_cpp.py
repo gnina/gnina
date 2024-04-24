@@ -46,6 +46,9 @@ std::string builtin_torch_models()
   for (auto kv : torch_models) {
     names.push_back(kv.first);
   }
+  names.push_back("fast");
+  names.push_back("default1.0"); 
+
   sort(names.begin(), names.end());
   return boost::algorithm::join(names, " ");
 }
