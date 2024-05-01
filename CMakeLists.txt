@@ -148,34 +148,9 @@ else()
 endif()
 
 include_directories(${LIBMOLGRID_INCLUDE_DIR})
-
-
-#caffe
-#disable parts of caffe we don't need
-set(USE_LMDB 0)
-set(USE_LEVELDB 0)
-set(USE_OPENCV 0)
-set(USE_CUDNN 0) #problematic and conflicts with torch version
-set(USE_NCCL 0)
-set(USE_MKL 0)
-
-set(CUDA_ARCH_NAME "All")
-include(caffe/cmake/Utils.cmake)
-include(caffe/cmake/Cuda.cmake)
-#our version of caffe needs to pull in headers from gnina and we'll use c++11
 include_directories(.)
-add_subdirectory(caffe)
 
-unset(CUDA_ARCH_NAME CACHE) #remove conflict with torch
-
-
-add_dependencies(caffe libmolgrid)
-
-include_directories(${CMAKE_BINARY_DIR}/caffe/include/)
-include_directories(caffe/include)
 add_subdirectory(gninasrc)
-
-include_directories(${LIBMOLGRID_INCLUDE_DIR})
 
 
 # enable testing

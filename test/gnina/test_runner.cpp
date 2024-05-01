@@ -5,7 +5,6 @@
 #include "test_gpucode.h"
 #include "test_tree.h"
 #include "test_cache.h"
-#include "test_cnn.h"
 #include "test_utils.h"
 #define N_ITERS 5
 #define BOOST_TEST_DYN_LINK
@@ -56,27 +55,7 @@ BOOST_AUTO_TEST_CASE(eval_deriv) {
 
 BOOST_AUTO_TEST_SUITE_END()
 
-BOOST_AUTO_TEST_SUITE(test_cnn)
 
-BOOST_AUTO_TEST_CASE(set_atom_gradients) {
-  boost_loop_test(&test_set_atom_gradients);
-}
-
-BOOST_AUTO_TEST_CASE(vanilla_grids) {
-  boost_loop_test(&test_vanilla_grids);
-}
-
-#if 0
-BOOST_AUTO_TEST_CASE(subcube_grids) {
-  boost_loop_test(&test_subcube_grids);
-}
-
-BOOST_AUTO_TEST_CASE(strided_cube_datagetter) {
-  boost_loop_test(&test_strided_cube_datagetter);
-}
-#endif
-
-BOOST_AUTO_TEST_SUITE_END()
 
 bool init_unit_test() {
   // initializeCUDA(0);
@@ -156,9 +135,6 @@ int main(int argc, char* argv[]) {
   } catch (po::error& e) {
   }
 
-  FLAGS_minloglevel = google::GLOG_ERROR; //don't spit out info messages
-  // Google logging.
-  ::google::InitGoogleLogging(argv[0]);
 
   if (help) std::cout << desc_simple << '\n';
 

@@ -5,8 +5,6 @@
 set( TEST_SRCS
  test_cache.cu
  test_cache.h
- test_cnn.cpp
- test_cnn.h
  test_gpucode.cpp
  test_gpucode.h
  test_runner.cpp
@@ -20,7 +18,7 @@ find_package(OpenMP)
 
 #todo - factor into individual tests?
 add_executable(gninacheck ${TEST_SRCS})
-target_link_libraries(gninacheck gninalib_static caffe ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${RDKIT_LIBRARIES})
+target_link_libraries(gninacheck gninalib_static ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${RDKIT_LIBRARIES})
 if(OpenMP_CXX_FOUND)
     target_link_libraries(gninacheck OpenMP::OpenMP_CXX)
 endif()

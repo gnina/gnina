@@ -1,5 +1,4 @@
 #include "dl_scorer.h"
-#include "caffe/caffe.hpp"
 
 // set the default device to device and return cuda error code if there's a problem
 int initializeCUDA(int device) {
@@ -30,8 +29,6 @@ int initializeCUDA(int device) {
     return error;
   }
 
-  caffe::Caffe::SetDevice(device);
-  caffe::Caffe::set_mode(caffe::Caffe::GPU);
   return 0;
 }
 
@@ -125,7 +122,7 @@ void DLScorer::setReceptor(const model &m) {
       }
     }
 
-    CHECK_EQ(receptor_smtypes.size(), num_flex_atoms - ncov);
+    VINA_CHECK(receptor_smtypes.size() == num_flex_atoms - ncov);
 
     // Insert inflex atoms
     cbegin = m.get_movable_atoms().cbegin() + m.m_num_movable_atoms;
@@ -139,7 +136,7 @@ void DLScorer::setReceptor(const model &m) {
       }
     }
 
-    CHECK_EQ(receptor_smtypes.size(), num_flex_atoms + n_inflex - ncov);
+    VINA_CHECK(receptor_smtypes.size() == num_flex_atoms + n_inflex - ncov);
 
     // Insert fixed receptor atoms
     cbegin = m.get_fixed_atoms().cbegin();

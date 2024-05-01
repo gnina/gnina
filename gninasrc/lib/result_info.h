@@ -12,7 +12,6 @@
 #include <string>
 #include "model.h"
 #include "weighted_terms.h"
-#include "cnn_scorer.h"
 
 // this class holds the contents of the result of a minization/docking
 // it handles outputing the molecular data in the appropriate format

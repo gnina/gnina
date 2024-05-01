@@ -27,20 +27,19 @@
 #include <openbabel/obconversion.h>
 #include <openbabel/parsmart.h>
 #include <string>
-#include <vector> // ligand paths
 #include <torch/torch.h>
+#include <vector> // ligand paths
 
 #include "array3d.h"
 #include "box.h"
 #include "builtinscoring.h"
 #include "cache.h"
 #include "cache_gpu.h"
+#include "cnn_torch_scorer.h"
 #include "coords.h"
 #include "covinfo.h"
 #include "custom_terms.h"
 #include "dl_scorer.h"
-#include "cnn_torch_scorer.h"
-#include "torch_models.h"
 #include "everything.h"
 #include "file.h"
 #include "flexinfo.h"
@@ -60,6 +59,7 @@
 #include "result_info.h"
 #include "sem.h"
 #include "tee.h"
+#include "torch_models.h"
 #include "user_opts.h"
 #include "version.h"
 #include "weighted_terms.h"
@@ -1010,36 +1010,33 @@ Thank you!\n";
                                                 "Turn on GPU acceleration for non-CNN scoring operations.");
 
     options_description cnn("Convolutional neural net (CNN) scoring");
-    cnn.add_options()("cnn_scoring", value<cnn_scoring_level>(&cnnopts.cnn_scoring)->default_value(CNNrescore),
-                      "Amount of CNN scoring: none, rescore (default), refinement, metrorescore (metropolis+rescore), "
-                      "metrorefine (metropolis+refine), all")(
-        "cnn_torch", value<bool>(&cnnopts.use_torch)->default_value(true ), // eventually we will remove caffe
-        "Use pytorch models (experimental)")(
-        "cnn", value<std::vector<std::string>>(&cnnopts.cnn_model_names)->multitoken(),
-        ("built-in model to use, specify PREFIX_ensemble to evaluate an ensemble of models starting with PREFIX: " +
-         builtin_torch_models())
-            .c_str())("cnn_model", value<std::vector<std::string>>(&cnnopts.cnn_models)->multitoken(),
-                      "caffe cnn model file; if not specified a default model will be used")(
-        "cnn_weights", value<std::vector<std::string>>(&cnnopts.cnn_weights)->multitoken(),
-        "caffe cnn weights file (*.caffemodel); if not specified default weights (trained on the default model) will "
-        "be used")("cnn_resolution", value<fl>(&cnnopts.resolution)->default_value(0.5),
-                   "resolution of grids, don't change unless you really know what you are doing")(
-        "cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),
-        "evaluate multiple rotations of pose (max 24)")(
-        "cnn_mix_emp_force", bool_switch(&cnnopts.mix_emp_force)->default_value(false),
-        "Merge CNN and empirical minus forces")("cnn_mix_emp_energy",
-                                                bool_switch(&cnnopts.mix_emp_energy)->default_value(false),
-                                                "Merge CNN and empirical energy")(
-        "cnn_empirical_weight", value<fl>(&cnnopts.empirical_weight)->default_value(1.0),
-        "Weight for scaling and merging empirical force and energy ")("cnn_outputdx", bool_switch(&cnnopts.outputdx),
-                                                                      "Dump .dx files of atom grid gradient.")(
-        "cnn_outputxyz", bool_switch(&cnnopts.outputxyz), "Dump .xyz files of atom gradient.")(
-        "cnn_xyzprefix", value<std::string>(&cnnopts.xyzprefix)->default_value("gradient"),
-        "Prefix for atom gradient .xyz files")("cnn_center_x", value<fl>(&cnnopts.cnn_center[0]),
-                                               "X coordinate of the CNN center")(
-        "cnn_center_y", value<fl>(&cnnopts.cnn_center[1]), "Y coordinate of the CNN center")(
-        "cnn_center_z", value<fl>(&cnnopts.cnn_center[2]), "Z coordinate of the CNN center")(
-        "cnn_verbose", bool_switch(&cnnopts.verbose), "Enable verbose output for CNN debugging");
+    cnn.add_options() //
+        ("cnn_scoring", value<cnn_scoring_level>(&cnnopts.cnn_scoring)->default_value(CNNrescore),
+         "Amount of CNN scoring: none, rescore (default), refinement, metrorescore (metropolis+rescore), "
+         "metrorefine (metropolis+refine), all") //
+        ("cnn", value<std::vector<std::string>>(&cnnopts.cnn_model_names)->multitoken(),
+         ("built-in model to use, specify PREFIX_ensemble to evaluate an ensemble of models starting with PREFIX: " +
+          builtin_torch_models())
+             .c_str()) //
+        ("cnn_model", value<std::vector<std::string>>(&cnnopts.cnn_models)->multitoken(),
+         "torch cnn model file; if not specified a default model ensemble will be used") //
+        ("cnn_rotation", value<unsigned>(&cnnopts.cnn_rotations)->default_value(0),      //
+         "evaluate multiple rotations of pose (max 24)")("cnn_mix_emp_force",
+                                                         bool_switch(&cnnopts.mix_emp_force)->default_value(false),
+                                                         "Merge CNN and empirical minus forces") //
+        ("cnn_mix_emp_energy", bool_switch(&cnnopts.mix_emp_energy)->default_value(false),
+         "Merge CNN and empirical energy") //
+        ("cnn_empirical_weight", value<fl>(&cnnopts.empirical_weight)->default_value(1.0),
+         "Weight for scaling and merging empirical force and energy ")                            //
+        ("cnn_outputdx", bool_switch(&cnnopts.outputdx), "Dump .dx files of atom grid gradient.") //
+        ("cnn_outputxyz", bool_switch(&cnnopts.outputxyz), "Dump .xyz files of atom gradient.")   //
+        ("cnn_xyzprefix", value<std::string>(&cnnopts.xyzprefix)->default_value("gradient"),
+         "Prefix for atom gradient .xyz files") //
+        ("cnn_center_x", value<fl>(&cnnopts.cnn_center[0]),
+         "X coordinate of the CNN center")                                                    //
+        ("cnn_center_y", value<fl>(&cnnopts.cnn_center[1]), "Y coordinate of the CNN center") //
+        ("cnn_center_z", value<fl>(&cnnopts.cnn_center[2]), "Z coordinate of the CNN center") //
+        ("cnn_verbose", bool_switch(&cnnopts.verbose), "Enable verbose output for CNN debugging");
 
     options_description misc("Misc (optional)");
     misc.add_options()(
@@ -1142,12 +1139,6 @@ Thank you!\n";
       return 0;
     }
 
-    FLAGS_minloglevel = google::GLOG_ERROR; // don't spit out info messages
-    // Google logging.
-    ::google::InitGoogleLogging(argv[0]);
-    // Provide a backtrace on segfault.
-    ::google::InstallFailureSignalHandler();
-
 #if (OB_VERSION > OB_VERSION_CHECK(2, 3, 2))
     OpenBabel::OBPlugin::LoadAllPlugins(); // for some reason loading on demand can be slow
 #endif
@@ -1175,27 +1166,21 @@ Thank you!\n";
         approx_factor = 10;
     }
 
-    // check for GPU
-    int cudaerror = cudaDeviceReset();
-    if (cudaerror != cudaSuccess) {
-      caffe::Caffe::set_cudnn(false); // if cudnn is on, won't fallback to cpu
-    } else if (settings.no_gpu) {
-      caffe::Caffe::set_cudnn(false);
-    } else {
-      // the following reserve a lot of memory, do we really need it??
-      // cudaDeviceSetLimit(cudaLimitStackSize, 5120);
-      caffe::Caffe::SetDevice(settings.device);
-      caffe::Caffe::set_mode(caffe::Caffe::GPU);
-    }
-
+     // output banner
+    log << cite_message << '\n';
+    
+   // check for GPU
     bool torchgpu = false;
-    if(torch::cuda::is_available() && !settings.no_gpu) {
+    if (torch::cuda::is_available() && !settings.no_gpu) {
       torchgpu = true;
-      if(settings.device > 0) {
-        log << "WARNING: Torch backend ignores device argument.  Use CUDA_VISIBLE_DEVICES environment to control CUDA device used.\n";
+      if (settings.device > 0) {
+        log << "WARNING: Torch backend ignores device argument.  Use CUDA_VISIBLE_DEVICES environment to control CUDA "
+               "device used.\n";
       }
-    } else if(!settings.no_gpu) {
-      log << "WARNING: No GPU detected.\n";
+    } else if (!settings.no_gpu) {
+      log << "WARNING: No GPU detected. CNN scoring will be slow.\n"
+             "Recommend running with single model (--cnn fast)\n"
+             "or without cnn scoring (--cnn_scoring=none).\n\n";    
     }
 
     if (accurate_line) {
@@ -1277,14 +1262,6 @@ Thank you!\n";
     if (vm.count("atom_terms") > 0)
       atomoutfile.open(atom_name.c_str());
 
-    // output banner
-    log << cite_message << '\n';
-
-    if (cudaerror != cudaSuccess) {
-      log << "WARNING: No GPU detected. CNN scoring will be slow.\n"
-             "Recommend running with single model (--cnn crossdock_default2018)\n"
-             "or without cnn scoring (--cnn_scoring=none).\n\n";
-    }
     log << "Commandline:";
     for (unsigned i = 0; i < argc; i++) {
       log << " " << argv[i];
@@ -1442,14 +1419,10 @@ Thank you!\n";
     boost::timer::cpu_timer time;
     std::shared_ptr<DLScorer> dl_scorer;
 
-    if (cnnopts.use_torch) {
-      if(torchgpu)
-        dl_scorer = std::make_shared<CNNTorchScorer<true> >(cnnopts, &log);
-      else
-        dl_scorer = std::make_shared<CNNTorchScorer<false> >(cnnopts, &log);
-    } else {
-      dl_scorer = std::make_shared<CNNScorer>(cnnopts);
-    }
+    if (torchgpu)
+      dl_scorer = std::make_shared<CNNTorchScorer<true>>(cnnopts, &log);
+    else
+      dl_scorer = std::make_shared<CNNTorchScorer<false>>(cnnopts, &log);
 
     if (!settings.local_only)
       nthreads = 1; // docking is multithreaded already, don't add additional parallelism other than pipeline
@@ -1543,7 +1516,6 @@ Thank you!\n";
     cudaDeviceSynchronize();
 
     // std::cout << "Loop time " << time.elapsed().wall / 1000000000.0 << "\n";
-
   } catch (file_error &e) {
     std::cerr << "\n\nError: could not open \"" << e.name.string() << "\" for " << (e.in ? "reading" : "writing")
               << ".\n";

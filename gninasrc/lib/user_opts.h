@@ -36,12 +36,10 @@ std::istream& operator>>(std::istream &in, cnn_scoring_level &cnn_level);
 struct cnn_options {
     //stores options associated with cnn scoring
     std::vector<std::string> cnn_models; //path(s) to model file
-    std::vector<std::string> cnn_weights; //weights for model
     std::string cnn_recmap; //optional file specifying receptor atom typing to channel map
     std::string cnn_ligmap; //optional file specifying ligand atom typing to channel map
     std::vector<std::string> cnn_model_names; // name of builtin model
     vec cnn_center;
-    fl resolution; //this isn't specified in model file, so be careful about straying from default
     unsigned cnn_rotations; //do we want to score multiple orientations?
     cnn_scoring_level cnn_scoring;
     double subgrid_dim;
@@ -51,7 +49,6 @@ struct cnn_options {
     bool gradient_check;
     bool mix_emp_force;//merge empirical and CNN minus forces
     bool mix_emp_energy;//merge empirical and CNN energy
-    bool use_torch = false; // temporary flag for switching between caffe and torch
     bool verbose;
 
     std::string xyzprefix;
@@ -59,7 +56,7 @@ struct cnn_options {
 
     cnn_options()
         : cnn_center(NAN, NAN, NAN),
-           resolution(0.5), cnn_rotations(0), cnn_scoring(CNNrescore),
+            cnn_rotations(0), cnn_scoring(CNNrescore),
             subgrid_dim(0.0), outputdx(false),
             outputxyz(false), gradient_check(false), 
             verbose(false), mix_emp_force(false),mix_emp_energy(false),empirical_weight(1.0),seed(0) {

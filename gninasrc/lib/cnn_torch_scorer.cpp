@@ -47,10 +47,6 @@ template <bool isCUDA> CNNTorchScorer<isCUDA>::CNNTorchScorer(const cnn_options 
     }
   }
 
-  if (cnnopts.cnn_weights.size() > 0) {
-    throw usage_error("Torch models do not have separate weight files.");
-  }
-
   vector<string> model_names;
   // expand ensembles
   for (const auto &name : cnnopts.cnn_model_names) {

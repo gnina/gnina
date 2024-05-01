@@ -43,9 +43,7 @@ lib/box.cpp
 lib/builtinscoring.cpp
 lib/cache.cpp
 lib/cache_gpu.cpp
-lib/cnn_scorer.cpp
 lib/cnn_torch_scorer.cpp
-lib/cnn_data.cpp
 lib/coords.cpp
 lib/covinfo.cpp
 lib/custom_terms.cpp
@@ -108,7 +106,7 @@ function(model_to_obj out_var)
   endforeach()
 
   add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
-    COMMAND ${PYTHON_EXECUTABLE} make_model_cpp.py "${result}" "${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
+    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/make_model_cpp.py "${result}" "${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
     DEPENDS ${result} make_model_cpp.py 
     WORKING_DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Creating ${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
@@ -228,11 +226,11 @@ list(REMOVE_DUPLICATES CMAKE_PROPERTY_LIST)
 
 add_library(gninalib_static STATIC $<TARGET_OBJECTS:gninalibobj>)
 set_target_properties(gninalib_static PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib_static  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES}  ${TORCH_LIBRARIES} jsoncpp_lib ZLIB::ZLIB gninalibobj)
+target_link_libraries(gninalib_static  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES}  ${TORCH_LIBRARIES} jsoncpp_lib ZLIB::ZLIB gninalibobj)
 
 add_library(gninalib $<TARGET_OBJECTS:gninalibobj>)
 set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES}  ${TORCH_LIBRARIES} jsoncpp_lib ZLIB::ZLIB gninalibobj)
+target_link_libraries(gninalib  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES}  ${TORCH_LIBRARIES} jsoncpp_lib ZLIB::ZLIB gninalibobj)
 # MESSAGE(STATUS "variable is: " ${NVCC_FLAGS_EXTRA})
 
 install(TARGETS gninalib gninalib_static DESTINATION lib)
@@ -243,24 +241,21 @@ include_directories(${LIBMOLGRID_INCLUDE})
 
 # compile in libgnina - there are enough dependencies to deal with
 add_executable(gnina main/main.cpp $<TARGET_OBJECTS:gninalibobj> )
-target_link_libraries(gnina  ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${LIBMOLGRID_LIBRARY} ${TORCH_LIBRARIES} jsoncpp_lib ZLIB::ZLIB gninalibobj)
+target_link_libraries(gnina  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${LIBMOLGRID_LIBRARY} ${TORCH_LIBRARIES} jsoncpp_lib ZLIB::ZLIB gninalibobj)
 
 add_subdirectory(gninaserver)
 
 add_executable(fromgnina fromgnina/fromgnina.cpp lib/CommandLine2/CommandLine.cpp)
 target_link_libraries(fromgnina  gninalib )
 
-add_executable(dumpmodel dumpmodel/dumpmodel.cpp)
-target_link_libraries(dumpmodel  gninalib )
-
 add_executable(gninagrid gninagrid/gninagrid.cpp gninagrid/molgridder.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(gninagrid  gninalib  ${CUDA_LIBRARIES})
+target_link_libraries(gninagrid  gninalib  ${CUDA_LIBRARIES} ${LIBMOLGRID_LIBRARY})
 
 add_executable(gninatyper gninatyper/gninatyper.cpp lib/CommandLine2/CommandLine.cpp )
-target_link_libraries(gninatyper   ${Caffe_LINK}  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${LIBMOLGRID_LIBRARY} ${TORCH_LIBRARIES} jsoncpp_lib gninalib)
+target_link_libraries(gninatyper   ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${LIBMOLGRID_LIBRARY} ${TORCH_LIBRARIES} jsoncpp_lib gninalib)
 
 add_executable(tognina tognina/tognina.cpp lib/CommandLine2/CommandLine.cpp)
-target_link_libraries(tognina   ${Caffe_LINK}  gninalib ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES})
+target_link_libraries(tognina   gninalib ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES})
 
 install(TARGETS gnina gninagrid gninatyper fromgnina tognina RUNTIME DESTINATION bin)
 
@@ -272,7 +267,7 @@ if(RDKIT_FOUND)
     set(rdkit_lib_line "-lFileParsers -lSmilesParse -lDepictor -lGraphMol -lRDGeometryLib -lRDGeneral -lSubstructMatch -lSubgraphs -lDataStructs")
     
     add_executable(gninavis gninavis/gninavis.cpp lib/CommandLine2/CommandLine.cpp gninavis/cnn_visualization.cpp gninavis/cnn_visualization.hpp)
-    target_link_libraries(gninavis  ${Caffe_LINK}  gninalib ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${RDKIT_LIBRARIES})
+    target_link_libraries(gninavis  gninalib ${LIBMOLGRID_LIBRARY} ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${RDKIT_LIBRARIES})
     install(TARGETS gninavis RUNTIME DESTINATION bin)
     
 else()

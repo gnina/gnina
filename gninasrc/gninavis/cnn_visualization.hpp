@@ -1,7 +1,6 @@
 #include <openbabel/mol.h>
 #include <set>
 #include <unordered_set>
-#include "cnn_scorer.h"
 #include "molgetter.h"
 #include <GraphMol/ROMol.h>
 #include <GraphMol/RWMol.h>
@@ -12,7 +11,6 @@ struct vis_options {
     bool skip_receptor_output;
     bool skip_ligand_output;
     std::string additivity;
-    std::string layer_to_ignore;
     std::string target;
 
     bool frags_only;
@@ -20,16 +18,14 @@ struct vis_options {
     bool verbose;
     bool output_files;
     bool skip_bound_check;
-    bool zero_values;
     int gpu;
 
-    bool outputdx;
     float box_size;
     double score_scale;
 
     vis_options()
         : frags_only(false), atoms_only(false), verbose(false),
-            output_files(false), skip_bound_check(false), outputdx(false),
+            output_files(false), skip_bound_check(false), 
             gpu(0), box_size(23.5), score_scale(10) {
     }
 };
@@ -39,8 +35,6 @@ class cnn_visualization {
     cnn_visualization(const vis_options &visopts, const cnn_options &cnnopts,
         const vec &center);
     void setup();
-    void lrp();
-    void gradient_vis();
     void masking();
     void print();
 

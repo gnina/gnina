@@ -32,7 +32,6 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition.hpp>
-#include "caffe/caffe.hpp"
 
 template<typename F, typename thread_init_t, bool Sync = false>
 struct parallel_for : private boost::thread_group {
