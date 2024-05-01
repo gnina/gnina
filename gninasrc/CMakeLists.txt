@@ -87,7 +87,10 @@ lib/tree_gpu.cu
 lib/user_opts.cpp
 "${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
 )
-  
+
+#need python to create models
+find_package(PythonInterp)
+
 #models
 function(model_to_obj out_var)
   set(result)
@@ -106,7 +109,7 @@ function(model_to_obj out_var)
   endforeach()
 
   add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/make_model_cpp.py "${result}" "${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
+    COMMAND ${PYTHON_EXECUTABLE} make_model_cpp.py "${result}" "${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
     DEPENDS ${result} make_model_cpp.py 
     WORKING_DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Creating ${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
@@ -226,11 +229,12 @@ list(REMOVE_DUPLICATES CMAKE_PROPERTY_LIST)
 
 add_library(gninalib_static STATIC $<TARGET_OBJECTS:gninalibobj>)
 set_target_properties(gninalib_static PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib_static  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES}  ${TORCH_LIBRARIES} jsoncpp_lib ZLIB::ZLIB gninalibobj)
+target_link_libraries(gninalib_static  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${LIBMOLGRID_LIBRARY} ${TORCH_LIBRARIES} jsoncpp_lib ZLIB::ZLIB gninalibobj)
 
-add_library(gninalib $<TARGET_OBJECTS:gninalibobj>)
+add_library(gninalib SHARED $<TARGET_OBJECTS:gninalibobj>)
 set_target_properties(gninalib PROPERTIES OUTPUT_NAME gnina)
-target_link_libraries(gninalib  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES}  ${TORCH_LIBRARIES} jsoncpp_lib ZLIB::ZLIB gninalibobj)
+target_link_libraries(gninalib  ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${LIBMOLGRID_LIBRARY} ${TORCH_LIBRARIES} jsoncpp_lib ZLIB::ZLIB gninalibobj)
+
 # MESSAGE(STATUS "variable is: " ${NVCC_FLAGS_EXTRA})
 
 install(TARGETS gninalib gninalib_static DESTINATION lib)

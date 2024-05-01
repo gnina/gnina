@@ -34,7 +34,8 @@ endif()
 
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 find_package(CUDA 12.0 REQUIRED)
-set(USE_CUDNN 1)
+set(BUILD_CAFFE2 OFF)
+set(CAFFE2_USE_CUDNN 1)
 
 function(dump_cmake_variables)
     get_cmake_property(_variableNames VARIABLES)
