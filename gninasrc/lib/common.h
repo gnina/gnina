@@ -365,9 +365,9 @@ __host__ inline void normalize_angle(fl &x) { // subtract or add enough 2*pi's t
     x += 2 * pi;
   }
   if (!(x >= -pi - epsilon_fl && x <= pi + epsilon_fl)) {
-    x = 0;
     std::cerr << "Numerical degeneracy encountered. Check for non-physical inputs. " + std::to_string(x) +
-                          " should be between -pi and pi.";
+                     " should be between -pi and pi.\n";
+    x = 0;
   }
   // in [-pi, pi]
 }
@@ -388,7 +388,7 @@ __device__ inline void normalize_angle(fl &x) {
   }
   if (!(x >= -pi - epsilon_fl && x <= pi + epsilon_fl)) {
     x = 0;
-  }  
+  }
   // TODO: put the assert back?
 }
 #endif
