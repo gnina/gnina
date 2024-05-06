@@ -37,7 +37,7 @@ template <bool isCUDA> CNNTorchScorer<isCUDA>::CNNTorchScorer(const cnn_options 
       if (cnnopts.cnn_model_names[0] == "fast") {
         cnnopts.cnn_model_names[0] = "all_default_to_default_1_3_1";
       } else if (cnnopts.cnn_model_names[0] == "default1.0") {
-        //gnina 1.0 models
+        // gnina 1.0 models
         cnnopts.cnn_model_names[0] = "dense";
         cnnopts.cnn_model_names.push_back("general_default2018_3");
         cnnopts.cnn_model_names.push_back("dense_3");
@@ -131,14 +131,13 @@ float CNNTorchScorer<isCUDA>::score(model &m, bool compute_gradient, float &affi
     torch::manual_seed(cnnopts.seed); // same random rotations for each ligand..
     libmolgrid::random_engine.seed(cnnopts.seed);
 
-    if (!isnan(cnnopts.cnn_center[0])) {
-      current_center = cnnopts.cnn_center;
-    }
-
     for (unsigned r = 0, n = max(cnnopts.cnn_rotations, 1U); r < n; r++) {
       Dtype s = 0, a = 0, l = 0;
 
       vec grid_center = vec(NAN, NAN, NAN); // recalculate from ligand
+      if (!isnan(cnnopts.cnn_center[0])) {
+        grid_center = cnnopts.cnn_center;
+      }
       auto output = model->forward(receptor_coords, receptor_smtypes, ligand_coords, ligand_smtypes, grid_center, r > 0,
                                    compute_gradient);
       if (output.size() > 0)

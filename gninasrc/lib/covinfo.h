@@ -22,6 +22,7 @@ struct CovOptions {
   int bond_order = 1;
   std::string covalent_lig_atom_position;
   bool covalent_fix_lig_atom_position = false;
+  bool dont_move_ligand = false; //true for minimizatino/score only
 };
 
 /* Parse covalent docking options and store relevant info.
@@ -45,7 +46,7 @@ class CovInfo {
   vec latom_pos = vec(0, 0, 0); // where to position latom, optional
   bool latom_pos_set = false;
   bool fix_latom_pos = false;
-  
+  bool dont_move_ligand = false;
 
   bool initialized = false;
 
@@ -70,6 +71,10 @@ public:
 
   int get_bond_order() const {
     return bond_order;
+  }
+
+  bool keep_ligand_position() const {
+    return dont_move_ligand;
   }
 
   bool optimize_ligand() const {

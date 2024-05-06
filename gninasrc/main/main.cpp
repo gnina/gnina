@@ -1196,7 +1196,7 @@ Thank you!\n";
                                                        // dkoes - for local get box from ligand
     bool output_produced = !settings.score_only;
     bool receptor_needed = !settings.randomize_only;
-
+    
     if (cnnopts.cnn_scoring == CNNnone) {
       settings.sort_order = Energy;
     }
@@ -1269,6 +1269,7 @@ Thank you!\n";
     log << "\n";
 
     FlexInfo finfo(flex_res, flex_dist, flexdist_ligand, nflex, nflex_hard_limit, full_flex_output, log);
+    copt.dont_move_ligand = !search_box_needed; 
     CovInfo cinfo(copt, log);
     // dkoes - parse in receptor once
     MolGetter mols(rigid_name, flex_name, finfo, cinfo, add_hydrogens, strip_hydrogens, log);

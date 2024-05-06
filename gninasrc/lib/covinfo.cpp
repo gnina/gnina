@@ -12,7 +12,8 @@ using namespace std;
 using namespace OpenBabel;
 
 CovInfo::CovInfo(const CovOptions& copt, tee &l) : 
-    log(&l), bond_order(copt.bond_order), optlevel(copt.covalent_optimize_lig), fix_latom_pos(copt.covalent_fix_lig_atom_position) {
+    log(&l), bond_order(copt.bond_order), optlevel(copt.covalent_optimize_lig), 
+    fix_latom_pos(copt.covalent_fix_lig_atom_position), dont_move_ligand(copt.dont_move_ligand) {
 
   if (copt.covalent_rec_atom.size() == 0)
     return; // not set

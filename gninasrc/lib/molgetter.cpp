@@ -12,16 +12,16 @@
 #include <boost/timer/timer.hpp>
 #include <openbabel/bond.h>
 #include <openbabel/builder.h>
+#include <openbabel/forcefield.h>
+#include <openbabel/generic.h>
 #include <openbabel/mol.h>
 #include <openbabel/obconversion.h>
-#include <openbabel/generic.h>
-#include <openbabel/forcefield.h>
 #include <sstream>
 
 using namespace OpenBabel;
 
-//remove a hydrogen from a
-static void decrement_hydrogen(OBMol& mol, OBAtom *a) {
+// remove a hydrogen from a
+static void decrement_hydrogen(OBMol &mol, OBAtom *a) {
 
   if (a->GetImplicitHCount() > 0) {
     a->SetImplicitHCount(a->GetImplicitHCount() - 1);
@@ -42,7 +42,7 @@ static void decrement_hydrogen(OBMol& mol, OBAtom *a) {
       mol.DeleteHydrogen((OBAtom *)*i);
     mol.DecrementMod();
 
-    //mol.DeleteHydrogens(a);
+    // mol.DeleteHydrogens(a);
     a->SetImplicitHCount(hcnt - 1);
   }
 }
@@ -119,16 +119,16 @@ void MolGetter::create_init_model(const std::string &rigid_name, const std::stri
         char icode = covr->GetInsertionCode();
 
         covres_isflex = finfo.omit_residue(std::tuple<char, int, char>(ch, resid, icode));
-        finfo.extract_residue(rec, covr, covres,true);
+        finfo.extract_residue(rec, covr, covres, true);
         covatom = cinfo.find_rec_atom(covres);
 
         VINA_CHECK(covatom);
-        if(covatom->GetHvyDegree() == 0 ) {
-            throw usage_error("Invalid solitary receptor atom "+cinfo.rec_atom_string()+ ". Check bond lengths.");          
+        if (covatom->GetHvyDegree() == 0) {
+          throw usage_error("Invalid solitary receptor atom " + cinfo.rec_atom_string() + ". Check bond lengths.");
         }
 
-        for(int i = 0, n = cinfo.get_bond_order(); i < n; i++) {
-          decrement_hydrogen(covres, covatom); 
+        for (int i = 0, n = cinfo.get_bond_order(); i < n; i++) {
+          decrement_hydrogen(covres, covatom);
         }
       }
 
@@ -164,17 +164,16 @@ void MolGetter::create_init_model(const std::string &rigid_name, const std::stri
         initm = parse_receptor_pdbqt(rigid_name, recstream);
       }
 
-      if(finfo.full_output()) {
+      if (finfo.full_output()) {
         rigid.DeleteHydrogens();
         initm.set_rigid(rigid);
       }
-
     }
   }
 
   FOR_ATOMS_OF_MOL(a, covres) {
     vector3 c = a->GetVector();
-    initm.extra_box_coords.push_back(vec(c.x(),c.y(),c.z()));
+    initm.extra_box_coords.push_back(vec(c.x(), c.y(), c.z()));
   }
 
   if (strip_hydrogens)
@@ -213,27 +212,27 @@ void MolGetter::setInputFile(const std::string &fname) {
 // atoms outside of the covalent residue to get the right bond vector
 // The heuristic is to identify all close by atoms and negate their average
 // to get a direction
-static vector3 heuristic_position(model &m, OBAtom* a, double bondLength) {
+static vector3 heuristic_position(model &m, OBAtom *a, double bondLength) {
   vector3 newbond;
-  const double DISTSQ = 2.5*2.5;
-  const atomv& atoms = m.get_fixed_atoms();
+  const double DISTSQ = 2.5 * 2.5;
+  const atomv &atoms = m.get_fixed_atoms();
   vector3 avec = a->GetVector();
   vec v(avec.GetX(), avec.GetY(), avec.GetZ());
-  vec sum(0,0,0);
+  vec sum(0, 0, 0);
   for (unsigned i = 0, n = atoms.size(); i < n; i++) {
-    const atom& a = atoms[i];
-    if(vec_distance_sqr(v,a.coords) < DISTSQ) {
-      sum += v-a.coords;
+    const atom &a = atoms[i];
+    if (vec_distance_sqr(v, a.coords) < DISTSQ) {
+      sum += v - a.coords;
     }
   }
 
   double len = sum.norm();
-  if(len < 0.01) {
-    //giveup and return random vector, which is no worse than what OB would do
+  if (len < 0.01) {
+    // giveup and return random vector, which is no worse than what OB would do
     newbond.randomUnitVector();
   } else {
-    sum /= sum.norm(); //normalize
-    newbond = vector3(sum[0],sum[1],sum[2]);
+    sum /= sum.norm(); // normalize
+    newbond = vector3(sum[0], sum[1], sum[2]);
   }
   newbond *= bondLength;
   newbond += a->GetVector();
@@ -268,8 +267,8 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
   covmol = origcovmol;
   // covmol should be initialized and matchpos set at this point
 
-  FOR_ATOMS_OF_MOL(a, covmol){
-    //mark atoms of covalent ligand
+  FOR_ATOMS_OF_MOL(a, covmol) {
+    // mark atoms of covalent ligand
     OBPairData *dp = new OBPairData;
     dp->SetAttribute("CovLig");
     a->SetData(dp);
@@ -278,7 +277,7 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
   OBAtom *latom = covmol.GetAtom(match_list[matchpos][0]);
   matchpos++;
 
-  for(int i = 0, n = cinfo.get_bond_order(); i < n; i++) {
+  for (int i = 0, n = cinfo.get_bond_order(); i < n; i++) {
     decrement_hydrogen(covmol, latom);
   }
 
@@ -292,27 +291,32 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
 
   // position ligand and add bond
   bool success = false;
-  if (cinfo.has_user_lig_atom_pos()) {
+  if (cinfo.keep_ligand_position()) {
+    // create a bond in-place (when minimizing/scoring)
+    flex.AddBond(ratom_index, latom_index, cinfo.get_bond_order());
+    matchpos = match_list.size(); //single orientation
+    success = true;
+  } else if (cinfo.has_user_lig_atom_pos()) {
     vec pos = cinfo.lig_atom_pos(covatom, latom);
     vector3 obpos(pos[0], pos[1], pos[2]);
     success = OBBuilder::Connect(flex, ratom_index, latom_index, obpos, cinfo.get_bond_order());
   } else {
-    //work around openbabel bug where it is willing to return nan for the bond vector
+    // work around openbabel bug where it is willing to return nan for the bond vector
     auto a = flex.GetAtom(ratom_index);
     vector3 newpos = OBBuilder::GetNewBondVector(flex.GetAtom(ratom_index));
-    if(!isfinite(newpos.x())) {
+    if (!isfinite(newpos.x())) {
       a->SetHyb(4); // hacky workaround - most common offender is a metal ion
-    } 
-    
-    if(a->GetHyb() < a->GetExplicitDegree()) {
-      //in thise case a random vector is returned, so apply another hacky workaround
+    }
+
+    if (a->GetHyb() < a->GetExplicitDegree()) {
+      // in thise case a random vector is returned, so apply another hacky workaround
       auto la = flex.GetAtom(latom_index);
-      double bondLength = OBElements::GetCovalentRad(a->GetAtomicNum()) +
-                           OBElements::GetCovalentRad(la->GetAtomicNum());
-      vector3 obpos = heuristic_position(m, a,bondLength);
-      success = OBBuilder::Connect(flex, ratom_index, latom_index, obpos, cinfo.get_bond_order());      
-    } else { //normal case
-      success = OBBuilder::Connect(flex, ratom_index, latom_index, cinfo.get_bond_order());    
+      double bondLength =
+          OBElements::GetCovalentRad(a->GetAtomicNum()) + OBElements::GetCovalentRad(la->GetAtomicNum());
+      vector3 obpos = heuristic_position(m, a, bondLength);
+      success = OBBuilder::Connect(flex, ratom_index, latom_index, obpos, cinfo.get_bond_order());
+    } else { // normal case
+      success = OBBuilder::Connect(flex, ratom_index, latom_index, cinfo.get_bond_order());
     }
   }
   if (!success)
@@ -321,28 +325,27 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
   flex.AddHydrogens();
   unsigned resatoms = covres.NumAtoms();
 
-  if(cinfo.optimize_ligand()) {
-    //optimize molecule a little bit, but not the residue
+  if (cinfo.optimize_ligand()) {
+    // optimize molecule a little bit, but not the residue
     OBForceField *ff = OBForceField::FindForceField("UFF");
-    
-    //we want to keep the conformation of the ligand, but the internal constraints
-    //prevent the whole flex optimization from getting reasonable results, so apply
-    //them in a second step
+
+    // we want to keep the conformation of the ligand, but the internal constraints
+    // prevent the whole flex optimization from getting reasonable results, so apply
+    // them in a second step
     OBFFConstraints constraints;
     for (unsigned i = 0; i < resatoms; i++) {
-      constraints.AddAtomConstraint(i+1);
-    }    
-
-    if (cinfo.has_user_lig_atom_pos()) {
-      //trust the user's positioning
-      constraints.AddAtomConstraint(latom_index+1);
+      constraints.AddAtomConstraint(i + 1);
     }
 
-    //full ligand optimization
-    ff->Setup(flex,constraints);
-    ff->SteepestDescent(1000, 1e-3);
-    ff->GetCoordinates(flex);    
+    if (cinfo.has_user_lig_atom_pos()) {
+      // trust the user's positioning
+      constraints.AddAtomConstraint(latom_index + 1);
+    }
 
+    // full ligand optimization
+    ff->Setup(flex, constraints);
+    ff->SteepestDescent(1000, 1e-3);
+    ff->GetCoordinates(flex);
   }
 
   // parse with appropriate amount of rigidity
@@ -355,22 +358,22 @@ bool MolGetter::createCovalentMoleculeInModel(model &m) {
   norotate.reserve(resatoms);
 
   // if the cov res is suppose to be flexible, don't do the following
-  if(!covres_isflex) {
-    //at a minimum, do not fix ratom - maybe need to consider neighbors?
+  if (!covres_isflex) {
+    // at a minimum, do not fix ratom - maybe need to consider neighbors?
     std::vector<bool> fixres(resatoms, true);
-    if(!cinfo.has_fixed_lig_atom())
-      fixres[ratom_index-1] = false;
+    if (!cinfo.has_fixed_lig_atom())
+      fixres[ratom_index - 1] = false;
 
-    for (unsigned i = 0; i < resatoms; i++) { 
+    for (unsigned i = 0; i < resatoms; i++) {
       if (fixres[i])
         norotate.push_back(i + 1); // indexed by one for dumb reasons
     }
-  } 
+  }
 
   c.has_cov_lig = true;
   GninaConverter::convertParsing(flex, p, c, 1, norotate, add_hydrogens);
-//conv.WriteFile(&flex,"flex.pdbqt");
-  // create model
+  // conv.WriteFile(&flex,"flex.pdbqt");
+  //  create model
   postprocess_residue(nrp, p, c);
   tmp.initialize_from_nrp(nrp, c, false);
   tmp.initialize(nrp.mobility_matrix());

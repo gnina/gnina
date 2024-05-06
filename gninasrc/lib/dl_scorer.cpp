@@ -202,10 +202,12 @@ void DLScorer::set_center_from_model(model &m) {
 
   // calc center for ligand
   current_center = vec(0, 0, 0);
-  for (auto coord : m.coordinates()) {
+  unsigned cnt = 0;
+  for (auto coord : m.get_heavy_atom_movable_coords()) {
     current_center += coord;
+    cnt += 1;
   }
-  current_center /= (float)m.coordinates().size();
+  current_center /= (float)cnt;
 
   if (cnnopts.verbose) {
     std::cout << "new center: ";
