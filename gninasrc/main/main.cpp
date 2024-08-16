@@ -1201,6 +1201,10 @@ Thank you!\n";
       settings.sort_order = Energy;
     }
 
+    if(copt.covalent_rec_atom != "" && cnnopts.cnn_scoring != CNNnone) {
+      log << "WARNING: CNN scoring not yet calibrated for covalent docking.  Recommend running with --cnn_scoring none";
+    }
+
     if (receptor_needed) {
       if (vm.count("receptor") <= 0) {
         std::cerr << "Missing receptor.\n"
@@ -1368,6 +1372,7 @@ Thank you!\n";
       settings.cpu = 1;
     if (settings.verbosity > 1 && settings.exhaustiveness < settings.cpu)
       log << "WARNING: at low exhaustiveness, it may be impossible to utilize all CPUs\n";
+    torch::set_num_threads(settings.cpu);
 
     if (settings.verbosity <= 1) {
       OpenBabel::obErrorLog.SetOutputLevel(OpenBabel::obError);
