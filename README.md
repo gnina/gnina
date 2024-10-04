@@ -57,7 +57,7 @@ apt-get  install build-essential git cmake wget libboost-all-dev libeigen3-dev l
 
 ```
 
-[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA (>= 11.0 is required). **Make sure `nvcc` is in your PATH.**
+[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA (>= 12.0 is required). **Make sure `nvcc` is in your PATH.**
 
 *Optionally* install [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive).
 
@@ -116,8 +116,8 @@ sudo make install
 ```
 
 #
-If you are building for systems with different GPUs (e.g. in a cluster environment), configure with `-DCUDA_ARCH_NAME=All`.   
-Note that the cmake build will automatically fetch and install [libmolgrid](https://github.com/gnina/libmolgrid) if it is not already installed.
+If you are building for systems with different GPUs (e.g. in a cluster environment), configure with `-DCMAKE_CUDA_ARCHITECTURES=all`.   
+Note that the cmake build will automatically fetch and install [libmolgrid](https://github.com/gnina/libmolgrid) and [torch](https://github.com/pytorch/pytorch) if they are not already installed.
 
 
 The scripts provided in `gnina/scripts` have additional python dependencies that must be installed. 
@@ -282,31 +282,60 @@ Convolutional neural net (CNN) scoring:
   --cnn arg                          built-in model to use, specify 
                                      PREFIX_ensemble to evaluate an ensemble of
                                      models starting with PREFIX: 
+                                     all_default_to_default_1_3_1 
+                                     all_default_to_default_1_3_2 
+                                     all_default_to_default_1_3_3 
                                      crossdock_default2018 
                                      crossdock_default2018_1 
+                                     crossdock_default2018_1_3 
+                                     crossdock_default2018_1_3_1 
+                                     crossdock_default2018_1_3_2 
+                                     crossdock_default2018_1_3_3 
+                                     crossdock_default2018_1_3_4 
                                      crossdock_default2018_2 
                                      crossdock_default2018_3 
-                                     crossdock_default2018_4 default2017 dense 
-                                     dense_1 dense_2 dense_3 dense_4 
-                                     general_default2018 general_default2018_1 
+                                     crossdock_default2018_4 
+                                     crossdock_default2018_KD_1 
+                                     crossdock_default2018_KD_2 
+                                     crossdock_default2018_KD_3 
+                                     crossdock_default2018_KD_4 
+                                     crossdock_default2018_KD_5 default1.0 
+                                     default2017 dense dense_1 dense_1_3 
+                                     dense_1_3_1 dense_1_3_2 dense_1_3_3 
+                                     dense_1_3_4 dense_1_3_PT_KD 
+                                     dense_1_3_PT_KD_1 dense_1_3_PT_KD_2 
+                                     dense_1_3_PT_KD_3 dense_1_3_PT_KD_4 
+                                     dense_1_3_PT_KD_def2018 
+                                     dense_1_3_PT_KD_def2018_1 
+                                     dense_1_3_PT_KD_def2018_2 
+                                     dense_1_3_PT_KD_def2018_3 
+                                     dense_1_3_PT_KD_def2018_4 dense_2 dense_3 
+                                     dense_4 fast general_default2018 
+                                     general_default2018_1 
                                      general_default2018_2 
                                      general_default2018_3 
-                                     general_default2018_4 redock_default2018 
-                                     redock_default2018_1 redock_default2018_2 
-                                     redock_default2018_3 redock_default2018_4
-  --cnn_model arg                    caffe cnn model file; if not specified a 
-                                     default model will be used
-  --cnn_weights arg                  caffe cnn weights file (*.caffemodel); if 
-                                     not specified default weights (trained on 
-                                     the default model) will be used
-  --cnn_resolution arg (=0.5)        resolution of grids, don't change unless 
-                                     you really know what you are doing
+                                     general_default2018_4 
+                                     general_default2018_KD_1 
+                                     general_default2018_KD_2 
+                                     general_default2018_KD_3 
+                                     general_default2018_KD_4 
+                                     general_default2018_KD_5 
+                                     redock_default2018 redock_default2018_1 
+                                     redock_default2018_1_3 
+                                     redock_default2018_1_3_1 
+                                     redock_default2018_1_3_2 
+                                     redock_default2018_1_3_3 
+                                     redock_default2018_1_3_4 
+                                     redock_default2018_2 redock_default2018_3 
+                                     redock_default2018_4 redock_default2018_KD
+                                     _1 redock_default2018_KD_2 
+                                     redock_default2018_KD_3 
+                                     redock_default2018_KD_4 
+                                     redock_default2018_KD_5
+  --cnn_model arg                    torch cnn model file; if not specified a 
+                                     default model ensemble will be used
   --cnn_rotation arg (=0)            evaluate multiple rotations of pose (max 
                                      24)
-  --cnn_update_min_frame arg (=1)    During minimization, recenter coordinate 
-                                     frame as ligand moves
-  --cnn_freeze_receptor              Don't move the receptor with respect to a 
-                                     fixed coordinate system
   --cnn_mix_emp_force                Merge CNN and empirical minus forces
   --cnn_mix_emp_energy               Merge CNN and empirical energy
   --cnn_empirical_weight arg (=1)    Weight for scaling and merging empirical 
@@ -361,8 +390,6 @@ Information (optional):
   --help                             display usage summary
   --help_hidden                      display usage summary with hidden options
   --version                          display program version
-
-
 ```
 
 CNN Scoring
@@ -374,17 +401,61 @@ CNN Scoring
  * `refinement` - CNN used to refine poses after Monte Carlo chains and for final ranking of output poses. 10x slower than `rescore` when using a GPU.
  * `all` - CNN used as the scoring function throughout the whole procedure. Extremely computationally intensive and not recommended.
 
-The default CNN scoring function is an ensemble of 5 models selected to balance pose prediction performance and runtime: dense, general_default2018_3, dense_3, crossdock_default2018, and redock_default2018.  More information on these various models can be found in the papers listed above.
+The default CNN scoring function is an ensemble of 3 models selected to balance pose prediction performance and runtime: dense_1_3, dense_1_3_PT_KD_3, crossdock_default2018_KD_4.  The GNINA 1.0 default ensemble is still available as `default1.0`.   More information on these various models can be found in the papers listed above.
 
 Training
 ========
 
-Scripts to aid in training new CNN models can be found at [https://github.com/gnina/scripts](https://github.com/gnina/scripts)
+Scripts for training pytorch GNINA models and pretrained models can found at [https://github.com/RMeli/gnina-torch](https://github.com/RMeli/gnina-torch).
+Example code for converting a pytorch model into a gnina usable model file is shown below.  The metadata should provide information about the input grid resolution, dimension and atom typing.  If not provided, defaults will be used.
+
+```python
+    d = {
+        'resolution': 0.5,
+        'dimension' : 23.5,
+        'recmap' : '''AliphaticCarbonXSHydrophobe 
+    AliphaticCarbonXSNonHydrophobe 
+    AromaticCarbonXSHydrophobe 
+    AromaticCarbonXSNonHydrophobe
+    Bromine Iodine Chlorine Fluorine
+    Nitrogen NitrogenXSAcceptor 
+    NitrogenXSDonor NitrogenXSDonorAcceptor
+    Oxygen OxygenXSAcceptor 
+    OxygenXSDonorAcceptor OxygenXSDonor
+    Sulfur SulfurAcceptor
+    Phosphorus 
+    Calcium
+    Zinc
+    GenericMetal Boron Manganese Magnesium Iron''',
+        
+    'ligmap': '''AliphaticCarbonXSHydrophobe 
+    AliphaticCarbonXSNonHydrophobe 
+    AromaticCarbonXSHydrophobe 
+    AromaticCarbonXSNonHydrophobe
+    Bromine Iodine
+    Chlorine
+    Fluorine
+    Nitrogen NitrogenXSAcceptor 
+    NitrogenXSDonor NitrogenXSDonorAcceptor
+    Oxygen OxygenXSAcceptor 
+    OxygenXSDonorAcceptor OxygenXSDonor
+    Sulfur SulfurAcceptor
+    Phosphorus
+    GenericMetal Boron Manganese Magnesium Zinc Calcium Iron'''
+    }
+    
+    extra = {'metadata':json.dumps(d)}
+    z = torch.zeros((1,28,48,48,48))
+
+    script = torch.jit.trace(model, z)
+    script.save('gnina_model.pt',_extra_files=extra)    
+```
+
+Legacy scripts for training Caffe models can be found at [https://github.com/gnina/scripts](https://github.com/gnina/scripts)
 and sample models at [https://github.com/gnina/models](https://github.com/gnina/models).
 
 
-The DUD-E docked poses used in the original paper can be found [here](http://bits.csb.pitt.edu/files/docked_dude.tar) and
-the CrossDocked2020 set is [here](https://github.com/gnina/models/tree/master/data/CrossDocked2020).
+The DUD-E docked poses used in the original paper can be found [here](http://bits.csb.pitt.edu/files/docked_dude.tar), but we [do not recommend](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0220113) training virtual screening models on DUD-E. The CrossDocked2020 set is [here](https://github.com/gnina/models/tree/master/data/CrossDocked2020).
 
 License
 =======

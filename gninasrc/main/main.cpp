@@ -1,5 +1,5 @@
 #include <boost/program_options.hpp>
-
+#include <torch/torch.h>
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/assign.hpp>
@@ -1202,7 +1202,7 @@ Thank you!\n";
     }
 
     if(copt.covalent_rec_atom != "" && cnnopts.cnn_scoring != CNNnone) {
-      log << "WARNING: CNN scoring not yet calibrated for covalent docking.  Recommend running with --cnn_scoring none";
+      log << "WARNING: CNN scoring not yet calibrated for covalent docking.  Recommend running with --cnn_scoring none\n";
     }
 
     if (receptor_needed) {

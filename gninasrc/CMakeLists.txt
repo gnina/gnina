@@ -89,7 +89,7 @@ lib/user_opts.cpp
 )
 
 #need python to create models
-find_package(PythonInterp)
+find_package(Python3)
 
 #models
 function(model_to_obj out_var)
@@ -109,7 +109,7 @@ function(model_to_obj out_var)
   endforeach()
 
   add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
-    COMMAND ${PYTHON_EXECUTABLE} make_model_cpp.py "${result}" "${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
+    COMMAND ${Python3_EXECUTABLE} make_model_cpp.py "${result}" "${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
     DEPENDS ${result} make_model_cpp.py 
     WORKING_DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Creating ${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
@@ -215,7 +215,7 @@ set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/_version.cpp PROPERTIES 
 add_library(gninalibobj OBJECT ${LIB_SRCS})
 set_property(TARGET gninalibobj PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(gninalibobj ${MODEL_OBJS} jsoncpp_lib)
-add_dependencies(gninalibobj libmolgrid)
+add_dependencies(gninalibobj libmolgrid torch)
 
 
 ## Get all properties that cmake supports

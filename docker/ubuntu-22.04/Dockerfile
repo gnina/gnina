@@ -1,7 +1,7 @@
 # Recommended build process
 
-#get CUDA 
-FROM nvidia/cuda:12.3.2-devel-ubuntu22.04
+#get CUDA - getting an older version for compatibility, recommend changing to newer
+FROM nvidia/cuda:12.0.0-devel-ubuntu22.04
 
 # get packages 
 WORKDIR /root
