@@ -98,17 +98,18 @@ if (NOT Torch_FOUND)
   libc10_cuda.so
   libc10.so
   libtorch.so
-  libcudnn.so.8
-  libcudnn_adv_infer.so.8
-  libcudnn_adv_train.so.8
-  libcudnn_cnn_infer.so.8
-  libcudnn_cnn_train.so.8
-  libcudnn_ops_infer.so.8
-  libcudnn_ops_train.so.8
+  libcudnn_adv.so.9
+  libcudnn_cnn.so.9
+  libcudnn_engines_precompiled.so.9
+  libcudnn_engines_runtime_compiled.so.9
+  libcudnn_graph.so.9
+  libcudnn_heuristic.so.9
+  libcudnn_ops.so.9
+  libcudnn.so.9  
   libjitbackend_test.so
   libnnapi_backend.so
   libnvrtc-b51b459d.so.12
-  libnvrtc-builtins-6c5639ce.so.12.1
+  libnvrtc-builtins.so
   libshm.so
   libtorchbind_test.so
   libtorch_cuda_linalg.so
