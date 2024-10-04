@@ -9,7 +9,7 @@
 #define SRC_LIB_TORCH_MODEL_H_
 
 #include <iostream>
-#include <jsoncpp/json/json.h>
+#include <json/json.h>
 #include <libmolgrid/atom_typer.h>
 #include <libmolgrid/grid_maker.h>
 #include <torch/script.h>
