@@ -86,6 +86,7 @@ if (NOT Torch_FOUND)
   list(APPEND CMAKE_PREFIX_PATH "${libtorch_SOURCE_DIR}")
   find_package(Torch REQUIRED)
 
+  #the following may need to be updated if the version of torch is changed
   cmake_path(GET TORCH_LIBRARY PARENT_PATH TORCH_LIBDIR)
   set(TORCH_NEEDED
   libgomp-98b21ff3.so.1 
