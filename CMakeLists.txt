@@ -55,8 +55,8 @@ find_package(Python3  COMPONENTS Interpreter Development)
 #zlib
 find_package(ZLIB REQUIRED)
 
-#openbabel
-find_package(OpenBabel3 3.1.1...<4 REQUIRED)
+#openbabel - in actuality need 3.1.1, but the 3-1-1 tag is incorrectly versioned
+find_package(OpenBabel3 3.1.0...<4 REQUIRED)
 set(OpenBabel3_LIBRARIES $<TARGET_FILE:openbabel>)
 include_directories($<TARGET_PROPERTY:openbabel,INTERFACE_INCLUDE_DIRECTORIES>)
 include_directories(${OpenBabel3_INCLUDE_DIRS})
