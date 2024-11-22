@@ -58,7 +58,7 @@ for system, flexdist in [("10gs", 3.0), ("184l", 3.9)]:
     outflex="flex-min-{system}.pdb".format(system=system)
 
     subprocess.check_call("{gnina} -r data/{system}_rec.pdb -l data/{system}_lig.sdf \
-        --cnn_scoring=all --minimize \
+        --cnn_scoring=all --minimize --cnn fast \
         --flexdist {flexdist} --flexdist_ligand data/{system}_lig.sdf \
         -o {outlig} --out_flex {outflex} \
         ".format(gnina=gnina, outlig=outlig, outflex=outflex, system=system, flexdist=flexdist),
@@ -134,9 +134,8 @@ subprocess.check_call("{gnina} -r data/1m4n_A_rec_wrong.pdb -l data/1m7y_mrd_uff
     shell=True)
 with open("gnina.log", "r") as f:
     content = f.read()
-    assert content.count("Flexible residues: A:83 A:85") == 1
-    assert content.count("WARNING: Residue A:83 appears to have too many atoms.") == 2
-    assert content.count("WARNING: Residue A:85 appears to have too many atoms.") == 2
+    assert content.count("Multiple copies of residue A:83.") == 1
+
 rmout("gnina.log")
 
 # Check warning if there are two residues with same chain, number and icode

@@ -49,7 +49,7 @@ fl non_cache::check_bounds(const grid_dims& dims, const vec& a_coords,
   return out_of_bounds_penalty;
 }
 
-fl non_cache::eval(const model& m, fl v) const { // clean up
+fl non_cache::eval(model& m, fl v) const { // clean up
   fl e = 0;
   const fl cutoff_sqr = p->cutoff_sqr();
   sz n = num_atom_types();

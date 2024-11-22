@@ -20,10 +20,13 @@ enum pose_sort_order {
 //for reading in as a commandline option
 std::istream& operator>>(std::istream &in, pose_sort_order &sort_order);
 
+
 enum cnn_scoring_level {
   CNNnone, //don't use CNN
   CNNrescore, // use CNN only for final scoring and ranking
   CNNrefinement, // use CNN only for minimization
+  CNNmetropolisrescore, // use CNN for MC and final scoring
+  CNNmetropolisrefine, // use CNN for MC and minimization
   CNNall // use CNN everywhere
 };
 
@@ -33,12 +36,10 @@ std::istream& operator>>(std::istream &in, cnn_scoring_level &cnn_level);
 struct cnn_options {
     //stores options associated with cnn scoring
     std::vector<std::string> cnn_models; //path(s) to model file
-    std::vector<std::string> cnn_weights; //weights for model
     std::string cnn_recmap; //optional file specifying receptor atom typing to channel map
     std::string cnn_ligmap; //optional file specifying ligand atom typing to channel map
     std::vector<std::string> cnn_model_names; // name of builtin model
     vec cnn_center;
-    fl resolution; //this isn't specified in model file, so be careful about straying from default
     unsigned cnn_rotations; //do we want to score multiple orientations?
     cnn_scoring_level cnn_scoring;
     double subgrid_dim;
@@ -46,8 +47,6 @@ struct cnn_options {
     bool outputdx;
     bool outputxyz;
     bool gradient_check;
-    bool move_minimize_frame;  //recenter with every scoring evaluation
-    bool fix_receptor;
     bool mix_emp_force;//merge empirical and CNN minus forces
     bool mix_emp_energy;//merge empirical and CNN energy
     bool verbose;
@@ -57,17 +56,10 @@ struct cnn_options {
 
     cnn_options()
         : cnn_center(NAN, NAN, NAN),
-           resolution(0.5), cnn_rotations(0), cnn_scoring(CNNrescore),
+            cnn_rotations(0), cnn_scoring(CNNrescore),
             subgrid_dim(0.0), outputdx(false),
-            outputxyz(false), gradient_check(false), move_minimize_frame(false),
-            fix_receptor(false), verbose(false), mix_emp_force(false),mix_emp_energy(false),empirical_weight(1.0),seed(0) {
-    }
-
-    bool moving_receptor() const {
-      //doesn't make sense to accumulate transformation gradient with moving center
-      if(move_minimize_frame) return false;
-      if(fix_receptor) return false; //just aren't doing it
-      return true;
+            outputxyz(false), gradient_check(false), 
+            verbose(false), mix_emp_force(false),mix_emp_energy(false),empirical_weight(1.0),seed(0) {
     }
 };
 
@@ -85,6 +77,7 @@ struct user_settings {
     int num_mc_steps;
     int max_mc_steps;
     int num_mc_saved;
+    fl temperature;
     pose_sort_order sort_order;
 
     bool score_only;
@@ -94,6 +87,7 @@ struct user_settings {
     bool include_atom_info;
     bool gpu_docking; //use gpu for non-CNN operations too
     bool no_gpu;
+    bool no_lig;
 
 
     cnn_options cnnopts;
@@ -102,10 +96,10 @@ struct user_settings {
     user_settings()
         :  num_modes(9), out_min_rmsd(1), forcecap(1000),
             seed(auto_seed()), verbosity(1), cpu(1), device(0),
-            exhaustiveness(10), num_mc_steps(0), max_mc_steps(0), num_mc_saved(50),
+            exhaustiveness(10), num_mc_steps(0), max_mc_steps(0), num_mc_saved(50), temperature(0),
             sort_order(CNNscore), score_only(false),
             randomize_only(false), local_only(false), dominimize(false),
-            include_atom_info(false), gpu_docking(false), no_gpu(false) {
+            include_atom_info(false), gpu_docking(false), no_gpu(false), no_lig(false) {
 
     }
 };

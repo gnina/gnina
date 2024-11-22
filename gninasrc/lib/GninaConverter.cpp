@@ -80,19 +80,37 @@ void MCMolConverter::convertConformer(unsigned conf, std::ostream& out) {
 //rootatom, an obatom index (starting at 1) can be specified, if not
 //the "best" root is chosen
 unsigned convertParsing(OBMol& mol, parsing_struct& p, context& c, int rootatom,
-    const vector<int>& norotate, bool addH) {
+    const vector<int>& norot, bool addH) {
   if (addH) mol.AddHydrogens();
+
   mol.PerceiveBondOrders();
   mol.SetAromaticPerceived();
   mol.SetAutomaticFormalCharge(false);
+
+  vector<OBAtom *> norotate_atoms;
+  if(norot.size() > 0) {
+    //need to save atoms before modifying molecule to make sure norotate ids are correct
+    for(auto i : norot) {
+      OBAtom *a = mol.GetAtom(i);
+      if(a && !a->IsElement(1)) {
+        norotate_atoms.push_back(a);
+      }
+    }
+  }
   DeleteHydrogens(mol); //leaves just polars
+
+  vector<int> norotate; norotate.reserve(norot.size());
+  if(norot.size() > 0) {
+    for(auto a: norotate_atoms) {
+      norotate.push_back(a->GetIdx());
+    }
+  }
 
   vector<vector<int> > rigid_fragments; //the vector of all the rigid molecule fragments, using atom indexes
   map<unsigned int, obbranch> tree;
 
   //we kind of assume a connected molecule
-  unsigned best_root_atom = FindFragments(mol, rigid_fragments, rootatom,
-      norotate);
+  unsigned best_root_atom = FindFragments(mol, rigid_fragments, rootatom, norotate);
   unsigned torsdof = rigid_fragments.size() - 1;
 
   if (rootatom > 0) {

@@ -1,0 +1,110 @@
+cff-version: 1.2.0
+title: 'GNINA 1.0: Molecular Docking with Deep Learning'
+message: 'If you find gnina useful, please cite our paper(s)'
+type: software
+authors:
+  - given-names: Andrew
+    family-names: McNutt
+    affiliation: University of Pittsburgh
+    email: anm329@pitt.edu
+  - given-names: Paul
+    family-names: Francoeur
+    affiliation: University of Pittsburgh
+    orcid: 'https://orcid.org/0000-0002-1440-567X'
+    email: paf46@pitt.edu
+  - given-names: Rishal
+    family-names: Aggarwal
+    affiliation: International Institute of Information Technology
+  - given-names: Tomohide
+    family-names: Masuda
+    affiliation: University of Pittsburgh
+  - given-names: Rocco
+    family-names: Meli
+    affiliation: University of Oxford
+  - given-names: Matthew
+    family-names: Ragoza
+    affiliation: University of Pittsburgh
+  - given-names: Jocelyn
+    family-names: Sunseri
+    affiliation: University of Pittsburgh
+  - given-names: David
+    family-names: Koes
+    email: dkoes@pitt.edu
+    affiliation: University of Pittsburgh
+    orcid: 'https://orcid.org/0000-0002-6892-6614'
+identifiers:
+  - type: doi
+    value: 10.26434/chemrxiv.13578140.v1
+repository-code: 'https://github.com/gnina/gnina'
+abstract: >-
+  Molecular docking computationally predicts the
+  conformation of a small molecule when binding to a
+  receptor. Scoring functions are a vital piece of any
+  molecular docking pipeline as they determine the fitness
+  of sampled poses. Here we describe and evaluate the 1.0
+  release of the Gnina docking software, which utilizes an
+  ensemble of convolutional neural networks (CNNs) as a
+  scoring function. We also explore an array of parameter
+  values for Gnina 1.0 to optimize docking performance and
+  computational cost. Docking performance, as evaluated by
+  the percentage of targets where the top pose is better
+  than 2A root mean square deviation (Top1), is compared to
+  AutoDock Vina scoring when utilizing explicitly defined
+  binding pockets or whole protein docking. Gnina, utilizing
+  a CNN scoring function to rescore the output poses,
+  outperforms AutoDock Vina scoring on redocking and
+  cross-docking tasks when the binding pocket is defined
+  (Top1 increases from 58% to 73% and from 27% to 37%,
+  respectively) and when the whole protein defines the
+  binding pocket (Top1 increases from 31% to 38% and from
+  12% to 16%, respectively). The derived ensemble of CNNs
+  generalizes to unseen proteins and ligands and produces
+  scores that correlate well with the root mean square
+  deviation to the known binding pose. We provide the 1.0
+  version of Gnina under and open source license for use as
+  a molecular docking tool at https://github.com/gnina/gnina
+keywords:
+  - Molecular docking
+  - Deep learning
+  - Structure-based drug design
+license: GPL-1.0
+preferred-citation:
+    type: article
+    title: "GNINA 1.0: molecular docking with deep learning"
+    authors:
+      - given-names: Andrew
+        family-names: McNutt
+        affiliation: University of Pittsburgh
+        email: anm329@pitt.edu
+      - given-names: Paul
+        family-names: Francoeur
+        affiliation: University of Pittsburgh
+        orcid: 'https://orcid.org/0000-0002-1440-567X'
+        email: paf46@pitt.edu
+      - given-names: Rishal
+        family-names: Aggarwal
+        affiliation: International Institute of Information Technology
+      - given-names: Tomohide
+        family-names: Masuda
+        affiliation: University of Pittsburgh
+      - given-names: Rocco
+        family-names: Meli
+        affiliation: University of Oxford
+      - given-names: Matthew
+        family-names: Ragoza
+        affiliation: University of Pittsburgh
+      - given-names: Jocelyn
+        family-names: Sunseri
+        affiliation: University of Pittsburgh
+      - given-names: David
+        family-names: Koes
+        email: dkoes@pitt.edu
+        affiliation: University of Pittsburgh
+        orcid: 'https://orcid.org/0000-0002-6892-6614'
+    journal: "Journal of cheminformatics"
+    volume: 13
+    number: 1
+    start: 1
+    end: 20
+    year: 2021
+    publisher: "BioMed Central"

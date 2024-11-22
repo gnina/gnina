@@ -4,7 +4,7 @@
 #include <boost/math/quaternion.hpp>
 #include <string>
 
-#include "caffe/util/rng.hpp"
+#include <torch/script.h>
 
 #include "gpucode.h"
 #include "parsed_args.h"

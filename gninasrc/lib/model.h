@@ -25,6 +25,7 @@
 
 #include <boost/optional.hpp> // for context
 #include <boost/serialization/utility.hpp>
+#include <openbabel/mol.h>
 #include <string>
 #include "optional_serialization.h"
 #include "file.h"
@@ -109,18 +110,19 @@ struct gpu_data {
 struct sdfcontext {
 
     struct sdfatom { //atom info
-        atmidx index; //this is set after parsing and corresponds to the model's atom index
+        atmidx index = 0; //this is set after parsing and corresponds to the model's atom index
                       //the sdf index is just the index into the atoms array plus one
-        char elem[2]; //element symbol, note not necessarily null terminated
-        bool inflex; //true if atom is nonmoving atom in flex - which means we
+        char elem[2] = {0,0}; //element symbol, note not necessarily null terminated
+        bool inflex = false; //true if atom is nonmoving atom in flex - which means we
                      //need an offset to get to the coordinate
+        bool iscovlig = false; //true if atom is part of a covalent ligand
 
         sdfatom()
             : index(0), inflex(false) {
           elem[0] = elem[1] = 0;
         }
-        sdfatom(const char* nm)
-            : index(0), inflex(false) {
+        sdfatom(const char* nm, bool iscov = false)
+            : index(0), inflex(false), iscovlig(iscov) {
           elem[0] = elem[1] = 0;
           if (nm) {
             elem[0] = nm[0];
@@ -181,13 +183,16 @@ struct sdfcontext {
 
     void dump(std::ostream& out) const;
     //output sdf with provided coords
-    void write(const vecv& coords, sz nummove, std::ostream& out) const;
+    void write(const vecv& coords, std::ostream& out, bool covonly=false) const;
     bool valid() const {
       return atoms.size() > 0;
     }
     sz size() const {
       return atoms.size();
     }
+
+    void set_inflex_indices(sz nummove);
+
     template<class Archive>
     void serialize(Archive& ar, const unsigned version) {
       ar & name;
@@ -207,10 +212,11 @@ class appender;
 struct context {
     pdbqtcontext pdbqttext;
     sdfcontext sdftext;
+    bool has_cov_lig = false;
 
     void writePDBQT(const vecv& coords, std::ostream& out) const;
-    void writeSDF(const vecv& coords, sz nummove, std::ostream& out) const {
-      sdftext.write(coords, nummove, out);
+    void writeSDF(const vecv& coords, std::ostream& out, bool covonly=false) const {
+      sdftext.write(coords, out, covonly);
     }
     void update(const appender& transform);
     void set(sz pdbqtindex, sz sdfindex, sz atomindex, bool inf = false);
@@ -220,6 +226,10 @@ struct context {
     }
     sz sdfsize() const {
       return sdftext.size();
+    }
+
+    void set_inflex_indices(sz nummove) {
+      sdftext.set_inflex_indices(nummove);
     }
 
     template<class Archive>
@@ -301,7 +311,8 @@ struct model {
     ;
 
     model(const model& m)
-        : tree_width(m.tree_width), coords(m.coords), ligands(m.ligands),
+        : tree_width(m.tree_width), coords(m.coords), 
+            extra_box_coords(m.extra_box_coords), ligands(m.ligands),
             minus_forces(m.minus_forces),
             m_num_movable_atoms(m.m_num_movable_atoms), atoms(m.atoms),
             grid_atoms(m.grid_atoms), other_pairs(m.other_pairs),
@@ -355,21 +366,26 @@ struct model {
     grid_dims movable_atoms_box(fl add_to_each_dimension,
         fl granularity = 0.375) const;
 
-    void write_flex(const path& name, const std::string& remark) const {
-      write_context(flex_context, name, remark);
-    }
-    void write_flex(std::ostream& out) const {
-      write_context(flex_context, out);
-    }
-    void write_flex_sdf(std::ostream& out) const {
-      flex_context.writeSDF(coords, m_num_movable_atoms, out);
-    }
+    void write_flex(std::ostream& out, bool& issdf, bool covonly = false) const;
+
     void dump_flex_sdf(std::ostream& out) const {
       flex_context.sdftext.dump(out);
     }
-    void write_ligand(std::ostream& out) const {
-      VINA_FOR_IN(i, ligands)
-        write_context(ligands[i].cont, out);
+
+    bool flex_has_covalent() const {
+      return flex_context.has_cov_lig;
+    }
+
+    void write_ligand(std::ostream& out, bool& issdf) const {
+      issdf = false;
+      VINA_FOR_IN(i, ligands) {
+        if (ligands[i].cont.sdftext.valid()) {
+          ligands[0].cont.writeSDF(coords, out);
+          issdf = true;
+        } else {
+          write_context(ligands[i].cont, out);
+        }
+      }
     }
 
     void write_rigid_xyz(std::ostream& out, const vec& center) const;
@@ -380,14 +396,6 @@ struct model {
         write_context(flex_context, out);
     }
 
-    //write ligand data as sdf (no flex); return true if successful
-    bool write_sdf(std::ostream& out) const {
-      if (ligands.size() > 0 && ligands[0].cont.sdftext.valid()) {
-        ligands[0].cont.writeSDF(coords, m_num_movable_atoms, out);
-        return true;
-      }
-      return false;
-    }
     void write_structure(std::ostream& out, const std::string& remark) const {
       out << remark;
       write_structure(out);
@@ -435,8 +443,8 @@ struct model {
         const atom_index& i, const atom_index& j) const;
 
     // clean up
-    fl evali(const precalculate& p, const vec& v) const;
-    fl evale(const precalculate& p, const igrid& ig, const vec& v) const;
+    fl evali(const precalculate& p, const vec& v);
+    fl evale(const precalculate& p, const igrid& ig, const vec& v);
     fl eval(const precalculate& p, const igrid& ig, const vec& v, const conf& c,
         const grid& user_grid);
     fl eval_deriv(const precalculate& p, const igrid& ig, const vec& v,
@@ -507,6 +515,11 @@ struct model {
       return atoms;
     }
 
+    vecv get_extra_box_coords() const {
+      //make sure the covalent residue is in the box by providing its coordinates
+      return extra_box_coords;
+    }
+
     void clear_minus_forces();
     void add_minus_forces(const std::vector<gfloat3>& forces);
     void sub_minus_forces(const std::vector<gfloat3>& forces);
@@ -514,6 +527,10 @@ struct model {
     void round_minus_forces();
 
     fl get_minus_forces_sum_magnitude() const;
+
+    void set_rigid(const OpenBabel::OBMol& r) {
+      rigid = r;
+    }
 
     //allocate gpu memory, model must be setup
     //also copies over data that does not change during minimization
@@ -527,6 +544,7 @@ struct model {
     void deallocate_gpu();
 
     vecv coords;
+    vecv extra_box_coords;
     vecv minus_forces;
     gpu_data gdata;
     vector_mutable<ligand> ligands;
@@ -614,6 +632,8 @@ struct model {
     // all except internal to one ligand: ligand-other ligands;
     // ligand-flex/inflex; flex-flex/inflex
     // interacting_pairs other_pairs; 
+
+    OpenBabel::OBMol rigid; //for full_flex_output
 
     std::string name;
     int pose_num;

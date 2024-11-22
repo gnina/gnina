@@ -55,9 +55,9 @@ unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments,
     unsigned desired_root, const vector<int>& norotate) {
   unsigned int best_root_atom = 1;
   unsigned int shortest_maximal_remaining_subgraph = mol.NumAtoms();
-  for (unsigned int i = 1; i <= mol.NumAtoms(); i++)
+  for (unsigned int i = 1; i <= mol.NumAtoms(); i++) {
   //finds the root atom by copying the molecule, deleting each atom in turn, and finding the sizes of the resulting pieces
-      {
+      
     OBMol mol_pieces = mol;
     OBAtom * atom_to_del = mol_pieces.GetAtom(i);
     vector<vector<int> > frag_list;
@@ -83,17 +83,20 @@ unsigned int FindFragments(OBMol mol, vector<vector<int> >& rigid_fragments,
       OBBond *bond = *it;
       int src = bond->GetBeginAtomIdx();
       int dst = bond->GetEndAtomIdx();
+      OBAtom *srca = bond->GetBeginAtom();
+      OBAtom *dsta = bond->GetEndAtom();
 
-      if (norot.count(src) || norot.count(dst)) {
+      if (norot.count(src) && norot.count(dst) ) {
         //not rotatable
+      } else if(srca->HasData("Fixed") && dsta->HasData("Fixed")) {
+        // still not rotatable
       } else
         if (IsRotBond_PDBQT(bond, desired_root)) {
           bonds_to_delete.push_back((*it)->GetIdx());
         }
     }
 
-    if (bonds_to_delete.size() != 0) //checks there is something to delete
-        {
+    if (bonds_to_delete.size() != 0) { //checks there is something to delete
       vector<unsigned int>::iterator itb = bonds_to_delete.end();
       itb--;
       for (OBBondIterator it = mol_pieces.EndBonds(); true;) {
@@ -134,8 +137,8 @@ bool IsRotBond_PDBQT(OBBond * the_bond, unsigned desired_root)
   return true;
 }
 
-bool IsIn(const vector<int>& vec, const int num) //checks whether a vector of int contains a specific int
-    {
+bool IsIn(const vector<int>& vec, const int num) { //checks whether a vector of int contains a specific int
+    
   for (vector<int>::const_iterator itv = vec.begin(); itv != vec.end(); itv++) {
     if ((*itv) == num) {
       return true;
@@ -266,7 +269,7 @@ void createSDFContext(OBMol& mol, vector<OBAtom*> atoms, sdfcontext& sc) {
   for (unsigned i = 0, n = atoms.size(); i < n; i++) {
     OBAtom *atom = atoms[i];
     const char *element_name = GET_SYMBOL(atom->GetAtomicNum());
-    sc.atoms.push_back(sdfcontext::sdfatom(element_name));
+    sc.atoms.push_back(sdfcontext::sdfatom(element_name, atom->HasData("CovLig")));
 
     ///check for special properties
     if (atom->GetFormalCharge()) {
@@ -419,9 +422,14 @@ static void OutputAtom(OBAtom *atom, context &lines, vector<OBAtom*> &atomorder,
   ofs << buffer;
 
   smt sm = string_to_smina_type(element_name_final);
-  assert(sm < smina_atom_type::NumTypes);
+  if(sm >= smina_atom_type::NumTypes) {
+    sm = smina_atom_type::Hydrogen; //ignore
+  }
   parsed_atom patom(sm, charge, vec(atom->GetX(), atom->GetY(), atom->GetZ()),
       index);
+  if(atom->HasData("CovLig")) {
+    patom.iscov = true;
+  }
   //add_pdbqt_context(lines, ofs.str());
   if (patom.number == immobile_num)
     p.immobile_atom = p.atoms.size();

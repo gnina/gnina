@@ -307,10 +307,12 @@ struct pdbqt_initializer {
       if (is_ligand) {
         VINA_CHECK(m.ligands.size() == 1);
         m.ligands.front().cont = c;
-      } else
+      } else {
         m.flex_context = c;
-
+        m.flex_context.set_inflex_indices(m.m_num_movable_atoms);
+      }
     }
+
     void initialize(const distance_type_matrix& mobility) {
       m.initialize(mobility);
     }

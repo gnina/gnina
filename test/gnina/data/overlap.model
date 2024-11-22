@@ -5,7 +5,7 @@ layer {
   top: "data"
   top: "label"
   molgrid_data_param {
-    source: "dummy.types"
+    source: "data/dummy.types"
     batch_size: 1
     dimension: 23.5
     resolution: 0.5

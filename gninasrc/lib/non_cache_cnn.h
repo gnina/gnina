@@ -26,12 +26,12 @@
 #include "igrid.h"
 #include "szv_grid.h"
 #include "non_cache.h"
-#include "cnn_scorer.h"
+#include "dl_scorer.h"
 
 struct parallel_mc_aux;
 struct non_cache_cnn : public non_cache {
     non_cache_cnn(szv_grid_cache& gcache, const grid_dims& gd_,
-        const precalculate* p_, fl slope_, CNNScorer& cnn_scorer_);
+        const precalculate* p_, fl slope_, DLScorer& dl_scorer_);
     virtual ~non_cache_cnn() {
     }
     virtual fl eval(model& m, fl v) const; // needs m.coords
@@ -48,14 +48,14 @@ struct non_cache_cnn : public non_cache {
     }
     virtual void adjust_center(model& m);
     virtual vec get_center() const;
-    const CNNScorer& get_scorer() const {
-      return cnn_scorer;
+    const DLScorer& get_scorer() const {
+      return dl_scorer;
     }
     virtual bool move_receptor() {
-      return cnn_scorer.options().moving_receptor();
+      return false; //stopped supporting this with torch
     }
   protected:
-    CNNScorer& cnn_scorer;
+    DLScorer& dl_scorer;
     grid_dims cnn_gd;
 };
 

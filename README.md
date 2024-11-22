@@ -49,7 +49,7 @@ A pre-built docker image is available [here](https://hub.docker.com/u/gnina) and
 Installation
 ============
 
-We strongly recommend that you build GNINA from source (either [using Spack](#installation-using-spack), or [manually](#manual-installation)) to ensure you are using libraries that are optimized for your system.  However, a compatibility focused binary is [available](https://github.com/gnina/gnina/releases/download/v1.0/gnina) as part of the release for evaluation purposes.
+We recommend that you build GNINA from source (either [using Spack](#installation-using-spack), or [manually](#manual-installation)) to ensure you are using libraries that are optimized for your system.  However, a compatibility focused binary is [available](https://github.com/gnina/gnina/releases/download/v1.0/gnina) as part of the release for evaluation purposes.
 
 ## Installation using Spack
 
@@ -88,21 +88,22 @@ Please see [Getting Started with Spack](https://spack.readthedocs.io/en/latest/g
 
 ## Manual Installation
 
-### Ubuntu 20.04
+
+### Ubuntu 22.04
 ```
-apt-get install build-essential cmake git wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-dev libatlas-base-dev python3-dev librdkit-dev python3-numpy python3-pip python3-pytest
+apt-get  install build-essential git cmake wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-dev libatlas-base-dev python3-dev librdkit-dev python3-numpy python3-pip python3-pytest libjsoncpp-dev
+
 ```
 
-[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA (>= 11.0 is required). **Make sure `nvcc` is in your PATH.**
+[Follow NVIDIA's instructions](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/#axzz4TWipdwX1) to install the latest version of CUDA (>= 12.0 is required). **Make sure `nvcc` is in your PATH.**
 
 *Optionally* install [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive).
 
 #
-Install OpenBabel3
+Install OpenBabel3.  Note there are errors in bond order determination in version 3.1.1 and older.
 ```
 git clone https://github.com/openbabel/openbabel.git
 cd openbabel
-git checkout openbabel-3-1-1 
 mkdir build
 cd build
 cmake -DWITH_MAEPARSER=OFF -DWITH_COORDGEN=OFF -DPYTHON_BINDINGS=ON -DRUN_SWIG=ON ..
@@ -122,9 +123,39 @@ make
 make install
 ```
 
+### [WSL2 Ubuntu 22.04](https://github.com/gnina/gnina/issues/247)
+```bash
+sudo apt-get remove nvidia-cuda-toolkit
+wget https://developer.download.nvidia.com/compute/cuda/12.4.0/local_installers/cuda_12.4.0_550.54.14_linux.run
+chmod 700 cuda_12.4.0_550.54.14_linux.run
+sudo sh cuda_12.4.0_550.54.14_linux.run
+wget https://developer.download.nvidia.com/compute/cudnn/9.0.0/local_installers/cudnn-local-repo-ubuntu2204-9.0.0_1.0-1_amd64.deb
+sudo dpkg -i cudnn-local-repo-ubuntu2204-9.0.0_1.0-1_amd64.deb
+sudo cp /var/cudnn-local-repo-ubuntu2204-9.0.0/cudnn-*-keyring.gpg /usr/share/keyrings/
+sudo apt-get update
+sudo apt-get -y install cudnn-cuda-12
+apt-get install build-essential git cmake wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-dev libatlas-base-dev python3-dev librdkit-dev python3-numpy python3-pip python3-pytest libjsoncpp-dev
+
+git clone https://github.com/openbabel/openbabel.git
+cd openbabel
+mkdir build
+cd build
+cmake -DWITH_MAEPARSER=OFF -DWITH_COORDGEN=OFF -DPYTHON_BINDINGS=ON -DRUN_SWIG=ON ..
+make -j8
+sudo make install
+
+git clone https://github.com/gnina/gnina.git
+cd gnina
+mkdir build
+cd build
+cmake ..
+make -j8
+sudo make install
+```
+
 #
-If you are building for systems with different GPUs (e.g. in a cluster environment), configure with `-DCUDA_ARCH_NAME=All`.   
-Note that the cmake build will automatically fetch and install [libmolgrid](https://github.com/gnina/libmolgrid) if it is not already installed.
+If you are building for systems with different GPUs (e.g. in a cluster environment), configure with `-DCMAKE_CUDA_ARCHITECTURES=all`.   
+Note that the cmake build will automatically fetch and install [libmolgrid](https://github.com/gnina/libmolgrid) and [torch](https://github.com/pytorch/pytorch) if they are not already installed.
 
 
 The scripts provided in `gnina/scripts` have additional python dependencies that must be installed. 
@@ -173,155 +204,230 @@ To minimize and score ligands `ligs.sdf` already positioned in a binding site:
 gnina -r rec.pdb -l ligs.sdf --minimize -o minimized.sdf.gz
 ```
 
+To covalently dock a pyrazole to a specific iron atom on the receptor with the bond formed between a nitrogen of the pyrazole and the iron.
+```
+gnina  -r rec.pdb.gz -l conformer.sdf.gz --autobox_ligand bindingsite.sdf.gz --covalent_rec_atom A:601:FE --covalent_lig_atom_pattern '[$(n1nccc1)]' -o output.sdf.gz 
+```
+
+The same as above, but with the covalently bonding ligand atom manually positioned (instead of using OpenBabel binding heuristics) and the ligand/residue complex UFF optimized.
+```
+gnina  -r rec.pdb.gz -l conformer.sdf.gz --autobox_ligand bindingsite.sdf.gz --covalent_lig_atom_position -11.796,31.887,72.682  --covalent_optimize_lig  --covalent_rec_atom A:601:FE --covalent_lig_atom_pattern '[$(n1nccc1)]' -o output.sdf.gz 
+```
+
 All options:
 ```
 Input:
-  -r [ --receptor ] arg            rigid part of the receptor
-  --flex arg                       flexible side chains, if any (PDBQT)
-  -l [ --ligand ] arg              ligand(s)
-  --flexres arg                    flexible side chains specified by comma 
-                                   separated list of chain:resid
-  --flexdist_ligand arg            Ligand to use for flexdist
-  --flexdist arg                   set all side chains within specified 
-                                   distance to flexdist_ligand to flexible
-  --flex_limit arg                 Hard limit for the number of flexible 
-                                   residues
-  --flex_max arg                   Retain at at most the closest flex_max 
-                                   flexible residues
+  -r [ --receptor ] arg              rigid part of the receptor
+  --flex arg                         flexible side chains, if any (PDBQT)
+  -l [ --ligand ] arg                ligand(s)
+  --flexres arg                      flexible side chains specified by comma 
+                                     separated list of chain:resid
+  --flexdist_ligand arg              Ligand to use for flexdist
+  --flexdist arg                     set all side chains within specified 
+                                     distance to flexdist_ligand to flexible
+  --flex_limit arg                   Hard limit for the number of flexible 
+                                     residues
+  --flex_max arg                     Retain at at most the closest flex_max 
+                                     flexible residues
 
 Search space (required):
-  --center_x arg                   X coordinate of the center
-  --center_y arg                   Y coordinate of the center
-  --center_z arg                   Z coordinate of the center
-  --size_x arg                     size in the X dimension (Angstroms)
-  --size_y arg                     size in the Y dimension (Angstroms)
-  --size_z arg                     size in the Z dimension (Angstroms)
-  --autobox_ligand arg             Ligand to use for autobox
-  --autobox_add arg                Amount of buffer space to add to 
-                                   auto-generated box (default +4 on all six 
-                                   sides)
-  --autobox_extend arg (=1)        Expand the autobox if needed to ensure the 
-                                   input conformation of the ligand being 
-                                   docked can freely rotate within the box.
-  --no_lig                         no ligand; for sampling/minimizing flexible 
-                                   residues
+  --center_x arg                     X coordinate of the center
+  --center_y arg                     Y coordinate of the center
+  --center_z arg                     Z coordinate of the center
+  --size_x arg                       size in the X dimension (Angstroms)
+  --size_y arg                       size in the Y dimension (Angstroms)
+  --size_z arg                       size in the Z dimension (Angstroms)
+  --autobox_ligand arg               Ligand to use for autobox
+  --autobox_add arg                  Amount of buffer space to add to 
+                                     auto-generated box (default +4 on all six 
+                                     sides)
+  --autobox_extend arg (=1)          Expand the autobox if needed to ensure the
+                                     input conformation of the ligand being 
+                                     docked can freely rotate within the box.
+  --no_lig                           no ligand; for sampling/minimizing 
+                                     flexible residues
+
+Covalent docking:
+  --covalent_rec_atom arg            Receptor atom ligand is covalently bound 
+                                     to.  Can be specified as 
+                                     chain:resnum:atom_name or as x,y,z 
+                                     Cartesian coordinates.
+  --covalent_lig_atom_pattern arg    SMARTS expression for ligand atom that 
+                                     will covalently bind protein.
+  --covalent_lig_atom_position arg   Optional.  Initial placement of covalently
+                                     bonding ligand atom in x,y,z Cartesian 
+                                     coordinates.  If not specified, 
+                                     OpenBabel's GetNewBondVector function will
+                                     be used to position ligand.
+  --covalent_fix_lig_atom_position   If covalent_lig_atom_position is 
+                                     specified, fix the ligand atom to this 
+                                     position as opposed to using this position
+                                     to define the initial structure.
+  --covalent_bond_order arg (=1)     Bond order of covalent bond. Default 1.
+  --covalent_optimize_lig            Optimize the covalent complex of ligand 
+                                     and residue using UFF. This will change 
+                                     bond angles and lengths of the ligand.
 
 Scoring and minimization options:
-  --scoring arg                    specify alternative built-in scoring 
-                                   function
-  --custom_scoring arg             custom scoring function file
-  --custom_atoms arg               custom atom type parameters file
-  --score_only                     score provided ligand pose
-  --local_only                     local search only using autobox (you 
-                                   probably want to use --minimize)
-  --minimize                       energy minimization
-  --randomize_only                 generate random poses, attempting to avoid 
-                                   clashes
-  --num_mc_steps arg               number of monte carlo steps to take in each 
-                                   chain
-  --num_mc_saved arg               number of top poses saved in each monte 
-                                   carlo chain
-  --minimize_iters arg (=0)        number iterations of steepest descent; 
-                                   default scales with rotors and usually isn't
-                                   sufficient for convergence
-  --accurate_line                  use accurate line search
-  --simple_ascent                  use simple gradient ascent
-  --minimize_early_term            Stop minimization before convergence 
-                                   conditions are fully met.
-  --minimize_single_full           During docking perform a single full 
-                                   minimization instead of a truncated 
-                                   pre-evaluate followed by a full.
-  --approximation arg              approximation (linear, spline, or exact) to 
-                                   use
-  --factor arg                     approximation factor: higher results in a 
-                                   finer-grained approximation
-  --force_cap arg                  max allowed force; lower values more gently 
-                                   minimize clashing structures
-  --user_grid arg                  Autodock map file for user grid data based 
-                                   calculations
-  --user_grid_lambda arg (=-1)     Scales user_grid and functional scoring
-  --print_terms                    Print all available terms with default 
-                                   parameterizations
-  --print_atom_types               Print all available atom types
+  --scoring arg                      specify alternative built-in scoring 
+                                     function: ad4_scoring default dkoes_fast 
+                                     dkoes_scoring dkoes_scoring_old vina 
+                                     vinardo
+  --custom_scoring arg               custom scoring function file
+  --custom_atoms arg                 custom atom type parameters file
+  --score_only                       score provided ligand pose
+  --local_only                       local search only using autobox (you 
+                                     probably want to use --minimize)
+  --minimize                         energy minimization
+  --randomize_only                   generate random poses, attempting to avoid
+                                     clashes
+  --num_mc_steps arg                 fixed number of monte carlo steps to take 
+                                     in each chain
+  --max_mc_steps arg                 cap on number of monte carlo steps to take
+                                     in each chain
+  --num_mc_saved arg                 number of top poses saved in each monte 
+                                     carlo chain
+  --temperature arg                  temperature for metropolis accept 
+                                     criterion
+  --minimize_iters arg (=0)          number iterations of steepest descent; 
+                                     default scales with rotors and usually 
+                                     isn't sufficient for convergence
+  --accurate_line                    use accurate line search
+  --simple_ascent                    use simple gradient ascent
+  --minimize_early_term              Stop minimization before convergence 
+                                     conditions are fully met.
+  --minimize_single_full             During docking perform a single full 
+                                     minimization instead of a truncated 
+                                     pre-evaluate followed by a full.
+  --approximation arg                approximation (linear, spline, or exact) 
+                                     to use
+  --factor arg                       approximation factor: higher results in a 
+                                     finer-grained approximation
+  --force_cap arg                    max allowed force; lower values more 
+                                     gently minimize clashing structures
+  --user_grid arg                    Autodock map file for user grid data based
+                                     calculations
+  --user_grid_lambda arg (=-1)       Scales user_grid and functional scoring
+  --print_terms                      Print all available terms with default 
+                                     parameterizations
+  --print_atom_types                 Print all available atom types
 
 Convolutional neural net (CNN) scoring:
-  --cnn_scoring arg (=1)           Amount of CNN scoring: none, rescore 
-                                   (default), refinement, all
-  --cnn arg                        built-in model to use, specify 
-                                   PREFIX_ensemble to evaluate an ensemble of 
-                                   models starting with PREFIX: 
-                                   crossdock_default2018 crossdock_default2018_
-                                   1 crossdock_default2018_2 
-                                   crossdock_default2018_3 
-                                   crossdock_default2018_4 default2017 dense 
-                                   dense_1 dense_2 dense_3 dense_4 
-                                   general_default2018 general_default2018_1 
-                                   general_default2018_2 general_default2018_3 
-                                   general_default2018_4 redock_default2018 
-                                   redock_default2018_1 redock_default2018_2 
-                                   redock_default2018_3 redock_default2018_4
-  --cnn_model arg                  caffe cnn model file; if not specified a 
-                                   default model will be used
-  --cnn_weights arg                caffe cnn weights file (*.caffemodel); if 
-                                   not specified default weights (trained on 
-                                   the default model) will be used
-  --cnn_resolution arg (=0.5)      resolution of grids, don't change unless you
-                                   really know what you are doing
-  --cnn_rotation arg (=0)          evaluate multiple rotations of pose (max 24)
-  --cnn_update_min_frame           During minimization, recenter coordinate 
-                                   frame as ligand moves
-  --cnn_freeze_receptor            Don't move the receptor with respect to a 
-                                   fixed coordinate system
-  --cnn_mix_emp_force              Merge CNN and empirical minus forces
-  --cnn_mix_emp_energy             Merge CNN and empirical energy
-  --cnn_empirical_weight arg (=1)  Weight for scaling and merging empirical 
-                                   force and energy 
-  --cnn_outputdx                   Dump .dx files of atom grid gradient.
-  --cnn_outputxyz                  Dump .xyz files of atom gradient.
-  --cnn_xyzprefix arg (=gradient)  Prefix for atom gradient .xyz files
-  --cnn_center_x arg               X coordinate of the CNN center
-  --cnn_center_y arg               Y coordinate of the CNN center
-  --cnn_center_z arg               Z coordinate of the CNN center
-  --cnn_verbose                    Enable verbose output for CNN debugging
+  --cnn_scoring arg (=1)             Amount of CNN scoring: none, rescore 
+                                     (default), refinement, metrorescore 
+                                     (metropolis+rescore), metrorefine 
+                                     (metropolis+refine), all
+  --cnn arg                          built-in model to use, specify 
+                                     PREFIX_ensemble to evaluate an ensemble of
+                                     models starting with PREFIX: 
+                                     all_default_to_default_1_3_1 
+                                     all_default_to_default_1_3_2 
+                                     all_default_to_default_1_3_3 
+                                     crossdock_default2018 
+                                     crossdock_default2018_1 
+                                     crossdock_default2018_1_3 
+                                     crossdock_default2018_1_3_1 
+                                     crossdock_default2018_1_3_2 
+                                     crossdock_default2018_1_3_3 
+                                     crossdock_default2018_1_3_4 
+                                     crossdock_default2018_2 
+                                     crossdock_default2018_3 
+                                     crossdock_default2018_4 
+                                     crossdock_default2018_KD_1 
+                                     crossdock_default2018_KD_2 
+                                     crossdock_default2018_KD_3 
+                                     crossdock_default2018_KD_4 
+                                     crossdock_default2018_KD_5 default1.0 
+                                     default2017 dense dense_1 dense_1_3 
+                                     dense_1_3_1 dense_1_3_2 dense_1_3_3 
+                                     dense_1_3_4 dense_1_3_PT_KD 
+                                     dense_1_3_PT_KD_1 dense_1_3_PT_KD_2 
+                                     dense_1_3_PT_KD_3 dense_1_3_PT_KD_4 
+                                     dense_1_3_PT_KD_def2018 
+                                     dense_1_3_PT_KD_def2018_1 
+                                     dense_1_3_PT_KD_def2018_2 
+                                     dense_1_3_PT_KD_def2018_3 
+                                     dense_1_3_PT_KD_def2018_4 dense_2 dense_3 
+                                     dense_4 fast general_default2018 
+                                     general_default2018_1 
+                                     general_default2018_2 
+                                     general_default2018_3 
+                                     general_default2018_4 
+                                     general_default2018_KD_1 
+                                     general_default2018_KD_2 
+                                     general_default2018_KD_3 
+                                     general_default2018_KD_4 
+                                     general_default2018_KD_5 
+                                     redock_default2018 redock_default2018_1 
+                                     redock_default2018_1_3 
+                                     redock_default2018_1_3_1 
+                                     redock_default2018_1_3_2 
+                                     redock_default2018_1_3_3 
+                                     redock_default2018_1_3_4 
+                                     redock_default2018_2 redock_default2018_3 
+                                     redock_default2018_4 redock_default2018_KD
+                                     _1 redock_default2018_KD_2 
+                                     redock_default2018_KD_3 
+                                     redock_default2018_KD_4 
+                                     redock_default2018_KD_5
+  --cnn_model arg                    torch cnn model file; if not specified a 
+                                     default model ensemble will be used
+  --cnn_rotation arg (=0)            evaluate multiple rotations of pose (max 
+                                     24)
+  --cnn_mix_emp_force                Merge CNN and empirical minus forces
+  --cnn_mix_emp_energy               Merge CNN and empirical energy
+  --cnn_empirical_weight arg (=1)    Weight for scaling and merging empirical 
+                                     force and energy 
+  --cnn_outputdx                     Dump .dx files of atom grid gradient.
+  --cnn_outputxyz                    Dump .xyz files of atom gradient.
+  --cnn_xyzprefix arg (=gradient)    Prefix for atom gradient .xyz files
+  --cnn_center_x arg                 X coordinate of the CNN center
+  --cnn_center_y arg                 Y coordinate of the CNN center
+  --cnn_center_z arg                 Z coordinate of the CNN center
+  --cnn_verbose                      Enable verbose output for CNN debugging
 
 Output:
-  -o [ --out ] arg                 output file name, format taken from file 
-                                   extension
-  --out_flex arg                   output file for flexible receptor residues
-  --log arg                        optionally, write log file
-  --atom_terms arg                 optionally write per-atom interaction term 
-                                   values
-  --atom_term_data                 embedded per-atom interaction terms in 
-                                   output sd data
-  --pose_sort_order arg (=0)       How to sort docking results: CNNscore 
-                                   (default), CNNaffinity, Energy
+  -o [ --out ] arg                   output file name, format taken from file 
+                                     extension
+  --out_flex arg                     output file for flexible receptor residues
+  --log arg                          optionally, write log file
+  --atom_terms arg                   optionally write per-atom interaction term
+                                     values
+  --atom_term_data                   embedded per-atom interaction terms in 
+                                     output sd data
+  --pose_sort_order arg (=0)         How to sort docking results: CNNscore 
+                                     (default), CNNaffinity, Energy
+  --full_flex_output                 Output entire structure for out_flex, not 
+                                     just flexible residues.
 
 Misc (optional):
-  --cpu arg                        the number of CPUs to use (the default is to
-                                   try to detect the number of CPUs or, failing
-                                   that, use 1)
-  --seed arg                       explicit random seed
-  --exhaustiveness arg (=8)        exhaustiveness of the global search (roughly
-                                   proportional to time)
-  --num_modes arg (=9)             maximum number of binding modes to generate
-  --min_rmsd_filter arg (=1)       rmsd value used to filter final poses to 
-                                   remove redundancy
-  -q [ --quiet ]                   Suppress output messages
-  --addH arg                       automatically add hydrogens in ligands (on 
-                                   by default)
-  --stripH arg                     remove hydrogens from molecule _after_ 
-                                   performing atom typing for efficiency (on by
-                                   default)
-  --device arg (=0)                GPU device to use
-  --no_gpu                         Disable GPU acceleration, even if available.
+  --cpu arg                          the number of CPUs to use (the default is 
+                                     to try to detect the number of CPUs or, 
+                                     failing that, use 1)
+  --seed arg                         explicit random seed
+  --exhaustiveness arg (=8)          exhaustiveness of the global search 
+                                     (roughly proportional to time)
+  --num_modes arg (=9)               maximum number of binding modes to 
+                                     generate
+  --min_rmsd_filter arg (=1)         rmsd value used to filter final poses to 
+                                     remove redundancy
+  -q [ --quiet ]                     Suppress output messages
+  --addH arg                         automatically add hydrogens in ligands (on
+                                     by default)
+  --stripH arg                       remove hydrogens from molecule _after_ 
+                                     performing atom typing for efficiency (off
+                                     by default)
+  --device arg (=0)                  GPU device to use
+  --no_gpu                           Disable GPU acceleration, even if 
+                                     available.
 
 Configuration file (optional):
-  --config arg                     the above options can be put here
+  --config arg                       the above options can be put here
 
 Information (optional):
-  --help                           display usage summary
-  --help_hidden                    display usage summary with hidden options
-  --version                        display program version
+  --help                             display usage summary
+  --help_hidden                      display usage summary with hidden options
+  --version                          display program version
 ```
 
 CNN Scoring
@@ -333,17 +439,61 @@ CNN Scoring
  * `refinement` - CNN used to refine poses after Monte Carlo chains and for final ranking of output poses. 10x slower than `rescore` when using a GPU.
  * `all` - CNN used as the scoring function throughout the whole procedure. Extremely computationally intensive and not recommended.
 
-The default CNN scoring function is an ensemble of 5 models selected to balance pose prediction performance and runtime: dense, general_default2018_3, dense_3, crossdock_default2018, and redock_default2018.  More information on these various models can be found in the papers listed above.
+The default CNN scoring function is an ensemble of 3 models selected to balance pose prediction performance and runtime: dense_1_3, dense_1_3_PT_KD_3, crossdock_default2018_KD_4.  The GNINA 1.0 default ensemble is still available as `default1.0`.   More information on these various models can be found in the papers listed above.
 
 Training
 ========
 
-Scripts to aid in training new CNN models can be found at [https://github.com/gnina/scripts](https://github.com/gnina/scripts)
+Scripts for training pytorch GNINA models and pretrained models can found at [https://github.com/RMeli/gnina-torch](https://github.com/RMeli/gnina-torch).
+Example code for converting a pytorch model into a gnina usable model file is shown below.  The metadata should provide information about the input grid resolution, dimension and atom typing.  If not provided, defaults will be used.
+
+```python
+    d = {
+        'resolution': 0.5,
+        'dimension' : 23.5,
+        'recmap' : '''AliphaticCarbonXSHydrophobe 
+    AliphaticCarbonXSNonHydrophobe 
+    AromaticCarbonXSHydrophobe 
+    AromaticCarbonXSNonHydrophobe
+    Bromine Iodine Chlorine Fluorine
+    Nitrogen NitrogenXSAcceptor 
+    NitrogenXSDonor NitrogenXSDonorAcceptor
+    Oxygen OxygenXSAcceptor 
+    OxygenXSDonorAcceptor OxygenXSDonor
+    Sulfur SulfurAcceptor
+    Phosphorus 
+    Calcium
+    Zinc
+    GenericMetal Boron Manganese Magnesium Iron''',
+        
+    'ligmap': '''AliphaticCarbonXSHydrophobe 
+    AliphaticCarbonXSNonHydrophobe 
+    AromaticCarbonXSHydrophobe 
+    AromaticCarbonXSNonHydrophobe
+    Bromine Iodine
+    Chlorine
+    Fluorine
+    Nitrogen NitrogenXSAcceptor 
+    NitrogenXSDonor NitrogenXSDonorAcceptor
+    Oxygen OxygenXSAcceptor 
+    OxygenXSDonorAcceptor OxygenXSDonor
+    Sulfur SulfurAcceptor
+    Phosphorus
+    GenericMetal Boron Manganese Magnesium Zinc Calcium Iron'''
+    }
+    
+    extra = {'metadata':json.dumps(d)}
+    z = torch.zeros((1,28,48,48,48))
+
+    script = torch.jit.trace(model, z)
+    script.save('gnina_model.pt',_extra_files=extra)    
+```
+
+Legacy scripts for training Caffe models can be found at [https://github.com/gnina/scripts](https://github.com/gnina/scripts)
 and sample models at [https://github.com/gnina/models](https://github.com/gnina/models).
 
 
-The DUD-E docked poses used in the original paper can be found [here](http://bits.csb.pitt.edu/files/docked_dude.tar) and
-the CrossDocked2020 set is [here](https://github.com/gnina/models/tree/master/data/CrossDocked2020).
+The DUD-E docked poses used in the original paper can be found [here](http://bits.csb.pitt.edu/files/docked_dude.tar), but we [do not recommend](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0220113) training virtual screening models on DUD-E. The CrossDocked2020 set is [here](https://github.com/gnina/models/tree/master/data/CrossDocked2020).
 
 License
 =======

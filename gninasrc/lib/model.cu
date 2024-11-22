@@ -97,7 +97,7 @@ __host__  __device__ fl gpu_data::eval_interacting_pairs_deriv_gpu(
 #endif
 }
 
-fl model::evali(const precalculate& p, const vec& v) const { // clean up
+fl model::evali(const precalculate& p, const vec& v){ // clean up
 
   assert(0);
   /* TODO */
@@ -109,7 +109,7 @@ fl model::evali(const precalculate& p, const vec& v) const { // clean up
   return 0;
 }
 
-fl model::evale(const precalculate& p, const igrid& ig, const vec& v) const { // clean up
+fl model::evale(const precalculate& p, const igrid& ig, const vec& v) { // clean up
   fl e = ig.eval(*this, v[1]);
   e += eval_interacting_pairs(p, v[2], other_pairs, coords);
   return e;
@@ -365,10 +365,12 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
   VINA_FOR(i, num_movable_atoms()) {
     if (find_ligand(i) < ligands.size()) continue; // we only want flex-rigid interaction
     const atom& a = atoms[i];
+    if(a.iscov) continue; //covalent ligand treated as ligand
     smt t1 = a.get();
     if (t1 >= nat || is_hydrogen(t1)) continue;
     VINA_FOR_IN(j, grid_atoms) {
       const atom& b = grid_atoms[j];
+      if(b.iscov) continue;
       smt t2 = b.get();
       if (t2 >= nat || is_hydrogen(t2)) continue;
       fl r2 = vec_distance_sqr(coords[i], b.coords);
@@ -385,6 +387,7 @@ fl model::eval_intramolecular(const precalculate& p, const vec& v,
     const interacting_pair& pair = other_pairs[i];
     if (find_ligand(pair.a) < ligands.size()
         || find_ligand(pair.b) < ligands.size()) continue; // we only need flex-flex
+    if(atoms[pair.a].iscov || atoms[pair.b].iscov) continue;
     fl r2 = vec_distance_sqr(coords[pair.a], coords[pair.b]);
     if (r2 < cutoff_sqr) {
       fl this_e = p.eval(atoms[pair.a], atoms[pair.b], r2);

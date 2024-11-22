@@ -5,14 +5,16 @@ include_directories (${Boost_INCLUDE_DIRS})
 include_directories(../gninasrc/lib)
 include_directories(../gninavis)
 include_directories(${LIBMOLGRID_INCLUDE})
-
+include_directories(${CUDA_INCLUDE_DIRS})
+include_directories(${TORCH_INCLUDE_DIRS})
 # find python
-find_package(PythonInterp)
-if(NOT PYTHONINTERP_FOUND)
+find_package(Python3)
+message(STATUS ${Python3_EXECUTABLE})
+if(NOT Python3_EXECUTABLE)
     message(FATAL_ERROR "ERROR: Python interpreter not found. Cannot continue - sorry.")
 else()
     #check for pytest
-    execute_process(COMMAND ${PYTHON_EXECUTABLE} -m pytest --version
+    execute_process(COMMAND ${Python3_EXECUTABLE} -m pytest --version
       OUTPUT_VARIABLE PYTEST_output
       ERROR_VARIABLE  PYTEST_error
       RESULT_VARIABLE PYTEST_result)
@@ -21,6 +23,5 @@ else()
     endif()
 endif()
 
-add_subdirectory(caffe)
 add_subdirectory(gninagrid)
 add_subdirectory(gnina)

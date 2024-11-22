@@ -160,11 +160,11 @@ MinimizationQuery::Result* MinimizationQuery::minimize(model& m) {
   result->rmsd = rmsd;
   result->name = m.get_name();
   stringstream str;
-
+  bool format;
   if (m.num_ligands() > 0) {
-    m.write_sdf(str);
+    m.write_ligand(str, format);
   } else { //if no ligs, assume optimizing "residue"
-    m.write_flex_sdf(str);
+    m.write_flex(str, format);
   }
   result->sdf = str.str();
 

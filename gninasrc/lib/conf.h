@@ -519,7 +519,8 @@ struct conf {
 
 struct output_type {
     conf c;
-    fl e;
+    fl e = 0;
+    fl intramol = 0;
     fl cnnscore = -1;
     fl cnnaffinity = -1;
     fl cnnvariance = 0;

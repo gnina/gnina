@@ -41,20 +41,20 @@ struct monte_carlo {
 
     output_type operator()(model& m, const precalculate& p, igrid& ig,
         const vec& corner1, const vec& corner2, incrementable* increment_me,
-        rng& generator, grid& user_grid) const;
+        rng& generator, grid& user_grid, igrid& ig_metropolis) const;
     output_type many_runs(model& m, const precalculate& p, igrid& ig,
         const vec& corner1, const vec& corner2, sz num_runs, rng& generator,
-        grid& user_grid) const;
+        grid& user_grid, igrid& ig_metropolis) const;
 
     void single_run(model& m, output_type& out, const precalculate& p,
-        igrid& ig, rng& generator, grid& user_grid) const;
+        igrid& ig, rng& generator, grid& user_grid, igrid& ig_metropolis) const;
     // out is sorted
     void operator()(model& m, output_container& out, const precalculate& p,
         igrid& ig, const vec& corner1, const vec& corner2,
-        incrementable* increment_me, rng& generator, grid& user_grid) const;
+        incrementable* increment_me, rng& generator, grid& user_grid, igrid& ig_metropolis) const;
     void many_runs(model& m, output_container& out, const precalculate& p,
         igrid& ig, const vec& corner1, const vec& corner2, sz num_runs,
-        rng& generator, grid& user_grid) const;
+        rng& generator, grid& user_grid, igrid& ig_metropolis) const;
 
 };
 

@@ -12,26 +12,24 @@
 #include <string>
 #include "model.h"
 #include "weighted_terms.h"
-#include "cnn_scorer.h"
 
 // this class holds the contents of the result of a minization/docking
 // it handles outputing the molecular data in the appropriate format
 class result_info {
-    fl energy;
-    fl cnnscore;
-    fl cnnaffinity;
-    fl cnnvariance;
-    fl rmsd;
+    fl energy = 0;
+    fl cnnscore = -1;
+    fl cnnaffinity = 0;
+    fl cnnvariance = 0;
+    fl rmsd = -1;
     std::string molstr;
     std::string flexstr;
     std::string atominfo;
     std::string name;
-    bool sdfvalid;
+    bool sdfvalid = false;;
+    bool flexsdfvalid = false;
 
   public:
-    result_info()
-        : energy(0), cnnscore(-1), cnnaffinity(0), cnnvariance(0), rmsd(-1), sdfvalid(false) {
-    }
+    result_info() { }
     result_info(fl e, fl c, fl ca, fl cv, fl r, const model& m)
         : energy(e), cnnscore(c), cnnaffinity(ca), cnnvariance(cv), rmsd(r), sdfvalid(false) {
       setMolecule(m);

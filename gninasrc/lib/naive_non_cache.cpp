@@ -26,7 +26,7 @@
 naive_non_cache::naive_non_cache(const precalculate* p_)
     : p(p_) {
 }
-fl naive_non_cache::eval(const model& m, fl v) const { // needs m.coords
+fl naive_non_cache::eval(model& m, fl v) const { // needs m.coords
   fl e = 0;
   const fl cutoff_sqr = p->cutoff_sqr();
 

@@ -11,7 +11,7 @@ gnina = sys.argv[1]  # take path to gnina executable as only argument
 
 def getscores(out):
     '''Read scores for docked poses and return list of tuples'''
-    scores = re.findall(r'^\s*\d\s+(\S+)\s+(\S+)\s+(\S+)', out.decode(), re.MULTILINE)
+    scores = re.findall(r'^\s*\d+\s+(\S+)\s+\S+\s+(\S+)\s+(\S+)', out.decode(), re.MULTILINE)
     return [(float(a),float(b),float(c)) for (a,b,c) in scores]
 
 def issorted(scores, index):
@@ -77,6 +77,27 @@ ensembleout = getscores(ensembleout)
 assert issorted(ensembleout,1)
 
 assert not np.array_equal(ensembleout,singleout)
+
+#fewer steps for metropolis check
+ensembleout = subprocess.check_output('%s  -r data/184l_rec.pdb -l data/184l_lig.sdf --autobox_ligand data/184l_lig.sdf --seed 2 --num_modes=10 --cnn=general_default2018_ensemble --num_mc_steps 1000 '%gnina,shell=True)
+#should be sorted by CNNscore
+ensembleout = getscores(ensembleout)
+assert issorted(ensembleout,1)
+
+#metropolis sampling
+metropolisrescoreout = subprocess.check_output('%s  -r data/184l_rec.pdb -l data/184l_lig.sdf --autobox_ligand data/184l_lig.sdf --seed 2 --num_modes=10 --cnn=general_default2018_ensemble --num_mc_steps 1000 --cnn_scoring metrorescore '%gnina,shell=True)
+#should be sorted by CNNscore
+metropolisrescoreout = getscores(metropolisrescoreout)
+assert issorted(metropolisrescoreout,1)
+
+#metropolis sampling
+metropolisrefineout = subprocess.check_output('%s  -r data/184l_rec.pdb -l data/184l_lig.sdf --autobox_ligand data/184l_lig.sdf --seed 2 --num_modes=10 --cnn=general_default2018_ensemble --num_mc_steps 1000 --cnn_scoring metrorefine '%gnina,shell=True)
+#should be sorted by CNNscore
+metropolisrefineout = getscores(metropolisrefineout)
+assert issorted(metropolisrefineout,1)
+
+assert not np.array_equal(metropolisrefineout,metropolisrescoreout)
+assert not np.array_equal(ensembleout,metropolisrescoreout)
 
 assert 'CNNaffinity_variance' in open('testingout.sdf').read()
 

@@ -20,8 +20,9 @@ class FlexInfo {
     OpenBabel::OBMol distligand;
     tee& log;
 
-    int nflex;
-    bool nflex_hard_limit;
+    int nflex = 0;;
+    bool nflex_hard_limit = false;
+    bool full_flex_output = false;
 
     char defaultch = ' '; // Default chain
 
@@ -32,15 +33,22 @@ class FlexInfo {
         : flex_dist(0), log(l) {
     }
     FlexInfo(const std::string& flexres, double flexdist,
-        const std::string& ligand, int nflex, bool nflex_hard_limit, tee& l);
-    bool hasContent() const {
+        const std::string& ligand, int nflex, bool nflex_hard_limit, 
+        bool full_flex_output, tee& l);
+    bool has_content() const {
       return residues.size() > 0 || flex_dist > 0;
     }
 
+    void extract_residue(OpenBabel::OBMol& rigid,  OpenBabel::OBResidue *r, OpenBabel::OBMol& flexres, bool fullres=false);
     void extractFlex(OpenBabel::OBMol& receptor, OpenBabel::OBMol& rigid,
         std::string& flexpdbqt);
 
-    void printFlex() const;
+    bool omit_residue(std::tuple<char, int, char> r);
+    std::string residue_to_pdbqt(OpenBabel::OBMol& flex);
+
+    void print_flex() const;
+
+    bool full_output() const { return full_flex_output;}
 
   private:
     void sanitizeResidues(OpenBabel::OBMol& receptor); //remove inflexible residues from residues set

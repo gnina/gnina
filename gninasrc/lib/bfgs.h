@@ -132,7 +132,7 @@ fl accurate_line_search(F& f, sz n, const Conf& x, const Change& g, const fl f0,
 
     f1 = f(x_new, g_new);
 
-    //std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
+  //  std::cout << "alpha " << alpha << "  f " << f1 << "\tslope " << slope << " f0ALF " << f0 + ALF * alpha * slope << "\n";
     if (alpha < alamin || !std::isfinite(alpha)) { //too small a step
       //std::cout << "alpha < alamin\n";
       x_new = x;
@@ -305,7 +305,8 @@ fl simple_gradient_ascent(F& f, Conf& x, Change& g,
         Conf xi(x);
         xi.increment(p, alpha * factor);
         f.m->set(xi);
-        f.m->write_sdf(minout);
+        bool format;
+        f.m->write_ligand(minout, format);
         minout << "$$$$\n";
       }
     }
@@ -436,11 +437,13 @@ fl bfgs(F& f, Conf& x, Change& g, const fl average_required_improvement,
         Conf xi(x);
         xi.increment(p, alpha * factor);
         f.m->set(xi);
-        f.m->write_sdf(minout);
+        bool format;
+        f.m->write_ligand(minout, format);
         minout << "$$$$\n";
         f.m->write_rigid_xyz(recout, f.get_center());
         if(f.m->num_flex() > 0) {
-          f.m->write_flex(flexout);
+          bool format;
+          f.m->write_flex(flexout, format);
           flexout << "ENDMDL\n";
         }
       }

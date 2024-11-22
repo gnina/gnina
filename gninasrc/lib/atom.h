@@ -71,8 +71,9 @@ struct bond {
 struct atom : public atom_base {
     vec coords;
     std::vector<bond> bonds;
+    bool iscov = false;
     atom()
-        : coords(max_vec) {
+        : coords(max_vec), iscov(false) {
     }
   private:
     friend class boost::serialization::access;
@@ -81,6 +82,7 @@ struct atom : public atom_base {
       ar & boost::serialization::base_object<atom_base>(*this);
       ar & coords;
       //ar & bonds; //not set until after parsing
+      ar & iscov;
     }
 };
 
