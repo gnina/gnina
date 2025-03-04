@@ -61,6 +61,15 @@ struct ofile : public boost::filesystem::ofstream { // never use ofstream pointe
     }
 };
 
+
+inline const std::string extension(const path& name) {
+  return name.extension().string();
+}
+
+inline const std::string basename(const path& name) {
+  return name.stem().string();
+}
+
 //dkoes - wrapper for an input file that is optionally gzipped
 //name ends in .gz
 class izfile : public boost::iostreams::filtering_stream<boost::iostreams::input> {
@@ -139,7 +148,7 @@ class ozfile : public boost::iostreams::filtering_stream<
       uncompressed_outfile.open(name.c_str());
       if (!uncompressed_outfile) throw file_error(name, false);
 
-      std::string ext = boost::filesystem::extension(name);
+      std::string ext = extension(name);
       //should we gzip?
       if (ext == ".gz") {
         ext = extension(basename(name));

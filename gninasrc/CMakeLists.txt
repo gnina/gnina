@@ -32,7 +32,7 @@ include_directories(${CUDA_INCLUDE_DIRS})
 include_directories(${TORCH_INCLUDE_DIRS})
 
 # need to use eigen 3.2 until CUDA fixes are released
-include_directories(../Eigen)
+#include_directories(../Eigen)
 
 #lib
 set(LIB_SRCS

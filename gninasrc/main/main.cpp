@@ -4,7 +4,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/assign.hpp>
 #include <boost/bind/bind.hpp>
-#include <boost/filesystem/convenience.hpp> // filesystem::basename
 #include <boost/filesystem/exception.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/iostreams/device/null.hpp>

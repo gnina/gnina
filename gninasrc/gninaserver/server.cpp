@@ -6,10 +6,10 @@
 // Description : Minimization server
 //============================================================================
 
-#include "server_common.h"
 #include "CommandLine2/CommandLine.h"
 #include "Logger.h"
 #include "QueryManager.h"
+#include "server_common.h"
 #include "servercmds.h"
 
 using namespace std;
@@ -19,19 +19,17 @@ using namespace boost::asio::ip;
 
 cl::opt<unsigned> port("port", cl::desc("port used by server"), cl::Required);
 cl::opt<unsigned> maxConcurrent("max-concurrent-requests",
-    cl::desc(
-        "block further incoming requests after this amount of concurrency"),
-    cl::init(16));
-cl::opt<unsigned> minimizationThreads("threads",
-    cl::desc("number of threads to use for minimization"),
-    cl::init(max(1U, boost::thread::hardware_concurrency() / 2)));
+                                cl::desc("block further incoming requests after this amount of concurrency"),
+                                cl::init(16));
+cl::opt<unsigned> minimizationThreads("threads", cl::desc("number of threads to use for minimization"),
+                                      cl::init(max(1U, boost::thread::hardware_concurrency() / 2)));
 cl::opt<string> logfile("logfile", cl::desc("file for logging information"));
 
-typedef unordered_map<string, boost::shared_ptr<Command> > cmd_map;
+typedef unordered_map<string, boost::shared_ptr<Command>> cmd_map;
 
-static void process_request(stream_ptr s, cmd_map& cmap) {
+static void process_request(stream_ptr s, cmd_map &cmap) {
   string cmd;
-  //first line is command
+  // first line is command
   getline(*s, cmd);
   trim(cmd);
 
@@ -41,12 +39,12 @@ static void process_request(stream_ptr s, cmd_map& cmap) {
     } else {
       *s << "ERROR\nInvalid command: " << cmd << "\n";
     }
-  } catch (std::exception& e) {
+  } catch (std::exception &e) {
     *s << "ERROR\nException " << e.what() << "\n";
   }
 }
 
-//periodically check for expired queries
+// periodically check for expired queries
 static void thread_purge_old_queries(QueryManager *qmgr) {
   while (true) {
     boost::this_thread::sleep(posix_time::time_duration(0, 3, 0, 0));
@@ -57,33 +55,32 @@ static void thread_purge_old_queries(QueryManager *qmgr) {
 int main(int argc, char *argv[]) {
   cl::ParseCommandLineOptions(argc, argv);
 
-  //setup log
+  // setup log
   Logger log(logfile);
-  QueryManager queries(minimizationThreads); //initialize query manager
+  QueryManager queries(minimizationThreads); // initialize query manager
 
-  //command map
-  cmd_map commands = assign::map_list_of("startmin",
-      boost::shared_ptr<Command>(new StartMinimization(queries, log)))("cancel",
-      boost::shared_ptr<Command>(new CancelMinimization(queries, log)))(
+  // command map
+  cmd_map commands = assign::map_list_of("startmin", boost::shared_ptr<Command>(new StartMinimization(queries, log)))(
+      "cancel", boost::shared_ptr<Command>(new CancelMinimization(queries, log)))(
       "getscores", boost::shared_ptr<Command>(new GetScores(queries, log)))(
-      "getjsonscores",
-      boost::shared_ptr<Command>(new GetJSONScores(queries, log)))("getmol",
-      boost::shared_ptr<Command>(new GetMol(queries, log)))("getmols",
-      boost::shared_ptr<Command>(new GetMols(queries, log)))("getstatus",
-      boost::shared_ptr<Command>(new GetStatus(queries, log)));
+      "getjsonscores", boost::shared_ptr<Command>(new GetJSONScores(queries, log)))(
+      "getmol", boost::shared_ptr<Command>(new GetMol(queries, log)))(
+      "getmols", boost::shared_ptr<Command>(new GetMols(queries, log)))(
+      "getstatus", boost::shared_ptr<Command>(new GetStatus(queries, log)));
 
-  //start listening
-  io_service io_service;
+  // start listening
+  io_context io_service;
   tcp::acceptor a(io_service, tcp::endpoint(tcp::v4(), port));
 
   cout << "Listening on port " << port << "\n";
 
-  //start up cleanup thread
+  // start up cleanup thread
   boost::thread cleanup(thread_purge_old_queries, &queries);
   while (true) {
-    stream_ptr s = stream_ptr(new tcp::iostream());
-    a.accept(*s->rdbuf());
+    tcp::socket socket(io_service);
+    a.accept(socket); // Accept connection
+
+    stream_ptr s = boost::make_shared<tcp::iostream>(std::move(socket)); // Move socket into stream
     boost::thread t(bind(process_request, s, commands));
   }
-
 }

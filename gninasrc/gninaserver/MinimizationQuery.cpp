@@ -14,6 +14,7 @@
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/unordered_set.hpp>
 #include <boost/timer/timer.hpp>
+#include <boost/thread/shared_mutex.hpp>
 
 using namespace boost;
 
@@ -247,7 +248,7 @@ void MinimizationQuery::thread_minimize(MinimizationQuery* q) {
           }
 
           //add computed results
-          boost::lock_guard<shared_mutex> lock(q->results_mutex);
+          boost::lock_guard<boost::shared_mutex> lock(q->results_mutex);
           for (unsigned i = 0, n = results.size(); i < n; i++) {
             results[i]->position = q->allResults.size();
             q->allResults.push_back(results[i]);

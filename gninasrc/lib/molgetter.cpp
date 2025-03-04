@@ -63,13 +63,13 @@ void MolGetter::create_init_model(const std::string &rigid_name, const std::stri
         throw usage_error("Cannot mix -flex option with covalent docking.  Use "
                           "-flexres or -flexdist options.");
       }
-      if (boost::filesystem::extension(rigid_name) != ".pdbqt") {
+      if (extension(rigid_name) != ".pdbqt") {
         throw usage_error("Cannot use -flex option with non-PDBQT receptor.");
       }
       ifile rigidin(rigid_name);
       ifile flexin(flex_name);
       initm = parse_receptor_pdbqt(rigid_name, rigidin, flex_name, flexin);
-    } else if (!finfo.has_content() && !cinfo.has_content() && boost::filesystem::extension(rigid_name) == ".pdbqt") {
+    } else if (!finfo.has_content() && !cinfo.has_content() && extension(rigid_name) == ".pdbqt") {
       // compatibility mode - read pdbqt directly with no openbabel shenanigans
       ifile rigidin(rigid_name);
       initm = parse_receptor_pdbqt(rigid_name, rigidin);
