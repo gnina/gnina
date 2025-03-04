@@ -22,6 +22,7 @@
 
 #ifndef VINA_FILE_H
 #define VINA_FILE_H
+#define BOOST_FILESYSTEM_NO_DEPRECATED
 
 #include <boost/filesystem/fstream.hpp>
 #include <boost/filesystem.hpp>

@@ -6,6 +6,7 @@
 // Description : Minimization server
 //============================================================================
 
+#include "file.h"
 #include "CommandLine2/CommandLine.h"
 #include "Logger.h"
 #include "QueryManager.h"

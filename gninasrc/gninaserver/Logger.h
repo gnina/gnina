@@ -15,8 +15,8 @@
 #include <cstdarg>
 #include <string>
 #include <boost/thread.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include "file.h"
 
 class Logger {
     FILE *LOG;

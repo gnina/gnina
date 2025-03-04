@@ -13,7 +13,7 @@
 #include <cstdlib>
 #include <exception>
 #include <boost/thread.hpp>
-#include <boost/filesystem.hpp>
+#include "file.h"
 
 #include <boost/bind/bind.hpp>
 #include <boost/assign.hpp>

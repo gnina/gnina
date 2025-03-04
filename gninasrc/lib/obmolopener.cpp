@@ -7,7 +7,6 @@
 
 #include "obmolopener.h"
 #include "file.h"
-#include <boost/filesystem.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/stream.hpp>
