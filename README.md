@@ -49,7 +49,45 @@ A pre-built docker image is available [here](https://hub.docker.com/u/gnina) and
 Installation
 ============
 
-We recommend that you use the [pre-built binary](https://github.com/gnina/gnina/releases/latest) unless you have significant experience building software on Linux, in which case building from source might result in an executable more optimized for your system.
+We recommend that you build GNINA from source (either [using Spack](#installation-using-spack), or [manually](#manual-installation)) to ensure you are using libraries that are optimized for your system.  However, a compatibility focused binary is [available](https://github.com/gnina/gnina/releases/download/v1.0/gnina) as part of the release for evaluation purposes.
+
+## Installation using Spack
+
+GNINA is available via the [Spack](https://spack.readthedocs.io/en/latest/) package manager, which should greaty simplify the  installation of GNINA and all its dependencies.
+
+**The GNINA package in [Spack](https://spack.readthedocs.io/en/latest/) is new and you might still encounter issues when building GNINA. Please open an [issue on the Spack repository](https://github.com/spack/spack/issues) if you encounter problems.**
+
+*If you use the [conda](https://docs.conda.io/en/latest/) package manager, make sure you don't have any active environment (not even the `base` environment). [conda](https://docs.conda.io/en/latest/) might interfere with [Spack](https://spack.readthedocs.io/en/latest/) in ways that are tricky to debug.*
+
+Before installing GNINA and its dependencies, you need to [install Spack](https://spack.readthedocs.io/en/latest/getting_started.html#installation) and [make compilers available to Spack](https://spack.readthedocs.io/en/latest/getting_started.html#compiler-configuration) (if you don't have a modern compiler available, you can [build your own compiler with Spack](https://spack.readthedocs.io/en/latest/getting_started.html#build-your-own-compiler)).
+
+Installing GNINA if you are new to [Spack](https://spack.readthedocs.io/en/latest/) looks as follows:
+
+```bash
+# Install Spack
+# See: https://spack.readthedocs.io/en/latest/getting_started.html#installation
+git clone -c feature.manyFiles=true https://github.com/spack/spack.git
+. spack/share/spack/setup-env.sh # See Spack docs for shells other than bash/zsh/sh
+
+# Find available compilers
+# See: https://spack.readthedocs.io/en/latest/getting_started.html#compiler-configuration
+spack compiler find
+spack compiler list
+
+# Build GNINA and the required dependencies
+# See: https://spack.readthedocs.io/en/latest/basic_usage.html#installing-and-uninstalling
+spack install gnina
+
+# Make GNINA available in PATH
+spack load gnina
+```
+
+You can see the compilers that are available to [Spack](https://spack.readthedocs.io/en/latest/) with `spack compiler list`, and you can build GNINA and its dependencies with a specific compilers using `%{compiler}@{version}`. For example, if you have GCC 11.3.0 available the installation command becomes `spack install gnina %gcc@11.3.0`.
+
+Please see [Getting Started with Spack](https://spack.readthedocs.io/en/latest/getting_started.html#) for more details about [Spack](https://spack.readthedocs.io/en/latest/).
+
+## Manual Installation
+
 
 ### Ubuntu 22.04
 ```
