@@ -393,8 +393,7 @@ def initial_select(
                     tmp_path = fname
                 
             table = pq.ParquetFile(fname)
-            it = table.iter_batches(batch_size=batch_size,use_threads=False,
-                                    columns=["smiles", "name", "sprint"])
+            it = table.iter_batches(batch_size=batch_size, use_threads=False, columns=["smiles", "name"])
             i = 0
             while True:
                 try:
@@ -407,32 +406,36 @@ def initial_select(
                     except Exception:
                         pass
                     return
-                df = batch.to_pandas()        
+                df = batch.to_pandas()
                 yield df
 
         def make_df(fname):
             dfs = []
-            for df_chunk in iter_parquet_batches(fname, batch_size=1000):            
+            for df_chunk in iter_parquet_batches(fname, batch_size=1000):
+                if "sprint" not in df_chunk.columns:
+                    df_chunk = ensure_sprint_column(df_chunk, model, device=device)
                 df_chunk["score"] = df_chunk["sprint"].map(score)
                 dfs.append(df_chunk[["name", "smiles", "score"]])
             df = pd.concat(dfs, ignore_index=True)
             sample = df.sample(frac=fraction).copy().assign(score=0)
-            return df.nlargest(N,"score"),sample
+            return df.nlargest(N, "score"), sample
 
         def reduce_df(df1, df2):
             df1_top, df1_sample = df1
             df2_top, df2_sample = df2
-            return (pd.concat([df1_top, df2_top], ignore_index=True).nlargest(N, "score"),
-                    pd.concat([df1_sample, df2_sample], ignore_index=True))
-        
-        if model is None: # no sprinting, just random sample
-            df = dd.read_parquet(infile,columns=['name','smiles'],memory_map=True,pre_buffer=False)            
+            return (
+                pd.concat([df1_top, df2_top], ignore_index=True).nlargest(N, "score"),
+                pd.concat([df1_sample, df2_sample], ignore_index=True),
+            )
+
+        if model is None:  # no sprinting, just random sample
+            df = dd.read_parquet(infile, columns=["name", "smiles"], memory_map=True, pre_buffer=False)
             combined = df[["name", "smiles"]].sample(N / len(df)).assign(score=0).compute()
         else:
             # get top sprint scoring and random sample and checkpoint to disk
             files = glob.glob(f"{infile}/*.parquet")
             b = db.from_sequence(files, npartitions=len(files))
-            topdf,rand = b.map(make_df).fold(reduce_df).compute()
+            topdf, rand = b.map(make_df).fold(reduce_df).compute()
             combined = pd.concat([topdf, rand])
 
         combined = combined.drop_duplicates("smiles")
@@ -454,6 +457,40 @@ def smiles_to_fp(smi, fpgen):
     arr = np.zeros((fp.GetNumBits(),), dtype=np.float32)
     DataStructs.ConvertToNumpyArray(fp, arr)
     return arr
+
+
+def smiles_to_fp_binary(smi, fpgen):
+    mol = Chem.MolFromSmiles(smi)
+    if mol is None:
+        return None
+    fp = fpgen.GetFingerprint(mol)
+    return fp.ToBinary()
+
+
+def ensure_fp_column(pdf: pd.DataFrame) -> pd.DataFrame:
+    if "fp" not in pdf.columns:
+        fpgen = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048)
+        pdf["fp"] = pdf["smiles"].map(lambda smi: smiles_to_fp_binary(smi, fpgen))
+        pdf = pdf[pdf["fp"].notna()].copy()
+    return pdf
+
+
+def ensure_sprint_column(pdf: pd.DataFrame, model, device: str = "cpu") -> pd.DataFrame:
+    if "sprint" not in pdf.columns:
+        pdf = ensure_fp_column(pdf)
+        if len(pdf) == 0:
+            return pdf
+        fps = []
+        for row in pdf.itertuples(index=False):
+            fp = DataStructs.ExplicitBitVect(row.fp)
+            arr = np.zeros((fp.GetNumBits(),), dtype=np.float32)
+            DataStructs.ConvertToNumpyArray(fp, arr)
+            fps.append(arr)
+        with torch.no_grad():
+            tensor = torch.from_numpy(np.stack(fps)).to(device)
+            emb = model.embed(tensor)
+        pdf["sprint"] = [x.astype(np.float32).tolist() for x in emb.cpu().numpy()]
+    return pdf
 
 
 def fp_partition(s):
@@ -506,6 +543,9 @@ def predict_part(pdf: pd.DataFrame, n: int, model, seenpath: str, partition_info
     with open(seenpath,'rb') as inset:
         seen = pickle.load(inset)
     logger.info(f"About to read {number}")
+    pdf = ensure_fp_column(pdf)
+    if len(pdf) == 0:
+        return pd.DataFrame(columns=["name", "smiles", "score"])
     fpsize = 2048
     if len(pdf):
         fpsize = DataStructs.ExplicitBitVect(pdf.iloc[0]["fp"]).GetNumBits()
@@ -589,7 +629,10 @@ def select_next_batch(
         # so manually implement the map and reduction
         def make_df(fname):
             with sem:
-                df = pd.read_parquet(fname, columns=["smiles", "name", "fp"])
+                try:
+                    df = pd.read_parquet(fname, columns=["smiles", "name", "fp"])
+                except (KeyError, ValueError, pa.lib.ArrowInvalid):
+                    df = pd.read_parquet(fname, columns=["smiles", "name"])
             return predict_part(df, n=N, model=model, seenpath=seenpath)
 
         def reduce_df(df1, df2):
@@ -798,10 +841,8 @@ def plot_dists_by_batch(
 
 
 
-def process_smiles_line(line, dbname, fpgen, model):
-    """Process a whitespace-separated line containing a SMILES string and a name, returning
-    canonicalized SMILES, a fingerprint binary and a model embedding suitable for
-    downstream indexing or similarity tasks.
+def process_smiles_line(line, dbname, fpgen=None, model=None, reduced=False):
+    """Process a whitespace-separated line containing a SMILES string and a name.
 
     Parameters
     ----------
@@ -809,25 +850,26 @@ def process_smiles_line(line, dbname, fpgen, model):
         Input line where the first token is expected to be a SMILES string and the last token is the compound name.
     dbname : str
         Identifier for the source database or collection the entry came from.
-    fpgen : object
+    fpgen : object, optional
         Fingerprint generator providing a GetFingerprint(mol) method that returns an RDKit fingerprint-like object
-        (supports GetNumBits(), ToBinary(), etc.).
-    model : object
+        (supports GetNumBits(), ToBinary(), etc.). Required when reduced=False.
+    model : object, optional
         Embedding model exposing an embed(torch.Tensor) -> torch.Tensor method; the function will pass a single-batch
-        tensor to model.embed under torch.no_grad().
+        tensor to model.embed under torch.no_grad(). Required when reduced=False.
+    reduced : bool
+        If True, only return db, name, and canonical SMILES; skip fp and sprint generation.
 
     Returns
     -------
     tuple or None
         If the SMILES parses successfully, returns a tuple:
-            (dbname, name, canonical_smiles, fingerprint_binary, embedding_array)
-        where:
-            - canonical_smiles (str): canonical, isomeric SMILES produced by RDKit
-            - fingerprint_binary (bytes): binary representation returned by fp.ToBinary()
-            - embedding_array (numpy.ndarray): 1-D numpy array (float32) containing the model embedding
+            (dbname, name, canonical_smiles) if reduced=True,
+            otherwise (dbname, name, canonical_smiles, fingerprint_binary, embedding_array).
         Returns None if RDKit cannot parse the input SMILES.
     """
     vals = line.split()
+    if not vals:
+        return None
     smi = vals[0]
     name = vals[-1]
     mol = Chem.MolFromSmiles(smi)
@@ -835,6 +877,9 @@ def process_smiles_line(line, dbname, fpgen, model):
         return None
 
     smiles = Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)
+
+    if reduced:
+        return (dbname, name, smiles)
 
     fp = fpgen.GetFingerprint(mol)
     features = np.zeros((fp.GetNumBits(),), dtype=np.float32)
@@ -846,20 +891,26 @@ def process_smiles_line(line, dbname, fpgen, model):
     return (dbname, name, smiles, fp.ToBinary(), e.squeeze().numpy())
 
 
-def process_partition(partition_iter, dbname):
+def process_partition(partition_iter, dbname, smiles_only=False):
     """Process a Dask partition of SMILES representations.
 
-    Initializes a Morgan fingerprint generator and loads a pre-trained drug-target 
+    Initializes a Morgan fingerprint generator and optionally loads a pre-trained drug-target
     coembedding model. Iterates through each SMILES line in the partition and applies
-    the process_smiles_line function to generate results.
+    process_smiles_line to generate results.
 
     Args:
         partition_iter: An iterable of SMILES representation strings to be processed.
         dbname: Database identifier to associate with the processed results.
+        smiles_only: If True, generate only db/name/smiles and skip fp/sprint creation.
 
     Yields:
         Processed results from process_smiles_line for each input SMILES string.
     """
+    if smiles_only:
+        for line in partition_iter:
+            yield process_smiles_line(line, dbname, reduced=True)
+        return
+
     fpgen = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048)
     model = DrugTargetCoembeddingLightning.load_from_checkpoint(
         "/net/galaxy/home/koes/dkoes/git/panspecies-dti/checkpoints/sprint.ckpt"
@@ -867,13 +918,13 @@ def process_partition(partition_iter, dbname):
     model.eval()
 
     for line in partition_iter:
-        yield process_smiles_line(line, dbname, fpgen, model)
+        yield process_smiles_line(line, dbname, fpgen=fpgen, model=model)
 
 
-def process_db(inputfile, dbname, prefix, blocksize="100KB", repartition=0 ):
+def process_db(inputfile, dbname, prefix, blocksize="100KB", repartition=0, smiles_only=False):
     """Process a database of chemical compounds and generate embeddings.
     
-    Reads SMILES strings from a text file, canonicalizes them, generates Morgan 
+    Reads SMILES strings from a text file, canonicalizes them, optionally generates Morgan
     fingerprints and SPRINT embeddings, then writes results to Parquet format.
     
     Args:
@@ -882,31 +933,44 @@ def process_db(inputfile, dbname, prefix, blocksize="100KB", repartition=0 ):
         prefix: Output directory path 
         blocksize: Block size for reading input file (default: '100KB')
         repartition: Number of partitions for repartitioning (0 = no repartition, default: 0)
+        smiles_only: If True, write reduced parquet with only db/name/smiles.
     
     Returns:
         None. Results written to {prefix}/{dbname}.parquet with columns:
         - db: Database identifier
         - name: Compound name
         - smiles: Canonical SMILES string
-        - fp: Morgan fingerprint (binary)
-        - sprint: SPRINT embedding (list of float32)
+        - fp: Morgan fingerprint (binary) [optional]
+        - sprint: SPRINT embedding (list of float32) [optional]
     """
-    schema = pa.schema(
-        [
-            pa.field("db", pa.string()),
-            pa.field("name", pa.string()),
-            pa.field("smiles", pa.string()),
-            pa.field("fp", pa.binary()),  # or pa.large_binary()
-            pa.field("sprint", pa.list_(pa.float32())),  # or pa.float64()
-        ]
-    )
+    if smiles_only:
+        schema = pa.schema(
+            [
+                pa.field("db", pa.string()),
+                pa.field("name", pa.string()),
+                pa.field("smiles", pa.string()),
+            ]
+        )
+        columns = ["db", "name", "smiles"]
+    else:
+        schema = pa.schema(
+            [
+                pa.field("db", pa.string()),
+                pa.field("name", pa.string()),
+                pa.field("smiles", pa.string()),
+                pa.field("fp", pa.binary()),  # or pa.large_binary()
+                pa.field("sprint", pa.list_(pa.float32())),  # or pa.float64()
+            ]
+        )
+        columns = ["db", "name", "smiles", "fp", "sprint"]
+
     bag = db.read_text(inputfile, linedelimiter="\n", blocksize=blocksize)
     if repartition:
         bag = bag.repartition(repartition)
-    parsed = bag.map_partitions(partial(process_partition, dbname=dbname)).filter(
+    parsed = bag.map_partitions(partial(process_partition, dbname=dbname, smiles_only=smiles_only)).filter(
         lambda x: x is not None
     )
-    df = parsed.to_dataframe(columns=["db", "name", "smiles", "fp", "sprint"])
+    df = parsed.to_dataframe(columns=columns)
     df.to_parquet(
         f"{prefix}/{dbname}.parquet",
         engine="pyarrow",
@@ -1024,6 +1088,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_workers", type=int, default=500, help="Maximum number of workers")
     parser.add_argument("--target_sequence", help="Target protein sequence")
     parser.add_argument("--sprint_checkpoint", help="Path to SPRINT model checkpoint")
+    parser.add_argument("--smiles-only", action="store_true", dest="smiles_only", help="Write reduced parquet with only db,name,smiles and omit fp/sprint generation.")
     parser.add_argument("-N","--batch_size",type=int, default=100_000, help="Number of molecules to select for each batch")
     parser.add_argument("--target_metric", default="CNN_VS", help="Target metric for scoring")
     parser.add_argument("--molweight_cutoff", type=int, default=1200, help="Maximum molecular weight")
@@ -1062,7 +1127,13 @@ if __name__ == "__main__":
             if args.input.rstrip('/').endswith(".parquet"):
                 print("Input appears to be parquet; skipping processing.")
             else:
-                process_db(args.input, name, prefix=args.dir, blocksize=dask_blocksize_for_file(args.input))
+                process_db(
+                    args.input,
+                    name,
+                    prefix=args.dir,
+                    blocksize=dask_blocksize_for_file(args.input),
+                    smiles_only=args.smiles_only,
+                )
 
     if args.input is None:
         args.input = f"{args.dir}/{name}.parquet"
