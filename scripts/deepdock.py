@@ -921,7 +921,7 @@ def process_partition(partition_iter, dbname, smiles_only=False):
         yield process_smiles_line(line, dbname, fpgen=fpgen, model=model)
 
 
-def process_db(inputfile, dbname, prefix, blocksize="100KB", repartition=0, smiles_only=False):
+def process_db(inputfile, dbname, prefix, cluster, blocksize="100KB", repartition=0, smiles_only=False):
     """Process a database of chemical compounds and generate embeddings.
     
     Reads SMILES strings from a text file, canonicalizes them, optionally generates Morgan
@@ -931,6 +931,7 @@ def process_db(inputfile, dbname, prefix, blocksize="100KB", repartition=0, smil
         inputfile: Path to the input file containing SMILES strings
         dbname: Database identifier 
         prefix: Output directory path 
+        cluster: Cluster object
         blocksize: Block size for reading input file (default: '100KB')
         repartition: Number of partitions for repartitioning (0 = no repartition, default: 0)
         smiles_only: If True, write reduced parquet with only db/name/smiles.
@@ -943,40 +944,42 @@ def process_db(inputfile, dbname, prefix, blocksize="100KB", repartition=0, smil
         - fp: Morgan fingerprint (binary) [optional]
         - sprint: SPRINT embedding (list of float32) [optional]
     """
-    if smiles_only:
-        schema = pa.schema(
-            [
-                pa.field("db", pa.string()),
-                pa.field("name", pa.string()),
-                pa.field("smiles", pa.string()),
-            ]
-        )
-        columns = ["db", "name", "smiles"]
-    else:
-        schema = pa.schema(
-            [
-                pa.field("db", pa.string()),
-                pa.field("name", pa.string()),
-                pa.field("smiles", pa.string()),
-                pa.field("fp", pa.binary()),  # or pa.large_binary()
-                pa.field("sprint", pa.list_(pa.float32())),  # or pa.float64()
-            ]
-        )
-        columns = ["db", "name", "smiles", "fp", "sprint"]
+    with Client(cluster) as client:
 
-    bag = db.read_text(inputfile, linedelimiter="\n", blocksize=blocksize)
-    if repartition:
-        bag = bag.repartition(repartition)
-    parsed = bag.map_partitions(partial(process_partition, dbname=dbname, smiles_only=smiles_only)).filter(
-        lambda x: x is not None
-    )
-    df = parsed.to_dataframe(columns=columns)
-    df.to_parquet(
-        f"{prefix}/{dbname}.parquet",
-        engine="pyarrow",
-        schema=schema,
-        compression="zstd",
-    )
+        if smiles_only:
+            schema = pa.schema(
+                [
+                    pa.field("db", pa.string()),
+                    pa.field("name", pa.string()),
+                    pa.field("smiles", pa.string()),
+                ]
+            )
+            columns = ["db", "name", "smiles"]
+        else:
+            schema = pa.schema(
+                [
+                    pa.field("db", pa.string()),
+                    pa.field("name", pa.string()),
+                    pa.field("smiles", pa.string()),
+                    pa.field("fp", pa.binary()),  # or pa.large_binary()
+                    pa.field("sprint", pa.list_(pa.float32())),  # or pa.float64()
+                ]
+            )
+            columns = ["db", "name", "smiles", "fp", "sprint"]
+
+        bag = db.read_text(inputfile, linedelimiter="\n", blocksize=blocksize)
+        if repartition:
+            bag = bag.repartition(repartition)
+        parsed = bag.map_partitions(partial(process_partition, dbname=dbname, smiles_only=smiles_only)).filter(
+            lambda x: x is not None
+        )
+        df = parsed.to_dataframe(columns=columns)
+        df.to_parquet(
+            f"{prefix}/{dbname}.parquet",
+            engine="pyarrow",
+            schema=schema,
+            compression="zstd",
+        )
 
 def cluster_from_yaml(yaml_path):
     """Initialize a Dask cluster from a YAML configuration file.
@@ -1131,6 +1134,7 @@ if __name__ == "__main__":
                     args.input,
                     name,
                     prefix=args.dir,
+                    cluster=cluster
                     blocksize=dask_blocksize_for_file(args.input),
                     smiles_only=args.smiles_only,
                 )
