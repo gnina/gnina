@@ -1134,7 +1134,7 @@ if __name__ == "__main__":
                     args.input,
                     name,
                     prefix=args.dir,
-                    cluster=cluster
+                    cluster=cluster,
                     blocksize=dask_blocksize_for_file(args.input),
                     smiles_only=args.smiles_only,
                 )
