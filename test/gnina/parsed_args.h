@@ -7,7 +7,7 @@ struct parsed_args {
     bool many_iters;
     unsigned n_iters;
     unsigned iter_count;
-    tee log;
+    tee_stream log;
     std::vector<unsigned> params;
 
     parsed_args(bool quiet = true)

@@ -21,7 +21,7 @@ using namespace boost::algorithm;
 
 // initialize from commandline options
 // throw error if missing required info
-template <bool isCUDA> CNNTorchScorer<isCUDA>::CNNTorchScorer(const cnn_options &opts, tee *log) : DLScorer(opts) {
+template <bool isCUDA> CNNTorchScorer<isCUDA>::CNNTorchScorer(const cnn_options &opts, tee_stream *log) : DLScorer(opts) {
   if (cnnopts.cnn_scoring == CNNnone)
     return; // no cnn
 

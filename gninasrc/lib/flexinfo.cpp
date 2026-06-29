@@ -22,7 +22,7 @@ std::map<std::string, int> FlexInfo::num_heavy_atoms_per_residue = {
 
 FlexInfo::FlexInfo(const std::string &flexres, double flexdist,
                    const std::string &ligand, int nflex_,
-                   bool nflex_hard_limit_, bool full_flex_output_, tee &l)
+                   bool nflex_hard_limit_, bool full_flex_output_, tee_stream &l)
     : flex_dist(flexdist), nflex(nflex_), nflex_hard_limit(nflex_hard_limit_),
       full_flex_output(full_flex_output_), log(l) {
   using namespace OpenBabel;

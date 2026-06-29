@@ -51,7 +51,7 @@ static void decrement_hydrogen(OBMol &mol, OBAtom *a) {
 // mostly because Matt kept complaining about it, this will automatically create
 // pdbqts if necessary using open babel
 void MolGetter::create_init_model(const std::string &rigid_name, const std::string &flex_name, FlexInfo &finfo,
-                                  tee &log) {
+                                  tee_stream &log) {
   if (rigid_name.size() > 0) {
     // support specifying flexible residues explicitly as pdbqt, but only
     // in compatibility mode where receptor is pdbqt as well

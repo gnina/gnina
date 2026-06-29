@@ -46,7 +46,7 @@ GenericMetal Boron Manganese Magnesium Zinc Calcium Iron
 )");
 
 /** Read in a torch script model from the provided stream */
-template <bool isCUDA> TorchModel<isCUDA>::TorchModel(std::istream &in, const string &name, tee *log) {
+template <bool isCUDA> TorchModel<isCUDA>::TorchModel(std::istream &in, const string &name, tee_stream *log) {
   c10::Device device = isCUDA ? torch::kCUDA : torch::kCPU;
   try {
     // Deserialize the ScriptModule from a file using torch::jit::load().

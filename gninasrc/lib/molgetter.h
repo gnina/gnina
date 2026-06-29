@@ -20,7 +20,7 @@
 // smina format
 class MolGetter {
   model initm;
-  tee *log;
+  tee_stream *log;
   CovInfo cinfo;
   enum Type { OB, PDBQT, SMINA, GNINA, NONE }; // different inputs
 
@@ -54,13 +54,13 @@ public:
       : add_hydrogens(addH), strip_hydrogens(stripH), type(NONE), pdbqtdone(false) {}
 
   MolGetter(const std::string &rigid_name, const std::string &flex_name, FlexInfo &finfo, CovInfo &ci, bool addH,
-            bool stripH, tee &l)
+            bool stripH, tee_stream &l)
       : log(&l), cinfo(ci), add_hydrogens(addH), strip_hydrogens(stripH), type(NONE), pdbqtdone(false) {
     create_init_model(rigid_name, flex_name, finfo, l);
   }
 
   // create the initial model from the specified receptor files
-  void create_init_model(const std::string &rigid_name, const std::string &flex_name, FlexInfo &finfo, tee &log);
+  void create_init_model(const std::string &rigid_name, const std::string &flex_name, FlexInfo &finfo, tee_stream &log);
 
   // setup for reading from fname
   void setInputFile(const std::string &fname);
