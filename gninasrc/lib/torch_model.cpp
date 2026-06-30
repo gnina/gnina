@@ -131,19 +131,23 @@ static CoordinateSet make_coordset(const vector<float3> &coords, const vector<sm
   types.reserve(coords.size());
   vector<float> radii;
   radii.reserve(coords.size());
+  // libmolgrid's CoordinateSet takes its own Vec3 (not gnina's CUDA-style float3).
+  vector<Vec3> vcoords;
+  vcoords.reserve(coords.size());
   for (unsigned i = 0, n = smtypes.size(); i < n; i++) {
     smt origt = smtypes[i];
     auto t_r = typer->get_int_type(origt);
     int t = t_r.first;
     types.push_back(t);
     radii.push_back(t_r.second);
+    vcoords.push_back(Vec3{coords[i].x, coords[i].y, coords[i].z});
 
     if (t < 0 && origt > 1) { // don't warn about hydrogens
       std::cerr << "Unsupported ligand atom type " << GninaIndexTyper::gnina_type_name(origt) << "\n";
     }
   }
 
-  return CoordinateSet(coords, types, radii, typer->num_types());
+  return CoordinateSet(vcoords, types, radii, typer->num_types());
 }
 
 //wrapper to get appropriate grid from an MGrid for template value of isCUDA
@@ -165,7 +169,8 @@ std::vector<float> TorchModel<isCUDA>::forward(const std::vector<float3> &rec_co
   CoordinateSet lig = make_coordset(lig_coords, lig_types, lig_typer);
 
   // set center from ligand if not specified
-  float3 gcenter = {center.x(), center.y(), center.z()};
+  // libmolgrid (Vec3) and gnina's float3 are layout-compatible but distinct types.
+  Vec3 gcenter = {center.x(), center.y(), center.z()};
   if (!isfinite(center.x())) {
     gcenter = lig.center();
   }

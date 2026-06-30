@@ -67,7 +67,11 @@ if(APPLE)
   # Python extension modules intentionally leave Python/Boost.Python symbols
   # unresolved (they are provided by the host interpreter at load time).
   # -undefined dynamic_lookup defers resolution to runtime, matching Linux behaviour.
-  set_target_properties(pygnina PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+  # SUFFIX ".so" is required too: CPython's import machinery doesn't recognize
+  # the default macOS shared-library extension (.dylib) as a loadable module.
+  set_target_properties(pygnina PROPERTIES
+                                  LINK_FLAGS "-undefined dynamic_lookup"
+                                  SUFFIX ".so")
 endif()
 									
                   
