@@ -51,7 +51,7 @@ void make_mol(std::vector<atom_params>& atoms, std::vector<smt>& types,
 //pretty print molecule info for logging
 template<typename atomT>
 void print_mol(std::vector<atom_params>& atoms,
-    std::vector<atomT>& types, tee& log) {
+    std::vector<atomT>& types, tee_stream& log) {
   std::string pad = "    ";
   log << "\n";
   for (size_t i = 0; i < atoms.size(); ++i) {
@@ -64,4 +64,4 @@ void print_mol(std::vector<atom_params>& atoms,
 
 template
 void print_mol(std::vector<atom_params>& atoms,
-    std::vector<smt>& types, tee& log);
+    std::vector<smt>& types, tee_stream& log);

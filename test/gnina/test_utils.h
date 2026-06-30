@@ -10,6 +10,7 @@
 #include "parsed_args.h"
 #include "atom_constants.h"
 #include "device_buffer.h"
+#include "tee.h"
 
 extern parsed_args p_args;
 extern bool run_on_gpu;
@@ -26,10 +27,10 @@ template<typename atomT> void make_mol(std::vector<atom_params>& atoms, std::vec
 //pretty print molecule info for logging
 template<typename atomT>
 void print_mol(std::vector<atom_params>& atoms,
-    std::vector<atomT>& types, tee& log);
+    std::vector<atomT>& types, tee_stream& log);
 
 //pretty print tree info for logging
-inline void print_tree(atom_params* atoms, unsigned coords_size, tee& log) {
+inline void print_tree(atom_params* atoms, unsigned coords_size, tee_stream& log) {
   for (size_t i = 0; i < coords_size; ++i) {
     log << "atom" << i << " " << atoms[i].coords[0] << " " << atoms[i].coords[1]
         << " " << atoms[i].coords[2] << "\n";

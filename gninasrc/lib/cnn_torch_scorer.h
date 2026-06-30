@@ -37,7 +37,7 @@ public:
   CNNTorchScorer() {}
   virtual ~CNNTorchScorer() {}
 
-  CNNTorchScorer(const cnn_options &opts, tee *log = nullptr);
+  CNNTorchScorer(const cnn_options &opts, tee_stream *log = nullptr);
 
   bool initialized() const { return models.size() > 0; }
 

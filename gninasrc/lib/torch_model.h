@@ -29,7 +29,7 @@ template <bool isCUDA> class TorchModel {
   bool skip_softmax = false;
 
 public:
-  TorchModel(std::istream &in, const std::string &name, tee *log);
+  TorchModel(std::istream &in, const std::string &name, tee_stream *log);
 
   std::vector<float> forward(const std::vector<float3> &rec_coords, const std::vector<smt> &rec_types,
                const std::vector<float3> &lig_coords, const std::vector<smt> &lig_types, const vec& center,

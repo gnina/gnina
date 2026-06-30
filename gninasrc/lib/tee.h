@@ -26,16 +26,17 @@
 #include <iostream>
 #include "file.h"
 
-struct tee {
+
+struct tee_stream {
     bool quiet;
     ofile* of;
-    tee(bool q = false)
+    tee_stream(bool q = false)
         : of(NULL), quiet(q) {
     }
     void init(const path& name) {
       of = new ofile(name);
     }
-    virtual ~tee() {
+    virtual ~tee_stream() {
       delete of;
     }
     void flush() {
@@ -57,7 +58,7 @@ struct tee {
 };
 
 template<typename T>
-tee& operator<<(tee& out, const T& x) {
+tee_stream& operator<<(tee_stream& out, const T& x) {
   if (!out.quiet) std::cout << x;
   if (out.of) (*out.of) << x;
   return out;

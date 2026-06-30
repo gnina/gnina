@@ -18,7 +18,7 @@ class FlexInfo {
     double flex_dist;
     boost::unordered_set<std::tuple<char, int, char> > residues; //chain, resid, insertion code
     OpenBabel::OBMol distligand;
-    tee& log;
+    tee_stream& log;
 
     int nflex = 0;;
     bool nflex_hard_limit = false;
@@ -29,12 +29,12 @@ class FlexInfo {
     static std::map<std::string, int> num_heavy_atoms_per_residue;
 
   public:
-    FlexInfo(tee& l)
+    FlexInfo(tee_stream& l)
         : flex_dist(0), log(l) {
     }
     FlexInfo(const std::string& flexres, double flexdist,
         const std::string& ligand, int nflex, bool nflex_hard_limit, 
-        bool full_flex_output, tee& l);
+        bool full_flex_output, tee_stream& l);
     bool has_content() const {
       return residues.size() > 0 || flex_dist > 0;
     }

@@ -11,7 +11,7 @@ using namespace boost;
 using namespace std;
 using namespace OpenBabel;
 
-CovInfo::CovInfo(const CovOptions& copt, tee &l) : 
+CovInfo::CovInfo(const CovOptions& copt, tee_stream &l) : 
     log(&l), bond_order(copt.bond_order), optlevel(copt.covalent_optimize_lig), 
     fix_latom_pos(copt.covalent_fix_lig_atom_position), dont_move_ligand(copt.dont_move_ligand) {
 

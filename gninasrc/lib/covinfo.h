@@ -29,7 +29,7 @@ struct CovOptions {
  */
 class CovInfo {
 
-  tee *log = nullptr;
+  tee_stream *log = nullptr;
 
   char ratom_chain;
   int ratom_num = 0;
@@ -53,7 +53,7 @@ class CovInfo {
 public:
   CovInfo() {}
 
-  CovInfo(const CovOptions& copts, tee &l);
+  CovInfo(const CovOptions& copts, tee_stream &l);
 
   bool has_content() const { return initialized; }
 

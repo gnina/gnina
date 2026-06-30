@@ -46,7 +46,7 @@ GenericMetal Boron Manganese Magnesium Zinc Calcium Iron
 )");
 
 /** Read in a torch script model from the provided stream */
-template <bool isCUDA> TorchModel<isCUDA>::TorchModel(std::istream &in, const string &name, tee *log) {
+template <bool isCUDA> TorchModel<isCUDA>::TorchModel(std::istream &in, const string &name, tee_stream *log) {
 #ifdef USE_METAL
   // Under Metal: GPU path uses MPS (Apple Neural Engine / GPU via PyTorch MPS backend).
   c10::Device device = isCUDA ? c10::Device(c10::DeviceType::MPS) : c10::Device(torch::kCPU);

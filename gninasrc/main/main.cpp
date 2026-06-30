@@ -69,14 +69,14 @@
 using namespace boost::iostreams;
 using boost::filesystem::path;
 
-void doing(int verbosity, const std::string &str, tee &log) {
+void doing(int verbosity, const std::string &str, tee_stream &log) {
   if (verbosity > 1) {
     log << str << std::string(" ... ");
     log.flush();
   }
 }
 
-void done(int verbosity, tee &log) {
+void done(int verbosity, tee_stream &log) {
   if (verbosity > 1) {
     log << "done.";
     log.endl();
@@ -99,7 +99,7 @@ void write_all_output(model &m, const output_container &out, sz how_many, std::o
 }
 
 // set m to a random conformer
-fl do_randomization(model &m, const vec &corner1, const vec &corner2, int seed, int verbosity, tee &log) {
+fl do_randomization(model &m, const vec &corner1, const vec &corner2, int seed, int verbosity, tee_stream &log) {
   conf init_conf = m.get_initial_conf(false);
   rng generator(static_cast<rng::result_type>(seed));
   if (verbosity > 1) {
@@ -130,7 +130,7 @@ fl do_randomization(model &m, const vec &corner1, const vec &corner2, int seed, 
 }
 
 void refine_structure(model &m, const precalculate &prec, non_cache &nc, output_type &out, const vec &cap,
-                      const minimization_params &minparm, grid &user_grid, int verbosity, tee &log, non_cache &nc_new) {
+                      const minimization_params &minparm, grid &user_grid, int verbosity, tee_stream &log, non_cache &nc_new) {
   // std::cout << m.get_name() << " | pose " << m.get_pose_num() << " | refining structure\n";
   change g(m.get_size(), nc.move_receptor());
 
@@ -193,7 +193,7 @@ output_container remove_redundant(const output_container &in, fl min_rmsd) {
 }
 
 // print info to log about cnn scoring
-static void get_cnn_info(model &m, DLScorer &cnn, tee &log, float &cnnscore, float &cnnaffinity, float &cnnvariance) {
+static void get_cnn_info(model &m, DLScorer &cnn, tee_stream &log, float &cnnscore, float &cnnaffinity, float &cnnvariance) {
   float loss = 0;
   cnnscore = 0;
   cnnaffinity = 0;
@@ -212,7 +212,7 @@ void do_search(model &m, const boost::optional<model> &ref, const weighted_terms
                igrid &ig,
                non_cache &nc, // nc.slope is changed
                const vec &corner1, const vec &corner2, const parallel_mc &par, const user_settings &settings,
-               bool compute_atominfo, tee &log, const terms *t, grid &user_grid, DLScorer &cnn,
+               bool compute_atominfo, tee_stream &log, const terms *t, grid &user_grid, DLScorer &cnn,
                std::vector<result_info> &results, szv_grid_cache &grid_cache, const grid_dims &gd, fl slope) {
   boost::timer::cpu_timer time;
   try {
@@ -429,7 +429,7 @@ void load_ent_values(const grid_dims &gd, std::istream &user_in, array3d<fl> &us
 void main_procedure(model &m, precalculate &prec,
                     const boost::optional<model> &ref, // m is non-const (FIXME?)
                     const user_settings &settings, bool no_cache, bool compute_atominfo, const grid_dims &gd,
-                    minimization_params minparm, const weighted_terms &wt, tee &log, std::vector<result_info> &results,
+                    minimization_params minparm, const weighted_terms &wt, tee_stream &log, std::vector<result_info> &results,
                     grid &user_grid, DLScorer &cnn) {
   doing(settings.verbosity, "Setting up the scoring function", log);
 
@@ -740,12 +740,12 @@ struct global_state {
   minimization_params *minparms;
   weighted_terms *wt;
   grid *user_grid;
-  tee *log;
+  tee_stream *log;
   std::ofstream *atomoutfile;
   cnn_options cnnopts;
 
   global_state(user_settings *settings, boost::shared_ptr<precalculate> prec, minimization_params *minparms,
-               weighted_terms *wt, grid *user_grid, tee *log, std::ofstream *atomoutfile, const cnn_options &co)
+               weighted_terms *wt, grid *user_grid, tee_stream *log, std::ofstream *atomoutfile, const cnn_options &co)
       : settings(settings), prec(prec), minparms(minparms), wt(wt), user_grid(user_grid), log(log),
         atomoutfile(atomoutfile), cnnopts(co){};
 };
@@ -1123,7 +1123,7 @@ Thank you!\n";
       return 0;
     }
 
-    tee log(quiet);
+    tee_stream log(quiet);
     if (vm.count("log") > 0)
       log.init(log_name);
 
@@ -1449,12 +1449,12 @@ Thank you!\n";
 
     try {
       // loop over input ligands, adding them to the work queue
+      unsigned i = 0;
+
       for (unsigned l = 0, nl = ligand_names.size(); l < nl; l++) {
         doing(settings.verbosity, "Reading input", log);
         const std::string ligand_name = ligand_names[l];
         mols.setInputFile(ligand_name);
-
-        unsigned i = 0;
 
         for (;;) {
           model *m = new model;

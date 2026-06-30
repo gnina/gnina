@@ -41,7 +41,7 @@ MolGridder::MolGridder(const gridoptions& opt) :
 
   float3 dims = gmaker.get_grid_dims();
   grid = MGrid4f(rectyper->num_types()+ligtyper->num_types()+usergrids.size(), dims.x, dims.y, dims.z);
-  tee log(true);
+  tee_stream log(true);
   FlexInfo finfo(log); //dummy
   mols.create_init_model(opt.receptorfile, "", finfo, log);
   mols.setInputFile(opt.ligandfile);
