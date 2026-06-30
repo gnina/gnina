@@ -1,17 +1,15 @@
 
-find_package(PythonLibs)
-find_package(PythonInterp)
-if (NOT PYTHONLIBS_FOUND)
-  message(STATUS "Python libraries NOT found")
-endif()
- 
 if(BUILD_CONTAINED_PYTHON)
   # create a python library with as few runtime dependencies as possible
   set(Boost_USE_STATIC_LIBS ON)
 endif()
 
 # boost_system is header-only since Boost 1.69 and has no cmake config
-find_package( Boost COMPONENTS filesystem python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR} REQUIRED )
+# Use the same Python3 interpreter found at the top level so the requested
+# boost_python component matches the interpreter used everywhere else in the
+# build (mixing this with the deprecated PythonInterp/PythonLibs modules can
+# pick a different Python and ask Boost for a component it doesn't have).
+find_package( Boost COMPONENTS filesystem python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR} REQUIRED )
 find_package(Python3 COMPONENTS NumPy QUIET)
 if(Python3_NumPy_FOUND)
   set(PYTHON_NUMPY_INCLUDE_DIR ${Python3_NumPy_INCLUDE_DIRS})
@@ -26,7 +24,7 @@ endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/src)
-include_directories(${PYTHON_INCLUDE_DIRS})
+include_directories(${Python3_INCLUDE_DIRS})
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${PYTHON_NUMPY_INCLUDE_DIR})
 
@@ -82,7 +80,7 @@ endforeach()
 
 # Determine site-packages destination using the selected Python interpreter
 execute_process(
-  COMMAND ${PYTHON_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_path('platlib', vars={'platbase': '${CMAKE_INSTALL_PREFIX}', 'base': '${CMAKE_INSTALL_PREFIX}'}))"
+  COMMAND ${Python3_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_path('platlib', vars={'platbase': '${CMAKE_INSTALL_PREFIX}', 'base': '${CMAKE_INSTALL_PREFIX}'}))"
   OUTPUT_VARIABLE PYTHON_SITE_PACKAGES
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )

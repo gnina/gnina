@@ -119,14 +119,14 @@ brew install cmake boost jsoncpp open-babel eigen
 git clone https://github.com/fnachon/gnina.git
 cd gnina
 mkdir build_metal && cd build_metal
-cmake -DUSE_METAL=ON -DPYTHON_EXECUTABLE=/opt/homebrew/bin/python3.14 ..
+cmake -DUSE_METAL=ON -DPython3_EXECUTABLE=$(brew --prefix python3)/bin/python3 ..
 make -j$(sysctl -n hw.logicalcpu)
 sudo make install
 ```
 
 This installs gnina to `/usr/local` by default. To change the installation prefix, pass `-DCMAKE_INSTALL_PREFIX=/your/path` to the `cmake` command above.
 
-> **Note on Python:** Homebrew's `boost` bottle is compiled against Python 3.14, so `-DPYTHON_EXECUTABLE` must point to the matching Homebrew Python. Using a conda environment with a different Python version (e.g. 3.10) will cause a `boost_python` version mismatch error during CMake configuration.
+> **Note on Python:** Homebrew's `boost` bottle is compiled against Homebrew's own Python 3, so `-DPython3_EXECUTABLE` must point to that interpreter rather than a conda environment or other Python install — mismatched versions cause a `boost_python` version error during CMake configuration. Pick whatever Python 3 version your environment provides (CI is tested against 3.10).
 
 > **Skipping pygnina:** If you only need the `gnina` command-line tool and not the Python API, you can skip the `pygnina` module entirely to avoid Python version constraints:
 > ```bash
