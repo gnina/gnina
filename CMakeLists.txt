@@ -281,9 +281,17 @@ if(NOT LIBMOLGRID_LIBRARY)
         -DOPENBABEL3_LIBRARIES=/opt/homebrew/lib/libopenbabel.dylib
     )
   else()
+    # TEMPORARY: point at the fnachon/libmolgrid fork instead of upstream
+    # gnina/libmolgrid. gninasrc (molgridder.cpp/h, torch_model.cpp) was
+    # updated to use libmolgrid's Vec3/UVec2 types, which only exist in the
+    # fork (see gnina/libmolgrid#127, not yet merged upstream). Switch this
+    # back to gnina/libmolgrid once that PR lands.
     ExternalProject_Add(libmolgrid
-      GIT_REPOSITORY https://github.com/gnina/libmolgrid
-      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+      GIT_REPOSITORY https://github.com/fnachon/libmolgrid
+      CMAKE_ARGS
+        -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+        -DLIBMOLGRID_ENABLE_CUDA=ON
+        -DLIBMOLGRID_ENABLE_METAL=OFF
     )
   endif()
 
