@@ -286,8 +286,23 @@ if(NOT LIBMOLGRID_LIBRARY)
     # updated to use libmolgrid's Vec3/UVec2 types, which only exist in the
     # fork (see gnina/libmolgrid#127, not yet merged upstream). Switch this
     # back to gnina/libmolgrid once that PR lands.
+    #
+    # Disable unused subdirectories (not guarded by options in the fork's
+    # CMakeLists.txt), same as the Metal branch above but with GNU sed syntax
+    # since this branch builds on Linux, not macOS.
+    file(WRITE ${CMAKE_BINARY_DIR}/patch_libmolgrid.sh
+      "#!/bin/bash\n"
+      "SRC=$1\n"
+      "set -e\n"
+      "sed -i 's/add_subdirectory(python)/# add_subdirectory(python)/' \"$SRC/CMakeLists.txt\"\n"
+      "sed -i 's/add_subdirectory(test)/# add_subdirectory(test)/' \"$SRC/CMakeLists.txt\"\n"
+      "sed -i 's/add_subdirectory(docs)/# add_subdirectory(docs)/' \"$SRC/CMakeLists.txt\"\n"
+    )
+    execute_process(COMMAND chmod +x ${CMAKE_BINARY_DIR}/patch_libmolgrid.sh)
+
     ExternalProject_Add(libmolgrid
       GIT_REPOSITORY https://github.com/fnachon/libmolgrid
+      PATCH_COMMAND ${CMAKE_BINARY_DIR}/patch_libmolgrid.sh <SOURCE_DIR>
       CMAKE_ARGS
         -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
         -DLIBMOLGRID_ENABLE_CUDA=ON
