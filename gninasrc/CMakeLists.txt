@@ -265,7 +265,7 @@ function(model_to_obj out_var)
   endforeach()
 
   add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
-    COMMAND ${Python3_EXECUTABLE} make_model_cpp.py "${result}" "${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
+    COMMAND ${Python3_EXECUTABLE} make_model_cpp.py "${result}" "${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp" $<IF:$<BOOL:${APPLE}>,apple,other>
     DEPENDS ${result} make_model_cpp.py
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Creating ${CMAKE_CURRENT_BINARY_DIR}/torch_models.cpp"
