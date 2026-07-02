@@ -142,6 +142,10 @@ void MolGridder::setGrid(bool use_gpu) {
 void MolGridder::cpuSetGridCheck() {
   //assume current grid is right
   MGrid4f saved = grid.clone();
+  // clone() copies whatever's currently in the CPU-side buffer, which is
+  // stale/zero if grid was last computed on GPU (raw .data() access, used
+  // below, never triggers a device->host sync the way .cpu() does).
+  saved.tocpu();
 
   //for recompute, apply same transformation
   bool saverot = random_rotate;
@@ -332,20 +336,23 @@ void MolGridder::outputBIN(const std::string& base, bool outputrec, bool outputl
   if(!binout) {
     throw file_error(outname, false);
   }
+  // grid[i].data() (which write_bin reads) never triggers a device->host
+  // sync the way .cpu() does, so a GPU-computed grid would be written out
+  // as whatever stale/zero data happens to be in the CPU-side buffer.
   unsigned roff = 0;
   if(outputrec) {
     for(unsigned i = 0, n = usergrids.size(); i < n; i++) {
-      write_bin(binout, grid[i]);
+      write_bin(binout, grid[i].cpu());
     }
     roff += usergrids.size();
     for (unsigned a = 0, na = rectyper->num_types(); a < na; a++) {
-      write_bin(binout, grid[roff+a]);
+      write_bin(binout, grid[roff+a].cpu());
     }
   }
   roff += rectyper->num_types();
   if(outputlig) {
     for (unsigned a = 0, na = ligtyper->num_types(); a < na; a++) {
-      write_bin(binout, grid[roff+a]);
+      write_bin(binout, grid[roff+a].cpu());
     }
   }
 }
