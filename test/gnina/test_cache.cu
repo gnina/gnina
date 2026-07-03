@@ -1,7 +1,11 @@
 #include <numeric>
 #include <cmath>
 #include <random>
-#include <cuda_runtime.h>
+#ifdef USE_METAL
+  #include "cuda_metal_compat.h"
+#else
+  #include <cuda_runtime.h>
+#endif
 #define BOOST_TEST_DYN_LINK
 #include <boost/test/unit_test.hpp>
 #include <boost/test/tools/floating_point_comparison.hpp>

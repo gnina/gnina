@@ -24,7 +24,7 @@
 #define VINA_TRIANGULAR_MATRIX_INDEX_H
 
 #include "common.h"
-#include <cuda_runtime.h>
+// cuda_runtime.h already included via common.h (with USE_METAL guard)
 
 __host__   __device__   inline sz triangular_matrix_index(sz n, sz i, sz j) {
   assert(j < n);

@@ -3,9 +3,16 @@
 #include "gpucode.h"
 #include "curl.h"
 
+#ifdef USE_METAL
+  #include "cuda_metal_compat.h"
+  #include "metal_context.h"
+  #include "device_buffer.h"
+#endif
+
 #define THREADS_PER_BLOCK 1024
 #define warpSize 32
 
+#ifndef USE_METAL  // ── CUDA global kernel ──────────────────────────────────
 __global__
 void evaluate_splines(float **splines, float r, float fraction, float cutoff,
     float *vals, float *derivs) {
@@ -30,8 +37,9 @@ void evaluate_splines(float **splines, float r, float fraction, float cutoff,
   vals[i] = ((a * lx + b) * lx + c) * lx + d;
   derivs[i] = (3 * a * lx + 2 * b) * lx + c;
 }
+#endif // !USE_METAL
 
-//evaluate a single spline
+//evaluate a single spline — used by eval_deriv_gpu in both CUDA and Metal paths
 __device__
 float evaluate_spline(float *spline, float r, float fraction, float cutoff,
     float& deriv) {
@@ -58,8 +66,14 @@ float evaluate_spline(float *spline, float r, float fraction, float cutoff,
 void evaluate_splines_host(const GPUSplineInfo& spInfo, float r,
     float *device_vals, float *device_derivs) {
   unsigned n = spInfo.n;
+#ifndef USE_METAL
   evaluate_splines<<<n, 1>>>((float**) spInfo.splines, r, spInfo.fraction,
       spInfo.cutoff, device_vals, device_derivs);
+#else
+  // evaluate_splines is only called from the precalculate_gpu path which is
+  // disabled under USE_METAL; this branch should never be reached.
+  (void)n; (void)device_vals; (void)device_derivs;
+#endif
 }
 
 __device__
@@ -335,6 +349,34 @@ __global__ void reduce_energy(force_energy_tup *result, int n, float v,
 
 /* } */
 
+#ifdef USE_METAL  // ── Metal: pipeline states ───────────────────────────────
+
+// Lazily-created PSOs (C++11 thread-safe static init).
+static MTLComputePipelineStateHandle noncache_pair_energy_pso() {
+  static MTLComputePipelineStateHandle pso =
+      MetalContext::instance().makePipeline("noncache_pair_energy");
+  return pso;
+}
+static MTLComputePipelineStateHandle noncache_postprocess_pso() {
+  static MTLComputePipelineStateHandle pso =
+      MetalContext::instance().makePipeline("noncache_postprocess");
+  return pso;
+}
+
+// Must match NoncacheArgs in gnina_kernels.metal (48 bytes, all uint/float).
+struct NoncacheArgs_MSL {
+    unsigned num_movable_atoms;
+    unsigned nrec_atoms;
+    float    cutoff_sq;
+    float    slope;
+    float    gbx, gby, gbz;
+    unsigned spline_numc;
+    float    gex, gey, gez;
+    unsigned _pad;
+};
+
+#endif // USE_METAL
+
 __host__ __device__
 float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
     force_energy_tup *out, float v) {
@@ -350,6 +392,7 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
   unsigned nfull_blocks = nrec_atoms / THREADS_PER_BLOCK;
   unsigned nthreads_remain = nrec_atoms % THREADS_PER_BLOCK;
 
+#ifndef USE_METAL
   if (nfull_blocks)
     interaction_energy<0> <<<dim3(num_movable_atoms, nfull_blocks),
     THREADS_PER_BLOCK>>>(info, 0, ligs, out);
@@ -357,9 +400,6 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
     interaction_energy<1> <<<num_movable_atoms, ROUND_TO_WARP(nthreads_remain)>>>(
         info, nrec_atoms - nthreads_remain, ligs, out);
 
-  //TODO: reduce energy only launches one block, thus enforcing the
-  //hardware restriction on the number of threads per block for the number of
-  //movable atoms. generalize this to remove this unnecessary constraint
   assert(num_movable_atoms <= 1024);
   reduce_energy<<<1, ROUND_TO_WARP(num_movable_atoms)>>>(out, num_movable_atoms,
       v, info.gridbegins, info.gridends, info.slope, ligs);
@@ -372,17 +412,83 @@ float single_point_calc(const GPUNonCacheInfo &info, atom_params *ligs,
   definitelyPinnedMemcpy(&cpu_out, &out->energy, sizeof(float), cudaMemcpyDeviceToHost);
   return cpu_out;
 #endif
+#else  // USE_METAL — Metal GPU interaction energy (noncache kernels)
+{
+  MetalContext& ctx = MetalContext::instance();
+  MTLBufferHandle tbuf = static_cast<MTLBufferHandle>(thread_buffer.metalBufferHandle());
+
+  // Zero per-atom output and the total-energy accumulator (unified memory).
+  memset(out, 0, sizeof(force_energy_tup) * num_movable_atoms);
+  *info.metal_total_scratch = 0.0f;
+
+  // Pack scalar args (must match NoncacheArgs in gnina_kernels.metal).
+  NoncacheArgs_MSL nca;
+  nca.num_movable_atoms = num_movable_atoms;
+  nca.nrec_atoms        = nrec_atoms;
+  nca.cutoff_sq         = info.cutoff_sq;
+  nca.slope             = info.slope;
+  nca.gbx               = info.gridbegins.x;
+  nca.gby               = info.gridbegins.y;
+  nca.gbz               = info.gridbegins.z;
+  nca.spline_numc       = info.metal_numc;
+  nca.gex               = info.gridends.x;
+  nca.gey               = info.gridends.y;
+  nca.gez               = info.gridends.z;
+  nca._pad              = 0u;
+
+  // Pass 1: accumulate raw (force, energy) per lig atom from all rec atoms.
+  // NC_TGROUP=256 threads per threadgroup; dispatch1D splits into tgroups of 256.
+  {
+    MetalArg args[9] = {
+      MetalArg::fromBytes(&nca, sizeof(nca)),
+      MetalArg::fromBuffer(tbuf, thread_buffer.offsetOf(ligs)),
+      MetalArg::fromBuffer(tbuf, thread_buffer.offsetOf(out)),
+      MetalArg::fromBuffer(tbuf, thread_buffer.offsetOf(info.types)),
+      MetalArg::fromBuffer(tbuf, thread_buffer.offsetOf(info.rec_atoms)),
+      MetalArg::fromBuffer(tbuf, thread_buffer.offsetOf(info.rectypes)),
+      MetalArg::fromBuffer(static_cast<MTLBufferHandle>(info.metal_info_buf)),
+      MetalArg::fromBuffer(static_cast<MTLBufferHandle>(info.metal_flat_buf)),
+      MetalArg::fromBuffer(static_cast<MTLBufferHandle>(info.metal_offset_buf)),
+    };
+    // One threadgroup (256 threads) per lig atom.
+    ctx.dispatch1D(noncache_pair_energy_pso(), args, 9,
+                   static_cast<size_t>(num_movable_atoms) * 256u);
+  }
+
+  // Pass 2: apply curl + OOB penalty, accumulate total energy atomically.
+  {
+    MetalArg args[5] = {
+      MetalArg::fromBytes(&nca, sizeof(nca)),
+      MetalArg::fromBuffer(tbuf, thread_buffer.offsetOf(ligs)),
+      MetalArg::fromBuffer(tbuf, thread_buffer.offsetOf(out)),
+      MetalArg::fromBytes(&v, sizeof(float)),
+      MetalArg::fromBuffer(static_cast<MTLBufferHandle>(info.metal_total_buf),
+                           info.metal_total_off),
+    };
+    ctx.dispatch1D(noncache_postprocess_pso(), args, 5, num_movable_atoms);
+  }
+
+  // dispatch1D commits and waits — total_scratch is ready now.
+  float total = *info.metal_total_scratch;
+  if (num_movable_atoms > 0) out[0].energy = total;
+  return total;
+}
+#endif
 }
 
+#ifndef USE_METAL  // ── CUDA-only kernels ────────────────────────────────────
 __global__
 void cache_gpu_kernel(const GPUCacheInfo info, atom_params *ligs,
     force_energy_tup *out, float v) {
   interaction_energy(info, ligs, out, v);
 }
+#endif // USE_METAL
+
 
 __host__ __device__
 float single_point_calc(const GPUCacheInfo &info, atom_params *ligs,
     force_energy_tup *out, float v) {
+#ifndef USE_METAL
 #ifdef __CUDA_ARCH__
   /* Assumed by warp_sum */
   assert(THREADS_PER_BLOCK <= 1024);
@@ -397,11 +503,28 @@ float single_point_calc(const GPUCacheInfo &info, atom_params *ligs,
   cudaDeviceSynchronize();
   return cpu_out;
 #endif
+#else  // USE_METAL — CPU serial cached grid scoring (unified memory)
+  float total = 0.0f;
+  for (unsigned idx = 0; idx < info.num_movable_atoms; idx++) {
+    const atom_params& a = ligs[idx];
+    unsigned t = info.types[idx];
+    if (t > 1) { // ignore hydrogens
+      force_energy_tup val(0, 0, 0, 0);
+      const grid_gpu& g = info.grids[t];
+      g.evaluate(a, info.slope, v, val);
+      out[idx] = val;
+      total += val.energy;
+    }
+  }
+  if (info.num_movable_atoms > 0) out[0].energy = total;
+  return total;
+#endif // USE_METAL
 }
 
 /* evaluate contribution of interacting pairs, add to forces and place total */
 /* energy in e (which must be zero initialized). */
 
+#ifndef USE_METAL
 __global__
 void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
     const interacting_pair* pairs, unsigned npairs, float cutoff_sqr, float v,
@@ -441,7 +564,9 @@ void eval_intra_kernel(const GPUSplineInfo * spinfo, const atom_params * atoms,
     }
   }
 }
+#endif // USE_METAL
 
+#ifndef USE_METAL
 void *getHostMem() {
   void *r = nullptr;
   CUDA_CHECK_GNINA(cudaHostAlloc(&r, 40960 * 1024, cudaHostAllocDefault));
@@ -468,4 +593,5 @@ cudaError definitelyPinnedMemcpy(void* dst, const void *src, size_t n,
   }
   return cudaSuccess;
 }
+#endif // USE_METAL  ── end definitelyPinnedMemcpy (memcpy inline on Metal) ──
 

@@ -25,7 +25,11 @@
 
 #include <vector>
 #include "triangular_matrix_index.h"
-#include <cuda_runtime.h>
+#ifdef USE_METAL
+  #include "cuda_metal_compat.h"
+#else
+  #include <cuda_runtime.h>
+#endif
 #include "gpu_util.h"
 #include "device_buffer.h"
 

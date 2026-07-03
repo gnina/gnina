@@ -1,3 +1,6 @@
+#ifdef USE_METAL
+  #include "cuda_metal_compat.h"
+#endif
 #include "grid_gpu.h"
 #include "gpucode.h"
 #include "curl.h"

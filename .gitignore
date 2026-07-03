@@ -3,6 +3,7 @@ Release/
 build
 build-debug
 build-static
+build_metal
 .externalToolBuilders/
 .pydevproject
 .settings/
@@ -110,3 +111,4 @@ tags
 
 # compile command databases
 compile_commands.json
+.claude/settings.local.json

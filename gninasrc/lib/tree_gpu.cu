@@ -1,3 +1,8 @@
+#ifdef USE_METAL
+  #include "cuda_metal_compat.h"
+  #include "metal_context.h"
+  #include "device_buffer.h"
+#endif
 #include "tree_gpu.h"
 #include "model.h"
 #include <algorithm>
@@ -52,32 +57,6 @@ inline __host__    __device__ gfloat4 operator*(gfloat4 a, float s) {
 inline __host__ __device__ float operator*(gfloat4 a, gfloat4 b) {
   return a.x * b.x + a.y * b.y + a.z * b.z;
 }
-
-/* inline __host__ __device__ gfloat4 operator-(gfloat4 a, gfloat4 b) */
-/* { */
-/*     return gfloat4(a.x - b.x, a.y - b.y, a.z - b.z,  a.w - b.w); */
-/* } */
-
-/* inline __host__ __device__ gfloat4 operator+(gfloat4 a, gfloat4 b) */
-/* { */
-/*     return gfloat4(a.x + b.x, a.y + b.y, a.z + b.z,  a.w + b.w); */
-/* } */
-
-/* inline __host__ __device__ gfloat4 &operator+=(gfloat4 &a, gfloat4 b) */
-/* { */
-/*     a = a + b; */
-/*     return a; */
-/* } */
-
-/* inline __host__ __device__ gfloat4 operator*(gfloat4 a, float s) */
-/* { */
-/*     return gfloat4(a.x * s, a.y * s, a.z * s,  a.w * s); */
-/* } */
-
-/* inline __host__ __device__ float operator*(gfloat4 a, gfloat4 b) */
-/* { */
-/*     return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w; */
-/* } */
 
 segment_node::segment_node(const segment& node, int p, int l)
     : relative_axis(node.relative_axis), relative_origin(node.relative_origin),
@@ -342,6 +321,196 @@ void tree_gpu::set_conf(const vec *atom_coords, vec *coords,
     const conf_gpu* c) {
   _set_conf((marked_coord *) atom_coords, (gfloat4 *) coords, c);
 }
+
+#ifdef USE_METAL
+// CPU serial set_conf for Metal / Apple Silicon.
+// device_nodes / owners / force_torques live in MTLStorageModeShared unified
+// memory and are directly accessible from the CPU.
+void tree_gpu::set_conf_cpu(const vec *atom_coords_v, vec *coords_v,
+    const conf_gpu *c) {
+  const marked_coord* atom_coords = (const marked_coord*) atom_coords_v;
+  gfloat4* coords = (gfloat4*) coords_v;
+
+  // Phase 1: initialise root-node orientations/positions from conf
+  for (unsigned tid = 0; tid < num_nodes; tid++) {
+    segment_node* n = &device_nodes[tid];
+    if (tid < nlig_roots) {
+      float* rigid_conf = &c->values[7 * tid];
+      for (unsigned i = 0; i < 3; i++)
+        n->origin[i] = rigid_conf[i];
+      n->set_orientation(rigid_conf[3], rigid_conf[4], rigid_conf[5], rigid_conf[6]);
+    } else if (tid < (nlig_roots + nres_roots)) {
+      float* root_torsion = &c->values[tid + 6 * nlig_roots];
+      n->set_orientation(angle_to_quaternion(n->axis, *root_torsion));
+    }
+  }
+
+  // Phase 2: propagate transforms layer by layer (layer 1 → num_layers-1)
+  for (unsigned layer = 1; layer < num_layers; layer++) {
+    for (unsigned tid = 0; tid < num_nodes; tid++) {
+      segment_node* n = &device_nodes[tid];
+      if ((unsigned) n->layer != layer) continue;
+      segment_node* parent = &device_nodes[n->parent];
+      float torsion = c->values[tid + 6 * nlig_roots];
+      n->origin = parent->local_to_lab(n->relative_origin);
+      n->axis   = parent->local_to_lab_direction(n->relative_axis);
+      n->set_orientation(
+          quaternion_normalize_approx(
+              angle_to_quaternion(n->axis, torsion) * parent->orientation_q));
+    }
+  }
+
+  // Phase 3: transform every atom to world coordinates
+  for (unsigned tid = 0; tid < num_atoms; tid++) {
+    marked_coord a = atom_coords[tid];
+    coords[tid] = device_nodes[a.owner_idx].local_to_lab(a.coords);
+  }
+}
+
+// CPU serial derivative for Metal / Apple Silicon.
+// Computes generalised-coordinate gradients from per-atom forces.
+void tree_gpu::derivative_cpu(const vec *coords_v, const vec *forces_v,
+    change_gpu *c) {
+  const gfloat4* coords = (const gfloat4*) coords_v;
+  const gfloat4* forces = (const gfloat4*) forces_v;
+
+  // Step 1: initialise force_torques and accumulate atom contributions
+  for (unsigned i = 0; i < num_nodes; i++)
+    force_torques[i] = gfloat4p(gfloat4(0, 0, 0, 0), gfloat4(0, 0, 0, 0));
+
+  for (unsigned tid = 0; tid < num_atoms; tid++) {
+    unsigned nid = owners[tid];
+    segment_node& owner = device_nodes[nid];
+    force_torques[nid].first  += forces[tid];
+    force_torques[nid].second +=
+        cross_product(coords[tid] - owner.origin, forces[tid]);
+  }
+
+  // Step 2: propagate bottom-up (deepest layer first)
+  for (int l = (int) num_layers - 1; l > 0; l--) {
+    for (unsigned tid = 0; tid < num_nodes; tid++) {
+      segment_node& n = device_nodes[tid];
+      if (n.layer != (unsigned) l) continue;
+      gfloat4p ft = force_torques[tid];
+      unsigned pid = n.parent;
+      gfloat4 r = n.origin - device_nodes[pid].origin;
+      force_torques[pid].first  += ft.first;
+      force_torques[pid].second +=
+          gfloat4(cross_product(r, ft.first)) + ft.second;
+    }
+  }
+
+  // Step 3: write to change vector
+  for (unsigned tid = 0; tid < num_nodes; tid++) {
+    gfloat4p ft = force_torques[tid];
+    if (tid < nlig_roots) {
+      // Ligand rigid-body root: write full 6-DOF force + torque
+      c->values[6 * tid]     = ft.first[0];
+      c->values[6 * tid + 1] = ft.first[1];
+      c->values[6 * tid + 2] = ft.first[2];
+      c->values[6 * tid + 3] = ft.second[0];
+      c->values[6 * tid + 4] = ft.second[1];
+      c->values[6 * tid + 5] = ft.second[2];
+    } else {
+      // Residue root or torsion node: project torque onto rotation axis
+      c->values[tid + 5 * nlig_roots] =
+          ft.second * device_nodes[tid].axis;
+    }
+  }
+}
+
+// Metal compute pipeline states — lazy init, process-lifetime.
+static MTLComputePipelineStateHandle tree_accum_forces_pso() {
+  static MTLComputePipelineStateHandle pso =
+      MetalContext::instance().makePipeline("tree_accum_forces");
+  return pso;
+}
+static MTLComputePipelineStateHandle tree_propagate_layer_pso() {
+  static MTLComputePipelineStateHandle pso =
+      MetalContext::instance().makePipeline("tree_propagate_layer");
+  return pso;
+}
+static MTLComputePipelineStateHandle tree_write_change_pso() {
+  static MTLComputePipelineStateHandle pso =
+      MetalContext::instance().makePipeline("tree_write_change");
+  return pso;
+}
+
+// Scalar argument struct shared by all three tree derivative kernels.
+// Must match TreeDerivArgs in gnina_kernels.metal (16 bytes).
+struct TreeDerivArgs_C {
+    unsigned num_atoms;
+    unsigned num_nodes;
+    unsigned num_layers;
+    unsigned nlig_roots;
+};
+
+// derivative_metal: runs three Metal shaders in sequence.
+//   1. tree_accum_forces   — 1 thread/atom
+//   2. tree_propagate_layer — 1 thread/node, one dispatch per layer (deepest→1)
+//   3. tree_write_change   — 1 thread/node
+void tree_gpu::derivative_metal(const vec *coords_v, const vec *forces_v,
+    change_gpu *c) {
+  // 1. Zero force_torques in unified memory.
+  memset(force_torques, 0, sizeof(gfloat4p) * num_nodes);
+
+  // 2. Build compact node array (float-only) in thread_buffer.
+  segment_node_deriv* node_derivs;
+  thread_buffer.alloc(&node_derivs, sizeof(segment_node_deriv) * num_nodes);
+  for (unsigned i = 0; i < num_nodes; i++) {
+    const segment_node& n = device_nodes[i];
+    segment_node_deriv& d = node_derivs[i];
+    d.origin[0] = n.origin[0]; d.origin[1] = n.origin[1];
+    d.origin[2] = n.origin[2]; d.origin[3] = 0.0f;
+    d.axis[0]   = n.axis[0];   d.axis[1]   = n.axis[1];
+    d.axis[2]   = n.axis[2];   d.axis[3]   = 0.0f;
+    d.parent    = n.parent;
+    d.layer     = static_cast<int>(n.layer);
+    d._pad[0]   = 0; d._pad[1] = 0;
+  }
+
+  MetalContext& ctx  = MetalContext::instance();
+  MTLBufferHandle tb = static_cast<MTLBufferHandle>(thread_buffer.metalBufferHandle());
+
+  TreeDerivArgs_C tda = { num_atoms, num_nodes, num_layers, nlig_roots };
+
+  // 3. tree_accum_forces: 1 thread per atom.
+  {
+    MetalArg args[6] = {
+      MetalArg::fromBytes(&tda, sizeof(tda)),
+      MetalArg::fromBuffer(tb, thread_buffer.offsetOf(coords_v)),
+      MetalArg::fromBuffer(tb, thread_buffer.offsetOf(forces_v)),
+      MetalArg::fromBuffer(tb, thread_buffer.offsetOf(owners)),
+      MetalArg::fromBuffer(tb, thread_buffer.offsetOf(node_derivs)),
+      MetalArg::fromBuffer(tb, thread_buffer.offsetOf(force_torques)),
+    };
+    ctx.dispatch1D(tree_accum_forces_pso(), args, 6, num_atoms);
+  }
+
+  // 4. tree_propagate_layer: one dispatch per layer, deepest first.
+  for (int layer = static_cast<int>(num_layers) - 1; layer > 0; --layer) {
+    unsigned target_layer = static_cast<unsigned>(layer);
+    MetalArg args[4] = {
+      MetalArg::fromBytes(&tda, sizeof(tda)),
+      MetalArg::fromBuffer(tb, thread_buffer.offsetOf(node_derivs)),
+      MetalArg::fromBuffer(tb, thread_buffer.offsetOf(force_torques)),
+      MetalArg::fromBytes(&target_layer, sizeof(unsigned)),
+    };
+    ctx.dispatch1D(tree_propagate_layer_pso(), args, 4, num_nodes);
+  }
+
+  // 5. tree_write_change: 1 thread per node.
+  {
+    MetalArg args[4] = {
+      MetalArg::fromBytes(&tda, sizeof(tda)),
+      MetalArg::fromBuffer(tb, thread_buffer.offsetOf(node_derivs)),
+      MetalArg::fromBuffer(tb, thread_buffer.offsetOf(force_torques)),
+      MetalArg::fromBuffer(tb, thread_buffer.offsetOf(c->values)),
+    };
+    ctx.dispatch1D(tree_write_change_pso(), args, 4, num_nodes);
+  }
+}
+#endif // USE_METAL
 
 __device__
 void tree_gpu::_set_conf(const marked_coord *atom_coords, gfloat4 *coords,

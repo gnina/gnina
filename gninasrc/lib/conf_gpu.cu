@@ -8,17 +8,33 @@
 #include "model.h"
 #include "gpu_debug.h"
 
+#ifdef USE_METAL
+  #include "cuda_metal_compat.h"
+  #include "metal_context.h"
+  #include "device_buffer.h"
+  #include <algorithm>
+  using std::min;
+#endif
+
 #define CUDA_KERNEL_LOOP(i, n) \
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
        i < (n); \
        i += blockDim.x * gridDim.x)
 
+#ifndef USE_METAL  // ── CUDA kernel ──────────────────────────────────────────
 __global__ void scalar_mult_kernel(float mult, const int n, float *vals) {
   CUDA_KERNEL_LOOP(index, n)
   {
     vals[index] *= mult;
   }
 }
+#else  // USE_METAL: pipeline state created on first use (C++11 thread-safe)
+static MTLComputePipelineStateHandle scalar_mult_pso() {
+  static MTLComputePipelineStateHandle pso =
+      MetalContext::instance().makePipeline("scalar_mult");
+  return pso;
+}
+#endif // USE_METAL
 
 size_t change_gpu::idx_cpu2gpu(size_t cpu_node_idx, size_t offset_in_node,
     const gpu_data& d) {
@@ -89,7 +105,23 @@ __device__ void change_gpu::clear() {
 
 //dkoes - multiply by -1
 void change_gpu::invert() {
+#ifndef USE_METAL
   scalar_mult_kernel<<<1, min(GNINA_CUDA_NUM_THREADS, n)>>>(-1.0, n, values);
+#else
+  // Metal: dispatch the scalar_mult kernel from gnina_kernels.metal.
+  // values lives in the thread-local arena (thread_buffer), so we derive
+  // the MTLBuffer handle and byte offset from it.
+  float         mult  = -1.0f;
+  uint32_t      count = static_cast<uint32_t>(n);
+  MetalArg args[3] = {
+    MetalArg::fromBuffer(
+        static_cast<MTLBufferHandle>(thread_buffer.metalBufferHandle()),
+        thread_buffer.offsetOf(values)),
+    MetalArg::fromBytes(&mult,  sizeof(float)),
+    MetalArg::fromBytes(&count, sizeof(uint32_t)),
+  };
+  MetalContext::instance().dispatch1D(scalar_mult_pso(), args, 3, n);
+#endif
 }
 
 //return dot product

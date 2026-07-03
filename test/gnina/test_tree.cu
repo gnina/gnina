@@ -1,3 +1,6 @@
+#ifdef USE_METAL
+  #include "cuda_metal_compat.h"
+#endif
 #include <random>
 #include "model.h"
 #include "test_tree.h"
@@ -64,6 +67,7 @@ void make_tree(model* m) {
   m->initialize_gpu();
 }
 
+#ifndef USE_METAL  // ── CUDA kernels and GPU tree tests ──────────────────────
 __global__
 void increment_kernel(conf_gpu c, const change_gpu g, fl factor,
     gpu_data* gdata) {
@@ -193,3 +197,11 @@ void test_derivative() {
 
   delete m;
 }
+#else  // USE_METAL — tree GPU tests require Phase 5 Metal shaders
+void test_set_conf() {
+  p_args.log << "test_set_conf: skipped (Metal backend — GPU tree kernels in Phase 5)\n";
+}
+void test_derivative() {
+  p_args.log << "test_derivative: skipped (Metal backend — GPU tree kernels in Phase 5)\n";
+}
+#endif // USE_METAL

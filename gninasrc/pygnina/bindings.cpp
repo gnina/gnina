@@ -96,10 +96,17 @@ class GNINA {
   void init() {
     cnn_options cnnopts; // defaults for now
 
+#ifdef USE_METAL
+    if (torch::mps::is_available())
+      cnn = std::make_shared<CNNTorchScorer<true>>(cnnopts);
+    else
+      cnn = std::make_shared<CNNTorchScorer<false>>(cnnopts);
+#else
     if (torch::cuda::is_available())
       cnn = std::make_shared<CNNTorchScorer<true>>(cnnopts);
     else
       cnn = std::make_shared<CNNTorchScorer<false>>(cnnopts);
+#endif
 
     minparms.maxiters = 10000;
     minparms.type = minimization_params::BFGSAccurateLineSearch;
