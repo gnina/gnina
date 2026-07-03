@@ -450,6 +450,8 @@ if(RDKIT_FOUND)
   include_directories(${RDKIT_INCLUDE_DIR})
   add_executable(gninavis gninavis/gninavis.cpp lib/CommandLine2/CommandLine.cpp
     gninavis/cnn_visualization.cpp gninavis/cnn_visualization.hpp)
+  # Homebrew's RDKit headers use constexpr virtual functions, which requires C++20.
+  set_target_properties(gninavis PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
   target_link_libraries(gninavis gninalib ${LIBMOLGRID_LIBRARY}
     ${Boost_LIBRARIES} ${OpenBabel3_LIBRARIES} ${RDKIT_LIBRARIES})
   install(TARGETS gninavis RUNTIME DESTINATION bin)
