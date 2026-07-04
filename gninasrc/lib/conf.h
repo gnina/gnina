@@ -523,7 +523,8 @@ struct output_type {
     fl intramol = 0;
     fl cnnscore = -1;
     fl cnnaffinity = -1;
-    fl cnnvariance = 0;
+    fl cnnvariance = 0;         // CNN affinity (regression) variance across ensemble × rotations
+    fl cnnscore_variance = 0;   // CNN pose-score (classification) variance across ensemble × rotations
     vecv coords;
     output_type(const conf& c_, fl e_)
         : c(c_), e(e_) {

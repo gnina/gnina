@@ -192,11 +192,12 @@ output_container remove_redundant(const output_container &in, fl min_rmsd) {
 }
 
 // print info to log about cnn scoring
-static void get_cnn_info(model &m, DLScorer &cnn, tee_stream &log, float &cnnscore, float &cnnaffinity, float &cnnvariance) {
+static void get_cnn_info(model &m, DLScorer &cnn, tee_stream &log, float &cnnscore, float &cnnaffinity,
+                         float &cnnvariance, float &cnnscore_variance) {
   float loss = 0;
   cnnscore = 0;
   cnnaffinity = 0;
-  cnnscore = cnn.score(m, false, cnnaffinity, loss, cnnvariance);
+  cnnscore = cnn.score(m, false, cnnaffinity, loss, cnnvariance, cnnscore_variance);
 
   if (cnn.options().verbose) {
     log << "CNNscore: " << std::fixed << std::setprecision(10) << cnnscore;
@@ -221,7 +222,7 @@ void do_search(model &m, const boost::optional<model> &ref, const weighted_terms
     conf c = m.get_initial_conf(nc.move_receptor());
     fl e = max_fl;
     fl intramolecular_energy = max_fl;
-    fl cnnscore = 0, cnnaffinity = 0, cnnvariance = 0;
+    fl cnnscore = 0, cnnaffinity = 0, cnnvariance = 0, cnnscore_variance = 0;
     fl rmsd = 0;
     if (settings.gpu_docking)
       m.initialize_gpu();
@@ -234,7 +235,7 @@ void do_search(model &m, const boost::optional<model> &ref, const weighted_terms
       intramolecular_energy = m.eval_intramolecular(exact_prec, authentic_v, c);
       naive_non_cache nnc(&exact_prec); // for out of grid issues
       e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, c, intramolecular_energy, user_grid);
-      get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
+      get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance, cnnscore_variance);
 
       log << "Affinity: " << std::fixed << std::setprecision(5) << e << " (kcal/mol)\n";
 
@@ -242,6 +243,9 @@ void do_search(model &m, const boost::optional<model> &ref, const weighted_terms
           << "\nCNNaffinity: " << cnnaffinity;
       if (cnnvariance > 0) {
         log << "\nCNNvariance: " << std::fixed << std::setprecision(5) << cnnvariance;
+      }
+      if (cnnscore_variance > 0) {
+        log << "\nCNNscore_variance: " << std::fixed << std::setprecision(5) << cnnscore_variance;
       }
       log.endl();
 
@@ -263,7 +267,7 @@ void do_search(model &m, const boost::optional<model> &ref, const weighted_terms
       }
       log << '\n';
 
-      results.push_back(result_info(e, cnnscore, cnnaffinity, cnnvariance, -1, m));
+      results.push_back(result_info(e, cnnscore, cnnaffinity, cnnvariance, cnnscore_variance, -1, m));
 
       if (compute_atominfo)
         results.back().setAtomValues(m, &sf);
@@ -283,7 +287,7 @@ void do_search(model &m, const boost::optional<model> &ref, const weighted_terms
       e = m.eval_adjusted(sf, exact_prec, nnc, authentic_v, out.c, intramolecular_energy, user_grid);
 
       // reset the center after last call to set
-      get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
+      get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance, cnnscore_variance);
 
       vecv newcoords = m.get_heavy_atom_movable_coords();
       assert(newcoords.size() == origcoords.size());
@@ -299,13 +303,16 @@ void do_search(model &m, const boost::optional<model> &ref, const weighted_terms
       if (cnnvariance > 0) {
         log << "\nCNNvariance: " << std::fixed << std::setprecision(5) << cnnvariance;
       }
+      if (cnnscore_variance > 0) {
+        log << "\nCNNscore_variance: " << std::fixed << std::setprecision(5) << cnnscore_variance;
+      }
       log.endl();
 
       if (!nc.within(m))
         log << "WARNING: not all movable atoms are within the search space\n";
 
       done(settings.verbosity, log);
-      results.push_back(result_info(e, cnnscore, cnnaffinity, cnnvariance, rmsd, m));
+      results.push_back(result_info(e, cnnscore, cnnaffinity, cnnvariance, cnnscore_variance, rmsd, m));
 
       if (compute_atominfo)
         results.back().setAtomValues(m, &sf);
@@ -330,11 +337,12 @@ void do_search(model &m, const boost::optional<model> &ref, const weighted_terms
           refine_structure(m, prec, nc, out_cont[i], authentic_v, par.mc.ssd_par.minparm, user_grid, settings.verbosity,
                            log, nc_new);
 
-        get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance);
+        get_cnn_info(m, cnn, log, cnnscore, cnnaffinity, cnnvariance, cnnscore_variance);
 
         out_cont[i].cnnscore = cnnscore;
         out_cont[i].cnnaffinity = cnnaffinity;
         out_cont[i].cnnvariance = cnnvariance;
+        out_cont[i].cnnscore_variance = cnnscore_variance;
 
         if (not_max(out_cont[i].e)) {
           intramolecular_energy = m.eval_intramolecular(exact_prec, authentic_v, out_cont[i].c);
@@ -389,7 +397,8 @@ void do_search(model &m, const boost::optional<model> &ref, const weighted_terms
 
         // dkoes - setup result_info
         results.push_back(
-            result_info(out_cont[i].e, out_cont[i].cnnscore, out_cont[i].cnnaffinity, out_cont[i].cnnvariance, -1, m));
+            result_info(out_cont[i].e, out_cont[i].cnnscore, out_cont[i].cnnaffinity, out_cont[i].cnnvariance,
+                        out_cont[i].cnnscore_variance, -1, m));
 
         if (compute_atominfo)
           results.back().setAtomValues(m, &sf);
@@ -467,7 +476,7 @@ void main_procedure(model &m, precalculate &prec,
   if (settings.randomize_only) {
     for (unsigned i = 0; i < settings.num_modes; i++) {
       fl e = do_randomization(m, corner1, corner2, settings.seed + i, settings.verbosity, log);
-      results.push_back(result_info(e, -1, 0, 0, -1, m));
+      results.push_back(result_info(e, -1, 0, 0, 0, -1, m));
     }
     return;
   } else {

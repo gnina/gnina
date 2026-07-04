@@ -52,7 +52,11 @@ public:
   virtual const cnn_options &options() const { return cnnopts; }
 
   virtual float score(model &m, float &variance) = 0; // score only - no gradient
-  virtual float score(model &m, bool compute_gradient, float &affinity, float &loss, float &variance) = 0;
+  // Full scorer. `variance` is the affinity (regression output) variance across
+  // ensemble members × rotations; `score_variance` is the CNN pose-score
+  // (classification output) variance — a per-pose confidence signal.
+  virtual float score(model &m, bool compute_gradient, float &affinity, float &loss, float &variance,
+                      float &score_variance) = 0;
 
   // readjust center
   virtual void set_center_from_model(model &m);

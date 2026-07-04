@@ -44,7 +44,10 @@ public:
   bool has_affinity() const; // return true if can predict affinity
 
   float score(model &m, float &variance); // score only - no gradient
-  float score(model &m, bool compute_gradient, float &affinity, float &loss, float &variance);
+  // Full scorer. `variance` is the affinity (regression output) variance across
+  // ensemble members × rotations; `score_variance` is the CNN pose-score
+  // (classification output) variance — a per-pose confidence signal.
+  float score(model &m, bool compute_gradient, float &affinity, float &loss, float &variance, float &score_variance);
 
   fl get_grid_dim() const;
   fl get_grid_res() const;

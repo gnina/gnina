@@ -19,7 +19,8 @@ class result_info {
     fl energy = 0;
     fl cnnscore = -1;
     fl cnnaffinity = 0;
-    fl cnnvariance = 0;
+    fl cnnvariance = 0;         // affinity (regression) variance across ensemble × rotations
+    fl cnnscore_variance = 0;   // pose-score (classification) variance across ensemble × rotations
     fl rmsd = -1;
     std::string molstr;
     std::string flexstr;
@@ -30,8 +31,8 @@ class result_info {
 
   public:
     result_info() { }
-    result_info(fl e, fl c, fl ca, fl cv, fl r, const model& m)
-        : energy(e), cnnscore(c), cnnaffinity(ca), cnnvariance(cv), rmsd(r), sdfvalid(false) {
+    result_info(fl e, fl c, fl ca, fl cv, fl csv, fl r, const model& m)
+        : energy(e), cnnscore(c), cnnaffinity(ca), cnnvariance(cv), cnnscore_variance(csv), rmsd(r), sdfvalid(false) {
       setMolecule(m);
     }
 

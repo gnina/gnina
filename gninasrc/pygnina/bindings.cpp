@@ -188,9 +188,10 @@ public:
     float e = m.eval_adjusted(*wt, *exact_prec, *nnc, authentic_v, c, intramolecular_energy, user_grid);
 
     cnn->set_center_from_model(m);
-    cnnscore = cnn->score(m, false, cnnaffinity, loss, cnnvariance);
+    float cnnscore_variance = 0;
+    cnnscore = cnn->score(m, false, cnnaffinity, loss, cnnvariance, cnnscore_variance);
 
-    return result_info(e, cnnscore, cnnaffinity, cnnvariance, -1, m);
+    return result_info(e, cnnscore, cnnaffinity, cnnvariance, cnnscore_variance, -1, m);
   }
 
   result_info minimize(const std::string &ligand, const std::string &format, float scale = 0) {

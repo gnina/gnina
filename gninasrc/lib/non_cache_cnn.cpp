@@ -47,7 +47,8 @@ fl non_cache_cnn::eval(model& m, fl v) const {
   fl aff = 0;
   fl loss = 0;
   fl variance = 0;
-  dl_scorer.score(m, false, aff, loss, variance);
+  fl score_variance = 0;
+  dl_scorer.score(m, false, aff, loss, variance, score_variance);
   e += loss;
 
   return e;
@@ -82,9 +83,10 @@ fl non_cache_cnn::eval_deriv(model& m, fl v, const grid& user_grid) const {
   fl aff = 0;
   fl loss = 0;
   fl variance = 0;
+  fl score_variance = 0;
   const fl cutoff_sqr = p->cutoff_sqr();
   //this is what compute cnn minus_forces
-  dl_scorer.score(m, true, aff, loss, variance);
+  dl_scorer.score(m, true, aff, loss, variance, score_variance);
   e += loss;
 
   //out of bonds forces

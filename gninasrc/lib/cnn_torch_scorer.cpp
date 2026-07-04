@@ -102,7 +102,8 @@ template <bool isCUDA> bool CNNTorchScorer<isCUDA>::has_affinity() const {
 // if maintain center, it will not reposition the molecule
 // ALERT: clears minus forces
 template <bool isCUDA>
-float CNNTorchScorer<isCUDA>::score(model &m, bool compute_gradient, float &affinity, float &loss, float &variance) {
+float CNNTorchScorer<isCUDA>::score(model &m, bool compute_gradient, float &affinity, float &loss, float &variance,
+                                    float &score_variance) {
   boost::lock_guard<boost::recursive_mutex> guard(*mtx);
   if (!initialized())
     return -1.0;
@@ -122,8 +123,11 @@ float CNNTorchScorer<isCUDA>::score(model &m, bool compute_gradient, float &affi
   // TODO: need number of models
   unsigned nscores = models.size() * max(cnnopts.cnn_rotations, 1U);
   vector<float> affinities;
-  if (nscores > 1)
+  vector<float> scores;
+  if (nscores > 1) {
     affinities.reserve(nscores);
+    scores.reserve(nscores);
+  }
 
   gradient.resize(receptor_coords.size() + ligand_coords.size());
   // loop over models
@@ -148,8 +152,10 @@ float CNNTorchScorer<isCUDA>::score(model &m, bool compute_gradient, float &affi
         l = output[2];
 
       score += s;
-      if (nscores > 1)
+      if (nscores > 1) {
         affinities.push_back(a);
+        scores.push_back(s);
+      }
       affinity += a;
       loss += l;
 
@@ -181,6 +187,7 @@ float CNNTorchScorer<isCUDA>::score(model &m, bool compute_gradient, float &affi
   loss /= cnt;
   score /= cnt; // mean
   variance = 0;
+  score_variance = 0;
   if (affinities.size() > 1) {
     float sum = 0;
     for (float s : affinities) {
@@ -189,6 +196,18 @@ float CNNTorchScorer<isCUDA>::score(model &m, bool compute_gradient, float &affi
       sum += diff;
     }
     variance = sum / affinities.size();
+  }
+  // Score variance = spread across ensemble members × rotations. High variance
+  // indicates the CNN ensemble is uncertain about this pose's classification.
+  // Downstream ranking can use this as a confidence signal (see edunov/gnina PR).
+  if (scores.size() > 1) {
+    float sum = 0;
+    for (float s : scores) {
+      float diff = score - s;
+      diff *= diff;
+      sum += diff;
+    }
+    score_variance = sum / scores.size();
   }
 
   if (cnnopts.verbose)
@@ -201,7 +220,8 @@ float CNNTorchScorer<isCUDA>::score(model &m, bool compute_gradient, float &affi
 template <bool isCUDA> float CNNTorchScorer<isCUDA>::score(model &m, float &variance) {
   float aff = 0;
   float loss = 0;
-  return score(m, false, aff, loss, variance);
+  float score_var_unused = 0;
+  return score(m, false, aff, loss, variance, score_var_unused);
 }
 
 template <bool isCUDA>
