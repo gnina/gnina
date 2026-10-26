@@ -64,6 +64,21 @@ from Bio import SeqIO
 import resource
 
 
+def parquet_is_nonempty(path):
+    """Return True when a parquet path is present and contains at least one row."""
+    if not path or not os.path.exists(path):
+        return False
+    if os.path.isdir(path):
+        parquet_files = sorted(glob.glob(os.path.join(path, "*.parquet")))
+        return any(parquet_is_nonempty(p) for p in parquet_files)
+    try:
+        if not path.lower().endswith(".parquet"):
+            return os.path.getsize(path) > 0
+        pf = pq.ParquetFile(path)
+        return pf.metadata is not None and pf.metadata.num_rows > 0
+    except Exception:
+        return False
+
 
 def makesdf(smi, name, molweight_cutoff=1200):
     """Generate low energy 3D conformation and return as sdf string.
@@ -140,7 +155,8 @@ def dock_partition(
         )
         logger.addHandler(handler)
 
-    logger.info(f"docking partition {partition_info['number']}")
+    partition_num = partition_info['number'] if partition_info else 'unknown'
+    logger.info(f"docking partition {partition_num}")
     try:
         # Normalize args to a list of strings
         if isinstance(args, str):
@@ -159,6 +175,18 @@ def dock_partition(
                 logger.warning(f"ERROR with {smi} {name}")
 
         in_fd = out_fd = None
+
+        if not sdfs:
+            return pd.DataFrame(
+                columns=[
+                    "mol",
+                    "smiles",
+                    "minimizedAffinity",
+                    "CNNscore",
+                    "CNNaffinity",
+                    "CNN_VS",
+                ]
+            )
 
         # Create input SDF temp file
         in_fd, in_path = tempfile.mkstemp(suffix=".sdf", prefix="gnina_in_")
@@ -208,10 +236,35 @@ def dock_partition(
 
         except subprocess.CalledProcessError as e:
             logger.error(f"Error running gnina: {' '.join(cmd)}")
-            logger.error(proc.stdout)
-            logger.error(proc.stderr)
+            if getattr(e, "stdout", None):
+                logger.error(e.stdout)
+            if getattr(e, "stderr", None):
+                logger.error(e.stderr)
+            return pd.DataFrame(
+                columns=[
+                    "mol",
+                    "smiles",
+                    "minimizedAffinity",
+                    "CNNscore",
+                    "CNNaffinity",
+                    "CNN_VS",
+                ]
+            )
 
         # Read result
+        if not os.path.exists(out_path):
+            logger.warning(f"No gnina output created for partition {partition_num}: {' '.join(cmd)}")
+            return pd.DataFrame(
+                columns=[
+                    "mol",
+                    "smiles",
+                    "minimizedAffinity",
+                    "CNNscore",
+                    "CNNaffinity",
+                    "CNN_VS",
+                ]
+            )
+
         with open(out_path, "r", encoding="utf-8", errors="replace") as f:
             result = f.read()
 
@@ -281,7 +334,15 @@ def dock_partition(
                 pass
 
 
-def dock_batch(outdir, batch, gcmd, cluster):
+def dock_batch(
+    outdir,
+    batch,
+    gcmd,
+    cluster,
+    gnina_executable="gnina",
+    gnina_timeout=900,
+    molweight_cutoff=1200,
+):
     """Dock a batch of molecules using gnina.
     
     Overwrites existing results if already present. Requires molecules to have been 
@@ -309,7 +370,14 @@ def dock_batch(outdir, batch, gcmd, cluster):
             ("CNNaffinity", "f4"),
             ("CNN_VS", "f4"),
         ]
-        docked = combined.map_partitions(dock_partition, gcmd, meta=meta)
+        docked = combined.map_partitions(
+            dock_partition,
+            gcmd,
+            gnina_executable=gnina_executable,
+            gnina_timeout=gnina_timeout,
+            molweight_cutoff=molweight_cutoff,
+            meta=meta,
+        )
         docked.to_parquet(f"{outdir}/batch{batch}/docked.parquet", overwrite=True)
 
 
@@ -367,8 +435,12 @@ def initial_select(
 
         #calculate size for random sampling
         dataset = ds.dataset(infile)
-        npart = len(list(dataset.get_fragments()))
-        total_rows = sum(f.metadata.num_rows for f in dataset.get_fragments())
+        fragments = list(dataset.get_fragments())
+        npart = len(fragments)
+        total_rows = sum(f.metadata.num_rows for f in fragments)
+        if total_rows <= 0:
+            print(f"Input parquet is empty: {infile}; skipping initial selection.")
+            return
         fraction = N/total_rows
 
         def iter_parquet_batches(fname, batch_size):
@@ -430,14 +502,22 @@ def initial_select(
 
         if model is None:  # no sprinting, just random sample
             df = dd.read_parquet(infile, columns=["name", "smiles"], memory_map=True, pre_buffer=False)
-            combined = df[["name", "smiles"]].sample(N / len(df)).assign(score=0).compute()
+            df = df.compute()
+            if df.empty:
+                print(f"Input parquet is empty: {infile}; skipping initial selection.")
+                return
+            combined = df[["name", "smiles"]].sample(N / len(df)).assign(score=0)
+            combined = combined.compute()
         else:
             # get top sprint scoring and random sample and checkpoint to disk
             files = glob.glob(f"{infile}/*.parquet")
+            if not files:
+                print(f"No parquet files found in {infile}; skipping initial selection.")
+                return
+
             b = db.from_sequence(files, npartitions=len(files))
             topdf, rand = b.map(make_df).fold(reduce_df).compute()
             combined = pd.concat([topdf, rand])
-
         combined = combined.drop_duplicates("smiles")
 
         npart = min(2 * N // 10, npart)
@@ -580,7 +660,8 @@ def select_next_batch(
     N=100_000,
     recompute_model=False,
     iolimit=50,
-    local_workers=16
+    local_workers=16,
+    local_memory="40GB",
 ):
     fpgen = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048)
     sz = fpgen.GetOptions().fpSize
@@ -596,7 +677,7 @@ def select_next_batch(
     else:
         # do model training locally
         npart = multiprocessing.cpu_count()  # TODO, better way to set this
-        with LocalCluster(threads_per_worker=1,n_workers=local_workers, memory_limit="40GB") as lcluster, Client(lcluster) as client:
+        with LocalCluster(threads_per_worker=1, n_workers=local_workers, memory_limit=local_memory) as lcluster, Client(lcluster) as client:
             dfs = []
             for i in range(0, curbatch + 1):
                 df = dd.read_parquet(
@@ -639,6 +720,9 @@ def select_next_batch(
             return pd.concat([df1, df2], ignore_index=True).nlargest(N, "score")
 
         files = glob.glob(f"{infile}/*.parquet")
+        if not files:
+            print(f"No parquet files found in {infile}; skipping selection.")
+            return
 
         b = db.from_sequence(files, npartitions=len(files))
         topdf = b.map(make_df).fold(reduce_df).compute()  # parallel reduce
@@ -981,7 +1065,7 @@ def process_db(inputfile, dbname, prefix, cluster, blocksize="100KB", repartitio
             compression="zstd",
         )
 
-def cluster_from_yaml(yaml_path):
+def cluster_from_yaml(yaml_path, local_memory="40GB"):
     """Initialize a Dask cluster from a YAML configuration file.
     
     Args:
@@ -998,6 +1082,10 @@ def cluster_from_yaml(yaml_path):
         "moab": MoabCluster,
     }        
 
+    if not yaml_path:
+        print('Creating LocalCluster')
+        return LocalCluster(memory_limit=local_memory)
+
     with open(yaml_path, "r") as f:
         config = yaml.safe_load(f)
 
@@ -1005,7 +1093,7 @@ def cluster_from_yaml(yaml_path):
     jc = config.get("jobqueue")
     if not jc:
         print('Creating LocalCluster')
-        return LocalCluster(memory_limit="auto")
+        return LocalCluster(memory_limit=local_memory)
     else:
         for n in jc.keys():
             if n in clusters:
@@ -1030,7 +1118,7 @@ def dask_blocksize_for_file(fname, min_block_kb=100, max_blocks=100_000):
 
     return blocksize
 
-def get_topn(infile, outdir, topn, target_metric="CNN_VS"):
+def get_topn(infile, outdir, topn, target_metric="CNN_VS", local_memory="40GB"):
     """Extract top N molecules from all docked batches.
     
     Args:
@@ -1038,7 +1126,7 @@ def get_topn(infile, outdir, topn, target_metric="CNN_VS"):
         outdir: Output directory prefix (results saved to outdir/topn.parquet)
         topn: Number of top molecules to extract by target_metric"""
     
-    with LocalCluster(threads_per_worker=1) as lcluster, Client(lcluster) as client:
+    with LocalCluster(threads_per_worker=1, memory_limit=local_memory) as lcluster, Client(lcluster) as client:
      
         batch_dirs = get_batch_dirs(outdir)
         dfs = []
@@ -1095,8 +1183,8 @@ if __name__ == "__main__":
     parser.add_argument("-N","--batch_size",type=int, default=100_000, help="Number of molecules to select for each batch")
     parser.add_argument("--target_metric", default="CNN_VS", help="Target metric for scoring")
     parser.add_argument("--molweight_cutoff", type=int, default=1200, help="Maximum molecular weight")
-    parser.add_argument("--receptor", "-r", help="Receptor file path. Must be accessible by all workers.",required=True)
-    parser.add_argument("--autobox_ligand", help="Ligand for autobox generation. Must be accessible by all workers.",required=True)
+    parser.add_argument("--receptor", "-r", help="Receptor file path. Must be accessible by all workers.")
+    parser.add_argument("--autobox_ligand", help="Ligand for autobox generation. Must be accessible by all workers.")
     parser.add_argument("--gnina_executable", default="gnina", help="Path to gnina executable. Must be accessible by all workers.")
     parser.add_argument("--gnina_timeout", type=int, default=900, help="Timeout per molecule in seconds")
     parser.add_argument("--topn", type=int, default=1000, help="Number of top molecules to extract for 'topn' command")
@@ -1112,7 +1200,7 @@ if __name__ == "__main__":
         "distributed.comm.timeouts.tcp": "120s",
         "distributed.scheduler.worker-ttl": "120s",
     })
-    cluster = cluster_from_yaml(args.cluster) 
+    cluster = cluster_from_yaml(args.cluster, local_memory=args.local_memory)
     cluster.adapt(minimum=0, maximum=args.max_workers)
     print('Cluster Dashboard:', cluster.dashboard_link,flush=True)
     name = os.path.basename(args.dir.rstrip("/"))
@@ -1122,8 +1210,9 @@ if __name__ == "__main__":
     resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
 
     if args.command == "prepare" or args.command == "all":
-        if os.path.exists(f"{args.dir}/{name}.parquet"):
-            print(f"Found existing parquet file: {args.dir}/{name}.parquet; skipping processing.")
+        prepared_path = f"{args.dir}/{name}.parquet"
+        if parquet_is_nonempty(prepared_path):
+            print(f"Found existing parquet file: {prepared_path}; skipping processing.")
         else:
             if args.input is None:
                 parser.error("The --input argument is required for 'prepare' and 'all' commands.")
@@ -1142,8 +1231,11 @@ if __name__ == "__main__":
     if args.input is None:
         args.input = f"{args.dir}/{name}.parquet"
 
-    if not os.path.exists(args.input):
-        parser.error(f"Input file does not exist: {args.input}")
+    if not parquet_is_nonempty(args.input):
+        if args.command in {"initial_batch", "select_batch", "next_batch", "dock_batch", "topn", "all"}:
+            parser.error(f"Input parquet file is empty or missing: {args.input}")
+        else:
+            print(f"Input parquet file is empty or missing: {args.input}; continuing without it.")
 
     if args.command == "initial_batch" or args.command == "all":
         if args.command == "all" and os.path.exists(f"{args.dir}/batch0/selected.parquet"):
@@ -1194,23 +1286,29 @@ if __name__ == "__main__":
             score=args.target_metric,
             N=args.batch_size,
             iolimit=args.iolimit,
-            local_workers=args.local_workers
+            local_workers=args.local_workers,
+            local_memory=args.local_memory,
         )
 
     if args.command == "dock_batch" or args.command == 'next_batch' or args.command == 'all':
         if args.batch < 0:
             args.batch = next_batch(args.dir)
         if os.path.exists(f"{args.dir}/batch{args.batch}/selected.parquet"):
+            if not args.receptor or not args.autobox_ligand:
+                parser.error("--receptor and --autobox_ligand are required for docking commands.")
             dock_batch(
-            outdir=args.dir,
-            batch=args.batch,
-            gcmd=[
-                "-r",
-                args.receptor,
-                "--autobox_ligand",
-                args.autobox_ligand,
-            ],
-            cluster=cluster,
+                outdir=args.dir,
+                batch=args.batch,
+                gcmd=[
+                    "-r",
+                    args.receptor,
+                    "--autobox_ligand",
+                    args.autobox_ligand,
+                ],
+                cluster=cluster,
+                gnina_executable=args.gnina_executable,
+                gnina_timeout=args.gnina_timeout,
+                molweight_cutoff=args.molweight_cutoff,
             )
         else:
             print(f"{args.dir}/batch{args.batch}/selected.parquet does not exist, not docking.")
@@ -1230,23 +1328,29 @@ if __name__ == "__main__":
                     score=args.target_metric,
                     N=args.batch_size,
                     iolimit=args.iolimit,
-                    local_workers=args.local_workers
+                    local_workers=args.local_workers,
+                    local_memory=args.local_memory,
                 )
 
             if os.path.exists(f"{args.dir}/batch{b}/docked.parquet"):
                 print(f"Found existing batch {b} docked.parquet; skipping docking.")
             else:
                 print(f"Docking batch {b}...")
+                if not args.receptor or not args.autobox_ligand:
+                    parser.error("--receptor and --autobox_ligand are required for docking commands.")
                 dock_batch(
                     outdir=args.dir,
                     batch=b,
                     gcmd=[
-                    "-r",
-                    args.receptor,
-                    "--autobox_ligand",
-                    args.autobox_ligand,
-                ],
-                cluster=cluster,
+                        "-r",
+                        args.receptor,
+                        "--autobox_ligand",
+                        args.autobox_ligand,
+                    ],
+                    cluster=cluster,
+                    gnina_executable=args.gnina_executable,
+                    gnina_timeout=args.gnina_timeout,
+                    molweight_cutoff=args.molweight_cutoff,
                 )
 
     if args.command == "analyze" or args.command == "all":
@@ -1270,4 +1374,5 @@ if __name__ == "__main__":
             outdir=args.dir,
             topn=args.topn,
             target_metric=args.target_metric,
+            local_memory=args.local_memory,
         )
