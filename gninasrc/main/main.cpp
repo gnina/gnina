@@ -26,7 +26,6 @@
 #include <openbabel/obconversion.h>
 #include <openbabel/parsmart.h>
 #include <string>
-#include <torch/torch.h>
 #include <vector> // ligand paths
 
 #include "array3d.h"
@@ -63,7 +62,9 @@
 #include "version.h"
 #include "weighted_terms.h"
 
+#ifndef USE_METAL
 #include <cuda_profiler_api.h>
+#endif
 
 using namespace boost::iostreams;
 using boost::filesystem::path;
@@ -1172,6 +1173,15 @@ Thank you!\n";
     
    // check for GPU
     bool torchgpu = false;
+#ifdef USE_METAL
+    if (torch::mps::is_available() && !settings.no_gpu) {
+      torchgpu = true;
+    } else if (!settings.no_gpu) {
+      log << "WARNING: No Metal GPU detected. CNN scoring will run on CPU.\n"
+             "Recommend running with single model (--cnn fast)\n"
+             "or without cnn scoring (--cnn_scoring=none).\n\n";
+    }
+#else
     if (torch::cuda::is_available() && !settings.no_gpu) {
       torchgpu = true;
       if (settings.device > 0) {
@@ -1181,8 +1191,9 @@ Thank you!\n";
     } else if (!settings.no_gpu) {
       log << "WARNING: No GPU detected. CNN scoring will be slow.\n"
              "Recommend running with single model (--cnn fast)\n"
-             "or without cnn scoring (--cnn_scoring=none).\n\n";    
+             "or without cnn scoring (--cnn_scoring=none).\n\n";
     }
+#endif
 
     if (accurate_line) {
       minparms.type = minimization_params::BFGSAccurateLineSearch;

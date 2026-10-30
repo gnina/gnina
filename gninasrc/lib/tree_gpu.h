@@ -125,6 +125,20 @@ struct __align__(sizeof(uint2)) atom_node_indices {
     ;
 };
 
+#ifdef USE_METAL
+// Compact, Metal-shader-compatible node data for the derivative pass.
+// segment_node contains doubles (qt) and size_t — Metal doesn't support these.
+// We extract only the fields needed by the three tree derivative shaders.
+// Must match NodeDeriv in gnina_kernels.metal (48 bytes).
+struct segment_node_deriv {
+    float origin[4];  // world-space origin (xyz + padding)
+    float axis[4];    // world-space rotation axis (xyz + padding)
+    int   parent;     // BFS index of parent node (-1 for roots)
+    int   layer;      // BFS layer index (0 = root layer)
+    int   _pad[2];
+};
+#endif // USE_METAL
+
 struct tree_gpu {
 
     segment_node *device_nodes;
@@ -148,6 +162,18 @@ struct tree_gpu {
     void derivative(const vec *coords, const vec* forces, change_gpu *c);
     __device__
     void set_conf(const vec *atom_coords, vec *coords, const conf_gpu *c);
+
+#ifdef USE_METAL
+    // CPU serial implementations for Apple Silicon Metal port (Phase 5).
+    // All device_nodes / force_torques / owners arrays live in unified memory
+    // (MTLStorageModeShared) and are directly readable/writable from the CPU.
+    void set_conf_cpu(const vec *atom_coords, vec *coords, const conf_gpu *c);
+    void derivative_cpu(const vec *coords, const vec *forces, change_gpu *c);
+
+    // Metal GPU derivative (replaces derivative_cpu when GPU kernels are available).
+    void derivative_metal(const vec *coords, const vec *forces, change_gpu *c);
+#endif
+
   private:
     void do_dfs(branch& branch, size_t& dfs_idx);
 

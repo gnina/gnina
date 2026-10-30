@@ -36,7 +36,7 @@ class MolGridder {
     libmolgrid::GridMaker gmaker;
     libmolgrid::Transform current_transform;
 
-    gfloat3 center { 0, 0, 0 };
+    Vec3 center { 0, 0, 0 };
     bool center_set = false;
     bool gpu = false; //use gpu
 

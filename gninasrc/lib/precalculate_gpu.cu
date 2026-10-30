@@ -1,3 +1,7 @@
+#ifdef USE_METAL
+  #include "cuda_metal_compat.h"
+  #include "metal_context.h"
+#endif
 #include "precalculate_gpu.h"
 #include "gpucode.h"
 #include "gpu_util.h"
@@ -30,6 +34,7 @@ component_pair precalculate_gpu::evaldata(smt t1, smt t2, fl r) const {
 
 void precalculate_gpu::evaluate_splines(const GPUSplineInfo& spInfo, float r,
     std::vector<float>& vals, std::vector<float>& derivs) const {
+#ifndef USE_METAL  // ── CUDA: GPU-assisted spline eval (dead code path) ───────
   unsigned n = spInfo.n;
   vals.resize(n);
   derivs.resize(n);
@@ -39,6 +44,9 @@ void precalculate_gpu::evaluate_splines(const GPUSplineInfo& spInfo, float r,
   cudaMemcpy(&vals[0], device_vals, n * sizeof(float), cudaMemcpyDeviceToHost);
   cudaMemcpy(&derivs[0], device_derivs, n * sizeof(float),
       cudaMemcpyDeviceToHost);
+#else
+  (void)spInfo; (void)r; (void)vals; (void)derivs;
+#endif
 }
 
 void precalculate_gpu::setup_points(std::vector<std::vector<pr> >& points,
@@ -74,16 +82,30 @@ precalculate_gpu::precalculate_gpu(const scoring_function& sf, fl factor_)
         // sf should not be discontinuous, even near cutoff, for the sake of the derivatives
         precalculate(sf), data(num_atom_types(), GPUSplineInfo()),
         cpudata(num_atom_types(), spline_cache()), deviceData(NULL),
-        device_vals(NULL), device_derivs(
-        NULL), delta(0.000005), factor(factor_) {
+        device_vals(NULL), device_derivs(NULL), delta(0.000005), factor(factor_)
+#ifdef USE_METAL
+      , _metal_flat_buf(NULL), _metal_info_buf(NULL), _metal_offset_buf(NULL)
+      , _metal_numc(0)
+      , _metal_flat_splines(NULL), _metal_splines_ptrs(NULL)
+#endif
+{
 
   VINA_CHECK(factor > epsilon_fl);
   unsigned n = factor * m_cutoff;
+
+  // CPU-side spline cache (needed on all platforms for evaldata())
+  VINA_FOR(t1, data.dim()) {
+    VINA_RANGE(t2, t1, data.dim()) {
+      cpudata(t1, t2).set(sf, (smt) t1, (smt) t2, m_cutoff, n);
+    }
+  }
+
+#ifndef USE_METAL  // ── CUDA: build GPU spline data structures ────────────────
   unsigned pitch = data.dim();
   unsigned datasize = pitch * (pitch + 1) / 2;
   GPUSplineInfo devicedata[datasize]; //todo, investigate using 2d array
   unsigned maxcomponents = 0;
-//Prepare to store and then transfer all spline data to GPU
+  //Prepare to store and then transfer all spline data to GPU
   std::vector<FloatSplineData> allSplineData;
   std::vector<int> indices;
   std::vector<void *> deviceMem;
@@ -99,8 +121,6 @@ precalculate_gpu::precalculate_gpu(const scoring_function& sf, fl factor_)
   VINA_FOR(t1, data.dim()) {
 
     VINA_RANGE(t2, t1, data.dim()) {
-
-      cpudata(t1, t2).set(sf, (smt) t1, (smt) t2, m_cutoff, n);
 
       //create the splines and copy the data over to the gpu
       //todo: do spline interpolation on gpu
@@ -159,7 +179,6 @@ precalculate_gpu::precalculate_gpu(const scoring_function& sf, fl factor_)
   }
 
   //copy device data
-
   cudaMalloc(&deviceData, sizeof(GPUSplineInfo) * datasize);
   cudaMemcpy(deviceData, devicedata, sizeof(GPUSplineInfo) * datasize,
       cudaMemcpyHostToDevice);
@@ -167,10 +186,98 @@ precalculate_gpu::precalculate_gpu(const scoring_function& sf, fl factor_)
   //allocate buffers for spline host-device computation
   cudaMalloc(&device_vals, sizeof(float) * maxcomponents);
   cudaMalloc(&device_derivs, sizeof(float) * maxcomponents);
+#endif // USE_METAL
+
+#ifdef USE_METAL  // ── Metal: allocate spline data ──────────────────────────
+  {
+    unsigned pitch = data.dim();
+    unsigned datasize = pitch * (pitch + 1) / 2;
+    GPUSplineInfo devicedata[datasize];
+
+    std::vector<FloatSplineData> allSplineData;
+    std::vector<int> indices;
+    int numc = sf.num_used_components();
+    std::vector<int> locations;
+    allSplineData.reserve(datasize * data.dim());
+
+    if (sf.has_slow()) {
+      std::cerr << "GPU acceleration does not support 'slow' scoring terms\n";
+      abort();
+    }
+
+    VINA_FOR(t1, data.dim()) {
+      VINA_RANGE(t2, t1, data.dim()) {
+        std::vector<std::vector<pr> > points;
+        setup_points(points, (smt) t1, (smt) t2, m_cutoff, n, sf);
+        float fraction = 0, cutoff = 0;
+        for (sz i = 0, cnt = points.size(); i < cnt; i++) {
+          Spline sp;
+          sp.initialize(points[i]);
+          fraction = sp.getFraction();
+          cutoff   = sp.getCutoff();
+          const std::vector<SplineData>& sd = sp.getData();
+          locations.push_back((int) allSplineData.size());
+          for (sz j = 0, m = sd.size(); j < m; j++)
+            allSplineData.push_back(FloatSplineData(sd[j]));
+        }
+
+        GPUSplineInfo info;
+        info.n        = numc;
+        info.fraction = fraction;
+        info.cutoff   = cutoff;
+
+        unsigned tindex = triangular_matrix_index_permissive(pitch, t1, t2);
+        devicedata[tindex] = info;
+        indices.push_back(tindex);
+      }
+    }
+
+    // (a) Flat knot buffer in a Metal buffer (GPU-accessible, zero-copy CPU ptr).
+    MetalContext& mctx = MetalContext::instance();
+    size_t flat_bytes = sizeof(FloatSplineData) * allSplineData.size();
+    _metal_flat_buf    = mctx.newBuffer(flat_bytes);
+    _metal_flat_splines = static_cast<FloatSplineData*>(
+        MetalContext::bufferContents(static_cast<MTLBufferHandle>(_metal_flat_buf)));
+    memcpy(_metal_flat_splines, allSplineData.data(), flat_bytes);
+
+    // Pointer array re-rooted to Metal buffer memory (for CPU eval path).
+    unsigned nptr = static_cast<unsigned>(locations.size());
+    _metal_splines_ptrs = new float*[nptr];
+    for (unsigned i = 0; i < nptr; i++)
+      _metal_splines_ptrs[i] = reinterpret_cast<float*>(_metal_flat_splines + locations[i]);
+
+    // (b) GPUSplineInfo_MSL[] buffer: pointer-free version of spline metadata.
+    size_t info_bytes = sizeof(GPUSplineInfo_MSL) * datasize;
+    _metal_info_buf  = mctx.newBuffer(info_bytes);
+    auto* msl_infos  = static_cast<GPUSplineInfo_MSL*>(
+        MetalContext::bufferContents(static_cast<MTLBufferHandle>(_metal_info_buf)));
+    for (unsigned i = 0; i < datasize; i++) {
+      msl_infos[i].n        = devicedata[i].n;
+      msl_infos[i].fraction = devicedata[i].fraction;
+      msl_infos[i].cutoff   = devicedata[i].cutoff;
+      msl_infos[i]._pad     = 0u;
+    }
+
+    // (c) Offset table: msl_offsets[tindex * numc + c] = knot_start index.
+    _metal_numc = static_cast<unsigned>(numc);
+    size_t off_count  = datasize * static_cast<unsigned>(numc);
+    size_t off_bytes  = sizeof(unsigned) * off_count;
+    _metal_offset_buf = mctx.newBuffer(off_bytes);
+    auto* msl_offsets = static_cast<unsigned*>(
+        MetalContext::bufferContents(static_cast<MTLBufferHandle>(_metal_offset_buf)));
+    memset(msl_offsets, 0, off_bytes);
+    for (sz m = 0; m < indices.size(); m++) {
+      unsigned tindex = indices[m];
+      for (int c = 0; c < numc; c++)
+        msl_offsets[tindex * numc + c] = static_cast<unsigned>(locations[m * numc + c]);
+    }
+  }
+#endif // USE_METAL
 
 }
 
 precalculate_gpu::~precalculate_gpu() {
+#ifndef USE_METAL  // ── CUDA: free GPU spline data ───────────────────────────
   //need to cuda free splines
   if (deviceData) cudaFree(deviceData);
 
@@ -193,6 +300,26 @@ precalculate_gpu::~precalculate_gpu() {
       }
     }
   }
+#endif // USE_METAL
+
+#ifdef USE_METAL  // ── Metal: release Metal buffers and CPU heap arrays ──────
+  delete[] deviceData;          deviceData          = NULL;
+  delete[] _metal_splines_ptrs; _metal_splines_ptrs = NULL;
+  // _metal_flat_splines points into the Metal buffer — do NOT delete[], just null it.
+  _metal_flat_splines = NULL;
+  if (_metal_flat_buf) {
+    MetalContext::releaseBuffer(static_cast<MTLBufferHandle>(_metal_flat_buf));
+    _metal_flat_buf = NULL;
+  }
+  if (_metal_info_buf) {
+    MetalContext::releaseBuffer(static_cast<MTLBufferHandle>(_metal_info_buf));
+    _metal_info_buf = NULL;
+  }
+  if (_metal_offset_buf) {
+    MetalContext::releaseBuffer(static_cast<MTLBufferHandle>(_metal_offset_buf));
+    _metal_offset_buf = NULL;
+  }
+#endif // USE_METAL
 }
 
 result_components precalculate_gpu::eval_fast(smt t1, smt t2, fl r2) const {

@@ -42,6 +42,7 @@ else()
           $ENV{RDBASE}/Code
           /usr/include/rdkit
           /usr/local/include/rdkit
+          /opt/homebrew/include/rdkit
           /usr/local/rdkit/include/Code
           /usr/local/rdkit/include
           /usr/local/rdkit/Code

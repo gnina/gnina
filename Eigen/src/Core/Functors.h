@@ -980,6 +980,8 @@ struct functor_traits<std::binder1st<T> >
 { enum { Cost = functor_traits<T>::Cost, PacketAccess = false }; };
 #endif
 
+#if(__cplusplus < 202002L)
+// std::unary_negate/std::binary_negate are deprecated since c++17 and removed in c++20
 template<typename T>
 struct functor_traits<std::unary_negate<T> >
 { enum { Cost = 1 + functor_traits<T>::Cost, PacketAccess = false }; };
@@ -987,6 +989,7 @@ struct functor_traits<std::unary_negate<T> >
 template<typename T>
 struct functor_traits<std::binary_negate<T> >
 { enum { Cost = 1 + functor_traits<T>::Cost, PacketAccess = false }; };
+#endif
 
 #ifdef EIGEN_STDEXT_SUPPORT
 

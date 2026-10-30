@@ -1,6 +1,7 @@
 
 #Prep ourselves for compiling boost
-find_package(Boost COMPONENTS unit_test_framework system REQUIRED)
+# boost_system is header-only since Boost 1.69 and has no cmake config
+find_package(Boost COMPONENTS unit_test_framework REQUIRED)
 include_directories (${Boost_INCLUDE_DIRS})
 include_directories(../gninasrc/lib)
 include_directories(../gninavis)

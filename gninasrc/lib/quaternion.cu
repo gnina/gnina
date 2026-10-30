@@ -20,6 +20,9 @@
 
  */
 
+#ifdef USE_METAL
+  #include "cuda_metal_compat.h"
+#endif
 #include "quaternion.h"
 
 bool eq(const qt& a, const qt& b) { // elementwise approximate equality - may return false for equivalent rotations

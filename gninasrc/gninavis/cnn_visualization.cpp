@@ -26,10 +26,17 @@ using namespace OpenBabel;
 
 static std::shared_ptr<DLScorer> get_scorer(const cnn_options &copts) {
   std::shared_ptr<DLScorer> scorer;
+#ifdef USE_METAL
+  if (torch::mps::is_available())
+    scorer = std::make_shared<CNNTorchScorer<true>>(copts);
+  else
+    scorer = std::make_shared<CNNTorchScorer<false>>(copts);
+#else
   if (torch::cuda::is_available())
     scorer = std::make_shared<CNNTorchScorer<true>>(copts);
   else
     scorer = std::make_shared<CNNTorchScorer<false>>(copts);
+#endif
   return scorer;
 }
 

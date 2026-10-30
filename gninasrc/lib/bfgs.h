@@ -26,7 +26,7 @@
 #include "matrix.h"
 #include "conf_gpu.h"
 #include <numeric>
-#include <cuda_runtime.h>
+// cuda_runtime.h already included via matrix.h → common.h (with USE_METAL guard)
 
 //TODO: remove?
 #include "quasi_newton.h"

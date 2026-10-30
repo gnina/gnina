@@ -2,6 +2,7 @@
 #define TEST_UTILS_H
 
 #include <boost/math/quaternion.hpp>
+#include <random>
 #include <string>
 
 #include <torch/script.h>

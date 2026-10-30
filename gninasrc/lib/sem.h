@@ -1,39 +1,32 @@
-#include <semaphore.h>
+// Counting semaphore — portable implementation using std::mutex +
+// std::condition_variable. POSIX sem_init is deprecated and broken on macOS
+// (returns ENOSYS), so we avoid it entirely.
+#pragma once
+#include <mutex>
+#include <condition_variable>
 
 struct sem {
-    sem();
-    ~sem();
+  sem() : count(0) {}
 
-    void wait();
-    void signal();
-    int value();
+  void wait() {
+    std::unique_lock<std::mutex> lk(mtx);
+    cv.wait(lk, [this]{ return count > 0; });
+    --count;
+  }
 
-  private:
-    sem_t pthread_sem;
+  void signal() {
+    std::unique_lock<std::mutex> lk(mtx);
+    ++count;
+    cv.notify_one();
+  }
+
+  int value() {
+    std::unique_lock<std::mutex> lk(mtx);
+    return count;
+  }
+
+private:
+  std::mutex mtx;
+  std::condition_variable cv;
+  int count;
 };
-
-sem::sem() {
-  sem_init(&pthread_sem, 0, 0);
-}
-
-sem::~sem() {
-  sem_destroy(&pthread_sem);
-}
-
-void sem::wait() {
-  int ret = sem_wait(&pthread_sem);
-  // We don't expect to be interrupted by signals.
-  assert(ret == 0);
-}
-
-void sem::signal() {
-  int ret = sem_post(&pthread_sem);
-  // We don't expect to overflow the signal count.
-  assert(ret == 0);
-}
-
-int sem::value() {
-  int ret = 0;
-  sem_getvalue(&pthread_sem, &ret);
-  return ret;
-}

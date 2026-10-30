@@ -7,6 +7,13 @@ from pathlib import Path
 
 models = sys.argv[1] # ; separate list
 outname = sys.argv[2]
+# On Linux, GNU ld's `-r -b binary` makes _end a true linker section-boundary
+# symbol, so it must be declared as an array (its "value" is its address).
+# On macOS, embed_model.py has no such mechanism and instead defines _end as
+# a real pointer variable (start + size), so it must be declared as a pointer.
+# Mixing these up compiles fine but silently corrupts every embedded model's
+# computed size, since the two symbol kinds are read completely differently.
+is_apple = len(sys.argv) > 3 and sys.argv[3] == 'apple'
 
 out = open(outname,'wt')
 
@@ -27,8 +34,10 @@ for model in models.split(';'):
     name = Path(model).stem
     name = name.replace('.','_')
     names.append(name)
+    end_decl = f'extern char* _binary_lib_models_{name}_pt_end;' if is_apple \
+        else f'extern char _binary_lib_models_{name}_pt_end[];'
     out.write(f'''extern char _binary_lib_models_{name}_pt_start[];
-extern char _binary_lib_models_{name}_pt_end[];
+{end_decl}
 
 ''')
 

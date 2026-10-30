@@ -39,7 +39,7 @@ MolGridder::MolGridder(const gridoptions& opt) :
   gmaker.set_dimension(dimension);
   gmaker.set_binary(opt.binary);
 
-  float3 dims = gmaker.get_grid_dims();
+  Vec3 dims = gmaker.get_grid_dims();
   grid = MGrid4f(rectyper->num_types()+ligtyper->num_types()+usergrids.size(), dims.x, dims.y, dims.z);
   tee_stream log(true);
   FlexInfo finfo(log); //dummy
@@ -58,7 +58,8 @@ MolGridder::MolGridder(const gridoptions& opt) :
 //set receptor coordinate set from model
 void MolGridder::setReceptor(const model& m) {
   const atomv& atoms = m.get_fixed_atoms();
-  vector<float3> coords; coords.reserve(atoms.size());
+  // libmolgrid's CoordinateSet takes its own Vec3 (not gnina's CUDA-style float3/gfloat3).
+  vector<Vec3> coords; coords.reserve(atoms.size());
   vector<int> t; t.reserve(atoms.size());
   vector<float> r; t.reserve(atoms.size());
 
@@ -66,7 +67,7 @@ void MolGridder::setReceptor(const model& m) {
     const atom& a = atoms[i];
     auto t_r = rectyper->get_int_type(a.sm);
     if (t_r.first >= 0) {
-      coords.push_back(gfloat3(a.coords));
+      coords.push_back(Vec3{a.coords.x(), a.coords.y(), a.coords.z()});
       t.push_back(t_r.first);
       r.push_back(t_r.second);
     }
@@ -79,7 +80,7 @@ void MolGridder::setLigand(const model& m) {
   const atomv& atoms = m.get_movable_atoms();
   assert(atoms.size() == m.coordinates().size());
 
-  vector<float3> coords; coords.reserve(atoms.size());
+  vector<Vec3> coords; coords.reserve(atoms.size());
   vector<int> t; t.reserve(atoms.size());
   vector<float> r; t.reserve(atoms.size());
 
@@ -87,7 +88,8 @@ void MolGridder::setLigand(const model& m) {
     const atom& a = atoms[i];
     auto t_r = ligtyper->get_int_type(a.sm);
     if (t_r.first >= 0) {
-      coords.push_back(gfloat3(m.coordinates()[i]));
+      const vec &c = m.coordinates()[i];
+      coords.push_back(Vec3{c.x(), c.y(), c.z()});
       t.push_back(t_r.first);
       r.push_back(t_r.second);
     }
@@ -140,6 +142,10 @@ void MolGridder::setGrid(bool use_gpu) {
 void MolGridder::cpuSetGridCheck() {
   //assume current grid is right
   MGrid4f saved = grid.clone();
+  // clone() copies whatever's currently in the CPU-side buffer, which is
+  // stale/zero if grid was last computed on GPU (raw .data() access, used
+  // below, never triggers a device->host sync the way .cpu() does).
+  saved.tocpu();
 
   //for recompute, apply same transformation
   bool saverot = random_rotate;
@@ -168,7 +174,7 @@ void MolGridder::cpuSetGridCheck() {
 
 void MolGridder::set_center(gfloat3 c) {
   center_set = true;
-  center = c;
+  center = Vec3{c.x, c.y, c.z};
 }
 
 //set grid parameters from an example dx
@@ -218,7 +224,8 @@ void MolGridder::set_usergrids(const vector<string>& userfiles) {
         exit(1);
       }
 
-      if (center != cgrid.center()) {
+      Vec3 c2 = cgrid.center();
+      if (center.x != c2.x || center.y != c2.y || center.z != c2.z) {
         cerr << "Inconsistent centers in grids\n";
         exit(1);
       }
@@ -329,20 +336,23 @@ void MolGridder::outputBIN(const std::string& base, bool outputrec, bool outputl
   if(!binout) {
     throw file_error(outname, false);
   }
+  // grid[i].data() (which write_bin reads) never triggers a device->host
+  // sync the way .cpu() does, so a GPU-computed grid would be written out
+  // as whatever stale/zero data happens to be in the CPU-side buffer.
   unsigned roff = 0;
   if(outputrec) {
     for(unsigned i = 0, n = usergrids.size(); i < n; i++) {
-      write_bin(binout, grid[i]);
+      write_bin(binout, grid[i].cpu());
     }
     roff += usergrids.size();
     for (unsigned a = 0, na = rectyper->num_types(); a < na; a++) {
-      write_bin(binout, grid[roff+a]);
+      write_bin(binout, grid[roff+a].cpu());
     }
   }
   roff += rectyper->num_types();
   if(outputlig) {
     for (unsigned a = 0, na = ligtyper->num_types(); a < na; a++) {
-      write_bin(binout, grid[roff+a]);
+      write_bin(binout, grid[roff+a].cpu());
     }
   }
 }
