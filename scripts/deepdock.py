@@ -3,6 +3,7 @@
 
 import os
 import sys
+import socket
 # the default mimalloc is a hog and will get killed by slurm unless you reserve a lot more memory than you need
 os.environ['ARROW_DEFAULT_MEMORY_POOL'] = 'jemalloc'
 
@@ -63,6 +64,8 @@ import argparse
 from Bio import SeqIO
 import resource
 
+logging.getLogger("bokeh.server.protocol_handler").setLevel(logging.CRITICAL)
+logging.getLogger("tornado.application").setLevel(logging.CRITICAL)
 
 def parquet_is_nonempty(path):
     """Return True when a parquet path is present and contains at least one row."""
@@ -235,7 +238,9 @@ def dock_partition(
             )
 
         except subprocess.CalledProcessError as e:
-            logger.error(f"Error running gnina: {' '.join(cmd)}")
+            logger.error(
+                f"Error running gnina on {socket.gethostname()}: {' '.join(cmd)}"
+            )
             if getattr(e, "stdout", None):
                 logger.error(e.stdout)
             if getattr(e, "stderr", None):
@@ -678,7 +683,7 @@ def select_next_batch(
     else:
         # do model training locally
         npart = multiprocessing.cpu_count()  # TODO, better way to set this
-        with LocalCluster(threads_per_worker=1, n_workers=local_workers, memory_limit=local_memory) as lcluster, Client(lcluster) as client:
+        with LocalCluster(threads_per_worker=1, dashboard_address=None, n_workers=local_workers, memory_limit=local_memory) as lcluster, Client(lcluster) as client:
             dfs = []
             for i in range(0, curbatch + 1):
                 df = dd.read_parquet(
@@ -698,11 +703,11 @@ def select_next_batch(
             X = X.compute()
             y = y.compute()
 
-            model = xgboost.XGBRegressor(max_depth=5,n_jobs=-1)
-            model.fit(X, y)
-            train_score = model.score(X, y)
-            print(f"Model training R² score: {train_score:.4f}")
-            model.save_model(modelpath)
+        model = xgboost.XGBRegressor(max_depth=5,n_jobs=-1)
+        model.fit(X, y)
+        train_score = model.score(X, y)
+        print(f"Model training R² score: {train_score:.4f}")
+        model.save_model(modelpath)
 
     with Client(cluster) as client:
         sem = Semaphore(max_leases=iolimit, name=f"Limiter{iolimit}")
