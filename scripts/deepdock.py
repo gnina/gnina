@@ -1245,7 +1245,7 @@ if __name__ == "__main__":
 
     if args.command == "initial_batch" or args.command == "all":
         if args.command == "all" and os.path.exists(f"{args.dir}/batch0/selected.parquet"):
-            print(f"Found existing batch0 selected.parquet; skipping initial selection.")
+            print(f"Found existing batch0 selected.parquet; skipping initial selection.",flush=True)
         else:
             # Read target sequence. If a FASTA file path is provided, prefer Biopython SeqIO to read the first sequence.
             seq = ""
@@ -1325,7 +1325,7 @@ if __name__ == "__main__":
             if os.path.exists(f"{args.dir}/batch{b}/selected.parquet"):
                 print(f"Found existing batch {b} selected.parquet; skipping selection.")
             else:
-                print(f"Selecting batch {b}...")
+                print(f"Selecting batch {b}...",flush=True)
                 select_next_batch(
                     infile=args.input,
                     outdir=args.dir,
@@ -1339,9 +1339,9 @@ if __name__ == "__main__":
                 )
 
             if os.path.exists(f"{args.dir}/batch{b}/docked.parquet"):
-                print(f"Found existing batch {b} docked.parquet; skipping docking.")
+                print(f"Found existing batch {b} docked.parquet; skipping docking.",flush=True)
             else:
-                print(f"Docking batch {b}...")
+                print(f"Docking batch {b}...",flush=True)
                 if not args.receptor or not args.autobox_ligand:
                     parser.error("--receptor and --autobox_ligand are required for docking commands.")
                 dock_batch(
