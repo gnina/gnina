@@ -575,7 +575,8 @@ def ensure_sprint_column(pdf: pd.DataFrame, model, device: str = "cpu") -> pd.Da
 
 def fp_partition(s):
     fpgen = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048)
-
+    if s.empty:
+        return np.empty((0, 2048), dtype=np.float32)
     return np.stack(s["smiles"].apply(lambda x: smiles_to_fp(x, fpgen)).values)
 
 

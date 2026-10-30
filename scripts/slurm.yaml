@@ -2,7 +2,7 @@ jobqueue:
   slurm:
     # ---------- Dask worker resources (from your SLURMCluster) ----------
     name: dask-worker
-    queue: "dept_cpu,dept_gpu,bahar_gpu"
+    queue: "dept_cpu,dept_gpu"
     cores: 4              # total cores per job (= per worker)
     processes: 1           # 1 process per job
     memory: "4GB"         # Dask worker memory limit, split between processes
