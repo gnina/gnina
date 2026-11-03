@@ -17,6 +17,10 @@
 #include "gpu_debug.h"
 #include "device_buffer.h"
 
+#ifdef USE_METAL
+  #include "cuda_metal_compat.h"
+#endif
+
 #define MAX_THREADS 1024
 
 fl model::eval_interacting_pairs(const precalculate& p, fl v,
@@ -71,12 +75,15 @@ __host__  __device__ fl gpu_data::eval_interacting_pairs_deriv_gpu(
   }
 
   const fl cutoff_sqr = info.cutoff_sq;
-#ifdef __CUDA_ARCH__
+#if defined(__CUDA_ARCH__)
   scratch[0] = 0;
-#else
+#elif !defined(USE_METAL)
   cudaMemsetAsync(scratch, 0, sizeof(float), cudaStreamPerThread);
+#else
+  scratch[0] = 0.0f;  // Metal: direct CPU write to unified-memory scratch
 #endif
 
+#ifndef USE_METAL
   //TODO: this should not be a dynamic launch...
   if (pairs_sz < CUDA_THREADS_PER_BLOCK) {
     eval_intra_kernel<<<1, pairs_sz>>>(info.splineInfo, coords, pairs, pairs_sz,
@@ -87,7 +94,7 @@ __host__  __device__ fl gpu_data::eval_interacting_pairs_deriv_gpu(
     CUDA_THREADS_PER_BLOCK>>>(info.splineInfo, coords, pairs, pairs_sz,
         cutoff_sqr, v, minus_forces, scratch);
   }
-#ifdef __CUDA_ARCH__ 
+#ifdef __CUDA_ARCH__
   //cudaDeviceSynchronize();
   return scratch[0];
 #else
@@ -95,6 +102,27 @@ __host__  __device__ fl gpu_data::eval_interacting_pairs_deriv_gpu(
   definitelyPinnedMemcpy(&out, scratch, sizeof(float), cudaMemcpyDeviceToHost);
   return out;
 #endif
+#else  // USE_METAL — CPU serial intra-pair energy (unified memory)
+  float total = 0.0f;
+  for (unsigned i = 0; i < pairs_sz; i++) {
+    const interacting_pair& ip = pairs[i];
+    gfloat3 r = coords[ip.b].coords - coords[ip.a].coords;
+    float r2 = 0;
+    for (unsigned j = 0; j < 3; j++) { float d = r[j]; r2 += d * d; }
+    if (r2 < cutoff_sqr) {
+      float dor;
+      float energy = ::eval_deriv_gpu(info.splineInfo, ip.t1, coords[ip.a].charge,
+          ip.t2, coords[ip.b].charge, r2, dor);
+      gfloat3 deriv = r * dor;
+      curl(energy, deriv, v);
+      minus_forces[ip.b].minus_force += deriv;
+      minus_forces[ip.a].minus_force += -deriv;
+      total += energy;
+    }
+  }
+  scratch[0] = total;
+  return total;
+#endif // USE_METAL
 }
 
 fl model::evali(const precalculate& p, const vec& v){ // clean up
@@ -136,6 +164,7 @@ fl model::eval(const precalculate& p, const igrid& ig, const vec& v,
   return e;
 }
 
+#ifndef USE_METAL  // ── CUDA kernels ─────────────────────────────────────────
 static __global__
 void derivatives_kernel(tree_gpu *t, const vec * coords, const vec* forces,
     change_gpu c) {
@@ -147,6 +176,7 @@ void set_conf_kernel(tree_gpu *t, const vec *atom_coords, vec *coords,
     const conf_gpu c) {
   t->set_conf(atom_coords, coords, &c);
 }
+#endif // USE_METAL
 
 template<typename infoT>
 __device__ fl gpu_data::eval_deriv_gpu(const infoT& info, const vec& v,
@@ -155,25 +185,30 @@ __device__ fl gpu_data::eval_deriv_gpu(const infoT& info, const vec& v,
   // t.resume();
   fl e, ie = 0;
   if (threadIdx.x == 0) {
+#ifndef USE_METAL
     set_conf_kernel<<<1, treegpu->num_atoms>>>(treegpu, atom_coords,
         (vec*) coords, c);
+#else
+    treegpu->set_conf_cpu(atom_coords, (vec*) coords, &c);
+#endif
     memset(minus_forces, 0, sizeof(force_energy_tup) * (forces_size));
-    //cudaDeviceSynchronize();
+#ifndef USE_METAL
     assert(0); //TODO: refactor to not require synchronization
+#endif
     e = single_point_calc(info, coords, minus_forces, v[1]);
-    //cudaDeviceSynchronize();
     if (other_pairs_size)
       e += eval_interacting_pairs_deriv_gpu(info, v[2], other_pairs,
           other_pairs_size);
     if (pairs_size)
       ie = eval_interacting_pairs_deriv_gpu(info, v[0], interacting_pairs,
           pairs_size); // adds to minus_forces
-
     e += ie;
+#ifndef USE_METAL
     derivatives_kernel<<<1, treegpu->num_atoms>>>(treegpu, (vec*) coords,
         (vec*) minus_forces, g);
-
-    //cudaDeviceSynchronize();
+#else
+    treegpu->derivative_metal((vec*) coords, (vec*) minus_forces, &g);
+#endif
   }
 
   // t.stop();

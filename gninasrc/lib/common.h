@@ -42,7 +42,11 @@
 
 #include "macros.h"
 #include "math.h"
-#include <cuda_runtime.h>
+#ifdef USE_METAL
+  #include "cuda_metal_compat.h"
+#else
+  #include <cuda_runtime.h>
+#endif
 
 typedef float fl;
 

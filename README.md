@@ -95,6 +95,81 @@ make
 make install
 ```
 
+### macOS (Apple Silicon — M1/M2/M3/M4)
+
+gnina supports Apple Silicon via a Metal GPU backend. There is no CUDA requirement.
+CNN scoring and inference use PyTorch (automatically downloaded during the build).
+GPU-accelerated docking is supported via Metal compute shaders; pass `--gpu_docking` to enable it.
+
+**Requirements**
+- macOS 13 Ventura or later
+- Apple Silicon (M1/M2/M3/M4)
+- Xcode Command Line Tools (provides `xcrun metal`, `xcrun metallib`, Clang)
+- [Homebrew](https://brew.sh)
+- CMake ≥ 3.25, Python 3
+
+**Install dependencies**
+```bash
+xcode-select --install   # Xcode Command Line Tools (skip if already installed)
+brew install cmake boost jsoncpp open-babel eigen
+```
+
+**Build gnina**
+```bash
+git clone https://github.com/fnachon/gnina.git
+cd gnina
+mkdir build_metal && cd build_metal
+cmake -DUSE_METAL=ON -DPython3_EXECUTABLE=$(brew --prefix python3)/bin/python3 ..
+make -j$(sysctl -n hw.logicalcpu)
+sudo make install
+```
+
+This installs gnina to `/usr/local` by default. To change the installation prefix, pass `-DCMAKE_INSTALL_PREFIX=/your/path` to the `cmake` command above.
+
+> **Note on Python:** Homebrew's `boost` bottle is compiled against Homebrew's own Python 3, so `-DPython3_EXECUTABLE` must point to that interpreter rather than a conda environment or other Python install — mismatched versions cause a `boost_python` version error during CMake configuration. Pick whatever Python 3 version your environment provides (CI is tested against 3.10).
+
+> **Skipping pygnina:** If you only need the `gnina` command-line tool and not the Python API, you can skip the `pygnina` module entirely to avoid Python version constraints:
+> ```bash
+> cmake -DUSE_METAL=ON -DBUILD_PYGNINA=OFF ..
+> ```
+
+
+CMake automatically downloads and builds:
+- [libtorch](https://pytorch.org) 2.10 (macOS ARM, MPS-enabled) — no manual install needed
+- [libmolgrid](https://github.com/fnachon/libmolgrid) (MPS-enabled fork, no CUDA)
+
+The Metal shaders (`gnina_kernels.metal`) are compiled during the build via `xcrun metal` and embedded in the binary.
+
+**Usage**
+
+CPU docking with CNN scoring (default):
+```bash
+gnina -r rec.pdb -l lig.sdf --autobox_ligand lig.sdf -o docked.sdf
+```
+
+CNN scoring with the default ensemble or any built-in model:
+```bash
+gnina -r rec.pdb -l lig.sdf --autobox_ligand lig.sdf --cnn_scoring rescore -o docked.sdf
+```
+
+GPU-accelerated docking via Metal:
+```bash
+gnina -r rec.pdb -l lig.sdf --autobox_ligand lig.sdf --gpu_docking -o docked.sdf
+```
+
+**GPU-accelerated docking**
+
+Passing `--gpu_docking` enables Metal GPU acceleration for the docking search itself:
+- Pair energy evaluation runs via `noncache_pair_energy` / `noncache_postprocess` Metal compute shaders.
+- Tree `set_conf` and `derivative` run via `tree_accum_forces`, `tree_propagate_layer`, `tree_write_change` Metal compute shaders.
+- BFGS minimization coordinates these on the CPU using unified (shared) memory, so no explicit CPU↔GPU transfers are needed.
+
+Without `--gpu_docking` (the default), docking runs entirely on CPU.
+
+**Known limitations**
+- CNN scoring runs on the Metal GPU (MPS backend) when available, falling back to CPU if not detected.
+- `sem_init` is unavailable on macOS; the build uses a portable `std::mutex`-based semaphore instead (transparent to users).
+
 ### [WSL2 Ubuntu 22.04](https://github.com/gnina/gnina/issues/247)
 ```bash
 sudo apt-get remove nvidia-cuda-toolkit

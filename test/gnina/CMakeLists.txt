@@ -14,6 +14,11 @@ set( TEST_SRCS
  test_utils.h
 )
 
+if(USE_METAL)
+  # Compile test .cu files as plain C++ (no NVCC on Apple Silicon)
+  set_source_files_properties(test_cache.cu test_tree.cu PROPERTIES LANGUAGE CXX)
+endif()
+
 find_package(OpenMP)
 
 #todo - factor into individual tests?

@@ -1,3 +1,7 @@
+#ifdef USE_METAL
+  #include "cuda_metal_compat.h"
+  #include "metal_context.h"
+#endif
 #include "non_cache_gpu.h"
 #include "loop_timer.h"
 #include "gpu_math.h"
@@ -65,6 +69,23 @@ non_cache_gpu::non_cache_gpu(szv_grid_cache& gcache, const grid_dims& gd_,
 
   info.ntypes = p_->num_types();
   info.splineInfo = p_->getDeviceData();
+
+#ifdef USE_METAL
+  // Metal GPU dispatch: wire in the standalone spline Metal buffers.
+  info.metal_flat_buf   = p_->metalFlatBuf();
+  info.metal_info_buf   = p_->metalInfoBuf();
+  info.metal_offset_buf = p_->metalOffsetBuf();
+  info.metal_numc       = p_->metalNumc();
+
+  // Allocate the 1-float total-energy accumulator inside the thread-local arena
+  // so it lives in the same Metal buffer as everything else.
+  float* total_scratch;
+  thread_buffer.alloc(&total_scratch, sizeof(float));
+  *total_scratch = 0.0f;
+  info.metal_total_buf     = thread_buffer.metalBufferHandle();
+  info.metal_total_off     = thread_buffer.offsetOf(total_scratch);
+  info.metal_total_scratch = total_scratch;
+#endif
 }
 
 non_cache_gpu::~non_cache_gpu() {
